@@ -112,7 +112,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `completed`   | 2026-04-11 00:15 Europe/Dublin | `f56d6768` (local) / `8ff0c5a2` (prod) |
 | 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `completed`   | 2026-04-11 00:55 Europe/Dublin | `459ad8ce` (local) / `bb1357de` (prod) |
 | 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `completed`   | 2026-04-11 01:17 Europe/Dublin | `d40f091d` (local) / `790d7d98` (prod) |
-| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `deploying`   | —                              | —                                      |
+| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `completed`   | 2026-04-11 01:25 Europe/Dublin | `7ae6739c` (local) / `251a7846` (prod) |
 | 13  | Form preview page                  | 4    | 01, 04             | `completed`   | 2026-04-11 00:45 Europe/Dublin | `fc0ea7a6` (local) / `f5563c1f` (prod) |
 | 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `in-progress` | —                              | —                                      |
 | 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending`     | —                              | —                                      |
@@ -765,3 +765,71 @@ tenant_id })`. Tests: 9 unit tests for the service, 5 new
     timestamped 2026-04-11 00:25), and simply restarted PM2 web to
     pick it up. Smoke-tested all five routes (form, submitted,
     payment-success, payment-cancelled, Arabic variant) — all 200.
+
+### [IMPL 12] — Application detail rewrite
+
+- **Completed:** 2026-04-11T01:25:00+01:00 (Europe/Dublin)
+- **Commit:** `7ae6739c` (local) / `251a7846` (prod)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Rewrote `/admissions/[id]/page.tsx` around the new financially-gated
+  state machine. Context-sensitive action sets per status (ready_to_admit,
+  conditional_approval, waiting_list, approved, terminal) replace the old
+  `review` switch. New tabs: **Timeline** (chronological server-assembled
+  feed) and **Payment** (expected amount, deadline, Stripe events, override
+  record) — the Payment tab only renders when the application has payment
+  history. Capacity sidebar (new `CapacityPanel`) sits above the tabs and
+  consumes the new API field. Shared modals landed under the detail page's
+  `_components/` folder: `RecordCashModal`, `RecordBankTransferModal`,
+  `ForceApproveModal`, `RejectDialog` (all `react-hook-form` + `zodResolver`
+  against impl 07's schemas). Role gate for Force Approve uses
+  `useRoleCheck().isOwner` (school_owner / school_principal). Force
+  approve button is hidden for other roles.
+  API side: `GET /v1/applications/:id` now returns `target_academic_year`,
+  `target_year_group`, `materialised_student`, `override_record`,
+  `payment_events`, `capacity` (via `AdmissionsCapacityService`), and a
+  `timeline[]` array. Timeline classifies system vs admin notes via
+  `SYSTEM_USER_SENTINEL` comparison — no `note_type` column added (deferred
+  to impl 15 if still needed). `/admissions/[id]/convert/page.tsx` deleted.
+- **Follow-ups:**
+  - Modals live in the page-local `_components/` folder, not the shared
+    `admissions/_components/` folder impl 11 created. Impl 15 can decide
+    whether to consolidate. The impl 11 queue pages import from their
+    own folder, so no collision right now.
+  - Timeline builder treats admin notes and system notes as separate
+    kinds, but the Notes tab still shows the raw admin-note composer
+    (impl 15 can decide whether to hide system-sentinel rows there).
+  - The detail page does NOT expose the impl 11 "Manual promote"
+    button — that live only on the waiting-list queue per impl 11's
+    design. If product later wants it on the detail page, add it to
+    the `waiting_list` action branch.
+  - `pnpm turbo run type-check` locally still warns about the impl 11
+    in-progress unused imports in `applications.service.ts`. Those
+    are impl 11's working state on disk; prod has the committed
+    version. No fix needed from impl 12.
+- **Session notes:**
+  - Wave 4 ran with all five sessions (10/11/12/13/14) in flight. My
+    first `git format-patch -1 HEAD` accidentally picked up impl 14's
+    commit (which had landed on top of mine between `git commit` and
+    `format-patch`), so prod received impl 14's patch under my deploy
+    slot. Regenerated with `git format-patch -1 7ae6739c` to pin the
+    right SHA, applied cleanly on top. Impl 14 was already on prod so
+    nothing broke.
+  - Pre-commit lint-staged ran eslint --fix + prettier on the staged
+    files and swept impl 11's in-progress methods on
+    `applications.service.ts` into my commit (they were on disk when
+    I ran `git add`). Prod's initial build of impl 12 failed because
+    those methods referenced schema exports that were only on impl 11's
+    uncommitted worktree. By the time I was diagnosing it, impl 11 had
+    actually committed (`790d7d98`) on top of mine, which supplied the
+    missing schemas — so a retry of the prod build was enough. Future
+    sessions sharing `applications.service.ts` should do the
+    backup/restore/re-stage dance instead of relying on git add.
+  - Web rebuild on prod competed with impl 11 and impl 14's concurrent
+    builds; I saw one build fail on a concurrent `.next` file access
+    and another OOM-kill, then waited until no `next build` process
+    was running before starting mine. That build ran clean in ~3 minutes.
+  - Impl 10 was marked `deploying` for ~10 minutes before its session
+    finally flipped to `completed`. PM2 on prod had restarted within
+    that window already, so my deploy wasn't racing anything when it
+    kicked off.
