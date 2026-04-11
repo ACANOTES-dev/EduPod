@@ -364,6 +364,12 @@ enum AdmissionOverrideType {
   deferred_payment
 }
 
+enum AdmissionsPaymentEventStatus {
+  succeeded
+  failed
+  received_out_of_band
+}
+
 enum AdmissionPaymentStatus {
   pending
   paid_online
@@ -493,6 +499,7 @@ model Tenant {
   applications               Application[]
   application_notes          ApplicationNote[]
   admission_overrides        AdmissionOverride[]
+  admissions_payment_events  AdmissionsPaymentEvent[]
 
   // P4A Relations
   rooms                      Room[]
@@ -2532,6 +2539,7 @@ model Application {
   materialised_student Student?                @relation("application_materialised_student", fields: [materialised_student_id], references: [id], onDelete: SetNull)
   notes                ApplicationNote[]
   overrides            AdmissionOverride[]     @relation("overrides_of_application")
+  payment_events       AdmissionsPaymentEvent[]
 
   @@unique([tenant_id, application_number], name: "idx_applications_number")
   @@unique([materialised_student_id], name: "idx_applications_materialised_student")
@@ -2562,6 +2570,26 @@ model AdmissionOverride {
   @@index([tenant_id, created_at], name: "idx_admission_overrides_tenant_time")
   @@index([application_id], name: "idx_admission_overrides_application")
   @@map("admission_overrides")
+}
+
+/// Append-only idempotency ledger for admissions Stripe webhook events.
+/// Mirrors Payment.external_event_id but scoped to admissions so it does not
+/// collide with invoice payment processing. Tenant-scoped, RLS-enforced.
+model AdmissionsPaymentEvent {
+  id                String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String                      @db.Uuid
+  application_id    String                      @db.Uuid
+  stripe_event_id   String                      @unique @db.VarChar(255)
+  stripe_session_id String?                     @db.VarChar(255)
+  amount_cents      Int
+  status            AdmissionsPaymentEventStatus
+  created_at        DateTime                    @default(now()) @db.Timestamptz()
+
+  tenant      Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  application Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, application_id], name: "idx_admissions_payment_events_app")
+  @@map("admissions_payment_events")
 }
 
 /// Append-only, no updated_at
