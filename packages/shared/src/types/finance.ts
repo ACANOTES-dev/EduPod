@@ -96,4 +96,27 @@ export interface FinanceDashboardData {
     received_at: string;
     status: PaymentStatus;
   }>;
+  invoice_status_counts: Record<InvoiceStatus, number>;
+  aging_summary: Array<{
+    bucket: 'current' | '1_30' | '31_60' | '61_90' | '90_plus';
+    total: number;
+    invoice_count: number;
+  }>;
+  overdue_invoices: Array<{
+    id: string;
+    invoice_number: string;
+    household_name: string;
+    total_amount: number;
+    balance_amount: number;
+    due_date: string;
+    days_overdue: number;
+  }>;
+  top_debtors: Array<{
+    household_id: string;
+    household_name: string;
+    total_owed: number;
+    invoice_count: number;
+  }>;
+  pending_payment_plans: number;
+  draft_invoices: number;
 }

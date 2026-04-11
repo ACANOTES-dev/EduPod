@@ -28,6 +28,19 @@ export const ADMIN_ROLES: RoleKey[] = [
   'admin',
   'school_vice_principal',
 ];
+
+/**
+ * Strict admin-tier roles matching the backend's OWNER_ROLE_KEYS
+ * (PermissionCacheService / AdminTierOnlyGuard). Does NOT include
+ * the generic 'admin' role — use for oversight and other surfaces
+ * where the backend enforces admin-tier only.
+ */
+export const ADMIN_TIER_ROLES: RoleKey[] = [
+  'school_owner',
+  'school_principal',
+  'school_vice_principal',
+];
+
 export const STAFF_ROLES: RoleKey[] = [...ADMIN_ROLES, 'teacher', 'accounting', 'front_office'];
 export const LEGAL_ROLES: RoleKey[] = [...STAFF_ROLES, 'parent', 'student'];
 
@@ -127,7 +140,7 @@ export const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
   // user cannot access and falls through to /inbox).
   { prefix: '/communications', roles: ADMIN_ROLES },
   { prefix: '/inbox/audiences', roles: ADMIN_ROLES },
-  { prefix: '/inbox/oversight', roles: ADMIN_ROLES },
+  { prefix: '/inbox/oversight', roles: ADMIN_TIER_ROLES },
   { prefix: '/approvals', roles: ADMIN_ROLES },
   {
     prefix: '/reports',

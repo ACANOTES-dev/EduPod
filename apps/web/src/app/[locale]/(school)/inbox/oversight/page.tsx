@@ -10,7 +10,7 @@ import { Badge, Button, StatusBadge, toast } from '@school/ui';
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-import { useIsAdmin } from '@/lib/use-is-admin';
+import { useIsAdminTier } from '@/lib/use-is-admin';
 
 import { FlagReviewModal } from './_components/flag-review-modal';
 import { FreezeDialog } from './_components/freeze-dialog';
@@ -74,16 +74,16 @@ export default function OversightDashboardPage() {
   const t = useTranslations('inbox.oversight');
   const router = useRouter();
   const locale = useLocale();
-  const isAdmin = useIsAdmin();
+  const isAdminTier = useIsAdminTier();
 
   // Oversight is admin-tier only — non-admin users get bounced to the
-  // inbox. The API enforces this too (inbox.oversight.read permission)
-  // but this guard keeps the page from even attempting the fetch.
+  // inbox. The API enforces this too (AdminTierOnlyGuard) but this
+  // guard keeps the page from even attempting the fetch.
   React.useEffect(() => {
-    if (isAdmin === false) {
+    if (isAdminTier === false) {
       router.replace(`/${locale}/inbox`);
     }
-  }, [isAdmin, router, locale]);
+  }, [isAdminTier, router, locale]);
 
   const [activeTab, setActiveTab] = React.useState<TabKey>('conversations');
 
@@ -463,7 +463,7 @@ export default function OversightDashboardPage() {
     </div>
   );
 
-  if (isAdmin !== true) {
+  if (isAdminTier !== true) {
     return <div className="h-[50vh]" aria-hidden="true" />;
   }
 

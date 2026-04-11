@@ -9,6 +9,7 @@ import {
   Button,
   cn,
   Textarea,
+  toast,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -143,6 +144,7 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
       refreshPolling();
     } catch (err) {
       console.error('[thread-view:send]', err);
+      toast.error(t('inbox.thread.composer.sendFailed'));
     } finally {
       setSending(false);
     }

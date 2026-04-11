@@ -3,6 +3,7 @@
 import { Loader2, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Button, EmptyState, Input } from '@school/ui';
@@ -36,6 +37,7 @@ interface SearchResponse {
 }
 
 export default function InboxSearchPage() {
+  const t = useTranslations();
   const params = useSearchParams();
   const initialQ = params?.get('q') ?? '';
   const initialPage = Number(params?.get('page') ?? '1') || 1;
@@ -96,20 +98,20 @@ export default function InboxSearchPage() {
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
       <header className="space-y-2">
-        <h1 className="text-xl font-semibold text-text-primary">Search the inbox</h1>
+        <h1 className="text-xl font-semibold text-text-primary">{t('inbox.searchPage.title')}</h1>
         <form onSubmit={onSubmit} className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search all your conversations…"
+              placeholder={t('inbox.searchPage.placeholder')}
               className="ps-9"
               autoFocus
             />
           </div>
           <Button type="submit" disabled={query.trim().length < 2}>
-            Search
+            {t('inbox.searchPage.button')}
           </Button>
         </form>
       </header>
@@ -117,7 +119,7 @@ export default function InboxSearchPage() {
       {isLoading ? (
         <div className="flex items-center gap-2 text-sm text-text-tertiary">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Searching…
+          {t('inbox.searchPage.searching')}
         </div>
       ) : error ? (
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
@@ -125,20 +127,20 @@ export default function InboxSearchPage() {
         </div>
       ) : committedQuery.trim().length < 2 ? (
         <EmptyState
-          title="Search the inbox"
-          description="Type at least 2 characters to find messages in your threads."
+          title={t('inbox.searchPage.title')}
+          description={t('inbox.searchPage.hint')}
           icon={Search}
         />
       ) : data.length === 0 ? (
         <EmptyState
-          title="No results"
-          description={`No messages found for "${committedQuery}". Try fewer or different words.`}
+          title={t('inbox.searchPage.noResults')}
+          description={t('inbox.searchPage.noResultsFor', { query: committedQuery })}
           icon={Search}
         />
       ) : (
         <>
           <p className="text-xs text-text-tertiary">
-            {meta.total} result{meta.total === 1 ? '' : 's'}
+            {t('inbox.searchPage.resultCount', { count: meta.total })}
           </p>
           <ul className="space-y-2">
             {data.map((hit) => (
@@ -149,7 +151,8 @@ export default function InboxSearchPage() {
                 >
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="truncate text-sm font-medium text-text-primary">
-                      {hit.conversation_subject || kindLabel(hit.conversation_kind)}
+                      {hit.conversation_subject ||
+                        t(`inbox.searchPage.kinds.${hit.conversation_kind}`)}
                     </h2>
                     <time className="shrink-0 text-xs text-text-tertiary" dateTime={hit.created_at}>
                       {formatRelative(hit.created_at)}
@@ -181,6 +184,8 @@ function Pagination({
   totalPages: number;
   onChange: (page: number) => void;
 }) {
+  const t = useTranslations();
+  const tc = useTranslations('common');
   if (totalPages <= 1) return null;
   return (
     <div className="flex items-center justify-center gap-3 pt-2">
@@ -191,10 +196,10 @@ function Pagination({
         disabled={page <= 1}
         onClick={() => onChange(page - 1)}
       >
-        Previous
+        {tc('previous')}
       </Button>
       <span className="text-xs text-text-tertiary">
-        Page {page} of {totalPages}
+        {t('inbox.searchPage.pageOf', { page, total: totalPages })}
       </span>
       <Button
         type="button"
@@ -203,16 +208,10 @@ function Pagination({
         disabled={page >= totalPages}
         onClick={() => onChange(page + 1)}
       >
-        Next
+        {tc('next')}
       </Button>
     </div>
   );
-}
-
-function kindLabel(kind: 'direct' | 'group' | 'broadcast'): string {
-  if (kind === 'direct') return 'Direct message';
-  if (kind === 'group') return 'Group conversation';
-  return 'Broadcast';
 }
 
 function formatRelative(iso: string): string {

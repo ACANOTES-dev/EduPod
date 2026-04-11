@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2, Minus, Plus, Users } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -138,6 +139,7 @@ export function AudienceChipBuilder({
   totalCount,
   isCountLoading,
 }: Props) {
+  const t = useTranslations();
   const [providers, setProviders] = React.useState<ProviderMeta[]>([]);
   const [isLoadingProviders, setIsLoadingProviders] = React.useState(true);
 
@@ -184,18 +186,20 @@ export function AudienceChipBuilder({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <Label className="text-xs uppercase tracking-wide text-text-tertiary">
-          Custom audience
+          {t('inbox.audienceBuilder.label')}
         </Label>
         {value.length >= 2 && (
           <div className="flex items-center gap-2">
-            <Label className="text-xs text-text-tertiary">Combine with</Label>
+            <Label className="text-xs text-text-tertiary">
+              {t('inbox.audienceBuilder.combineWith')}
+            </Label>
             <Select value={operator} onValueChange={(v) => onOperatorChange(v as 'and' | 'or')}>
               <SelectTrigger className="h-7 w-20 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="and">AND</SelectItem>
-                <SelectItem value="or">OR</SelectItem>
+                <SelectItem value="and">{t('inbox.audienceBuilder.andOperator')}</SelectItem>
+                <SelectItem value="or">{t('inbox.audienceBuilder.orOperator')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -204,7 +208,7 @@ export function AudienceChipBuilder({
 
       {value.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-surface p-4 text-center text-sm text-text-tertiary">
-          No filters yet — add one to start targeting recipients.
+          {t('inbox.audienceBuilder.empty')}
         </div>
       ) : (
         <ul className="space-y-2">
@@ -218,9 +222,11 @@ export function AudienceChipBuilder({
                   <Switch
                     checked={row.negate}
                     onCheckedChange={(checked) => updateRow(row.id, { negate: checked })}
-                    aria-label="Negate filter"
+                    aria-label={t('inbox.audienceBuilder.negateAria')}
                   />
-                  <span className="text-xs text-text-tertiary">NOT</span>
+                  <span className="text-xs text-text-tertiary">
+                    {t('inbox.audienceBuilder.not')}
+                  </span>
                 </div>
                 <Select
                   value={row.provider}
@@ -230,7 +236,7 @@ export function AudienceChipBuilder({
                   disabled={isLoadingProviders}
                 >
                   <SelectTrigger className="w-full md:w-56">
-                    <SelectValue placeholder="Pick a filter" />
+                    <SelectValue placeholder={t('inbox.audienceBuilder.pickFilter')} />
                   </SelectTrigger>
                   <SelectContent>
                     {providers.map((p) => (
@@ -239,7 +245,7 @@ export function AudienceChipBuilder({
                           {p.display_name}
                           {!p.wired && (
                             <Badge variant="secondary" className="text-[10px]">
-                              Coming soon
+                              {t('inbox.audienceBuilder.comingSoon')}
                             </Badge>
                           )}
                         </span>
@@ -251,6 +257,7 @@ export function AudienceChipBuilder({
                   provider={row.provider}
                   params={row.params}
                   onChange={(params) => updateRow(row.id, { params })}
+                  t={t}
                 />
               </div>
               <Button
@@ -258,13 +265,13 @@ export function AudienceChipBuilder({
                 variant="ghost"
                 size="sm"
                 onClick={() => removeRow(row.id)}
-                aria-label="Remove filter"
+                aria-label={t('inbox.audienceBuilder.removeAria')}
               >
                 <Minus className="h-4 w-4" />
               </Button>
               {idx < value.length - 1 && (
                 <div className="hidden text-xs font-semibold uppercase text-text-tertiary md:block">
-                  {operator}
+                  {t('inbox.audienceBuilder.operator', { op: operator.toUpperCase() })}
                 </div>
               )}
             </li>
@@ -281,18 +288,16 @@ export function AudienceChipBuilder({
           disabled={isLoadingProviders || providers.length === 0}
         >
           <Plus className="me-1 h-4 w-4" />
-          Add filter
+          {t('inbox.audienceBuilder.addFilter')}
         </Button>
         <div className="flex items-center gap-1 text-xs text-text-secondary">
           <Users className="h-3.5 w-3.5" />
           {isCountLoading ? (
             <Loader2 className="h-3 w-3 animate-spin" />
           ) : totalCount === null ? (
-            <span>Add a filter to preview</span>
+            <span>{t('inbox.audienceBuilder.previewHint')}</span>
           ) : (
-            <span>
-              ≈ <strong>{totalCount}</strong> recipient{totalCount === 1 ? '' : 's'}
-            </span>
+            <span>{t('inbox.audienceBuilder.recipientCount', { count: totalCount })}</span>
           )}
         </div>
       </div>
@@ -304,10 +309,12 @@ function ParamsEditor({
   provider,
   params,
   onChange,
+  t,
 }: {
   provider: AudienceProviderKey;
   params: Record<string, unknown>;
   onChange: (value: Record<string, unknown>) => void;
+  t: ReturnType<typeof useTranslations>;
 }) {
   if (PROVIDERS_WITHOUT_PARAMS.has(provider)) {
     return null;
@@ -318,7 +325,7 @@ function ParamsEditor({
         <Input
           type="number"
           min={0}
-          placeholder="Min overdue (€)"
+          placeholder={t('inbox.audienceBuilder.params.minOverdue')}
           value={(params.min_overdue_amount as number | undefined) ?? ''}
           onChange={(e) => {
             const raw = e.target.value;
@@ -332,7 +339,7 @@ function ParamsEditor({
         <Input
           type="number"
           min={0}
-          placeholder="Min days overdue"
+          placeholder={t('inbox.audienceBuilder.params.minDaysOverdue')}
           value={(params.min_overdue_days as number | undefined) ?? ''}
           onChange={(e) => {
             const raw = e.target.value;
@@ -351,7 +358,7 @@ function ParamsEditor({
     const current = Array.isArray(params[listKey]) ? (params[listKey] as string[]).join(', ') : '';
     return (
       <Input
-        placeholder="UUIDs, comma-separated"
+        placeholder={t('inbox.audienceBuilder.params.uuidList')}
         value={current}
         onChange={(e) => {
           const ids = e.target.value

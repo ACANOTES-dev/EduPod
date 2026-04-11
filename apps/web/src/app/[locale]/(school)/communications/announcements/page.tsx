@@ -16,13 +16,7 @@ import { useIsAdmin } from '@/lib/use-is-admin';
 
 type AnnouncementStatus = 'draft' | 'scheduled' | 'published' | 'archived';
 
-const SCOPE_LABELS: Record<string, string> = {
-  school_wide: 'School-wide',
-  year_group: 'Year Group',
-  class: 'Class',
-  household: 'Household',
-  custom: 'Custom',
-};
+// Scope labels are now fetched from i18n: communications.scope.*
 
 interface Announcement {
   id: string;
@@ -35,13 +29,7 @@ interface Announcement {
   created_at: string;
 }
 
-const STATUS_TABS: Array<{ key: string; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'draft', label: 'Draft' },
-  { key: 'scheduled', label: 'Scheduled' },
-  { key: 'published', label: 'Published' },
-  { key: 'archived', label: 'Archived' },
-];
+const STATUS_TAB_KEYS = ['all', 'draft', 'scheduled', 'published', 'archived'] as const;
 
 const STATUS_VARIANT: Record<AnnouncementStatus, 'neutral' | 'info' | 'warning' | 'success'> = {
   draft: 'neutral',
@@ -110,7 +98,7 @@ export default function CommunicationsPage() {
       key: 'scope',
       header: t('columns.scope'),
       render: (row: Announcement) => (
-        <span className="text-text-secondary">{SCOPE_LABELS[row.scope] ?? row.scope}</span>
+        <span className="text-text-secondary">{t(`scope.${row.scope}`)}</span>
       ),
     },
     {
@@ -118,7 +106,7 @@ export default function CommunicationsPage() {
       header: t('columns.status'),
       render: (row: Announcement) => (
         <StatusBadge status={STATUS_VARIANT[row.status]} dot>
-          {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+          {t(`statusLabels.${row.status}`)}
         </StatusBadge>
       ),
     },
@@ -143,17 +131,17 @@ export default function CommunicationsPage() {
 
   const toolbar = (
     <div className="flex items-center gap-2 overflow-x-auto border-b border-border">
-      {STATUS_TABS.map((tab) => (
+      {STATUS_TAB_KEYS.map((tabKey) => (
         <button
-          key={tab.key}
-          onClick={() => setActiveTab(tab.key)}
+          key={tabKey}
+          onClick={() => setActiveTab(tabKey)}
           className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-            activeTab === tab.key
+            activeTab === tabKey
               ? 'border-primary-600 text-primary-600'
               : 'border-transparent text-text-secondary hover:text-text-primary'
           }`}
         >
-          {tab.label}
+          {t(`tabs.${tabKey}`)}
         </button>
       ))}
     </div>
@@ -186,7 +174,7 @@ export default function CommunicationsPage() {
         <EmptyState
           icon={Megaphone}
           title={t('announcements')}
-          description="No announcements yet. Create your first announcement."
+          description={t('emptyDescription')}
           action={{
             label: t('newAnnouncement'),
             onClick: () => router.push('/communications/new'),

@@ -90,7 +90,7 @@ export default function NewAnnouncementPage() {
 
   const handleSaveDraft = async () => {
     if (!title.trim()) {
-      toast.error('Please enter a title');
+      toast.error(t('form.validation.titleRequired'));
       return;
     }
     setIsSaving(true);
@@ -111,7 +111,7 @@ export default function NewAnnouncementPage() {
 
   const handlePublish = async () => {
     if (!title.trim() || !body.trim()) {
-      toast.error('Title and body are required to publish');
+      toast.error(t('form.validation.titleAndBodyRequired'));
       return;
     }
     setIsPublishing(true);

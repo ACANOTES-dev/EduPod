@@ -1,12 +1,13 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type { MessagingRole } from '@school/shared/inbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@school/ui';
 
 import type { PolicyMatrixDict } from './types';
-import { MESSAGING_ROLES, RELATIONAL_SCOPE_NOTES, ROLE_LABELS } from './types';
+import { MESSAGING_ROLES } from './types';
 
 interface Props {
   matrix: PolicyMatrixDict;
@@ -15,12 +16,30 @@ interface Props {
   readOnly?: boolean;
 }
 
+// ─── Scope note keys ──────────────────────────────────────────────────────────
+const SCOPE_NOTE_KEYS: Partial<Record<`${MessagingRole}:${MessagingRole}`, string>> = {
+  'teacher:parent': 'teacher_parent',
+  'parent:teacher': 'parent_teacher',
+  'teacher:student': 'teacher_student',
+  'student:teacher': 'student_teacher',
+};
+
 export function PolicyMatrixGrid({
   matrix,
   disabledCells,
   onToggle,
   readOnly,
 }: Props): React.ReactElement {
+  const t = useTranslations('messagingPolicyPage');
+
+  const roleLabel = (role: MessagingRole): string => t(`sections.matrix.roles.${role}`);
+
+  const scopeNote = (key: `${MessagingRole}:${MessagingRole}`): string | null => {
+    const noteKey = SCOPE_NOTE_KEYS[key];
+    if (!noteKey) return null;
+    return t(`sections.matrix.scopeNotes.${noteKey}`);
+  };
+
   return (
     <TooltipProvider delayDuration={200}>
       <div className="hidden md:block">
@@ -30,37 +49,41 @@ export function PolicyMatrixGrid({
             gridTemplateColumns: `minmax(8rem, auto) repeat(${MESSAGING_ROLES.length}, minmax(3.25rem, 1fr))`,
           }}
           role="grid"
-          aria-label="Messaging policy matrix"
+          aria-label={t('sections.matrix.ariaLabel')}
         >
           <div className="bg-surface-secondary border-b border-e border-border px-3 py-2 text-xs font-medium text-text-secondary sticky top-0 z-10">
-            Sender ↓ / Recipient →
+            {t('sections.matrix.senderRecipientHeader')}
           </div>
           {MESSAGING_ROLES.map((recipient) => (
             <div
               key={`col-${recipient}`}
               className="bg-surface-secondary border-b border-border px-2 py-2 text-center text-xs font-medium text-text-secondary sticky top-0 z-10 truncate"
-              title={ROLE_LABELS[recipient]}
+              title={roleLabel(recipient)}
             >
-              {ROLE_LABELS[recipient]}
+              {roleLabel(recipient)}
             </div>
           ))}
 
           {MESSAGING_ROLES.map((sender) => (
             <React.Fragment key={`row-${sender}`}>
               <div className="bg-surface-secondary border-e border-b border-border px-3 py-2 text-sm font-medium text-text-primary sticky start-0 z-[5]">
-                {ROLE_LABELS[sender]}
+                {roleLabel(sender)}
               </div>
               {MESSAGING_ROLES.map((recipient) => {
                 const key = `${sender}:${recipient}` as const;
                 const allowed = matrix[sender]?.[recipient] ?? false;
                 const cellDisabled = disabledCells.has(key);
-                const scopeNote = RELATIONAL_SCOPE_NOTES[key];
+                const note = scopeNote(key);
                 return (
                   <Tooltip key={key}>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        aria-label={`${ROLE_LABELS[sender]} can message ${ROLE_LABELS[recipient]}: ${allowed ? 'allowed' : 'blocked'}`}
+                        aria-label={t('sections.matrix.cellAriaLabel', {
+                          sender: roleLabel(sender),
+                          recipient: roleLabel(recipient),
+                          state: allowed ? 'allowed' : 'blocked',
+                        })}
                         aria-pressed={allowed}
                         disabled={readOnly || cellDisabled}
                         onClick={() => onToggle(sender, recipient)}
@@ -80,18 +103,16 @@ export function PolicyMatrixGrid({
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs">
                       <p className="font-medium">
-                        {ROLE_LABELS[sender]} → {ROLE_LABELS[recipient]}
+                        {roleLabel(sender)} → {roleLabel(recipient)}
                       </p>
                       <p className="text-xs text-text-secondary">
                         {cellDisabled
-                          ? 'Disabled by global kill switch above.'
+                          ? t('sections.matrix.tooltipDisabled')
                           : allowed
-                            ? 'Allowed — the sender role may initiate this conversation.'
-                            : 'Blocked — the sender role may not message this recipient.'}
+                            ? t('sections.matrix.tooltipAllowed')
+                            : t('sections.matrix.tooltipBlocked')}
                       </p>
-                      {scopeNote && (
-                        <p className="mt-1 text-xs text-text-secondary italic">{scopeNote}</p>
-                      )}
+                      {note && <p className="mt-1 text-xs text-text-secondary italic">{note}</p>}
                     </TooltipContent>
                   </Tooltip>
                 );
@@ -105,7 +126,7 @@ export function PolicyMatrixGrid({
         {MESSAGING_ROLES.map((sender) => (
           <div key={`mobile-${sender}`} className="border border-border rounded-lg overflow-hidden">
             <div className="bg-surface-secondary px-3 py-2 text-sm font-semibold text-text-primary">
-              From {ROLE_LABELS[sender]} →
+              {t('sections.matrix.fromRole', { role: roleLabel(sender) })}
             </div>
             <div className="divide-y divide-border">
               {MESSAGING_ROLES.map((recipient) => {
@@ -120,7 +141,7 @@ export function PolicyMatrixGrid({
                       cellDisabled && 'opacity-50',
                     )}
                   >
-                    <span className="text-text-primary">{ROLE_LABELS[recipient]}</span>
+                    <span className="text-text-primary">{roleLabel(recipient)}</span>
                     <input
                       type="checkbox"
                       checked={allowed}

@@ -14,13 +14,7 @@ import { apiClient } from '@/lib/api-client';
 
 type AnnouncementStatus = 'draft' | 'scheduled' | 'published' | 'archived';
 
-const SCOPE_LABELS: Record<string, string> = {
-  school_wide: 'School-wide',
-  year_group: 'Year Group',
-  class: 'Class',
-  household: 'Household',
-  custom: 'Custom',
-};
+// Scope labels are now fetched from i18n: communications.scope.*
 
 interface DeliveryStats {
   queued: number;
@@ -105,7 +99,7 @@ export default function AnnouncementDetailPage() {
       setBody(res.data.body ?? '');
     } catch (err) {
       console.error('[CommunicationsPage]', err);
-      toast.error('Failed to load announcement');
+      toast.error(t('loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -202,7 +196,9 @@ export default function AnnouncementDetailPage() {
             </Button>
             {!isArchived && (
               <Button variant="outline" onClick={handleArchive} disabled={actionLoading}>
-                <Archive className="me-2 h-4 w-4" />{t('archive')}</Button>
+                <Archive className="me-2 h-4 w-4" />
+                {t('archive')}
+              </Button>
             )}
             {isDraft && (
               <>
@@ -225,18 +221,22 @@ export default function AnnouncementDetailPage() {
       {/* Status badge row */}
       <div className="flex items-center gap-3">
         <StatusBadge status={STATUS_VARIANT[announcement.status]} dot>
-          {announcement.status.charAt(0).toUpperCase() + announcement.status.slice(1)}
+          {t(`statusLabels.${announcement.status}`)}
         </StatusBadge>
         {announcement.published_at && (
-          <span className="text-sm text-text-secondary">{t('published')}{new Date(announcement.published_at).toLocaleString()}
+          <span className="text-sm text-text-secondary">
+            {t('published')}
+            {new Date(announcement.published_at).toLocaleString()}
           </span>
         )}
         {announcement.scheduled_at && !announcement.published_at && (
-          <span className="text-sm text-text-secondary">{t('scheduledFor')}{new Date(announcement.scheduled_at).toLocaleString()}
+          <span className="text-sm text-text-secondary">
+            {t('scheduledFor')}
+            {new Date(announcement.scheduled_at).toLocaleString()}
           </span>
         )}
         <span className="text-sm text-text-secondary capitalize">
-          {SCOPE_LABELS[announcement.scope] ?? announcement.scope}
+          {t(`scope.${announcement.scope}`)}
         </span>
       </div>
 
