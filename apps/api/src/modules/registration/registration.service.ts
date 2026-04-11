@@ -11,6 +11,7 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuthReadFacade } from '../auth/auth-read.facade';
 import { roundMoney } from '../finance/helpers/invoice-status.helper';
 import { InvoicesService } from '../finance/invoices.service';
+import { HouseholdNumberService } from '../households/household-number.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
 
@@ -36,6 +37,7 @@ export class RegistrationService {
     private readonly sequenceService: SequenceService,
     private readonly invoicesService: InvoicesService,
     private readonly authReadFacade: AuthReadFacade,
+    private readonly householdNumberService: HouseholdNumberService,
   ) {}
 
   // ─── Preview Fees ──────────────────────────────────────────────────────────
@@ -149,7 +151,10 @@ export class RegistrationService {
       const db = tx as unknown as PrismaService;
 
       // ── 1. Create Household ─────────────────────────────────────────────
-      const householdNumber = await this.sequenceService.generateHouseholdReference(tenantId, tx);
+      const householdNumber = await this.householdNumberService.generateUniqueForTenant(
+        db,
+        tenantId,
+      );
 
       const household = await db.household.create({
         data: {
@@ -274,7 +279,11 @@ export class RegistrationService {
 
       for (let i = 0; i < dto.students.length; i++) {
         const s = dto.students[i]!;
-        const studentNumber = await this.sequenceService.nextNumber(tenantId, 'student', tx, 'STU');
+        const studentNumber = await this.householdNumberService.generateStudentNumber(
+          db,
+          tenantId,
+          household.id,
+        );
 
         const student = await db.student.create({
           data: {
@@ -677,7 +686,11 @@ export class RegistrationService {
       }
 
       // ── 3. Create student ──────────────────────────────────────────────
-      const studentNumber = await this.sequenceService.nextNumber(tenantId, 'student', tx, 'STU');
+      const studentNumber = await this.householdNumberService.generateStudentNumber(
+        db,
+        tenantId,
+        householdId,
+      );
       const lastName =
         dto.last_name ||
         household.household_name.replace(/^The\s+/i, '').replace(/\s+Family$/i, '');

@@ -6,8 +6,8 @@ import type { CreateHouseholdDto, UpdateHouseholdDto } from '@school/shared';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { SequenceService } from '../sequence/sequence.service';
 
+import { HouseholdNumberService } from './household-number.service';
 import { buildCompletionIssues } from './households.helpers';
 import type { HouseholdDetail, HouseholdListItem } from './households.service';
 
@@ -27,7 +27,7 @@ export class HouseholdsCrudService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly sequenceService: SequenceService,
+    private readonly householdNumberService: HouseholdNumberService,
   ) {}
 
   // ─── Create ──────────────────────────────────────────────────────────────
@@ -38,8 +38,11 @@ export class HouseholdsCrudService {
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      // Auto-generate randomised household reference (doubles as parent initial password)
-      const householdNumber = await this.sequenceService.generateHouseholdReference(tenantId, tx);
+      // Auto-generate random 6-char household number (AAA999 format)
+      const householdNumber = await this.householdNumberService.generateUniqueForTenant(
+        db,
+        tenantId,
+      );
 
       const household = await db.household.create({
         data: {

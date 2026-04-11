@@ -8,6 +8,7 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { GdprReadFacade } from '../gdpr/gdpr-read.facade';
+import { HouseholdNumberService } from '../households/household-number.service';
 import { HouseholdReadFacade } from '../households/household-read.facade';
 import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
@@ -147,6 +148,7 @@ export class StudentsService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly sequenceService: SequenceService,
+    private readonly householdNumberService: HouseholdNumberService,
     private readonly householdReadFacade: HouseholdReadFacade,
     private readonly academicReadFacade: AcademicReadFacade,
     private readonly classesReadFacade: ClassesReadFacade,
@@ -184,8 +186,12 @@ export class StudentsService {
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      // Auto-generate student number
-      const studentNumber = await this.sequenceService.nextNumber(tenantId, 'student', tx, 'STU');
+      // Auto-generate student number (household-derived or legacy STU-NNNNNN)
+      const studentNumber = await this.householdNumberService.generateStudentNumber(
+        db,
+        tenantId,
+        dto.household_id,
+      );
 
       const student = await db.student.create({
         data: {
