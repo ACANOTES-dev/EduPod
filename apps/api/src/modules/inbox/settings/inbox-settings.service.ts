@@ -1,19 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { MESSAGING_ROLES } from '@school/shared/inbox';
-import type { MessagingRole } from '@school/shared/inbox';
+import type {
+  MessagingRole,
+  UpdateInboxSettingsDto,
+  UpdateMessagingPolicyDto,
+} from '@school/shared/inbox';
 
+import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   TenantMessagingPolicyRepository,
   buildMatrixKey,
 } from '../policy/tenant-messaging-policy.repository';
 
-/**
- * Read-only face of the inbox settings surface for Wave 2. The mutation
- * endpoints land in Wave 4 (impl 13 — messaging policy settings page)
- * which reuses the same repository.
- */
 export type PolicyMatrixDict = Record<MessagingRole, Record<MessagingRole, boolean>>;
 
 export interface TenantInboxSettingsRow {
@@ -45,11 +45,6 @@ export class InboxSettingsService {
     private readonly policyRepository: TenantMessagingPolicyRepository,
   ) {}
 
-  /**
-   * Return the full 81-cell role-pair policy matrix for the tenant as a
-   * nested dict keyed `matrix[sender][recipient] = allowed`. Missing
-   * cells default to `false` (deny).
-   */
   async getPolicyMatrix(tenantId: string): Promise<PolicyMatrixDict> {
     const flatMatrix = await this.policyRepository.getMatrix(tenantId);
     const dict = {} as PolicyMatrixDict;
@@ -62,12 +57,6 @@ export class InboxSettingsService {
     return dict;
   }
 
-  /**
-   * Return the tenant inbox settings row. Throws `NOT_FOUND` if the
-   * tenant has not been seeded yet — seeding is handled by
-   * `seedInboxDefaultsForTenant` at tenant creation time, so this should
-   * never happen in production.
-   */
   async getInboxSettings(tenantId: string): Promise<TenantInboxSettingsRow> {
     const row = await this.prisma.tenantSettingsInbox.findUnique({
       where: { tenant_id: tenantId },
@@ -79,5 +68,56 @@ export class InboxSettingsService {
       });
     }
     return row;
+  }
+
+  async updateInboxSettings(
+    tenantId: string,
+    dto: UpdateInboxSettingsDto,
+  ): Promise<TenantInboxSettingsRow> {
+    await this.getInboxSettings(tenantId);
+    const updated = await createRlsClient(this.prisma, { tenant_id: tenantId }).$transaction(
+      async (tx) => {
+        const db = tx as unknown as PrismaService;
+        return db.tenantSettingsInbox.update({
+          where: { tenant_id: tenantId },
+          data: dto,
+        });
+      },
+    );
+    return updated;
+  }
+
+  async updatePolicyMatrix(
+    tenantId: string,
+    dto: UpdateMessagingPolicyDto,
+  ): Promise<PolicyMatrixDict> {
+    await createRlsClient(this.prisma, { tenant_id: tenantId }).$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      for (const cell of dto.cells) {
+        await db.tenantMessagingPolicy.upsert({
+          where: {
+            uniq_messaging_policy_pair: {
+              tenant_id: tenantId,
+              sender_role: cell.sender_role,
+              recipient_role: cell.recipient_role,
+            },
+          },
+          update: { allowed: cell.allowed },
+          create: {
+            tenant_id: tenantId,
+            sender_role: cell.sender_role,
+            recipient_role: cell.recipient_role,
+            allowed: cell.allowed,
+          },
+        });
+      }
+    });
+    this.policyRepository.invalidate(tenantId);
+    return this.getPolicyMatrix(tenantId);
+  }
+
+  async resetPolicyMatrix(tenantId: string): Promise<PolicyMatrixDict> {
+    await this.policyRepository.resetToDefaults(tenantId);
+    return this.getPolicyMatrix(tenantId);
   }
 }

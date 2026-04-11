@@ -54,6 +54,12 @@ const TABS: SettingsTab[] = [
     href: 'notifications',
     roles: ADMIN_SETTINGS_ROLES,
   },
+  {
+    key: 'messaging-policy',
+    labelKey: 'messagingPolicy',
+    href: 'messaging-policy',
+    roles: ADMIN_SETTINGS_ROLES,
+  },
   { key: 'stripe', labelKey: 'stripe', href: 'stripe', roles: ['school_principal'] },
   { key: 'users', labelKey: 'users', href: 'users', roles: ADMIN_SETTINGS_ROLES },
   { key: 'invitations', labelKey: 'invitations', href: 'invitations', roles: ADMIN_SETTINGS_ROLES },
