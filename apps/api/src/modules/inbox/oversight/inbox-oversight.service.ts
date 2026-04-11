@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { PrismaClient } from '@prisma/client';
 
@@ -13,6 +8,8 @@ import type { ConversationKind } from '@school/shared/inbox';
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
 import { S3Service } from '../../s3/s3.service';
+import { InboxSearchService } from '../search/inbox-search.service';
+import type { InboxSearchHit } from '../search/inbox-search.service';
 
 import { OversightAuditService } from './oversight-audit.service';
 import { OversightPdfService } from './oversight-pdf.service';
@@ -35,9 +32,9 @@ import type { OversightPdfMessage } from './oversight-pdf.service';
  * the oversight surface relaxes is the participant filter — cross-tenant
  * leakage remains impossible.
  *
- * Full-text search (`searchAll`) is stubbed with 503
- * `INBOX_SEARCH_NOT_READY` until Wave 3 impl 09 lands the
- * `InboxSearchService`. The frontend handles the stub gracefully.
+ * Full-text search (`searchAll`) delegates to the `InboxSearchService`
+ * with `scope: 'tenant'`. The oversight-specific contribution is the
+ * audit-log row written in the same RLS transaction as the search.
  */
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -98,12 +95,7 @@ export interface OversightThreadDetail {
   }>;
 }
 
-export interface OversightSearchHit {
-  message_id: string;
-  conversation_id: string;
-  excerpt: string;
-  created_at: Date;
-}
+export type OversightSearchHit = InboxSearchHit;
 
 export interface OversightAuditEntry {
   id: string;
@@ -137,6 +129,7 @@ export class InboxOversightService {
     private readonly auditService: OversightAuditService,
     private readonly pdfService: OversightPdfService,
     private readonly s3Service: S3Service,
+    private readonly searchService: InboxSearchService,
   ) {}
 
   // ─── Conversations listing / reading ────────────────────────────────────────
@@ -307,7 +300,7 @@ export class InboxOversightService {
     });
   }
 
-  // ─── Search (stub until impl 09) ────────────────────────────────────────────
+  // ─── Search (tenant-wide, delegated to InboxSearchService) ─────────────────
 
   async searchAll(input: {
     tenantId: string;
@@ -315,23 +308,36 @@ export class InboxOversightService {
     query: string;
     pagination: { page: number; pageSize: number };
   }): Promise<Paginated<OversightSearchHit>> {
-    // Audit-log the attempt so misuse is traced even before search lands.
+    const { tenantId, actorUserId, query, pagination } = input;
+
+    // Audit row is written on every oversight search attempt, BEFORE the
+    // search runs. If the search itself fails (bad query length, empty
+    // tokens, DB error), the audit row still exists so misuse is traced.
+    // The audit log lives in its own RLS transaction so we do not hold a
+    // connection open while the search runs.
     await createRlsClient(this.prisma, {
-      tenant_id: input.tenantId,
-      user_id: input.actorUserId,
+      tenant_id: tenantId,
+      user_id: actorUserId,
     }).$transaction(async (txClient) => {
       const tx = txClient as unknown as PrismaClient;
       await this.auditService.log(tx, {
-        tenantId: input.tenantId,
-        actorUserId: input.actorUserId,
+        tenantId,
+        actorUserId,
         action: 'search',
-        metadata: { query: input.query, state: 'stub_not_ready' },
+        metadata: {
+          query,
+          page: pagination.page,
+          pageSize: pagination.pageSize,
+        },
       });
     });
 
-    throw new ServiceUnavailableException({
-      code: 'INBOX_SEARCH_NOT_READY',
-      message: 'Search will be enabled when impl 09 deploys.',
+    return this.searchService.search({
+      tenantId,
+      userId: actorUserId,
+      query,
+      scope: 'tenant',
+      pagination,
     });
   }
 

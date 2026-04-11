@@ -7,4 +7,5 @@ export * from './inbox-settings.schema';
 export * from './oversight.schema';
 export * from './safeguarding-keyword.schema';
 export * from './saved-audience.schema';
+export * from './search.schema';
 export * from './send-message.schema';

@@ -1,5 +1,5 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
-import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
@@ -12,6 +12,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => {
 });
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import type { InboxSearchService } from '../search/inbox-search.service';
 
 import { InboxOversightService } from './inbox-oversight.service';
 import type { OversightAuditService } from './oversight-audit.service';
@@ -82,6 +83,7 @@ describe('InboxOversightService', () => {
   let auditService: jest.Mocked<OversightAuditService>;
   let pdfService: jest.Mocked<OversightPdfService>;
   let s3Service: { upload: jest.Mock; getPresignedUrl: jest.Mock };
+  let searchService: jest.Mocked<InboxSearchService>;
   let prisma: Record<string, unknown>;
 
   beforeEach(() => {
@@ -99,12 +101,16 @@ describe('InboxOversightService', () => {
       upload: jest.fn().mockResolvedValue(`${TENANT_ID}/inbox/oversight/key.pdf`),
       getPresignedUrl: jest.fn().mockResolvedValue('https://signed.example/thread.pdf'),
     };
+    searchService = {
+      search: jest.fn(),
+    } as unknown as jest.Mocked<InboxSearchService>;
 
     service = new InboxOversightService(
       prisma as never,
       auditService,
       pdfService,
       s3Service as never,
+      searchService,
     );
   });
 
@@ -535,24 +541,52 @@ describe('InboxOversightService', () => {
     });
   });
 
-  // ─── searchAll (stub) ─────────────────────────────────────────────────────
+  // ─── searchAll (delegated to InboxSearchService) ──────────────────────────
 
   describe('searchAll', () => {
-    it('audit-logs the attempt and throws 503 INBOX_SEARCH_NOT_READY', async () => {
-      await expect(
-        service.searchAll({
-          tenantId: TENANT_ID,
-          actorUserId: ACTOR_ID,
-          query: 'safeguarding',
-          pagination: { page: 1, pageSize: 20 },
-        }),
-      ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    it('audit-logs the attempt and delegates to the search service with tenant scope', async () => {
+      const hits = {
+        data: [
+          {
+            message_id: MSG_ID,
+            conversation_id: CONV_ID,
+            conversation_subject: 'Subj',
+            conversation_kind: 'direct' as const,
+            sender_user_id: ACTOR_ID,
+            sender_display_name: 'Alice Doe',
+            body_snippet: 'hello <mark>safeguarding</mark>',
+            created_at: new Date('2026-04-11T10:00:00Z'),
+            rank: 0.5,
+          },
+        ],
+        meta: { page: 1, pageSize: 20, total: 1 },
+      };
+      searchService.search.mockResolvedValue(hits);
 
+      const result = await service.searchAll({
+        tenantId: TENANT_ID,
+        actorUserId: ACTOR_ID,
+        query: 'safeguarding',
+        pagination: { page: 1, pageSize: 20 },
+      });
+
+      expect(result).toEqual(hits);
+      expect(searchService.search).toHaveBeenCalledWith({
+        tenantId: TENANT_ID,
+        userId: ACTOR_ID,
+        query: 'safeguarding',
+        scope: 'tenant',
+        pagination: { page: 1, pageSize: 20 },
+      });
       expect(auditService.log).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
           action: 'search',
-          metadata: expect.objectContaining({ state: 'stub_not_ready' }),
+          metadata: expect.objectContaining({
+            query: 'safeguarding',
+            page: 1,
+            pageSize: 20,
+          }),
         }),
       );
     });

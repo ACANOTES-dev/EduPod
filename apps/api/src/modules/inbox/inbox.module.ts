@@ -1,6 +1,8 @@
-import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
+import { Module, forwardRef } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { CommunicationsModule } from '../communications/communications.module';
 import { S3Module } from '../s3/s3.module';
 
 import { AudienceComposer } from './audience/audience-composer';
@@ -42,6 +44,8 @@ import { MessagingPolicyService } from './policy/messaging-policy.service';
 import { RelationalScopeResolver } from './policy/relational-scope.resolver';
 import { RoleMappingService } from './policy/role-mapping.service';
 import { TenantMessagingPolicyRepository } from './policy/tenant-messaging-policy.repository';
+import { InboxSearchController } from './search/inbox-search.controller';
+import { InboxSearchService } from './search/inbox-search.service';
 import { InboxSettingsController } from './settings/inbox-settings.controller';
 import { InboxSettingsService } from './settings/inbox-settings.service';
 
@@ -73,10 +77,24 @@ import { InboxSettingsService } from './settings/inbox-settings.service';
  * the oversight thread-export path.
  */
 @Module({
-  imports: [AuthModule, S3Module],
+  imports: [
+    AuthModule,
+    S3Module,
+    // InboxOutboxService enqueues `inbox:dispatch-channels` onto
+    // `notifications` (impl 06) and `safeguarding:scan-message` onto
+    // `safeguarding` (impl 08). Both queues are registered here so the
+    // `@InjectQueue` tokens resolve without pulling external modules in
+    // eagerly. BullMQ dedupes duplicate registrations across modules.
+    BullModule.registerQueue({ name: 'notifications' }, { name: 'safeguarding' }),
+    // Inbox bridge (impl 06) lives in `CommunicationsModule` and depends
+    // on `ConversationsService` from this module — use `forwardRef` on
+    // both sides to resolve the circular edge.
+    forwardRef(() => CommunicationsModule),
+  ],
   controllers: [
     InboxSettingsController,
     InboxOversightController,
+    InboxSearchController,
     SavedAudiencesController,
     ConversationsController,
     MessagesController,
@@ -96,6 +114,8 @@ import { InboxSettingsService } from './settings/inbox-settings.service';
     InboxOversightService,
     OversightAuditService,
     OversightPdfService,
+    // Full-text search (impl 09)
+    InboxSearchService,
     // Conversations + messages (impl 04)
     AttachmentValidator,
     InboxOutboxService,
@@ -134,6 +154,7 @@ import { InboxSettingsService } from './settings/inbox-settings.service';
     TenantMessagingPolicyRepository,
     InboxSettingsService,
     InboxOversightService,
+    InboxSearchService,
     AudienceProviderRegistry,
     AudienceResolutionService,
     SavedAudiencesService,
