@@ -1,6 +1,6 @@
 'use client';
 
-import { Megaphone, Plus } from 'lucide-react';
+import { Megaphone, Plus, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -156,10 +156,16 @@ export default function CommunicationsPage() {
         title={t('title')}
         description={t('description')}
         actions={
-          <Button onClick={() => router.push('/communications/new')}>
-            <Plus className="me-2 h-4 w-4" />
-            {t('newAnnouncement')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => router.push('/inbox/audiences')}>
+              <Users className="me-2 h-4 w-4" />
+              {t('manageAudiences')}
+            </Button>
+            <Button onClick={() => router.push('/communications/new')}>
+              <Plus className="me-2 h-4 w-4" />
+              {t('newAnnouncement')}
+            </Button>
+          </div>
         }
       />
 
