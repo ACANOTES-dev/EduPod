@@ -219,6 +219,160 @@
       "load_threads": "Could not load your inbox. Please try again.",
       "load_thread": "Could not load this conversation. Please try again."
     },
+    "oversight": {
+      "title": "Oversight",
+      "description": "Every conversation in this tenant is visible here for safeguarding review.",
+      "banner": "Every action here is audit-logged.",
+      "bannerDetail": "Owners, Principals and Vice Principals can read every conversation in the tenant. All reads, freezes and flag actions are recorded.",
+      "loading": "Loading…",
+      "threadNotFound": "Thread not found.",
+      "emptyThread": "No messages in this thread yet.",
+      "tabs": {
+        "conversations": "Conversations",
+        "flags": "Flags",
+        "audit": "Audit log"
+      },
+      "columns": {
+        "subject": "Subject",
+        "kind": "Type",
+        "participants": "Participants",
+        "lastMessage": "Last message",
+        "state": "State",
+        "keywords": "Matched keywords",
+        "severity": "Severity",
+        "reviewState": "Review state",
+        "createdAt": "Created",
+        "timestamp": "When",
+        "actor": "Actor",
+        "action": "Action",
+        "conversation": "Thread",
+        "untitledSubject": "(no subject)"
+      },
+      "kinds": {
+        "direct": "Direct",
+        "group": "Group",
+        "broadcast": "Broadcast"
+      },
+      "badges": {
+        "frozen": "Frozen",
+        "flagged": "Flagged",
+        "flagCount": "{count} past flags"
+      },
+      "severity": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      },
+      "reviewStates": {
+        "pending": "Pending",
+        "dismissed": "Dismissed",
+        "escalated": "Escalated",
+        "frozen": "Frozen"
+      },
+      "actions": {
+        "open": "Open",
+        "freeze": "Freeze",
+        "unfreeze": "Unfreeze",
+        "export": "Export PDF",
+        "dismissFlag": "Dismiss",
+        "escalateFlag": "Escalate",
+        "backToDashboard": "Back to oversight"
+      },
+      "sections": {
+        "participants": "Participants",
+        "messages": "Messages"
+      },
+      "messages": {
+        "showHistory": "Show edit history ({count})",
+        "hideHistory": "Hide edit history ({count})"
+      },
+      "freeze": {
+        "confirm": {
+          "title": "Freeze this conversation?",
+          "body": "Both sides will see a system message saying the conversation has been disabled. They will not be able to send new messages until you unfreeze it."
+        },
+        "reason": {
+          "label": "Reason (required)",
+          "placeholder": "Why is this thread being frozen?"
+        },
+        "success": "Conversation frozen.",
+        "error": "Could not freeze the conversation."
+      },
+      "unfreeze": {
+        "success": "Conversation re-enabled.",
+        "error": "Could not unfreeze the conversation."
+      },
+      "frozen": {
+        "banner": "This conversation has been disabled by school administration.",
+        "reason": "Reason",
+        "since": "Frozen {when}"
+      },
+      "export": {
+        "success": "Thread export ready.",
+        "download": "Download PDF",
+        "error": "Could not export this thread."
+      },
+      "flag": {
+        "dismissTitle": "Dismiss this flag",
+        "dismissDescription": "Mark this flag as a false positive. The message will remain visible; the flag is removed from the review queue.",
+        "escalateTitle": "Escalate this flag",
+        "escalateDescription": "Mark this flag for external review. A PDF export of the conversation will be generated for offline handling.",
+        "notesLabel": "Review notes",
+        "notesPlaceholder": "Describe what you decided and why.",
+        "notesRequired": "Review notes are required.",
+        "dismissed": "Flag dismissed.",
+        "escalated": "Flag escalated.",
+        "escalatedWithLink": "Flag escalated. PDF export ready.",
+        "downloadPdf": "Download PDF",
+        "actionFailed": "The flag action failed.",
+        "focusContext": "Opened from flag {flagId}"
+      },
+      "audit": {
+        "actions": {
+          "read_thread": "Read thread",
+          "freeze": "Freeze",
+          "unfreeze": "Unfreeze",
+          "dismiss_flag": "Dismiss flag",
+          "escalate_flag": "Escalate flag",
+          "export_thread": "Export thread",
+          "search": "Search"
+        }
+      }
+    },
+    "fallback": {
+      "title": "Notification fallback",
+      "description": "Configure when unread messages should be escalated to other channels.",
+      "loading": "Loading settings…",
+      "section": {
+        "admin": "Admin broadcasts",
+        "adminDescription": "Messages from Owner / Principal / Vice Principal.",
+        "teacher": "Teacher messages",
+        "teacherDescription": "Direct messages and broadcasts sent by teachers."
+      },
+      "fields": {
+        "enabled": "Enable fallback",
+        "afterHours": "Escalate after how many hours unread?",
+        "afterHoursHint": "Recipients who haven't read this message after the threshold will receive it via the chosen channel(s).",
+        "channels": "Channels"
+      },
+      "channels": {
+        "email": "Email",
+        "sms": "SMS",
+        "whatsapp": "WhatsApp"
+      },
+      "save": {
+        "button": "Save changes",
+        "pending": "Saving…",
+        "success": "Fallback settings saved.",
+        "error": "Could not save settings."
+      },
+      "test": {
+        "button": "Test fallback now",
+        "pending": "Enqueuing…",
+        "success": "Test scan enqueued — check the worker logs in a few seconds.",
+        "error": "Could not enqueue the test scan."
+      }
+    },
     "audiences": {
       "title": "Saved Audiences",
       "description": "Reusable recipient lists for announcements and messages.",
@@ -6349,175 +6503,6 @@
     "noInquiriesYet": "No inquiries yet",
     "enterCommaSeparatedIdsFor": "Enter comma-separated IDs for the selected scope."
   },
-  "inbox": {
-    "audiences": {
-      "title": "Saved Audiences",
-      "description": "Reusable recipient lists for announcements and messages.",
-      "new": "New Audience",
-      "newPageTitle": "Create Audience",
-      "newPageDescription": "Build a static or dynamic audience to reuse across broadcasts.",
-      "searchPlaceholder": "Search by name or description",
-      "loading": "Loading audiences...",
-      "duplicateSuffix": "copy",
-      "memberCount": "{count, plural, =0 {No members} one {1 member} other {# members}}",
-      "memberCountDynamic": "Dynamic — resolves on send",
-      "filters": {
-        "all": "All",
-        "static": "Static",
-        "dynamic": "Dynamic"
-      },
-      "kind": {
-        "static": "Static",
-        "dynamic": "Dynamic"
-      },
-      "columns": {
-        "name": "Name",
-        "description": "Description",
-        "kind": "Kind",
-        "members": "Members",
-        "actions": "Actions"
-      },
-      "actions": {
-        "view": "Open",
-        "duplicate": "Duplicate",
-        "delete": "Delete",
-        "cancel": "Cancel",
-        "create": "Create Audience",
-        "save": "Save Changes",
-        "back": "Back",
-        "menu": "Row actions"
-      },
-      "empty": {
-        "title": "No saved audiences yet",
-        "description": "Create one to reuse it across announcements and messages.",
-        "searchDescription": "No audiences match your search."
-      },
-      "delete": {
-        "confirm": {
-          "title": "Delete this audience?",
-          "body": "This cannot be undone. Broadcasts previously sent to this audience are unaffected, but it will no longer be available for new sends."
-        }
-      },
-      "drawer": {
-        "openFull": "Open full view"
-      },
-      "toast": {
-        "created": "Audience created",
-        "saved": "Audience saved",
-        "deleted": "Audience deleted",
-        "deleteFailed": "Failed to delete audience",
-        "duplicated": "Audience duplicated",
-        "duplicateFailed": "Failed to duplicate audience"
-      },
-      "errors": {
-        "nameTaken": "An audience with this name already exists in this tenant.",
-        "cycleDetected": "This definition references itself, directly or through another saved audience.",
-        "tooDeep": "This definition is nested too deeply. Simplify before saving.",
-        "duplicateNameTaken": "A copy with this name already exists — rename before duplicating again.",
-        "noMembers": "Pick at least one member before saving.",
-        "noDefinition": "Add at least one provider chip before saving.",
-        "generic": "Something went wrong. Please try again.",
-        "resolveFailed": "Failed to resolve audience members."
-      },
-      "notFound": {
-        "title": "Audience not found",
-        "body": "It may have been deleted, or you don't have permission to view it."
-      },
-      "form": {
-        "name": {
-          "label": "Name",
-          "placeholder": "e.g., Year 5 Parent Council",
-          "required": "Name is required"
-        },
-        "description": {
-          "label": "Description (optional)",
-          "placeholder": "What is this audience used for?"
-        },
-        "kind": {
-          "label": "Kind",
-          "locked": "Kind cannot be changed after creation. Duplicate and rebuild to convert.",
-          "static": {
-            "title": "Static",
-            "description": "Handpicked list of users. Changes are immediate and affect future sends."
-          },
-          "dynamic": {
-            "title": "Dynamic",
-            "description": "Re-resolves on each broadcast. Use for rules like 'Parents in arrears > €500'."
-          }
-        },
-        "builder": {
-          "label": "Audience",
-          "loadingProviders": "Loading providers..."
-        }
-      },
-      "peoplePicker": {
-        "searchPlaceholder": "Search users by name or email",
-        "selected": "Selected",
-        "selectedCount": "{count, plural, one {# member selected} other {# members selected}}",
-        "empty": "Search and click a user to add them.",
-        "removeUser": "Remove user"
-      },
-      "chipBuilder": {
-        "empty": "No chips yet. Add one to start.",
-        "negated": "NOT",
-        "included": "IN",
-        "stub": "Not yet wired",
-        "complex": {
-          "title": "Complex definition",
-          "body": "This audience has a nested shape that the UI builder cannot edit yet. Use the API or duplicate and rebuild to modify."
-        },
-        "operator": {
-          "label": "Combine chips with",
-          "and": "AND",
-          "or": "OR"
-        },
-        "actions": {
-          "add": "Add chip",
-          "remove": "Remove chip",
-          "negate": "Invert (NOT)",
-          "unNegate": "Restore"
-        },
-        "addPicker": {
-          "providerLabel": "Provider",
-          "placeholder": "Choose a provider",
-          "cancel": "Cancel",
-          "confirm": "Add"
-        },
-        "params": {
-          "none": "No parameters required.",
-          "csvPlaceholder": "uuid1, uuid2, ...",
-          "csvHint": "Comma-separated list.",
-          "labels": {
-            "minOverdueAmount": "Minimum overdue amount",
-            "minOverdueDays": "Minimum overdue days",
-            "json": "Parameters (JSON)"
-          }
-        }
-      },
-      "preview": {
-        "title": "Preview",
-        "refresh": "Refresh",
-        "loading": "Resolving...",
-        "empty": "Pick providers to see the recipient count.",
-        "error": "Could not resolve this audience.",
-        "recipients": "{count, plural, =0 {No recipients} one {recipient} other {recipients}}",
-        "moreCount": "+{count} more"
-      },
-      "resolveNow": {
-        "title": "Resolve now",
-        "description": "Run the definition against current data to verify the recipient list.",
-        "run": "Resolve",
-        "resolvedAt": "Resolved {at}",
-        "totalCount": "{count, plural, =0 {No members resolved} one {1 member} other {# members}}",
-        "prev": "Previous",
-        "next": "Next",
-        "pageIndicator": "Page {page} of {total}",
-        "columns": {
-          "userId": "User ID"
-        }
-      }
-    }
-  },
   "announcements": {
     "title": "Announcements",
     "description": "School announcements for you",
@@ -11655,161 +11640,5 @@
     "paymentCancelledTitle": "Payment cancelled",
     "paymentCancelledBody": "Your application is still on hold — you can try the payment link again.",
     "paymentCancelledFollowup": "Use the link in the email we sent you to retry the payment within the hold window."
-  },
-  "inbox": {
-    "oversight": {
-      "title": "Oversight",
-      "description": "Every conversation in this tenant is visible here for safeguarding review.",
-      "banner": "Every action here is audit-logged.",
-      "bannerDetail": "Owners, Principals and Vice Principals can read every conversation in the tenant. All reads, freezes and flag actions are recorded.",
-      "loading": "Loading…",
-      "threadNotFound": "Thread not found.",
-      "emptyThread": "No messages in this thread yet.",
-      "tabs": {
-        "conversations": "Conversations",
-        "flags": "Flags",
-        "audit": "Audit log"
-      },
-      "columns": {
-        "subject": "Subject",
-        "kind": "Type",
-        "participants": "Participants",
-        "lastMessage": "Last message",
-        "state": "State",
-        "keywords": "Matched keywords",
-        "severity": "Severity",
-        "reviewState": "Review state",
-        "createdAt": "Created",
-        "timestamp": "When",
-        "actor": "Actor",
-        "action": "Action",
-        "conversation": "Thread",
-        "untitledSubject": "(no subject)"
-      },
-      "kinds": {
-        "direct": "Direct",
-        "group": "Group",
-        "broadcast": "Broadcast"
-      },
-      "badges": {
-        "frozen": "Frozen",
-        "flagged": "Flagged",
-        "flagCount": "{count} past flags"
-      },
-      "severity": {
-        "low": "Low",
-        "medium": "Medium",
-        "high": "High"
-      },
-      "reviewStates": {
-        "pending": "Pending",
-        "dismissed": "Dismissed",
-        "escalated": "Escalated",
-        "frozen": "Frozen"
-      },
-      "actions": {
-        "open": "Open",
-        "freeze": "Freeze",
-        "unfreeze": "Unfreeze",
-        "export": "Export PDF",
-        "dismissFlag": "Dismiss",
-        "escalateFlag": "Escalate",
-        "backToDashboard": "Back to oversight"
-      },
-      "sections": {
-        "participants": "Participants",
-        "messages": "Messages"
-      },
-      "messages": {
-        "showHistory": "Show edit history ({count})",
-        "hideHistory": "Hide edit history ({count})"
-      },
-      "freeze": {
-        "confirm": {
-          "title": "Freeze this conversation?",
-          "body": "Both sides will see a system message saying the conversation has been disabled. They will not be able to send new messages until you unfreeze it."
-        },
-        "reason": {
-          "label": "Reason (required)",
-          "placeholder": "Why is this thread being frozen?"
-        },
-        "success": "Conversation frozen.",
-        "error": "Could not freeze the conversation."
-      },
-      "unfreeze": {
-        "success": "Conversation re-enabled.",
-        "error": "Could not unfreeze the conversation."
-      },
-      "frozen": {
-        "banner": "This conversation has been disabled by school administration.",
-        "reason": "Reason",
-        "since": "Frozen {when}"
-      },
-      "export": {
-        "success": "Thread export ready.",
-        "download": "Download PDF",
-        "error": "Could not export this thread."
-      },
-      "flag": {
-        "dismissTitle": "Dismiss this flag",
-        "dismissDescription": "Mark this flag as a false positive. The message will remain visible; the flag is removed from the review queue.",
-        "escalateTitle": "Escalate this flag",
-        "escalateDescription": "Mark this flag for external review. A PDF export of the conversation will be generated for offline handling.",
-        "notesLabel": "Review notes",
-        "notesPlaceholder": "Describe what you decided and why.",
-        "notesRequired": "Review notes are required.",
-        "dismissed": "Flag dismissed.",
-        "escalated": "Flag escalated.",
-        "escalatedWithLink": "Flag escalated. PDF export ready.",
-        "downloadPdf": "Download PDF",
-        "actionFailed": "The flag action failed.",
-        "focusContext": "Opened from flag {flagId}"
-      },
-      "audit": {
-        "actions": {
-          "read_thread": "Read thread",
-          "freeze": "Freeze",
-          "unfreeze": "Unfreeze",
-          "dismiss_flag": "Dismiss flag",
-          "escalate_flag": "Escalate flag",
-          "export_thread": "Export thread",
-          "search": "Search"
-        }
-      }
-    },
-    "fallback": {
-      "title": "Notification fallback",
-      "description": "Configure when unread messages should be escalated to other channels.",
-      "loading": "Loading settings…",
-      "section": {
-        "admin": "Admin broadcasts",
-        "adminDescription": "Messages from Owner / Principal / Vice Principal.",
-        "teacher": "Teacher messages",
-        "teacherDescription": "Direct messages and broadcasts sent by teachers."
-      },
-      "fields": {
-        "enabled": "Enable fallback",
-        "afterHours": "Escalate after how many hours unread?",
-        "afterHoursHint": "Recipients who haven't read this message after the threshold will receive it via the chosen channel(s).",
-        "channels": "Channels"
-      },
-      "channels": {
-        "email": "Email",
-        "sms": "SMS",
-        "whatsapp": "WhatsApp"
-      },
-      "save": {
-        "button": "Save changes",
-        "pending": "Saving…",
-        "success": "Fallback settings saved.",
-        "error": "Could not save settings."
-      },
-      "test": {
-        "button": "Test fallback now",
-        "pending": "Enqueuing…",
-        "success": "Test scan enqueued — check the worker logs in a few seconds.",
-        "error": "Could not enqueue the test scan."
-      }
-    }
   }
 }
