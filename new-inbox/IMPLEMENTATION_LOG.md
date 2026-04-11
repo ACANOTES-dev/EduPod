@@ -113,8 +113,8 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 01  | Schema foundation                                    | 1    | —                      | `completed`   | 2026-04-11 06:55 | 2a8e307c   |
 | 02  | Messaging policy engine                              | 2    | 01                     | `completed`   | 2026-04-11 07:29 | 18672264   |
 | 03  | Audience engine v2                                   | 2    | 01                     | `completed`   | 2026-04-11 09:37 | f7e6d823   |
-| 04  | Conversations + messages service                     | 2    | 01                     | `pending`     | —                | —          |
-| 05  | Admin oversight service                              | 2    | 01                     | `in-progress` | —                | —          |
+| 04  | Conversations + messages service                     | 2    | 01                     | `in-progress` | —                | —          |
+| 05  | Admin oversight service                              | 2    | 01                     | `completed`   | 2026-04-11 09:36 | 0eeb8930   |
 | 06  | Inbox channel provider in dispatcher                 | 3    | 01, 04                 | `pending`     | —                | —          |
 | 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `pending`     | —                | —          |
 | 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `pending`     | —                | —          |
@@ -304,3 +304,57 @@ send-only roles.`
   expected to work, and the providers live in their owning modules to
   satisfy `no-cross-module-prisma-access`. Warnings left in place
   rather than suppressing to keep the signal visible.
+
+### [IMPL 05] — Admin oversight service
+
+- **Completed:** 2026-04-11T09:36+01:00 Europe/Dublin
+- **Commit:** `0eeb8930` (local `3107bf2e`)
+- **Deployed to production:** yes (bundled with impl 03's API rebuild —
+  my commit was already on `HEAD~1` when impl 03 deployed, so a single
+  `pm2 restart api` served both. Verified on prod at commit
+  `0eeb8930`: routes registered, `InboxSystemUserInit` ran, permissions
+  backfill completed.)
+- **Summary (≤ 200 words):**
+  Landed the privileged oversight surface for Owner / Principal /
+  Vice Principal under `apps/api/src/modules/inbox/oversight/`:
+  `InboxOversightService` (listAllConversations, getThread, freeze /
+  unfreeze, listPendingFlags, dismissFlag, escalateFlag, exportThread,
+  listAuditLog, and a `searchAll` stub that throws
+  `INBOX_SEARCH_NOT_READY` 503 until impl 09 wires FTS). Every read and
+  every mutation writes an `oversight_access_log` row in the same
+  RLS-scoped `$transaction` as the underlying query — a successful
+  oversight action with a missing audit row is impossible.
+  `OversightAuditService` is the only writer. `OversightPdfService`
+  uses `pdf-lib` (Helvetica, ASCII-sanitised) to generate text-oriented
+  thread exports uploaded via `S3Service` with a 1-hour presigned URL.
+  `InboxOversightController` exposes `/v1/inbox/oversight/*` behind
+  `AuthGuard + PermissionGuard + AdminTierOnlyGuard`; the new guard in
+  `common/admin-tier-only.guard.ts` reuses
+  `PermissionCacheService.isOwner` so the hardcoded admin-tier role
+  list stays a single source of truth. `InboxSystemUserInit`
+  idempotently upserts `users(SYSTEM_USER_SENTINEL)` at startup so
+  freeze/unfreeze system messages satisfy the `messages.sender_user_id`
+  FK. Zod request schemas in
+  `@school/shared/inbox/schemas/oversight.schema.ts`. 21 unit tests
+  cover privileged-read, audit-log coupling, idempotent freeze/unfreeze,
+  flag actions, PDF export path, search stub, and pagination.
+- **Follow-ups:**
+  - Wave 3 impl 09 (full-text search) must swap `searchAll`'s 503 stub
+    for a real call to the forthcoming
+    `InboxSearchService.search(tenantId, q, pagination, { scope: 'tenant' })`.
+  - Wave 4 impl 15 (oversight UI + fallback settings) consumes this
+    controller. The `review_url` field on flag summaries is already
+    shaped for the frontend deep link
+    (`/inbox/oversight/conversations/:id?flag=:flagId`).
+  - `PermissionCacheService.isOwner` backs `AdminTierOnlyGuard` — if
+    any future wave adds a new admin-tier `role_key`, update
+    `PermissionCacheService.OWNER_ROLE_KEYS` and both gates follow.
+- **Session notes:** Wall-clock deploy serialisation was resolved by
+  impl 03's session: their API rebuild picked up both commits because
+  my commit (`3107bf2e` local → `0eeb8930` prod) was already on
+  `HEAD~1` when their patch landed. Verification on prod: `/api/health`
+  200; `/api/v1/inbox/oversight/{conversations,audit-log,flags}` all
+  return 401 `UNAUTHORIZED` (route registered and guarded). Startup log
+  shows `InboxOversightController {/api/v1/inbox/oversight}:` from
+  `RoutesResolver`, `Platform system-user row ensured.` from
+  `InboxSystemUserInit`, and the permissions backfill line.
