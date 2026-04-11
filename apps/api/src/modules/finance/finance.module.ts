@@ -1,15 +1,18 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { forwardRef, Module, type OnModuleInit } from '@nestjs/common';
 
 import { AdmissionsModule } from '../admissions/admissions.module';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
+import { AudienceProviderRegistry } from '../inbox/audience/audience-provider.registry';
+import { InboxModule } from '../inbox/inbox.module';
 import { ParentsModule } from '../parents/parents.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 import { RbacModule } from '../rbac/rbac.module';
 import { SequenceModule } from '../sequence/sequence.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
+import { FeesInArrearsProvider } from './audience/fees-in-arrears.provider';
 import { BulkOperationsService } from './bulk-operations.service';
 import { CreditNotesService } from './credit-notes.service';
 import { DiscountsController } from './discounts.controller';
@@ -50,6 +53,7 @@ import { StripeService } from './stripe.service';
     ApprovalsModule,
     AuditLogModule,
     ConfigurationModule,
+    InboxModule,
     ParentsModule,
     PdfRenderingModule,
     RbacModule,
@@ -92,6 +96,7 @@ import { StripeService } from './stripe.service';
     FinanceAuditService,
     BulkOperationsService,
     FinanceReadFacade,
+    FeesInArrearsProvider,
   ],
   exports: [
     InvoicesService,
@@ -103,6 +108,16 @@ import { StripeService } from './stripe.service';
     LateFeesService,
     FinanceReadFacade,
     StripeService,
+    FeesInArrearsProvider,
   ],
 })
-export class FinanceModule {}
+export class FinanceModule implements OnModuleInit {
+  constructor(
+    private readonly registry: AudienceProviderRegistry,
+    private readonly feesInArrears: FeesInArrearsProvider,
+  ) {}
+
+  onModuleInit(): void {
+    this.registry.register(this.feesInArrears);
+  }
+}

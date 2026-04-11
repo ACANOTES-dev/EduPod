@@ -29,6 +29,7 @@ import { CriticalIncidentsModule } from './modules/critical-incidents/critical-i
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { EarlyWarningModule } from './modules/early-warning/early-warning.module';
 import { EngagementModule } from './modules/engagement/engagement.module';
+import { EventsModule } from './modules/events/events.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { GdprModule } from './modules/gdpr/gdpr.module';
 import { GradebookModule } from './modules/gradebook/gradebook.module';
@@ -70,6 +71,7 @@ import { StaffProfilesModule } from './modules/staff-profiles/staff-profiles.mod
 import { StaffWellbeingModule } from './modules/staff-wellbeing/staff-wellbeing.module';
 import { StudentsModule } from './modules/students/students.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
+import { TripsModule } from './modules/trips/trips.module';
 import { WebsiteModule } from './modules/website/website.module';
 
 @Module({
@@ -146,6 +148,8 @@ import { WebsiteModule } from './modules/website/website.module';
     GradebookModule,
     PdfRenderingModule,
     FinanceModule,
+    EventsModule,
+    TripsModule,
     GdprModule,
     PayrollModule,
     CommunicationsModule,

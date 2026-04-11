@@ -404,6 +404,45 @@ export class FinanceReadFacade {
     });
   }
 
+  /**
+   * Find every household in the tenant that has an outstanding
+   * (overdue) invoice matching the supplied thresholds.
+   *
+   * Used by the inbox `fees_in_arrears` audience provider to target
+   * parents whose household has fees overdue. Invoices are
+   * household-scoped in this schema — students are not directly billed —
+   * so the provider resolves household_ids here and maps them to parent
+   * user_ids in its own step via `HouseholdReadFacade`.
+   *
+   * An invoice counts as "overdue" when:
+   *   - status is `issued`, `partially_paid`, or `overdue`
+   *   - due_date is in the past by at least `minDays` days (default 0)
+   *   - balance_amount ≥ `minAmount` (default 0)
+   *
+   * Dedupes household_ids so the caller never has to.
+   */
+  async findHouseholdIdsWithOverdueInvoices(
+    tenantId: string,
+    filter: { minAmount?: number; minDays?: number } = {},
+  ): Promise<string[]> {
+    const minAmount = filter.minAmount ?? 0;
+    const minDays = filter.minDays ?? 0;
+
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - minDays);
+
+    const rows = await this.prisma.invoice.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: { in: ['issued', 'partially_paid', 'overdue'] },
+        due_date: { lte: cutoff },
+        balance_amount: { gte: minAmount },
+      },
+      select: { household_id: true },
+    });
+    return [...new Set(rows.map((r) => r.household_id))];
+  }
+
   // ─── Generic Methods (reports-data-access) ─────────────────────────────────
 
   /**
