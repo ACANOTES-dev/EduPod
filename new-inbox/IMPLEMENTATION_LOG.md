@@ -34,7 +34,7 @@ By default, parents and students are **inbox-only**. They can only reply on thre
 
 **Rule 3 — Read the summaries of completed prerequisites.** Look in §5 (Completion Records) for each prerequisite implementation. Read the summary. You need to know what exists before you build on top of it.
 
-**Rule 4 — Implementations within the same wave can be coded in parallel, but deployments must be serialised.** If you are implementing task N and task N-1 (same wave) is still deploying, wait. Never deploy concurrently with another session in the same wave. Simple heuristic: before you start the deployment phase, check the log; if any implementation in your wave has `status: deploying`, wait until it flips to `completed`.
+**Rule 4 — Implementations within the same wave code in parallel; only deployments serialise, and only when they share a service restart target.** Deploy order is **first-come-first-served, not by implementation number**. If you're running task 04 and it finishes coding before task 02, task 04 deploys first. The only constraint: before entering the deploy phase, re-read the log; if another implementation in your wave is currently `deploying` AND shares a service restart target (API / worker / web — consult §3's deployment matrix), wait (poll every 3 minutes) until it flips to `completed`, then proceed. If it doesn't share a restart target, you can deploy concurrently without conflict.
 
 **Rule 5 — NEVER push to GitHub.** Commit locally only. The CI gate takes 3-4 hours; pushing during this rebuild would grind everything to a halt. The human owner pushes at the end of the rebuild manually. No `git push`. No `gh pr create`. No exceptions.
 
@@ -69,7 +69,7 @@ The production repo at `/opt/edupod/app` lives on `main` but is already many com
 
 ## 3. Wave structure & dependencies
 
-Each wave must complete entirely before the next wave starts. Within a wave, all listed implementations can be coded in parallel, but their deployments MUST happen in ascending implementation-number order whenever they share a service restart.
+Each wave must complete entirely before the next wave starts. Within a wave, all listed implementations code in parallel AND deploy on a first-come-first-served basis — **not** in implementation-number order. Whichever implementation reaches the deploy phase first takes the slot. Deployment only serialises (pollling every 3 minutes) when another sibling is already `deploying` **and** shares a service restart target (API / worker / web, per the matrix below).
 
 | Wave       | Implementations        | Hard dependency | Rationale                                                                                                                                                                                                   |
 | ---------- | ---------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -108,24 +108,24 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                | Wave | Depends on             | Status        | Completed at     | Commit SHA |
-| --- | ---------------------------------------------------- | ---- | ---------------------- | ------------- | ---------------- | ---------- |
-| 01  | Schema foundation                                    | 1    | —                      | `completed`   | 2026-04-11 06:55 | 2a8e307c   |
-| 02  | Messaging policy engine                              | 2    | 01                     | `completed`   | 2026-04-11 07:29 | 18672264   |
-| 03  | Audience engine v2                                   | 2    | 01                     | `completed`   | 2026-04-11 09:37 | f7e6d823   |
-| 04  | Conversations + messages service                     | 2    | 01                     | `in-progress` | —                | —          |
-| 05  | Admin oversight service                              | 2    | 01                     | `completed`   | 2026-04-11 09:36 | 0eeb8930   |
-| 06  | Inbox channel provider in dispatcher                 | 3    | 01, 04                 | `pending`     | —                | —          |
-| 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `pending`     | —                | —          |
-| 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `pending`     | —                | —          |
-| 09  | Full-text search                                     | 3    | 01, 04                 | `pending`     | —                | —          |
-| 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `pending`     | —                | —          |
-| 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `pending`     | —                | —          |
-| 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `pending`     | —                | —          |
-| 13  | Messaging policy settings page                       | 4    | 01, 02                 | `pending`     | —                | —          |
-| 14  | Safeguarding settings + dashboard alerts widget      | 4    | 01, 08                 | `pending`     | —                | —          |
-| 15  | Admin oversight UI + fallback settings               | 4    | 01, 05, 07             | `pending`     | —                | —          |
-| 16  | Polish, translations, mobile pass, morph bar wire-up | 5    | 10–15                  | `pending`     | —                | —          |
+| #   | Title                                                | Wave | Depends on             | Status      | Completed at     | Commit SHA |
+| --- | ---------------------------------------------------- | ---- | ---------------------- | ----------- | ---------------- | ---------- |
+| 01  | Schema foundation                                    | 1    | —                      | `completed` | 2026-04-11 06:55 | 2a8e307c   |
+| 02  | Messaging policy engine                              | 2    | 01                     | `completed` | 2026-04-11 07:29 | 18672264   |
+| 03  | Audience engine v2                                   | 2    | 01                     | `completed` | 2026-04-11 09:37 | f7e6d823   |
+| 04  | Conversations + messages service                     | 2    | 01                     | `completed` | 2026-04-11 11:01 | 6be890d6   |
+| 05  | Admin oversight service                              | 2    | 01                     | `completed` | 2026-04-11 09:36 | 0eeb8930   |
+| 06  | Inbox channel provider in dispatcher                 | 3    | 01, 04                 | `pending`   | —                | —          |
+| 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `pending`   | —                | —          |
+| 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `pending`   | —                | —          |
+| 09  | Full-text search                                     | 3    | 01, 04                 | `pending`   | —                | —          |
+| 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `pending`   | —                | —          |
+| 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `pending`   | —                | —          |
+| 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `pending`   | —                | —          |
+| 13  | Messaging policy settings page                       | 4    | 01, 02                 | `pending`   | —                | —          |
+| 14  | Safeguarding settings + dashboard alerts widget      | 4    | 01, 08                 | `pending`   | —                | —          |
+| 15  | Admin oversight UI + fallback settings               | 4    | 01, 05, 07             | `pending`   | —                | —          |
+| 16  | Polish, translations, mobile pass, morph bar wire-up | 5    | 10–15                  | `pending`   | —                | —          |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -358,3 +358,85 @@ send-only roles.`
   shows `InboxOversightController {/api/v1/inbox/oversight}:` from
   `RoutesResolver`, `Platform system-user row ensured.` from
   `InboxSystemUserInit`, and the permissions backfill line.
+
+### [IMPL 04] — Conversations + messages service
+
+- **Completed:** 2026-04-11T11:01+01:00 Europe/Dublin
+- **Commit:** `6be890d6` (local `e93e2d91`)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Landed the core inbox write path under
+  `apps/api/src/modules/inbox/{conversations,messages,common}/`.
+  `ConversationsService` owns `createDirect` (with
+  non-archived dedupe), `createGroup` (hard-fail on any
+  per-recipient denial; 2–49 recipients), `createBroadcast`
+  (admin-tier + staff only — parents/students always rejected;
+  soft-filters denied recipients; persists both
+  `broadcast_audience_definitions` and a frozen
+  `broadcast_audience_snapshot`), `sendReply` (spawns a private
+  1↔1 direct thread the first time a broadcast recipient replies
+  and appends on subsequent replies — spawn link lives in the
+  new thread's `subject` marker `broadcast:<id>` until a
+  `messages.metadata_json` column lands), `markRead`/`markAllRead`,
+  `listInbox`, `setMuted`/`setArchived`, and `getInboxState`.
+  `ConversationsReadFacade` handles the privacy-gated reads:
+  staff senders see `read_count`/`total_recipients` on their own
+  messages; parents/students never do. Deleted messages surface
+  as `[message deleted]` tombstones for non-admin viewers.
+  `MessagesService` handles edit (10-min tenant-overridable
+  window, staff roles only, `message_edits` snapshot) and
+  soft-delete. `InboxOutboxService` stubs the post-message
+  side-effect hand-off — structured logs only in v1, Wave 3
+  impls 06 / 08 replace the stub with real BullMQ producers so
+  impl 04 ships API-only. `AttachmentValidator` enforces tenant
+  ownership via the S3 key prefix convention. Routes mount
+  under `/v1/inbox/{conversations,messages,state}` behind
+  `AuthGuard + PermissionGuard`; added new `inbox.read`
+  permission with backfill to admin tier + parent/student/staff
+  send-only roles. Shared Zod: new `attachment-input.schema.ts`
+  with 10-file / 25 MB / mime-allowlist guard; refreshed
+  `create-conversation` + `send-message` schemas to take inline
+  attachment objects (`storage_key`, `filename`, `mime_type`,
+  `size_bytes`) instead of the impl-01 placeholder
+  `attachment_ids` field; added `list-inbox`, `get-thread`,
+  `mute`, `archive` query schemas.
+- **Follow-ups:**
+  - Wave 3 impl 06 (inbox channel provider in dispatcher) must
+    replace `InboxOutboxService.notifyMessageCreated` with a
+    real BullMQ enqueue on a dedicated inbox queue. The stub
+    is deliberately a single-file swap.
+  - Wave 3 impl 08 (safeguarding scanner) must replace
+    `InboxOutboxService.notifyNeedsSafeguardingScan` with an
+    enqueue onto the safeguarding worker queue. Impl 04 already
+    calls it from both `create*` paths AND from `editMessage`
+    so the re-scan path is wired.
+  - The broadcast-reply-spawn link uses the spawned thread's
+    `subject` field (`broadcast:<id>`) as a marker. When the
+    schema gets the planned `messages.metadata_json` column, move
+    the pointer there so spawned subjects can hold human-readable
+    text instead.
+  - `max-lines` ESLint warnings on `conversations.service.ts`
+    (979 lines) and its spec (578). Acceptable — consistent with
+    existing large services in the repo; splitting the service
+    would scatter the transactional boundaries across files.
+  - Wave 4 impl 11 (compose dialog) imports the refreshed
+    `create-conversation.schema` and must populate the inline
+    attachments array. The frontend's upload flow should set
+    `storage_key` to the `{tenantId}/...` S3 key returned by
+    the existing upload endpoint.
+- **Session notes:** Coded in parallel with in-flight impls 03
+  and 05 rather than serialising the whole wave; deployment
+  was serialised via the normal patch flow. Prod smoke: mapped
+  routes visible in the startup log
+  (`Mapped {/api/v1/inbox/conversations, POST}` etc.),
+  `ConversationsController {/api/v1/inbox}:` and
+  `MessagesController {/api/v1/inbox/messages}:` in
+  `RoutesResolver`, `Inbox permissions ensured — 4 tenants,
+8 admin-tier roles, 24 send-only roles.` (the send-only count
+  grew from 5 to 24 because the new `inbox.read` permission
+  doubled grants for parent + student + the 4 staff send-only
+  roles across the 4 tenants). Curls: `/api/health` 200;
+  `/api/v1/inbox/{state,conversations}` with a tenant host
+  header return 401 `UNAUTHORIZED` (guarded); without the host
+  header return 404 (pre-existing tenant-resolver behaviour,
+  unchanged by this impl).
