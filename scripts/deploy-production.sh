@@ -5,6 +5,7 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/opt/edupod/app}"
 BACKUP_DIR="${BACKUP_DIR:-/opt/edupod/backups/predeploy}"
 BACKUP_RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-14}"
+DEPLOY_LOCK_FILE="${DEPLOY_LOCK_FILE:-${APP_DIR}/.git/edupod-deploy.lock}"
 PM2_HOME_DIR="${PM2_HOME_DIR:-/home/edupod/.pm2}"
 PM2_USER="${PM2_USER:-edupod}"
 PM2_ECOSYSTEM_FILE="${PM2_ECOSYSTEM_FILE:-${APP_DIR}/ecosystem.config.cjs}"
@@ -340,7 +341,10 @@ main() {
 
   cd "$APP_DIR"
 
-  exec 9>/tmp/edupod-deploy.lock
+  # Keep the lock inside the repo so CI/root deploys and manual edupod deploys
+  # use the same writable path.
+  mkdir -p "$(dirname "$DEPLOY_LOCK_FILE")"
+  exec 9>"$DEPLOY_LOCK_FILE"
   flock 9
 
   git checkout main
