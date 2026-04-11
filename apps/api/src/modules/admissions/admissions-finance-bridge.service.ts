@@ -86,9 +86,11 @@ export class AdmissionsFinanceBridgeService {
     } = params;
 
     // ─── 1. Resolve tenant config ─────────────────────────────────────────────
+    // Use the transaction client (db) for RLS-protected tables; fall back to
+    // the facade only for platform-level tables that don't have RLS.
 
     const currencyCode = (await this.tenantReadFacade.findCurrencyCode(tenantId)) ?? 'EUR';
-    const branding = await this.tenantReadFacade.findBranding(tenantId);
+    const branding = await db.tenantBranding.findUnique({ where: { tenant_id: tenantId } });
     const invoicePrefix = branding?.invoice_prefix ?? 'INV';
 
     // ─── 2. Find fee structures for this year group ───────────────────────────
