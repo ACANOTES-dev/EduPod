@@ -69,7 +69,7 @@ export class HouseholdNumberService {
    */
   async incrementStudentCounter(tx: PrismaService, householdId: string): Promise<number> {
     const rawTx = tx as unknown as {
-      $queryRaw: <T>(sql: Prisma.Sql) => Promise<T[]>;
+      $queryRaw: <T>(sql: Prisma.Sql) => Promise<T>;
     };
 
     // eslint-disable-next-line school/no-raw-sql-outside-rls -- SELECT FOR UPDATE row lock inside caller's RLS transaction

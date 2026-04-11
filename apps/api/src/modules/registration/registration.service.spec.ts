@@ -41,7 +41,6 @@ describe('RegistrationService', () => {
       user: { findUnique: jest.fn().mockResolvedValue(null) },
     };
     mockSequenceService = {
-      generateHouseholdReference: jest.fn().mockResolvedValue('HH-202603-0001'),
       nextNumber: jest.fn().mockResolvedValue('INV-202603-0001'),
     };
     mockHouseholdNumberService = {
