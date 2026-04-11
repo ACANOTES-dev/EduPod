@@ -108,24 +108,24 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                | Wave | Depends on             | Status      | Completed at     | Commit SHA |
-| --- | ---------------------------------------------------- | ---- | ---------------------- | ----------- | ---------------- | ---------- |
-| 01  | Schema foundation                                    | 1    | —                      | `completed` | 2026-04-11 06:55 | 2a8e307c   |
-| 02  | Messaging policy engine                              | 2    | 01                     | `completed` | 2026-04-11 07:29 | 18672264   |
-| 03  | Audience engine v2                                   | 2    | 01                     | `completed` | 2026-04-11 09:37 | f7e6d823   |
-| 04  | Conversations + messages service                     | 2    | 01                     | `completed` | 2026-04-11 11:01 | 6be890d6   |
-| 05  | Admin oversight service                              | 2    | 01                     | `completed` | 2026-04-11 09:36 | 0eeb8930   |
-| 06  | Inbox channel provider in dispatcher                 | 3    | 01, 04                 | `completed` | 2026-04-11 11:45 | b11a3b02   |
-| 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `completed` | 2026-04-11 11:26 | 3362bc12   |
-| 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `completed` | 2026-04-11 11:46 | 565d35b1   |
-| 09  | Full-text search                                     | 3    | 01, 04                 | `completed` | 2026-04-11 11:25 | 9b77fd16   |
-| 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `pending`   | —                | —          |
-| 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `pending`   | —                | —          |
-| 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `pending`   | —                | —          |
-| 13  | Messaging policy settings page                       | 4    | 01, 02                 | `pending`   | —                | —          |
-| 14  | Safeguarding settings + dashboard alerts widget      | 4    | 01, 08                 | `pending`   | —                | —          |
-| 15  | Admin oversight UI + fallback settings               | 4    | 01, 05, 07             | `pending`   | —                | —          |
-| 16  | Polish, translations, mobile pass, morph bar wire-up | 5    | 10–15                  | `pending`   | —                | —          |
+| #   | Title                                                | Wave | Depends on             | Status        | Completed at     | Commit SHA |
+| --- | ---------------------------------------------------- | ---- | ---------------------- | ------------- | ---------------- | ---------- |
+| 01  | Schema foundation                                    | 1    | —                      | `completed`   | 2026-04-11 06:55 | 2a8e307c   |
+| 02  | Messaging policy engine                              | 2    | 01                     | `completed`   | 2026-04-11 07:29 | 18672264   |
+| 03  | Audience engine v2                                   | 2    | 01                     | `completed`   | 2026-04-11 09:37 | f7e6d823   |
+| 04  | Conversations + messages service                     | 2    | 01                     | `completed`   | 2026-04-11 11:01 | 6be890d6   |
+| 05  | Admin oversight service                              | 2    | 01                     | `completed`   | 2026-04-11 09:36 | 0eeb8930   |
+| 06  | Inbox channel provider in dispatcher                 | 3    | 01, 04                 | `completed`   | 2026-04-11 11:45 | b11a3b02   |
+| 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `completed`   | 2026-04-11 11:26 | 3362bc12   |
+| 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `completed`   | 2026-04-11 11:46 | 565d35b1   |
+| 09  | Full-text search                                     | 3    | 01, 04                 | `completed`   | 2026-04-11 11:25 | 9b77fd16   |
+| 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `in-progress` | —                | —          |
+| 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `in-progress` | —                | —          |
+| 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `in-progress` | —                | —          |
+| 13  | Messaging policy settings page                       | 4    | 01, 02                 | `in-progress` | —                | —          |
+| 14  | Safeguarding settings + dashboard alerts widget      | 4    | 01, 08                 | `completed`   | 2026-04-11 12:14 | 40fc7201   |
+| 15  | Admin oversight UI + fallback settings               | 4    | 01, 05, 07             | `in-progress` | —                | —          |
+| 16  | Polish, translations, mobile pass, morph bar wire-up | 5    | 10–15                  | `pending`     | —                | —          |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -697,3 +697,66 @@ apps/worker/src/worker.module.ts` to restore the references
   `SafeguardingPermissionsInit` backfill completed;
   `/api/v1/safeguarding/keywords` returns 401 (route registered,
   guards active); `/api/health` 200.
+
+### [IMPL 14] — Safeguarding settings + dashboard alerts widget
+
+- **Completed:** 2026-04-11T12:14+01:00 Europe/Dublin
+- **Commit:** `40fc7201` (local `32109db5`)
+- **Deployed to production:** yes (web rebuild + `pm2 restart web`)
+- **Summary (≤ 200 words):**
+  Shipped the admin-tier safeguarding surface. New page at
+  `apps/web/src/app/[locale]/(school)/settings/communications/safeguarding/page.tsx`
+  lists / filters / adds / edits / toggles / bulk-imports / deletes
+  keywords against the impl 08 CRUD routes; dual-layer guard
+  (`/settings` prefix is already `ADMIN_ROLES` in `route-roles.ts`,
+  and the page re-checks `school_owner | school_principal |
+school_vice_principal` role_keys before rendering or fetching —
+  non-admin lands on an in-page "Admin-tier only" stub instead of
+  hitting the 403-returning API). Bulk-import parses
+  `keyword,severity,category` CSV client-side, shows a row-by-row
+  preview with errors, and POSTs the valid subset to
+  `/v1/safeguarding/keywords/bulk-import`.
+  Second deliverable: `SafeguardingAlertsWidget` at
+  `(school)/_components/dashboard-widgets/safeguarding-alerts-widget.tsx`
+  polls `GET /v1/inbox/oversight/flags?pageSize=3&review_state=pending`
+  every 60 s (deliberately less aggressive than inbox polling),
+  sorts `severity DESC, created_at DESC`, collapses to a green
+  "All clear" row on zero flags and expands with an amber border +
+  matched-keyword chips when pending flags exist. Never renders
+  message bodies — privacy. Wired into `AdminHome` for both desktop
+  sidebar and `lg:hidden` mobile blocks. Translation keys added
+  under `safeguarding.keywords.*` / `safeguarding.alerts.*` +
+  `nav.safeguardingKeywords` (en + ar); the settings sub-strip
+  gained a `nav.safeguardingKeywords` overflow entry gated on
+  `ADMIN_ROLES`.
+- **Follow-ups:**
+  - Impl 13 (messaging policy settings) and impl 15 (oversight UI +
+    fallback settings) are the other `/settings/communications/*`
+    tenants. If Wave 5 polish adds a dedicated `communications`
+    sub-strip config in `hubSubStripConfigs`, my overflow entry in
+    `settings` should migrate there. I chose to piggyback on the
+    existing `settings` sub-strip to avoid colliding with the
+    in-flight Wave-4 nav-config edits from siblings.
+  - The page has no unit/component tests. The wave-4 siblings all
+    ship without web-side specs (per the impl spec's "E2E + component
+    tests" list — no unit suite was required), and the impl 16 polish
+    pass is the natural home for those.
+  - The dashboard widget's deep link points at
+    `/inbox/oversight?filter=flags` and flag row links use the
+    `review_url` returned by impl 05's `listPendingFlags` — impl 15's
+    oversight UI owns those routes, so the widget is dependent on
+    impl 15 for the click-through to actually render content.
+- **Session notes:** Wave 4 parallel chaos. Siblings 10, 11, 12, 13,
+  15 were all coding concurrently and lint-staged stashes from
+  parallel commits wiped my untracked files mid-session twice;
+  recreated them, re-applied `admin-home.tsx` three times after
+  parallel edits reverted it, then committed with strict pathspecs
+  to avoid pulling in broken sibling WIP (impls 10 and 13 had
+  type-check failures in `inbox/_components/inbox-sidebar.tsx` and
+  `settings/messaging-policy/page.tsx` which I sidelined for my
+  own type-check and left alone for their owning sessions to
+  resolve). My commit (6 files, +1703 / -2) is clean of sibling
+  spillover. Prod build clean; `/api/health` 200;
+  `/en/settings/communications/safeguarding` 200 on nhqs;
+  `/en/dashboard` 200; `/en/login` 200. pm2 logs show `Ready in
+~880ms` on fresh start with no errors from the new code.
