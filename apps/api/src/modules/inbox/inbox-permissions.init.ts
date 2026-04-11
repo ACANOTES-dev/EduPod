@@ -52,6 +52,11 @@ const INBOX_PERMISSIONS: InboxPermissionSeed[] = [
     permission_tier: 'staff',
   },
   {
+    permission_key: 'inbox.read',
+    description: 'Read the inbox — list threads, open a thread, mark read',
+    permission_tier: 'staff',
+  },
+  {
     permission_key: 'inbox.oversight.read',
     description: 'Read any conversation in the tenant for safeguarding oversight',
     permission_tier: 'admin',
@@ -71,6 +76,7 @@ const ADMIN_TIER_GRANTS = [
   'inbox.settings.read',
   'inbox.settings.write',
   'inbox.send',
+  'inbox.read',
   'inbox.oversight.read',
   'inbox.oversight.write',
 ] as const;
@@ -172,7 +178,9 @@ export class InboxPermissionsInit implements OnModuleInit {
           },
           select: { id: true, tenant_id: true, role_key: true },
         });
-        await this.ensureGrants(tx, sendOnlyRoles, ['inbox.send'], permIdByKey);
+        // Send-only tier gets inbox.send (produce) + inbox.read
+        // (consume) so parents/students can see their threads and reply.
+        await this.ensureGrants(tx, sendOnlyRoles, ['inbox.send', 'inbox.read'], permIdByKey);
         sendGrants += sendOnlyRoles.length;
       });
     }

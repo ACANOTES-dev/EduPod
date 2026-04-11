@@ -1,3 +1,4 @@
+export * from './attachment-input.schema';
 export * from './audience-definition.schema';
 export * from './audience-preview.schema';
 export * from './audience-provider-params.schema';

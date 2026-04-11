@@ -25,8 +25,15 @@ import { SavedAudiencesController } from './audience/saved-audiences.controller'
 import { SavedAudiencesRepository } from './audience/saved-audiences.repository';
 import { SavedAudiencesService } from './audience/saved-audiences.service';
 import { AdminTierOnlyGuard } from './common/admin-tier-only.guard';
+import { AttachmentValidator } from './common/attachment-validator';
+import { InboxOutboxService } from './common/inbox-outbox.service';
 import { InboxSystemUserInit } from './common/inbox-system-user.init';
+import { ConversationsController } from './conversations/conversations.controller';
+import { ConversationsReadFacade } from './conversations/conversations.read.facade';
+import { ConversationsService } from './conversations/conversations.service';
 import { InboxPermissionsInit } from './inbox-permissions.init';
+import { MessagesController } from './messages/messages.controller';
+import { MessagesService } from './messages/messages.service';
 import { InboxOversightController } from './oversight/inbox-oversight.controller';
 import { InboxOversightService } from './oversight/inbox-oversight.service';
 import { OversightAuditService } from './oversight/oversight-audit.service';
@@ -67,7 +74,13 @@ import { InboxSettingsService } from './settings/inbox-settings.service';
  */
 @Module({
   imports: [AuthModule, S3Module],
-  controllers: [InboxSettingsController, InboxOversightController, SavedAudiencesController],
+  controllers: [
+    InboxSettingsController,
+    InboxOversightController,
+    SavedAudiencesController,
+    ConversationsController,
+    MessagesController,
+  ],
   providers: [
     InboxPermissionsInit,
     InboxSystemUserInit,
@@ -83,6 +96,12 @@ import { InboxSettingsService } from './settings/inbox-settings.service';
     InboxOversightService,
     OversightAuditService,
     OversightPdfService,
+    // Conversations + messages (impl 04)
+    AttachmentValidator,
+    InboxOutboxService,
+    ConversationsService,
+    ConversationsReadFacade,
+    MessagesService,
     // Audience engine (impl 03)
     AudienceProviderRegistry,
     AudienceUserIdResolver,
@@ -107,7 +126,8 @@ import { InboxSettingsService } from './settings/inbox-settings.service';
   ],
   exports: [
     // Re-exported so Wave-3 consumers (impl 06 dispatcher) can inject
-    // the chokepoint + audience engine without importing concrete files.
+    // the chokepoint + audience engine + conversations service without
+    // importing concrete files.
     MessagingPolicyService,
     RelationalScopeResolver,
     RoleMappingService,
@@ -119,6 +139,10 @@ import { InboxSettingsService } from './settings/inbox-settings.service';
     SavedAudiencesService,
     SavedAudiencesRepository,
     AudienceUserIdResolver,
+    ConversationsService,
+    ConversationsReadFacade,
+    MessagesService,
+    InboxOutboxService,
   ],
 })
 export class InboxModule {}
