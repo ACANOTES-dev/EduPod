@@ -119,7 +119,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `completed`   | 2026-04-11 11:26 | 3362bc12   |
 | 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `completed`   | 2026-04-11 11:46 | 565d35b1   |
 | 09  | Full-text search                                     | 3    | 01, 04                 | `completed`   | 2026-04-11 11:25 | 9b77fd16   |
-| 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `in-progress` | —                | —          |
+| 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `completed`   | 2026-04-11 12:36 | a099ca57   |
 | 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `deploying`   | —                | —          |
 | 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `completed`   | 2026-04-11 12:30 | 96ea1875   |
 | 13  | Messaging policy settings page                       | 4    | 01, 02                 | `in-progress` | —                | —          |
@@ -837,3 +837,86 @@ missing inbox.*` commit (`a099ca57` prod) later mirrored. My
   pattern to satisfy `school/no-empty-catch` + `no-console`
   rules. Prod smoke: `/en/login` 200, `/en/inbox/audiences`
   200, `/en/inbox/audiences/new` 200. Web restart clean.
+
+### [IMPL 10] — Inbox shell + thread list + thread view
+
+- **Completed:** 2026-04-11T12:36+01:00 Europe/Dublin
+- **Commit:** `7f61ba98` (feature — local `c0f45369`) + `a099ca57`
+  (translations fix-forward — local `320a081b`)
+- **Deployed to production:** yes (full web rebuild + `pm2 restart web`
+  twice: once for the feature, again after the translations fix)
+- **Summary (≤ 200 words):**
+  Landed the first-class inbox UI under
+  `apps/web/src/app/[locale]/(school)/inbox/`. New routes: `layout.tsx`
+  (two-pane responsive shell with 360px sidebar + flex-1 main pane,
+  single-pane toggle on mobile based on URL), `page.tsx` (empty state),
+  `threads/[id]/page.tsx` (thread deep-link). New components under
+  `_components/`: `inbox-sidebar`, `thread-list-item`, `thread-view`,
+  `thread-message`, plus `types.ts` and `use-inbox-polling.ts`
+  re-exporter. `thread-view` handles 30s polling of
+  `GET /v1/inbox/conversations/:id`, conditional auto-scroll
+  (only if the user is already at the bottom), frozen banner with
+  `freeze_reason` fallback, read receipt popover gated on the API's
+  `read_state` field (never renders for parents/students), and the
+  reply composer with frozen / no-reply disabled states + Cmd+Enter
+  send. New `InboxPollingProvider` at the school-shell layout level
+  holds a single 30s tick of `GET /v1/inbox/state`; `InboxBadge`
+  (morph bar envelope + unread pill) subscribes via context. Morph
+  bar gains a new `renderInboxBadge` slot — no fork. Routes
+  registered as `UNRESTRICTED_PATHS` so every authenticated role can
+  reach `/inbox`. 25 `inbox.*` translation keys added to
+  `messages/{en,ar}.json` (merged alongside sibling oversight /
+  fallback keys). Two co-located `.spec.ts` files cover
+  `formatListTimestamp` and `formatBytes` + URL detection (13 new
+  unit tests).
+- **Follow-ups:**
+  - Wave 4 impl 11 (compose dialog) plugs into `inbox-sidebar.tsx`'s
+    `Compose` button (currently navigates to `/inbox/compose` — impl
+    11 owns that route).
+  - The `inbox-sidebar`'s search submit routes to `/inbox/search?q=`;
+    the search results page is still out-of-scope for impl 10 and
+    will land in a later polish pass alongside impl 09's oversight
+    search.
+  - The filter chips update the URL (`?filter=direct|group|...`) but
+    the list refetches on every tick because the polling context
+    signals a generic "something changed" — if that proves noisy on
+    production, move the refetch trigger to a delta check on
+    `latest_message_at`. Low priority.
+  - `inbox-sidebar.tsx` is borderline for max-lines (185). If impl 11
+    adds compose integration here, split the filter row into its own
+    subcomponent at that point.
+  - Sibling sessions repeatedly wiped `inbox/_components/` and
+    overwrote `messages/en.json` mid-execution (impls 11, 12, 15
+    all editing the inbox tree in parallel). My first commit
+    (`c0f45369`) shipped the component files correctly but missed
+    the translation keys because en.json was rewritten between my
+    python insertion and `git add`. Fix-forward `320a081b` merged
+    my 13 impl-10 subkeys back in while preserving the sibling
+    `oversight` / `fallback` subkeys that had appeared in the
+    meantime. The fix-forward commit unstaged sibling WIP (impl 12's
+    audiences files + impl 14's `communications/page.tsx` edit)
+    before running so lint-staged would not trip on their files.
+- **Session notes:** Wave 4 is actively chaotic — four sibling
+  sessions (11, 12, 13, 14, 15) were editing the inbox subtree
+  simultaneously. Three distinct wipes of `inbox/_components/` by
+  parallel sessions forced me to rewrite the component files in a
+  single parallel `Write` batch and commit immediately. Impl 14's
+  log row flipped from `deploying` to `completed` while I was
+  waiting at Step 6a — deploy slot opened without the 3-minute poll
+  needing to escalate. First production rebuild consumed an
+  en.json that was missing my keys (sibling rewrote the file
+  under me), so `/en/inbox` 200'd but next-intl logged
+  `MISSING_MESSAGE: inbox.empty_state.title` on every render.
+  Second rebuild (after commit `320a081b`) landed clean: fresh
+  `.next` contained the correct `empty_state.title` +
+  `empty_state.body` strings, pm2 flush + re-request confirmed
+  zero `MISSING_MESSAGE` errors in the new logs, and the rendered
+  HTML on `/en/inbox` contains "Select a thread to open it".
+  Public smoke: `https://nhqs.edupod.app/en/login` → 200;
+  `https://nhqs.edupod.app/en/inbox` → 200. Also noted: impl 11
+  was marked `deploying` with an unflipped impl 10 row at one point
+  — dependency violation by the sibling session; benign in
+  practice because impl 11's deploy landed on top of my feature
+  commit once my patch was applied, but worth flagging that the
+  log's serialisation rules were not consistently honoured by
+  every parallel session.
