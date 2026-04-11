@@ -42,15 +42,14 @@ export const ROLE_LABELS: Record<MessagingRole, string> = {
  * Relational scope notes — informational tooltips on the matrix cells.
  * Match the hard-coded rules in `RelationalScopeResolver` (impl 02).
  */
-export const RELATIONAL_SCOPE_NOTES: Partial<
-  Record<`${MessagingRole}:${MessagingRole}`, string>
-> = {
-  'teacher:parent':
-    'Teachers can only message parents of students in their own classes. This scope is hard-coded and cannot be changed.',
-  'parent:teacher':
-    'Parents can only message teachers of their own children. This scope is hard-coded and cannot be changed.',
-  'teacher:student':
-    'Teachers can only message students in their own classes. This scope is hard-coded and cannot be changed.',
-  'student:teacher':
-    'Students can only message their own teachers. This scope is hard-coded and cannot be changed.',
-};
+export const RELATIONAL_SCOPE_NOTES: Partial<Record<`${MessagingRole}:${MessagingRole}`, string>> =
+  {
+    'teacher:parent':
+      'Teachers can only message parents of students in their own classes. This scope is hard-coded and cannot be changed.',
+    'parent:teacher':
+      'Parents can only message teachers of their own children. This scope is hard-coded and cannot be changed.',
+    'teacher:student':
+      'Teachers can only message students in their own classes. This scope is hard-coded and cannot be changed.',
+    'student:teacher':
+      'Students can only message their own teachers. This scope is hard-coded and cannot be changed.',
+  };

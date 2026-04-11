@@ -103,10 +103,7 @@ export function PolicyMatrixGrid({
 
       <div className="md:hidden space-y-4">
         {MESSAGING_ROLES.map((sender) => (
-          <div
-            key={`mobile-${sender}`}
-            className="border border-border rounded-lg overflow-hidden"
-          >
+          <div key={`mobile-${sender}`} className="border border-border rounded-lg overflow-hidden">
             <div className="bg-surface-secondary px-3 py-2 text-sm font-semibold text-text-primary">
               From {ROLE_LABELS[sender]} →
             </div>

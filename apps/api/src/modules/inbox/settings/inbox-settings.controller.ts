@@ -1,9 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, UseGuards } from '@nestjs/common';
 
-import {
-  updateInboxSettingsSchema,
-  updateMessagingPolicySchema,
-} from '@school/shared/inbox';
+import { updateInboxSettingsSchema, updateMessagingPolicySchema } from '@school/shared/inbox';
 import type { UpdateInboxSettingsDto, UpdateMessagingPolicyDto } from '@school/shared/inbox';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';

@@ -123,10 +123,7 @@ export default function MessagingPolicyPage(): React.ReactElement {
   });
 
   const formValues = watch();
-  const disabledCells = React.useMemo(
-    () => computeDisabledCells(formValues),
-    [formValues],
-  );
+  const disabledCells = React.useMemo(() => computeDisabledCells(formValues), [formValues]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -460,9 +457,9 @@ export default function MessagingPolicyPage(): React.ReactElement {
         </div>
         <div className="mt-4 rounded-md border border-border bg-surface-secondary p-3 text-xs text-text-secondary">
           <strong>GDPR note:</strong> Setting a retention period helps comply with data
-          minimisation. The platform deletes messages permanently — for safeguarding records,
-          export important conversations before retention runs. (Retention enforcement runs in a
-          future worker — the setting is captured now.)
+          minimisation. The platform deletes messages permanently — for safeguarding records, export
+          important conversations before retention runs. (Retention enforcement runs in a future
+          worker — the setting is captured now.)
         </div>
       </section>
 
@@ -473,9 +470,7 @@ export default function MessagingPolicyPage(): React.ReactElement {
             isDirty || dirtyCells.size > 0 ? 'text-warning-text' : 'text-text-secondary',
           )}
         >
-          {isDirty || dirtyCells.size > 0
-            ? 'You have unsaved changes.'
-            : 'All changes saved.'}
+          {isDirty || dirtyCells.size > 0 ? 'You have unsaved changes.' : 'All changes saved.'}
         </p>
         <Button type="submit" disabled={saving || (!isDirty && dirtyCells.size === 0)}>
           <Save className="me-2 h-4 w-4" />
