@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, Input, Label, toast } from '@school/ui';
+import { Button, toast } from '@school/ui';
 
 import { DynamicFormRenderer } from '@/components/admissions/dynamic-form-renderer';
 import { apiClient, unwrap } from '@/lib/api-client';
@@ -58,8 +58,64 @@ type LoadState = 'loading' | 'tenant-not-found' | 'form-not-found' | 'ready' | '
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CORE_FIELD_KEYS = new Set(['target_academic_year_id', 'target_year_group_id']);
+const YEAR_FIELD_KEYS = new Set(['target_academic_year_id', 'target_year_group_id']);
 const STORAGE_KEY_PREFIX = 'public-apply-draft-';
+
+// Ordered field-group definitions — every canonical system-form key belongs
+// to exactly one group. Any unrecognised field falls through to "other".
+const FIELD_GROUPS: Array<{ id: string; titleKey: string; fieldKeys: string[] }> = [
+  {
+    id: 'student',
+    titleKey: 'studentSection',
+    fieldKeys: [
+      'student_first_name',
+      'student_middle_name',
+      'student_last_name',
+      'student_dob',
+      'student_gender',
+      'student_national_id',
+      'student_medical_notes',
+      'student_allergies',
+    ],
+  },
+  {
+    id: 'year',
+    titleKey: 'yearSection',
+    fieldKeys: ['target_academic_year_id', 'target_year_group_id'],
+  },
+  {
+    id: 'parent1',
+    titleKey: 'parent1Section',
+    fieldKeys: [
+      'parent1_first_name',
+      'parent1_last_name',
+      'parent1_email',
+      'parent1_phone',
+      'parent1_relationship',
+    ],
+  },
+  {
+    id: 'parent2',
+    titleKey: 'parent2Section',
+    fieldKeys: [
+      'parent2_first_name',
+      'parent2_last_name',
+      'parent2_email',
+      'parent2_phone',
+      'parent2_relationship',
+    ],
+  },
+  {
+    id: 'address',
+    titleKey: 'addressSection',
+    fieldKeys: ['address_line_1', 'address_line_2', 'city', 'country', 'postal_code'],
+  },
+  {
+    id: 'emergency',
+    titleKey: 'emergencySection',
+    fieldKeys: ['emergency_name', 'emergency_phone', 'emergency_relationship'],
+  },
+];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -77,9 +133,6 @@ export default function PublicApplyPage() {
   const [tenant, setTenant] = React.useState<PublicTenantConfig | null>(null);
   const [form, setForm] = React.useState<PublicForm | null>(null);
 
-  const [studentFirstName, setStudentFirstName] = React.useState('');
-  const [studentLastName, setStudentLastName] = React.useState('');
-  const [dateOfBirth, setDateOfBirth] = React.useState('');
   const [formValues, setFormValues] = React.useState<Record<string, unknown>>({});
   const [honeypot, setHoneypot] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
@@ -144,15 +197,7 @@ export default function PublicApplyPage() {
     try {
       const raw = window.sessionStorage.getItem(`${STORAGE_KEY_PREFIX}${tenantSlug}`);
       if (!raw) return;
-      const draft = JSON.parse(raw) as {
-        studentFirstName?: string;
-        studentLastName?: string;
-        dateOfBirth?: string;
-        formValues?: Record<string, unknown>;
-      };
-      if (draft.studentFirstName) setStudentFirstName(draft.studentFirstName);
-      if (draft.studentLastName) setStudentLastName(draft.studentLastName);
-      if (draft.dateOfBirth) setDateOfBirth(draft.dateOfBirth);
+      const draft = JSON.parse(raw) as { formValues?: Record<string, unknown> };
       if (draft.formValues) setFormValues(draft.formValues);
     } catch (err) {
       console.error('[PublicApplyPage.restoreDraft]', err);
@@ -165,32 +210,47 @@ export default function PublicApplyPage() {
     try {
       window.sessionStorage.setItem(
         `${STORAGE_KEY_PREFIX}${tenantSlug}`,
-        JSON.stringify({ studentFirstName, studentLastName, dateOfBirth, formValues }),
+        JSON.stringify({ formValues }),
       );
     } catch (err) {
       console.error('[PublicApplyPage.persistDraft]', err);
     }
-  }, [loadState, tenantSlug, studentFirstName, studentLastName, dateOfBirth, formValues]);
+  }, [loadState, tenantSlug, formValues]);
 
   const displayName = isRtl
     ? (tenant?.display_name_ar ?? tenant?.display_name ?? tenant?.name ?? '')
     : (tenant?.display_name ?? tenant?.name ?? '');
 
-  // Split form fields — target year group + academic year are rendered inside
-  // the "School year" card alongside the core student fields; the rest go in
-  // the dynamic renderer card.
-  const targetAcademicYearField = React.useMemo(
-    () => form?.fields.find((f) => f.field_key === 'target_academic_year_id'),
-    [form],
-  );
-  const targetYearGroupField = React.useMemo(
-    () => form?.fields.find((f) => f.field_key === 'target_year_group_id'),
-    [form],
-  );
-  const dynamicFields = React.useMemo(
-    () => (form?.fields ?? []).filter((f) => !CORE_FIELD_KEYS.has(f.field_key)),
-    [form],
-  );
+  // Split form fields into semantic groups by canonical field_key. Any field
+  // the canonical template doesn't know about falls through to an "other"
+  // bucket so tenants that extend the form in the future still render
+  // sensibly.
+  const groupedFields = React.useMemo(() => {
+    const byKey = new Map((form?.fields ?? []).map((f) => [f.field_key, f]));
+    const assigned = new Set<string>();
+    const groups = FIELD_GROUPS.map((group) => {
+      const fields = group.fieldKeys
+        .map((key) => {
+          const found = byKey.get(key);
+          if (found) assigned.add(key);
+          return found;
+        })
+        .filter((f): f is PublicFormField => !!f);
+      return { ...group, fields };
+    }).filter((g) => g.fields.length > 0);
+
+    const other = (form?.fields ?? []).filter((f) => !assigned.has(f.field_key));
+    if (other.length > 0) {
+      groups.push({ id: 'other', titleKey: 'otherSection', fieldKeys: [], fields: other });
+    }
+    return groups;
+  }, [form]);
+
+  const studentFirstName =
+    typeof formValues.student_first_name === 'string' ? formValues.student_first_name : '';
+  const studentLastName =
+    typeof formValues.student_last_name === 'string' ? formValues.student_last_name : '';
+  const studentDob = typeof formValues.student_dob === 'string' ? formValues.student_dob : '';
 
   const canSubmit =
     loadState === 'ready' &&
@@ -211,7 +271,13 @@ export default function PublicApplyPage() {
       const targetAcademicYearId = formValues.target_academic_year_id as string;
       const targetYearGroupId = formValues.target_year_group_id as string;
       const residualPayload = Object.fromEntries(
-        Object.entries(formValues).filter(([key]) => !CORE_FIELD_KEYS.has(key)),
+        Object.entries(formValues).filter(
+          ([key]) =>
+            !YEAR_FIELD_KEYS.has(key) &&
+            key !== 'student_first_name' &&
+            key !== 'student_last_name' &&
+            key !== 'student_dob',
+        ),
       );
 
       const created = unwrap(
@@ -226,7 +292,7 @@ export default function PublicApplyPage() {
               form_definition_id: form.id,
               student_first_name: studentFirstName.trim(),
               student_last_name: studentLastName.trim(),
-              date_of_birth: dateOfBirth || null,
+              date_of_birth: studentDob || null,
               target_academic_year_id: targetAcademicYearId,
               target_year_group_id: targetYearGroupId,
               payload_json: residualPayload,
@@ -336,82 +402,25 @@ export default function PublicApplyPage() {
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-        {/* Student fields */}
-        <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-text-primary">{t('studentSection')}</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="student-first-name">
-                {t('firstName')}
-                <span className="ms-0.5 text-emerald-600">*</span>
-              </Label>
-              <Input
-                id="student-first-name"
-                value={studentFirstName}
-                onChange={(e) => setStudentFirstName(e.target.value)}
-                required
-                autoComplete="given-name"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="student-last-name">
-                {t('lastName')}
-                <span className="ms-0.5 text-emerald-600">*</span>
-              </Label>
-              <Input
-                id="student-last-name"
-                value={studentLastName}
-                onChange={(e) => setStudentLastName(e.target.value)}
-                required
-                autoComplete="family-name"
-              />
-            </div>
-          </div>
-          <div className="mt-4 space-y-1.5">
-            <Label htmlFor="student-dob">{t('dateOfBirth')}</Label>
-            <Input
-              id="student-dob"
-              type="date"
-              dir="ltr"
-              value={dateOfBirth}
-              onChange={(e) => setDateOfBirth(e.target.value)}
-            />
-          </div>
-        </section>
-
-        {/* Target year / academic year */}
-        {(targetAcademicYearField || targetYearGroupField) && (
-          <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-text-primary">{t('yearSection')}</h2>
+        {groupedFields.map((group) => (
+          <section
+            key={group.id}
+            className="rounded-xl border border-border bg-surface p-6 shadow-sm"
+          >
+            <h2 className="mb-4 text-base font-semibold text-text-primary">{t(group.titleKey)}</h2>
             <DynamicFormRenderer
-              fields={
-                [targetAcademicYearField, targetYearGroupField].filter(Boolean) as PublicFormField[]
-              }
+              fields={group.fields}
               values={formValues}
               onChange={setFormValues}
             />
           </section>
-        )}
-
-        {/* Dynamic fields */}
-        {dynamicFields.length > 0 && (
-          <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-text-primary">
-              {t('detailsSection')}
-            </h2>
-            <DynamicFormRenderer
-              fields={dynamicFields}
-              values={formValues}
-              onChange={setFormValues}
-            />
-          </section>
-        )}
+        ))}
 
         {/* Honeypot — hidden from real users, rejected server-side if filled */}
         <div className="absolute -start-[9999px] opacity-0" aria-hidden="true">
           <label>
             {t('honeypotLabel')}
-            <Input
+            <input
               tabIndex={-1}
               autoComplete="off"
               value={honeypot}
