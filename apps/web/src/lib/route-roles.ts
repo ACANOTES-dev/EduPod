@@ -121,7 +121,16 @@ export const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
   },
   { prefix: '/finance', roles: [...ADMIN_ROLES, 'accounting'] },
   { prefix: '/payroll', roles: ['school_owner', 'school_principal'] },
-  { prefix: '/communications', roles: ADMIN_ROLES },
+  // Admin-only sub-pages first so the first-match loop catches them
+  // before the broader `/communications` dashboard entry below.
+  { prefix: '/communications/announcements', roles: ADMIN_ROLES },
+  { prefix: '/communications/inquiries', roles: ADMIN_ROLES },
+  { prefix: '/communications/new', roles: ADMIN_ROLES },
+  // The /communications dashboard is the hub landing page and is
+  // reachable by any staff role — individual cards on it enforce their
+  // own permissions (e.g. the Oversight card shows "—" for users
+  // without oversight read permission).
+  { prefix: '/communications', roles: STAFF_ROLES },
   { prefix: '/approvals', roles: ADMIN_ROLES },
   {
     prefix: '/reports',
