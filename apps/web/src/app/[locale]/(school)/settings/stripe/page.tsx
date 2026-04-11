@@ -6,7 +6,7 @@ import * as React from 'react';
 
 import { Button, Input, Label, toast } from '@school/ui';
 
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                     */
@@ -92,7 +92,10 @@ export default function StripeConfigPage() {
   React.useEffect(() => {
     async function fetchConfig() {
       try {
-        const data = await apiClient<StripeConfigResponse>('/api/v1/stripe-config');
+        const raw = await apiClient<StripeConfigResponse | { data: StripeConfigResponse }>(
+          '/api/v1/stripe-config',
+        );
+        const data = unwrap(raw) as StripeConfigResponse;
         if (data.stripe_secret_key_masked || data.is_configured) {
           setIsConfigured(true);
           setMaskedSecretKey(data.stripe_secret_key_masked ?? '');
@@ -124,19 +127,25 @@ export default function StripeConfigPage() {
 
     setSaving(true);
     try {
-      const data = await apiClient<StripeConfigResponse>('/api/v1/stripe-config', {
-        method: 'PUT',
-        body: JSON.stringify({
-          stripe_secret_key: secretKey,
-          stripe_publishable_key: publishableKey,
-          stripe_webhook_secret: webhookSecret,
-        }),
-      });
+      const raw = await apiClient<StripeConfigResponse | { data: StripeConfigResponse }>(
+        '/api/v1/stripe-config',
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            stripe_secret_key: secretKey,
+            stripe_publishable_key: publishableKey,
+            stripe_webhook_secret: webhookSecret,
+          }),
+        },
+      );
+      const data = unwrap(raw) as StripeConfigResponse;
 
       setIsConfigured(true);
       setIsEditing(false);
       setMaskedSecretKey(data.stripe_secret_key_masked ?? '****');
-      setMaskedPublishableKey(data.stripe_publishable_key_masked ?? '****');
+      setMaskedPublishableKey(
+        data.stripe_publishable_key_masked ?? data.stripe_publishable_key ?? '****',
+      );
       setMaskedWebhookSecret(data.stripe_webhook_secret_masked ?? '****');
 
       // Clear entered values
