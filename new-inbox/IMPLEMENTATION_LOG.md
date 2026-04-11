@@ -108,24 +108,24 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                | Wave | Depends on             | Status        | Completed at     | Commit SHA |
-| --- | ---------------------------------------------------- | ---- | ---------------------- | ------------- | ---------------- | ---------- |
-| 01  | Schema foundation                                    | 1    | —                      | `completed`   | 2026-04-11 06:55 | 2a8e307c   |
-| 02  | Messaging policy engine                              | 2    | 01                     | `completed`   | 2026-04-11 07:29 | 18672264   |
-| 03  | Audience engine v2                                   | 2    | 01                     | `completed`   | 2026-04-11 09:37 | f7e6d823   |
-| 04  | Conversations + messages service                     | 2    | 01                     | `completed`   | 2026-04-11 11:01 | 6be890d6   |
-| 05  | Admin oversight service                              | 2    | 01                     | `completed`   | 2026-04-11 09:36 | 0eeb8930   |
-| 06  | Inbox channel provider in dispatcher                 | 3    | 01, 04                 | `in-progress` | —                | —          |
-| 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `deploying`   | —                | —          |
-| 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `in-progress` | —                | —          |
-| 09  | Full-text search                                     | 3    | 01, 04                 | `completed`   | 2026-04-11 11:25 | 9b77fd16   |
-| 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `pending`     | —                | —          |
-| 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `pending`     | —                | —          |
-| 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `pending`     | —                | —          |
-| 13  | Messaging policy settings page                       | 4    | 01, 02                 | `pending`     | —                | —          |
-| 14  | Safeguarding settings + dashboard alerts widget      | 4    | 01, 08                 | `pending`     | —                | —          |
-| 15  | Admin oversight UI + fallback settings               | 4    | 01, 05, 07             | `pending`     | —                | —          |
-| 16  | Polish, translations, mobile pass, morph bar wire-up | 5    | 10–15                  | `pending`     | —                | —          |
+| #   | Title                                                | Wave | Depends on             | Status      | Completed at     | Commit SHA |
+| --- | ---------------------------------------------------- | ---- | ---------------------- | ----------- | ---------------- | ---------- |
+| 01  | Schema foundation                                    | 1    | —                      | `completed` | 2026-04-11 06:55 | 2a8e307c   |
+| 02  | Messaging policy engine                              | 2    | 01                     | `completed` | 2026-04-11 07:29 | 18672264   |
+| 03  | Audience engine v2                                   | 2    | 01                     | `completed` | 2026-04-11 09:37 | f7e6d823   |
+| 04  | Conversations + messages service                     | 2    | 01                     | `completed` | 2026-04-11 11:01 | 6be890d6   |
+| 05  | Admin oversight service                              | 2    | 01                     | `completed` | 2026-04-11 09:36 | 0eeb8930   |
+| 06  | Inbox channel provider in dispatcher                 | 3    | 01, 04                 | `completed` | 2026-04-11 11:45 | b11a3b02   |
+| 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `completed` | 2026-04-11 11:26 | 3362bc12   |
+| 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `deploying` | —                | —          |
+| 09  | Full-text search                                     | 3    | 01, 04                 | `completed` | 2026-04-11 11:25 | 9b77fd16   |
+| 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `pending`   | —                | —          |
+| 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `pending`   | —                | —          |
+| 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `pending`   | —                | —          |
+| 13  | Messaging policy settings page                       | 4    | 01, 02                 | `pending`   | —                | —          |
+| 14  | Safeguarding settings + dashboard alerts widget      | 4    | 01, 08                 | `pending`   | —                | —          |
+| 15  | Admin oversight UI + fallback settings               | 4    | 01, 05, 07             | `pending`   | —                | —          |
+| 16  | Polish, translations, mobile pass, morph bar wire-up | 5    | 10–15                  | `pending`   | —                | —          |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -564,3 +564,67 @@ new platform-level row(s).` and every subsequent boot logs
   confirmed on both boots. Coded and deployed in parallel with impls
   06 / 08 / 09 — worker-only deploy had no serialisation conflict
   with impl 09's concurrent API-only deploy.
+
+### [IMPL 06] — Inbox channel provider in dispatcher
+
+- **Completed:** 2026-04-11T11:45+01:00 Europe/Dublin
+- **Commit:** `b11a3b02` (local `0c4824b5` on top of `f63e2d31`)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Makes the inbox the default-on fourth channel. New files under
+  `apps/api/src/modules/communications/`: `InboxChannelProvider`
+  (no-op send; exists as the future mobile-push hook point),
+  `InboxBridgeService` (single hand-off from
+  `AnnouncementsService.executePublish` into
+  `ConversationsService.createBroadcast`, translating the five legacy
+  `AnnouncementScope` values into `AudienceDefinition` leaves —
+  `parents_school`, `year_group_parents`, `class_parents`,
+  `household`, `handpicked`). The bridge resolves `ConversationsService`
+  lazily via `ModuleRef.get(..., { strict: false })` rather than a
+  constructor inject — constructor injection creates a runtime
+  circular dep chain AppModule → AdmissionsModule → FinanceModule →
+  InboxModule → CommunicationsModule → ClassesModule → AdmissionsModule
+  that `forwardRef` cannot unwind (commit `9b77fd16 / 78ad4c4f` was
+  the earlier revert of that dead-end). `InboxOutboxService` swaps its
+  Wave-2 stub for a real BullMQ producer: `notifyMessageCreated`
+  enqueues `inbox:dispatch-channels` on the `notifications` queue when
+  the sender picks email/sms/whatsapp, validated by
+  `inboxDispatchChannelsJobPayloadSchema` (new in `@school/shared`).
+  The worker's new `InboxDispatchChannelsProcessor` bulk-inserts
+  `Notification` rows with `source_entity_type='inbox_message'` and
+  hands off to the existing `DispatchNotificationsProcessor` via
+  `communications:dispatch-notifications` so template / rate-limit /
+  fallback-chain logic is reused, not duplicated.
+  `AnnouncementsService.executePublish` now calls the bridge inside a
+  try/catch — legacy SMS/Email/WhatsApp fan-out via the existing
+  `Notification` pipeline stays intact, and a bridge failure never
+  breaks the publish. 76 new unit tests across bridge, provider,
+  outbox, worker processor, and announcements spec.
+- **Follow-ups:**
+  - Wave 4 impl 11 (compose dialog) will drive the new
+    `createBroadcast` path directly; no further work needed on the
+    dispatcher glue.
+  - The worker's `InboxDispatchChannelsProcessor` routes all external
+    channels through the existing `Notification` rows pipeline. When a
+    future wave introduces mobile push, add it as a new provider in
+    `DispatchNotificationsProcessor` rather than building a second
+    dispatcher — the channel list is already in one place.
+  - `AnnouncementsService.executePublish` continues to run its own
+    audience resolution (via `AudienceResolutionService`) alongside
+    the bridge's v2 resolution. When legacy announcements are
+    migrated off the `Notification`-row path entirely, drop the
+    legacy resolver and keep only the bridge. Out of scope for Wave 3.
+- **Session notes:** Deploy required a broader patch than just this
+  commit — production's equivalent of local `f63e2d31` (which had
+  bundled my earlier impl 06 file scaffolding) was missing, so the
+  deploy patch covered both commits via a single `git diff 9e136376
+..HEAD` applied on the server. Impl 08's in-progress `worker.module
+.ts` additions (SafeguardingScanMessageProcessor + NotifyReviewers
+  imports + the `QUEUE_NAMES.SAFEGUARDING` registration) were also
+  pulled in by the diff; stripped them on the server with a one-shot
+  sed/python script before the worker build so impl 08 can re-add
+  them cleanly when it lands. `/api/health` returns 200 after
+  restart; `/api/v1/inbox/conversations` returns 401 (route
+  registered, auth guard active). Worker boot log shows
+  `NestApplication successfully started` and the existing
+  `InboxFallbackCheckProcessor` cron firing on schedule.
