@@ -139,7 +139,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status        | Completed at              | Commit SHA |
 | --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ------------- | ------------------------- | ---------- |
 | 01  | Schema foundation                             | 1    | schema         | serial               | —          | `completed`   | 2026-04-11T15:00:00+01:00 | 7ff33d56   |
-| 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `in-progress` | —                         | —          |
+| 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `completed`   | 2026-04-11T16:26:00+01:00 | b2593a08   |
 | 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `in-progress` | —                         | —          |
 | 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `pending`     | —                         | —          |
 | 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `pending`     | —                         | —          |
@@ -194,3 +194,31 @@ Append new records below in chronological order. Format:
 - **Session notes:** Advisory lock from crashed migration attempt needed manual
   `pg_terminate_backend` to clear. Pre-existing ESLint OOM on large staged file sets
   requires `NODE_OPTIONS=--max-old-space-size=8192` for commits touching many files.
+
+### [IMPL 02] — Household number generator + student refactor
+
+- **Completed:** 2026-04-11T16:26:00+01:00 (Europe/Dublin)
+- **Commits:** fb2174d1, c25b14b7, 3453817e, be077497, b2593a08 (local) / b742fd2a..98f96ccd (prod)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Created `HouseholdNumberService` at `apps/api/src/modules/households/household-number.service.ts`
+  with four public methods: `generateUniqueForTenant` (random 6-char AAA999 format with
+  `crypto.randomInt`, collision-retry loop up to 8 attempts), `previewForTenant` (preview
+  for walk-in wizard), `incrementStudentCounter` (SELECT FOR UPDATE row lock, cap at 99),
+  and `generateStudentNumber` (branches on `household.household_number` — new households
+  get `{hh}-{nn}`, legacy households without a number get `STU-NNNNNN` via the existing
+  sequence service). Hooked `generateUniqueForTenant` into `HouseholdsCrudService.create`
+  and `RegistrationService.registerFamily` (replacing `sequenceService.generateHouseholdReference`).
+  Hooked `generateStudentNumber` into `StudentsService.create`,
+  `RegistrationService.registerFamily`, and `RegistrationService.addStudentToHousehold`.
+  Registered `HouseholdNumberService` as a direct provider in `HouseholdsModule` (providers
+  - exports), `StudentsModule`, and `RegistrationModule` (avoids circular dep). Added
+    `./households/*` export to `@school/shared` package.json. 15 unit tests covering
+    generation, collision, cap, branching, and legacy fallback. Updated 3 existing spec files
+    for new DI dependency. Did NOT touch `ApplicationConversionService` — impl 03 territory.
+- **Follow-ups:** Impl 03 must hook `HouseholdNumberService.generateUniqueForTenant` into
+  `ApplicationConversionService.resolveHousehold` and `generateStudentNumber` into
+  `convertToStudent`. The service is already exported from `HouseholdsModule`.
+- **Session notes:** Ran in parallel with impl 03 session. Sibling session's commits
+  interleaved in git log — deployed via individual format-patches. `packages/shared/package.json`
+  is a shared file (added `households/*` export) — impl 03 may also touch it.
