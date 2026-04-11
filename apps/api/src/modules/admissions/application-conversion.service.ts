@@ -1,8 +1,14 @@
+import { randomBytes } from 'crypto';
+
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { CONSENT_TYPES, mapConsentCaptureToTypes } from '@school/shared/gdpr';
 import type { ConsentCaptureDto } from '@school/shared/gdpr';
+import {
+  formatStudentNumberFromHousehold,
+  HOUSEHOLD_MAX_STUDENTS,
+} from '@school/shared/households/household-number';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
@@ -94,31 +100,161 @@ export class ApplicationConversionService {
       return { ...duplicate, created: false };
     }
 
-    const parent1 = await this.resolveOrCreateParent(db, tenantId, {
-      first_name: payload.parent1_first_name,
-      last_name: payload.parent1_last_name,
-      email: payload.parent1_email,
-      phone: payload.parent1_phone,
-      relationship: payload.parent1_relationship,
-      is_primary: true,
-    });
+    // ─── Household resolution: existing vs new-batch materialisation ────────
 
-    let parent2: { id: string; matched_existing: boolean; household_id: string | null } | null =
-      null;
-    if (payload.parent2_first_name && payload.parent2_last_name) {
-      parent2 = await this.resolveOrCreateParent(db, tenantId, {
-        first_name: payload.parent2_first_name,
-        last_name: payload.parent2_last_name,
-        email: payload.parent2_email,
-        phone: payload.parent2_phone,
-        relationship: payload.parent2_relationship,
-        is_primary: false,
+    let householdId: string;
+    let householdNumber: string | null = null;
+
+    if (application.household_id) {
+      // Existing household — linked at submission time (existing_household mode)
+      // or by a prior sibling approval in the same new-household batch.
+      const household = await db.household.findFirst({
+        where: { id: application.household_id, tenant_id: tenantId },
+        select: { id: true, household_number: true },
+      });
+      if (!household) {
+        throw new NotFoundException({
+          error: {
+            code: 'HOUSEHOLD_NOT_FOUND',
+            message: `Household "${application.household_id}" referenced by application not found`,
+          },
+        });
+      }
+      householdId = household.id;
+      householdNumber = household.household_number;
+    } else {
+      // No household_id: new_household batch, first approval materialises the household.
+      const parent1 = await this.resolveOrCreateParent(db, tenantId, {
+        first_name: payload.parent1_first_name,
+        last_name: payload.parent1_last_name,
+        email: payload.parent1_email,
+        phone: payload.parent1_phone,
+        relationship: payload.parent1_relationship,
+        is_primary: true,
+      });
+
+      let parent2: { id: string; matched_existing: boolean; household_id: string | null } | null =
+        null;
+      if (payload.parent2_first_name && payload.parent2_last_name) {
+        parent2 = await this.resolveOrCreateParent(db, tenantId, {
+          first_name: payload.parent2_first_name,
+          last_name: payload.parent2_last_name,
+          email: payload.parent2_email,
+          phone: payload.parent2_phone,
+          relationship: payload.parent2_relationship,
+          is_primary: false,
+        });
+      }
+
+      // Check if parent already has a household (matched existing parent)
+      if (parent1.matched_existing && parent1.household_id) {
+        householdId = parent1.household_id;
+        const existingHh = await db.household.findFirst({
+          where: { id: householdId, tenant_id: tenantId },
+          select: { household_number: true },
+        });
+        householdNumber = existingHh?.household_number ?? null;
+      } else {
+        // Create a new household with a 6-char random household number
+        const newHouseholdNumber = await this.generateUniqueHouseholdNumber(db, tenantId);
+        const household = await db.household.create({
+          data: {
+            tenant_id: tenantId,
+            household_name: `${payload.student_last_name} Family`,
+            household_number: newHouseholdNumber,
+            address_line_1: payload.address_line_1,
+            address_line_2: payload.address_line_2,
+            city: payload.city,
+            country: payload.country,
+            postal_code: payload.postal_code,
+            primary_billing_parent_id: parent1.id,
+            status: 'active',
+            needs_completion: false,
+            student_counter: 0,
+          },
+        });
+        householdId = household.id;
+        householdNumber = newHouseholdNumber;
+
+        await db.householdParent.create({
+          data: {
+            tenant_id: tenantId,
+            household_id: householdId,
+            parent_id: parent1.id,
+            role_label: payload.parent1_relationship ?? null,
+          },
+        });
+      }
+
+      if (parent2) {
+        const existingLink = await db.householdParent.findFirst({
+          where: { tenant_id: tenantId, household_id: householdId, parent_id: parent2.id },
+        });
+        if (!existingLink) {
+          await db.householdParent.create({
+            data: {
+              tenant_id: tenantId,
+              household_id: householdId,
+              parent_id: parent2.id,
+              role_label: payload.parent2_relationship ?? null,
+            },
+          });
+        }
+      }
+
+      // Link ALL other applications in the same submission batch to this household
+      // so subsequent approvals find household_id already set.
+      if (application.submission_batch_id) {
+        await db.application.updateMany({
+          where: {
+            tenant_id: tenantId,
+            submission_batch_id: application.submission_batch_id,
+            household_id: null,
+            id: { not: applicationId },
+          },
+          data: { household_id: householdId },
+        });
+      }
+
+      // Link THIS application to the household too
+      await db.application.update({
+        where: { id: applicationId },
+        data: { household_id: householdId },
       });
     }
 
-    const householdId = await this.resolveHousehold(db, tenantId, payload, parent1, parent2);
+    // ─── Student number: household-derived or legacy ─────────────────────────
 
-    const studentNumber = await this.sequenceService.nextNumber(tenantId, 'student', db, 'STU');
+    let studentNumber: string;
+
+    if (householdNumber) {
+      // Household-derived: increment student_counter, format as HH-NN
+      const updatedHousehold = await db.household.update({
+        where: { id: householdId },
+        data: { student_counter: { increment: 1 } },
+        select: { student_counter: true },
+      });
+
+      if (updatedHousehold.student_counter > HOUSEHOLD_MAX_STUDENTS) {
+        throw new BadRequestException({
+          error: {
+            code: 'HOUSEHOLD_STUDENT_CAP_REACHED',
+            message: `Household has reached the maximum of ${HOUSEHOLD_MAX_STUDENTS} students`,
+          },
+        });
+      }
+
+      studentNumber = formatStudentNumberFromHousehold(
+        householdNumber,
+        updatedHousehold.student_counter,
+      );
+    } else {
+      // Legacy path: no household_number, use STU-NNNNNN
+      studentNumber = await this.sequenceService.nextNumber(tenantId, 'student', db, 'STU');
+    }
+
+    // ─── Create the student ──────────────────────────────────────────────────
+
     const student = await db.student.create({
       data: {
         tenant_id: tenantId,
@@ -139,24 +275,48 @@ export class ApplicationConversionService {
       },
     });
 
-    await db.studentParent.create({
-      data: {
-        tenant_id: tenantId,
-        student_id: student.id,
-        parent_id: parent1.id,
-        relationship_label: payload.parent1_relationship ?? null,
+    // ─── Link parents to the student ───────────────────────────────────────
+
+    // For both paths (existing and new household), link all household parents
+    // to the new student. In the new_household path, parents were just created
+    // above. In the existing_household path, parents are already linked to the
+    // household from registration time or a prior sibling conversion.
+    const householdParents = await db.householdParent.findMany({
+      where: { tenant_id: tenantId, household_id: householdId },
+      select: {
+        parent_id: true,
+        role_label: true,
+        parent: { select: { is_primary_contact: true } },
       },
     });
 
-    if (parent2) {
+    let primaryParentId: string | null = null;
+    let secondaryParentId: string | null = null;
+
+    for (const hp of householdParents) {
       await db.studentParent.create({
         data: {
           tenant_id: tenantId,
           student_id: student.id,
-          parent_id: parent2.id,
-          relationship_label: payload.parent2_relationship ?? null,
+          parent_id: hp.parent_id,
+          relationship_label: hp.role_label,
         },
       });
+
+      if (hp.parent?.is_primary_contact) {
+        primaryParentId = hp.parent_id;
+      } else if (!secondaryParentId) {
+        secondaryParentId = hp.parent_id;
+      }
+    }
+
+    // Fallback: if no parent is flagged as primary, use the first one
+    if (!primaryParentId && householdParents.length > 0) {
+      primaryParentId = householdParents[0]!.parent_id;
+    }
+    if (!secondaryParentId) {
+      const other = householdParents.find((hp) => hp.parent_id !== primaryParentId);
+      secondaryParentId = other?.parent_id ?? null;
     }
 
     await this.writeConsentRecords(db, tenantId, student.id, triggerUserId, payload.consents);
@@ -169,8 +329,8 @@ export class ApplicationConversionService {
     return {
       student_id: student.id,
       household_id: householdId,
-      primary_parent_id: parent1.id,
-      secondary_parent_id: parent2?.id ?? null,
+      primary_parent_id: primaryParentId ?? '',
+      secondary_parent_id: secondaryParentId,
       created: true,
     };
   }
@@ -291,62 +451,46 @@ export class ApplicationConversionService {
     return { id: created.id, matched_existing: false, household_id: null };
   }
 
-  private async resolveHousehold(
+  /**
+   * Generate a cryptographically random 6-char household number (3 uppercase
+   * letters + 3 digits) unique within the tenant. Retries on collision.
+   */
+  private async generateUniqueHouseholdNumber(
     db: PrismaService,
     tenantId: string,
-    payload: ConversionPayload,
-    parent1: { id: string; matched_existing: boolean; household_id: string | null },
-    parent2: { id: string; household_id: string | null } | null,
   ): Promise<string> {
-    let householdId: string;
-    if (parent1.matched_existing && parent1.household_id) {
-      householdId = parent1.household_id;
-    } else {
-      const householdNumber = await this.sequenceService.generateHouseholdReference(tenantId, db);
-      const household = await db.household.create({
-        data: {
-          tenant_id: tenantId,
-          household_name: `${payload.student_last_name} Family`,
-          household_number: householdNumber,
-          address_line_1: payload.address_line_1,
-          address_line_2: payload.address_line_2,
-          city: payload.city,
-          country: payload.country,
-          postal_code: payload.postal_code,
-          primary_billing_parent_id: parent1.id,
-          status: 'active',
-          needs_completion: false,
-        },
-      });
-      householdId = household.id;
+    const MAX_ATTEMPTS = 8;
+    const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const DIGITS = '0123456789';
 
-      await db.householdParent.create({
-        data: {
-          tenant_id: tenantId,
-          household_id: householdId,
-          parent_id: parent1.id,
-          role_label: payload.parent1_relationship ?? null,
-        },
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const bytes = randomBytes(6);
+      const code =
+        LETTERS[bytes[0]! % 26] +
+        LETTERS[bytes[1]! % 26] +
+        LETTERS[bytes[2]! % 26] +
+        DIGITS[bytes[3]! % 10] +
+        DIGITS[bytes[4]! % 10] +
+        DIGITS[bytes[5]! % 10];
+
+      const existing = await db.household.findFirst({
+        where: { tenant_id: tenantId, household_number: code },
+        select: { id: true },
       });
+
+      if (!existing) return code;
+
+      this.logger.warn(
+        `[generateUniqueHouseholdNumber] collision on "${code}" (attempt ${attempt + 1}/${MAX_ATTEMPTS})`,
+      );
     }
 
-    if (parent2) {
-      const existingLink = await db.householdParent.findFirst({
-        where: { tenant_id: tenantId, household_id: householdId, parent_id: parent2.id },
-      });
-      if (!existingLink) {
-        await db.householdParent.create({
-          data: {
-            tenant_id: tenantId,
-            household_id: householdId,
-            parent_id: parent2.id,
-            role_label: payload.parent2_relationship ?? null,
-          },
-        });
-      }
-    }
-
-    return householdId;
+    throw new BadRequestException({
+      error: {
+        code: 'HOUSEHOLD_NUMBER_GENERATION_FAILED',
+        message: `Failed to generate a unique household number after ${MAX_ATTEMPTS} attempts`,
+      },
+    });
   }
 
   private async writeConsentRecords(
