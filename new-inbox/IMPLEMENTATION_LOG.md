@@ -108,24 +108,24 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                | Wave | Depends on             | Status      | Completed at     | Commit SHA |
-| --- | ---------------------------------------------------- | ---- | ---------------------- | ----------- | ---------------- | ---------- |
-| 01  | Schema foundation                                    | 1    | —                      | `completed` | 2026-04-11 06:55 | 2a8e307c   |
-| 02  | Messaging policy engine                              | 2    | 01                     | `completed` | 2026-04-11 07:29 | 18672264   |
-| 03  | Audience engine v2                                   | 2    | 01                     | `pending`   | —                | —          |
-| 04  | Conversations + messages service                     | 2    | 01                     | `pending`   | —                | —          |
-| 05  | Admin oversight service                              | 2    | 01                     | `pending`   | —                | —          |
-| 06  | Inbox channel provider in dispatcher                 | 3    | 01, 04                 | `pending`   | —                | —          |
-| 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `pending`   | —                | —          |
-| 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `pending`   | —                | —          |
-| 09  | Full-text search                                     | 3    | 01, 04                 | `pending`   | —                | —          |
-| 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `pending`   | —                | —          |
-| 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `pending`   | —                | —          |
-| 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `pending`   | —                | —          |
-| 13  | Messaging policy settings page                       | 4    | 01, 02                 | `pending`   | —                | —          |
-| 14  | Safeguarding settings + dashboard alerts widget      | 4    | 01, 08                 | `pending`   | —                | —          |
-| 15  | Admin oversight UI + fallback settings               | 4    | 01, 05, 07             | `pending`   | —                | —          |
-| 16  | Polish, translations, mobile pass, morph bar wire-up | 5    | 10–15                  | `pending`   | —                | —          |
+| #   | Title                                                | Wave | Depends on             | Status        | Completed at     | Commit SHA |
+| --- | ---------------------------------------------------- | ---- | ---------------------- | ------------- | ---------------- | ---------- |
+| 01  | Schema foundation                                    | 1    | —                      | `completed`   | 2026-04-11 06:55 | 2a8e307c   |
+| 02  | Messaging policy engine                              | 2    | 01                     | `completed`   | 2026-04-11 07:29 | 18672264   |
+| 03  | Audience engine v2                                   | 2    | 01                     | `completed`   | 2026-04-11 09:37 | f7e6d823   |
+| 04  | Conversations + messages service                     | 2    | 01                     | `pending`     | —                | —          |
+| 05  | Admin oversight service                              | 2    | 01                     | `in-progress` | —                | —          |
+| 06  | Inbox channel provider in dispatcher                 | 3    | 01, 04                 | `pending`     | —                | —          |
+| 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `pending`     | —                | —          |
+| 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `pending`     | —                | —          |
+| 09  | Full-text search                                     | 3    | 01, 04                 | `pending`     | —                | —          |
+| 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `pending`     | —                | —          |
+| 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `pending`     | —                | —          |
+| 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `pending`     | —                | —          |
+| 13  | Messaging policy settings page                       | 4    | 01, 02                 | `pending`     | —                | —          |
+| 14  | Safeguarding settings + dashboard alerts widget      | 4    | 01, 08                 | `pending`     | —                | —          |
+| 15  | Admin oversight UI + fallback settings               | 4    | 01, 05, 07             | `pending`     | —                | —          |
+| 16  | Polish, translations, mobile pass, morph bar wire-up | 5    | 10–15                  | `pending`     | —                | —          |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -247,3 +247,60 @@ Append new records below in chronological order. Format:
   (`messaging_enabled: true`, fallbacks 24h/3h). Backfill log on boot:
   `Inbox permissions ensured — 4 tenants, 8 admin-tier roles, 24
 send-only roles.`
+
+### [IMPL 03] — Audience engine v2
+
+- **Completed:** 2026-04-11T09:37+01:00 Europe/Dublin
+- **Commit:** `f7e6d823` (local `ab5d70c6`)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Landed the smart-audience engine under
+  `apps/api/src/modules/inbox/audience/`. `AudienceProviderRegistry`
+  is a process-wide singleton; 13 inbox-owned providers register via
+  `InboxAudienceProvidersInit` at boot
+  ("Registered 13 inbox-owned audience providers."). Cross-module
+  providers: `FeesInArrearsProvider` lives in `FinanceModule` and
+  resolves households → parents → user_ids (added
+  `FinanceReadFacade.findHouseholdIdsWithOverdueInvoices`; invoices
+  are household-scoped so the spec's student_ids path was replaced).
+  `EventAttendeesProvider` / `TripRosterProvider` are v1 stubs in
+  new placeholder `EventsModule` / `TripsModule` that throw
+  `AUDIENCE_PROVIDER_NOT_WIRED`. `section_parents` and the two student
+  providers (`year_group_students`, `class_students`) also ship as
+  registered stubs (no Sections model yet; students have no `user_id`).
+  `AudienceComposer` walks the definition tree with set algebra, caches
+  the NOT universe per walk, and intercepts `saved_group` leaves to
+  handle cycle detection (`SAVED_AUDIENCE_CYCLE_DETECTED`). Depth limit
+  is enforced at 5 by `audienceDefinitionSchema` in `@school/shared`.
+  `AudienceResolutionService` exposes `resolve`, `resolveSavedAudience`,
+  `previewCount` (deterministic 5-user sample). `SavedAudiencesService`
+  - `SavedAudiencesController` ship full CRUD under
+    `/v1/inbox/audiences` behind `inbox.send`: list / get / create /
+    update / delete / preview / resolve / providers. All writes go
+    through `SavedAudiencesRepository` with RLS-scoped `$transaction`.
+    80 unit tests (13 provider specs + composer + registry + resolution
+  - saved-audiences service + fees-in-arrears).
+- **Follow-ups:**
+  - Wave 4 impl 12 (saved audiences manager UI) consumes the controller
+    and `listProviders` → the `wired: false` flag disables stub chips.
+  - When a real `events` / `trips` / `sections` domain lands, each stub
+    provider is the single touch point to wire the resolver.
+  - When students become first-class users, `year_group_students` /
+    `class_students` and `AudienceUserIdResolver.buildTenantUniverse`
+    are the two places to extend.
+  - `FeesInArrearsProvider` uses households, not students — the impl
+    spec pseudo-code was updated inline with a deviation note.
+  - Deployment bundled impl 05 with impl 03 because impl 05's commit
+    (`3107bf2e` local → `0eeb8930` prod) was ahead of impl 03 in the
+    local git and production did not yet have it. A single API rebuild
+    - `pm2 restart api` served both. Impl 05's log row is still
+      `in-progress` — the owning session should flip it to `completed`
+      against commit `0eeb8930` during reconciliation.
+- **Session notes:** The lint rule `school/no-cross-module-internal-import`
+  fires warnings (not errors) on the registry imports from
+  `events/events.module.ts`, `trips/trips.module.ts`, and
+  `finance/finance.module.ts`. These are deliberate — the registry
+  singleton pattern is how cross-module provider registration is
+  expected to work, and the providers live in their owning modules to
+  satisfy `no-cross-module-prisma-access`. Warnings left in place
+  rather than suppressing to keep the signal visible.
