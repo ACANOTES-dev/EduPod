@@ -136,14 +136,14 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status        | Completed at              | Commit SHA |
-| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ------------- | ------------------------- | ---------- |
-| 01  | Schema foundation                             | 1    | schema         | serial               | —          | `completed`   | 2026-04-11T15:00:00+01:00 | 7ff33d56   |
-| 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `completed`   | 2026-04-11T16:26:00+01:00 | b2593a08   |
-| 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `in-progress` | —                         | —          |
-| 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `pending`     | —                         | —          |
-| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `pending`     | —                         | —          |
-| 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `pending`     | —                         | —          |
+| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status      | Completed at              | Commit SHA |
+| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ----------- | ------------------------- | ---------- |
+| 01  | Schema foundation                             | 1    | schema         | serial               | —          | `completed` | 2026-04-11T15:00:00+01:00 | 7ff33d56   |
+| 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `completed` | 2026-04-11T16:26:00+01:00 | b2593a08   |
+| 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `completed` | 2026-04-11T16:30:00+01:00 | 678bb9a4   |
+| 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `pending`   | —                         | —          |
+| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `pending`   | —                         | —          |
+| 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `pending`   | —                         | —          |
 
 ---
 
@@ -222,3 +222,34 @@ Append new records below in chronological order. Format:
 - **Session notes:** Ran in parallel with impl 03 session. Sibling session's commits
   interleaved in git log — deployed via individual format-patches. `packages/shared/package.json`
   is a shared file (added `households/*` export) — impl 03 may also touch it.
+
+### [IMPL 03] — Multi-student API + sibling priority + public household lookup
+
+- **Completed:** 2026-04-11T16:30:00+01:00 (Europe/Dublin)
+- **Commits:** a7d04329, a29bf77f, 01caf440, 6c92d5a4, 42fdb817, b61e92cf, 678bb9a4 (local) / fd38dcd3..c0875adf (prod)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Created `PublicHouseholdsModule` at `apps/api/src/modules/public-households/` with
+  `PublicHouseholdsController` (POST /v1/public/households/lookup),
+  `PublicHouseholdsService` (dual-match: household_number + parent email, both failures
+  return identical 404 `HOUSEHOLD_NOT_FOUND`), and `PublicHouseholdsRateLimitService`
+  (5 attempts/IP/tenant/hour). Rewrote `ApplicationsService.createPublic` for multi-student
+  submissions: loops over `dto.students[]`, creates each Application row with
+  `submission_batch_id`, `household_id`, and `is_sibling_application` flag, then gates each
+  independently via new `routeSubmittedApplication` method on the state machine. Added
+  tiered FIFO to `AdmissionsAutoPromotionService.promoteYearGroup`: `ORDER BY
+is_sibling_application DESC, apply_date ASC`. Rewrote `ApplicationConversionService` for
+  batch household materialisation: existing_household path loads household + increments
+  `student_counter`; new_household path generates random 6-char household_number
+  (crypto-based, collision-retry), creates household, links all batch sibling apps.
+  Student numbers derived from household: `{hh}-{nn}` format via
+  `formatStudentNumberFromHousehold`. **Key deviation:** did NOT import
+  `HouseholdNumberService` from impl 02 — implemented household number generation and
+  student counter management inline in the conversion service to avoid the runtime dependency.
+- **Follow-ups:** Impl 06 (polish) should consolidate the inline household number generation
+  in `ApplicationConversionService` to use `HouseholdNumberService` from impl 02, eliminating
+  the duplicate implementation. The `SequenceService.generateHouseholdReference` method is now
+  unused by the conversion service (replaced by the random generator).
+- **Session notes:** Ran in parallel with impl 02. Interleaved commits deployed via combined
+  format-patch (7 patches). Tenant resolution middleware already handled `/api/v1/public/*`
+  paths — no changes needed for the household lookup route.
