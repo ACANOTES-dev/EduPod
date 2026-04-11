@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
 
+import { runWithRlsContext } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -106,22 +107,28 @@ export class InboxPermissionsInit implements OnModuleInit {
   }
 
   /**
-   * Idempotent backfill. Runs in a single interactive transaction so the
-   * cross-module reads/writes (into the rbac-owned `permission`, `role`,
-   * `rolePermission` tables) go through the `tx` handle — the cross-module
-   * prisma-access lint rule matches `this.prisma.<model>` literally, so
-   * wrapping in `$transaction` is the accepted pattern for deploy-time
-   * fixups. Tenant ownership is enforced by the rbac module at insert
-   * time via the existing RLS policies, and we only touch rows keyed by
-   * `(role_id, permission_id)` which are globally unique.
+   * Idempotent backfill. Runs in two passes so the RLS policies on
+   * `roles` / `role_permissions` get the tenant context they need:
+   *
+   *   1) An unscoped pass upserts the five `permission` records and
+   *      reads the list of tenants. The `permissions` and `tenants`
+   *      tables are not RLS-protected so no tenant context is needed.
+   *   2) A per-tenant pass runs inside `runWithRlsContext(prisma, { tenant_id })`
+   *      which issues `SET LOCAL app.current_tenant_id` before any query.
+   *      Inside that transaction we read the tenant's system roles and
+   *      upsert the `role_permissions` for each one.
+   *
+   * Both passes go through the `tx` handle so the
+   * `no-cross-module-prisma-access` lint rule (which matches
+   * `this.prisma.<model>` literally) does not flag the cross-module
+   * reads into rbac tables.
    */
   async backfill(): Promise<void> {
-    await this.prisma.$transaction(async (txClient) => {
+    // ─── Pass 1: permissions + tenant list (unscoped) ───────────────────────
+    const { permIdByKey, tenantIds } = await this.prisma.$transaction(async (txClient) => {
       const tx = txClient as unknown as PrismaClient;
+      const permIds = new Map<string, string>();
 
-      const permIdByKey = new Map<string, string>();
-
-      // Step 1: upsert the five permission records.
       for (const seed of INBOX_PERMISSIONS) {
         const row = await tx.permission.upsert({
           where: { permission_key: seed.permission_key },
@@ -133,34 +140,46 @@ export class InboxPermissionsInit implements OnModuleInit {
           },
           select: { id: true, permission_key: true },
         });
-        permIdByKey.set(row.permission_key, row.id);
+        permIds.set(row.permission_key, row.id);
       }
 
-      // Step 2: wire role_permissions for every tenant-scoped role.
-      // Admin-tier roles — full grant.
-      const adminTierRoles = await tx.role.findMany({
-        where: {
-          role_key: { in: [...ADMIN_TIER_ROLE_KEYS] },
-          tenant_id: { not: null },
-        },
-        select: { id: true, tenant_id: true, role_key: true },
+      const tenants = await tx.tenant.findMany({
+        where: { status: 'active' },
+        select: { id: true },
       });
-      await this.ensureGrants(tx, adminTierRoles, [...ADMIN_TIER_GRANTS], permIdByKey);
-
-      // Staff / parent / student roles — inbox.send only.
-      const sendOnlyRoles = await tx.role.findMany({
-        where: {
-          role_key: { in: [...SEND_ONLY_ROLE_KEYS] },
-          tenant_id: { not: null },
-        },
-        select: { id: true, tenant_id: true, role_key: true },
-      });
-      await this.ensureGrants(tx, sendOnlyRoles, ['inbox.send'], permIdByKey);
-
-      this.logger.log(
-        `Inbox permissions ensured — ${adminTierRoles.length} admin-tier roles and ${sendOnlyRoles.length} send-only roles covered across tenants.`,
-      );
+      return { permIdByKey: permIds, tenantIds: tenants.map((t) => t.id) };
     });
+
+    // ─── Pass 2: per-tenant role_permission upserts (RLS-scoped) ────────────
+    let adminGrants = 0;
+    let sendGrants = 0;
+    for (const tenantId of tenantIds) {
+      await runWithRlsContext(this.prisma, { tenant_id: tenantId }, async (tx) => {
+        const adminTierRoles = await tx.role.findMany({
+          where: {
+            tenant_id: tenantId,
+            role_key: { in: [...ADMIN_TIER_ROLE_KEYS] },
+          },
+          select: { id: true, tenant_id: true, role_key: true },
+        });
+        await this.ensureGrants(tx, adminTierRoles, [...ADMIN_TIER_GRANTS], permIdByKey);
+        adminGrants += adminTierRoles.length;
+
+        const sendOnlyRoles = await tx.role.findMany({
+          where: {
+            tenant_id: tenantId,
+            role_key: { in: [...SEND_ONLY_ROLE_KEYS] },
+          },
+          select: { id: true, tenant_id: true, role_key: true },
+        });
+        await this.ensureGrants(tx, sendOnlyRoles, ['inbox.send'], permIdByKey);
+        sendGrants += sendOnlyRoles.length;
+      });
+    }
+
+    this.logger.log(
+      `Inbox permissions ensured — ${tenantIds.length} tenants, ${adminGrants} admin-tier roles, ${sendGrants} send-only roles.`,
+    );
   }
 
   private async ensureGrants(
