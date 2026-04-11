@@ -142,7 +142,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `completed`   | 2026-04-11T16:26:00+01:00 | b2593a08   |
 | 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `completed`   | 2026-04-11T16:30:00+01:00 | 678bb9a4   |
 | 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `in-progress` | —                         | —          |
-| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `pending`     | —                         | —          |
+| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `in-progress` | —                         | —          |
 | 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `pending`     | —                         | —          |
 
 ---
