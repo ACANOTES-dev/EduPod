@@ -1,12 +1,14 @@
-import type { AudienceDefinition } from '@school/shared/inbox';
+import type { AttachmentInput, AudienceDefinition } from '@school/shared/inbox';
 
 import { buildPayload } from './compose-dialog';
+
+type ExtraChannel = 'email' | 'sms' | 'whatsapp';
 
 describe('buildPayload', () => {
   const base = {
     body: 'Hello',
-    attachments: [],
-    extraChannels: [] as const,
+    attachments: [] as AttachmentInput[],
+    extraChannels: [] as ExtraChannel[],
     disableFallback: false,
     directRecipient: null as { user_id: string; display_name: string; role_label: string } | null,
     groupSubject: '',

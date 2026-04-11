@@ -238,7 +238,7 @@ export function AudienceChipBuilder({
                         <span className="flex items-center gap-2">
                           {p.display_name}
                           {!p.wired && (
-                            <Badge variant="outline" className="text-[10px]">
+                            <Badge variant="secondary" className="text-[10px]">
                               Coming soon
                             </Badge>
                           )}

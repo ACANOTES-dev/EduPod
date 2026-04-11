@@ -236,7 +236,7 @@ export function AudiencePicker({ value, onChange, disabled }: Props) {
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
-                        <Badge variant="outline" className="text-[10px] uppercase">
+                        <Badge variant="secondary" className="text-[10px] uppercase">
                           {a.kind}
                         </Badge>
                         {a.last_resolved_count !== null && (

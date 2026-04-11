@@ -35,8 +35,8 @@ interface SearchResponse {
 
 export default function InboxSearchPage() {
   const params = useSearchParams();
-  const initialQ = params.get('q') ?? '';
-  const initialPage = Number(params.get('page') ?? '1') || 1;
+  const initialQ = params?.get('q') ?? '';
+  const initialPage = Number(params?.get('page') ?? '1') || 1;
 
   const [query, setQuery] = React.useState(initialQ);
   const [committedQuery, setCommittedQuery] = React.useState(initialQ);
