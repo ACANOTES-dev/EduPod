@@ -3,12 +3,9 @@ import { randomBytes } from 'crypto';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
+import { formatStudentNumberFromHousehold, HOUSEHOLD_MAX_STUDENTS } from '@school/shared';
 import { CONSENT_TYPES, mapConsentCaptureToTypes } from '@school/shared/gdpr';
 import type { ConsentCaptureDto } from '@school/shared/gdpr';
-import {
-  formatStudentNumberFromHousehold,
-  HOUSEHOLD_MAX_STUDENTS,
-} from '@school/shared/households/household-number';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
@@ -466,12 +463,12 @@ export class ApplicationConversionService {
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       const bytes = randomBytes(6);
       const code =
-        LETTERS[bytes[0]! % 26] +
-        LETTERS[bytes[1]! % 26] +
-        LETTERS[bytes[2]! % 26] +
-        DIGITS[bytes[3]! % 10] +
-        DIGITS[bytes[4]! % 10] +
-        DIGITS[bytes[5]! % 10];
+        LETTERS.charAt(bytes[0]! % 26) +
+        LETTERS.charAt(bytes[1]! % 26) +
+        LETTERS.charAt(bytes[2]! % 26) +
+        DIGITS.charAt(bytes[3]! % 10) +
+        DIGITS.charAt(bytes[4]! % 10) +
+        DIGITS.charAt(bytes[5]! % 10);
 
       const existing = await db.household.findFirst({
         where: { tenant_id: tenantId, household_number: code },

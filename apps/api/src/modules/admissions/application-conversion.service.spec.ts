@@ -78,6 +78,7 @@ function buildMockDb() {
     application: {
       findFirst: jest.fn(),
       update: jest.fn().mockResolvedValue({}),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     student: {
       findFirst: jest.fn().mockResolvedValue(null),
@@ -88,13 +89,17 @@ function buildMockDb() {
       create: jest.fn(),
     },
     household: {
+      findFirst: jest.fn().mockResolvedValue(null),
       create: jest.fn(),
+      update: jest.fn(),
     },
     householdParent: {
       findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn().mockResolvedValue({}),
     },
     studentParent: {
+      findFirst: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({}),
     },
     consentRecord: {
@@ -152,7 +157,14 @@ describe('ApplicationConversionService — convertToStudent', () => {
       .mockResolvedValueOnce({ id: PARENT_1_ID })
       .mockResolvedValueOnce({ id: PARENT_2_ID });
     db.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+    // Student counter increments to 1 for household-derived number
+    db.household.update.mockResolvedValue({ student_counter: 1 });
     db.student.create.mockResolvedValue({ id: STUDENT_ID });
+    // After household + parents are created, findMany returns the linked parents
+    db.householdParent.findMany.mockResolvedValue([
+      { parent_id: PARENT_1_ID, role_label: 'mother', parent: { is_primary_contact: true } },
+      { parent_id: PARENT_2_ID, role_label: 'father', parent: { is_primary_contact: false } },
+    ]);
 
     const result = await service.convertToStudent(db as never, {
       tenantId: TENANT_ID,
@@ -173,19 +185,20 @@ describe('ApplicationConversionService — convertToStudent', () => {
         data: expect.objectContaining({
           tenant_id: TENANT_ID,
           household_name: 'Khan Family',
-          household_number: 'HH-000001',
+          household_number: expect.stringMatching(/^[A-Z]{3}[0-9]{3}$/),
           primary_billing_parent_id: PARENT_1_ID,
           address_line_1: '1 Acorn Road',
           city: 'Dublin',
         }),
       }),
     );
+    // Student number is now household-derived: {code}-01
     expect(db.student.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           tenant_id: TENANT_ID,
           household_id: HOUSEHOLD_ID,
-          student_number: 'STU-000001',
+          student_number: expect.stringMatching(/^[A-Z]{3}[0-9]{3}-01$/),
           year_group_id: YEAR_GROUP_ID,
           class_homeroom_id: null,
           status: 'active',
@@ -193,6 +206,7 @@ describe('ApplicationConversionService — convertToStudent', () => {
       }),
     );
     expect(db.studentParent.create).toHaveBeenCalledTimes(2);
+    // Application gets two updates: household_id link + materialised_student_id
     expect(db.application.update).toHaveBeenCalledWith({
       where: { id: APP_ID },
       data: { materialised_student_id: STUDENT_ID },
@@ -260,7 +274,16 @@ describe('ApplicationConversionService — convertToStudent', () => {
       .mockResolvedValueOnce({ household_id: HOUSEHOLD_ID }) // parent1 household lookup
       .mockResolvedValueOnce(null); // parent2 link existence check
     db.parent.create.mockResolvedValueOnce({ id: PARENT_2_ID });
+    // Existing household has a household_number — student counter increments
+    db.household.findFirst
+      .mockResolvedValueOnce(null) // generateUniqueHouseholdNumber not called (parent matched)
+      .mockResolvedValueOnce({ household_number: 'ABC123' }); // findFirst for existing household_number
+    db.household.update.mockResolvedValue({ student_counter: 1 });
     db.student.create.mockResolvedValue({ id: STUDENT_ID });
+    db.householdParent.findMany.mockResolvedValue([
+      { parent_id: PARENT_1_ID, role_label: 'mother', parent: { is_primary_contact: true } },
+      { parent_id: PARENT_2_ID, role_label: 'father', parent: { is_primary_contact: false } },
+    ]);
 
     const result = await service.convertToStudent(db as never, {
       tenantId: TENANT_ID,
@@ -292,7 +315,12 @@ describe('ApplicationConversionService — convertToStudent', () => {
       .mockResolvedValueOnce({ id: PARENT_1_ID })
       .mockResolvedValueOnce({ id: PARENT_2_ID });
     db.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+    db.household.update.mockResolvedValue({ student_counter: 1 });
     db.student.create.mockResolvedValue({ id: STUDENT_ID });
+    db.householdParent.findMany.mockResolvedValue([
+      { parent_id: PARENT_1_ID, role_label: 'mother', parent: { is_primary_contact: true } },
+      { parent_id: PARENT_2_ID, role_label: 'father', parent: { is_primary_contact: false } },
+    ]);
 
     const warnSpy = jest
       .spyOn((service as unknown as { logger: { warn: jest.Mock } }).logger, 'warn')
@@ -315,7 +343,11 @@ describe('ApplicationConversionService — convertToStudent', () => {
     db.application.findFirst.mockResolvedValue(buildApplicationRow({ payload_json: payload }));
     db.parent.create.mockResolvedValueOnce({ id: PARENT_1_ID });
     db.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+    db.household.update.mockResolvedValue({ student_counter: 1 });
     db.student.create.mockResolvedValue({ id: STUDENT_ID });
+    db.householdParent.findMany.mockResolvedValue([
+      { parent_id: PARENT_1_ID, role_label: 'mother', parent: { is_primary_contact: true } },
+    ]);
 
     const result = await service.convertToStudent(db as never, {
       tenantId: TENANT_ID,
@@ -364,7 +396,12 @@ describe('ApplicationConversionService — convertToStudent', () => {
       .mockResolvedValueOnce({ id: PARENT_1_ID })
       .mockResolvedValueOnce({ id: PARENT_2_ID });
     db.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+    db.household.update.mockResolvedValue({ student_counter: 1 });
     db.student.create.mockResolvedValue({ id: STUDENT_ID });
+    db.householdParent.findMany.mockResolvedValue([
+      { parent_id: PARENT_1_ID, role_label: 'mother', parent: { is_primary_contact: true } },
+      { parent_id: PARENT_2_ID, role_label: 'father', parent: { is_primary_contact: false } },
+    ]);
 
     await service.convertToStudent(db as never, {
       tenantId: TENANT_ID,
@@ -379,8 +416,8 @@ describe('ApplicationConversionService — convertToStudent', () => {
       expect(call[0].where.tenant_id).not.toBe(OTHER_TENANT_ID);
     }
     // student.create also tenant-scoped
-    expect(db.student.create.mock.calls[0][0].data.tenant_id).toBe(TENANT_ID);
-    expect(db.household.create.mock.calls[0][0].data.tenant_id).toBe(TENANT_ID);
+    expect(db.student.create.mock.calls[0]![0].data.tenant_id).toBe(TENANT_ID);
+    expect(db.household.create.mock.calls[0]![0].data.tenant_id).toBe(TENANT_ID);
   });
 
   it('duplicate student — returns existing student when a matching active row is found', async () => {
@@ -423,7 +460,12 @@ describe('ApplicationConversionService — convertToStudent', () => {
       .mockResolvedValueOnce({ id: PARENT_1_ID })
       .mockResolvedValueOnce({ id: PARENT_2_ID });
     db.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+    db.household.update.mockResolvedValue({ student_counter: 1 });
     db.student.create.mockResolvedValue({ id: STUDENT_ID });
+    db.householdParent.findMany.mockResolvedValue([
+      { parent_id: PARENT_1_ID, role_label: 'mother', parent: { is_primary_contact: true } },
+      { parent_id: PARENT_2_ID, role_label: 'father', parent: { is_primary_contact: false } },
+    ]);
 
     await service.convertToStudent(db as never, {
       tenantId: TENANT_ID,
@@ -431,7 +473,7 @@ describe('ApplicationConversionService — convertToStudent', () => {
       triggerUserId: USER_ID,
     });
 
-    const createManyCall = db.consentRecord.createMany.mock.calls[0][0];
+    const createManyCall = db.consentRecord.createMany.mock.calls[0]![0];
     for (const row of createManyCall.data) {
       expect(row.subject_type).toBe('student');
       expect(row.subject_id).toBe(STUDENT_ID);

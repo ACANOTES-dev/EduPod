@@ -221,9 +221,16 @@ describe('ApplicationStateMachineService', () => {
         available_seats: 15,
         configured: true,
       });
-      tx.application.create.mockImplementation((args: { data: Record<string, unknown> }) =>
-        Promise.resolve(sampleApplication({ status: args.data.status as ApplicationStatus })),
+      // submit() now creates row with status='submitted', then routeSubmittedApplication updates it
+      tx.application.create.mockResolvedValue(sampleApplication({ status: 'submitted' }));
+      tx.application.findFirst.mockResolvedValue(
+        sampleApplication({
+          status: 'submitted',
+          target_academic_year_id: ACADEMIC_YEAR_ID,
+          target_year_group_id: YEAR_GROUP_ID,
+        }),
       );
+      tx.application.update.mockResolvedValue(sampleApplication({ status: 'ready_to_admit' }));
 
       const result = await harness.service.submit(TENANT_ID, submitParams);
 
@@ -231,8 +238,7 @@ describe('ApplicationStateMachineService', () => {
       expect(tx.application.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            status: 'ready_to_admit',
-            waiting_list_substatus: null,
+            status: 'submitted',
             application_number: 'APP-202604-000001',
             tenant_id: TENANT_ID,
             target_academic_year_id: ACADEMIC_YEAR_ID,
@@ -261,21 +267,19 @@ describe('ApplicationStateMachineService', () => {
         available_seats: 0,
         configured: true,
       });
-      tx.application.create.mockImplementation((args: { data: Record<string, unknown> }) =>
-        Promise.resolve(sampleApplication({ status: args.data.status as ApplicationStatus })),
+      tx.application.create.mockResolvedValue(sampleApplication({ status: 'submitted' }));
+      tx.application.findFirst.mockResolvedValue(
+        sampleApplication({
+          status: 'submitted',
+          target_academic_year_id: ACADEMIC_YEAR_ID,
+          target_year_group_id: YEAR_GROUP_ID,
+        }),
       );
+      tx.application.update.mockResolvedValue(sampleApplication({ status: 'waiting_list' }));
 
       const result = await harness.service.submit(TENANT_ID, submitParams);
 
       expect(result.status).toBe('waiting_list');
-      expect(tx.application.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            status: 'waiting_list',
-            waiting_list_substatus: null,
-          }),
-        }),
-      );
     });
 
     it('routes to waiting_list + awaiting_year_setup when the target year is unconfigured', async () => {
@@ -287,15 +291,19 @@ describe('ApplicationStateMachineService', () => {
         available_seats: 0,
         configured: false,
       });
-      tx.application.create.mockImplementation((args: { data: Record<string, unknown> }) =>
-        Promise.resolve(
-          sampleApplication({
-            status: args.data.status as ApplicationStatus,
-            waiting_list_substatus: args.data.waiting_list_substatus as
-              | 'awaiting_year_setup'
-              | null,
-          }),
-        ),
+      tx.application.create.mockResolvedValue(sampleApplication({ status: 'submitted' }));
+      tx.application.findFirst.mockResolvedValue(
+        sampleApplication({
+          status: 'submitted',
+          target_academic_year_id: ACADEMIC_YEAR_ID,
+          target_year_group_id: YEAR_GROUP_ID,
+        }),
+      );
+      tx.application.update.mockResolvedValue(
+        sampleApplication({
+          status: 'waiting_list',
+          waiting_list_substatus: 'awaiting_year_setup',
+        }),
       );
 
       const result = await harness.service.submit(TENANT_ID, submitParams);

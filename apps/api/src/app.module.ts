@@ -50,6 +50,7 @@ import { PdfRenderingModule } from './modules/pdf-rendering/pdf-rendering.module
 import { PeriodGridModule } from './modules/period-grid/period-grid.module';
 import { PreferencesModule } from './modules/preferences/preferences.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
+import { PublicHouseholdsModule } from './modules/public-households/public-households.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { RegistrationModule } from './modules/registration/registration.module';
@@ -131,6 +132,7 @@ import { WebsiteModule } from './modules/website/website.module';
     CriticalIncidentsModule,
     HomeworkModule,
     HouseholdsModule,
+    PublicHouseholdsModule,
     InboxModule,
     ParentsModule,
     PastoralModule,
