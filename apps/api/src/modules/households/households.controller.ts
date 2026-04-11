@@ -92,6 +92,13 @@ export class HouseholdsController {
     return this.householdsService.findAll(tenant.tenant_id, query);
   }
 
+  // GET /v1/households/next-number
+  @Get('next-number')
+  @RequiresPermission('students.manage')
+  async nextNumber(@CurrentTenant() tenant: TenantContext) {
+    return this.householdsService.previewNextNumber(tenant.tenant_id);
+  }
+
   @Get('merge')
   // This is a placeholder to prevent route conflict — actual merge is POST /merge
   @RequiresPermission('students.view')

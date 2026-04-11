@@ -30,6 +30,19 @@ export class HouseholdsCrudService {
     private readonly householdNumberService: HouseholdNumberService,
   ) {}
 
+  // ─── Preview ─────────────────────────────────────────────────────────────
+
+  async previewNextNumber(tenantId: string): Promise<{ household_number: string }> {
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const householdNumber = await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      return this.householdNumberService.previewForTenant(db, tenantId);
+    });
+
+    return { household_number: householdNumber };
+  }
+
   // ─── Create ──────────────────────────────────────────────────────────────
 
   async create(tenantId: string, dto: CreateHouseholdDto) {

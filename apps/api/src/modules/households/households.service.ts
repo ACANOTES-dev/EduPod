@@ -115,6 +115,12 @@ export class HouseholdsService {
     private readonly structural: HouseholdsStructuralService,
   ) {}
 
+  // ─── Preview ─────────────────────────────────────────────────────────────────
+
+  async previewNextNumber(tenantId: string) {
+    return this.crud.previewNextNumber(tenantId);
+  }
+
   // ─── CRUD ───────────────────────────────────────────────────────────────────
 
   async create(tenantId: string, dto: CreateHouseholdDto) {
