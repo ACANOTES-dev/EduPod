@@ -1225,3 +1225,70 @@ oversight` 200 (rendered the Oversight heading + loading
   sense for an automation session and deliberately deferred the
   manual-QA / human-review pieces into pre-launch checklist items
   13–19 rather than pretending to have done them.
+
+### [IMPL 16 — round 2] — remaining polish
+
+- **Completed:** 2026-04-11T13:55+01:00 Europe/Dublin
+- **Commit:** `b39bb5b9` on production (local `6421686c`)
+- **Deployed to production:** yes (API + web rebuild + `pm2 restart api` + `pm2 restart web`)
+- **Summary (≤ 200 words):**
+  User pushback on round 1 deferrals. Delivered the four "I could
+  have done but skipped" items from the round-1 self-audit plus the
+  feature map:
+  (1) **Translation wire-up** for the four remaining Wave 4 inbox
+  sub-components (`people-picker`, `channel-selector`, `attachment-
+uploader`, `audience-picker`) plus new `searching`, `perRecipientCost`,
+  `estimate`, `modeQuick`, `saveDialog.*`, `quick.*` keys in en/ar.
+  (2) **Communications hub + sub-strip** in `nav-config.ts` — new
+  `communications` hub listed before `settings` so the more-specific
+  `/settings/messaging-policy` and `/settings/communications/*`
+  basePaths win the `activeHub` first-match; sub-strip tabs
+  Inbox / Audiences / Announcements / Oversight + overflow
+  Safeguarding / Messaging Policy / Fallback; removed the impl 14
+  piggyback on the settings sub-strip; removed `/inbox` and
+  `/communications` from operations basePaths.
+  (3) **`POST /v1/inbox/settings/fallback/test`** debug endpoint gated
+  on `inbox.settings.write` + `INBOX_ALLOW_TEST_FALLBACK=true` env
+  flag, enqueues `inbox:fallback-scan-tenant` via new
+  `InboxOutboxService.enqueueFallbackTestScan`. Also resolved stale
+  merge-conflict markers in
+  `inbox-settings.{controller,service}.ts` left by pre-impl-16
+  parallel session work.
+  (4) **`apps/api/test/inbox-rls.spec.ts`** — 25 RLS leakage tests
+  across all 14 new inbox tables. **25/25 passing locally** against
+  the integration postgres on 5553 after applying the inbox migration
+  - `post_migrate.sql`.
+    (5) **Feature map** — new section 38 "Inbox & Messaging" with 34
+    endpoints, 10 pages, 5 jobs, 5 permissions, all 14 tables, state-
+    machine pointers, danger-zone pointers, feature-doc pointer. Quick
+    Reference counts bumped (37→38 domains, ~1,375→~1,409 endpoints,
+    ~310→~320 pages, 70+→75+ jobs). Last-verified bumped to 2026-04-11.
+    Communications section updated to note the inbox bridge dependency.
+- **Follow-ups:**
+  - Pre-launch items 16 and 17 are now resolved (fallback/test
+    endpoint shipped; Wave 4 sub-component translations wired) —
+    can be struck from the checklist.
+  - Pre-launch items 13, 14, 15, 18, 19 remain human-in-the-loop
+    deliverables (SMS/Email/WhatsApp provider verification,
+    tenant safeguarding keyword sign-off, manual mobile QA at
+    375/414/768/1024, cross-tenant 15-step smoke script).
+    Item 14 (RLS leakage sweep) is prepped by the new automated
+    spec but the pre-launch gate is "run against each tenant's
+    live data" which remains a human action.
+- **Session notes:** Merge-conflict markers in
+  `inbox-settings.{controller,service}.ts` pre-dated impl 16 — a
+  parallel session committed them. Resolved to the "stashed changes"
+  version since it matched the `.claude/rules/backend.md` route-
+  comment convention. lint-staged OOM-killed on first commit attempt;
+  retried with `NODE_OPTIONS=--max-old-space-size=8192`. First
+  commitlint rejected the 109-char header (>100); shortened to
+  94 chars. Deploy: single API+web rebuild 3m7s, both pm2 processes
+  restarted clean. Smoke: `/api/health` 200, all 7 web inbox /
+  settings routes 200, new `POST /api/v1/inbox/settings/fallback/test`
+  returns 401 with `Host: nhqs.edupod.app` (route registered, auth
+  guard active, env flag gate will fire once authenticated). First
+  probe without Host header returned 404 — tenant resolver rejects
+  host-less requests on tenant-scoped routes; not a bug, artefact of
+  how I probed it. Wave 5 is now fully complete in the strong sense:
+  every impl 16 item the spec asked for that doesn't require a
+  human is shipped.
