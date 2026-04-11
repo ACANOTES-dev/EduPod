@@ -106,9 +106,9 @@ export class ApplicationStateMachineService {
 
   /**
    * Create an application and route it to `ready_to_admit` / `waiting_list`
-   * based on the target year group's live capacity. Called by the public form
-   * path and any admin-created draft path; both flow through here so gating
-   * cannot be bypassed.
+   * based on the target year group's live capacity. Creates its own RLS
+   * transaction. Use `routeSubmittedApplication` when the row already exists
+   * and you are operating within a caller-provided transaction.
    */
   async submit(tenantId: string, params: StateMachineSubmitParams): Promise<Application> {
     const applyDate = params.applyDate ?? new Date();
@@ -117,27 +117,9 @@ export class ApplicationStateMachineService {
     const created = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      const capacity = await this.capacityService.getAvailableSeats(db, {
-        tenantId,
-        academicYearId: params.targetAcademicYearId,
-        yearGroupId: params.targetYearGroupId,
-      });
-
-      let status: ApplicationStatus;
-      let waitingListSubstatus: ApplicationWaitingListSubstatus | null = null;
-
-      if (!capacity.configured) {
-        status = 'waiting_list';
-        waitingListSubstatus = 'awaiting_year_setup';
-      } else if (capacity.available_seats > 0) {
-        status = 'ready_to_admit';
-      } else {
-        status = 'waiting_list';
-      }
-
       const applicationNumber = await this.sequenceService.nextNumber(tenantId, 'application', tx);
 
-      return db.application.create({
+      const row = await db.application.create({
         data: {
           tenant_id: tenantId,
           form_definition_id: params.formDefinitionId,
@@ -146,8 +128,7 @@ export class ApplicationStateMachineService {
           student_first_name: params.studentFirstName,
           student_last_name: params.studentLastName,
           date_of_birth: params.dateOfBirth,
-          status,
-          waiting_list_substatus: waitingListSubstatus,
+          status: 'submitted',
           submitted_at: applyDate,
           apply_date: applyDate,
           target_academic_year_id: params.targetAcademicYearId,
@@ -155,11 +136,67 @@ export class ApplicationStateMachineService {
           payload_json: params.payloadJson as Prisma.InputJsonValue,
         },
       });
+
+      return this.routeSubmittedApplication(db, tenantId, row.id);
     })) as Application;
 
     await this.fireSubmissionSideEffects(tenantId, created);
 
     return created;
+  }
+
+  /**
+   * Gate and route an existing `submitted` application row to
+   * `ready_to_admit` / `waiting_list` / `waiting_list + awaiting_year_setup`
+   * based on live capacity. Operates within the caller's transaction —
+   * used by `createPublic` for multi-student submissions where each row is
+   * created first, then routed independently.
+   */
+  async routeSubmittedApplication(
+    db: PrismaService,
+    tenantId: string,
+    applicationId: string,
+  ): Promise<Application> {
+    const application = await db.application.findFirst({
+      where: { id: applicationId, tenant_id: tenantId },
+    });
+
+    if (!application) {
+      throw new NotFoundException({
+        code: 'APPLICATION_NOT_FOUND',
+        message: `Application "${applicationId}" not found`,
+      });
+    }
+
+    if (!application.target_academic_year_id || !application.target_year_group_id) {
+      throw new BadRequestException({
+        code: 'MISSING_TARGET_YEAR_GROUP',
+        message: 'Application is missing target academic year or target year group',
+      });
+    }
+
+    const capacity = await this.capacityService.getAvailableSeats(db, {
+      tenantId,
+      academicYearId: application.target_academic_year_id,
+      yearGroupId: application.target_year_group_id,
+    });
+
+    let status: ApplicationStatus;
+    let waitingListSubstatus: ApplicationWaitingListSubstatus | null = null;
+
+    if (!capacity.configured) {
+      status = 'waiting_list';
+      waitingListSubstatus = 'awaiting_year_setup';
+    } else if (capacity.available_seats > 0) {
+      status = 'ready_to_admit';
+    } else {
+      status = 'waiting_list';
+    }
+
+    return db.application.update({
+      where: { id: applicationId },
+      data: { status, waiting_list_substatus: waitingListSubstatus },
+    });
   }
 
   // ─── Move to Conditional Approval ────────────────────────────────────────
