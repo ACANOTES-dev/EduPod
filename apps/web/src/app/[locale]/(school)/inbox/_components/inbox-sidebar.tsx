@@ -5,7 +5,7 @@ import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigat
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, Input } from '@school/ui';
+import { Button, Input, cn } from '@school/ui';
 
 import { apiClient, unwrap } from '@/lib/api-client';
 
@@ -126,24 +126,24 @@ export function InboxSidebar() {
 
   return (
     <div className="flex h-full w-full min-w-0 flex-col">
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--color-border)] px-4 py-4">
-        <h1 className="truncate text-lg font-semibold text-[var(--color-text-primary)]">
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--color-border)] px-4 py-3">
+        <h1 className="truncate text-[15px] font-semibold tracking-tight text-[var(--color-text-primary)]">
           {t('inbox.title')}
         </h1>
         <Button
           size="sm"
           onClick={() => setComposeOpen(true)}
-          className="shrink-0 gap-1"
+          className="shrink-0 gap-1.5"
           aria-label={t('inbox.compose')}
         >
-          <Pencil className="h-4 w-4" aria-hidden="true" />
+          <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
           <span className="hidden sm:inline">{t('inbox.compose')}</span>
         </Button>
       </div>
 
       <ComposeDialog open={composeOpen} onOpenChange={setComposeOpen} />
 
-      <form onSubmit={handleSearchSubmit} className="border-b border-[var(--color-border)] p-3">
+      <form onSubmit={handleSearchSubmit} className="px-3 pt-3">
         <div className="relative">
           <Search
             className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)] start-3"
@@ -153,13 +153,13 @@ export function InboxSidebar() {
             ref={searchInput}
             type="search"
             placeholder={t('inbox.search.placeholder')}
-            className="ps-9 text-base md:text-sm"
+            className="h-9 bg-[var(--color-surface-secondary)] ps-9 text-base md:text-sm"
             aria-label={t('inbox.search.placeholder')}
           />
         </div>
       </form>
 
-      <div className="flex gap-2 overflow-x-auto border-b border-[var(--color-border)] px-3 py-2 no-scrollbar">
+      <div className="no-scrollbar flex gap-1.5 overflow-x-auto px-3 py-3">
         {FILTERS.map((f) => {
           const active = activeFilter === f.key;
           return (
@@ -167,11 +167,12 @@ export function InboxSidebar() {
               key={f.key}
               type="button"
               onClick={() => handleFilterClick(f.key)}
-              className={
+              className={cn(
+                'shrink-0 rounded-pill px-3 py-1 text-[11px] font-medium transition-colors',
                 active
-                  ? 'shrink-0 rounded-pill bg-[var(--color-primary)] px-3 py-1 text-xs font-medium text-white'
-                  : 'shrink-0 rounded-pill border border-[var(--color-border)] bg-transparent px-3 py-1 text-xs font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]'
-              }
+                  ? 'bg-[var(--color-primary)] text-white'
+                  : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]',
+              )}
             >
               {t(f.labelKey)}
             </button>
@@ -179,7 +180,7 @@ export function InboxSidebar() {
         })}
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 divide-y divide-[var(--color-border)] overflow-y-auto overflow-x-hidden">
         {loading && threads === null && (
           <div className="p-4 text-center text-sm text-[var(--color-text-secondary)]">
             {t('inbox.loading')}

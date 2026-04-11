@@ -164,6 +164,7 @@
     "roles": "Roles",
     "safeguardingKeywords": "Safeguarding keywords",
     "communicationsHub": "Communications",
+    "communicationsOverview": "Overview",
     "inboxHub": "Inbox",
     "inboxAudiences": "Audiences",
     "inboxOversight": "Oversight",
@@ -6591,6 +6592,55 @@
     "manageAudiences": "Manage Audiences",
     "announcements": "Announcements",
     "inquiries": "Inquiries",
+    "hub": {
+      "title": "Communications",
+      "description": "Everything you need to message families, staff, and students — in one place.",
+      "cards": {
+        "inbox": {
+          "title": "Inbox",
+          "description": "Direct messages, group chats, and broadcasts.",
+          "unreadLabel": "{count, plural, =0 {All caught up} one {# unread message} other {# unread messages}}",
+          "latestPrefix": "Latest activity",
+          "cta": "Open inbox"
+        },
+        "audiences": {
+          "title": "Saved Audiences",
+          "description": "Reusable recipient lists for announcements and messages.",
+          "countLabel": "{count, plural, =0 {No saved audiences} one {# saved audience} other {# saved audiences}}",
+          "cta": "Manage audiences"
+        },
+        "announcements": {
+          "title": "Announcements",
+          "description": "School-wide and targeted announcements with delivery tracking.",
+          "latestLabel": "Latest",
+          "emptyLabel": "No announcements yet",
+          "cta": "Open announcements"
+        },
+        "oversight": {
+          "title": "Oversight",
+          "description": "Monitor conversations, review flagged messages, and audit admin actions.",
+          "pendingLabel": "{count, plural, =0 {No pending flags} one {# pending flag} other {# pending flags}}",
+          "cta": "Open oversight"
+        }
+      },
+      "settings": {
+        "title": "Policy & configuration",
+        "description": "Administrator controls for messaging behavior, safeguarding, and delivery.",
+        "messagingPolicy": {
+          "title": "Messaging policy",
+          "description": "Who can message whom. Permission matrix and global toggles."
+        },
+        "safeguardingKeywords": {
+          "title": "Safeguarding keywords",
+          "description": "Trigger words that flag messages for admin review."
+        },
+        "fallback": {
+          "title": "Notification fallback",
+          "description": "When unread messages should escalate to email, SMS, or WhatsApp."
+        }
+      },
+      "loadFailed": "Some stats could not be loaded. Showing what's available."
+    },
     "tabs": {
       "all": "All",
       "draft": "Draft",

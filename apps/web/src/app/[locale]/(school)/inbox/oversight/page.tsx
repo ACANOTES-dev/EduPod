@@ -388,23 +388,41 @@ export default function OversightDashboardPage() {
   );
 
   // ─── Tab bar ──────────────────────────────────────────────────────────────
+  const tabCounts: Record<TabKey, number | null> = {
+    conversations: convTotal || null,
+    flags: flagTotal || null,
+    audit: auditTotal || null,
+  };
+
   const tabBar = (
-    <div className="flex items-center gap-2 overflow-x-auto border-b border-border">
+    <div className="flex items-center gap-1 overflow-x-auto border-b border-border">
       {TABS.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.key;
+        const count = tabCounts[tab.key];
         return (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 border-b-2 -mb-px px-3 py-2 text-sm font-medium transition-colors ${
+            className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
               isActive
-                ? 'border-primary-600 text-primary-600'
+                ? 'border-primary-600 text-primary-700'
                 : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
             <Icon className="h-4 w-4" />
             {t(`tabs.${tab.key}`)}
+            {count !== null && (
+              <span
+                className={`rounded-pill px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
+                  isActive
+                    ? 'bg-primary-100 text-primary-700'
+                    : 'bg-surface-secondary text-text-tertiary'
+                }`}
+              >
+                {count}
+              </span>
+            )}
           </button>
         );
       })}
@@ -413,7 +431,7 @@ export default function OversightDashboardPage() {
 
   // ─── Flag state filter ────────────────────────────────────────────────────
   const flagStateToolbar = (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1 rounded-pill border border-border bg-surface-secondary p-0.5">
       {(['pending', 'dismissed', 'escalated', 'frozen'] as const).map((state) => (
         <button
           key={state}
@@ -421,10 +439,10 @@ export default function OversightDashboardPage() {
             setFlagState(state);
             setFlagPage(1);
           }}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+          className={`rounded-pill px-3 py-1 text-xs font-medium transition-colors ${
             flagState === state
-              ? 'bg-primary-600 text-white'
-              : 'bg-surface-muted text-text-secondary hover:text-text-primary'
+              ? 'bg-background text-text-primary shadow-sm'
+              : 'text-text-secondary hover:text-text-primary'
           }`}
         >
           {t(`reviewStates.${state}`)}

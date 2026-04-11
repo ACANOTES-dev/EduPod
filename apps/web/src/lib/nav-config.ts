@@ -465,9 +465,10 @@ export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
   ],
   reports: [],
   communications: [
+    { labelKey: 'nav.communicationsOverview', href: '/communications' },
     { labelKey: 'nav.inboxHub', href: '/inbox' },
     { labelKey: 'nav.inboxAudiences', href: '/inbox/audiences' },
-    { labelKey: 'nav.announcements', href: '/communications', roles: ADMIN_ROLES },
+    { labelKey: 'nav.announcements', href: '/communications/announcements', roles: ADMIN_ROLES },
     {
       labelKey: 'nav.inboxOversight',
       href: '/inbox/oversight',

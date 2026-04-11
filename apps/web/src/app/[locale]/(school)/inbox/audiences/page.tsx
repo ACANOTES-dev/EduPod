@@ -141,7 +141,7 @@ export default function SavedAudiencesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full max-w-sm">
           <Search
-            className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary"
+            className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary"
             aria-hidden="true"
           />
           <Input
@@ -149,21 +149,21 @@ export default function SavedAudiencesPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('searchPlaceholder')}
-            className="ps-9"
+            className="h-9 bg-surface-secondary ps-9"
             aria-label={t('searchPlaceholder')}
           />
         </div>
 
-        <div className="flex items-center gap-1 rounded-full border border-border bg-surface-secondary p-0.5">
+        <div className="flex items-center gap-1 rounded-pill border border-border bg-surface-secondary p-0.5">
           {(['all', 'static', 'dynamic'] as KindFilter[]).map((key) => (
             <button
               key={key}
               type="button"
               onClick={() => setKindFilter(key)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-pill px-3 py-1 text-xs font-medium transition-colors ${
                 kindFilter === key
                   ? 'bg-background text-text-primary shadow-sm'
-                  : 'text-text-secondary'
+                  : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               {t(`filters.${key}`)}
@@ -192,19 +192,19 @@ export default function SavedAudiencesPage() {
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border bg-background">
+        <div className="overflow-x-auto rounded-xl border border-border bg-surface">
           <table className="w-full text-sm">
-            <thead className="bg-surface-secondary text-xs uppercase tracking-wide text-text-secondary">
+            <thead className="border-b border-border text-[11px] uppercase tracking-wider text-text-tertiary">
               <tr>
-                <th className="px-4 py-3 text-start font-medium">{t('columns.name')}</th>
-                <th className="hidden px-4 py-3 text-start font-medium md:table-cell">
+                <th className="px-5 py-3 text-start font-semibold">{t('columns.name')}</th>
+                <th className="hidden px-5 py-3 text-start font-semibold md:table-cell">
                   {t('columns.description')}
                 </th>
-                <th className="px-4 py-3 text-start font-medium">{t('columns.kind')}</th>
-                <th className="hidden px-4 py-3 text-start font-medium sm:table-cell">
+                <th className="px-5 py-3 text-start font-semibold">{t('columns.kind')}</th>
+                <th className="hidden px-5 py-3 text-start font-semibold sm:table-cell">
                   {t('columns.members')}
                 </th>
-                <th className="px-4 py-3 text-end font-medium">{t('columns.actions')}</th>
+                <th className="px-5 py-3 text-end font-semibold">{t('columns.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -310,26 +310,28 @@ function AudienceRow({
   }, [row, t]);
 
   return (
-    <tr className="hover:bg-surface-secondary">
-      <td className="px-4 py-3">
+    <tr className="transition-colors hover:bg-surface-secondary/60">
+      <td className="px-5 py-3.5">
         <button
           type="button"
           onClick={onPreview}
-          className="text-start font-medium text-text-primary hover:text-primary-600"
+          className="text-start font-semibold text-text-primary transition-colors hover:text-primary-600"
         >
           {row.name}
         </button>
       </td>
-      <td className="hidden px-4 py-3 text-text-secondary md:table-cell">
-        <span className="line-clamp-1 max-w-sm">{row.description ?? '—'}</span>
+      <td className="hidden px-5 py-3.5 text-text-secondary md:table-cell">
+        <span className="line-clamp-1 max-w-sm text-[13px]">{row.description ?? '—'}</span>
       </td>
-      <td className="px-4 py-3">
+      <td className="px-5 py-3.5">
         <Badge variant={row.kind === 'dynamic' ? 'info' : 'secondary'}>
           {t(`kind.${row.kind}`)}
         </Badge>
       </td>
-      <td className="hidden px-4 py-3 text-text-secondary sm:table-cell">{memberLabel}</td>
-      <td className="px-4 py-3 text-end">
+      <td className="hidden px-5 py-3.5 text-[13px] text-text-secondary sm:table-cell">
+        {memberLabel}
+      </td>
+      <td className="px-5 py-3.5 text-end">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" aria-label={t('actions.menu')}>
