@@ -122,7 +122,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `completed`   | 2026-04-11 12:36 | a099ca57   |
 | 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `completed`   | 2026-04-11 13:02 | 4e0b8f6a   |
 | 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `completed`   | 2026-04-11 12:30 | 96ea1875   |
-| 13  | Messaging policy settings page                       | 4    | 01, 02                 | `in-progress` | —                | —          |
+| 13  | Messaging policy settings page                       | 4    | 01, 02                 | `completed`   | 2026-04-11 13:15 | b37c9f1c   |
 | 14  | Safeguarding settings + dashboard alerts widget      | 4    | 01, 08                 | `completed`   | 2026-04-11 12:14 | 40fc7201   |
 | 15  | Admin oversight UI + fallback settings               | 4    | 01, 05, 07             | `in-progress` | —                | —          |
 | 16  | Polish, translations, mobile pass, morph bar wire-up | 5    | 10–15                  | `pending`     | —                | —          |
@@ -994,3 +994,65 @@ missing inbox.*` commit (`a099ca57` prod) later mirrored. My
   401 (route registered, auth guard active); `POST
 /api/v1/inbox/attachments` 401; `/en/inbox/search?q=test` 200.
   API access log confirms both new routes land at the auth guard.
+
+### [IMPL 13] — Messaging policy settings page
+
+- **Completed:** 2026-04-11T13:15+01:00 Europe/Dublin
+- **Commit:** `b37c9f1c` on production (local `b76a1c24`)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Landed the tenant admin settings page for the messaging policy.
+  Backend (`apps/api/src/modules/inbox/settings/`):
+  `InboxSettingsService` gained `updateInboxSettings`,
+  `updatePolicyMatrix`, and `resetPolicyMatrix`, all running inside
+  RLS-scoped interactive transactions. `updatePolicyMatrix`
+  invalidates the per-tenant policy cache after the upsert batch so
+  the next `canStartConversation` reads the fresh matrix.
+  `InboxSettingsController` adds three mutations behind
+  `inbox.settings.write`: `PUT /v1/inbox/settings/inbox`,
+  `PUT /v1/inbox/settings/policy`, and `POST /v1/inbox/settings/policy/reset`.
+  Frontend (`apps/web/.../settings/messaging-policy/`): single-page
+  form with sticky save bar, sections for global kill switches
+  (react-hook-form + `zodResolver(updateInboxSettingsSchema)`),
+  9x9 role permission matrix via a standalone `PolicyMatrixGrid`
+  component (CSS Grid on desktop with sticky headers + per-cell
+  tooltip showing the hard-coded relational scope, stacked
+  checkbox groups on mobile), and edit-window/retention number
+  inputs. Confirmation modals guard the destructive toggles
+  (disable messaging, enable students/parents initiate, reset to
+  defaults). Service spec (4 tests) covers NOT_FOUND, the RLS
+  transaction shape, upsert batch + cache invalidation, and reset
+  delegation. New nav entry "Messaging Policy" in the settings
+  layout gated by `ADMIN_SETTINGS_ROLES`.
+- **Follow-ups:**
+  - Retention enforcement worker is deliberately NOT in this impl
+    — the setting is captured in `tenant_settings_inbox.retention_days`
+    but no cron deletes aged messages yet. A future implementation
+    should wire a worker that runs daily and soft-deletes messages
+    older than the configured window.
+  - The "Require admin approval for parent → teacher messages"
+    toggle is labelled "Coming soon" — column exists on
+    `tenant_settings_inbox`, no workflow yet.
+  - Matrix cells that are visually disabled by a kill switch are
+    still stored as-is in the DB. This is deliberate: the kill
+    switch in `MessagingPolicyService` always wins regardless of
+    cell state, so the cell value is preserved for when the kill
+    switch is toggled back on.
+  - The page uses inline English copy for v1 — impl 16 handles
+    translations (`no-untranslated-strings` warnings are expected).
+- **Session notes:** Parallel wave-4 sessions repeatedly stomped on
+  my working-tree files; the first three attempts to commit had the
+  web directory and service file wiped between the Write and
+  `git add` steps (likely another session's `git reset` or
+  lint-staged stash-pop). Recovered by doing writes + stage + commit
+  in a single atomic bash block. Production applied the patch under
+  a different SHA (`b37c9f1c`) as it was bundled with another
+  session's patch series before my own `scp` landed; my `git am` on
+  prod failed with "already exists in index" and the change was
+  verified in place rather than reapplied. Smoke tests against prod:
+  `/api/health` 200; `/api/v1/inbox/settings/{inbox,policy}` GETs
+  return the existing 401-guarded reads; `PUT /v1/inbox/settings/
+inbox`, `PUT /v1/inbox/settings/policy`, and `POST /v1/inbox/
+settings/policy/reset` all return 401 `UNAUTHORIZED` (routes
+  registered, auth + permission guards active); `/en/settings/
+messaging-policy` on nhqs returns 200.
