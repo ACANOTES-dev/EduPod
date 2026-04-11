@@ -136,14 +136,14 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status      | Completed at              | Commit SHA |
-| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ----------- | ------------------------- | ---------- |
-| 01  | Schema foundation                             | 1    | schema         | serial               | —          | `completed` | 2026-04-11T15:00:00+01:00 | 7ff33d56   |
-| 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `completed` | 2026-04-11T16:26:00+01:00 | b2593a08   |
-| 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `completed` | 2026-04-11T16:30:00+01:00 | 678bb9a4   |
-| 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `completed` | 2026-04-11T17:05:00+01:00 | 497e571e   |
-| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `completed` | 2026-04-11T17:00:00+01:00 | 39b6fe77   |
-| 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `pending`   | —                         | —          |
+| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status        | Completed at              | Commit SHA |
+| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ------------- | ------------------------- | ---------- |
+| 01  | Schema foundation                             | 1    | schema         | serial               | —          | `completed`   | 2026-04-11T15:00:00+01:00 | 7ff33d56   |
+| 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `completed`   | 2026-04-11T16:26:00+01:00 | b2593a08   |
+| 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `completed`   | 2026-04-11T16:30:00+01:00 | 678bb9a4   |
+| 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `completed`   | 2026-04-11T17:05:00+01:00 | 497e571e   |
+| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `completed`   | 2026-04-11T17:00:00+01:00 | 39b6fe77   |
+| 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `in-progress` | —                         | —          |
 
 ---
 
