@@ -136,14 +136,14 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status    | Completed at | Commit SHA |
-| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | --------- | ------------ | ---------- |
-| 01  | Schema foundation                             | 1    | schema         | serial               | —          | `pending` | —            | —          |
-| 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `pending` | —            | —          |
-| 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `pending` | —            | —          |
-| 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `pending` | —            | —          |
-| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `pending` | —            | —          |
-| 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `pending` | —            | —          |
+| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status        | Completed at | Commit SHA |
+| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ------------- | ------------ | ---------- |
+| 01  | Schema foundation                             | 1    | schema         | serial               | —          | `in-progress` | —            | —          |
+| 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `pending`     | —            | —          |
+| 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `pending`     | —            | —          |
+| 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `pending`     | —            | —          |
+| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `pending`     | —            | —          |
+| 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `pending`     | —            | —          |
 
 ---
 
