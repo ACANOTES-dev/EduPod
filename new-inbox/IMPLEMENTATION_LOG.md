@@ -499,3 +499,68 @@ search?q=test` with nhqs host header → 401 `UNAUTHORIZED` (route
   parallel impl 07 session had also deployed a fallback-worker patch
   (`95c7350d`) between my two deploys, which is still running and
   unrelated to 09.
+
+### [IMPL 07] — Notification fallback worker
+
+- **Completed:** 2026-04-11T11:26+01:00 Europe/Dublin
+- **Commit:** `95c7350d` (feature) + `3362bc12` (RLS fix-forward) on prod; local `9456cd3c` + `9e136376`
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Landed the inbox fallback escalation pipeline under
+  `apps/worker/src/processors/inbox/`. `InboxFallbackCheckProcessor`
+  is a 15-minute cron on `QUEUE_NAMES.NOTIFICATIONS` that fans out one
+  `inbox:fallback-scan-tenant` job per tenant with messaging + any
+  fallback bucket enabled. `InboxFallbackScanTenantProcessor` runs
+  inside an RLS-scoped `$transaction`: loads `tenant_settings_inbox`,
+  short-circuits on disabled state, runs a single bounded
+  `message.findMany` (500-row cap, filters `fallback_dispatched_at IS
+NULL`, `disable_fallback = false`, `deleted_at IS NULL`, frozen
+  conversation exclusion, `created_at < min(adminMs, teacherMs)`),
+  batch-resolves sender `MessagingRole` via `tenantMembership` +
+  shared `PLATFORM_ROLE_TO_MESSAGING_ROLE`, partitions into admin /
+  teacher buckets with per-bucket age filtering, materialises
+  `notification` rows for every unread recipient × configured channel
+  (skipping recipients with no contact for that channel + never the
+  sender), and stamps `messages.fallback_dispatched_at` in a
+  tenant-scoped `updateMany`. Integration path: rows enter the
+  existing `dispatch-queued` → `DispatchNotificationsProcessor`
+  pipeline via a new platform-level `inbox_message_fallback`
+  template set (6 rows — email / sms / whatsapp × en / ar) seeded
+  idempotently at worker start by `InboxFallbackTemplatesInit`. Cron
+  registration added to `CronSchedulerService.registerInboxCronJobs`.
+  Two-file raw-sql allowlist bump. 23 unit tests.
+- **Follow-ups:**
+  - Wave 4 impl 15 (admin oversight UI + fallback settings) binds the
+    six fallback columns on `tenant_settings_inbox` to a settings
+    form. No service work required — the worker already consumes
+    them.
+  - Smoke-test recipe: temporarily set `fallback_admin_after_hours =
+0` on a test tenant, send a Principal broadcast, wait 16 minutes,
+    verify `messages.fallback_dispatched_at` stamped and a
+    `notifications` row with `template_key = 'inbox_message_fallback'`
+    exists. Reset override afterwards.
+  - If a real tenant accumulates >500 unread staff messages in one
+    bucket, the scan drains across cycles at 500/15min — a tenant
+    with 10k backlog needs ~5h to drain. Flag as a telemetry
+    follow-up when a tenant hits it.
+  - Parent / student senders are intentionally never escalated (the
+    fallback is a staff-outbound escalation mechanism). If a future
+    wave changes this, the per-bucket role partition in
+    `scanTenant` is the single touch point.
+- **Session notes:** First prod boot after the feature commit
+  (`95c7350d`) crashed in `InboxFallbackTemplatesInit.onModuleInit`
+  with `22P02 invalid input syntax for type uuid: ""` — the
+  `notification_templates` RLS policy casts
+  `current_setting('app.current_tenant_id')::uuid` unconditionally
+  (same class of bug impl 02 hit on `roles` / `role_permissions`).
+  Fix-forward (`3362bc12`) wraps the seed in a `$transaction` that
+  sets `app.current_tenant_id = SYSTEM_USER_SENTINEL` before
+  `findFirst` — the `tenant_id IS NULL` branch of the OR then
+  resolves the policy for platform rows without leaking tenant data.
+  Second boot logged `Inbox fallback templates ensured — created 6
+new platform-level row(s).` and every subsequent boot logs
+  `Inbox fallback templates already present — skipping seed.`
+  `Registered repeatable cron: inbox:fallback-check (every 15 min)`
+  confirmed on both boots. Coded and deployed in parallel with impls
+  06 / 08 / 09 — worker-only deploy had no serialisation conflict
+  with impl 09's concurrent API-only deploy.
