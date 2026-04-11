@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { TokenService } from '../auth/auth-token.service';
+import { S3Module } from '../s3/s3.module';
 import { SequenceModule } from '../sequence/sequence.module';
 
 import { DomainsController } from './domains.controller';
@@ -12,7 +13,7 @@ import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
 
 @Module({
-  imports: [SequenceModule],
+  imports: [S3Module, SequenceModule],
   controllers: [TenantsController, DomainsController, PublicTenantsController],
   providers: [TenantsService, DomainsService, PublicTenantsService, TenantReadFacade, TokenService],
   exports: [TenantsService, SequenceModule, TenantReadFacade],

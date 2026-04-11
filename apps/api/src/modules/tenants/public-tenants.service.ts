@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { runWithRlsContext } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { S3Service } from '../s3/s3.service';
 
 export interface PublicTenantConfig {
   tenant_id: string;
@@ -19,7 +20,10 @@ export interface PublicTenantConfig {
 
 @Injectable()
 export class PublicTenantsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly s3: S3Service,
+  ) {}
 
   async findBySlug(slug: string): Promise<PublicTenantConfig> {
     const normalised = slug.trim().toLowerCase();
@@ -57,13 +61,24 @@ export class PublicTenantsService {
       return { branding, domain };
     });
 
+    // Resolve raw S3 key to a presigned URL so the public form can render it
+    let resolvedLogoUrl: string | null = related.branding?.logo_url ?? null;
+    if (resolvedLogoUrl) {
+      try {
+        resolvedLogoUrl = await this.s3.getPresignedUrl(resolvedLogoUrl, 3600);
+      } catch {
+        console.error('[PublicTenantsService.findBySlug] Failed to presign logo URL');
+        resolvedLogoUrl = null;
+      }
+    }
+
     return {
       tenant_id: tenant.id,
       slug: tenant.slug,
       name: tenant.name,
       display_name: related.branding?.school_name_display ?? tenant.name,
       display_name_ar: related.branding?.school_name_ar ?? null,
-      logo_url: related.branding?.logo_url ?? null,
+      logo_url: resolvedLogoUrl,
       primary_color: related.branding?.primary_color ?? null,
       support_email: related.branding?.support_email ?? null,
       support_phone: related.branding?.support_phone ?? null,

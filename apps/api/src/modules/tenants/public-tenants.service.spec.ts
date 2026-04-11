@@ -9,6 +9,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 import { runWithRlsContext as runWithRlsContextRaw } from '../../common/middleware/rls.middleware';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { S3Service } from '../s3/s3.service';
 
 import { PublicTenantsService } from './public-tenants.service';
 
@@ -84,12 +85,16 @@ function buildMockPrisma(options: {
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
+const PRESIGNED_LOGO_URL = 'https://s3.example.com/presigned-logo.png';
+
 describe('PublicTenantsService — findBySlug', () => {
   let service: PublicTenantsService;
   let prisma: ReturnType<typeof buildMockPrisma>;
+  let mockS3: { getPresignedUrl: jest.Mock };
 
   async function createService(options: Parameters<typeof buildMockPrisma>[0]) {
     prisma = buildMockPrisma(options);
+    mockS3 = { getPresignedUrl: jest.fn().mockResolvedValue(PRESIGNED_LOGO_URL) };
 
     // `runWithRlsContext` is mocked to immediately invoke the callback with
     // the same mock prisma so the step-2 branding/domain lookups reach our
@@ -97,7 +102,11 @@ describe('PublicTenantsService — findBySlug', () => {
     runWithRlsContext.mockImplementation(async (_prisma, _ctx, cb) => cb(prisma));
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PublicTenantsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        PublicTenantsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: S3Service, useValue: mockS3 },
+      ],
     }).compile();
     service = module.get<PublicTenantsService>(PublicTenantsService);
   }
@@ -127,13 +136,14 @@ describe('PublicTenantsService — findBySlug', () => {
       orderBy: { created_at: 'asc' },
     });
 
+    expect(mockS3.getPresignedUrl).toHaveBeenCalledWith('https://cdn.example/logo.png', 3600);
     expect(result).toEqual({
       tenant_id: TENANT_ID,
       slug: 'nhqs',
       name: 'Nurul Huda',
       display_name: 'Nurul Huda Quranic School',
       display_name_ar: 'مدرسة نور الهدى',
-      logo_url: 'https://cdn.example/logo.png',
+      logo_url: PRESIGNED_LOGO_URL,
       primary_color: '#0ea5e9',
       support_email: 'admissions@nhqs.test',
       support_phone: '+971 50 000 0000',
