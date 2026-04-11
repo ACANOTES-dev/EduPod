@@ -470,6 +470,12 @@ export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
     { labelKey: 'nav.generalSettings', href: '/settings' },
     { labelKey: 'nav.behaviourSettings', href: '/behaviour/settings', overflow: true },
     { labelKey: 'nav.roles', href: '/settings/roles' },
+    {
+      labelKey: 'nav.safeguardingKeywords',
+      href: '/settings/communications/safeguarding',
+      overflow: true,
+      roles: ADMIN_ROLES,
+    },
     { labelKey: 'nav.closures', href: '/closures', overflow: true },
     { labelKey: 'nav.website', href: '/website', overflow: true },
   ],

@@ -3,6 +3,7 @@
     "appName": "نظام المدرسة",
     "loading": "جارٍ التحميل...",
     "save": "حفظ",
+    "saving": "جارٍ الحفظ…",
     "cancel": "إلغاء",
     "delete": "حذف",
     "edit": "تعديل",
@@ -159,7 +160,64 @@
     "feeAssignments": "تعيين الرسوم",
     "generalSettings": "عام",
     "behaviourSettings": "السلوك",
-    "roles": "الأدوار"
+    "roles": "الأدوار",
+    "safeguardingKeywords": "كلمات الحماية"
+  },
+  "inbox": {
+    "title": "صندوق الرسائل",
+    "compose": "إنشاء رسالة",
+    "loading": "جارٍ التحميل…",
+    "search": {
+      "placeholder": "ابحث في الرسائل"
+    },
+    "filter": {
+      "all": "الكل",
+      "unread": "غير مقروء",
+      "direct": "مباشر",
+      "group": "مجموعة",
+      "broadcasts": "إعلانات",
+      "archived": "مؤرشف"
+    },
+    "list": {
+      "empty": "لا توجد محادثات بعد"
+    },
+    "empty_state": {
+      "title": "اختر محادثة لعرضها",
+      "body": "اختر محادثة من القائمة لقراءتها والرد عليها."
+    },
+    "thread": {
+      "frozen": {
+        "title": "تم تعطيل هذه المحادثة",
+        "banner": "تم تعطيل هذه المحادثة من قِبل إدارة المدرسة. يُرجى التواصل مع المكتب لمزيد من المراسلات."
+      },
+      "direct_fallback_subject": "رسالة مباشرة",
+      "untitled_subject": "(بدون عنوان)",
+      "participants_count": "{count, plural, zero {لا يوجد مشاركون} one {مشارك واحد} two {مشاركان} few {# مشاركين} many {# مشاركًا} other {# مشارك}}",
+      "sender_fallback": "المرسل",
+      "read_by": "قرأها {read} من {total}",
+      "read_by_popover_title": "إيصالات القراءة",
+      "composer": {
+        "placeholder": "اكتب رسالة…",
+        "send": "إرسال",
+        "disabled": {
+          "frozen": "هذه المحادثة معطّلة. لا يمكنك الرد.",
+          "no_reply": "الرد غير مفعل على هذه الرسالة.",
+          "policy": "غير مسموح لك بالرد على هذه المحادثة."
+        }
+      }
+    },
+    "message": {
+      "deleted": "[رسالة محذوفة]",
+      "edited": "(تم التعديل)"
+    },
+    "unread": {
+      "badge_aria": "{count} رسائل غير مقروءة",
+      "badge_aria_zero": "صندوق الرسائل"
+    },
+    "errors": {
+      "load_threads": "تعذّر تحميل صندوق الرسائل. يرجى المحاولة مرة أخرى.",
+      "load_thread": "تعذّر تحميل هذه المحادثة. يرجى المحاولة مرة أخرى."
+    }
   },
   "auth": {
     "login": "تسجيل الدخول",
@@ -1107,6 +1165,7 @@
     "general": "عام",
     "security": "الأمان",
     "notifications": "الإشعارات",
+    "messagingPolicy": "سياسة الرسائل",
     "profile": "الملف الشخصي",
     "changePassword": "تغيير كلمة المرور",
     "mfa": "المصادقة الثنائية",
@@ -6001,6 +6060,7 @@
     "title": "الاتصالات",
     "description": "إدارة الإعلانات واستفسارات أولياء الأمور",
     "newAnnouncement": "إعلان جديد",
+    "manageAudiences": "إدارة الجماهير",
     "announcements": "الإعلانات",
     "inquiries": "الاستفسارات",
     "tabs": {
@@ -6112,6 +6172,175 @@
     "opened": "[AR] Opened",
     "noInquiriesYet": "لا يوجد inquiries حتى الآن",
     "enterCommaSeparatedIdsFor": "أدخل comma-separated IDs for the selected scope."
+  },
+  "inbox": {
+    "audiences": {
+      "title": "الجماهير المحفوظة",
+      "description": "قوائم مستلمين قابلة لإعادة الاستخدام للإعلانات والرسائل.",
+      "new": "جمهور جديد",
+      "newPageTitle": "إنشاء جمهور",
+      "newPageDescription": "أنشئ جمهورًا ثابتًا أو ديناميكيًا لإعادة استخدامه عبر البث.",
+      "searchPlaceholder": "ابحث بالاسم أو الوصف",
+      "loading": "جارٍ تحميل الجماهير...",
+      "duplicateSuffix": "نسخة",
+      "memberCount": "{count, plural, =0 {لا يوجد أعضاء} one {عضو واحد} two {عضوان} few {# أعضاء} many {# عضوًا} other {# عضو}}",
+      "memberCountDynamic": "ديناميكي — يُحلّ عند الإرسال",
+      "filters": {
+        "all": "الكل",
+        "static": "ثابت",
+        "dynamic": "ديناميكي"
+      },
+      "kind": {
+        "static": "ثابت",
+        "dynamic": "ديناميكي"
+      },
+      "columns": {
+        "name": "الاسم",
+        "description": "الوصف",
+        "kind": "النوع",
+        "members": "الأعضاء",
+        "actions": "الإجراءات"
+      },
+      "actions": {
+        "view": "فتح",
+        "duplicate": "تكرار",
+        "delete": "حذف",
+        "cancel": "إلغاء",
+        "create": "إنشاء الجمهور",
+        "save": "حفظ التغييرات",
+        "back": "رجوع",
+        "menu": "إجراءات الصف"
+      },
+      "empty": {
+        "title": "لا توجد جماهير محفوظة بعد",
+        "description": "أنشئ جمهورًا لإعادة استخدامه في الإعلانات والرسائل.",
+        "searchDescription": "لا توجد نتائج مطابقة."
+      },
+      "delete": {
+        "confirm": {
+          "title": "حذف هذا الجمهور؟",
+          "body": "لا يمكن التراجع. الإعلانات المرسلة سابقًا لن تتأثر، لكن الجمهور لن يكون متاحًا للإرسالات الجديدة."
+        }
+      },
+      "drawer": {
+        "openFull": "فتح العرض الكامل"
+      },
+      "toast": {
+        "created": "تم إنشاء الجمهور",
+        "saved": "تم حفظ الجمهور",
+        "deleted": "تم حذف الجمهور",
+        "deleteFailed": "فشل حذف الجمهور",
+        "duplicated": "تم تكرار الجمهور",
+        "duplicateFailed": "فشل تكرار الجمهور"
+      },
+      "errors": {
+        "nameTaken": "يوجد جمهور بهذا الاسم في هذا المستأجر بالفعل.",
+        "cycleDetected": "هذا التعريف يشير إلى نفسه مباشرةً أو عبر جمهور محفوظ آخر.",
+        "tooDeep": "التعريف متشعّب للغاية. بسّطه قبل الحفظ.",
+        "duplicateNameTaken": "توجد نسخة بهذا الاسم بالفعل — أعد التسمية قبل التكرار مرة أخرى.",
+        "noMembers": "اختر عضوًا واحدًا على الأقل قبل الحفظ.",
+        "noDefinition": "أضف علامة مزود واحدة على الأقل قبل الحفظ.",
+        "generic": "حدث خطأ ما. يُرجى المحاولة مرة أخرى.",
+        "resolveFailed": "فشل في تحليل أعضاء الجمهور."
+      },
+      "notFound": {
+        "title": "لم يتم العثور على الجمهور",
+        "body": "ربما تم حذفه أو ليس لديك صلاحية لعرضه."
+      },
+      "form": {
+        "name": {
+          "label": "الاسم",
+          "placeholder": "مثال: مجلس أولياء أمور السنة الخامسة",
+          "required": "الاسم مطلوب"
+        },
+        "description": {
+          "label": "الوصف (اختياري)",
+          "placeholder": "ما الغرض من هذا الجمهور؟"
+        },
+        "kind": {
+          "label": "النوع",
+          "locked": "لا يمكن تغيير النوع بعد الإنشاء. كرّر وأعد البناء للتحويل.",
+          "static": {
+            "title": "ثابت",
+            "description": "قائمة مختارة يدويًا. التغييرات فورية وتؤثّر على الإرسالات القادمة."
+          },
+          "dynamic": {
+            "title": "ديناميكي",
+            "description": "يُحلّ عند كل بث. استخدمه لقواعد مثل 'أولياء الأمور الذين عليهم متأخرات > 500 €'."
+          }
+        },
+        "builder": {
+          "label": "الجمهور",
+          "loadingProviders": "جارٍ تحميل المزودين..."
+        }
+      },
+      "peoplePicker": {
+        "searchPlaceholder": "ابحث عن المستخدمين بالاسم أو البريد الإلكتروني",
+        "selected": "محدد",
+        "selectedCount": "{count, plural, one {عضو واحد محدد} two {عضوان محددان} few {# أعضاء محددون} many {# عضوًا محددًا} other {# عضو محدد}}",
+        "empty": "ابحث وانقر على مستخدم لإضافته.",
+        "removeUser": "إزالة المستخدم"
+      },
+      "chipBuilder": {
+        "empty": "لا توجد علامات بعد. أضف واحدة للبدء.",
+        "negated": "ليس",
+        "included": "في",
+        "stub": "غير مفعّل بعد",
+        "complex": {
+          "title": "تعريف معقّد",
+          "body": "هذا الجمهور له شكل متداخل لا يمكن للمحرر تحريره بعد. استخدم واجهة البرمجة أو كرّر وأعد البناء."
+        },
+        "operator": {
+          "label": "اجمع العلامات بـ",
+          "and": "و",
+          "or": "أو"
+        },
+        "actions": {
+          "add": "إضافة علامة",
+          "remove": "إزالة العلامة",
+          "negate": "عكس (NOT)",
+          "unNegate": "استعادة"
+        },
+        "addPicker": {
+          "providerLabel": "المزود",
+          "placeholder": "اختر مزودًا",
+          "cancel": "إلغاء",
+          "confirm": "إضافة"
+        },
+        "params": {
+          "none": "لا توجد معاملات مطلوبة.",
+          "csvPlaceholder": "uuid1, uuid2, ...",
+          "csvHint": "قائمة مفصولة بفواصل.",
+          "labels": {
+            "minOverdueAmount": "الحد الأدنى للمبلغ المتأخر",
+            "minOverdueDays": "الحد الأدنى لأيام التأخير",
+            "json": "المعاملات (JSON)"
+          }
+        }
+      },
+      "preview": {
+        "title": "معاينة",
+        "refresh": "تحديث",
+        "loading": "جارٍ التحليل...",
+        "empty": "اختر المزودين لرؤية عدد المستلمين.",
+        "error": "تعذّر تحليل هذا الجمهور.",
+        "recipients": "{count, plural, =0 {لا مستلمون} one {مستلم} two {مستلمان} few {مستلمون} many {مستلمًا} other {مستلم}}",
+        "moreCount": "+{count} إضافي"
+      },
+      "resolveNow": {
+        "title": "التحليل الآن",
+        "description": "شغّل التعريف على البيانات الحالية للتحقق من قائمة المستلمين.",
+        "run": "تحليل",
+        "resolvedAt": "تم التحليل {at}",
+        "totalCount": "{count, plural, =0 {لا أعضاء} one {عضو واحد} two {عضوان} few {# أعضاء} many {# عضوًا} other {# عضو}}",
+        "prev": "السابق",
+        "next": "التالي",
+        "pageIndicator": "الصفحة {page} من {total}",
+        "columns": {
+          "userId": "معرف المستخدم"
+        }
+      }
+    }
   },
   "announcements": {
     "title": "الإعلانات",
@@ -8444,6 +8673,95 @@
       "retentionSection": "الاحتفاظ بالبيانات",
       "retentionLabel": "فترة الاحتفاظ (سنوات)",
       "retentionDescription": "يتطلب قانون أطفال أيرلندا أولاً الاحتفاظ حتى يبلغ الطفل 75 عاماً."
+    },
+    "keywords": {
+      "title": "كلمات الحماية المفتاحية",
+      "description": "إدارة قائمة الكلمات المفتاحية المستخدمة بواسطة ماسح الحماية لوضع علامة على الرسائل في البريد الوارد.",
+      "add": "إضافة كلمة",
+      "add_title": "إضافة كلمة",
+      "edit_title": "تعديل الكلمة",
+      "bulk_import": "استيراد مجمّع",
+      "toggle_active": "تبديل الحالة",
+      "empty_state": "لا توجد كلمات تطابق عوامل التصفية.",
+      "severity_hint": "تحتفظ الإشارات التاريخية بمستوى الخطورة الذي التُقط عند إنشائها. تعديل هذه القيمة يؤثر فقط على المطابقات الجديدة.",
+      "fields": {
+        "keyword": "الكلمة",
+        "severity": "الخطورة",
+        "category": "الفئة",
+        "active": "فعّال",
+        "updated": "آخر تحديث",
+        "actions": "إجراءات"
+      },
+      "severity": {
+        "low": "منخفض",
+        "medium": "متوسط",
+        "high": "مرتفع"
+      },
+      "category": {
+        "bullying": "تنمّر",
+        "self_harm": "إيذاء النفس",
+        "abuse": "إساءة",
+        "inappropriate_contact": "تواصل غير لائق",
+        "weapons": "أسلحة",
+        "other": "أخرى"
+      },
+      "filters": {
+        "searchPlaceholder": "ابحث في الكلمات…",
+        "allCategories": "كل الفئات",
+        "allSeverities": "كل مستويات الخطورة",
+        "allStatuses": "كل الحالات",
+        "active": "الفعّالة فقط",
+        "inactive": "غير الفعّالة فقط"
+      },
+      "pagination": {
+        "showing": "عرض {from}–{to} من {total}",
+        "previous": "السابق",
+        "next": "التالي"
+      },
+      "form": {
+        "save": "حفظ",
+        "saving": "جاري الحفظ…",
+        "cancel": "إلغاء"
+      },
+      "bulk": {
+        "title": "استيراد مجمّع للكلمات",
+        "description": "الصق كلمة واحدة في كل سطر بالتنسيق: الكلمة، الخطورة، الفئة. يجب أن تكون الخطورة منخفضة أو متوسطة أو مرتفعة. يتم تخطي الصفوف غير الصالحة.",
+        "parse": "تحليل",
+        "import": "استيراد",
+        "row": "الصف",
+        "status": "الحالة"
+      },
+      "delete": {
+        "title": "حذف الكلمة",
+        "confirm": "حذف «{keyword}»؟ لا يمكن التراجع عن هذا الإجراء.",
+        "confirmButton": "حذف"
+      },
+      "denied": {
+        "title": "مخصص للمسؤولين",
+        "description": "فقط المالك أو المدير أو نائب المدير يمكنه إدارة كلمات الحماية."
+      },
+      "validation": {
+        "keywordRequired": "الكلمة مطلوبة"
+      },
+      "toasts": {
+        "created": "تمت إضافة الكلمة",
+        "updated": "تم تحديث الكلمة",
+        "deleted": "تم حذف الكلمة",
+        "bulkImported": "تم استيراد {imported} كلمة، وتم تخطي {skipped}",
+        "bulkNoValid": "لا توجد صفوف صالحة للاستيراد"
+      }
+    },
+    "alerts": {
+      "title": "تنبيهات الحماية",
+      "pending_count": "{count} معلّقة",
+      "all_clear": "كل شيء هادئ — لا توجد إشارات معلّقة",
+      "view_all": "عرض كل الإشارات",
+      "error": "تعذّر تحميل الإشارات",
+      "severity": {
+        "low": "منخفض",
+        "medium": "متوسط",
+        "high": "مرتفع"
+      }
     }
   },
   "pastoral": {

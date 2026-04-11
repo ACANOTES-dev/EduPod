@@ -4,6 +4,8 @@ import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
+import { SafeguardingAlertsWidget } from '../../_components/dashboard-widgets/safeguarding-alerts-widget';
+
 import type { AuditLogItem } from './activity-feed';
 import { ActivityFeed } from './activity-feed';
 import { GreetingRow } from './greeting-row';
@@ -225,6 +227,7 @@ export function AdminHome({
         <div className="lg:hidden space-y-6">
           <QuickActions variant="horizontal" />
           <SchoolSnapshot variant="compact" data={data} />
+          <SafeguardingAlertsWidget />
         </div>
 
         <PriorityFeed priorityData={priorityData} />
@@ -239,6 +242,7 @@ export function AdminHome({
 
       <div className="hidden lg:block w-[360px] shrink-0 space-y-6 lg:pt-[56px] xl:pt-0">
         <SchoolSnapshot variant="default" data={data} />
+        <SafeguardingAlertsWidget />
         <ThisWeekCard metrics={weeklyMetrics} loading={weeklyLoading} />
         <QuickActions variant="grid" />
       </div>
