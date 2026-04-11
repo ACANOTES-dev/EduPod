@@ -11921,6 +11921,10 @@
         "title": "Overrides Log",
         "description": "{count} admin overrides granted",
         "zero": "No overrides recorded"
+      },
+      "settings": {
+        "title": "Settings",
+        "description": "Configure payment rules, application limits, and approval workflows"
       }
     },
     "capacityPressure": {
@@ -12008,5 +12012,56 @@
     "paymentCancelledTitle": "Payment cancelled",
     "paymentCancelledBody": "Your application is still on hold — you can try the payment link again.",
     "paymentCancelledFollowup": "Use the link in the email we sent you to retry the payment within the hold window."
+  },
+  "admissionsSettings": {
+    "title": "Admissions Settings",
+    "subtitle": "Configure how applications, payments, and approvals work for your school.",
+    "loadError": "Failed to load admissions settings",
+    "saved": "Admissions settings saved",
+    "saveError": "Failed to save settings",
+    "saving": "Saving...",
+    "saveChanges": "Save changes",
+    "payment": {
+      "title": "Payment settings",
+      "subtitle": "Control how much is due upfront and which payment methods are accepted.",
+      "upfrontPercentage": "Upfront percentage",
+      "upfrontPercentageHint": "Percentage of the annual fee that must be paid before enrolment is confirmed.",
+      "paymentWindow": "Payment window",
+      "paymentWindowHint": "Days a parent has to complete payment after conditional approval.",
+      "days": "days",
+      "methodsTitle": "Accepted payment methods",
+      "stripeOnline": "Online card payment (Stripe)",
+      "stripeOnlineHint": "Parents receive a secure Stripe checkout link by email.",
+      "configureStripe": "Configure Stripe",
+      "allowCash": "Cash payment",
+      "allowCashHint": "Allow the front office to record a cash payment on behalf of the parent.",
+      "cashDeadline": "Cash payment deadline",
+      "allowBankTransfer": "Bank transfer",
+      "allowBankTransferHint": "Show bank transfer instructions with an IBAN on the payment page.",
+      "bankIban": "Bank IBAN",
+      "bankIbanHint": "Displayed to parents who choose bank transfer."
+    },
+    "rules": {
+      "title": "Application rules",
+      "subtitle": "Control which academic years parents can apply for.",
+      "maxHorizon": "Maximum application horizon",
+      "maxHorizonHint": "How many academic years ahead parents can submit applications.",
+      "years": "years"
+    },
+    "approval": {
+      "title": "Approval & overrides",
+      "subtitle": "Control who can approve applications and override payment requirements.",
+      "requireApproval": "Require approval before acceptance",
+      "requireApprovalHint": "Applications must be manually approved by an admin before a payment link is sent.",
+      "overrideRole": "Override approval role",
+      "overrideRoleHint": "The minimum role required to force-approve an application without payment.",
+      "roleOwner": "School Owner",
+      "rolePrincipal": "School Principal"
+    },
+    "stripe": {
+      "title": "Stripe configuration",
+      "subtitle": "Manage your Stripe API keys and webhook secret for online payments.",
+      "manage": "Manage"
+    }
   }
 }

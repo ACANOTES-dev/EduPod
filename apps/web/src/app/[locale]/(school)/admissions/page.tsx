@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Clock,
   FileText,
+  Settings2,
   ShieldCheck,
   Users,
   XCircle,
@@ -58,7 +59,8 @@ interface CardConfig {
     | 'conditionalApproval'
     | 'rejected'
     | 'formPreview'
-    | 'overrides';
+    | 'overrides'
+    | 'settings';
   href: string;
   icon: LucideIcon;
   accent: string;
@@ -125,6 +127,15 @@ const CARDS: CardConfig[] = [
     accent: 'from-slate-400 via-slate-500 to-slate-600',
     iconBg: 'bg-slate-100 text-slate-700',
     glow: 'from-slate-50/80',
+    roles: ADMIN_ROLES,
+  },
+  {
+    key: 'settings',
+    href: '/admissions/settings',
+    icon: Settings2,
+    accent: 'from-zinc-400 via-zinc-500 to-zinc-600',
+    iconBg: 'bg-zinc-100 text-zinc-700',
+    glow: 'from-zinc-50/80',
     roles: ADMIN_ROLES,
   },
 ];
@@ -437,5 +448,7 @@ function describeCard(
         secondary: null,
       };
     }
+    case 'settings':
+      return { primary: t('cards.settings.description'), secondary: null };
   }
 }
