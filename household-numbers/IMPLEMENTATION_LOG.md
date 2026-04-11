@@ -140,7 +140,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ------------- | ------------------------- | ---------- |
 | 01  | Schema foundation                             | 1    | schema         | serial               | —          | `completed`   | 2026-04-11T15:00:00+01:00 | 7ff33d56   |
 | 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `in-progress` | —                         | —          |
-| 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `pending`     | —                         | —          |
+| 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `in-progress` | —                         | —          |
 | 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `pending`     | —                         | —          |
 | 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `pending`     | —                         | —          |
 | 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `pending`     | —                         | —          |
