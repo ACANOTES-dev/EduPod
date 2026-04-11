@@ -146,6 +146,7 @@ withdrawn*                 (terminal — seat released if held)
 - **Auto-promotion triggers**:
   - `ClassesService.create` → `AdmissionsAutoPromotionService.onClassAdded` (new class with capacity).
   - Activating a year group for the first time → `AdmissionsAutoPromotionService.onYearGroupActivated` (drops `awaiting_year_setup` sub-status for matching rows, runs gating pass).
+- **Tiered FIFO (household-numbers rebuild)**: `waiting_list → ready_to_admit` (auto-promotion) is now TIERED — applications with `is_sibling_application = true` promote ahead of non-sibling waiting-list entries, regardless of `apply_date`. Within each tier, FIFO by `apply_date` holds. The sort is: `ORDER BY is_sibling_application DESC, apply_date ASC`.
 - **Legacy transitions removed**: `draft`, `under_review`, `pending_acceptance_approval`, `accepted` states deleted by migration `20260411000100_remove_legacy_admissions_statuses` (data migrated: `draft→withdrawn`, `under_review→ready_to_admit`, `pending_acceptance_approval→ready_to_admit`, `accepted→approved`).
 - **See**: `new-admissions/PLAN.md` for the full state diagram, gating math, and payment flow.
 

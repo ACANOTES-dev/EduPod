@@ -154,6 +154,7 @@ Missing any one of those leaves “approved but not actually executed” items i
 - `admissions:auto-promoted`
 - **Source**: `AdmissionsAutoPromotionService.promoteYearGroup` enqueues one job per application it promotes (fire-and-forget; failure degrades gracefully)
 - **Side effects**: parent notification email that the application has moved from waiting list to ready-to-admit (processor implementation deferred — flagged in impl 09 follow-ups)
+- **Tiered FIFO (household-numbers rebuild):** the underlying auto-promotion scan orders by `is_sibling_application DESC, apply_date ASC`. The notification payload is unchanged but the set of promoted applications differs under contention — siblings promote first within each (academic_year, year_group) bucket.
 
 ### `finance → admissions` webhook branch (not a queue)
 

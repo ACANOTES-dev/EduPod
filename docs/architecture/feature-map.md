@@ -2,7 +2,7 @@
 
 > **Purpose**: Complete inventory of every implemented feature, mapped to its code location. This document answers "what does the product do and where does it live?"
 > **Maintenance**: Update only when a feature change is confirmed final. This file is intended to be the architecture-level source of truth for product scope.
-> **Last verified**: 2026-04-11
+> **Last verified**: 2026-04-11 (household-numbers rebuild)
 
 ---
 
@@ -13,7 +13,7 @@
 | [Students](#1-students)                                             | `modules/students/`                                                                                                                                                                                                                       | 8             | 5              | —           |
 | [Staff Profiles](#2-staff-profiles)                                 | `modules/staff-profiles/`                                                                                                                                                                                                                 | 6             | 4              | —           |
 | [Parents](#3-parents)                                               | `modules/parents/`                                                                                                                                                                                                                        | 6             | 1              | —           |
-| [Households](#4-households)                                         | `modules/households/`                                                                                                                                                                                                                     | 16            | 4              | —           |
+| [Households](#4-households)                                         | `modules/households/`                                                                                                                                                                                                                     | 17            | 4              | —           |
 | [Registration](#5-registration)                                     | `modules/registration/`                                                                                                                                                                                                                   | 2             | —              | —           |
 | [Academics](#6-academics)                                           | `modules/academics/`                                                                                                                                                                                                                      | 21            | 5+             | —           |
 | [Classes](#7-classes)                                               | `modules/classes/`                                                                                                                                                                                                                        | 16            | 5              | —           |
@@ -26,7 +26,7 @@
 | [Communications & Announcements](#14-communications--announcements) | `modules/communications/`                                                                                                                                                                                                                 | 20            | 9              | 7           |
 | [Parent Inquiries](#15-parent-inquiries)                            | `modules/parent-inquiries/`                                                                                                                                                                                                               | 8             | 3              | 2           |
 | [Engagement](#16-engagement)                                        | `modules/engagement/`                                                                                                                                                                                                                     | 64            | 22             | 8           |
-| [Admissions](#17-admissions)                                        | `modules/admissions/`                                                                                                                                                                                                                     | 28            | 9              | 1           |
+| [Admissions](#17-admissions)                                        | `modules/admissions/`, `modules/public-households/`                                                                                                                                                                                       | 29            | 9              | 1           |
 | [Approvals](#18-approvals)                                          | `modules/approvals/`                                                                                                                                                                                                                      | 12            | 2              | 1           |
 | [Reports & Analytics](#19-reports--analytics)                       | `modules/reports/`                                                                                                                                                                                                                        | 66            | 20             | —           |
 | [Website CMS & Public Web](#20-website-cms--public-web)             | `modules/website/`                                                                                                                                                                                                                        | 13            | 7              | —           |
@@ -531,7 +531,17 @@
 
 - `admissions:auto-expiry`
 
-**Depends on**: Registration, finance, approvals, public website.
+**Depends on**: Registration, finance, approvals, public website, households.
+
+### Household numbers & multi-student applications
+
+- **Primitive**: 6-char alphanumeric household identifier (`XYZ476`), auto-generated at household creation via `HouseholdNumberService`.
+- **Student numbers**: derived as `{household_number}-{nn}` for households that have a number; legacy households continue on `STU-NNNNNN`.
+- **Public API**: one submission can create up to 20 applications. Existing families authenticate via household number + parent email (`POST /v1/public/households/lookup`); new families provide their details up front.
+- **Mode picker**: the public apply form starts with "New family" vs "Adding a child to existing family" choice.
+- **Sibling priority**: waiting-list auto-promotion runs tiered FIFO (`is_sibling_application DESC, apply_date ASC`).
+- **Admin surfaces**: admissions queue rows show a "Sibling" badge; household detail page shows the household number; walk-in wizard previews the next available household number.
+- **Location**: see `household-numbers/PLAN.md` for the full design.
 
 ---
 

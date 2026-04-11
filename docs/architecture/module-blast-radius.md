@@ -325,10 +325,12 @@ If a module is not listed individually, it is either:
 
 - **Contract**: application lifecycle (financially-gated), capacity gating, FIFO waiting list, Stripe checkout + cash/bank/override payment paths, admissions dashboard summary, public apply form
 - **Primary consumers**: registration, compliance, reports, search, parent-facing application views, finance webhook router, classes (auto-promotion hook)
-- **Imports**: ApprovalsModule, SearchModule, SequenceModule, AcademicsModule, FinanceModule (forwardRef for Stripe service), TenantsModule, RbacModule, BullModule (`notifications` queue)
+- **Imports**: ApprovalsModule, SearchModule, SequenceModule, AcademicsModule, FinanceModule (forwardRef for Stripe service), TenantsModule, RbacModule, HouseholdsModule, BullModule (`notifications` queue)
 - **Exports**: ApplicationsService, ApplicationStateMachineService, ApplicationConversionService, AdmissionsCapacityService, AdmissionsAutoPromotionService, AdmissionsPaymentService
 - **Blast radius**: HIGH
 - **Notes**: application state changes feed registration, finance, compliance workflows, and the classes service (auto-promotion). Auto-promotion hooks run inside the caller's RLS transaction — any module creating classes or activating a year group calls `AdmissionsAutoPromotionService.onClassAdded`/`onYearGroupActivated`.
+- **Batch applications (household-numbers rebuild):** the public apply path now creates N Application rows per submission, bundled by `submission_batch_id`. Each flows through its own state machine independently. Conversion of the first approval in a `new_household` batch materialises the household and retro-links the rest of the batch.
+- **Sibling priority:** auto-promotion runs tiered FIFO — `ORDER BY is_sibling_application DESC, apply_date ASC`. Siblings always promote from the waiting list ahead of non-siblings.
 
 ### Cross-module dependencies added by the new-admissions rebuild
 
@@ -377,10 +379,16 @@ These modules are comparatively safe to change in isolation as long as their sha
 
 ### HouseholdsModule
 
-- **Contract**: household grouping, household references
+- **Contract**: household grouping, household references, household number generation via `HouseholdNumberService`
 - **Imports**: RegistrationModule
-- **Blast radius**: LOW
+- **Exports**: `HouseholdNumberService` (consumed by StudentsModule, AdmissionsModule, RegistrationModule)
+- **Blast radius**: MEDIUM
 - **Notes**: primarily a grouping construct; registration import adds enrolment-time household linkage
+- **Contract (extended 2026):** household_number generation via `HouseholdNumberService` — per-tenant unique 6-char alphanumeric identifier (AAA999 format, random, crypto-generated), capped at 99 students per household. Methods: `generateUniqueForTenant`, `previewForTenant`, `incrementStudentCounter`, `generateStudentNumber`.
+- **New consumers:**
+  - `StudentsModule` — reads `household_number` at student-create time to assemble `{household_number}-{nn}` student numbers
+  - `AdmissionsModule` — `ApplicationConversionService` generates household numbers when materialising a new household from an approved new-family batch, and increments `student_counter` when creating any student under a household with a number
+  - `RegistrationModule` — `RegistrationService.registerFamily` uses `HouseholdNumberService` to assign household numbers at walk-in registration
 
 ### RoomsModule
 
