@@ -38,6 +38,7 @@ import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock
 import { CircuitBreakerRegistry } from '../../common/services/circuit-breaker-registry';
 import { ApplicationConversionService } from '../admissions/application-conversion.service';
 import { ApplicationStateMachineService } from '../admissions/application-state-machine.service';
+import { AdmissionsFinanceBridgeService } from '../admissions/admissions-finance-bridge.service';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -91,6 +92,17 @@ const mockApplicationStateMachineService = {
   markApproved: jest.fn(),
 };
 
+const mockAdmissionsFinanceBridge = {
+  createFinancialRecords: jest.fn().mockResolvedValue({
+    invoiceId: 'inv-1',
+    invoiceNumber: 'INV-202604-0001',
+    paymentId: 'pay-1',
+    invoiceTotalCents: 600000,
+    paymentCents: 600000,
+    balanceCents: 0,
+  }),
+};
+
 const mockEncryptionService = {
   decrypt: jest.fn().mockReturnValue('sk_test_fake_key'),
 };
@@ -142,6 +154,10 @@ describe('StripeService', () => {
         {
           provide: ApplicationStateMachineService,
           useValue: mockApplicationStateMachineService,
+        },
+        {
+          provide: AdmissionsFinanceBridgeService,
+          useValue: mockAdmissionsFinanceBridge,
         },
       ],
     }).compile();

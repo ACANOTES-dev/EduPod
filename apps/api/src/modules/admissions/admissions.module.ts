@@ -16,6 +16,7 @@ import { AdmissionsAutoPromotionService } from './admissions-auto-promotion.serv
 import { AdmissionsCapacityService } from './admissions-capacity.service';
 import { AdmissionsDashboardController } from './admissions-dashboard.controller';
 import { AdmissionsDashboardService } from './admissions-dashboard.service';
+import { AdmissionsFinanceBridgeService } from './admissions-finance-bridge.service';
 import {
   AdmissionOverridesController,
   AdmissionsPaymentController,
@@ -64,6 +65,7 @@ import { PublicAdmissionsController } from './public-admissions.controller';
     AdmissionsAutoPromotionService,
     AdmissionsDashboardService,
     FinanceFeesFacade,
+    AdmissionsFinanceBridgeService,
   ],
   exports: [
     ApplicationsService,
@@ -72,6 +74,7 @@ import { PublicAdmissionsController } from './public-admissions.controller';
     AdmissionsAutoPromotionService,
     ApplicationConversionService,
     ApplicationStateMachineService,
+    AdmissionsFinanceBridgeService,
   ],
 })
 export class AdmissionsModule {}

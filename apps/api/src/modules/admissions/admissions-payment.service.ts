@@ -14,6 +14,7 @@ import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RbacReadFacade } from '../rbac/rbac-read.facade';
 
+import { AdmissionsFinanceBridgeService } from './admissions-finance-bridge.service';
 import { ApplicationConversionService } from './application-conversion.service';
 import { ApplicationStateMachineService } from './application-state-machine.service';
 
@@ -80,6 +81,10 @@ interface LockedApplicationRow {
   payment_amount_cents: number | null;
   currency_code: string | null;
   reviewed_by_user_id: string | null;
+  student_first_name: string;
+  student_last_name: string;
+  target_academic_year_id: string | null;
+  target_year_group_id: string | null;
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -110,6 +115,7 @@ export class AdmissionsPaymentService {
     private readonly settingsService: SettingsService,
     private readonly auditLogService: AuditLogService,
     private readonly rbacReadFacade: RbacReadFacade,
+    private readonly financeBridge: AdmissionsFinanceBridgeService,
   ) {}
 
   // ─── Cash ──────────────────────────────────────────────────────────────────
@@ -396,6 +402,27 @@ export class AdmissionsPaymentService {
         },
       });
 
+      // Create financial records: fee assignment, invoice, payment, allocation
+      if (conversion.created && locked.target_academic_year_id && locked.target_year_group_id) {
+        await this.financeBridge.createFinancialRecords({
+          tenantId,
+          householdId: conversion.household_id,
+          studentId: conversion.student_id,
+          studentFirstName: locked.student_first_name,
+          studentLastName: locked.student_last_name,
+          yearGroupId: locked.target_year_group_id,
+          academicYearId: locked.target_academic_year_id,
+          paymentAmountCents: context.amountCents,
+          paymentSource: context.paymentSource,
+          actingUserId: context.actingUserId,
+          externalReference:
+            (context.auditMetadata.receipt_number as string) ??
+            (context.auditMetadata.transfer_reference as string) ??
+            undefined,
+          db,
+        });
+      }
+
       return { studentId: conversion.student_id, expected };
     });
 
@@ -428,7 +455,7 @@ export class AdmissionsPaymentService {
     };
     // eslint-disable-next-line school/no-raw-sql-outside-rls -- SELECT FOR UPDATE row lock inside RLS transaction
     const rows = await rawTx.$queryRaw(Prisma.sql`
-      SELECT id, tenant_id, status::text AS status, payment_amount_cents, currency_code, reviewed_by_user_id
+      SELECT id, tenant_id, status::text AS status, payment_amount_cents, currency_code, reviewed_by_user_id, student_first_name, student_last_name, target_academic_year_id, target_year_group_id
       FROM applications
       WHERE id = ${applicationId}::uuid
         AND tenant_id = ${tenantId}::uuid

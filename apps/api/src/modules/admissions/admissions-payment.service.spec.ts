@@ -6,6 +6,7 @@ import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RbacReadFacade } from '../rbac/rbac-read.facade';
 
+import { AdmissionsFinanceBridgeService } from './admissions-finance-bridge.service';
 import { AdmissionsPaymentService } from './admissions-payment.service';
 import { ApplicationConversionService } from './application-conversion.service';
 import { ApplicationStateMachineService } from './application-state-machine.service';
@@ -115,6 +116,17 @@ function buildService() {
     findMembershipByUserWithPermissions: jest.fn(),
   } as unknown as jest.Mocked<RbacReadFacade>;
 
+  const financeBridge = {
+    createFinancialRecords: jest.fn().mockResolvedValue({
+      invoiceId: 'inv-1',
+      invoiceNumber: 'INV-202604-0001',
+      paymentId: 'pay-1',
+      invoiceTotalCents: 600000,
+      paymentCents: 600000,
+      balanceCents: 0,
+    }),
+  } as unknown as jest.Mocked<AdmissionsFinanceBridgeService>;
+
   const service = new AdmissionsPaymentService(
     prisma,
     conversionService,
@@ -122,6 +134,7 @@ function buildService() {
     settingsService,
     auditLogService,
     rbacReadFacade,
+    financeBridge,
   );
 
   return {

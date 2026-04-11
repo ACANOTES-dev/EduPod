@@ -14,6 +14,7 @@ import type { CheckoutSessionDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { CircuitBreakerRegistry } from '../../common/services/circuit-breaker-registry';
+import { AdmissionsFinanceBridgeService } from '../admissions/admissions-finance-bridge.service';
 import { ApplicationConversionService } from '../admissions/application-conversion.service';
 import { ApplicationStateMachineService } from '../admissions/application-state-machine.service';
 import { EncryptionService } from '../configuration/encryption.service';
@@ -52,6 +53,8 @@ export class StripeService {
     private readonly applicationConversionService: ApplicationConversionService,
     @Inject(forwardRef(() => ApplicationStateMachineService))
     private readonly applicationStateMachineService: ApplicationStateMachineService,
+    @Inject(forwardRef(() => AdmissionsFinanceBridgeService))
+    private readonly admissionsFinanceBridge: AdmissionsFinanceBridgeService,
   ) {}
 
   private get webhookSecret(): string | undefined {
@@ -454,7 +457,7 @@ export class StripeService {
         });
       }
 
-      await this.applicationConversionService.convertToStudent(db, {
+      const conversion = await this.applicationConversionService.convertToStudent(db, {
         tenantId,
         applicationId,
         triggerUserId,
@@ -470,6 +473,32 @@ export class StripeService {
         },
         db,
       );
+
+      // Create financial records: fee assignment, invoice, payment, allocation
+      if (
+        conversion.created &&
+        application.target_academic_year_id &&
+        application.target_year_group_id
+      ) {
+        await this.admissionsFinanceBridge.createFinancialRecords({
+          tenantId,
+          householdId: conversion.household_id,
+          studentId: conversion.student_id,
+          studentFirstName: application.student_first_name,
+          studentLastName: application.student_last_name,
+          yearGroupId: application.target_year_group_id,
+          academicYearId: application.target_academic_year_id,
+          paymentAmountCents: actualCents,
+          paymentSource: 'stripe',
+          actingUserId: triggerUserId,
+          stripeSessionId: session.id,
+          stripePaymentIntentId:
+            typeof session.payment_intent === 'string'
+              ? session.payment_intent
+              : session.payment_intent?.id,
+          db,
+        });
+      }
     });
   }
 
