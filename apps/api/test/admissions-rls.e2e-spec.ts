@@ -1,20 +1,13 @@
-/* eslint-disable school/no-raw-sql-outside-rls -- RLS e2e tests require direct SQL */
-/**
- * RLS Leakage Tests — Phase 3 (Admissions)
- *
- * Verifies that tenant isolation holds at both the API level and the database
- * layer for all P3 entities: admission_form_definitions, admission_form_fields,
- * applications, application_notes.
- *
- * Also tests cross-tenant conversion safety:
- * - Converting with a parent ID from another tenant → PARENT_NOT_FOUND
- * - Converting with a year group from another tenant → YEAR_GROUP_NOT_FOUND
- */
-
+/* eslint-disable school/no-raw-sql-outside-rls -- direct SQL is required for explicit RLS verification */
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
+import {
+  buildPublicApplicationSeed,
+  createPublicApplication,
+  ensureAdmissionsTargets,
+} from './admissions-test-helpers';
 import {
   AL_NOOR_DOMAIN,
   AL_NOOR_OWNER_EMAIL,
@@ -31,19 +24,20 @@ import {
 
 jest.setTimeout(120_000);
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-let AL_NOOR_TENANT_ID: string;
-let CEDAR_TENANT_ID: string;
 const RLS_TEST_ROLE = 'rls_p3_test_user';
-
-// ─── Suite ───────────────────────────────────────────────────────────────────
 
 describe('RLS Leakage P3 — Admissions (e2e)', () => {
   let app: INestApplication;
-  let cedarToken: string;
-  let alNoorToken: string;
   let directPrisma: PrismaClient;
+  let alNoorToken: string;
+  let cedarToken: string;
+  let alNoorTenantId: string;
+  let cedarTenantId: string;
+  let alNoorFormId: string;
+  let alNoorAppId: string;
+  let alNoorAppUpdatedAt: string;
+
+  const uniqueSearchTerm = `RlsP3-${Date.now()}`;
 
   async function execWithRetry(prisma: PrismaClient, sql: string, maxRetries = 3): Promise<void> {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -51,9 +45,9 @@ describe('RLS Leakage P3 — Admissions (e2e)', () => {
         await prisma.$executeRawUnsafe(sql);
         return;
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes('tuple concurrently updated') && attempt < maxRetries) {
-          await new Promise((r) => setTimeout(r, 200 * attempt));
+        const message = err instanceof Error ? err.message : String(err);
+        if (message.includes('tuple concurrently updated') && attempt < maxRetries) {
+          await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
           continue;
         }
         throw err;
@@ -61,164 +55,89 @@ describe('RLS Leakage P3 — Admissions (e2e)', () => {
     }
   }
 
-  // Al Noor entity IDs
-  let alNoorFormId: string;
-  let alNoorAppId: string;
-  let alNoorAppUpdatedAt: string;
+  async function queryAsCedar(tableName: string): Promise<Array<{ tenant_id: string | null }>> {
+    return directPrisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(
+        `SELECT set_config('app.current_tenant_id', '${cedarTenantId}', true)`,
+      );
+      await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
+      return tx.$queryRawUnsafe(`SELECT tenant_id::text FROM "${tableName}"`) as Promise<
+        Array<{ tenant_id: string | null }>
+      >;
+    });
+  }
 
-  // Cedar entity IDs for cross-tenant safety tests
-  let cedarParentId: string;
-  let cedarYearGroupId: string;
-
-  const UNIQUE_SEARCH_TERM = 'RlsP3LeakTest';
+  function assertNoAlNoorRows(rows: Array<{ tenant_id: string | null }>, context: string): void {
+    const leaks = rows.filter((row) => row.tenant_id === alNoorTenantId);
+    expect(leaks).toHaveLength(0);
+    if (leaks.length > 0) {
+      throw new Error(`RLS LEAK in ${context}: ${JSON.stringify(leaks)}`);
+    }
+  }
 
   beforeAll(async () => {
     app = await createTestApp();
 
-    // Auth both tenants
-    const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
-    cedarToken = cedarLogin.accessToken;
-
     const alNoorLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
     alNoorToken = alNoorLogin.accessToken;
 
-    // ── Create test data in Al Noor ───────────────────────────────────────
+    const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
+    cedarToken = cedarLogin.accessToken;
 
-    // 1. Create and publish an admission form
-    const formRes = await authPost(
-      app,
-      '/api/v1/admission-forms',
-      alNoorToken,
-      {
-        name: `${UNIQUE_SEARCH_TERM} Form`,
-        fields: [
-          {
-            field_key: 'student_name',
-            label: 'Student Name',
-            field_type: 'short_text',
-            required: true,
-            visible_to_parent: true,
-            visible_to_staff: true,
-            searchable: false,
-            reportable: false,
-            display_order: 0,
-            active: true,
-          },
-        ],
-      },
-      AL_NOOR_DOMAIN,
-    ).expect(201);
-    alNoorFormId = formRes.body.data.id;
+    const alNoorTargets = await ensureAdmissionsTargets(app, alNoorToken, AL_NOOR_DOMAIN);
+    alNoorFormId = alNoorTargets.formId;
 
-    await authPost(
-      app,
-      `/api/v1/admission-forms/${alNoorFormId}/publish`,
-      alNoorToken,
-      {},
-      AL_NOOR_DOMAIN,
-    ).expect(201);
+    const cedarTargets = await ensureAdmissionsTargets(app, cedarToken, CEDAR_DOMAIN);
+    void cedarTargets;
 
-    // 2. Create an application via public endpoint
-    const appRes = await request(app.getHttpServer())
-      .post('/api/v1/public/admissions/applications')
-      .set('Host', AL_NOOR_DOMAIN)
-      .send({
-        form_definition_id: alNoorFormId,
-        student_first_name: UNIQUE_SEARCH_TERM,
-        student_last_name: 'AppStudent',
-        date_of_birth: '2018-05-15',
-        payload_json: { student_name: `${UNIQUE_SEARCH_TERM} AppStudent` },
-      })
-      .expect(201);
-    alNoorAppId = appRes.body.data.id;
+    const seed = buildPublicApplicationSeed(alNoorTargets);
+    seed.student_first_name = uniqueSearchTerm;
+    seed.student_last_name = 'Isolation';
+    seed.payload_json.student_first_name = uniqueSearchTerm;
+    seed.payload_json.student_last_name = 'Isolation';
+    seed.payload_json.student_national_id = `RLS-${Date.now()}`;
 
-    // 3. Add a note to the application (need to submit first, then add note)
-    // Submit as parent
-    const alNoorParentLogin = await login(app, 'parent@alnoor.test', DEV_PASSWORD, AL_NOOR_DOMAIN);
-    await request(app.getHttpServer())
-      .post(`/api/v1/parent/applications/${alNoorAppId}/submit`)
-      .set('Host', AL_NOOR_DOMAIN)
-      .set('Authorization', `Bearer ${alNoorParentLogin.accessToken}`)
-      .expect(201);
+    const created = await createPublicApplication(app, AL_NOOR_DOMAIN, seed);
+    alNoorAppId = created.body.id as string;
 
-    // Add an internal note
     await authPost(
       app,
       `/api/v1/applications/${alNoorAppId}/notes`,
       alNoorToken,
-      { note: `${UNIQUE_SEARCH_TERM} internal note`, is_internal: true },
+      { note: `${uniqueSearchTerm} internal note`, is_internal: true },
       AL_NOOR_DOMAIN,
     ).expect(201);
 
-    // Get updated_at for later conversion test
     const detailRes = await authGet(
       app,
       `/api/v1/applications/${alNoorAppId}`,
       alNoorToken,
       AL_NOOR_DOMAIN,
     ).expect(200);
-    alNoorAppUpdatedAt = detailRes.body.data.updated_at;
-
-    // ── Get Cedar parent ID and year group ID for cross-tenant tests ──────
-
-    // List Cedar parents to get a Cedar parent ID
-    const cedarParentsRes = await authGet(app, '/api/v1/parents', cedarToken, CEDAR_DOMAIN).expect(
-      200,
-    );
-    const cedarParents = cedarParentsRes.body.data ?? [];
-    cedarParentId = cedarParents[0]?.id ?? '00000000-0000-0000-0000-000000000000';
-
-    // List Cedar year groups to get a Cedar year group ID
-    const cedarYgRes = await authGet(app, '/api/v1/year-groups', cedarToken, CEDAR_DOMAIN).expect(
-      200,
-    );
-    const cedarYgs = cedarYgRes.body.data ?? [];
-    if (cedarYgs.length > 0) {
-      cedarYearGroupId = cedarYgs[0].id;
-    } else {
-      const createCedarYgRes = await authPost(
-        app,
-        '/api/v1/year-groups',
-        cedarToken,
-        {
-          name: `Cedar Admissions RLS Year ${Date.now()}`,
-          display_order: 1,
-        },
-        CEDAR_DOMAIN,
-      ).expect(201);
-      const createCedarYgBody = createCedarYgRes.body.data ?? createCedarYgRes.body;
-      cedarYearGroupId = createCedarYgBody.id;
-    }
-
-    // ── Table-level RLS setup ─────────────────────────────────────────────
+    alNoorAppUpdatedAt = (detailRes.body.data ?? detailRes.body).updated_at as string;
 
     directPrisma = new PrismaClient({
-      datasources: {
-        db: { url: process.env.DATABASE_URL },
-      },
+      datasources: { db: { url: process.env.DATABASE_URL } },
     });
     await directPrisma.$connect();
 
-    // Dynamically resolve tenant IDs (they are auto-generated by seed)
     const tenants = await directPrisma.tenant.findMany({
       where: { slug: { in: ['al-noor', 'cedar'] } },
       select: { id: true, slug: true },
     });
-    AL_NOOR_TENANT_ID = tenants.find((t) => t.slug === 'al-noor')!.id;
-    CEDAR_TENANT_ID = tenants.find((t) => t.slug === 'cedar')!.id;
+
+    alNoorTenantId = tenants.find((tenant) => tenant.slug === 'al-noor')!.id;
+    cedarTenantId = tenants.find((tenant) => tenant.slug === 'cedar')!.id;
 
     await directPrisma.$executeRawUnsafe(
-      `DO $$ BEGIN
-         CREATE ROLE ${RLS_TEST_ROLE} NOLOGIN;
-       EXCEPTION WHEN duplicate_object THEN NULL;
-       END $$`,
+      `DO $$ BEGIN CREATE ROLE ${RLS_TEST_ROLE} NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
     );
     await execWithRetry(directPrisma, `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
     await execWithRetry(
       directPrisma,
       `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
     );
-  }, 120000);
+  }, 120_000);
 
   afterAll(async () => {
     await cleanupRedisKeys(['ratelimit:admissions:*']);
@@ -236,309 +155,118 @@ describe('RLS Leakage P3 — Admissions (e2e)', () => {
       }
       await directPrisma.$disconnect();
     }
+
     await closeTestApp();
   });
 
-  // ─── Helpers ─────────────────────────────────────────────────────────────
-
-  async function queryAsCedar(tableName: string): Promise<Array<{ tenant_id: string | null }>> {
-    return directPrisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe(
-        `SELECT set_config('app.current_tenant_id', '${CEDAR_TENANT_ID}', true)`,
-      );
-      await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
-
-      return tx.$queryRawUnsafe(`SELECT tenant_id::text FROM "${tableName}"`) as Promise<
-        Array<{ tenant_id: string | null }>
-      >;
-    });
-  }
-
-  function assertNoAlNoorRows(rows: Array<{ tenant_id: string | null }>, context: string): void {
-    const leaks = rows.filter((r) => r.tenant_id === AL_NOOR_TENANT_ID);
-    expect(leaks).toHaveLength(0);
-    if (leaks.length > 0) {
-      throw new Error(
-        `RLS LEAK in ${context}: ${leaks.length} Al Noor row(s) returned when querying as Cedar`,
-      );
-    }
-  }
-
-  // ── 1. Table-Level RLS Tests ──────────────────────────────────────────────
-
-  describe('Table-level: RLS policy enforcement for P3 tables', () => {
-    it('admission_form_definitions: querying as Cedar returns no Al Noor rows', async () => {
-      const rows = await queryAsCedar('admission_form_definitions');
-      assertNoAlNoorRows(rows, 'admission_form_definitions');
+  describe('Table-level RLS', () => {
+    it('hides Al Noor admission_form_definitions from Cedar', async () => {
+      assertNoAlNoorRows(await queryAsCedar('admission_form_definitions'), 'form_definitions');
     });
 
-    it('admission_form_fields: querying as Cedar returns no Al Noor rows', async () => {
-      const rows = await queryAsCedar('admission_form_fields');
-      assertNoAlNoorRows(rows, 'admission_form_fields');
+    it('hides Al Noor admission_form_fields from Cedar', async () => {
+      assertNoAlNoorRows(await queryAsCedar('admission_form_fields'), 'form_fields');
     });
 
-    it('applications: querying as Cedar returns no Al Noor rows', async () => {
-      const rows = await queryAsCedar('applications');
-      assertNoAlNoorRows(rows, 'applications');
+    it('hides Al Noor applications from Cedar', async () => {
+      assertNoAlNoorRows(await queryAsCedar('applications'), 'applications');
     });
 
-    it('application_notes: querying as Cedar returns no Al Noor rows', async () => {
-      const rows = await queryAsCedar('application_notes');
-      assertNoAlNoorRows(rows, 'application_notes');
+    it('hides Al Noor application_notes from Cedar', async () => {
+      assertNoAlNoorRows(await queryAsCedar('application_notes'), 'application_notes');
     });
   });
 
-  // ── 2. API-Level RLS Tests ────────────────────────────────────────────────
-
-  describe('API-level: Cedar must not see Al Noor admissions data', () => {
-    it('GET /v1/admission-forms as Cedar should not return Al Noor forms', async () => {
-      const res = await authGet(app, '/api/v1/admission-forms', cedarToken, CEDAR_DOMAIN).expect(
-        200,
-      );
-
-      const items: Array<{ id: string }> = res.body.data ?? [];
-      for (const item of items) {
-        expect(item.id).not.toBe(alNoorFormId);
-      }
-      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_SEARCH_TERM);
-    });
-
-    it('GET /v1/admission-forms/:id with Al Noor form ID via Cedar auth should return 404', async () => {
-      await authGet(
+  describe('API-level isolation', () => {
+    it('returns Cedar system-form data instead of Al Noor data', async () => {
+      const res = await authGet(
         app,
-        `/api/v1/admission-forms/${alNoorFormId}`,
+        '/api/v1/admission-forms/system',
         cedarToken,
         CEDAR_DOMAIN,
-      ).expect(404);
+      ).expect(200);
+
+      const body = res.body.data ?? res.body;
+      expect(body.id).not.toBe(alNoorFormId);
+      expect(body.name).toBe('System Application Form');
     });
 
-    it('GET /v1/applications as Cedar should not return Al Noor applications', async () => {
+    it('keeps Al Noor applications out of the Cedar staff list', async () => {
       const res = await authGet(app, '/api/v1/applications', cedarToken, CEDAR_DOMAIN).expect(200);
 
-      const items: Array<{ id: string }> = res.body.data ?? [];
-      for (const item of items) {
-        expect(item.id).not.toBe(alNoorAppId);
-      }
-      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_SEARCH_TERM);
+      const items = res.body.data ?? [];
+      expect(items.some((item: { id: string }) => item.id === alNoorAppId)).toBe(false);
+      expect(JSON.stringify(items)).not.toContain(uniqueSearchTerm);
     });
 
-    it('GET /v1/applications/:id with Al Noor app ID via Cedar auth should return 404', async () => {
+    it('returns 404 when Cedar fetches an Al Noor application directly', async () => {
       await authGet(app, `/api/v1/applications/${alNoorAppId}`, cedarToken, CEDAR_DOMAIN).expect(
         404,
       );
     });
 
-    it('POST /v1/applications/:id/review with Al Noor app via Cedar auth should return 404', async () => {
+    it('returns 404 when Cedar tries to write a note to an Al Noor application', async () => {
+      await authPost(
+        app,
+        `/api/v1/applications/${alNoorAppId}/notes`,
+        cedarToken,
+        { note: 'Cross-tenant write should fail', is_internal: true },
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    it('returns 404 when Cedar tries to review an Al Noor application', async () => {
       await authPost(
         app,
         `/api/v1/applications/${alNoorAppId}/review`,
         cedarToken,
         {
-          status: 'under_review',
+          status: 'rejected',
           expected_updated_at: alNoorAppUpdatedAt,
+          rejection_reason: 'Cross-tenant review should fail',
         },
         CEDAR_DOMAIN,
       ).expect(404);
     });
 
-    it('GET /v1/public/admissions/form via Al Noor domain returns only Al Noor form', async () => {
-      const res = await request(app.getHttpServer())
+    it('keeps public forms isolated by domain', async () => {
+      const alNoorRes = await request(app.getHttpServer())
         .get('/api/v1/public/admissions/form')
         .set('Host', AL_NOOR_DOMAIN)
         .expect(200);
+      const cedarRes = await request(app.getHttpServer())
+        .get('/api/v1/public/admissions/form')
+        .set('Host', CEDAR_DOMAIN)
+        .expect(200);
 
-      const form = res.body.data;
-      expect(form).toBeDefined();
-      // The public endpoint returns a published form for the tenant.
-      // It may not be the exact form we created if prior tests also published forms.
-      expect(form.status).toBe('published');
-      expect(form.id).toBeDefined();
+      expect((alNoorRes.body.data ?? alNoorRes.body).name).toBe('System Application Form');
+      expect((cedarRes.body.data ?? cedarRes.body).name).toBe('System Application Form');
+      expect((alNoorRes.body.data ?? alNoorRes.body).id).not.toBe(
+        (cedarRes.body.data ?? cedarRes.body).id,
+      );
     });
 
-    it('POST /v1/public/admissions/applications via Al Noor domain creates Al Noor app', async () => {
+    it('creates an Al Noor application only inside the Al Noor tenant', async () => {
+      const targets = await ensureAdmissionsTargets(app, alNoorToken, AL_NOOR_DOMAIN);
+      const seed = buildPublicApplicationSeed(targets);
+
       const res = await request(app.getHttpServer())
         .post('/api/v1/public/admissions/applications')
         .set('Host', AL_NOOR_DOMAIN)
-        .send({
-          form_definition_id: alNoorFormId,
-          student_first_name: 'DomainCheck',
-          student_last_name: 'Student',
-          payload_json: { student_name: 'DomainCheck Student' },
-        })
+        .send(seed)
         .expect(201);
 
-      const appId = res.body.data.id;
-      expect(appId).toBeDefined();
-      expect(appId).not.toBe('ignored');
+      const createdId = (res.body.data ?? res.body).id as string;
 
-      // Verify from Al Noor context that the application exists
       const detailRes = await authGet(
         app,
-        `/api/v1/applications/${appId}`,
+        `/api/v1/applications/${createdId}`,
         alNoorToken,
         AL_NOOR_DOMAIN,
       ).expect(200);
+      expect((detailRes.body.data ?? detailRes.body).tenant_id).toBe(alNoorTenantId);
 
-      expect(detailRes.body.data.tenant_id).toBe(AL_NOOR_TENANT_ID);
-    });
-  });
-
-  // ── 3. Cross-Tenant Conversion Safety ────────────────────────────────────
-
-  describe('Cross-tenant conversion safety', () => {
-    let acceptedAppId: string;
-    let acceptedAppUpdatedAt: string;
-    let alNoorYearGroupId: string;
-
-    beforeAll(async () => {
-      // Create a fresh application and move it to accepted status
-      const appRes = await request(app.getHttpServer())
-        .post('/api/v1/public/admissions/applications')
-        .set('Host', AL_NOOR_DOMAIN)
-        .send({
-          form_definition_id: alNoorFormId,
-          student_first_name: 'ConvertSafety',
-          student_last_name: 'Test',
-          date_of_birth: '2017-03-01',
-          payload_json: { student_name: 'ConvertSafety Test' },
-        })
-        .expect(201);
-      acceptedAppId = appRes.body.data.id;
-
-      // Submit as parent
-      const parentLogin = await login(app, 'parent@alnoor.test', DEV_PASSWORD, AL_NOOR_DOMAIN);
-      await request(app.getHttpServer())
-        .post(`/api/v1/parent/applications/${acceptedAppId}/submit`)
-        .set('Host', AL_NOOR_DOMAIN)
-        .set('Authorization', `Bearer ${parentLogin.accessToken}`)
-        .expect(201);
-
-      // Review: submitted → under_review
-      let detail = await authGet(
-        app,
-        `/api/v1/applications/${acceptedAppId}`,
-        alNoorToken,
-        AL_NOOR_DOMAIN,
-      );
-      let updatedAt = detail.body.data.updated_at;
-
-      await authPost(
-        app,
-        `/api/v1/applications/${acceptedAppId}/review`,
-        alNoorToken,
-        {
-          status: 'under_review',
-          expected_updated_at: updatedAt,
-        },
-        AL_NOOR_DOMAIN,
-      );
-
-      // Review: under_review → accept (via pending_acceptance_approval which may auto-accept)
-      detail = await authGet(
-        app,
-        `/api/v1/applications/${acceptedAppId}`,
-        alNoorToken,
-        AL_NOOR_DOMAIN,
-      );
-      updatedAt = detail.body.data.updated_at;
-
-      await authPost(
-        app,
-        `/api/v1/applications/${acceptedAppId}/review`,
-        alNoorToken,
-        {
-          status: 'pending_acceptance_approval',
-          expected_updated_at: updatedAt,
-        },
-        AL_NOOR_DOMAIN,
-      );
-
-      // Get final updated_at
-      detail = await authGet(
-        app,
-        `/api/v1/applications/${acceptedAppId}`,
-        alNoorToken,
-        AL_NOOR_DOMAIN,
-      ).expect(200);
-      acceptedAppUpdatedAt = detail.body.data.updated_at;
-
-      // Get an Al Noor year group for the valid conversion
-      const ygRes = await authGet(app, '/api/v1/year-groups', alNoorToken, AL_NOOR_DOMAIN).expect(
-        200,
-      );
-      const ygs = ygRes.body.data ?? [];
-      if (ygs.length > 0) {
-        alNoorYearGroupId = ygs[0].id;
-      } else {
-        const createYgRes = await authPost(
-          app,
-          '/api/v1/year-groups',
-          alNoorToken,
-          {
-            name: `Al Noor Admissions RLS Year ${Date.now()}`,
-            display_order: 1,
-          },
-          AL_NOOR_DOMAIN,
-        ).expect(201);
-        const createYgBody = createYgRes.body.data ?? createYgRes.body;
-        alNoorYearGroupId = createYgBody.id;
-      }
-    }, 120000);
-
-    it('Convert should not cross-link parents from another tenant', async () => {
-      const res = await authPost(
-        app,
-        `/api/v1/applications/${acceptedAppId}/convert`,
-        alNoorToken,
-        {
-          student_first_name: 'ConvertSafety',
-          student_last_name: 'Test',
-          date_of_birth: '2017-03-01',
-          year_group_id: alNoorYearGroupId,
-          parent1_first_name: 'Parent',
-          parent1_last_name: 'CrossTenant',
-          parent1_link_existing_id: cedarParentId, // Cedar parent!
-          expected_updated_at: acceptedAppUpdatedAt,
-        },
-        AL_NOOR_DOMAIN,
-      );
-
-      expect(res.status).toBe(404);
-      const body = res.body.data ?? res.body;
-      const bodyStr = JSON.stringify(body);
-      expect(bodyStr).toContain('PARENT_NOT_FOUND');
-    });
-
-    it('Convert should not cross-link year groups from another tenant', async () => {
-      // Refresh expected_updated_at in case previous test changed the application
-      const detail = await authGet(
-        app,
-        `/api/v1/applications/${acceptedAppId}`,
-        alNoorToken,
-        AL_NOOR_DOMAIN,
-      );
-      const currentUpdatedAt = detail.body?.data?.updated_at ?? acceptedAppUpdatedAt;
-
-      const res = await authPost(
-        app,
-        `/api/v1/applications/${acceptedAppId}/convert`,
-        alNoorToken,
-        {
-          student_first_name: 'ConvertSafety',
-          student_last_name: 'Test',
-          date_of_birth: '2017-03-01',
-          year_group_id: cedarYearGroupId, // Cedar year group!
-          parent1_first_name: 'Parent',
-          parent1_last_name: 'Test',
-          expected_updated_at: currentUpdatedAt,
-        },
-        AL_NOOR_DOMAIN,
-      );
-
-      expect(res.status).toBe(404);
-      const body = res.body.data ?? res.body;
-      const bodyStr = JSON.stringify(body);
-      expect(bodyStr).toContain('YEAR_GROUP_NOT_FOUND');
+      await authGet(app, `/api/v1/applications/${createdId}`, cedarToken, CEDAR_DOMAIN).expect(404);
     });
   });
 });

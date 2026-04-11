@@ -46,7 +46,7 @@ export async function setupP5TestData(
   adminToken: string,
 ): Promise<P5TestData> {
   const ts = Date.now();
-  const baseYear = allocateAcademicYearBase();
+  let baseYear = allocateAcademicYearBase();
 
   const dateInYear = (month: number, day: number): string => {
     // Months 9-12 are in baseYear, months 1-6 are in baseYear+1
@@ -55,19 +55,36 @@ export async function setupP5TestData(
   };
 
   // 1. Create academic year
-  const ayRes = await authPost(
-    app,
-    '/api/v1/academic-years',
-    adminToken,
-    {
-      name: `P5 Test Year ${ts}`,
-      start_date: `${baseYear}-09-01`,
-      end_date: `${baseYear + 1}-06-30`,
-      status: 'active',
-    },
-    AL_NOOR_DOMAIN,
-  ).expect(201);
-  const academicYearId = ayRes.body.data.id;
+  let academicYearId: string | undefined;
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    const ayRes = await authPost(
+      app,
+      '/api/v1/academic-years',
+      adminToken,
+      {
+        name: `P5 Test Year ${ts}-${baseYear}`,
+        start_date: `${baseYear}-09-01`,
+        end_date: `${baseYear + 1}-06-30`,
+        status: 'active',
+      },
+      AL_NOOR_DOMAIN,
+    );
+
+    if (ayRes.status === 201) {
+      academicYearId = ayRes.body.data.id as string;
+      break;
+    }
+
+    if (ayRes.status !== 409) {
+      throw new Error(`Failed to create academic year: ${JSON.stringify(ayRes.body)}`);
+    }
+
+    baseYear += 2;
+  }
+
+  if (!academicYearId) {
+    throw new Error('Failed to create a non-overlapping academic year for P5 test data');
+  }
 
   // 2. Create academic period within the year
   const apRes = await authPost(

@@ -40,6 +40,9 @@ describe('Overall Comments (e2e) — impl 02', () => {
     await prisma.$executeRawUnsafe(
       `DELETE FROM report_comment_windows WHERE tenant_id = '${TENANT_ID}'::uuid`,
     );
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM class_enrolments WHERE tenant_id = '${TENANT_ID}'::uuid`,
+    );
     await prisma.$executeRawUnsafe(`DELETE FROM classes WHERE tenant_id = '${TENANT_ID}'::uuid`);
     await prisma.$executeRawUnsafe(
       `DELETE FROM academic_periods WHERE tenant_id = '${TENANT_ID}'::uuid`,
@@ -63,6 +66,12 @@ describe('Overall Comments (e2e) — impl 02', () => {
       academic_period_id: PERIOD_ID,
       opens_at: new Date('2020-01-01T00:00:00Z').toISOString(),
       closes_at: new Date('2099-01-01T00:00:00Z').toISOString(),
+      homeroom_assignments: [
+        {
+          class_id: CLASS_ID,
+          homeroom_teacher_staff_id: HOMEROOM_STAFF_ID,
+        },
+      ],
     });
   }
 
@@ -166,6 +175,16 @@ describe('Overall Comments (e2e) — impl 02', () => {
         last_name: 'C',
         date_of_birth: new Date('2014-01-01'),
         status: 'active',
+        class_homeroom_id: CLASS_ID,
+      },
+    });
+    await prisma.classEnrolment.create({
+      data: {
+        tenant_id: TENANT_ID,
+        class_id: CLASS_ID,
+        student_id: STUDENT_ID,
+        status: 'active',
+        start_date: new Date('2025-09-01'),
       },
     });
   });

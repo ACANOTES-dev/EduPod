@@ -4,15 +4,14 @@ import request from 'supertest';
 import {
   AL_NOOR_DOMAIN,
   AL_NOOR_ADMIN_EMAIL,
+  AL_NOOR_OWNER_EMAIL,
   AL_NOOR_TEACHER_EMAIL,
   AL_NOOR_PARENT_EMAIL,
   CEDAR_ADMIN_EMAIL,
   CEDAR_DOMAIN,
-  DEV_PASSWORD,
   createTestApp,
   closeTestApp,
   getAuthToken,
-  login,
   authGet,
   authPost,
   authPatch,
@@ -27,6 +26,7 @@ jest.setTimeout(120_000);
 describe('P5 Gradebook (e2e)', () => {
   let app: INestApplication;
   let adminToken: string;
+  let ownerToken: string;
   let teacherToken: string;
   let parentToken: string;
   let td: P5TestData;
@@ -38,6 +38,7 @@ describe('P5 Gradebook (e2e)', () => {
   beforeAll(async () => {
     app = await createTestApp();
     adminToken = await getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN);
+    ownerToken = await getAuthToken(app, AL_NOOR_OWNER_EMAIL, AL_NOOR_DOMAIN);
     teacherToken = await getAuthToken(app, AL_NOOR_TEACHER_EMAIL, AL_NOOR_DOMAIN);
     parentToken = await getAuthToken(app, AL_NOOR_PARENT_EMAIL, AL_NOOR_DOMAIN);
 
@@ -51,27 +52,29 @@ describe('P5 Gradebook (e2e)', () => {
       AL_NOOR_DOMAIN,
     ).expect(200);
 
-    const parentProfile = parentsRes.body.data.find(
-      (p: Record<string, unknown>) => {
-        const user = p['user'] as Record<string, string> | undefined;
-        return user?.email === AL_NOOR_PARENT_EMAIL;
-      },
-    );
+    const parentProfile = parentsRes.body.data.find((p: Record<string, unknown>) => {
+      const user = p['user'] as Record<string, string> | undefined;
+      return user?.email === AL_NOOR_PARENT_EMAIL;
+    });
     parentId = parentProfile?.id as string;
 
     // Create a student linked to the parent (for parent portal tests)
     if (parentId) {
-      const stuRes = await authPost(app, '/api/v1/students', adminToken, {
-        household_id: td.householdId,
-        first_name: 'ParentLinked',
-        last_name: `Student${Date.now()}`,
-        date_of_birth: '2015-06-01',
-        gender: 'female',
-        status: 'active',
-        parent_links: [
-          { parent_id: parentId, relationship_label: 'mother' },
-        ],
-      }, AL_NOOR_DOMAIN).expect(201);
+      const stuRes = await authPost(
+        app,
+        '/api/v1/students',
+        adminToken,
+        {
+          household_id: td.householdId,
+          first_name: 'ParentLinked',
+          last_name: `Student${Date.now()}`,
+          date_of_birth: '2015-06-01',
+          gender: 'female',
+          status: 'active',
+          parent_links: [{ parent_id: parentId, relationship_label: 'mother' }],
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
       parentLinkedStudentId = stuRes.body.data.id;
 
       // Enrol the parent-linked student in the test class
@@ -99,19 +102,25 @@ describe('P5 Gradebook (e2e)', () => {
     let inUseScaleId: string;
 
     it('POST → 201 (create grading scale)', async () => {
-      const res = await authPost(app, '/api/v1/gradebook/grading-scales', adminToken, {
-        name: `Test Scale ${Date.now()}`,
-        config_json: {
-          type: 'letter',
-          grades: [
-            { label: 'A', numeric_value: 4 },
-            { label: 'B', numeric_value: 3 },
-            { label: 'C', numeric_value: 2 },
-            { label: 'F', numeric_value: 0 },
-          ],
-          passing_threshold: 2,
+      const res = await authPost(
+        app,
+        '/api/v1/gradebook/grading-scales',
+        adminToken,
+        {
+          name: `Test Scale ${Date.now()}`,
+          config_json: {
+            type: 'letter',
+            grades: [
+              { label: 'A', numeric_value: 4 },
+              { label: 'B', numeric_value: 3 },
+              { label: 'C', numeric_value: 2 },
+              { label: 'F', numeric_value: 0 },
+            ],
+            passing_threshold: 2,
+          },
         },
-      }, AL_NOOR_DOMAIN).expect(201);
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       expect(res.body.data.id).toBeDefined();
       expect(res.body.data.name).toContain('Test Scale');
@@ -159,13 +168,19 @@ describe('P5 Gradebook (e2e)', () => {
 
     it('DELETE /:id → 200 (delete unused scale)', async () => {
       // Create a throwaway scale to delete
-      const tempRes = await authPost(app, '/api/v1/gradebook/grading-scales', adminToken, {
-        name: `Deletable Scale ${Date.now()}`,
-        config_json: {
-          type: 'numeric',
-          ranges: [{ min: 0, max: 100, label: 'Pass', gpa_value: 4 }],
+      const tempRes = await authPost(
+        app,
+        '/api/v1/gradebook/grading-scales',
+        adminToken,
+        {
+          name: `Deletable Scale ${Date.now()}`,
+          config_json: {
+            type: 'numeric',
+            ranges: [{ min: 0, max: 100, label: 'Pass', gpa_value: 4 }],
+          },
         },
-      }, AL_NOOR_DOMAIN).expect(201);
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       await authDelete(
         app,
@@ -181,39 +196,60 @@ describe('P5 Gradebook (e2e)', () => {
         .set('Host', AL_NOOR_DOMAIN)
         .send({
           name: 'Should Fail',
-          config_json: { type: 'numeric', ranges: [{ min: 0, max: 100, label: 'P', gpa_value: 4 }] },
+          config_json: {
+            type: 'numeric',
+            ranges: [{ min: 0, max: 100, label: 'P', gpa_value: 4 }],
+          },
         })
         .expect(401);
     });
 
     it('POST → 403 (teacher lacks gradebook.manage)', async () => {
-      await authPost(app, '/api/v1/gradebook/grading-scales', teacherToken, {
-        name: `Teacher Scale ${Date.now()}`,
-        config_json: {
-          type: 'numeric',
-          ranges: [{ min: 0, max: 100, label: 'P', gpa_value: 4 }],
+      await authPost(
+        app,
+        '/api/v1/gradebook/grading-scales',
+        teacherToken,
+        {
+          name: `Teacher Scale ${Date.now()}`,
+          config_json: {
+            type: 'numeric',
+            ranges: [{ min: 0, max: 100, label: 'P', gpa_value: 4 }],
+          },
         },
-      }, AL_NOOR_DOMAIN).expect(403);
+        AL_NOOR_DOMAIN,
+      ).expect(403);
     });
 
     it('POST → 409 (duplicate name)', async () => {
       // Create a scale, then try to create another with the same name
       const name = `Unique Scale ${Date.now()}`;
-      await authPost(app, '/api/v1/gradebook/grading-scales', adminToken, {
-        name,
-        config_json: {
-          type: 'numeric',
-          ranges: [{ min: 0, max: 100, label: 'P', gpa_value: 4 }],
+      await authPost(
+        app,
+        '/api/v1/gradebook/grading-scales',
+        adminToken,
+        {
+          name,
+          config_json: {
+            type: 'numeric',
+            ranges: [{ min: 0, max: 100, label: 'P', gpa_value: 4 }],
+          },
         },
-      }, AL_NOOR_DOMAIN).expect(201);
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
-      const res = await authPost(app, '/api/v1/gradebook/grading-scales', adminToken, {
-        name,
-        config_json: {
-          type: 'numeric',
-          ranges: [{ min: 0, max: 100, label: 'P', gpa_value: 4 }],
+      const res = await authPost(
+        app,
+        '/api/v1/gradebook/grading-scales',
+        adminToken,
+        {
+          name,
+          config_json: {
+            type: 'numeric',
+            ranges: [{ min: 0, max: 100, label: 'P', gpa_value: 4 }],
+          },
         },
-      }, AL_NOOR_DOMAIN).expect(409);
+        AL_NOOR_DOMAIN,
+      ).expect(409);
 
       expect(res.body.error?.code).toBe('GRADING_SCALE_NAME_EXISTS');
     });
@@ -229,9 +265,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${td.assessmentId}/grades`,
         adminToken,
         {
-          grades: [
-            { student_id: td.studentId, raw_score: 85, is_missing: false },
-          ],
+          grades: [{ student_id: td.studentId, raw_score: 85, is_missing: false }],
         },
         AL_NOOR_DOMAIN,
       ).expect(200);
@@ -274,10 +308,16 @@ describe('P5 Gradebook (e2e)', () => {
     let createdCategoryId: string;
 
     it('POST → 201 (create category)', async () => {
-      const res = await authPost(app, '/api/v1/gradebook/assessment-categories', adminToken, {
-        name: `Test Category ${Date.now()}`,
-        default_weight: 25,
-      }, AL_NOOR_DOMAIN).expect(201);
+      const res = await authPost(
+        app,
+        '/api/v1/gradebook/assessment-categories',
+        adminToken,
+        {
+          name: `Test Category ${Date.now()}`,
+          default_weight: 25,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       expect(res.body.data.id).toBeDefined();
       expect(res.body.data.name).toContain('Test Category');
@@ -311,10 +351,16 @@ describe('P5 Gradebook (e2e)', () => {
 
     it('DELETE /:id → 200 (delete unused category)', async () => {
       // Create a fresh category not referenced by any assessments
-      const tempRes = await authPost(app, '/api/v1/gradebook/assessment-categories', adminToken, {
-        name: `Deletable Cat ${Date.now()}`,
-        default_weight: 10,
-      }, AL_NOOR_DOMAIN).expect(201);
+      const tempRes = await authPost(
+        app,
+        '/api/v1/gradebook/assessment-categories',
+        adminToken,
+        {
+          name: `Deletable Cat ${Date.now()}`,
+          default_weight: 10,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       await authDelete(
         app,
@@ -325,10 +371,16 @@ describe('P5 Gradebook (e2e)', () => {
     });
 
     it('POST → 403 (teacher cannot create)', async () => {
-      await authPost(app, '/api/v1/gradebook/assessment-categories', teacherToken, {
-        name: `Teacher Cat ${Date.now()}`,
-        default_weight: 20,
-      }, AL_NOOR_DOMAIN).expect(403);
+      await authPost(
+        app,
+        '/api/v1/gradebook/assessment-categories',
+        teacherToken,
+        {
+          name: `Teacher Cat ${Date.now()}`,
+          default_weight: 20,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(403);
     });
 
     it('DELETE → 409 (category in use by assessment)', async () => {
@@ -353,15 +405,21 @@ describe('P5 Gradebook (e2e)', () => {
     let cancellableAssessmentId: string;
 
     it('POST → 201 (admin creates assessment)', async () => {
-      const res = await authPost(app, '/api/v1/gradebook/assessments', adminToken, {
-        class_id: td.classId,
-        subject_id: td.subjectId,
-        academic_period_id: td.academicPeriodId,
-        category_id: td.categoryExamsId,
-        title: `Midterm Exam ${Date.now()}`,
-        max_score: 100,
-        due_date: td.dateInYear(11, 1),
-      }, AL_NOOR_DOMAIN).expect(201);
+      const res = await authPost(
+        app,
+        '/api/v1/gradebook/assessments',
+        adminToken,
+        {
+          class_id: td.classId,
+          subject_id: td.subjectId,
+          academic_period_id: td.academicPeriodId,
+          category_id: td.categoryExamsId,
+          title: `Midterm Exam ${Date.now()}`,
+          max_score: 100,
+          due_date: td.dateInYear(11, 1),
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       expect(res.body.data.id).toBeDefined();
       expect(res.body.data.status).toBe('draft');
@@ -417,14 +475,20 @@ describe('P5 Gradebook (e2e)', () => {
     });
 
     it('PATCH /:id/status → 400 (draft → closed without cancellation reason)', async () => {
-      const draftRes = await authPost(app, '/api/v1/gradebook/assessments', adminToken, {
-        class_id: td.classId,
-        subject_id: td.subjectId,
-        academic_period_id: td.academicPeriodId,
-        category_id: td.categoryExamsId,
-        title: `Cancellable Draft ${Date.now()}`,
-        max_score: 75,
-      }, AL_NOOR_DOMAIN).expect(201);
+      const draftRes = await authPost(
+        app,
+        '/api/v1/gradebook/assessments',
+        adminToken,
+        {
+          class_id: td.classId,
+          subject_id: td.subjectId,
+          academic_period_id: td.academicPeriodId,
+          category_id: td.categoryExamsId,
+          title: `Cancellable Draft ${Date.now()}`,
+          max_score: 75,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
       cancellableAssessmentId = draftRes.body.data.id;
 
       const res = await authPatch(
@@ -476,7 +540,12 @@ describe('P5 Gradebook (e2e)', () => {
         adminToken,
         {
           grades: [
-            { student_id: td.studentId, raw_score: 92, is_missing: false, comment: 'Excellent work' },
+            {
+              student_id: td.studentId,
+              raw_score: 92,
+              is_missing: false,
+              comment: 'Excellent work',
+            },
             { student_id: td.studentId2, raw_score: 78, is_missing: false },
           ],
         },
@@ -504,14 +573,20 @@ describe('P5 Gradebook (e2e)', () => {
     });
 
     it('PUT → 409 (grades on closed assessment)', async () => {
-      const lockedAssessmentRes = await authPost(app, '/api/v1/gradebook/assessments', adminToken, {
-        class_id: td.classId,
-        subject_id: td.subjectId,
-        academic_period_id: td.academicPeriodId,
-        category_id: td.categoryHomeworkId,
-        title: `Locked Assessment ${Date.now()}`,
-        max_score: 100,
-      }, AL_NOOR_DOMAIN).expect(201);
+      const lockedAssessmentRes = await authPost(
+        app,
+        '/api/v1/gradebook/assessments',
+        adminToken,
+        {
+          class_id: td.classId,
+          subject_id: td.subjectId,
+          academic_period_id: td.academicPeriodId,
+          category_id: td.categoryHomeworkId,
+          title: `Locked Assessment ${Date.now()}`,
+          max_score: 100,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
       const lockedAssessmentId = lockedAssessmentRes.body.data.id;
 
       await authPatch(
@@ -535,9 +610,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${lockedAssessmentId}/grades`,
         adminToken,
         {
-          grades: [
-            { student_id: td.studentId, raw_score: 95, is_missing: false },
-          ],
+          grades: [{ student_id: td.studentId, raw_score: 95, is_missing: false }],
         },
         AL_NOOR_DOMAIN,
       ).expect(409);
@@ -552,9 +625,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${td.assessmentId}/grades`,
         adminToken,
         {
-          grades: [
-            { student_id: fakeStudentId, raw_score: 50, is_missing: false },
-          ],
+          grades: [{ student_id: fakeStudentId, raw_score: 50, is_missing: false }],
         },
         AL_NOOR_DOMAIN,
       ).expect(400);
@@ -569,9 +640,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${td.assessmentId}/grades`,
         adminToken,
         {
-          grades: [
-            { student_id: td.studentId, raw_score: 150, is_missing: false },
-          ],
+          grades: [{ student_id: td.studentId, raw_score: 150, is_missing: false }],
         },
         AL_NOOR_DOMAIN,
       ).expect(400);
@@ -589,11 +658,17 @@ describe('P5 Gradebook (e2e)', () => {
 
     it('POST /compute → 201 (compute period grades)', async () => {
       // Ensure grades exist (from section 4)
-      const res = await authPost(app, '/api/v1/gradebook/period-grades/compute', adminToken, {
-        class_id: td.classId,
-        subject_id: td.subjectId,
-        academic_period_id: td.academicPeriodId,
-      }, AL_NOOR_DOMAIN).expect(201);
+      const res = await authPost(
+        app,
+        '/api/v1/gradebook/period-grades/compute',
+        adminToken,
+        {
+          class_id: td.classId,
+          subject_id: td.subjectId,
+          academic_period_id: td.academicPeriodId,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       expect(Array.isArray(res.body.data)).toBe(true);
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
@@ -664,10 +739,16 @@ describe('P5 Gradebook (e2e)', () => {
     let reportCardId: string;
 
     it('POST /generate → 201 (generate draft report cards)', async () => {
-      const res = await authPost(app, '/api/v1/report-cards/generate', adminToken, {
-        student_ids: [td.studentId],
-        academic_period_id: td.academicPeriodId,
-      }, AL_NOOR_DOMAIN).expect(201);
+      const res = await authPost(
+        app,
+        '/api/v1/report-cards/generate',
+        adminToken,
+        {
+          student_ids: [td.studentId],
+          academic_period_id: td.academicPeriodId,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       expect(Array.isArray(res.body.data)).toBe(true);
       expect(res.body.data.length).toBe(1);
@@ -679,7 +760,7 @@ describe('P5 Gradebook (e2e)', () => {
       const res = await authGet(
         app,
         `/api/v1/report-cards?academic_period_id=${td.academicPeriodId}`,
-        adminToken,
+        ownerToken,
         AL_NOOR_DOMAIN,
       ).expect(200);
 
@@ -693,7 +774,7 @@ describe('P5 Gradebook (e2e)', () => {
       const res = await authGet(
         app,
         `/api/v1/report-cards/${reportCardId}`,
-        adminToken,
+        ownerToken,
         AL_NOOR_DOMAIN,
       ).expect(200);
 
@@ -709,7 +790,7 @@ describe('P5 Gradebook (e2e)', () => {
       const res = await authPatch(
         app,
         `/api/v1/report-cards/${reportCardId}`,
-        adminToken,
+        ownerToken,
         {
           teacher_comment: 'Good progress this term.',
           principal_comment: 'Keep up the good work.',
@@ -727,7 +808,7 @@ describe('P5 Gradebook (e2e)', () => {
       const res = await authPost(
         app,
         `/api/v1/report-cards/${reportCardId}/publish`,
-        adminToken,
+        ownerToken,
         {},
         AL_NOOR_DOMAIN,
       ).expect(201);
@@ -742,7 +823,7 @@ describe('P5 Gradebook (e2e)', () => {
       const res = await authPost(
         app,
         `/api/v1/report-cards/${reportCardId}/revise`,
-        adminToken,
+        ownerToken,
         {},
         AL_NOOR_DOMAIN,
       ).expect(201);
@@ -754,16 +835,22 @@ describe('P5 Gradebook (e2e)', () => {
     it('PATCH → 409 (update published card)', async () => {
       // reportCardId is now "revised" status (after the revise test above set it)
       // Create and publish a fresh card to test updating a published card
-      const genRes = await authPost(app, '/api/v1/report-cards/generate', adminToken, {
-        student_ids: [td.studentId2],
-        academic_period_id: td.academicPeriodId,
-      }, AL_NOOR_DOMAIN).expect(201);
+      const genRes = await authPost(
+        app,
+        '/api/v1/report-cards/generate',
+        ownerToken,
+        {
+          student_ids: [td.studentId2],
+          academic_period_id: td.academicPeriodId,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
       const freshCardId = genRes.body.data[0].id;
 
       await authPost(
         app,
         `/api/v1/report-cards/${freshCardId}/publish`,
-        adminToken,
+        ownerToken,
         {},
         AL_NOOR_DOMAIN,
       ).expect(201);
@@ -771,7 +858,7 @@ describe('P5 Gradebook (e2e)', () => {
       const res = await authPatch(
         app,
         `/api/v1/report-cards/${freshCardId}`,
-        adminToken,
+        ownerToken,
         { teacher_comment: 'Should not work' },
         AL_NOOR_DOMAIN,
       ).expect(409);
@@ -785,7 +872,7 @@ describe('P5 Gradebook (e2e)', () => {
       const listRes = await authGet(
         app,
         `/api/v1/report-cards?student_id=${td.studentId2}&status=published`,
-        adminToken,
+        ownerToken,
         AL_NOOR_DOMAIN,
       ).expect(200);
 
@@ -796,7 +883,7 @@ describe('P5 Gradebook (e2e)', () => {
       const res = await authPost(
         app,
         `/api/v1/report-cards/${publishedCardId}/publish`,
-        adminToken,
+        ownerToken,
         {},
         AL_NOOR_DOMAIN,
       ).expect(409);
@@ -810,7 +897,7 @@ describe('P5 Gradebook (e2e)', () => {
       const listRes = await authGet(
         app,
         `/api/v1/report-cards?student_id=${td.studentId}&status=draft`,
-        adminToken,
+        ownerToken,
         AL_NOOR_DOMAIN,
       ).expect(200);
 
@@ -846,25 +933,35 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${td.assessmentId}/grades`,
         adminToken,
         {
-          grades: [
-            { student_id: parentLinkedStudentId, raw_score: 88, is_missing: false },
-          ],
+          grades: [{ student_id: parentLinkedStudentId, raw_score: 88, is_missing: false }],
         },
         AL_NOOR_DOMAIN,
       ).expect(200);
 
       // Compute period grades
-      await authPost(app, '/api/v1/gradebook/period-grades/compute', adminToken, {
-        class_id: td.classId,
-        subject_id: td.subjectId,
-        academic_period_id: td.academicPeriodId,
-      }, AL_NOOR_DOMAIN).expect(201);
+      await authPost(
+        app,
+        '/api/v1/gradebook/period-grades/compute',
+        adminToken,
+        {
+          class_id: td.classId,
+          subject_id: td.subjectId,
+          academic_period_id: td.academicPeriodId,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       // Generate and publish report card
-      const genRes = await authPost(app, '/api/v1/report-cards/generate', adminToken, {
-        student_ids: [parentLinkedStudentId],
-        academic_period_id: td.academicPeriodId,
-      }, AL_NOOR_DOMAIN).expect(201);
+      const genRes = await authPost(
+        app,
+        '/api/v1/report-cards/generate',
+        adminToken,
+        {
+          student_ids: [parentLinkedStudentId],
+          academic_period_id: td.academicPeriodId,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       const cardId = genRes.body.data[0].id;
       publishedReportCardStudentId = parentLinkedStudentId;
@@ -1007,9 +1104,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${td.assessmentId}/grades`,
         cedarAdminToken,
         {
-          grades: [
-            { student_id: td.studentId, raw_score: 50, is_missing: false },
-          ],
+          grades: [{ student_id: td.studentId, raw_score: 50, is_missing: false }],
         },
         CEDAR_DOMAIN,
       ).expect(404);
@@ -1156,9 +1251,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${td.assessmentId}/grades`,
         teacherToken,
         {
-          grades: [
-            { student_id: td.studentId, raw_score: 90, is_missing: false },
-          ],
+          grades: [{ student_id: td.studentId, raw_score: 90, is_missing: false }],
         },
         AL_NOOR_DOMAIN,
       ).expect(200);
@@ -1167,48 +1260,78 @@ describe('P5 Gradebook (e2e)', () => {
     });
 
     it('Teacher can create assessments (gradebook.enter_grades)', async () => {
-      const res = await authPost(app, '/api/v1/gradebook/assessments', teacherToken, {
-        class_id: td.classId,
-        subject_id: td.subjectId,
-        academic_period_id: td.academicPeriodId,
-        category_id: td.categoryHomeworkId,
-        title: `Teacher Quiz ${Date.now()}`,
-        max_score: 20,
-      }, AL_NOOR_DOMAIN).expect(201);
+      const res = await authPost(
+        app,
+        '/api/v1/gradebook/assessments',
+        teacherToken,
+        {
+          class_id: td.classId,
+          subject_id: td.subjectId,
+          academic_period_id: td.academicPeriodId,
+          category_id: td.categoryHomeworkId,
+          title: `Teacher Quiz ${Date.now()}`,
+          max_score: 20,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       expect(res.body.data.status).toBe('draft');
     });
 
     it('Teacher cannot manage grading scales', async () => {
-      await authPost(app, '/api/v1/gradebook/grading-scales', teacherToken, {
-        name: 'Nope',
-        config_json: {
-          type: 'numeric',
-          ranges: [{ min: 0, max: 100, label: 'P', gpa_value: 4 }],
+      await authPost(
+        app,
+        '/api/v1/gradebook/grading-scales',
+        teacherToken,
+        {
+          name: 'Nope',
+          config_json: {
+            type: 'numeric',
+            ranges: [{ min: 0, max: 100, label: 'P', gpa_value: 4 }],
+          },
         },
-      }, AL_NOOR_DOMAIN).expect(403);
+        AL_NOOR_DOMAIN,
+      ).expect(403);
     });
 
     it('Teacher cannot manage assessment categories', async () => {
-      await authPost(app, '/api/v1/gradebook/assessment-categories', teacherToken, {
-        name: 'Nope',
-        default_weight: 10,
-      }, AL_NOOR_DOMAIN).expect(403);
+      await authPost(
+        app,
+        '/api/v1/gradebook/assessment-categories',
+        teacherToken,
+        {
+          name: 'Nope',
+          default_weight: 10,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(403);
     });
 
     it('Teacher cannot compute period grades (gradebook.manage)', async () => {
-      await authPost(app, '/api/v1/gradebook/period-grades/compute', teacherToken, {
-        class_id: td.classId,
-        subject_id: td.subjectId,
-        academic_period_id: td.academicPeriodId,
-      }, AL_NOOR_DOMAIN).expect(403);
+      await authPost(
+        app,
+        '/api/v1/gradebook/period-grades/compute',
+        teacherToken,
+        {
+          class_id: td.classId,
+          subject_id: td.subjectId,
+          academic_period_id: td.academicPeriodId,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(403);
     });
 
     it('Teacher cannot generate report cards (gradebook.manage)', async () => {
-      await authPost(app, '/api/v1/report-cards/generate', teacherToken, {
-        student_ids: [td.studentId],
-        academic_period_id: td.academicPeriodId,
-      }, AL_NOOR_DOMAIN).expect(403);
+      await authPost(
+        app,
+        '/api/v1/report-cards/generate',
+        teacherToken,
+        {
+          student_ids: [td.studentId],
+          academic_period_id: td.academicPeriodId,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(403);
     });
 
     it('Teacher cannot publish report cards', async () => {
@@ -1216,7 +1339,7 @@ describe('P5 Gradebook (e2e)', () => {
       const listRes = await authGet(
         app,
         `/api/v1/report-cards?student_id=${td.studentId2}&status=published`,
-        adminToken,
+        ownerToken,
         AL_NOOR_DOMAIN,
       ).expect(200);
 
@@ -1227,7 +1350,7 @@ describe('P5 Gradebook (e2e)', () => {
       const reviseRes = await authPost(
         app,
         `/api/v1/report-cards/${publishedId}/revise`,
-        adminToken,
+        ownerToken,
         {},
         AL_NOOR_DOMAIN,
       ).expect(201);

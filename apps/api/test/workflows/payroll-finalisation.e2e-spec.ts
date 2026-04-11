@@ -28,6 +28,37 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
   let payrollRunUpdatedAt: string;
   let entryIds: string[] = [];
 
+  async function createPayrollRun(
+    labelPrefix: string,
+    totalWorkingDays: number,
+  ): Promise<Awaited<ReturnType<typeof authPost>>> {
+    const monthOffset = Math.floor(Date.now() / 1000) % 12;
+
+    for (let attempt = 0; attempt < 36; attempt += 1) {
+      const periodMonth = ((monthOffset + attempt) % 12) + 1;
+      const periodYear = 2027 + Math.floor((monthOffset + attempt) / 12);
+
+      const res = await authPost(
+        app,
+        '/api/v1/payroll/runs',
+        ownerToken,
+        {
+          period_label: `${labelPrefix} - ${Date.now()}-${attempt}`,
+          period_month: periodMonth,
+          period_year: periodYear,
+          total_working_days: totalWorkingDays,
+        },
+        AL_NOOR_DOMAIN,
+      );
+
+      if (res.status !== 409) {
+        return res;
+      }
+    }
+
+    throw new Error('Failed to create a non-conflicting payroll run for the workflow test');
+  }
+
   // ─── Setup ───────────────────────────────────────────────────────────────
 
   beforeAll(async () => {
@@ -61,22 +92,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
   // ─── 2. Create a new payroll run ────────────────────────────────────────
 
   it('should create a draft payroll run', async () => {
-    // Use a unique month/year combo to avoid conflicts
-    const uniqueMonth = (Date.now() % 12) + 1;
-    const uniqueYear = 2027;
-
-    const res = await authPost(
-      app,
-      '/api/v1/payroll/runs',
-      ownerToken,
-      {
-        period_label: `Integration Test - ${Date.now()}`,
-        period_month: uniqueMonth,
-        period_year: uniqueYear,
-        total_working_days: 22,
-      },
-      AL_NOOR_DOMAIN,
-    );
+    const res = await createPayrollRun('Integration Test', 22);
 
     // If the endpoint returns 404, the payroll module may not be enabled or
     // the user lacks payroll.create_run permission. Skip downstream tests.
@@ -306,19 +322,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
   // ─── 10. Verify cancellation works on draft runs ──────────────────────
 
   it('should allow cancellation of a new draft run', async () => {
-    // Create a separate draft run to cancel
-    const createRes = await authPost(
-      app,
-      '/api/v1/payroll/runs',
-      ownerToken,
-      {
-        period_label: `Cancel Test Run - ${Date.now()}`,
-        period_month: 12,
-        period_year: 2028,
-        total_working_days: 20,
-      },
-      AL_NOOR_DOMAIN,
-    );
+    const createRes = await createPayrollRun('Cancel Test Run', 20);
     if (createRes.status === 404 || createRes.status === 403) return;
     expect(createRes.status).toBe(201);
 

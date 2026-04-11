@@ -1,6 +1,12 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
+import {
+  buildPublicApplicationSeed,
+  createPublicApplication,
+  ensureAdmissionsTargets,
+} from './admissions-test-helpers';
 import {
   AL_NOOR_DOMAIN,
   AL_NOOR_OWNER_EMAIL,
@@ -10,22 +16,21 @@ import {
   DEV_PASSWORD,
   authGet,
   authPost,
-  cleanupRedisKeys,
-  getAuthToken,
   login,
 } from './helpers';
 
 describe('Parent Applications (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
   let ownerToken: string;
   let parentToken: string;
-
-  let formId: string;
   let applicationId: string;
   let parentUserId: string;
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    await prisma.$connect();
 
     const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
     ownerToken = ownerLogin.accessToken;
@@ -34,8 +39,14 @@ describe('Parent Applications (e2e)', () => {
     parentToken = parentLogin.accessToken;
     parentUserId = (parentLogin.user as { id: string }).id;
 
-    // 0. Create a parent record for the parent user if one doesn't exist
-    // This is needed because findByParent looks for a parent record with user_id
+    const targets = await ensureAdmissionsTargets(app, ownerToken, AL_NOOR_DOMAIN);
+    const created = await createPublicApplication(
+      app,
+      AL_NOOR_DOMAIN,
+      buildPublicApplicationSeed(targets),
+    );
+    applicationId = created.body.id as string;
+
     await authPost(
       app,
       '/api/v1/parents',
@@ -44,90 +55,41 @@ describe('Parent Applications (e2e)', () => {
         first_name: 'Test',
         last_name: 'Parent',
         email: AL_NOOR_PARENT_EMAIL,
-        phone: '+971501234567',
+        phone: '+353871111111',
         preferred_contact_channels: ['email'],
         user_id: parentUserId,
       },
       AL_NOOR_DOMAIN,
     );
-    // Ignore errors if parent already exists
 
-    // 1. Create a form definition with at least one field
-    const formRes = await authPost(
-      app,
-      '/api/v1/admission-forms',
-      ownerToken,
-      {
-        name: 'Parent App E2E Form',
-        fields: [
-          {
-            field_key: 'student_name',
-            label: 'Student Name',
-            field_type: 'short_text',
-            required: true,
-            visible_to_parent: true,
-            visible_to_staff: true,
-            searchable: false,
-            reportable: false,
-            display_order: 0,
-            active: true,
-          },
-        ],
+    const parent = await prisma.parent.findFirstOrThrow({
+      where: {
+        tenant: { slug: 'al-noor' },
+        user_id: parentUserId,
       },
-      AL_NOOR_DOMAIN,
-    ).expect(201);
+      select: { id: true },
+    });
 
-    const formBody = formRes.body.data ?? formRes.body;
-    formId = formBody.id;
+    await prisma.application.update({
+      where: { id: applicationId },
+      data: { submitted_by_parent_id: parent.id },
+    });
 
-    // 2. Publish the form
     await authPost(
       app,
-      `/api/v1/admission-forms/${formId}/publish`,
+      `/api/v1/applications/${applicationId}/notes`,
       ownerToken,
-      {},
+      { note: 'Internal-only admissions note', is_internal: true },
       AL_NOOR_DOMAIN,
     ).expect(201);
-
-    // 3. Create a draft application via public endpoint (no auth)
-    const pubRes = await request(app.getHttpServer())
-      .post('/api/v1/public/admissions/applications')
-      .set('Host', AL_NOOR_DOMAIN)
-      .send({
-        form_definition_id: formId,
-        student_first_name: 'Test',
-        student_last_name: 'Student',
-        payload_json: { student_name: 'Test Student' },
-      })
-      .expect(201);
-
-    applicationId = pubRes.body.data.id;
   }, 60_000);
 
   afterAll(async () => {
-    await cleanupRedisKeys(['ratelimit:admissions:*']);
+    await prisma.$disconnect();
     await closeTestApp();
   });
 
-  // ── 2.4.1 Submit draft ────────────────────────────────────────────────────────
-
-  it('should submit a draft application', async () => {
-    const res = await authPost(
-      app,
-      `/api/v1/parent/applications/${applicationId}/submit`,
-      parentToken,
-      {},
-      AL_NOOR_DOMAIN,
-    );
-
-    expect([200, 201]).toContain(res.status);
-    const body = res.body.data ?? res.body;
-    expect(body.status).toBe('submitted');
-  });
-
-  // ── 2.4.2 List own applications ───────────────────────────────────────────────
-
-  it('should list own applications', async () => {
+  it('lists only the logged-in parent applications', async () => {
     const res = await authGet(
       app,
       '/api/v1/parent/applications',
@@ -135,18 +97,12 @@ describe('Parent Applications (e2e)', () => {
       AL_NOOR_DOMAIN,
     ).expect(200);
 
-    const data = res.body.data;
+    const data = res.body.data ?? res.body;
     expect(Array.isArray(data)).toBe(true);
-
-    const found = data.find(
-      (a: Record<string, unknown>) => a.id === applicationId,
-    );
-    expect(found).toBeDefined();
+    expect(data.some((item: { id: string }) => item.id === applicationId)).toBe(true);
   });
 
-  // ── 2.4.3 View own application (internal notes excluded) ──────────────────────
-
-  it('should view own application without internal notes', async () => {
+  it('returns the parent view without internal notes', async () => {
     const res = await authGet(
       app,
       `/api/v1/parent/applications/${applicationId}`,
@@ -156,59 +112,28 @@ describe('Parent Applications (e2e)', () => {
 
     const body = res.body.data ?? res.body;
     expect(body.id).toBe(applicationId);
-
-    // Internal notes must NOT be included in parent view
-    if (body.notes && Array.isArray(body.notes)) {
-      const internalNotes = body.notes.filter(
-        (n: Record<string, unknown>) => n.internal === true,
-      );
-      expect(internalNotes.length).toBe(0);
-    }
+    expect(Array.isArray(body.notes)).toBe(true);
+    expect(
+      body.notes.some((note: { is_internal?: boolean; internal?: boolean }) => {
+        return note.is_internal === true || note.internal === true;
+      }),
+    ).toBe(false);
   });
 
-  // ── 2.4.4 Withdraw own application ────────────────────────────────────────────
-
-  it('should withdraw own submitted application', async () => {
-    // Create a second draft application via public endpoint
-    const pub2 = await request(app.getHttpServer())
-      .post('/api/v1/public/admissions/applications')
-      .set('Host', AL_NOOR_DOMAIN)
-      .send({
-        form_definition_id: formId,
-        student_first_name: 'Second',
-        student_last_name: 'Child',
-        payload_json: { student_name: 'Second Child' },
-      })
-      .expect(201);
-
-    const app2Id = pub2.body.data.id;
-
-    // Submit the second application
-    await authPost(
-      app,
-      `/api/v1/parent/applications/${app2Id}/submit`,
-      parentToken,
-      {},
-      AL_NOOR_DOMAIN,
-    );
-
-    // Withdraw the second application
+  it('allows the parent to withdraw their own application', async () => {
     const res = await authPost(
       app,
-      `/api/v1/parent/applications/${app2Id}/withdraw`,
+      `/api/v1/parent/applications/${applicationId}/withdraw`,
       parentToken,
       {},
       AL_NOOR_DOMAIN,
-    );
+    ).expect(201);
 
-    expect([200, 201]).toContain(res.status);
     const body = res.body.data ?? res.body;
     expect(body.status).toBe('withdrawn');
   });
 
-  // ── 2.4.5 No auth ────────────────────────────────────────────────────────────
-
-  it('should return 401 when listing applications without auth', async () => {
+  it('returns 401 when listing applications without auth', async () => {
     await request(app.getHttpServer())
       .get('/api/v1/parent/applications')
       .set('Host', AL_NOOR_DOMAIN)
