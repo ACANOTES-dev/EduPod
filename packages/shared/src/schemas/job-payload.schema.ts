@@ -35,3 +35,18 @@ export const pastoralEscalationTimeoutJobPayloadSchema = tenantJobPayloadSchema.
   concern_id: z.string().min(1),
   escalation_type: z.string().min(1),
 });
+
+/**
+ * `inbox:dispatch-channels` — fan out a newly-persisted inbox message to
+ * any sender-selected add-on channels (SMS / Email / WhatsApp). Inbox
+ * itself is already delivered (participant rows were written in the same
+ * transaction as the message) so the worker MUST NOT re-write to inbox.
+ */
+export const inboxDispatchChannelsJobPayloadSchema = tenantJobPayloadSchema.extend({
+  conversation_id: z.string().uuid(),
+  message_id: z.string().uuid(),
+  sender_user_id: z.string().uuid(),
+  recipient_user_ids: z.array(z.string().uuid()),
+  extra_channels: z.array(z.enum(['email', 'sms', 'whatsapp'])),
+  disable_fallback: z.boolean().default(false),
+});

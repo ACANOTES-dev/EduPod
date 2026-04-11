@@ -108,24 +108,24 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                | Wave | Depends on             | Status      | Completed at     | Commit SHA |
-| --- | ---------------------------------------------------- | ---- | ---------------------- | ----------- | ---------------- | ---------- |
-| 01  | Schema foundation                                    | 1    | —                      | `completed` | 2026-04-11 06:55 | 2a8e307c   |
-| 02  | Messaging policy engine                              | 2    | 01                     | `completed` | 2026-04-11 07:29 | 18672264   |
-| 03  | Audience engine v2                                   | 2    | 01                     | `completed` | 2026-04-11 09:37 | f7e6d823   |
-| 04  | Conversations + messages service                     | 2    | 01                     | `completed` | 2026-04-11 11:01 | 6be890d6   |
-| 05  | Admin oversight service                              | 2    | 01                     | `completed` | 2026-04-11 09:36 | 0eeb8930   |
-| 06  | Inbox channel provider in dispatcher                 | 3    | 01, 04                 | `pending`   | —                | —          |
-| 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `pending`   | —                | —          |
-| 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `pending`   | —                | —          |
-| 09  | Full-text search                                     | 3    | 01, 04                 | `pending`   | —                | —          |
-| 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `pending`   | —                | —          |
-| 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `pending`   | —                | —          |
-| 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `pending`   | —                | —          |
-| 13  | Messaging policy settings page                       | 4    | 01, 02                 | `pending`   | —                | —          |
-| 14  | Safeguarding settings + dashboard alerts widget      | 4    | 01, 08                 | `pending`   | —                | —          |
-| 15  | Admin oversight UI + fallback settings               | 4    | 01, 05, 07             | `pending`   | —                | —          |
-| 16  | Polish, translations, mobile pass, morph bar wire-up | 5    | 10–15                  | `pending`   | —                | —          |
+| #   | Title                                                | Wave | Depends on             | Status        | Completed at     | Commit SHA |
+| --- | ---------------------------------------------------- | ---- | ---------------------- | ------------- | ---------------- | ---------- |
+| 01  | Schema foundation                                    | 1    | —                      | `completed`   | 2026-04-11 06:55 | 2a8e307c   |
+| 02  | Messaging policy engine                              | 2    | 01                     | `completed`   | 2026-04-11 07:29 | 18672264   |
+| 03  | Audience engine v2                                   | 2    | 01                     | `completed`   | 2026-04-11 09:37 | f7e6d823   |
+| 04  | Conversations + messages service                     | 2    | 01                     | `completed`   | 2026-04-11 11:01 | 6be890d6   |
+| 05  | Admin oversight service                              | 2    | 01                     | `completed`   | 2026-04-11 09:36 | 0eeb8930   |
+| 06  | Inbox channel provider in dispatcher                 | 3    | 01, 04                 | `in-progress` | —                | —          |
+| 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `deploying`   | —                | —          |
+| 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `in-progress` | —                | —          |
+| 09  | Full-text search                                     | 3    | 01, 04                 | `completed`   | 2026-04-11 11:25 | 9b77fd16   |
+| 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `pending`     | —                | —          |
+| 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `pending`     | —                | —          |
+| 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `pending`     | —                | —          |
+| 13  | Messaging policy settings page                       | 4    | 01, 02                 | `pending`     | —                | —          |
+| 14  | Safeguarding settings + dashboard alerts widget      | 4    | 01, 08                 | `pending`     | —                | —          |
+| 15  | Admin oversight UI + fallback settings               | 4    | 01, 05, 07             | `pending`     | —                | —          |
+| 16  | Polish, translations, mobile pass, morph bar wire-up | 5    | 10–15                  | `pending`     | —                | —          |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -440,3 +440,62 @@ send-only roles.`
   header return 401 `UNAUTHORIZED` (guarded); without the host
   header return 404 (pre-existing tenant-resolver behaviour,
   unchanged by this impl).
+
+### [IMPL 09] — Full-text search
+
+- **Completed:** 2026-04-11T11:25+01:00 Europe/Dublin
+- **Commit:** `9b77fd16` (local `78ad4c4f`) on top of `9339e98a`
+  (local `aca45090`)
+- **Deployed to production:** yes (API rebuild + `pm2 restart api`)
+- **Summary (≤ 200 words):**
+  Landed `InboxSearchService` + `InboxSearchController` under
+  `apps/api/src/modules/inbox/search/`. Search runs `plainto_tsquery(
+'simple', $q)` against the `messages.body_search` tsvector column
+  (impl 01's GIN-backed `idx_messages_body_search`), ordered by
+  `ts_rank` then recency, and wraps matches with
+  `ts_headline StartSel=<mark>, StopSel=</mark>, MaxFragments=2,
+MaxWords=20, MinWords=5`. The SQL is hand-rolled `$queryRaw` inside an
+  interactive RLS transaction (Prisma's query builder cannot express
+  `tsvector @@ tsquery` — the column is `Unsupported("tsvector")`).
+  Both user and tenant scopes share one SQL shape; scope `user` adds an
+  `EXISTS (conversation_participants...)` clause, scope `tenant` omits
+  it. The user controller `GET /v1/inbox/search` hard-wires
+  `scope: 'user'` — there is no request parameter that can widen the
+  scope. `InboxOversightService.searchAll` stops throwing
+  `INBOX_SEARCH_NOT_READY` and now delegates with `scope: 'tenant'`,
+  still writing the audit row in its own RLS transaction before the
+  search runs. Guards: query length 2–200, pageSize ≤ 50,
+  punctuation-only queries short-circuit to an empty page without a DB
+  hit. Shared: `inboxSearchQuerySchema` in `@school/shared/inbox`. 34
+  unit tests (service + controller + oversight delegation).
+- **Follow-ups:**
+  - Wave 4 impl 10 renders the `body_snippet` field; it must sanitise
+    through a `<mark>`-only allowlist before dangerously setting the
+    HTML.
+  - Wave 4 impl 15 (oversight UI) consumes the oversight search route;
+    the response shape is now the full `InboxSearchHit` (the stub's
+    `OversightSearchHit` is a type alias).
+  - Arabic search currently tokenises by whitespace under the `simple`
+    config. v2 can switch to a multilingual config or per-locale
+    tsvectors.
+  - Impl 09's first deploy (`9339e98a`) mixed in parallel impl 06 WIP
+    (`BullModule.registerQueue` + `forwardRef(CommunicationsModule)`
+    in `inbox.module.ts`) and the circular dep
+    `AppModule→AdmissionsModule→FinanceModule→InboxModule→`
+    `CommunicationsModule→ClassesModule→AdmissionsModule` crashed the
+    API boot. Fix-forward commit `9b77fd16` stripped those lines back
+    to the impl-05 shape; the committed `InboxOutboxService` (impl 04
+    stub) does not inject the notifications queue so no API code path
+    needs the Bull registration yet. When impl 06 lands for real, its
+    own patch should re-introduce the BullMQ wiring alongside its
+    own producer.
+- **Session notes:** Saw 480 API restarts on prod between the two
+  deploys (crash loop from the circular dep). After `9b77fd16` +
+  rebuild + `pm2 restart api`, API stabilised at `Nest application
+successfully started`. Smoke: `/api/health` 200; `/api/v1/inbox/
+search?q=test` with nhqs host header → 401 `UNAUTHORIZED` (route
+  registered and guarded); `/api/v1/inbox/oversight/search?q=test` →
+  401 `UNAUTHORIZED` (also registered, no longer the 503 stub). The
+  parallel impl 07 session had also deployed a fallback-worker patch
+  (`95c7350d`) between my two deploys, which is still running and
+  unrelated to 09.

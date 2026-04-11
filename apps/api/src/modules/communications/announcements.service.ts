@@ -13,6 +13,7 @@ import { ConfigurationReadFacade } from '../configuration/configuration-read.fac
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AudienceResolutionService } from './audience-resolution.service';
+import { InboxBridgeService, type LegacyAnnouncementScope } from './inbox-bridge.service';
 import { NotificationsService } from './notifications.service';
 
 interface ListAnnouncementsFilters {
@@ -31,6 +32,7 @@ export class AnnouncementsService {
     private readonly configurationReadFacade: ConfigurationReadFacade,
     private readonly audienceService: AudienceResolutionService,
     private readonly notificationsService: NotificationsService,
+    private readonly inboxBridge: InboxBridgeService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
 
@@ -277,6 +279,35 @@ export class AnnouncementsService {
       where: { id },
       data: { status: 'published', published_at: new Date() },
     });
+
+    // Inbox is the always-on fourth channel. Every published announcement
+    // also lands as a broadcast conversation in recipient inboxes, via the
+    // Wave 3 inbox bridge. The bridge owns the audience resolution through
+    // the audience-engine v2, independent of the legacy notification path
+    // below. Failures here must not break the announcement publish — the
+    // legacy SMS / Email / WhatsApp fan-out still runs — so we log and
+    // continue rather than throwing.
+    try {
+      await this.inboxBridge.createBroadcastFromAnnouncement({
+        tenantId,
+        senderUserId: announcement.author_user_id,
+        subject: announcement.title,
+        body: announcement.body_html,
+        scope: announcement.scope as LegacyAnnouncementScope,
+        targetPayload: announcement.target_payload as Record<string, unknown>,
+        // Legacy announcements have no allow_replies column (Wave 1 of the
+        // inbox rebuild added allow_replies to `conversations`, not to
+        // `announcements`). Default to false — the new compose flow is the
+        // way to allow replies on a broadcast.
+        allowReplies: false,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      // eslint-disable-next-line no-console
+      console.error(
+        `[announcements.executePublish] inbox bridge failed for announcement ${id}: ${message}`,
+      );
+    }
 
     // Resolve audience
     const targets = await this.audienceService.resolve(

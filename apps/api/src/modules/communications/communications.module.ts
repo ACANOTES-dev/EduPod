@@ -1,5 +1,5 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
 import { ApprovalsModule } from '../approvals/approvals.module';
@@ -8,6 +8,7 @@ import { ClassesModule } from '../classes/classes.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { GdprModule } from '../gdpr/gdpr.module';
 import { HouseholdsModule } from '../households/households.module';
+import { InboxModule } from '../inbox/inbox.module';
 import { ParentsModule } from '../parents/parents.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
@@ -17,12 +18,14 @@ import { AnnouncementsController } from './announcements.controller';
 import { AnnouncementsService } from './announcements.service';
 import { AudienceResolutionService } from './audience-resolution.service';
 import { CommunicationsReadFacade } from './communications-read.facade';
+import { InboxBridgeService } from './inbox-bridge.service';
 import { NotificationDispatchService } from './notification-dispatch.service';
 import { NotificationRateLimitService } from './notification-rate-limit.service';
 import { NotificationTemplatesController } from './notification-templates.controller';
 import { NotificationTemplatesService } from './notification-templates.service';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
+import { InboxChannelProvider } from './providers/inbox-channel.provider';
 import { ResendEmailProvider } from './providers/resend-email.provider';
 import { TwilioSmsProvider } from './providers/twilio-sms.provider';
 import { TwilioWhatsAppProvider } from './providers/twilio-whatsapp.provider';
@@ -46,6 +49,11 @@ import { WebhookService } from './webhook.service';
     ParentsModule,
     StudentsModule,
     BullModule.registerQueue({ name: 'notifications' }),
+    // Inbox bridge (impl 06) depends on `ConversationsService` from
+    // `InboxModule`, and `InboxModule` imports this module back via
+    // forwardRef. The circular edge is intentional and narrow — only
+    // the bridge crosses it.
+    forwardRef(() => InboxModule),
   ],
   controllers: [
     AnnouncementsController,
@@ -62,12 +70,14 @@ import { WebhookService } from './webhook.service';
     AudienceResolutionService,
     WebhookService,
     TemplateRendererService,
+    InboxChannelProvider,
     ResendEmailProvider,
     TwilioWhatsAppProvider,
     TwilioSmsProvider,
     CommunicationsReadFacade,
     NotificationRateLimitService,
     UnsubscribeService,
+    InboxBridgeService,
   ],
   exports: [
     AnnouncementsService,
@@ -77,6 +87,8 @@ import { WebhookService } from './webhook.service';
     AudienceResolutionService,
     TemplateRendererService,
     NotificationRateLimitService,
+    InboxBridgeService,
+    InboxChannelProvider,
   ],
 })
 export class CommunicationsModule {}

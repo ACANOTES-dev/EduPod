@@ -75,7 +75,17 @@ import { InboxSettingsService } from './settings/inbox-settings.service';
  * the oversight thread-export path.
  */
 @Module({
-  imports: [AuthModule, S3Module],
+  imports: [
+    AuthModule,
+    S3Module,
+    // `InboxOutboxService` enqueues `safeguarding:scan-message` onto
+    // the `safeguarding` queue every time a message is persisted or
+    // edited. Register the queue locally so the
+    // `@InjectQueue('safeguarding')` token resolves inside the inbox
+    // container. BullMQ dedupes duplicate registrations across
+    // modules, so the worker's own registration is unaffected.
+    BullModule.registerQueue({ name: 'safeguarding' }),
+  ],
   controllers: [
     InboxSettingsController,
     InboxOversightController,
