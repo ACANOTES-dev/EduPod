@@ -136,14 +136,14 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status        | Completed at              | Commit SHA |
-| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ------------- | ------------------------- | ---------- |
-| 01  | Schema foundation                             | 1    | schema         | serial               | —          | `completed`   | 2026-04-11T15:00:00+01:00 | 7ff33d56   |
-| 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `completed`   | 2026-04-11T16:26:00+01:00 | b2593a08   |
-| 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `completed`   | 2026-04-11T16:30:00+01:00 | 678bb9a4   |
-| 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `in-progress` | —                         | —          |
-| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `completed`   | 2026-04-11T17:00:00+01:00 | 39b6fe77   |
-| 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `pending`     | —                         | —          |
+| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status      | Completed at              | Commit SHA |
+| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ----------- | ------------------------- | ---------- |
+| 01  | Schema foundation                             | 1    | schema         | serial               | —          | `completed` | 2026-04-11T15:00:00+01:00 | 7ff33d56   |
+| 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `completed` | 2026-04-11T16:26:00+01:00 | b2593a08   |
+| 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `completed` | 2026-04-11T16:30:00+01:00 | 678bb9a4   |
+| 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `completed` | 2026-04-11T17:05:00+01:00 | 497e571e   |
+| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `completed` | 2026-04-11T17:00:00+01:00 | 39b6fe77   |
+| 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `pending`   | —                         | —          |
 
 ---
 
@@ -278,3 +278,25 @@ is_sibling_application DESC, apply_date ASC`. Rewrote `ApplicationConversionServ
 - **Session notes:** Ran in parallel with impl 04. Deployed impl 04's code commit as a dependency
   (it sat between my two code commits in git history). The `unwrap()` fix was needed because
   `apiClient` returns the raw `{ data: T }` envelope — caught during production smoke test.
+
+### [IMPL 04] — Public apply form rewrite
+
+- **Completed:** 2026-04-11T17:05:00+01:00 (Europe/Dublin)
+- **Commits:** 54dec678, 497e571e (local) / f01ffc7c (prod — translations patch; code was already applied via impl 05's deployment)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Rewrote `apps/web/src/app/[locale]/(public)/apply/[tenantSlug]/page.tsx` from a single-student
+  DynamicFormRenderer approach to a multi-mode, multi-student form. Page now starts with a mode
+  picker ("New family" vs "Adding a child to existing family"). "Existing family" path shows a
+  household lookup form (household number + parent email) that calls `POST /v1/public/households/lookup`,
+  auto-uppercases the code input, handles 404 and 403 rate-limit errors via toast. On match, shows
+  a matched-household banner and the students-only form. "New family" path shows reordered sections:
+  parent 1 → parent 2 → address → students → emergency contact. Students section supports add/remove
+  with stable client-side UUIDs per draft. Extracted `StudentsSection` and `StudentFields` into
+  `_components/students-section.tsx` to stay under the 600-line lint limit. Submit handler builds
+  the correct `new_household`/`existing_household` mode payload with `household_payload` or
+  `existing_household_id`. Batch results stashed in sessionStorage. Updated submitted page to read
+  batch results and render per-application cards with status badges. Added 30+ translation keys
+  (en + ar) for mode picker, lookup, student fields, and batch submitted page.
+- **Follow-ups:** Impl 06 should verify the full end-to-end submit flow with 2+ students and Arabic RTL rendering.
+- **Session notes:** Ran in parallel with impl 05. First patch was "already applied" on production because impl 05 had deployed it as a dependency. Only the translations patch needed fresh application.
