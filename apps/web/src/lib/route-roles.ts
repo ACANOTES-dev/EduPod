@@ -39,6 +39,7 @@ export const UNRESTRICTED_PATHS = [
   '/profile',
   '/profile/communication',
   '/select-school',
+  '/inbox',
 ];
 
 // ─── Route-role map ──────────────────────────────────────────────────────────

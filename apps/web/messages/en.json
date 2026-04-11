@@ -218,6 +218,173 @@
     "errors": {
       "load_threads": "Could not load your inbox. Please try again.",
       "load_thread": "Could not load this conversation. Please try again."
+    },
+    "audiences": {
+      "title": "Saved Audiences",
+      "description": "Reusable recipient lists for announcements and messages.",
+      "new": "New Audience",
+      "newPageTitle": "Create Audience",
+      "newPageDescription": "Build a static or dynamic audience to reuse across broadcasts.",
+      "searchPlaceholder": "Search by name or description",
+      "loading": "Loading audiences...",
+      "duplicateSuffix": "copy",
+      "memberCount": "{count, plural, =0 {No members} one {1 member} other {# members}}",
+      "memberCountDynamic": "Dynamic — resolves on send",
+      "filters": {
+        "all": "All",
+        "static": "Static",
+        "dynamic": "Dynamic"
+      },
+      "kind": {
+        "static": "Static",
+        "dynamic": "Dynamic"
+      },
+      "columns": {
+        "name": "Name",
+        "description": "Description",
+        "kind": "Kind",
+        "members": "Members",
+        "actions": "Actions"
+      },
+      "actions": {
+        "view": "Open",
+        "duplicate": "Duplicate",
+        "delete": "Delete",
+        "cancel": "Cancel",
+        "create": "Create Audience",
+        "save": "Save Changes",
+        "back": "Back",
+        "menu": "Row actions"
+      },
+      "empty": {
+        "title": "No saved audiences yet",
+        "description": "Create one to reuse it across announcements and messages.",
+        "searchDescription": "No audiences match your search."
+      },
+      "delete": {
+        "confirm": {
+          "title": "Delete this audience?",
+          "body": "This cannot be undone. Broadcasts previously sent to this audience are unaffected, but it will no longer be available for new sends."
+        }
+      },
+      "drawer": {
+        "openFull": "Open full view"
+      },
+      "toast": {
+        "created": "Audience created",
+        "saved": "Audience saved",
+        "deleted": "Audience deleted",
+        "deleteFailed": "Failed to delete audience",
+        "duplicated": "Audience duplicated",
+        "duplicateFailed": "Failed to duplicate audience"
+      },
+      "errors": {
+        "nameTaken": "An audience with this name already exists in this tenant.",
+        "cycleDetected": "This definition references itself, directly or through another saved audience.",
+        "tooDeep": "This definition is nested too deeply. Simplify before saving.",
+        "duplicateNameTaken": "A copy with this name already exists — rename before duplicating again.",
+        "noMembers": "Pick at least one member before saving.",
+        "noDefinition": "Add at least one provider chip before saving.",
+        "generic": "Something went wrong. Please try again.",
+        "resolveFailed": "Failed to resolve audience members."
+      },
+      "notFound": {
+        "title": "Audience not found",
+        "body": "It may have been deleted, or you don't have permission to view it."
+      },
+      "form": {
+        "name": {
+          "label": "Name",
+          "placeholder": "e.g., Year 5 Parent Council",
+          "required": "Name is required"
+        },
+        "description": {
+          "label": "Description (optional)",
+          "placeholder": "What is this audience used for?"
+        },
+        "kind": {
+          "label": "Kind",
+          "locked": "Kind cannot be changed after creation. Duplicate and rebuild to convert.",
+          "static": {
+            "title": "Static",
+            "description": "Handpicked list of users. Changes are immediate and affect future sends."
+          },
+          "dynamic": {
+            "title": "Dynamic",
+            "description": "Re-resolves on each broadcast. Use for rules like 'Parents in arrears > €500'."
+          }
+        },
+        "builder": {
+          "label": "Audience",
+          "loadingProviders": "Loading providers..."
+        }
+      },
+      "peoplePicker": {
+        "searchPlaceholder": "Search users by name or email",
+        "selected": "Selected",
+        "selectedCount": "{count, plural, one {# member selected} other {# members selected}}",
+        "empty": "Search and click a user to add them.",
+        "removeUser": "Remove user"
+      },
+      "chipBuilder": {
+        "empty": "No chips yet. Add one to start.",
+        "negated": "NOT",
+        "included": "IN",
+        "stub": "Not yet wired",
+        "complex": {
+          "title": "Complex definition",
+          "body": "This audience has a nested shape that the UI builder cannot edit yet. Use the API or duplicate and rebuild to modify."
+        },
+        "operator": {
+          "label": "Combine chips with",
+          "and": "AND",
+          "or": "OR"
+        },
+        "actions": {
+          "add": "Add chip",
+          "remove": "Remove chip",
+          "negate": "Invert (NOT)",
+          "unNegate": "Restore"
+        },
+        "addPicker": {
+          "providerLabel": "Provider",
+          "placeholder": "Choose a provider",
+          "cancel": "Cancel",
+          "confirm": "Add"
+        },
+        "params": {
+          "none": "No parameters required.",
+          "csvPlaceholder": "uuid1, uuid2, ...",
+          "csvHint": "Comma-separated list.",
+          "labels": {
+            "minOverdueAmount": "Minimum overdue amount",
+            "minOverdueDays": "Minimum overdue days",
+            "json": "Parameters (JSON)"
+          }
+        }
+      },
+      "preview": {
+        "title": "Preview",
+        "refresh": "Refresh",
+        "loading": "Resolving...",
+        "empty": "Pick providers to see the recipient count.",
+        "error": "Could not resolve this audience.",
+        "recipients": "{count, plural, =0 {No recipients} one {recipient} other {recipients}}",
+        "moreCount": "+{count} more"
+      },
+      "resolveNow": {
+        "title": "Resolve now",
+        "description": "Run the definition against current data to verify the recipient list.",
+        "run": "Resolve",
+        "resolvedAt": "Resolved {at}",
+        "totalCount": "{count, plural, =0 {No members resolved} one {1 member} other {# members}}",
+        "prev": "Previous",
+        "next": "Next",
+        "pageIndicator": "Page {page} of {total}",
+        "columns": {
+          "userId": "User ID"
+        }
+      }
     }
   },
   "auth": {

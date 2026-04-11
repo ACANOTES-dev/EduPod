@@ -29,6 +29,12 @@ export interface MorphBarProps {
   renderNotification?: () => React.ReactNode;
   /** When provided, replaces the built-in avatar button with a custom component */
   renderUser?: () => React.ReactNode;
+  /**
+   * Optional slot rendered immediately before the notification bell. Used by
+   * the school shell to mount the inbox envelope + unread badge — owned by the
+   * inbox polling context provider, not the morph bar itself.
+   */
+  renderInboxBadge?: () => React.ReactNode;
 }
 
 export const MorphBar = React.forwardRef<HTMLElement, MorphBarProps>(
@@ -49,6 +55,7 @@ export const MorphBar = React.forwardRef<HTMLElement, MorphBarProps>(
       className,
       renderNotification,
       renderUser,
+      renderInboxBadge,
     },
     ref,
   ) => {
@@ -125,6 +132,7 @@ export const MorphBar = React.forwardRef<HTMLElement, MorphBarProps>(
           >
             <Search className="h-[18px] w-[18px]" />
           </button>
+          {renderInboxBadge ? renderInboxBadge() : null}
           {renderNotification ? (
             renderNotification()
           ) : (

@@ -18,6 +18,7 @@ import {
 import { ErrorBoundary } from '@/components/error-boundary';
 import { GlobalSearch } from '@/components/global-search';
 import { PrivacyNoticeBanner } from '@/components/legal/privacy-notice-banner';
+import { InboxBadge } from '@/components/morph-bar/inbox-badge';
 import { NotificationPanel } from '@/components/notifications/notification-panel';
 import { RequireRole } from '@/components/require-role';
 import { UserMenu } from '@/components/user-menu';
@@ -29,6 +30,7 @@ import type { RoleKey } from '@/lib/route-roles';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
 
 import { RegistrationWizard } from './_components/registration-wizard/registration-wizard';
+import { InboxPollingProvider } from './_providers/inbox-polling-provider';
 
 function StripLink({
   href,
@@ -199,63 +201,66 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
 
   return (
     <RequireAuth>
-      <AppShell
-        morphBar={
-          <MorphBar
-            schoolName={schoolName}
-            logoUrl={logoUrl ?? undefined}
-            activeHub={activeHub}
-            hubs={derivedHubs}
-            onHubClick={handleHubClick}
-            onSearchClick={() => setCommandPaletteOpen(true)}
-            notificationCount={0}
-            onNotificationClick={() => {}}
-            onHamburgerClick={() => setMobileNavOpen(true)}
-            userName={user?.first_name || 'User'}
-            onUserClick={() => {}}
-            renderNotification={() => <NotificationPanel />}
-            renderUser={() => <UserMenu />}
-          />
-        }
-        subStrip={
-          filteredGroupedTabs.length > 0 ? (
-            <GroupedSubStrip
-              groups={filteredGroupedTabs}
-              activeTabHref={pathname || ''}
-              LinkComponent={StripLink}
+      <InboxPollingProvider>
+        <AppShell
+          morphBar={
+            <MorphBar
+              schoolName={schoolName}
+              logoUrl={logoUrl ?? undefined}
+              activeHub={activeHub}
+              hubs={derivedHubs}
+              onHubClick={handleHubClick}
+              onSearchClick={() => setCommandPaletteOpen(true)}
+              notificationCount={0}
+              onNotificationClick={() => {}}
+              onHamburgerClick={() => setMobileNavOpen(true)}
+              userName={user?.first_name || 'User'}
+              onUserClick={() => {}}
+              renderInboxBadge={() => <InboxBadge />}
+              renderNotification={() => <NotificationPanel />}
+              renderUser={() => <UserMenu />}
             />
-          ) : filteredSubStripTabs.length > 0 ? (
-            <SubStrip
-              tabs={filteredSubStripTabs}
-              activeTabHref={pathname || ''}
-              LinkComponent={StripLink}
-            />
-          ) : null
-        }
-      >
-        <PrivacyNoticeBanner />
-        <ErrorBoundary resetKeys={[pathname]}>
-          <div key={pathname} className="page-fade-in">
-            <RequireRole>{children}</RequireRole>
-          </div>
-        </ErrorBoundary>
-      </AppShell>
+          }
+          subStrip={
+            filteredGroupedTabs.length > 0 ? (
+              <GroupedSubStrip
+                groups={filteredGroupedTabs}
+                activeTabHref={pathname || ''}
+                LinkComponent={StripLink}
+              />
+            ) : filteredSubStripTabs.length > 0 ? (
+              <SubStrip
+                tabs={filteredSubStripTabs}
+                activeTabHref={pathname || ''}
+                LinkComponent={StripLink}
+              />
+            ) : null
+          }
+        >
+          <PrivacyNoticeBanner />
+          <ErrorBoundary resetKeys={[pathname]}>
+            <div key={pathname} className="page-fade-in">
+              <RequireRole>{children}</RequireRole>
+            </div>
+          </ErrorBoundary>
+        </AppShell>
 
-      <GlobalSearch open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
-      <ToastProvider />
-      <RegistrationWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
-      <MobileNavOverlay
-        open={mobileNavOpen}
-        onClose={() => setMobileNavOpen(false)}
-        hubs={derivedHubs}
-        activeHub={activeHub}
-        onHubClick={handleHubClick}
-        schoolName={schoolName}
-        onSearchClick={() => {
-          setMobileNavOpen(false);
-          setCommandPaletteOpen(true);
-        }}
-      />
+        <GlobalSearch open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
+        <ToastProvider />
+        <RegistrationWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+        <MobileNavOverlay
+          open={mobileNavOpen}
+          onClose={() => setMobileNavOpen(false)}
+          hubs={derivedHubs}
+          activeHub={activeHub}
+          onHubClick={handleHubClick}
+          schoolName={schoolName}
+          onSearchClick={() => {
+            setMobileNavOpen(false);
+            setCommandPaletteOpen(true);
+          }}
+        />
+      </InboxPollingProvider>
     </RequireAuth>
   );
 }
