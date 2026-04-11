@@ -36,13 +36,27 @@ export interface AdmissionsTargets {
 }
 
 export interface PublicApplicationSeed {
+  mode: 'new_household' | 'existing_household';
   form_definition_id: string;
-  student_first_name: string;
-  student_last_name: string;
-  date_of_birth: string;
-  target_academic_year_id: string;
-  target_year_group_id: string;
-  payload_json: Record<string, unknown>;
+  household_payload?: {
+    parent1_first_name: string;
+    parent1_last_name: string;
+    parent1_email: string;
+    parent1_phone: string;
+    parent1_relationship: string;
+    address_line_1: string;
+    city: string;
+    country: string;
+  };
+  students: Array<{
+    first_name: string;
+    last_name: string;
+    date_of_birth: string;
+    gender: 'male' | 'female';
+    national_id: string;
+    target_academic_year_id: string;
+    target_year_group_id: string;
+  }>;
 }
 
 function randomSuffix(): string {
@@ -133,13 +147,9 @@ export function buildPublicApplicationSeed(targets: AdmissionsTargets): PublicAp
   const dateOfBirth = '2018-05-15';
 
   return {
+    mode: 'new_household',
     form_definition_id: targets.formId,
-    student_first_name: studentFirstName,
-    student_last_name: studentLastName,
-    date_of_birth: dateOfBirth,
-    target_academic_year_id: targets.academicYearId,
-    target_year_group_id: targets.yearGroupId,
-    payload_json: {
+    household_payload: {
       parent1_first_name: 'Test',
       parent1_last_name: 'Parent',
       parent1_email: `parent-${suffix}@test.local`,
@@ -147,15 +157,19 @@ export function buildPublicApplicationSeed(targets: AdmissionsTargets): PublicAp
       parent1_relationship: 'guardian',
       address_line_1: '1 Test Street',
       city: 'Dublin',
-      country: 'Ireland',
-      target_academic_year_id: targets.academicYearId,
-      target_year_group_id: targets.yearGroupId,
-      student_first_name: studentFirstName,
-      student_last_name: studentLastName,
-      student_dob: dateOfBirth,
-      student_gender: 'male',
-      student_national_id: `NID-${suffix}`,
+      country: 'IE',
     },
+    students: [
+      {
+        first_name: studentFirstName,
+        last_name: studentLastName,
+        date_of_birth: dateOfBirth,
+        gender: 'male',
+        national_id: `NID-${suffix}`,
+        target_academic_year_id: targets.academicYearId,
+        target_year_group_id: targets.yearGroupId,
+      },
+    ],
   };
 }
 

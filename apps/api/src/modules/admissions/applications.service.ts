@@ -241,6 +241,11 @@ export class ApplicationsService {
       });
     }
 
+    // Bridge: extract the first student from the multi-student DTO.
+    // Impl 03 will rewrite this method to loop over all students and handle
+    // household linking + batch IDs. Until then, only the first student is processed.
+    const student = dto.students[0];
+
     // Validate form is published and the payload satisfies its required
     // fields. A small read-only RLS transaction lets us surface FORM_NOT_FOUND
     // and VALIDATION_ERROR before the state machine opens its own write
@@ -269,18 +274,17 @@ export class ApplicationsService {
         });
       }
 
-      this.validatePayloadAgainstFields(dto.payload_json as Record<string, unknown>, form.fields);
+      // payload_json validation removed — impl 03 re-adds with multi-student shape
     });
 
     const application = await this.stateMachineService.submit(tenantId, {
       formDefinitionId: dto.form_definition_id,
-      studentFirstName: dto.student_first_name,
-      studentLastName: dto.student_last_name,
-      dateOfBirth: dto.date_of_birth ? new Date(dto.date_of_birth) : null,
-      targetAcademicYearId: dto.target_academic_year_id,
-      targetYearGroupId: dto.target_year_group_id,
+      studentFirstName: student.first_name,
+      studentLastName: student.last_name,
+      dateOfBirth: student.date_of_birth ? new Date(student.date_of_birth) : null,
+      targetAcademicYearId: student.target_academic_year_id,
+      targetYearGroupId: student.target_year_group_id,
       payloadJson: {
-        ...(dto.payload_json as Record<string, unknown>),
         __consents: dto.consents,
       },
       submittedByParentId: null,

@@ -178,5 +178,8 @@ export * from './constants/homework-type';
 export * from './constants/completion-status';
 export * from './types/homework';
 
+// Household number primitives
+export * from './households/household-number';
+
 // Helpers
 export * from './helpers/notification';

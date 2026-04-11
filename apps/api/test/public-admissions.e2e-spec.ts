@@ -133,7 +133,7 @@ describe('Public Admissions (e2e)', () => {
     expect(body.error?.code ?? body.code).toBe('FORM_NOT_FOUND');
   });
 
-  it('returns 400 when required payload fields are missing', async () => {
+  it('returns 400 when students array is empty', async () => {
     const targets = await ensureAdmissionsTargets(app, ownerToken, AL_NOOR_DOMAIN);
     const seed = buildPublicApplicationSeed(targets);
     ipCounter += 1;
@@ -144,7 +144,7 @@ describe('Public Admissions (e2e)', () => {
       .set('X-Forwarded-For', `10.0.0.${ipCounter}`)
       .send({
         ...seed,
-        payload_json: {},
+        students: [],
       })
       .expect(400);
 

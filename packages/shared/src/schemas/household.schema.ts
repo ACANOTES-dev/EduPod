@@ -1,5 +1,33 @@
 import { z } from 'zod';
 
+import { HOUSEHOLD_NUMBER_PATTERN } from '../households/household-number';
+
+// ─── Public household lookup (sibling flow) ───────────────────────────────────
+
+export const publicHouseholdLookupSchema = z.object({
+  tenant_slug: z.string().trim().min(1).max(100),
+  household_number: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(
+      HOUSEHOLD_NUMBER_PATTERN,
+      'Household number must be 3 uppercase letters followed by 3 digits',
+    ),
+  parent_email: z.string().email().toLowerCase(),
+});
+
+export type PublicHouseholdLookupDto = z.infer<typeof publicHouseholdLookupSchema>;
+
+export interface PublicHouseholdLookupResult {
+  household_id: string;
+  household_number: string;
+  household_name: string;
+  active_student_count: number;
+}
+
+// ─── Household CRUD ───────────────────────────────────────────────────────────
+
 export const emergencyContactSchema = z.object({
   contact_name: z.string().min(1).max(255),
   phone: z.string().min(1).max(50),

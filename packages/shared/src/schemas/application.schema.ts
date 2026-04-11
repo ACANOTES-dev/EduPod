@@ -5,27 +5,76 @@ import { consentCaptureSchema } from '../gdpr/consent.schema';
 
 import { paginationQuerySchema } from './pagination.schema';
 
-// Public application creation (from public admissions page)
-export const createPublicApplicationSchema = z.object({
-  form_definition_id: z.string().uuid(),
-  student_first_name: z.string().min(1).max(100),
-  student_last_name: z.string().min(1).max(100),
-  date_of_birth: z.string().date().nullable().optional(),
+// ─── Public application — multi-student shape ─────────────────────────────────
+
+export const publicApplicationStudentSchema = z.object({
+  first_name: z.string().trim().min(1).max(100),
+  middle_name: z.string().trim().max(100).optional(),
+  last_name: z.string().trim().min(1).max(100),
+  date_of_birth: z.string().date(),
+  gender: z.enum(['male', 'female']),
+  national_id: z.string().trim().min(1).max(100),
   target_academic_year_id: z.string().uuid(),
   target_year_group_id: z.string().uuid(),
-  payload_json: z.record(z.string(), z.unknown()),
-  consents: consentCaptureSchema.default({
-    health_data: false,
-    whatsapp_channel: false,
-    ai_features: {
-      ai_grading: false,
-      ai_comments: false,
-      ai_risk_detection: false,
-      ai_progress_summary: false,
-    },
-  }),
-  website_url: z.string().optional(), // honeypot field
+  medical_notes: z.string().max(5000).optional(),
+  has_allergies: z.boolean().optional(),
 });
+
+export const publicHouseholdPayloadSchema = z.object({
+  parent1_first_name: z.string().trim().min(1).max(100),
+  parent1_last_name: z.string().trim().min(1).max(100),
+  parent1_email: z.string().email(),
+  parent1_phone: z.string().trim().min(5).max(40),
+  parent1_relationship: z.string().trim().min(1).max(50),
+  parent2_first_name: z.string().trim().max(100).optional(),
+  parent2_last_name: z.string().trim().max(100).optional(),
+  parent2_email: z.string().email().optional(),
+  parent2_phone: z.string().trim().max(40).optional(),
+  parent2_relationship: z.string().trim().max(50).optional(),
+  address_line_1: z.string().trim().min(1).max(200),
+  address_line_2: z.string().trim().max(200).optional(),
+  city: z.string().trim().min(1).max(100),
+  country: z.string().trim().length(2),
+  postal_code: z.string().trim().max(20).optional(),
+  emergency_name: z.string().trim().max(200).optional(),
+  emergency_phone: z.string().trim().max(40).optional(),
+  emergency_relationship: z.string().trim().max(50).optional(),
+});
+
+export const createPublicApplicationSchema = z
+  .object({
+    mode: z.enum(['new_household', 'existing_household']),
+    form_definition_id: z.string().uuid(),
+    existing_household_id: z.string().uuid().optional(),
+    household_payload: publicHouseholdPayloadSchema.optional(),
+    students: z.array(publicApplicationStudentSchema).min(1).max(20),
+    website_url: z.string().optional(), // honeypot
+    consents: consentCaptureSchema.default({
+      health_data: false,
+      whatsapp_channel: false,
+      ai_features: {
+        ai_grading: false,
+        ai_comments: false,
+        ai_risk_detection: false,
+        ai_progress_summary: false,
+      },
+    }),
+  })
+  .refine((v) => (v.mode === 'new_household' ? v.household_payload !== undefined : true), {
+    path: ['household_payload'],
+    message: 'household_payload is required for new_household mode',
+  })
+  .refine(
+    (v) =>
+      v.mode === 'existing_household'
+        ? v.existing_household_id !== undefined && v.household_payload === undefined
+        : true,
+    {
+      path: ['existing_household_id'],
+      message:
+        'existing_household_id is required for existing_household mode and household_payload must be omitted',
+    },
+  );
 
 // Submit application (after parent auth)
 export const submitApplicationSchema = z.object({
@@ -112,6 +161,8 @@ export const regenerateAdmissionsPaymentLinkSchema = z
 
 // Inferred types
 export type CreatePublicApplicationDto = z.infer<typeof createPublicApplicationSchema>;
+export type PublicApplicationStudent = z.infer<typeof publicApplicationStudentSchema>;
+export type PublicHouseholdPayload = z.infer<typeof publicHouseholdPayloadSchema>;
 export type SubmitApplicationDto = z.infer<typeof submitApplicationSchema>;
 export type ReviewApplicationDto = z.infer<typeof reviewApplicationSchema>;
 export type ListApplicationsQuery = z.infer<typeof listApplicationsSchema>;
