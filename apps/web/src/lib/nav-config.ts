@@ -464,35 +464,12 @@ export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
     { labelKey: 'nav.feeAssignments', href: '/finance/fee-assignments', overflow: true },
   ],
   reports: [],
-  communications: [
-    { labelKey: 'nav.communicationsOverview', href: '/communications' },
-    { labelKey: 'nav.inboxHub', href: '/inbox' },
-    { labelKey: 'nav.inboxAudiences', href: '/inbox/audiences' },
-    { labelKey: 'nav.announcements', href: '/communications/announcements', roles: ADMIN_ROLES },
-    {
-      labelKey: 'nav.inboxOversight',
-      href: '/inbox/oversight',
-      roles: ADMIN_ROLES,
-    },
-    {
-      labelKey: 'nav.safeguardingKeywords',
-      href: '/settings/communications/safeguarding',
-      roles: ADMIN_ROLES,
-      overflow: true,
-    },
-    {
-      labelKey: 'nav.messagingPolicyNav',
-      href: '/settings/messaging-policy',
-      roles: ADMIN_ROLES,
-      overflow: true,
-    },
-    {
-      labelKey: 'nav.communicationsFallback',
-      href: '/settings/communications/fallback',
-      roles: ADMIN_ROLES,
-      overflow: true,
-    },
-  ],
+  // The communications hub intentionally has no sub-strip tabs — the
+  // `/communications` dashboard is the entire hub navigation. All inbox
+  // sub-pages (audiences, oversight, announcements, safeguarding,
+  // messaging policy, fallback) are reached via cards / tiles on the
+  // dashboard itself.
+  communications: [],
   regulatory: [
     { labelKey: 'nav.regulatoryDashboard', href: '/regulatory' },
     { labelKey: 'nav.regulatoryTusla', href: '/regulatory/tusla' },

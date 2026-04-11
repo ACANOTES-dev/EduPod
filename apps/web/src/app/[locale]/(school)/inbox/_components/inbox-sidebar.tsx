@@ -125,60 +125,63 @@ export function InboxSidebar() {
   };
 
   return (
-    <div className="flex h-full w-full min-w-0 flex-col">
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--color-border)] px-4 py-3">
-        <h1 className="truncate text-[15px] font-semibold tracking-tight text-[var(--color-text-primary)]">
-          {t('inbox.title')}
-        </h1>
-        <Button
-          size="sm"
-          onClick={() => setComposeOpen(true)}
-          className="shrink-0 gap-1.5"
-          aria-label={t('inbox.compose')}
-        >
-          <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="hidden sm:inline">{t('inbox.compose')}</span>
-        </Button>
+    <div className="flex h-full w-full min-w-0 flex-col bg-[var(--color-surface)]">
+      <div className="flex flex-col gap-3 border-b border-[var(--color-border)] px-4 pb-3 pt-4">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="truncate text-[15px] font-semibold tracking-tight text-[var(--color-text-primary)]">
+            {t('inbox.title')}
+          </h1>
+          <Button
+            size="sm"
+            onClick={() => setComposeOpen(true)}
+            className="h-8 shrink-0 gap-1.5 px-3"
+            aria-label={t('inbox.composeButton')}
+          >
+            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="hidden sm:inline">{t('inbox.composeButton')}</span>
+          </Button>
+        </div>
+
+        <form onSubmit={handleSearchSubmit}>
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)] start-3"
+              aria-hidden="true"
+            />
+            <Input
+              ref={searchInput}
+              type="search"
+              placeholder={t('inbox.search.placeholder')}
+              className="h-9 border-transparent bg-[var(--color-surface-secondary)] ps-9 text-base focus-visible:border-[var(--color-border)] md:text-sm"
+              aria-label={t('inbox.search.placeholder')}
+            />
+          </div>
+        </form>
+
+        <div className="no-scrollbar -mx-1 flex gap-1 overflow-x-auto px-1">
+          {FILTERS.map((f) => {
+            const active = activeFilter === f.key;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => handleFilterClick(f.key)}
+                className={cn(
+                  'shrink-0 rounded-pill px-2.5 py-1 text-[11px] font-semibold transition-colors',
+                  active
+                    ? 'bg-[var(--color-text-primary)] text-[var(--color-surface)] shadow-sm'
+                    : 'bg-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-primary)]',
+                )}
+                aria-pressed={active}
+              >
+                {t(f.labelKey)}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <ComposeDialog open={composeOpen} onOpenChange={setComposeOpen} />
-
-      <form onSubmit={handleSearchSubmit} className="px-3 pt-3">
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)] start-3"
-            aria-hidden="true"
-          />
-          <Input
-            ref={searchInput}
-            type="search"
-            placeholder={t('inbox.search.placeholder')}
-            className="h-9 bg-[var(--color-surface-secondary)] ps-9 text-base md:text-sm"
-            aria-label={t('inbox.search.placeholder')}
-          />
-        </div>
-      </form>
-
-      <div className="no-scrollbar flex gap-1.5 overflow-x-auto px-3 py-3">
-        {FILTERS.map((f) => {
-          const active = activeFilter === f.key;
-          return (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => handleFilterClick(f.key)}
-              className={cn(
-                'shrink-0 rounded-pill px-3 py-1 text-[11px] font-medium transition-colors',
-                active
-                  ? 'bg-[var(--color-primary)] text-white'
-                  : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]',
-              )}
-            >
-              {t(f.labelKey)}
-            </button>
-          );
-        })}
-      </div>
 
       <div className="flex-1 divide-y divide-[var(--color-border)] overflow-y-auto overflow-x-hidden">
         {loading && threads === null && (

@@ -173,7 +173,7 @@
   },
   "inbox": {
     "title": "Inbox",
-    "compose": "Compose",
+    "composeButton": "Compose",
     "loading": "Loading…",
     "search": {
       "placeholder": "Search messages"

@@ -172,7 +172,7 @@
   },
   "inbox": {
     "title": "صندوق الرسائل",
-    "compose": "إنشاء رسالة",
+    "composeButton": "إنشاء رسالة",
     "loading": "جارٍ التحميل…",
     "search": {
       "placeholder": "ابحث في الرسائل"

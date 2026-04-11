@@ -69,22 +69,25 @@ export function ThreadListItem({ thread, selected, onClick }: ThreadListItemProp
       className={cn(
         'relative flex w-full items-start gap-3 px-4 py-3 text-start transition-colors',
         'before:pointer-events-none before:absolute before:start-0 before:top-0 before:h-full before:w-[3px] before:bg-transparent',
-        selected
-          ? 'bg-[var(--color-surface-hover)] before:bg-[var(--color-primary)]'
-          : 'hover:bg-[var(--color-surface-hover)]',
-        unread && !selected && 'bg-[color-mix(in_srgb,var(--color-primary)_4%,transparent)]',
+        selected ? 'bg-primary-50 before:bg-primary-600' : 'hover:bg-[var(--color-surface-hover)]',
       )}
       aria-current={selected ? 'true' : undefined}
     >
+      {unread && !selected && (
+        <span
+          className="absolute top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-[var(--color-primary)] start-1.5"
+          aria-hidden="true"
+        />
+      )}
       <div
         className={cn(
           'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-          unread
-            ? 'bg-[color-mix(in_srgb,var(--color-primary)_12%,var(--color-surface-secondary))] text-[var(--color-primary)]'
+          unread || selected
+            ? 'bg-primary-100 text-primary-700'
             : 'bg-[var(--color-surface-secondary)]',
         )}
       >
-        <KindIcon kind={thread.kind} muted={!unread} />
+        <KindIcon kind={thread.kind} muted={!unread && !selected} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-center gap-2">
@@ -107,9 +110,7 @@ export function ThreadListItem({ thread, selected, onClick }: ThreadListItemProp
           <span
             className={cn(
               'shrink-0 text-[11px] tabular-nums',
-              unread
-                ? 'font-medium text-[var(--color-primary)]'
-                : 'text-[var(--color-text-tertiary)]',
+              unread ? 'font-semibold text-primary-700' : 'text-[var(--color-text-tertiary)]',
             )}
           >
             {formatListTimestamp(thread.preview_created_at ?? thread.last_message_at, locale)}
@@ -125,7 +126,7 @@ export function ThreadListItem({ thread, selected, onClick }: ThreadListItemProp
             {thread.preview_body ?? '\u00A0'}
           </span>
           {unread && (
-            <span className="flex min-h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-pill bg-[var(--color-primary)] px-1.5 text-[10px] font-bold text-white">
+            <span className="flex min-h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-pill bg-primary-600 px-1.5 text-[10px] font-bold text-white">
               {thread.unread_count > 99 ? '99+' : thread.unread_count}
             </span>
           )}
