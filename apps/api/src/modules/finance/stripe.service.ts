@@ -168,9 +168,12 @@ export class StripeService {
 
     if (!webhookSecret) {
       // eslint-disable-next-line school/no-cross-module-prisma-access -- encrypted webhook secret required, not exposed via facade
-      const stripeConfig = await this.prisma.tenantStripeConfig.findUnique({
-        where: { tenant_id: tenantId },
-      });
+      const stripeConfig = await createRlsClient(this.prisma, { tenant_id: tenantId }).$transaction(
+        async (tx) =>
+          (tx as unknown as PrismaService).tenantStripeConfig.findUnique({
+            where: { tenant_id: tenantId },
+          }),
+      );
       if (stripeConfig) {
         try {
           webhookSecret = this.encryption.decrypt(
