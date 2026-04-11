@@ -16,6 +16,7 @@ interface StripeConfigResponse {
   id?: string;
   stripe_secret_key_masked?: string;
   stripe_publishable_key_masked?: string;
+  stripe_publishable_key?: string;
   stripe_webhook_secret_masked?: string;
   is_configured?: boolean;
 }
@@ -92,10 +93,12 @@ export default function StripeConfigPage() {
     async function fetchConfig() {
       try {
         const data = await apiClient<StripeConfigResponse>('/api/v1/stripe-config');
-        if (data.is_configured) {
+        if (data.stripe_secret_key_masked || data.is_configured) {
           setIsConfigured(true);
           setMaskedSecretKey(data.stripe_secret_key_masked ?? '');
-          setMaskedPublishableKey(data.stripe_publishable_key_masked ?? '');
+          setMaskedPublishableKey(
+            data.stripe_publishable_key_masked ?? data.stripe_publishable_key ?? '',
+          );
           setMaskedWebhookSecret(data.stripe_webhook_secret_masked ?? '');
         } else {
           setIsEditing(true);
