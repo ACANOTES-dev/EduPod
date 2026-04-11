@@ -111,7 +111,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | #   | Title                                                | Wave | Depends on             | Status      | Completed at     | Commit SHA |
 | --- | ---------------------------------------------------- | ---- | ---------------------- | ----------- | ---------------- | ---------- |
 | 01  | Schema foundation                                    | 1    | —                      | `completed` | 2026-04-11 06:55 | 2a8e307c   |
-| 02  | Messaging policy engine                              | 2    | 01                     | `pending`   | —                | —          |
+| 02  | Messaging policy engine                              | 2    | 01                     | `completed` | 2026-04-11 07:29 | 18672264   |
 | 03  | Audience engine v2                                   | 2    | 01                     | `pending`   | —                | —          |
 | 04  | Conversations + messages service                     | 2    | 01                     | `pending`   | —                | —          |
 | 05  | Admin oversight service                              | 2    | 01                     | `pending`   | —                | —          |
@@ -194,3 +194,56 @@ Append new records below in chronological order. Format:
   to reset the database on drift). Verification counts: 4 tenants ×
   81 = 324 policy rows, 4 settings rows, 124 keywords. API/worker/web
   all restarted clean; health endpoint 200; nhqs login page 200.
+
+### [IMPL 02] — Messaging policy engine
+
+- **Completed:** 2026-04-11T07:29+01:00 Europe/Dublin
+- **Commit:** `18672264` (local `20f6eb58`) on top of `19b2fca8` (local `9a739fb1`)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Landed the single-chokepoint `MessagingPolicyService` with
+  `canStartConversation` and `canReplyToConversation`. The algorithm
+  applies kill switches → tenant matrix cell → symmetric kill switches
+  → relational scope in order, with one batched scope call per
+  (sender, recipient-role) bucket. Hard-coded relational scopes live in
+  `RelationalScopeResolver` (teacher→parent via taught-class rosters,
+  parent→teacher via child-class staff; student branches return
+  unreachable because Student.user_id does not yet exist).
+  `RoleMappingService` folds platform roles into the 9-bucket
+  `MessagingRole` via `RbacReadFacade.findActiveMembershipRolesByUserIds`
+  (new batch method on the facade). `TenantMessagingPolicyRepository`
+  wraps `tenant_messaging_policy` with a 5-minute per-tenant matrix
+  cache and RLS-scoped writes. Read-only `InboxSettingsController`
+  exposes `GET /v1/inbox/settings/policy` and `/inbox` behind
+  `inbox.settings.read`. `InboxPermissionsInit` runs at startup and
+  idempotently backfills the five new permissions and wires them to
+  existing roles (admin tier gets all five, send-only for everyone
+  else) — needed because Wave 2 ships no migration. `InboxModule`
+  registered in `AppModule`.
+- **Follow-ups:**
+  - Wave 3 impl 06 will reuse `MessagingPolicyService.canStartConversation`
+    / `canReplyToConversation` from the dispatcher, passing
+    `skipRelationalCheck: true` on broadcast fans where the audience
+    engine has already pre-filtered the recipients.
+  - Wave 4 impl 13 will reuse `TenantMessagingPolicyRepository.setCell`
+    / `resetToDefaults` + `InboxSettingsService` from the settings UI.
+  - Student → teacher and teacher → student relational branches are
+    intentionally stubs until students are provisioned as platform
+    users in a later wave.
+  - The RLS policies on `roles` / `role_permissions` cast
+    `current_setting('app.current_tenant_id')::uuid` even with
+    `missing_ok=true` — deploy-time backfills that touch those tables
+    MUST run inside `runWithRlsContext(prisma, { tenant_id })`, not a
+    bare `prisma.$transaction`. See `InboxPermissionsInit.backfill` for
+    the two-pass pattern.
+- **Session notes:** First deploy attempt of the backfill failed with
+  Postgres 22P02 (empty uuid cast) because I ran the upserts inside a
+  bare `$transaction` without tenant context; fix-forward commit
+  (`18672264`) split into a global permission-upsert pass and a
+  per-tenant `runWithRlsContext` role-permission pass. Smoke tests:
+  `GET /v1/inbox/settings/policy` as owner@nhqs.test returned the
+  expected 9x9 matrix (parent/student rows all `false`);
+  `GET /v1/inbox/settings/inbox` returned the seeded defaults
+  (`messaging_enabled: true`, fallbacks 24h/3h). Backfill log on boot:
+  `Inbox permissions ensured — 4 tenants, 8 admin-tier roles, 24
+send-only roles.`
