@@ -120,7 +120,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `completed`   | 2026-04-11 11:46 | 565d35b1   |
 | 09  | Full-text search                                     | 3    | 01, 04                 | `completed`   | 2026-04-11 11:25 | 9b77fd16   |
 | 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `completed`   | 2026-04-11 12:36 | a099ca57   |
-| 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `deploying`   | —                | —          |
+| 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `completed`   | 2026-04-11 13:02 | 4e0b8f6a   |
 | 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `completed`   | 2026-04-11 12:30 | 96ea1875   |
 | 13  | Messaging policy settings page                       | 4    | 01, 02                 | `in-progress` | —                | —          |
 | 14  | Safeguarding settings + dashboard alerts widget      | 4    | 01, 08                 | `completed`   | 2026-04-11 12:14 | 40fc7201   |
@@ -920,3 +920,77 @@ missing inbox.*` commit (`a099ca57` prod) later mirrored. My
   commit once my patch was applied, but worth flagging that the
   log's serialisation rules were not consistently honoured by
   every parallel session.
+
+### [IMPL 11] — Compose dialog + people picker + audience picker
+
+- **Completed:** 2026-04-11T13:02+01:00 Europe/Dublin
+- **Commit:** `4e0b8f6a` on prod (local `9e795427`) on top of `5b2ad45b`
+  (local `8db62817`) on top of `697e7acf` (local `c113b10c`)
+- **Deployed to production:** yes (API rebuild + `pm2 restart api`,
+  then web `.next` wipe + `pnpm build --filter=@school/web` +
+  `pm2 restart web`)
+- **Summary (≤ 200 words):**
+  Landed the compose UI for the inbox shell (impl 10). Three-tab
+  dialog under `apps/web/src/app/[locale]/(school)/inbox/_components/`
+  — compose-dialog, people-picker, channel-selector,
+  attachment-uploader, audience-picker, audience-chip-builder — plus
+  the `/en/inbox/search` results page with a `<mark>`-only snippet
+  sanitiser. `buildPayload()` in compose-dialog is the single
+  CreateConversationDto builder (unit-tested); audience-chip-builder
+  exports `buildAudienceFromRows` / `rowsFromAudience` for flat
+  AND/OR/NOT compositions (also unit-tested). New backend routes:
+  `GET /v1/inbox/people-search` (policy-filtered people picker via
+  `MessagingPolicyService.canStartConversation` batch; admin-tier
+  senders skip filtering) and `POST /v1/inbox/attachments`
+  (multipart upload that returns the canonical `AttachmentInput`
+  shape). Added `RbacReadFacade.searchActiveMembersByName` so the
+  inbox module never touches `tenant_membership` directly. Shared:
+  `channel-costs.ts` (UX estimate only, not billing) +
+  `people-search.schema.ts` exported from `@school/shared/inbox`.
+  10 new unit tests (6 people-search service + 7 audience-chip
+  builder + 6 compose buildPayload + 4 sanitiseSnippet).
+- **Follow-ups:**
+  - The compose dialog is currently not wired to the inbox sidebar's
+    "Compose" button — impl 10's sidebar renders the button but the
+    onClick handler is a TODO in its current form. A small follow-up
+    in impl 16 (polish wave) should connect them and surface the FAB
+    - `c` keyboard shortcut.
+  - Translation keys for the compose dialog are NOT yet added to
+    `messages/en.json` / `messages/ar.json` — the strings are
+    hardcoded English inline (see the `school/no-untranslated-strings`
+    lint warnings on the new files). Impl 16 owns the full
+    translation pass for wave 4 UI.
+  - The custom audience chip builder is deliberately a flat
+    composition (one top-level AND/OR + per-row NOT). Deeper trees
+    are out of scope for v1; users who need them can save groups and
+    reference via `saved_group`. The serialiser / hydrator
+    (`buildAudienceFromRows`, `rowsFromAudience`) are the single
+    touch point if v2 lifts that restriction.
+  - Attachment upload routes through a new dedicated endpoint
+    `POST /v1/inbox/attachments` backed by the multipart
+    `createFileInterceptor` — consistent with safeguarding's pattern.
+    If a future wave adds a `storage_objects` table for tenant-owned
+    S3 objects, `AttachmentValidator` and the upload endpoint are
+    the two touch points.
+  - `ChannelSelector`'s cost labels come from `channel-costs.ts`
+    constants. They are a UX nudge, NOT real billing — documented
+    inline so a future engineer cannot mistake them for a pricing
+    source of truth.
+- **Session notes:** Parallel wave-4 sessions (impls 10/12/13/15) were
+  extremely hostile to my untracked working-tree files — my first
+  set of frontend writes was silently wiped twice (once by an impl
+  10 session running `git checkout HEAD --` in the shared
+  `_components/` directory, once by lint-staged's automatic
+  backup-and-restore cycle). Recovered by `git checkout stash@{0} --
+<paths>` from the lint-staged stash and committing immediately to
+  make the work durable. Two fix-forward commits followed: `8db62817`
+  (badge variant + nullable useSearchParams + mutable ExtraChannel[])
+  and `9e795427` (move `sanitiseSnippet` out of the Next.js page
+  file — route-page files cannot export named helpers, build failed
+  with "not a valid Page export field"). Deploy serialisation at
+  Step 6a found impl 12 mid-deploy; by the time I re-read the log
+  it had flipped to `completed` and the web restart slot was free.
+  Smoke tests: `/api/health` 200; `/api/v1/inbox/people-search?q=test`
+  401 (route registered, auth guard active); `POST
+/api/v1/inbox/attachments` 401; `/en/inbox/search?q=test` 200.
+  API access log confirms both new routes land at the auth guard.
