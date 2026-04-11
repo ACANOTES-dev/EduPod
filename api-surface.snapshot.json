@@ -295,6 +295,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admissions/dashboard-summary",
+    "controller": "AdmissionsDashboardController",
+    "module": "admissions",
+    "permission": "admissions.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/ai-audit/:id",
     "controller": "AiAuditController",
     "module": "gdpr",
@@ -414,6 +421,13 @@
   },
   {
     "method": "POST",
+    "path": "/v1/applications/:id/manual-promote",
+    "controller": "ApplicationsController",
+    "module": "admissions",
+    "permission": "admissions.manage"
+  },
+  {
+    "method": "POST",
     "path": "/v1/applications/:id/payment-link/regenerate",
     "controller": "ApplicationsController",
     "module": "admissions",
@@ -464,6 +478,34 @@
   {
     "method": "GET",
     "path": "/v1/applications/analytics",
+    "controller": "ApplicationsController",
+    "module": "admissions",
+    "permission": "admissions.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/applications/queues/conditional-approval",
+    "controller": "ApplicationsController",
+    "module": "admissions",
+    "permission": "admissions.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/applications/queues/ready-to-admit",
+    "controller": "ApplicationsController",
+    "module": "admissions",
+    "permission": "admissions.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/applications/queues/rejected",
+    "controller": "ApplicationsController",
+    "module": "admissions",
+    "permission": "admissions.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/applications/queues/waiting-list",
     "controller": "ApplicationsController",
     "module": "admissions",
     "permission": "admissions.view"
@@ -7102,6 +7144,13 @@
     "path": "/v1/public/sub-processors",
     "controller": "PublicSubProcessorsController",
     "module": "gdpr",
+    "permission": null
+  },
+  {
+    "method": "GET",
+    "path": "/v1/public/tenants/by-slug/:slug",
+    "controller": "PublicTenantsController",
+    "module": "tenants",
     "permission": null
   },
   {
