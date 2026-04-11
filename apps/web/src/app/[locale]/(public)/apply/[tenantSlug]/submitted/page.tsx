@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 interface PublicTenantConfig {
   tenant_id: string;
@@ -36,12 +36,12 @@ export default function PublicApplySubmittedPage() {
   React.useEffect(() => {
     if (!tenantSlug) return;
     let cancelled = false;
-    apiClient<PublicTenantConfig>(
+    apiClient<{ data: PublicTenantConfig } | PublicTenantConfig>(
       `/api/v1/public/tenants/by-slug/${encodeURIComponent(tenantSlug)}`,
       { skipAuth: true, silent: true },
     )
       .then((res) => {
-        if (!cancelled) setTenant(res);
+        if (!cancelled) setTenant(unwrap(res));
       })
       .catch((err) => {
         console.error('[PublicApplySubmittedPage.loadTenant]', err);

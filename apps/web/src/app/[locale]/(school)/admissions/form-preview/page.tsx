@@ -11,7 +11,7 @@ import { Button, toast } from '@school/ui';
 import { DynamicFormRenderer } from '@/components/admissions/dynamic-form-renderer';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 import { buildPublicApplyUrl } from '@/lib/public-apply-url';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -69,11 +69,7 @@ export default function AdmissionsFormPreviewPage() {
       const res = await apiClient<{ data: PublishedForm } | PublishedForm>(
         '/api/v1/admission-forms/system',
       );
-      const payload =
-        'data' in res && (res as { data: PublishedForm }).data
-          ? (res as { data: PublishedForm }).data
-          : (res as PublishedForm);
-      setForm(payload);
+      setForm(unwrap(res));
     } catch (err) {
       console.error('[AdmissionsFormPreviewPage.fetchForm]', err);
       toast.error('Failed to load admission form');

@@ -19,6 +19,21 @@ export function getAccessToken(): string | null {
   return accessToken;
 }
 
+/**
+ * Unwrap a response envelope. The API's ResponseTransformInterceptor wraps
+ * every successful response in `{ data: T }`. Callers that expect a single
+ * payload (not a paginated list) can pipe the apiClient result through this
+ * helper to get the inner object, while still tolerating legacy un-wrapped
+ * responses for forward-compat.
+ */
+export function unwrap<T>(value: { data: T } | T): T {
+  if (value && typeof value === 'object' && 'data' in (value as object)) {
+    const inner = (value as { data: T }).data;
+    if (inner !== undefined && inner !== null) return inner;
+  }
+  return value as T;
+}
+
 interface FetchOptions extends RequestInit {
   skipAuth?: boolean;
   /** If true, suppress the global error toast. Callers handle the error themselves. */

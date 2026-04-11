@@ -7,7 +7,7 @@ import * as React from 'react';
 import { Button, Input, Label, toast } from '@school/ui';
 
 import { DynamicFormRenderer } from '@/components/admissions/dynamic-form-renderer';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -95,19 +95,23 @@ export default function PublicApplyPage() {
 
     void (async () => {
       try {
-        const tenantConfig = await apiClient<PublicTenantConfig>(
-          `/api/v1/public/tenants/by-slug/${encodeURIComponent(tenantSlug)}`,
-          { skipAuth: true, silent: true },
+        const tenantConfig = unwrap(
+          await apiClient<{ data: PublicTenantConfig } | PublicTenantConfig>(
+            `/api/v1/public/tenants/by-slug/${encodeURIComponent(tenantSlug)}`,
+            { skipAuth: true, silent: true },
+          ),
         );
         if (cancelled) return;
         setTenant(tenantConfig);
 
         try {
-          const formResponse = await apiClient<PublicForm>('/api/v1/public/admissions/form', {
-            skipAuth: true,
-            silent: true,
-            headers: { 'X-Tenant-Slug': tenantConfig.slug },
-          });
+          const formResponse = unwrap(
+            await apiClient<{ data: PublicForm } | PublicForm>('/api/v1/public/admissions/form', {
+              skipAuth: true,
+              silent: true,
+              headers: { 'X-Tenant-Slug': tenantConfig.slug },
+            }),
+          );
           if (cancelled) return;
           setForm(formResponse);
           setLoadState('ready');
@@ -210,24 +214,26 @@ export default function PublicApplyPage() {
         Object.entries(formValues).filter(([key]) => !CORE_FIELD_KEYS.has(key)),
       );
 
-      const created = await apiClient<ApplicationCreatedResponse>(
-        '/api/v1/public/admissions/applications',
-        {
-          method: 'POST',
-          skipAuth: true,
-          silent: true,
-          headers: { 'X-Tenant-Slug': tenant.slug },
-          body: JSON.stringify({
-            form_definition_id: form.id,
-            student_first_name: studentFirstName.trim(),
-            student_last_name: studentLastName.trim(),
-            date_of_birth: dateOfBirth || null,
-            target_academic_year_id: targetAcademicYearId,
-            target_year_group_id: targetYearGroupId,
-            payload_json: residualPayload,
-            website_url: honeypot || undefined,
-          }),
-        },
+      const created = unwrap(
+        await apiClient<{ data: ApplicationCreatedResponse } | ApplicationCreatedResponse>(
+          '/api/v1/public/admissions/applications',
+          {
+            method: 'POST',
+            skipAuth: true,
+            silent: true,
+            headers: { 'X-Tenant-Slug': tenant.slug },
+            body: JSON.stringify({
+              form_definition_id: form.id,
+              student_first_name: studentFirstName.trim(),
+              student_last_name: studentLastName.trim(),
+              date_of_birth: dateOfBirth || null,
+              target_academic_year_id: targetAcademicYearId,
+              target_year_group_id: targetYearGroupId,
+              payload_json: residualPayload,
+              website_url: honeypot || undefined,
+            }),
+          },
+        ),
       );
 
       // Clear draft on success — non-fatal if sessionStorage is unavailable
