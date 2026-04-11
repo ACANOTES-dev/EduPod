@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@school/ui';
 
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 import type {
   ConsentFormData,
@@ -109,9 +109,9 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
   // Fetch a preview household number on mount
   React.useEffect(() => {
     let cancelled = false;
-    apiClient<{ household_number: string }>('/api/v1/households/next-number')
+    apiClient<{ data: { household_number: string } }>('/api/v1/households/next-number')
       .then((res) => {
-        if (!cancelled) setHouseholdNumber(res.household_number);
+        if (!cancelled) setHouseholdNumber(unwrap(res).household_number);
       })
       .catch((err) => console.error('[StepParentHousehold] preview fetch failed', err));
     return () => {
@@ -122,8 +122,10 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
   const handleRefreshNumber = React.useCallback(async () => {
     setRefreshing(true);
     try {
-      const res = await apiClient<{ household_number: string }>('/api/v1/households/next-number');
-      setHouseholdNumber(res.household_number);
+      const res = await apiClient<{ data: { household_number: string } }>(
+        '/api/v1/households/next-number',
+      );
+      setHouseholdNumber(unwrap(res).household_number);
     } catch (err) {
       console.error('[StepParentHousehold] refresh failed', err);
     } finally {
