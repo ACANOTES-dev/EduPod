@@ -11,10 +11,12 @@ import {
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { apiClient, unwrap } from '@/lib/api-client';
+import { useIsAdmin } from '@/lib/use-is-admin';
 
 /**
  * Communications hub dashboard. Entry point when the user clicks the
@@ -61,6 +63,18 @@ type CardState<T> = { status: 'loading' } | { status: 'ready'; value: T } | { st
 export default function CommunicationsHubPage() {
   const t = useTranslations('communications.hub');
   const locale = useLocale();
+  const router = useRouter();
+  const isAdmin = useIsAdmin();
+
+  // Non-admin users (teachers, parents, students) don't see the hub
+  // dashboard — they're redirected straight to their inbox. Admins are
+  // the only role that sees audiences, announcements, oversight, and
+  // the policy-configuration tiles.
+  React.useEffect(() => {
+    if (isAdmin === false) {
+      router.replace(`/${locale}/inbox`);
+    }
+  }, [isAdmin, router, locale]);
 
   const [inboxState, setInboxState] = React.useState<CardState<InboxStateResponse>>({
     status: 'loading',
@@ -149,6 +163,12 @@ export default function CommunicationsHubPage() {
       cancelled = true;
     };
   }, []);
+
+  // While the role check is pending OR the user is being redirected away,
+  // render nothing to avoid flashing admin-only content for half a tick.
+  if (isAdmin !== true) {
+    return <div className="h-[50vh]" aria-hidden="true" />;
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">

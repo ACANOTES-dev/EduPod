@@ -2,7 +2,7 @@
 
 import { Copy, Loader2, Plus, Search, Trash2, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type { AudienceDefinition } from '@school/shared/inbox';
@@ -22,6 +22,7 @@ import {
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
 import { apiClient, unwrap } from '@/lib/api-client';
+import { useIsAdmin } from '@/lib/use-is-admin';
 
 import { AudiencePreview } from './_components/audience-preview';
 import {
@@ -39,6 +40,17 @@ interface SavedAudienceListResponse {
 export default function SavedAudiencesPage() {
   const t = useTranslations('inbox.audiences');
   const router = useRouter();
+  const locale = useLocale();
+  const isAdmin = useIsAdmin();
+
+  // Saved audiences are an admin-tier feature. Teachers still compose
+  // to their own classes via the inline audience picker in the Compose
+  // dialog — they just don't get the saved-audience management page.
+  React.useEffect(() => {
+    if (isAdmin === false) {
+      router.replace(`/${locale}/inbox`);
+    }
+  }, [isAdmin, router, locale]);
 
   const [rows, setRows] = React.useState<SavedAudienceRow[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -124,6 +136,10 @@ export default function SavedAudiencesPage() {
       setDuplicatingId(null);
     }
   };
+
+  if (isAdmin !== true) {
+    return <div className="h-[50vh]" aria-hidden="true" />;
+  }
 
   return (
     <div className="space-y-6">

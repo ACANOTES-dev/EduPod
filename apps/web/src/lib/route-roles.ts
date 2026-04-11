@@ -121,16 +121,13 @@ export const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
   },
   { prefix: '/finance', roles: [...ADMIN_ROLES, 'accounting'] },
   { prefix: '/payroll', roles: ['school_owner', 'school_principal'] },
-  // Admin-only sub-pages first so the first-match loop catches them
-  // before the broader `/communications` dashboard entry below.
-  { prefix: '/communications/announcements', roles: ADMIN_ROLES },
-  { prefix: '/communications/inquiries', roles: ADMIN_ROLES },
-  { prefix: '/communications/new', roles: ADMIN_ROLES },
-  // The /communications dashboard is the hub landing page and is
-  // reachable by any staff role — individual cards on it enforce their
-  // own permissions (e.g. the Oversight card shows "—" for users
-  // without oversight read permission).
-  { prefix: '/communications', roles: STAFF_ROLES },
+  // Communications hub pages are admin-only. Non-admin users land
+  // directly on /inbox when they click the morph bar hub (see
+  // handleHubClick in the school layout — it skips basePaths the
+  // user cannot access and falls through to /inbox).
+  { prefix: '/communications', roles: ADMIN_ROLES },
+  { prefix: '/inbox/audiences', roles: ADMIN_ROLES },
+  { prefix: '/inbox/oversight', roles: ADMIN_ROLES },
   { prefix: '/approvals', roles: ADMIN_ROLES },
   {
     prefix: '/reports',
@@ -152,18 +149,19 @@ export const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
  * @param roleKeys - The user's role keys
  */
 export function isAllowedForRoute(pathWithoutLocale: string, roleKeys: RoleKey[]): boolean {
+  // Check route-role map FIRST so specific prefixes (e.g. /inbox/audiences)
+  // take precedence over broader unrestricted matches (e.g. /inbox).
+  for (const route of ROUTE_ROLE_MAP) {
+    if (pathWithoutLocale === route.prefix || pathWithoutLocale.startsWith(route.prefix + '/')) {
+      return route.roles.some((r) => roleKeys.includes(r));
+    }
+  }
+
   // Unrestricted paths — any authenticated user
   if (
     UNRESTRICTED_PATHS.some((p) => pathWithoutLocale === p || pathWithoutLocale.startsWith(p + '/'))
   ) {
     return true;
-  }
-
-  // Check route-role map
-  for (const route of ROUTE_ROLE_MAP) {
-    if (pathWithoutLocale === route.prefix || pathWithoutLocale.startsWith(route.prefix + '/')) {
-      return route.roles.some((r) => roleKeys.includes(r));
-    }
   }
 
   // No matching rule — allow by default (unknown routes should still 404 naturally)

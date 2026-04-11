@@ -2,7 +2,7 @@
 
 import { Lock, Flag, Flame, History } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Badge, Button, StatusBadge, toast } from '@school/ui';
@@ -10,6 +10,7 @@ import { Badge, Button, StatusBadge, toast } from '@school/ui';
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { useIsAdmin } from '@/lib/use-is-admin';
 
 import { FlagReviewModal } from './_components/flag-review-modal';
 import { FreezeDialog } from './_components/freeze-dialog';
@@ -72,6 +73,17 @@ function toastWithLink(message: string, url: string, linkLabel: string): void {
 export default function OversightDashboardPage() {
   const t = useTranslations('inbox.oversight');
   const router = useRouter();
+  const locale = useLocale();
+  const isAdmin = useIsAdmin();
+
+  // Oversight is admin-tier only — non-admin users get bounced to the
+  // inbox. The API enforces this too (inbox.oversight.read permission)
+  // but this guard keeps the page from even attempting the fetch.
+  React.useEffect(() => {
+    if (isAdmin === false) {
+      router.replace(`/${locale}/inbox`);
+    }
+  }, [isAdmin, router, locale]);
 
   const [activeTab, setActiveTab] = React.useState<TabKey>('conversations');
 
@@ -450,6 +462,10 @@ export default function OversightDashboardPage() {
       ))}
     </div>
   );
+
+  if (isAdmin !== true) {
+    return <div className="h-[50vh]" aria-hidden="true" />;
+  }
 
   return (
     <div className="space-y-6">

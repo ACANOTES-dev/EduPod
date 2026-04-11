@@ -2,7 +2,7 @@
 
 import { Megaphone, Plus, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Button, EmptyState, StatusBadge } from '@school/ui';
@@ -10,6 +10,7 @@ import { Button, EmptyState, StatusBadge } from '@school/ui';
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { useIsAdmin } from '@/lib/use-is-admin';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,14 @@ const STATUS_VARIANT: Record<AnnouncementStatus, 'neutral' | 'info' | 'warning' 
 export default function CommunicationsPage() {
   const t = useTranslations('communications');
   const router = useRouter();
+  const locale = useLocale();
+  const isAdmin = useIsAdmin();
+
+  React.useEffect(() => {
+    if (isAdmin === false) {
+      router.replace(`/${locale}/inbox`);
+    }
+  }, [isAdmin, router, locale]);
 
   const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -149,6 +158,10 @@ export default function CommunicationsPage() {
       ))}
     </div>
   );
+
+  if (isAdmin !== true) {
+    return <div className="h-[50vh]" aria-hidden="true" />;
+  }
 
   return (
     <div className="space-y-6">
