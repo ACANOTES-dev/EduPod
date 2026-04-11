@@ -101,11 +101,30 @@ export default function FinanceReportsPage() {
         const qs = params.toString() ? `?${params.toString()}` : '';
 
         if (tab === 'aging') {
-          const res = await apiClient<Record<string, AgingBucket>>(
-            `/api/v1/finance/reports/aging${qs}`,
+          const res = await apiClient<
+            Record<
+              string,
+              { label: string; count: number; total: number; households: AgingBucket['households'] }
+            >
+          >(`/api/v1/finance/reports/aging${qs}`);
+          // Backend returns { current, overdue_1_30, ... } — transform to array
+          const bucketKeyMap: Record<string, AgingBucket['bucket']> = {
+            current: 'current',
+            overdue_1_30: '1_30',
+            overdue_31_60: '31_60',
+            overdue_61_90: '61_90',
+            overdue_90_plus: '90_plus',
+          };
+          setAgingData(
+            Object.entries(res)
+              .filter(([key]) => key in bucketKeyMap)
+              .map(([key, val]) => ({
+                bucket: bucketKeyMap[key] as AgingBucket['bucket'],
+                total: val.total,
+                invoice_count: val.count,
+                households: val.households ?? [],
+              })),
           );
-          // Backend returns { current, overdue_1_30, ... } — convert to array
-          setAgingData(Object.values(res));
         } else if (tab === 'revenue') {
           const raw = await apiClient<RevenuePoint[] | { data: RevenuePoint[] }>(
             `/api/v1/finance/reports/revenue-by-period${qs}`,
