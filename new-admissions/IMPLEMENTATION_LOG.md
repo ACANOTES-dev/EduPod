@@ -99,23 +99,23 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                              | Wave | Depends on         | Status        | Completed at                   | Commit SHA                             |
-| --- | ---------------------------------- | ---- | ------------------ | ------------- | ------------------------------ | -------------------------------------- |
-| 01  | Schema foundation                  | 1    | —                  | `completed`   | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod) |
-| 02  | Capacity service                   | 2    | 01                 | `completed`   | 2026-04-10 23:11 Europe/Dublin | `f97f31fd` (local) / `64ea88c6` (prod) |
-| 03  | State machine rewrite              | 2    | 01                 | `completed`   | 2026-04-10 23:45 Europe/Dublin | `caca0f2d` (local) / `b4b905b9` (prod) |
-| 04  | Form service simplification        | 2    | 01                 | `completed`   | 2026-04-10 23:25 Europe/Dublin | `521d26de` (local) / `2dc85bd9` (prod) |
-| 05  | Conversion-to-student service      | 2    | 01                 | `completed`   | 2026-04-10 23:55 Europe/Dublin | `3bee82a2` (local) / `b354c0f4` (prod) |
-| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `completed`   | 2026-04-11 00:35 Europe/Dublin | `71f407a8` (local) / `90f18e65` (prod) |
-| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `completed`   | 2026-04-11 00:21 Europe/Dublin | `b513b034` (local) / `64c1e709` (prod) |
-| 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`     | —                              | —                                      |
-| 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `completed`   | 2026-04-11 00:15 Europe/Dublin | `f56d6768` (local) / `8ff0c5a2` (prod) |
-| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `completed`   | 2026-04-11 00:55 Europe/Dublin | `459ad8ce` (local) / `bb1357de` (prod) |
-| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `completed`   | 2026-04-11 01:17 Europe/Dublin | `d40f091d` (local) / `790d7d98` (prod) |
-| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `completed`   | 2026-04-11 01:25 Europe/Dublin | `7ae6739c` (local) / `251a7846` (prod) |
-| 13  | Form preview page                  | 4    | 01, 04             | `completed`   | 2026-04-11 00:45 Europe/Dublin | `fc0ea7a6` (local) / `f5563c1f` (prod) |
-| 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `in-progress` | —                              | —                                      |
-| 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending`     | —                              | —                                      |
+| #   | Title                              | Wave | Depends on         | Status      | Completed at                   | Commit SHA                                                   |
+| --- | ---------------------------------- | ---- | ------------------ | ----------- | ------------------------------ | ------------------------------------------------------------ |
+| 01  | Schema foundation                  | 1    | —                  | `completed` | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod)                       |
+| 02  | Capacity service                   | 2    | 01                 | `completed` | 2026-04-10 23:11 Europe/Dublin | `f97f31fd` (local) / `64ea88c6` (prod)                       |
+| 03  | State machine rewrite              | 2    | 01                 | `completed` | 2026-04-10 23:45 Europe/Dublin | `caca0f2d` (local) / `b4b905b9` (prod)                       |
+| 04  | Form service simplification        | 2    | 01                 | `completed` | 2026-04-10 23:25 Europe/Dublin | `521d26de` (local) / `2dc85bd9` (prod)                       |
+| 05  | Conversion-to-student service      | 2    | 01                 | `completed` | 2026-04-10 23:55 Europe/Dublin | `3bee82a2` (local) / `b354c0f4` (prod)                       |
+| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `completed` | 2026-04-11 00:35 Europe/Dublin | `71f407a8` (local) / `90f18e65` (prod)                       |
+| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `completed` | 2026-04-11 00:21 Europe/Dublin | `b513b034` (local) / `64c1e709` (prod)                       |
+| 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`   | —                              | —                                                            |
+| 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `completed` | 2026-04-11 00:15 Europe/Dublin | `f56d6768` (local) / `8ff0c5a2` (prod)                       |
+| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `completed` | 2026-04-11 00:55 Europe/Dublin | `459ad8ce` (local) / `bb1357de` (prod)                       |
+| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `completed` | 2026-04-11 01:17 Europe/Dublin | `d40f091d` (local) / `790d7d98` (prod)                       |
+| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `completed` | 2026-04-11 01:25 Europe/Dublin | `7ae6739c` (local) / `251a7846` (prod)                       |
+| 13  | Form preview page                  | 4    | 01, 04             | `completed` | 2026-04-11 00:45 Europe/Dublin | `fc0ea7a6` (local) / `f5563c1f` (prod)                       |
+| 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `completed` | 2026-04-11 01:28 Europe/Dublin | `f6138854`+`5c2212fe` (local) / `9f551157`+`2c9fcd7f` (prod) |
+| 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `completed` | 2026-04-11 01:48 Europe/Dublin | `ab704c68` (local) / `962e715e` (prod)                       |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -833,3 +833,79 @@ tenant_id })`. Tests: 9 unit tests for the service, 5 new
     finally flipped to `completed`. PM2 on prod had restarted within
     that window already, so my deploy wasn't racing anything when it
     kicked off.
+
+### [IMPL 15] — Cleanup, translations, and Operations hub live counts
+
+- **Completed:** 2026-04-11T01:48:00+01:00 (Europe/Dublin)
+- **Commit:** `ab704c68` (local) / `962e715e` (prod)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Final cleanup pass for the new-admissions rebuild. Deleted the legacy
+  `admissions/forms/**` subtree (three pages). The Operations hub card
+  at `apps/web/src/app/[locale]/(school)/operations/page.tsx` now fetches
+  `/v1/admissions/dashboard-summary` on mount and renders a live
+  `ready_to_admit` count plus an amber badge when > 0 (plural-aware
+  en + ar translations added under `operationsHub.cards.admissions`).
+  Pruned ~40 legacy form-builder keys from `en.json` + `ar.json` and
+  replaced lingering Arabic placeholder strings. Fixed the analytics
+  page's out-of-scope `t('funnel')` bug and constrained the funnel
+  chart to the canonical `submitted → ready_to_admit →
+conditional_approval → approved` set. Added `admissions.view` and
+  `admissions.manage` to `school_vice_principal` in
+  `packages/prisma/seed/system-roles.ts`. Architecture docs updated:
+  `module-blast-radius.md` (new classes↔admissions + finance↔admissions
+  cross-module deps, full AdmissionsModule exports),
+  `state-machines.md` (new `ApplicationStatus` graph, capacity math,
+  auto-promotion triggers), `event-job-catalog.md` (replaced
+  `admissions:auto-expiry` with `admissions:payment-expiry` and
+  documented `admissions:payment-link` + the Stripe webhook branch).
+  New `docs/features/admissions.md` entry linking to `PLAN.md`. Added
+  `apps/web/e2e/journeys/admissions-flow.journey.ts` covering the hub,
+  all four queues, form preview, analytics, and a deleted-forms
+  regression check. Refreshed `visual/admissions.spec.ts`.
+- **Follow-ups:**
+  - Scenarios 4–5 from the impl file (waiting-list auto-promotion,
+    force-approve override) are not exercised by the new journey spec —
+    those require a data-seeded fixture rig (year groups, classes,
+    parent session, Stripe test keys) beyond the scope of impl 15.
+    The rig can be extended in a later pass if product wants full
+    data-level E2E.
+  - Optional overrides log page (`/admissions/overrides`) was explicitly
+    time-gated in the impl file and not built. The dashboard card on the
+    admissions hub currently 404s; impl owner can either wire it to the
+    existing `/v1/admission-overrides` endpoint or remove the card.
+  - Deployment matrix in §3 still claims impl 11 = "Web restart only";
+    impl 11's own session notes flag that it also touches API (new queue
+    endpoints). A future docs sweep should correct the matrix.
+  - `apps/web/src/app/[locale]/(public)/apply/page.tsx` (legacy
+    tenant-less public apply page) still exists but is broken against
+    the new schema (payload missing `target_academic_year_id` /
+    `target_year_group_id`). Not deleted in this impl because it wasn't
+    explicitly called out — impl 14's `[tenantSlug]/page.tsx` is the
+    replacement. Owner can decide whether to retire it.
+  - The legacy `(school)/applications/page.tsx` parent-facing list is
+    still live against `/v1/parent/applications` — intentionally left
+    alone as it isn't in the forms-builder scope.
+- **Session notes:**
+  - Wave 14 was marked `in-progress` in the wave-status table when this
+    session started, but its completion record + git history clearly
+    show it shipped (`f6138854` + hotfix `5c2212fe`, log commit
+    `20bb9c1b`). Fixed the stale row before starting impl 15.
+  - Impl 08 is still `pending` in the wave table with a local commit
+    (`0cca275a`) but no completion record — flagged by impls 06/07
+    previously, still outstanding. Not blocking for impl 15 since 08 is
+    a Wave 3 item and impl 15 only depends on 10–14.
+  - Pre-commit lint-staged reformatted three files (journey spec,
+    operations page, analytics page) during commit — all reflows are
+    cosmetic and line up with the committed logic.
+  - Smoke test: `/en/admissions`, all four queue pages,
+    `/en/admissions/form-preview`, `/en/admissions/analytics`, and
+    `/en/operations` all return 200 against `Host: nhqs.edupod.app`.
+    `/en/admissions/forms` now falls through to the `admissions/[id]`
+    detail page (id="forms"), which shows the application-not-found
+    state — consequence of Next router catch-all, acceptable.
+    `/api/v1/admissions/dashboard-summary` returns 401 (auth guard
+    live, route mapped).
+  - Did not build API or worker (deployment matrix: web restart only).
+    Only web was rebuilt + restarted. PM2 `web` uptime 0s → online at
+    restart, no errors in `pm2 logs web` tail.
