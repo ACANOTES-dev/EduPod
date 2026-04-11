@@ -9,6 +9,7 @@ import { Button, Input } from '@school/ui';
 
 import { apiClient, unwrap } from '@/lib/api-client';
 
+import { ComposeDialog } from './compose-dialog';
 import { ThreadListItem } from './thread-list-item';
 import type { InboxFilterKind, InboxThreadSummary, Paginated } from './types';
 import { useInboxPolling } from './use-inbox-polling';
@@ -47,6 +48,24 @@ export function InboxSidebar() {
   const [threads, setThreads] = React.useState<InboxThreadSummary[] | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [composeOpen, setComposeOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key !== 'c' || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) {
+          return;
+        }
+      }
+      event.preventDefault();
+      setComposeOpen(true);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const selectedThreadId = React.useMemo(() => {
     const m = /\/inbox\/threads\/([^/]+)/.exec(pathname);
@@ -113,7 +132,7 @@ export function InboxSidebar() {
         </h1>
         <Button
           size="sm"
-          onClick={() => router.push(`/${locale}/inbox/compose`)}
+          onClick={() => setComposeOpen(true)}
           className="shrink-0 gap-1"
           aria-label={t('inbox.compose')}
         >
@@ -121,6 +140,8 @@ export function InboxSidebar() {
           <span className="hidden sm:inline">{t('inbox.compose')}</span>
         </Button>
       </div>
+
+      <ComposeDialog open={composeOpen} onOpenChange={setComposeOpen} />
 
       <form onSubmit={handleSearchSubmit} className="border-b border-[var(--color-border)] p-3">
         <div className="relative">

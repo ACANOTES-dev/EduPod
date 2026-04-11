@@ -846,3 +846,64 @@ Google Fonts are loaded via CDN `<link>` tags inside each template's `<head>`. P
 - `apps/worker/src/report-card-templates/editorial-academic/index.hbs` — Fraunces + Archivo + JetBrains Mono `<link>` tags.
 - `apps/worker/src/report-card-templates/modern-editorial/index.hbs` — Bricolage Grotesque + Source Serif 4 + JetBrains Mono + Noto Naskh Arabic `<link>` tags.
 - `apps/worker/src/processors/gradebook/report-card-production.renderer.ts` — the Puppeteer renderer that fetches the fonts via the launched Chromium instance.
+
+## DZ-Inbox-1: Inbox Must Remain The Default Channel In Every Dispatch Path
+
+**Risk**: The inbox rebuild (2026-04-11) makes the in-app inbox the always-on default channel in every outbound dispatch flow — announcements, notifications, direct messages, broadcasts, parent-inquiry replies. SMS / Email / WhatsApp are additive escalations, never replacements. The dispatcher bridge in `CommunicationsModule` fans every outbound message into `ConversationsService.createConversation` or `ConversationsService.sendMessage` unconditionally. Any code path that sends a message without touching the conversations service bypasses inbox delivery entirely — recipients see the SMS/email but have no inbox record, no read-receipt, no search index hit, no safeguarding scan, no audit trail for oversight.
+
+**Mitigation**:
+
+- Never add a dispatch path that writes to `notifications` directly without first going through `ConversationsService`. The single entry point is `ConversationsService.createConversation` / `sendMessage` for user-authored messages, and the inbox channel provider in the dispatcher for system-originated announcements.
+- When adding a new channel or a new sender type, audit the fan-out: if the flow creates a `Notification` row without a corresponding `messages` row, the inbox has been bypassed. This is a bug, not an optimisation.
+- The `tenant_settings_inbox.messaging_enabled` kill switch disables the entire inbox at a tenant level — when off, NO messages are sent at all (not "fall back to SMS"). This is the intended safety behaviour. Do not add a code path that routes around the kill switch.
+- Safeguarding scanning (`safeguarding:scan-message`) and full-text search (`messages.body_search`) both depend on the inbox write — bypassing the inbox also bypasses safeguarding, which is a compliance violation.
+
+**Code pointers**:
+
+- `apps/api/src/modules/inbox/conversations/conversations.service.ts` — the single entry point
+- `apps/api/src/modules/communications/dispatchers/inbox-channel.provider.ts` — the bridge from the existing announcement dispatcher into the inbox
+- `CLAUDE.md` rule: "Inbox is always-on as a channel."
+
+## DZ-Inbox-2: Tenant Messaging Policy Matrix Is Cached For 5 Minutes
+
+**Risk**: `TenantMessagingPolicyRepository` caches each tenant's 9×9 messaging-policy matrix (81 role-pair cells) in-process for 5 minutes to avoid hitting the DB on every `canStartConversation` / `canReplyToConversation` call. When an admin updates the matrix via `PUT /v1/inbox/settings/policy`, `invalidate(tenantId)` is called — but only on the API process that handled the request. Other API processes (in a multi-replica deployment), and worker processes that also instantiate the policy service, retain their stale cache until the 5-minute TTL expires.
+
+**Effect**: After a matrix change, for up to 5 minutes, users may see either "you cannot send this message" when they SHOULD be able to (the admin just enabled the cell) or the reverse (the admin just disabled the cell but staff can still send for a few minutes).
+
+**Mitigation**:
+
+- Treat the 5-minute window as a soft convergence bound. It is acceptable for non-safety-critical policy changes (edit window, retention period, cell toggles).
+- For safety-critical changes — emergency kill switches, disabling parent/student initiation after an incident — the 5-minute TTL is too slow. The workaround is to flip `tenant_settings_inbox.messaging_enabled = false` (the kill switch), wait 5 minutes for the tenant-level cache to drain, then flip it back with the new matrix state. This is NOT a great UX and should be documented for admins before launch.
+- Do not add a cross-process cache bust via Redis pub/sub without also adding the invariant that every process subscribes — a partial rollout would leave some processes stale indefinitely.
+- Worker processes: the fallback scanner reads the matrix; if a matrix change invalidates an in-flight fallback, the scanner will use the stale view for up to 5 minutes. This is acceptable because fallback is inherently a delayed action.
+
+**Code pointers**:
+
+- `apps/api/src/modules/inbox/policy/tenant-messaging-policy.repository.ts` — the cache
+- `apps/api/src/modules/inbox/settings/inbox-settings.service.ts` — the invalidator (called after `updatePolicyMatrix`)
+
+## DZ-Inbox-3: Broadcast Replies Spawn New Direct Conversations, Not Replies On The Broadcast
+
+**Risk**: When a broadcast sender ticks `allow_replies: true`, recipients who reply do NOT reply on the broadcast conversation. Instead, `ConversationsService.handleBroadcastReply` spawns a brand-new `direct` conversation between the replying recipient and the original broadcast sender. The original broadcast conversation stays one-way; every reply is a separate direct thread in both users' inboxes.
+
+**Why this is the right design**:
+
+- A broadcast to 2000 parents with replies enabled would otherwise create a conversation with 2001 participants, all of whom see every reply. That is a massive privacy leak and a performance disaster.
+- The 1↔1 spawn-direct model gives the sender one-to-one conversations with each responder, which matches the mental model of "parent replied to my announcement" rather than "every parent saw every other parent's reply."
+
+**The surprise**:
+
+- Permission checks on "can this recipient reply" use `MessagingPolicyService.canReplyToConversation(broadcast_id)`, which returns `true` when `allow_replies = true`. The policy chokepoint is then re-run against the SPAWNED direct conversation's recipient role (the sender). For most senders this is fine — an admin broadcasting to parents gets direct replies from parents, and the admin→parent cell is typically true. But if the admin→parent cell is `false` in the matrix (unusual but possible), the reply is blocked and the parent sees an error even though the admin ticked `allow_replies`.
+- Read receipts on the broadcast are tracked on the original broadcast conversation via `message_reads`. Read receipts on the reply thread are tracked on the NEW direct conversation. A sender who checks "who read my broadcast" sees the broadcast's read state, which is independent of which parents replied.
+
+**Mitigation**:
+
+- Document this behaviour in the tenant-facing inbox feature doc under "Broadcast replies".
+- Never add a code path that replies in-place on a broadcast conversation — it would create the 2001-participant mega-thread described above.
+- When updating the policy chokepoint, remember that broadcast replies are checked twice: once against the broadcast's `allow_replies` flag, once against the matrix cell for the spawned direct conversation.
+- When adding a feature that references "reply to a broadcast", make sure you know whether you mean the literal broadcast or the spawned direct — they are different conversation rows with different IDs.
+
+**Code pointers**:
+
+- `apps/api/src/modules/inbox/conversations/conversations.service.ts` — `handleBroadcastReply`
+- `apps/api/src/modules/inbox/policy/messaging-policy.service.ts` — the double-check

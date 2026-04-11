@@ -316,6 +316,7 @@ export const hubConfigs: HubConfig[] = [
       '/operations',
       '/admissions',
       '/communications',
+      '/inbox',
       '/approvals',
       '/scheduling',
       '/rooms',

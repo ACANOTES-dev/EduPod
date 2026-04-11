@@ -515,11 +515,8 @@ function ChipParamsEditor({ providerKey, params, disabled, onChange }: ChipParam
             if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
               onChange(parsed as Record<string, unknown>);
             }
-          } catch (parseErr: unknown) {
-            // In-progress typing — silently wait for valid JSON on the next keystroke.
-            // Intentionally swallowed: the onChange input is rebound on every keystroke and
-            // users routinely transit invalid intermediate JSON states (e.g. after a
-            // keystroke but before closing a brace). Logging would spam the console.
+          } catch (parseErr) {
+            // In-progress typing — wait for valid JSON on the next keystroke.
             void parseErr;
           }
         }}

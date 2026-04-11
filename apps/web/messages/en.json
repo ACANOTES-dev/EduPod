@@ -339,6 +339,90 @@
         }
       }
     },
+    "compose": {
+      "title": "New message",
+      "description": "Inbox is always the default channel. Add SMS / Email / WhatsApp if you need the escalation.",
+      "tabs": {
+        "label": "Compose type",
+        "direct": "Direct",
+        "group": "Group",
+        "broadcast": "Broadcast"
+      },
+      "direct": {
+        "recipient": "Recipient",
+        "recipientPlaceholder": "Search by name or email…"
+      },
+      "group": {
+        "subject": "Subject",
+        "subjectPlaceholder": "e.g. Year 5 Teachers",
+        "participants": "Participants",
+        "participantsPlaceholder": "Search and add 2–49 people…",
+        "participantsCount": "{count}/49 participants"
+      },
+      "broadcast": {
+        "subject": "Subject",
+        "subjectPlaceholder": "e.g. School closed Friday afternoon",
+        "audience": "Audience",
+        "allowReplies": "Allow replies",
+        "allowRepliesHint": "Recipients can reply to you privately. Otherwise, this is a one-way announcement."
+      },
+      "body": {
+        "label": "Message",
+        "placeholder": "Type your message…"
+      },
+      "attachments": "Attachments",
+      "channels": "Channels",
+      "disableFallback": {
+        "label": "Don't escalate to SMS / Email",
+        "hint": "Skip the automatic escalation to SMS or Email if the recipient doesn't open the inbox within the configured window."
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "send": "Send"
+      },
+      "toast": {
+        "success": "Message sent.",
+        "audienceEmpty": "Your audience is empty after policy filtering. Adjust the audience or your messaging policy.",
+        "genericError": "Could not send message."
+      }
+    },
+    "peoplePicker": {
+      "placeholder": "Search by name or email…",
+      "empty": "No matches.",
+      "error": "Could not search for people.",
+      "maxRecipients": "You can select up to {max} recipients.",
+      "removeRecipient": "Remove {name}"
+    },
+    "channelSelector": {
+      "title": "Additional channels",
+      "description": "Inbox is always included. Choose extra channels to notify recipients.",
+      "inboxLabel": "In-app inbox (always)",
+      "estimateTitle": "Estimated cost",
+      "estimateDescription": "Rough guide based on the configured channel rates. Not a billing source of truth.",
+      "estimateEmpty": "No extra channels selected.",
+      "channels": {
+        "email": "Email",
+        "sms": "SMS",
+        "whatsapp": "WhatsApp"
+      }
+    },
+    "attachmentUploader": {
+      "dropHint": "Drop files here or",
+      "browse": "browse",
+      "maxSize": "Up to {max} per file.",
+      "remove": "Remove",
+      "uploading": "Uploading…",
+      "error": "Upload failed.",
+      "tooLarge": "File is too large.",
+      "disallowed": "That file type isn't allowed."
+    },
+    "audiencePicker": {
+      "modeSaved": "Saved audience",
+      "modeCustom": "Custom audience",
+      "savedPlaceholder": "Select a saved audience",
+      "savedEmpty": "No saved audiences in this tenant yet.",
+      "customHelp": "Build a one-off audience from providers."
+    },
     "fallback": {
       "title": "Notification fallback",
       "description": "Configure when unread messages should be escalated to other channels.",
@@ -1488,6 +1572,82 @@
   "errors": {
     "notFound": "Page not found",
     "notFoundDescription": "The page you are looking for does not exist."
+  },
+  "messagingPolicyPage": {
+    "title": "Messaging Policy",
+    "description": "Configure who can message whom in the inbox, the edit window, and message retention.",
+    "loading": "Loading…",
+    "resetDefaults": "Reset to defaults",
+    "sections": {
+      "global": {
+        "title": "Global controls",
+        "description": "Master kill switches — these apply before the role-pair matrix."
+      },
+      "matrix": {
+        "title": "Role permission matrix",
+        "description": "Toggle cells to allow or block a sender role from initiating conversations with a recipient role. Greyed cells are disabled by a global kill switch above. Hardcoded relational scopes (e.g. teacher → parent of own students) still apply on top of the matrix."
+      },
+      "editingRetention": {
+        "title": "Editing & retention",
+        "editWindow": "Edit window (minutes)",
+        "editWindowHint": "Senders (school staff only) can edit their messages for this many minutes after sending. Set to 0 to disable editing.",
+        "retention": "Retention period (days)",
+        "retentionPlaceholder": "Forever",
+        "retentionHint": "Messages older than this are deleted automatically. Leave blank to keep messages forever.",
+        "gdprNote": "<strong>GDPR note:</strong> Setting a retention period helps comply with data minimisation. The platform deletes messages permanently — for safeguarding records, export important conversations before retention runs. (Retention enforcement runs in a future worker — the setting is captured now.)"
+      }
+    },
+    "toggles": {
+      "messagingEnabled": "Messaging enabled",
+      "messagingEnabledHint": "Master switch for the whole inbox. Turning this off disables messaging for everyone.",
+      "studentsInitiate": "Students can initiate conversations",
+      "studentsInitiateHint": "When off, students can only reply on threads where the sender allowed replies.",
+      "parentsInitiate": "Parents can initiate conversations",
+      "parentsInitiateHint": "When off, parents can only reply on threads where the sender allowed replies.",
+      "parentParent": "Allow parent ↔ parent messaging",
+      "parentParentHint": "Parents can message other parents at this school. Off by default for privacy.",
+      "studentStudent": "Allow student ↔ student messaging",
+      "studentStudentHint": "Students can message other students at this school. Off by default for safeguarding.",
+      "studentParent": "Allow student → parent messaging",
+      "studentParentHint": "Students can initiate conversations with parents.",
+      "requireAdminApproval": "Require admin approval for parent → teacher messages",
+      "requireAdminApprovalHint": "Parent-to-teacher messages are queued for admin approval before delivery.",
+      "comingSoon": "Coming soon",
+      "checkMatrixWarning": "Warning: check your matrix below before enabling."
+    },
+    "saveBar": {
+      "dirty": "You have unsaved changes.",
+      "clean": "All changes saved.",
+      "save": "Save changes",
+      "saving": "Saving…"
+    },
+    "confirm": {
+      "disableMessaging": {
+        "title": "Disable messaging?",
+        "body": "This disables the entire inbox for everyone in your school. Users will be unable to send or read new messages. Are you sure?"
+      },
+      "enableStudents": {
+        "title": "Let students initiate?",
+        "body": "This lets students initiate conversations with anyone the matrix allows. Make sure your matrix is configured appropriately before turning this on."
+      },
+      "enableParents": {
+        "title": "Let parents initiate?",
+        "body": "This lets parents initiate conversations with anyone the matrix allows. Make sure your matrix is configured appropriately before turning this on."
+      },
+      "resetDefaults": {
+        "title": "Reset matrix to defaults?",
+        "body": "This resets the 9×9 matrix to the platform defaults. Your custom configuration will be lost. Kill switches and edit/retention settings are not affected."
+      },
+      "cancel": "Cancel",
+      "confirm": "Confirm"
+    },
+    "toast": {
+      "loadFailed": "Failed to load messaging policy.",
+      "saveSuccess": "Messaging policy saved.",
+      "saveFailed": "Failed to save messaging policy.",
+      "resetSuccess": "Matrix reset to defaults.",
+      "resetFailed": "Failed to reset the matrix."
+    }
   },
   "settings": {
     "title": "Settings",

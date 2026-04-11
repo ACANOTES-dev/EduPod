@@ -2,6 +2,7 @@
 
 import { Loader2, MessageSquare, Megaphone, Send, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type { AttachmentInput, ConversationKind, InboxChannel } from '@school/shared/inbox';
@@ -57,14 +58,15 @@ interface Props {
   initialTab?: ConversationKind;
 }
 
-const TABS: Array<{ kind: ConversationKind; label: string; icon: React.ElementType }> = [
-  { kind: 'direct', label: 'Direct', icon: MessageSquare },
-  { kind: 'group', label: 'Group', icon: Users },
-  { kind: 'broadcast', label: 'Broadcast', icon: Megaphone },
+const TABS: Array<{ kind: ConversationKind; labelKey: string; icon: React.ElementType }> = [
+  { kind: 'direct', labelKey: 'inbox.compose.tabs.direct', icon: MessageSquare },
+  { kind: 'group', labelKey: 'inbox.compose.tabs.group', icon: Users },
+  { kind: 'broadcast', labelKey: 'inbox.compose.tabs.broadcast', icon: Megaphone },
 ];
 
 export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Props) {
   const router = useRouter();
+  const t = useTranslations();
   const [kind, setKind] = React.useState<ConversationKind>(initialTab);
 
   const [directRecipient, setDirectRecipient] = React.useState<PickedUser | null>(null);
@@ -166,7 +168,7 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
         silent: true,
       });
       const newId = response.conversation_id ?? response.id;
-      toast.success('Message sent.');
+      toast.success(t('inbox.compose.toast.success'));
       close();
       if (typeof newId === 'string') {
         router.push(`/inbox/threads/${newId}`);
@@ -178,11 +180,10 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
       };
       const code = apiErr.error?.code;
       if (code === 'BROADCAST_AUDIENCE_EMPTY') {
-        toast.error(
-          'Your audience is empty after policy filtering. Adjust the audience or your messaging policy.',
-        );
+        toast.error(t('inbox.compose.toast.audienceEmpty'));
       } else {
-        const message = apiErr.error?.message ?? apiErr.message ?? 'Could not send message.';
+        const message =
+          apiErr.error?.message ?? apiErr.message ?? t('inbox.compose.toast.genericError');
         toast.error(message);
       }
       console.error('[compose-dialog.submit]', err);
@@ -204,22 +205,22 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
     allowReplies,
     router,
     close,
+    t,
   ]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-full max-w-full flex-col gap-0 p-0 md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-xl">
         <DialogHeader className="border-b border-border px-4 py-3 md:px-6">
-          <DialogTitle>New message</DialogTitle>
+          <DialogTitle>{t('inbox.compose.title')}</DialogTitle>
           <DialogDescription className="text-xs text-text-tertiary">
-            Inbox is always the default channel. Add SMS / Email / WhatsApp if you need the
-            escalation.
+            {t('inbox.compose.description')}
           </DialogDescription>
         </DialogHeader>
 
         <nav
           role="tablist"
-          aria-label="Compose type"
+          aria-label={t('inbox.compose.tabs.label')}
           className="flex items-center gap-1 border-b border-border px-4 py-2 md:px-6"
         >
           {TABS.map((tab) => {
@@ -240,7 +241,7 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
                 )}
               >
                 <Icon className="h-4 w-4" />
-                {tab.label}
+                {t(tab.labelKey)}
               </button>
             );
           })}
@@ -249,12 +250,12 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
         <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 md:px-6">
           {kind === 'direct' && (
             <div className="space-y-1.5">
-              <Label>Recipient</Label>
+              <Label>{t('inbox.compose.direct.recipient')}</Label>
               <PeoplePicker
                 mode="single"
                 value={directRecipient}
                 onChange={setDirectRecipient}
-                placeholder="Search by name or email…"
+                placeholder={t('inbox.compose.direct.recipientPlaceholder')}
                 disabled={isSubmitting}
               />
             </div>
@@ -263,27 +264,27 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
           {kind === 'group' && (
             <>
               <div className="space-y-1.5">
-                <Label htmlFor="group-subject">Subject</Label>
+                <Label htmlFor="group-subject">{t('inbox.compose.group.subject')}</Label>
                 <Input
                   id="group-subject"
                   value={groupSubject}
                   onChange={(e) => setGroupSubject(e.target.value)}
-                  placeholder="e.g. Year 5 Teachers"
+                  placeholder={t('inbox.compose.group.subjectPlaceholder')}
                   disabled={isSubmitting}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Participants</Label>
+                <Label>{t('inbox.compose.group.participants')}</Label>
                 <PeoplePicker
                   mode="multi"
                   value={groupRecipients}
                   onChange={setGroupRecipients}
                   maxRecipients={49}
-                  placeholder="Search and add 2–49 people…"
+                  placeholder={t('inbox.compose.group.participantsPlaceholder')}
                   disabled={isSubmitting}
                 />
                 <p className="text-xs text-text-tertiary">
-                  {groupRecipients.length}/49 participants
+                  {t('inbox.compose.group.participantsCount', { count: groupRecipients.length })}
                 </p>
               </div>
             </>
@@ -292,17 +293,17 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
           {kind === 'broadcast' && (
             <>
               <div className="space-y-1.5">
-                <Label htmlFor="broadcast-subject">Subject</Label>
+                <Label htmlFor="broadcast-subject">{t('inbox.compose.broadcast.subject')}</Label>
                 <Input
                   id="broadcast-subject"
                   value={broadcastSubject}
                   onChange={(e) => setBroadcastSubject(e.target.value)}
-                  placeholder="e.g. School closed Friday afternoon"
+                  placeholder={t('inbox.compose.broadcast.subjectPlaceholder')}
                   disabled={isSubmitting}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Audience</Label>
+                <Label>{t('inbox.compose.broadcast.audience')}</Label>
                 <AudiencePicker value={audience} onChange={setAudience} disabled={isSubmitting} />
               </div>
               <div className="flex items-start gap-2 rounded-lg border border-border bg-surface p-3">
@@ -314,11 +315,10 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
                 />
                 <div className="space-y-0.5">
                   <Label htmlFor="allow-replies" className="text-sm font-medium">
-                    Allow replies
+                    {t('inbox.compose.broadcast.allowReplies')}
                   </Label>
                   <p className="text-xs text-text-tertiary">
-                    Recipients can reply to you privately. Otherwise, this is a one-way
-                    announcement.
+                    {t('inbox.compose.broadcast.allowRepliesHint')}
                   </p>
                 </div>
               </div>
@@ -326,19 +326,19 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="body">Message</Label>
+            <Label htmlFor="body">{t('inbox.compose.body.label')}</Label>
             <Textarea
               id="body"
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Type your message…"
+              placeholder={t('inbox.compose.body.placeholder')}
               rows={6}
               disabled={isSubmitting}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label>Attachments</Label>
+            <Label>{t('inbox.compose.attachments')}</Label>
             <AttachmentUploader
               value={attachments}
               onChange={setAttachments}
@@ -347,7 +347,7 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
           </div>
 
           <div className="space-y-1.5">
-            <Label>Channels</Label>
+            <Label>{t('inbox.compose.channels')}</Label>
             <ChannelSelector
               selected={extraChannels}
               onChange={setExtraChannels}
@@ -368,14 +368,11 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Label htmlFor="disable-fallback" className="text-sm font-medium">
-                      Don&apos;t escalate to SMS / Email
+                      {t('inbox.compose.disableFallback.label')}
                     </Label>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p className="max-w-xs text-xs">
-                      Skip the automatic escalation to SMS or Email if the recipient doesn&apos;t
-                      open the inbox within the configured window.
-                    </p>
+                    <p className="max-w-xs text-xs">{t('inbox.compose.disableFallback.hint')}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -385,7 +382,7 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
 
         <DialogFooter className="gap-2 border-t border-border px-4 py-3 md:px-6">
           <Button type="button" variant="ghost" onClick={close} disabled={isSubmitting}>
-            Cancel
+            {t('inbox.compose.actions.cancel')}
           </Button>
           <Button type="button" onClick={submit} disabled={!canSubmit}>
             {isSubmitting ? (
@@ -393,7 +390,7 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
             ) : (
               <Send className="me-1 h-4 w-4" />
             )}
-            Send
+            {t('inbox.compose.actions.send')}
           </Button>
         </DialogFooter>
       </DialogContent>

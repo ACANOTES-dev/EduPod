@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertTriangle, RotateCcw, Save } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
@@ -99,6 +100,7 @@ function emptyMatrix(): PolicyMatrixDict {
 }
 
 export default function MessagingPolicyPage(): React.ReactElement {
+  const t = useTranslations('messagingPolicyPage');
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [matrix, setMatrix] = React.useState<PolicyMatrixDict>(emptyMatrix);
@@ -159,7 +161,7 @@ export default function MessagingPolicyPage(): React.ReactElement {
         setMatrix(policyBody.matrix);
       } catch (err) {
         console.error('[messaging-policy] load', err);
-        if (!cancelled) toast.error('Failed to load messaging policy.');
+        if (!cancelled) toast.error(t('toast.loadFailed'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -168,7 +170,7 @@ export default function MessagingPolicyPage(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [reset]);
+  }, [reset, t]);
 
   const [dirtyCells, setDirtyCells] = React.useState<Set<`${MessagingRole}:${MessagingRole}`>>(
     () => new Set(),
@@ -215,12 +217,12 @@ export default function MessagingPolicyPage(): React.ReactElement {
       }
       await Promise.all(requests);
 
-      toast.success('Messaging policy saved.');
+      toast.success(t('toast.saveSuccess'));
       reset(values);
       setDirtyCells(new Set());
     } catch (err) {
       console.error('[messaging-policy] save', err);
-      const msg = err instanceof Error ? err.message : 'Failed to save messaging policy.';
+      const msg = err instanceof Error ? err.message : t('toast.saveFailed');
       toast.error(msg);
     } finally {
       setSaving(false);
@@ -237,10 +239,10 @@ export default function MessagingPolicyPage(): React.ReactElement {
       const body = 'data' in res && res.data ? res.data : (res as PolicyMatrixResponse);
       setMatrix(body.matrix);
       setDirtyCells(new Set());
-      toast.success('Matrix reset to defaults.');
+      toast.success(t('toast.resetSuccess'));
     } catch (err) {
       console.error('[messaging-policy] reset', err);
-      toast.error('Failed to reset the matrix.');
+      toast.error(t('toast.resetFailed'));
     } finally {
       setSaving(false);
       setConfirmState(null);
@@ -289,7 +291,7 @@ export default function MessagingPolicyPage(): React.ReactElement {
   if (loading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Messaging Policy" description="Loading…" />
+        <PageHeader title={t('title')} description={t('loading')} />
       </div>
     );
   }
@@ -297,8 +299,8 @@ export default function MessagingPolicyPage(): React.ReactElement {
   return (
     <form onSubmit={handleSubmit(save)} className="space-y-6 pb-24">
       <PageHeader
-        title="Messaging Policy"
-        description="Configure who can message whom in the inbox, the edit window, and message retention."
+        title={t('title')}
+        description={t('description')}
         actions={
           <Button
             type="button"
@@ -306,84 +308,80 @@ export default function MessagingPolicyPage(): React.ReactElement {
             onClick={() => setConfirmState({ kind: 'reset-defaults' })}
           >
             <RotateCcw className="me-2 h-4 w-4" />
-            Reset to defaults
+            {t('resetDefaults')}
           </Button>
         }
       />
 
       <section className="rounded-lg border border-border bg-surface p-4 sm:p-6">
         <header className="mb-4">
-          <h2 className="text-lg font-semibold text-text-primary">Global controls</h2>
-          <p className="mt-1 text-sm text-text-secondary">
-            Master kill switches — these apply before the role-pair matrix.
-          </p>
+          <h2 className="text-lg font-semibold text-text-primary">{t('sections.global.title')}</h2>
+          <p className="mt-1 text-sm text-text-secondary">{t('sections.global.description')}</p>
         </header>
 
         <div className="space-y-4">
           <ToggleRow
-            label="Messaging enabled"
-            description="Master switch for the whole inbox. Turning this off disables messaging for everyone."
+            label={t('toggles.messagingEnabled')}
+            description={t('toggles.messagingEnabledHint')}
             control={control}
             name="messaging_enabled"
             onGuard={guardedSwitch}
           />
           <ToggleRow
-            label="Students can initiate conversations"
-            description="When off, students can only reply on threads where the sender allowed replies."
+            label={t('toggles.studentsInitiate')}
+            description={t('toggles.studentsInitiateHint')}
             warning={formValues.students_can_initiate}
+            warningText={t('toggles.checkMatrixWarning')}
             control={control}
             name="students_can_initiate"
             onGuard={guardedSwitch}
           />
           <ToggleRow
-            label="Parents can initiate conversations"
-            description="When off, parents can only reply on threads where the sender allowed replies."
+            label={t('toggles.parentsInitiate')}
+            description={t('toggles.parentsInitiateHint')}
             warning={formValues.parents_can_initiate}
+            warningText={t('toggles.checkMatrixWarning')}
             control={control}
             name="parents_can_initiate"
             onGuard={guardedSwitch}
           />
           <ToggleRow
-            label="Allow parent ↔ parent messaging"
-            description="Parents can message other parents at this school. Off by default for privacy."
+            label={t('toggles.parentParent')}
+            description={t('toggles.parentParentHint')}
             control={control}
             name="parent_to_parent_messaging"
             onGuard={guardedSwitch}
           />
           <ToggleRow
-            label="Allow student ↔ student messaging"
-            description="Students can message other students at this school. Off by default for safeguarding."
+            label={t('toggles.studentStudent')}
+            description={t('toggles.studentStudentHint')}
             control={control}
             name="student_to_student_messaging"
             onGuard={guardedSwitch}
           />
           <ToggleRow
-            label="Allow student → parent messaging"
-            description="Students can initiate conversations with parents."
+            label={t('toggles.studentParent')}
+            description={t('toggles.studentParentHint')}
             control={control}
             name="student_to_parent_messaging"
             onGuard={guardedSwitch}
           />
           <ToggleRow
-            label="Require admin approval for parent → teacher messages"
-            description="Parent-to-teacher messages are queued for admin approval before delivery."
+            label={t('toggles.requireAdminApproval')}
+            description={t('toggles.requireAdminApprovalHint')}
             control={control}
             name="require_admin_approval_for_parent_to_teacher"
             onGuard={guardedSwitch}
             comingSoon
+            comingSoonLabel={t('toggles.comingSoon')}
           />
         </div>
       </section>
 
       <section className="rounded-lg border border-border bg-surface p-4 sm:p-6">
         <header className="mb-4">
-          <h2 className="text-lg font-semibold text-text-primary">Role permission matrix</h2>
-          <p className="mt-1 text-sm text-text-secondary">
-            Toggle cells to allow or block a sender role from initiating conversations with a
-            recipient role. Greyed cells are disabled by a global kill switch above. Hardcoded
-            relational scopes (e.g. teacher → parent of own students) still apply on top of the
-            matrix.
-          </p>
+          <h2 className="text-lg font-semibold text-text-primary">{t('sections.matrix.title')}</h2>
+          <p className="mt-1 text-sm text-text-secondary">{t('sections.matrix.description')}</p>
         </header>
         <PolicyMatrixGrid
           matrix={matrix}
@@ -395,11 +393,13 @@ export default function MessagingPolicyPage(): React.ReactElement {
 
       <section className="rounded-lg border border-border bg-surface p-4 sm:p-6">
         <header className="mb-4">
-          <h2 className="text-lg font-semibold text-text-primary">Editing & retention</h2>
+          <h2 className="text-lg font-semibold text-text-primary">
+            {t('sections.editingRetention.title')}
+          </h2>
         </header>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label htmlFor="edit_window_minutes">Edit window (minutes)</Label>
+            <Label htmlFor="edit_window_minutes">{t('sections.editingRetention.editWindow')}</Label>
             <Controller
               control={control}
               name="edit_window_minutes"
@@ -417,15 +417,14 @@ export default function MessagingPolicyPage(): React.ReactElement {
               )}
             />
             <p className="mt-1 text-xs text-text-secondary">
-              Senders (school staff only) can edit their messages for this many minutes after
-              sending. Set to 0 to disable editing.
+              {t('sections.editingRetention.editWindowHint')}
             </p>
             {errors.edit_window_minutes && (
               <p className="mt-1 text-xs text-danger-text">{errors.edit_window_minutes.message}</p>
             )}
           </div>
           <div>
-            <Label htmlFor="retention_days">Retention period (days)</Label>
+            <Label htmlFor="retention_days">{t('sections.editingRetention.retention')}</Label>
             <Controller
               control={control}
               name="retention_days"
@@ -436,7 +435,7 @@ export default function MessagingPolicyPage(): React.ReactElement {
                   min={30}
                   max={3650}
                   inputMode="numeric"
-                  placeholder="Forever"
+                  placeholder={t('sections.editingRetention.retentionPlaceholder')}
                   className="mt-1"
                   value={field.value ?? ''}
                   onChange={(e) => {
@@ -447,20 +446,19 @@ export default function MessagingPolicyPage(): React.ReactElement {
               )}
             />
             <p className="mt-1 text-xs text-text-secondary">
-              Messages older than this are deleted automatically. Leave blank to keep messages
-              forever.
+              {t('sections.editingRetention.retentionHint')}
             </p>
             {errors.retention_days && (
               <p className="mt-1 text-xs text-danger-text">{errors.retention_days.message}</p>
             )}
           </div>
         </div>
-        <div className="mt-4 rounded-md border border-border bg-surface-secondary p-3 text-xs text-text-secondary">
-          <strong>GDPR note:</strong> Setting a retention period helps comply with data
-          minimisation. The platform deletes messages permanently — for safeguarding records, export
-          important conversations before retention runs. (Retention enforcement runs in a future
-          worker — the setting is captured now.)
-        </div>
+        <div
+          className="mt-4 rounded-md border border-border bg-surface-secondary p-3 text-xs text-text-secondary"
+          dangerouslySetInnerHTML={{
+            __html: t.raw('sections.editingRetention.gdprNote') as string,
+          }}
+        />
       </section>
 
       <div className="sticky bottom-0 z-10 -mx-4 flex flex-col gap-2 border-t border-border bg-surface px-4 py-3 sm:-mx-6 sm:flex-row sm:items-center sm:justify-end sm:px-6">
@@ -470,11 +468,11 @@ export default function MessagingPolicyPage(): React.ReactElement {
             isDirty || dirtyCells.size > 0 ? 'text-warning-text' : 'text-text-secondary',
           )}
         >
-          {isDirty || dirtyCells.size > 0 ? 'You have unsaved changes.' : 'All changes saved.'}
+          {isDirty || dirtyCells.size > 0 ? t('saveBar.dirty') : t('saveBar.clean')}
         </p>
         <Button type="submit" disabled={saving || (!isDirty && dirtyCells.size === 0)}>
           <Save className="me-2 h-4 w-4" />
-          {saving ? 'Saving…' : 'Save changes'}
+          {saving ? t('saveBar.saving') : t('saveBar.save')}
         </Button>
       </div>
 
@@ -483,32 +481,28 @@ export default function MessagingPolicyPage(): React.ReactElement {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-warning-text" />
-              {confirmState?.kind === 'disable-messaging' && 'Disable messaging?'}
-              {confirmState?.kind === 'enable-students' && 'Let students initiate?'}
-              {confirmState?.kind === 'enable-parents' && 'Let parents initiate?'}
-              {confirmState?.kind === 'reset-defaults' && 'Reset matrix to defaults?'}
+              {confirmState?.kind === 'disable-messaging' && t('confirm.disableMessaging.title')}
+              {confirmState?.kind === 'enable-students' && t('confirm.enableStudents.title')}
+              {confirmState?.kind === 'enable-parents' && t('confirm.enableParents.title')}
+              {confirmState?.kind === 'reset-defaults' && t('confirm.resetDefaults.title')}
             </DialogTitle>
             <DialogDescription>
-              {confirmState?.kind === 'disable-messaging' &&
-                'This disables the entire inbox for everyone in your school. Users will be unable to send or read new messages. Are you sure?'}
-              {confirmState?.kind === 'enable-students' &&
-                'This lets students initiate conversations with anyone the matrix allows. Make sure your matrix is configured appropriately before turning this on.'}
-              {confirmState?.kind === 'enable-parents' &&
-                'This lets parents initiate conversations with anyone the matrix allows. Make sure your matrix is configured appropriately before turning this on.'}
-              {confirmState?.kind === 'reset-defaults' &&
-                'This resets the 9×9 matrix to the platform defaults. Your custom configuration will be lost. Kill switches and edit/retention settings are not affected.'}
+              {confirmState?.kind === 'disable-messaging' && t('confirm.disableMessaging.body')}
+              {confirmState?.kind === 'enable-students' && t('confirm.enableStudents.body')}
+              {confirmState?.kind === 'enable-parents' && t('confirm.enableParents.body')}
+              {confirmState?.kind === 'reset-defaults' && t('confirm.resetDefaults.body')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setConfirmState(null)}>
-              Cancel
+              {t('confirm.cancel')}
             </Button>
             <Button
               type="button"
               variant={confirmState?.kind === 'disable-messaging' ? 'destructive' : 'default'}
               onClick={confirmToggle}
             >
-              Confirm
+              {t('confirm.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -528,7 +522,9 @@ interface ToggleRowProps {
     onChange: (v: boolean) => void,
   ) => void;
   warning?: boolean;
+  warningText?: string;
   comingSoon?: boolean;
+  comingSoonLabel?: string;
 }
 
 function ToggleRow({
@@ -538,25 +534,23 @@ function ToggleRow({
   name,
   onGuard,
   warning,
+  warningText,
   comingSoon,
+  comingSoonLabel,
 }: ToggleRowProps) {
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="text-sm font-medium text-text-primary">{label}</p>
-          {comingSoon && (
+          {comingSoon && comingSoonLabel && (
             <span className="rounded-full bg-surface-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-tertiary">
-              Coming soon
+              {comingSoonLabel}
             </span>
           )}
         </div>
         <p className="mt-0.5 text-xs text-text-secondary">{description}</p>
-        {warning && (
-          <p className="mt-1 text-xs text-warning-text">
-            Warning: check your matrix below before enabling.
-          </p>
-        )}
+        {warning && warningText && <p className="mt-1 text-xs text-warning-text">{warningText}</p>}
       </div>
       <Controller
         control={control}

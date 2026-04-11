@@ -357,6 +357,38 @@ spam*
 
 - **Guarded by**: `contact-form.service.ts` line 10 (explicit transition map)
 
+### ConversationLifecycle (inbox, 2026-04-11)
+
+```
+active    -> [frozen, archived]
+frozen    -> [active (unfrozen), archived]
+archived*
+```
+
+- **Owned by**: `ConversationsService` + `InboxOversightService` (`apps/api/src/modules/inbox/`).
+- **Terminal state**: `archived` is terminal. An archived conversation is hidden from participants' inbox list but still visible in admin oversight.
+- **`active` → `frozen`**: set by admin via `InboxOversightService.freeze`. Requires `inbox.oversight.read`. Writes a system message into the thread ("This conversation has been disabled by school administration") and an `oversight_access_log` row. Participants see a banner instead of a composer; the policy chokepoint `canReplyToConversation` returns `false` regardless of matrix. Freezing requires a non-empty `freeze_reason` (enforced in the DTO).
+- **`frozen` → `active`**: `InboxOversightService.unfreeze`. Writes a second system message ("Conversation re-enabled") and an `oversight_access_log` row. Clears `freeze_reason`.
+- **`active|frozen` → `archived`**: admin-triggered retention action or per-user archive (note: per-user archive is a participant flag on `conversation_participants`, not a state transition on `conversations`). True archival of the conversation row is pending a retention worker.
+- **Enforcement**: the chokepoint is `MessagingPolicyService.canReplyToConversation`, which checks `conversation.state === 'frozen'` before consulting the matrix. Freezing does NOT delete messages — oversight retains full read access to a frozen thread.
+
+### MessageFlagReviewState (inbox safeguarding, 2026-04-11)
+
+```
+pending    -> [dismissed, escalated, frozen]
+dismissed* (false positive — flag gone, message stays)
+escalated* (external review — PDF export generated)
+frozen*    (thread locked down alongside flag action)
+```
+
+- **Owned by**: `InboxOversightService` + `safeguarding:scan-message` processor.
+- **Entry**: a `message_flags` row is created in `pending` when the scanner matches one or more keywords. `severity = MAX(matched_keywords.severity)`, `matched_keywords[]` carries the word list.
+- **`pending` → `dismissed`**: `InboxOversightService.dismissFlag`, requires non-empty `review_notes`. Writes an `oversight_access_log` row. The original message stays visible to participants; only the flag is removed from the review queue.
+- **`pending` → `escalated`**: `InboxOversightService.escalateFlag`, requires non-empty `review_notes`. Enqueues `pdf:render` for a conversation export, stamps `message_flags.export_url` when the render completes, writes an `oversight_access_log` row, and surfaces the PDF download link to the reviewer.
+- **`pending` → `frozen`**: `InboxOversightService.freezeFromFlag`, which atomically freezes the containing conversation (see ConversationLifecycle above) AND marks the flag as reviewed with `review_state = 'frozen'`. A single `review_notes` value is used for both actions.
+- **Terminal**: all three non-pending states are terminal. Flags cannot be re-opened — create a new flag or re-run the scanner if review needs to happen again. Dismissal is deliberately irreversible to prevent reviewer fatigue / re-litigation.
+- **Dashboard surface**: `SafeguardingAlertsWidget` polls `GET /v1/inbox/oversight/flags?review_state=pending` every 60s and surfaces the pending queue to admin-tier users on the dashboard.
+
 ---
 
 ## Scheduling

@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public API, shared table contract, or exported service, check here to see what else breaks.
 > **Maintenance**: Update when adding module exports, changing shared service interfaces, or introducing new cross-module reads/writes.
-> **Last verified**: 2026-04-08
+> **Last verified**: 2026-04-11
 
 ---
 
@@ -219,6 +219,27 @@ If a module is not listed individually, it is either:
 - **Primary consumers**: announcements, parent inquiries, attendance alerts, behaviour/pastoral fan-out, legal/privacy notices, digests
 - **Blast radius**: VERY HIGH
 - **Notes**: this is the delivery backbone for multiple modules, not a standalone feature silo
+- **Inbox bridge (2026-04-11)**: the dispatcher now fans messages into the new `InboxModule` as its default channel via the inbox channel provider (impl 06). Every announcement, notification, and parent-inquiry message lands in recipient inboxes; SMS / Email / WhatsApp remain additive escalations. Removing the inbox provider from the fan-out chain is a hard-blocked change — see `danger-zones.md` **DZ-Inbox-1**.
+
+### InboxModule
+
+- **Contract**: first-class in-app messaging — conversations / messages / participants / reads / edits / attachments / broadcast snapshots, saved audiences, tenant messaging-policy matrix, inbox tenant settings, safeguarding keywords, message flags, oversight audit log. Exposes `MessagingPolicyService.canStartConversation` / `canReplyToConversation`, `AudienceResolutionService.resolve` / `previewCount`, `ConversationsService` (direct / group / broadcast), `InboxOversightService`, and `InboxSettingsService`
+- **Primary consumers**:
+  - `CommunicationsModule` — imports `ConversationsService` via the dispatcher bridge to fan outbound messages into recipient inboxes as the always-on default channel (impl 06)
+  - `FinanceModule` — exposes `FeesInArrearsProvider` (registered into the process-wide `AudienceProviderRegistry` at boot) so broadcast audiences can target households with overdue invoices (impl 03)
+  - `EventsModule` / `TripsModule` — placeholder stubs that register `EventAttendeesProvider` / `TripRosterProvider` as `wired: false` entries. When a real events/trips domain lands these are the single touch points to replace (impl 03)
+  - `SafeguardingModule` — indirect, via the `safeguarding:scan-message` BullMQ job. The scanner worker (impl 08) reads safeguarding keywords per tenant and writes message flags + oversight audit entries when a match is found
+  - `RbacReadFacade` (new batch methods `findActiveMembershipRolesByUserIds` and `searchActiveMembersByName`) — used by `RoleMappingService` to fold platform roles into the 9-bucket `MessagingRole` and by the people-picker for policy-filtered search
+  - Worker (`inbox-fallback-check` cron, `safeguarding:scan-message` processor) — share tables directly via raw `PrismaClient`
+- **Imports**: `RbacModule`, `FinanceModule`, `EventsModule` (stub), `TripsModule` (stub), `PrismaModule`, `RedisModule`
+- **Blast radius**: HIGH
+- **Notes**:
+  - The tenant messaging-policy matrix (9×9 role grid, 81 cells) is cached per-tenant for 5 minutes in `TenantMessagingPolicyRepository`. Updates to a tenant's policy call `invalidate(tenantId)` but in-flight requests can still see stale state for up to 5 minutes — see `danger-zones.md` **DZ-Inbox-2**
+  - Hard-coded relational scopes in `RelationalScopeResolver` (teacher→parent via taught-class rosters, parent→teacher via child-class staff) are privacy invariants; weakening them is a CLAUDE.md hard-blocked change
+  - Default tenant matrix seeds parents and students entirely OFF — this is a safety baseline, not an empty config waiting to be filled. Do not change defaults without explicit user instruction
+  - `messages.body_search` is a generated `tsvector STORED` column with GIN index (simple dictionary so Arabic tokenises). The only consumer is impl 09's full-text search — it uses raw SQL inside `runWithRlsContext` because Prisma cannot read `Unsupported("tsvector")` columns
+  - Broadcast replies do NOT land as replies on the broadcast thread — they spawn a new direct 1↔1 conversation between the replying recipient and the original sender. See `danger-zones.md` **DZ-Inbox-3**
+  - Permissions are seeded at boot (`InboxPermissionsInit`) inside `runWithRlsContext` because `roles` / `role_permissions` RLS policies cast `current_setting('app.current_tenant_id')::uuid` even with `missing_ok=true` — a bare `$transaction` without tenant context fails with Postgres 22P02 (empty uuid cast)
 
 ### BehaviourModule
 

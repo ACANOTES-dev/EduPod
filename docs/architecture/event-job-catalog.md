@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying any queue, job payload, cron registration, or approval callback, check here for the live side-effect graph.
 > **Maintenance**: Update when adding processors, changing job payload contracts, or introducing/removing dispatch paths.
-> **Last verified**: 2026-04-07
+> **Last verified**: 2026-04-11
 
 ---
 
@@ -83,6 +83,7 @@ Missing any one of those leaves “approved but not actually executed” items i
 - `notifications:parent-daily-digest` -> hourly
 - `monitoring:dlq-scan` -> every `15 min`
 - `monitoring:canary-ping` -> every `5 min`
+- `inbox-fallback-check` -> every `5 min` (new — impl 07)
 
 ### `wellbeing`
 
@@ -387,6 +388,41 @@ Missing any one of those leaves “approved but not actually executed” items i
 - **Sources**: cron scheduler plus explicit key-rotation workflows
 - **Major side effects**: platform incident creation/escalation and encryption-key rotation orchestration
 
+### `notifications` (inbox-owned jobs on the shared `notifications` queue)
+
+- `inbox:dispatch-channels`
+- **Source**: `InboxChannelDispatcher.fanOut` (impl 06) — enqueued by `ConversationsService.sendMessage` and `ConversationsService.createConversation` after a successful interactive-transaction commit
+- **Payload**: `{ tenant_id, conversation_id, message_id, sender_user_id, channels[], disable_fallback, audience_user_ids? }`
+- **Side effects**: fan a message onto the opt-in extra channels (`sms`, `email`, `whatsapp`) by creating `Notification` rows and handing off to `communications:dispatch-notifications`. The inbox itself is NOT a channel fanned out here — inbox delivery is synchronous on the initial write (every recipient has a `conversation_participants` row created inside the transaction)
+- **Idempotency**: keyed on `(conversation_id, message_id, channel)` — re-enqueues are no-ops
+
+- `inbox:fallback-check`
+- **Source**: cron registered in `CronSchedulerService` every 5 minutes (impl 07)
+- **Payload**: `{}` (cross-tenant scan)
+- **Side effects**: iterates tenants with `tenant_settings_inbox.fallback_enabled = true`, enqueues one `inbox:fallback-scan-tenant` job per tenant
+- **Guard**: skips tenants with `messaging_enabled = false`
+
+- `inbox:fallback-scan-tenant`
+- **Source**: enqueued by `inbox:fallback-check` per tenant, or manually by the debug `POST /v1/inbox/settings/fallback/test` endpoint (not yet implemented — see impl 15 follow-up)
+- **Payload**: `{ tenant_id }`
+- **Side effects**: scans `messages` where `created_at < now() - fallback_after_hours` and the sender/scope matches the configured fallback class (admin broadcast vs teacher message), filters out recipients who already opened the inbox (`message_reads` row), creates `Notification` rows for the remaining recipients on the configured channels, stamps `messages.fallback_dispatched_at` so the message is not re-evaluated
+- **Idempotency**: `fallback_dispatched_at` acts as a once-only marker; the scan also skips messages with `disable_fallback = true`
+
+### `safeguarding`
+
+- `safeguarding:scan-message`
+- **Source**: `ConversationsService.sendMessage` enqueues one per inbound message (impl 08) — ALWAYS fires, regardless of sender role, when `tenant_settings_inbox.safeguarding_scan_enabled = true`
+- **Payload**: `{ tenant_id, conversation_id, message_id, sender_user_id, body }`
+- **Side effects**: loads `safeguarding_keywords` for the tenant (cached 5 min), runs a case-insensitive word-boundary match against the message body, and when a match is found: creates a `message_flags` row (`review_state = 'pending'`, `severity = MAX(matched.severity)`, `matched_keywords[] = [...]`), writes an `oversight_access_log` entry tagged `flag_created`, and enqueues `safeguarding:notify-reviewers`
+- **Retention**: does NOT store message body on the flag row — privacy. The body is re-read from `messages` when the admin opens the flag, and the `SafeguardingAlertsWidget` never renders it
+- **Idempotency**: unique index on `(message_id)` so re-scans are no-ops
+
+- `safeguarding:notify-reviewers`
+- **Source**: enqueued by `safeguarding:scan-message` when a flag is created
+- **Payload**: `{ tenant_id, flag_id, severity }`
+- **Side effects**: resolves the set of users in the tenant with `inbox.oversight.read` via `RbacReadFacade.findMembershipsWithPermissionAndUser` (admin tier — owner, principal, vice principal), and creates `Notification` rows on the configured severity-routed channels. High-severity flags escalate via email even if the admin's usual channel preference is inbox-only
+- **Cache**: the reviewer set is resolved at flag time, not cached — role changes propagate immediately
+
 ### `wellbeing`
 
 - `wellbeing:moderation-scan`
@@ -421,6 +457,10 @@ critical concern -> `pastoral:notify-concern` -> `pastoral:escalation-timeout` -
 ### PDF callback chain
 
 domain service -> `pdf:render` -> S3 upload -> downstream callback job such as `behaviour:document-ready`
+
+### Inbox fan-out chain
+
+`ConversationsService.sendMessage` (interactive RLS tx) writes `messages` + `message_reads` snapshot + `conversation_participants` rows -> commit -> enqueues `safeguarding:scan-message` (always) + `inbox:dispatch-channels` (if extra channels ticked) -> `inbox:dispatch-channels` creates `Notification` rows on `sms`/`email`/`whatsapp` and hands off to `communications:dispatch-notifications` -> every 5 minutes `inbox:fallback-check` fans out to `inbox:fallback-scan-tenant` per tenant -> `inbox:fallback-scan-tenant` escalates unread messages past the window to the configured fallback channels and stamps `messages.fallback_dispatched_at`. Safeguarding flags land via `safeguarding:scan-message` -> `safeguarding:notify-reviewers` -> `Notification` rows for admin-tier users.
 
 ### Parent delivery chain
 
