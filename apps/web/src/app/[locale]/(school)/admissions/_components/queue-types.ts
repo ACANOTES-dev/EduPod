@@ -13,6 +13,7 @@ export interface QueueApplication {
   date_of_birth: string | null;
   apply_date: string | null;
   fifo_position: number;
+  is_sibling_application: boolean;
   waiting_list_substatus: 'awaiting_year_setup' | null;
   submitted_by_parent: ParentContact;
 }

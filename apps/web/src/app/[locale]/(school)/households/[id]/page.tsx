@@ -80,6 +80,7 @@ interface HouseholdParentJoin {
 interface Household {
   id: string;
   household_name: string;
+  household_number?: string | null;
   status: 'active' | 'inactive' | 'archived';
   needs_completion: boolean;
   completion_issues?: string[];
@@ -785,6 +786,7 @@ export default function HouseholdHubPage() {
     <>
       <RecordHub
         title={household.household_name}
+        reference={household.household_number ?? undefined}
         status={{
           label: household.status.charAt(0).toUpperCase() + household.status.slice(1),
           variant: statusVariantMap[household.status],

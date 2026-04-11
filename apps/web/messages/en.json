@@ -207,6 +207,7 @@
       "composer": {
         "placeholder": "Write a message…",
         "send": "Send",
+        "sendFailed": "Message could not be sent. Please try again.",
         "disabled": {
           "frozen": "This conversation is disabled. You cannot reply.",
           "no_reply": "Replies are not enabled on this message.",
@@ -225,6 +226,43 @@
     "errors": {
       "load_threads": "Could not load your inbox. Please try again.",
       "load_thread": "Could not load this conversation. Please try again."
+    },
+    "audienceBuilder": {
+      "label": "Custom audience",
+      "combineWith": "Combine with",
+      "andOperator": "AND",
+      "orOperator": "OR",
+      "empty": "No filters yet — add one to start targeting recipients.",
+      "pickFilter": "Pick a filter",
+      "comingSoon": "Coming soon",
+      "not": "NOT",
+      "negateAria": "Negate filter",
+      "removeAria": "Remove filter",
+      "operator": "{op}",
+      "addFilter": "Add filter",
+      "previewHint": "Add a filter to preview",
+      "recipientCount": "≈ {count, plural, one {# recipient} other {# recipients}}",
+      "params": {
+        "minOverdue": "Min overdue (€)",
+        "minDaysOverdue": "Min days overdue",
+        "uuidList": "UUIDs, comma-separated"
+      }
+    },
+    "searchPage": {
+      "title": "Search the inbox",
+      "placeholder": "Search all your conversations…",
+      "button": "Search",
+      "searching": "Searching…",
+      "hint": "Type at least 2 characters to find messages in your threads.",
+      "noResults": "No results",
+      "noResultsFor": "No messages found for \"{query}\". Try fewer or different words.",
+      "resultCount": "{count, plural, one {# result} other {# results}}",
+      "pageOf": "Page {page} of {total}",
+      "kinds": {
+        "direct": "Direct message",
+        "group": "Group conversation",
+        "broadcast": "Broadcast"
+      }
     },
     "oversight": {
       "title": "Oversight",
@@ -1624,7 +1662,31 @@
       },
       "matrix": {
         "title": "Role permission matrix",
-        "description": "Toggle cells to allow or block a sender role from initiating conversations with a recipient role. Greyed cells are disabled by a global kill switch above. Hardcoded relational scopes (e.g. teacher → parent of own students) still apply on top of the matrix."
+        "description": "Toggle cells to allow or block a sender role from initiating conversations with a recipient role. Greyed cells are disabled by a global kill switch above. Hardcoded relational scopes (e.g. teacher → parent of own students) still apply on top of the matrix.",
+        "senderRecipientHeader": "Sender ↓ / Recipient →",
+        "fromRole": "From {role} →",
+        "cellAriaLabel": "{sender} can message {recipient}: {state}",
+        "tooltipDisabled": "Disabled by global kill switch above.",
+        "tooltipAllowed": "Allowed — the sender role may initiate this conversation.",
+        "tooltipBlocked": "Blocked — the sender role may not message this recipient.",
+        "ariaLabel": "Messaging policy matrix",
+        "roles": {
+          "owner": "Owner",
+          "principal": "Principal",
+          "vice_principal": "Vice Principal",
+          "office": "Office",
+          "finance": "Finance",
+          "nurse": "Nurse",
+          "teacher": "Teacher",
+          "parent": "Parent",
+          "student": "Student"
+        },
+        "scopeNotes": {
+          "teacher_parent": "Teachers can only message parents of students in their own classes. This scope is hard-coded and cannot be changed.",
+          "parent_teacher": "Parents can only message teachers of their own children. This scope is hard-coded and cannot be changed.",
+          "teacher_student": "Teachers can only message students in their own classes. This scope is hard-coded and cannot be changed.",
+          "student_teacher": "Students can only message their own teachers. This scope is hard-coded and cannot be changed."
+        }
       },
       "editingRetention": {
         "title": "Editing & retention",
@@ -3479,6 +3541,7 @@
       "fifoPosition": "FIFO position: #{position}",
       "appliedOn": "Applied {date} ({relative})"
     },
+    "siblingBadge": "Sibling",
     "capacity": {
       "notConfigured": "Year not configured",
       "enrolledShort": "enrolled",
@@ -6591,6 +6654,14 @@
     "newAnnouncement": "New Announcement",
     "manageAudiences": "Manage Audiences",
     "announcements": "Announcements",
+    "emptyDescription": "No announcements yet. Create your first announcement.",
+    "loadFailed": "Failed to load announcement",
+    "statusLabels": {
+      "draft": "Draft",
+      "scheduled": "Scheduled",
+      "published": "Published",
+      "archived": "Archived"
+    },
     "inquiries": "Inquiries",
     "hub": {
       "title": "Communications",
@@ -6688,6 +6759,10 @@
       "publish": "Publish",
       "saving": "Saving...",
       "publishing": "Publishing...",
+      "validation": {
+        "titleRequired": "Please enter a title",
+        "titleAndBodyRequired": "Title and body are required to publish"
+      },
       "saveDraftSuccess": "Saved as draft",
       "publishSuccess": "Announcement published",
       "saveError": "Failed to save announcement",
@@ -7028,7 +7103,10 @@
     "paymentFailed": "Payment failed. Please try again.",
     "invalidPaymentAmount": "Please enter a valid payment amount.",
     "eGDublinLondon": "e.g. Dublin, London",
-    "eGIrishBritish": "e.g. Irish, British"
+    "eGIrishBritish": "e.g. Irish, British",
+    "householdNumberPreviewLabel": "Suggested Household Number",
+    "refreshNumber": "Refresh",
+    "householdNumberPreviewHelper": "This is a suggested number. The final number is assigned when you save the household."
   },
   "regulatory": {
     "title": "Regulatory Compliance",

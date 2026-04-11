@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, Trash2, X } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -15,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
+
+import { apiClient } from '@/lib/api-client';
 
 import type {
   ConsentFormData,
@@ -101,6 +103,33 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
   const t = useTranslations('registration');
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [householdNumber, setHouseholdNumber] = React.useState<string | null>(null);
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  // Fetch a preview household number on mount
+  React.useEffect(() => {
+    let cancelled = false;
+    apiClient<{ household_number: string }>('/api/v1/households/next-number')
+      .then((res) => {
+        if (!cancelled) setHouseholdNumber(res.household_number);
+      })
+      .catch((err) => console.error('[StepParentHousehold] preview fetch failed', err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleRefreshNumber = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const res = await apiClient<{ household_number: string }>('/api/v1/households/next-number');
+      setHouseholdNumber(res.household_number);
+    } catch (err) {
+      console.error('[StepParentHousehold] refresh failed', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   // Auto-fill household_name when primary parent last_name changes
   const handlePrimaryChange = React.useCallback(
@@ -349,6 +378,31 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
               readOnly
               className="bg-surface-secondary"
             />
+          </div>
+
+          {/* Household number preview */}
+          <div className="rounded-lg border border-border bg-surface-secondary px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-xs uppercase tracking-wide text-text-tertiary">
+                  {t('householdNumberPreviewLabel')}
+                </p>
+                <p className="font-mono text-lg font-semibold text-text-primary" dir="ltr">
+                  {householdNumber ?? '—'}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleRefreshNumber}
+                disabled={refreshing}
+              >
+                <RefreshCw className={`me-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {t('refreshNumber')}
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-text-tertiary">{t('householdNumberPreviewHelper')}</p>
           </div>
 
           {/* Address Line 1 / Address Line 2 */}

@@ -206,6 +206,7 @@
       "composer": {
         "placeholder": "اكتب رسالة…",
         "send": "إرسال",
+        "sendFailed": "تعذّر إرسال الرسالة. يرجى المحاولة مرة أخرى.",
         "disabled": {
           "frozen": "هذه المحادثة معطّلة. لا يمكنك الرد.",
           "no_reply": "الرد غير مفعل على هذه الرسالة.",
@@ -224,6 +225,43 @@
     "errors": {
       "load_threads": "تعذّر تحميل صندوق الرسائل. يرجى المحاولة مرة أخرى.",
       "load_thread": "تعذّر تحميل هذه المحادثة. يرجى المحاولة مرة أخرى."
+    },
+    "audienceBuilder": {
+      "label": "جمهور مخصص",
+      "combineWith": "الجمع بـ",
+      "andOperator": "AND",
+      "orOperator": "OR",
+      "empty": "لا توجد فلاتر بعد — أضف واحدًا لبدء استهداف المستلمين.",
+      "pickFilter": "اختر فلتر",
+      "comingSoon": "قريبًا",
+      "not": "NOT",
+      "negateAria": "عكس الفلتر",
+      "removeAria": "إزالة الفلتر",
+      "operator": "{op}",
+      "addFilter": "إضافة فلتر",
+      "previewHint": "أضف فلتر للمعاينة",
+      "recipientCount": "≈ {count, plural, zero {لا مستلمون} one {مستلم واحد} two {مستلمان} few {# مستلمين} many {# مستلمًا} other {# مستلم}}",
+      "params": {
+        "minOverdue": "الحد الأدنى للمبلغ المتأخر (€)",
+        "minDaysOverdue": "الحد الأدنى لأيام التأخير",
+        "uuidList": "معرّفات مفصولة بفواصل"
+      }
+    },
+    "searchPage": {
+      "title": "البحث في صندوق الرسائل",
+      "placeholder": "ابحث في جميع محادثاتك…",
+      "button": "بحث",
+      "searching": "جارٍ البحث…",
+      "hint": "اكتب حرفين على الأقل للعثور على رسائل في محادثاتك.",
+      "noResults": "لا توجد نتائج",
+      "noResultsFor": "لم يتم العثور على رسائل لـ \"{query}\". جرّب كلمات أقل أو مختلفة.",
+      "resultCount": "{count, plural, zero {لا نتائج} one {نتيجة واحدة} two {نتيجتان} few {# نتائج} many {# نتيجة} other {# نتيجة}}",
+      "pageOf": "صفحة {page} من {total}",
+      "kinds": {
+        "direct": "رسالة مباشرة",
+        "group": "محادثة جماعية",
+        "broadcast": "بث"
+      }
     },
     "audiences": {
       "title": "الجماهير المحفوظة",
@@ -1616,7 +1654,31 @@
       },
       "matrix": {
         "title": "مصفوفة صلاحيات الأدوار",
-        "description": "فعِّل الخلايا أو عطّلها للسماح لدور ما ببدء محادثات مع دور آخر. الخلايا الرمادية معطَّلة بواسطة أحد المفاتيح العامة أعلاه. كما تُطبَّق النطاقات العلائقية الصلبة (مثل معلم → ولي أمر طلابه) فوق المصفوفة."
+        "description": "فعِّل الخلايا أو عطّلها للسماح لدور ما ببدء محادثات مع دور آخر. الخلايا الرمادية معطَّلة بواسطة أحد المفاتيح العامة أعلاه. كما تُطبَّق النطاقات العلائقية الصلبة (مثل معلم → ولي أمر طلابه) فوق المصفوفة.",
+        "senderRecipientHeader": "المُرسِل ↓ / المُستلِم →",
+        "fromRole": "من {role} →",
+        "cellAriaLabel": "{sender} يمكنه مراسلة {recipient}: {state}",
+        "tooltipDisabled": "معطَّل بواسطة مفتاح الإيقاف العام أعلاه.",
+        "tooltipAllowed": "مسموح — يمكن لهذا الدور بدء هذه المحادثة.",
+        "tooltipBlocked": "محظور — لا يمكن لهذا الدور مراسلة هذا المستلم.",
+        "ariaLabel": "مصفوفة سياسة الرسائل",
+        "roles": {
+          "owner": "المالك",
+          "principal": "المدير",
+          "vice_principal": "نائب المدير",
+          "office": "المكتب",
+          "finance": "المالية",
+          "nurse": "الممرض/ة",
+          "teacher": "المعلم/ة",
+          "parent": "ولي الأمر",
+          "student": "الطالب"
+        },
+        "scopeNotes": {
+          "teacher_parent": "يمكن للمعلمين فقط مراسلة أولياء أمور طلابهم. هذا النطاق ثابت ولا يمكن تغييره.",
+          "parent_teacher": "يمكن لأولياء الأمور فقط مراسلة معلمي أبنائهم. هذا النطاق ثابت ولا يمكن تغييره.",
+          "teacher_student": "يمكن للمعلمين فقط مراسلة طلاب فصولهم. هذا النطاق ثابت ولا يمكن تغييره.",
+          "student_teacher": "يمكن للطلاب فقط مراسلة معلميهم. هذا النطاق ثابت ولا يمكن تغييره."
+        }
       },
       "editingRetention": {
         "title": "التعديل والاحتفاظ",
@@ -3471,6 +3533,7 @@
       "fifoPosition": "الترتيب: #{position}",
       "appliedOn": "تم التقديم {date} ({relative})"
     },
+    "siblingBadge": "شقيق",
     "capacity": {
       "notConfigured": "السنة غير مُعدَّة",
       "enrolledShort": "مسجَّل",
@@ -6582,6 +6645,14 @@
     "newAnnouncement": "إعلان جديد",
     "manageAudiences": "إدارة الجماهير",
     "announcements": "الإعلانات",
+    "emptyDescription": "لا توجد إعلانات بعد. أنشئ إعلانك الأول.",
+    "loadFailed": "فشل في تحميل الإعلان",
+    "statusLabels": {
+      "draft": "مسودة",
+      "scheduled": "مجدول",
+      "published": "منشور",
+      "archived": "مؤرشف"
+    },
     "inquiries": "الاستفسارات",
     "hub": {
       "title": "التواصل",
@@ -6679,6 +6750,10 @@
       "publish": "نشر",
       "saving": "جاري الحفظ...",
       "publishing": "جاري النشر...",
+      "validation": {
+        "titleRequired": "يرجى إدخال عنوان",
+        "titleAndBodyRequired": "العنوان والمحتوى مطلوبان للنشر"
+      },
       "saveDraftSuccess": "تم الحفظ كمسودة",
       "publishSuccess": "تم نشر الإعلان",
       "saveError": "فشل في حفظ الإعلان",
@@ -7019,7 +7094,10 @@
     "paymentFailed": "فشل الدفع. يرجى المحاولة مرة أخرى.",
     "invalidPaymentAmount": "يرجى إدخال مبلغ دفع صالح.",
     "eGDublinLondon": "[AR] e.g. Dublin, London",
-    "eGIrishBritish": "[AR] e.g. Irish, British"
+    "eGIrishBritish": "[AR] e.g. Irish, British",
+    "householdNumberPreviewLabel": "رقم الأسرة المقترح",
+    "refreshNumber": "تحديث",
+    "householdNumberPreviewHelper": "هذا رقم مقترح. يتم تعيين الرقم النهائي عند حفظ الأسرة."
   },
   "regulatory": {
     "title": "الامتثال التنظيمي",

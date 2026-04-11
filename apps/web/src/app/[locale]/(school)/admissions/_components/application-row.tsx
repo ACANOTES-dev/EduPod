@@ -43,8 +43,15 @@ export function ApplicationRow({ application, actions }: ApplicationRowProps) {
         <div className="font-mono text-xs text-text-secondary">
           {application.application_number}
         </div>
-        <div className="truncate text-base font-semibold text-text-primary">
-          {application.student_first_name} {application.student_last_name}
+        <div className="flex items-center gap-2 truncate">
+          <span className="text-base font-semibold text-text-primary">
+            {application.student_first_name} {application.student_last_name}
+          </span>
+          {application.is_sibling_application && (
+            <span className="inline-flex shrink-0 items-center rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">
+              {t('siblingBadge')}
+            </span>
+          )}
         </div>
         <div className="mt-0.5 text-xs text-text-secondary">
           {age !== null ? t('row.ageYears', { age }) : t('row.ageUnknown')}

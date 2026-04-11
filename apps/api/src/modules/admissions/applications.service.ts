@@ -903,6 +903,7 @@ export class ApplicationsService {
           apply_date: true,
           target_academic_year_id: true,
           target_year_group_id: true,
+          is_sibling_application: true,
           payload_json: true,
           submitted_by: {
             select: { first_name: true, last_name: true, email: true, phone: true },
@@ -961,6 +962,7 @@ export class ApplicationsService {
           apply_date: true,
           target_academic_year_id: true,
           target_year_group_id: true,
+          is_sibling_application: true,
           waiting_list_substatus: true,
           payload_json: true,
           submitted_by: {
@@ -1212,6 +1214,7 @@ interface QueueApplicationRow {
   apply_date: Date | null;
   target_academic_year_id: string | null;
   target_year_group_id: string | null;
+  is_sibling_application: boolean;
   waiting_list_substatus?: 'awaiting_year_setup' | null;
   payload_json: Prisma.JsonValue;
   submitted_by: {
@@ -1298,6 +1301,7 @@ function groupApplicationsByYearGroup(
         date_of_birth: string | null;
         apply_date: string | null;
         fifo_position: number;
+        is_sibling_application: boolean;
         waiting_list_substatus: 'awaiting_year_setup' | null;
         submitted_by_parent: ParentContact;
       }>;
@@ -1341,6 +1345,7 @@ function groupApplicationsByYearGroup(
       date_of_birth: row.date_of_birth ? row.date_of_birth.toISOString() : null,
       apply_date: row.apply_date ? row.apply_date.toISOString() : null,
       fifo_position: bucket.applications.length + 1,
+      is_sibling_application: row.is_sibling_application,
       waiting_list_substatus: row.waiting_list_substatus ?? null,
       submitted_by_parent: extractParentContact(row.payload_json, row.submitted_by),
     });

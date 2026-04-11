@@ -24,6 +24,7 @@ import { apiClient } from '@/lib/api-client';
 interface Household {
   id: string;
   household_name: string;
+  household_number?: string | null;
   status: 'active' | 'inactive' | 'archived';
   needs_completion: boolean;
   completion_issues?: string[];
@@ -107,6 +108,11 @@ export default function HouseholdsPage() {
               label={row.household_name}
               href={`/households/${row.id}`}
             />
+            {row.household_number && (
+              <span className="font-mono text-xs text-text-tertiary" dir="ltr">
+                {row.household_number}
+              </span>
+            )}
             {row.needs_completion && (
               <StatusBadge
                 status="warning"
