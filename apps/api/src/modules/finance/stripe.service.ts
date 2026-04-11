@@ -287,6 +287,12 @@ export class StripeService {
     const currencyCode = application.currency_code ?? 'EUR';
     const deadline = application.payment_deadline;
 
+    // Stripe limits expires_at to 24 hours from creation. Cap to 23h to
+    // stay safely under the limit; our internal payment-expiry cron handles
+    // the longer deadline independently.
+    const maxStripeExpiry = Math.floor((Date.now() + 23 * 60 * 60 * 1000) / 1000);
+    const expiresAt = Math.min(Math.floor(deadline.getTime() / 1000), maxStripeExpiry);
+
     const productName = `Admission fee — application ${application.application_number}`;
     const productDescription = `Upfront admission payment for ${application.student_first_name} ${application.student_last_name}`;
 
@@ -309,7 +315,7 @@ export class StripeService {
         mode: 'payment',
         success_url: successUrl,
         cancel_url: cancelUrl,
-        expires_at: Math.floor(deadline.getTime() / 1000),
+        expires_at: expiresAt,
         metadata: {
           purpose: 'admissions',
           tenant_id: tenantId,
