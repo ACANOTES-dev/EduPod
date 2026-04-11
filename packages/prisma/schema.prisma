@@ -1527,7 +1527,8 @@ model Household {
   id                        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                 String          @db.Uuid
   household_name            String          @db.VarChar(255)
-  household_number          String?         @db.VarChar(50)
+  household_number          String?         @db.VarChar(6)
+  student_counter           Int             @default(0)
   primary_billing_parent_id String?         @db.Uuid
   address_line_1            String?         @db.VarChar(255)
   address_line_2            String?         @db.VarChar(255)
@@ -1546,6 +1547,9 @@ model Household {
   household_parents  HouseholdParent[]
   students           Student[]
 
+  // Admissions relations
+  applications          Application[]            @relation("HouseholdApplications")
+
   // P6 Relations
   fee_assignments       HouseholdFeeAssignment[]
   invoices              Invoice[]
@@ -1553,6 +1557,7 @@ model Household {
   credit_notes          CreditNote[]
   payment_plan_requests PaymentPlanRequest[]
 
+  @@unique([tenant_id, household_number], map: "households_tenant_id_household_number_key")
   @@index([tenant_id], name: "idx_households_tenant")
   @@index([tenant_id, status], name: "idx_households_tenant_status")
   @@map("households")
@@ -2552,6 +2557,9 @@ model Application {
   waiting_list_substatus     ApplicationWaitingListSubstatus?
   override_record_id         String?                          @db.Uuid
   materialised_student_id    String?                          @db.Uuid
+  household_id               String?                          @db.Uuid
+  submission_batch_id        String?                          @db.Uuid
+  is_sibling_application     Boolean                          @default(false)
   created_at                 DateTime                         @default(now()) @db.Timestamptz()
   updated_at                 DateTime                         @default(now()) @updatedAt @db.Timestamptz()
 
@@ -2564,6 +2572,7 @@ model Application {
   target_year_group    YearGroup?               @relation("applications_target_year_group", fields: [target_year_group_id], references: [id], onDelete: SetNull)
   override_record      AdmissionOverride?       @relation("application_override_record", fields: [override_record_id], references: [id], onDelete: SetNull)
   materialised_student Student?                 @relation("application_materialised_student", fields: [materialised_student_id], references: [id], onDelete: SetNull)
+  household            Household?               @relation("HouseholdApplications", fields: [household_id], references: [id], onDelete: SetNull)
   notes                ApplicationNote[]
   overrides            AdmissionOverride[]      @relation("overrides_of_application")
   payment_events       AdmissionsPaymentEvent[]
@@ -2575,6 +2584,8 @@ model Application {
   @@index([tenant_id, payment_status, payment_deadline], name: "idx_applications_payment_deadline")
   @@index([tenant_id, status, target_year_group_id, target_academic_year_id, apply_date], name: "idx_applications_gating")
   @@index([tenant_id, status, payment_deadline], name: "idx_applications_expiry")
+  @@index([tenant_id, household_id], map: "idx_applications_tenant_id_household_id")
+  @@index([tenant_id, submission_batch_id], map: "idx_applications_tenant_id_submission_batch_id")
   @@map("applications")
 }
 
