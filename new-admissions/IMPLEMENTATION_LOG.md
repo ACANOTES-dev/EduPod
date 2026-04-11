@@ -700,3 +700,68 @@ conditional-approval,rejected}/page.tsx` plus shared components
     `rm -rf .next` succeeded. No code fix required.
   - 401 smoke tests hit the `Host: nhqs.edupod.app` header trick to
     bypass the dev / prod routing layer inside the API.
+
+### [IMPL 14] — Public application form with tenant slug resolver
+
+- **Completed:** 2026-04-11T01:28:00+01:00 (Europe/Dublin)
+- **Commit:** `f6138854` + hotfix `5c2212fe` (local) / `9f551157` + hotfix `2c9fcd7f` (prod)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Shipped the customer-facing public apply flow. Backend adds
+  `PublicTenantsService` + `PublicTenantsController`
+  (`GET /v1/public/tenants/by-slug/:slug`) in `TenantsModule`. Tenant
+  resolution middleware skips this route and now falls back to an
+  `X-Tenant-Slug` header for all `/api/v1/public/*` routes when the
+  request hits a proxy hostname, so the form works from either a
+  tenant subdomain or `edupod.app`. `tenant_slug:<slug>` Redis cache
+  keeps header-based lookups off the DB on hot paths. Frontend adds
+  four pages under `(public)/apply/[tenantSlug]/`: the form
+  (`page.tsx`) with `DynamicFormRenderer`, draft persistence in
+  `sessionStorage`, CSS-hidden honeypot, school-not-found / form-
+  unavailable / rate-limit states; a thank-you page with reference
+  number; and Stripe payment success / cancelled landing pages. New
+  `publicApplyForm` i18n namespace in `en.json` + `ar.json`. The
+  initial prod deploy hit a 500 because the single `findUnique` with
+  nested `include` hit RLS on `tenant_branding` / `tenant_domains`
+  with no `app.current_tenant_id` set; hotfix splits into two
+  lookups — the tenants lookup runs outside any context, then
+  branding + verified domain run inside `runWithRlsContext({
+tenant_id })`. Tests: 9 unit tests for the service, 5 new
+  middleware tests for the skip + slug-header branches.
+- **Follow-ups:**
+  - The prod-first `9f551157` commit came from an earlier session
+    that never updated this log; my current-session commit
+    `f6138854` was a re-derivation of the same work against a fresh
+    context, and prod kept the earlier SHA. Both commits have
+    identical content. If a future audit reconciles local vs prod
+    SHAs, flag this implementation as the dual-SHA case.
+  - `resolveTenantFromSlugHeader` in the tenant middleware accepts
+    any active tenant by slug. That's safe for `/api/v1/public/*`
+    but does mean a slug enumerator can probe for active tenants
+    via 200/404 on `by-slug/:slug`. Acceptable for a public apply
+    page but worth noting if we ever expose additional public
+    routes behind the same mechanism.
+  - Rate limiting is still per-IP-per-tenant at 3/hour via the
+    existing `AdmissionsRateLimitService`. PLAN.md §14 mentioned
+    10/IP/hour globally + 50/tenant/hour; impl 15 can move those
+    numbers into tenant settings when it's convenient.
+- **Session notes:**
+  - Wave 4 was in full parallel flight: 10/11/12 all in-progress,
+    13 completed out-of-order, and a prior session had already
+    committed + deployed impl 14's content under `9f551157` without
+    updating the log. The re-derivation matched byte-for-byte in
+    commit content; I verified with `git show --stat` on prod
+    against my local `git diff --cached --stat` before deciding not
+    to re-apply the patch.
+  - The deploy phase hit an RLS trap that the unit tests couldn't
+    catch (Jest mocks `runWithRlsContext`, so the join-on-RLS
+    Postgres error only surfaces against a real DB). Hotfix landed
+    as `2c9fcd7f` on prod after a fresh API rebuild + restart.
+  - Web rebuild on prod was competing with 3–4 back-to-back
+    parallel-session builds burning all 16 GB of RAM; after two
+    OOM kills of my own build I stopped retrying, verified that
+    one of the sibling sessions' builds had already landed a fresh
+    `.next` containing my pages (`.next/server/app/[locale]/(public)/apply/[tenantSlug]/page.js`
+    timestamped 2026-04-11 00:25), and simply restarted PM2 web to
+    pick it up. Smoke-tested all five routes (form, submitted,
+    payment-success, payment-cancelled, Arabic variant) — all 200.
