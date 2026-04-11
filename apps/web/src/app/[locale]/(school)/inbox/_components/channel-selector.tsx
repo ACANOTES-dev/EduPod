@@ -1,6 +1,7 @@
 'use client';
 
 import { Check, Mail, Phone, Smartphone } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -38,14 +39,15 @@ const CHANNEL_ICONS: Record<InboxChannel, React.ElementType> = {
   whatsapp: Phone,
 };
 
-const CHANNEL_LABELS: Record<InboxChannel, string> = {
-  inbox: 'Inbox',
-  email: 'Email',
-  sms: 'SMS',
-  whatsapp: 'WhatsApp',
+const CHANNEL_LABEL_KEYS: Record<InboxChannel, string> = {
+  inbox: 'inbox.channelSelector.inboxLabel',
+  email: 'inbox.channelSelector.channels.email',
+  sms: 'inbox.channelSelector.channels.sms',
+  whatsapp: 'inbox.channelSelector.channels.whatsapp',
 };
 
 export function ChannelSelector({ selected, onChange, recipientCount, disabled }: Props) {
+  const t = useTranslations();
   const toggle = (channel: ExtraChannel) => {
     if (disabled) return;
     if (selected.includes(channel)) {
@@ -70,8 +72,8 @@ export function ChannelSelector({ selected, onChange, recipientCount, disabled }
           active
           locked
           icon={CHANNEL_ICONS.inbox}
-          label={CHANNEL_LABELS.inbox}
-          sublabel="Always sent · free"
+          label={t(CHANNEL_LABEL_KEYS.inbox)}
+          sublabel={t('inbox.channelSelector.inboxSublabel')}
         />
         {EXTRA_CHANNELS.map((channel) => (
           <ChannelChip
@@ -79,25 +81,24 @@ export function ChannelSelector({ selected, onChange, recipientCount, disabled }
             active={selected.includes(channel)}
             onClick={() => toggle(channel)}
             icon={CHANNEL_ICONS[channel]}
-            label={CHANNEL_LABELS[channel]}
-            sublabel={`${INBOX_CHANNEL_COST_CURRENCY} ${INBOX_CHANNEL_ESTIMATED_COSTS[channel].toFixed(3)} / recipient`}
+            label={t(CHANNEL_LABEL_KEYS[channel])}
+            sublabel={t('inbox.channelSelector.perRecipientCost', {
+              currency: INBOX_CHANNEL_COST_CURRENCY,
+              amount: INBOX_CHANNEL_ESTIMATED_COSTS[channel].toFixed(3),
+            })}
             disabled={disabled}
           />
         ))}
       </div>
       <p className="text-xs text-text-tertiary">
-        {selected.length === 0 ? (
-          <>Inbox only · no external channels</>
-        ) : (
-          <>
-            Estimated cost:{' '}
-            <strong className="text-text-secondary">
-              {INBOX_CHANNEL_COST_CURRENCY} {estimatedCost.toFixed(2)}
-            </strong>{' '}
-            for {recipientCount} recipient{recipientCount === 1 ? '' : 's'} · UX estimate, not
-            billing
-          </>
-        )}
+        {selected.length === 0
+          ? t('inbox.channelSelector.inboxOnly')
+          : t.rich('inbox.channelSelector.estimate', {
+              count: recipientCount,
+              currency: INBOX_CHANNEL_COST_CURRENCY,
+              amount: estimatedCost.toFixed(2),
+              strong: (chunks) => <strong className="text-text-secondary">{chunks}</strong>,
+            })}
       </p>
     </div>
   );

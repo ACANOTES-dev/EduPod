@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2, Save, Users } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type {
@@ -57,13 +58,14 @@ interface SavedAudienceRow {
   last_resolved_count: number | null;
 }
 
-const QUICK_CHIPS: Array<{ id: string; label: string; provider: AudienceProviderKey }> = [
-  { id: 'school', label: 'Whole school', provider: 'school' },
-  { id: 'parents', label: 'All parents', provider: 'parents_school' },
-  { id: 'staff', label: 'All staff', provider: 'staff_all' },
+const QUICK_CHIPS: Array<{ id: string; labelKey: string; provider: AudienceProviderKey }> = [
+  { id: 'school', labelKey: 'inbox.audiencePicker.quick.school', provider: 'school' },
+  { id: 'parents', labelKey: 'inbox.audiencePicker.quick.parents', provider: 'parents_school' },
+  { id: 'staff', labelKey: 'inbox.audiencePicker.quick.staff', provider: 'staff_all' },
 ];
 
 export function AudiencePicker({ value, onChange, disabled }: Props) {
+  const t = useTranslations();
   const [mode, setMode] = React.useState<'quick' | 'saved' | 'custom'>(value?.mode ?? 'quick');
   const [savedAudiences, setSavedAudiences] = React.useState<SavedAudienceRow[]>([]);
   const [isLoadingSaved, setIsLoadingSaved] = React.useState(false);
@@ -151,9 +153,19 @@ export function AudiencePicker({ value, onChange, disabled }: Props) {
     onChange({ mode: 'saved', savedAudienceId: audience.id, definition });
   };
 
+  const modeLabelKeys: Record<'quick' | 'saved' | 'custom', string> = {
+    quick: 'inbox.audiencePicker.modeQuick',
+    saved: 'inbox.audiencePicker.modeSaved',
+    custom: 'inbox.audiencePicker.modeCustom',
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Audience mode">
+      <div
+        className="flex flex-wrap gap-2"
+        role="tablist"
+        aria-label={t('inbox.audiencePicker.modeAria')}
+      >
         {(['quick', 'saved', 'custom'] as const).map((m) => (
           <button
             key={m}
@@ -169,7 +181,7 @@ export function AudiencePicker({ value, onChange, disabled }: Props) {
                 : 'border-border bg-surface text-text-secondary hover:bg-background/60',
             )}
           >
-            {MODE_LABELS[m]}
+            {t(modeLabelKeys[m])}
           </button>
         ))}
       </div>
@@ -194,7 +206,7 @@ export function AudiencePicker({ value, onChange, disabled }: Props) {
                     : 'border-border bg-surface text-text-primary hover:bg-background/60',
                 )}
               >
-                {chip.label}
+                {t(chip.labelKey)}
               </button>
             );
           })}
@@ -206,11 +218,11 @@ export function AudiencePicker({ value, onChange, disabled }: Props) {
           {isLoadingSaved ? (
             <div className="flex items-center gap-2 p-4 text-sm text-text-tertiary">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Loading saved audiences…
+              {t('inbox.audiencePicker.savedLoading')}
             </div>
           ) : savedAudiences.length === 0 ? (
             <div className="p-4 text-sm text-text-tertiary">
-              No saved audiences yet. Switch to the Custom tab, build one, then save it.
+              {t('inbox.audiencePicker.savedEmptyGuide')}
             </div>
           ) : (
             <ul className="divide-y divide-border">
@@ -274,7 +286,7 @@ export function AudiencePicker({ value, onChange, disabled }: Props) {
                 onClick={() => setSaveDialogOpen(true)}
               >
                 <Save className="me-1 h-4 w-4" />
-                Save as audience…
+                {t('inbox.audiencePicker.saveAs')}
               </Button>
             </div>
           )}
@@ -290,12 +302,6 @@ export function AudiencePicker({ value, onChange, disabled }: Props) {
   );
 }
 
-const MODE_LABELS: Record<'quick' | 'saved' | 'custom', string> = {
-  quick: 'Quick pick',
-  saved: 'Saved audience',
-  custom: 'Build custom',
-};
-
 function SaveAudienceDialog({
   open,
   onOpenChange,
@@ -305,6 +311,7 @@ function SaveAudienceDialog({
   onOpenChange: (v: boolean) => void;
   definition: AudienceDefinition | null;
 }) {
+  const t = useTranslations();
   const [name, setName] = React.useState('');
   const [description, setDescription] = React.useState('');
   const [isSaving, setIsSaving] = React.useState(false);
@@ -319,7 +326,7 @@ function SaveAudienceDialog({
   const save = async () => {
     if (!definition) return;
     if (name.trim().length === 0) {
-      toast.error('Name is required.');
+      toast.error(t('inbox.audiencePicker.saveDialog.nameRequired'));
       return;
     }
     setIsSaving(true);
@@ -333,11 +340,11 @@ function SaveAudienceDialog({
           definition,
         }),
       });
-      toast.success('Audience saved.');
+      toast.success(t('inbox.audiencePicker.saveDialog.success'));
       onOpenChange(false);
     } catch (err) {
       console.error('[audience-picker.save]', err);
-      toast.error('Could not save audience.');
+      toast.error(t('inbox.audiencePicker.saveDialog.error'));
     } finally {
       setIsSaving(false);
     }
@@ -347,36 +354,38 @@ function SaveAudienceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Save audience</DialogTitle>
+          <DialogTitle>{t('inbox.audiencePicker.saveDialog.title')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="saved-audience-name">Name</Label>
+            <Label htmlFor="saved-audience-name">{t('inbox.audiencePicker.saveDialog.name')}</Label>
             <Input
               id="saved-audience-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Parents in arrears"
+              placeholder={t('inbox.audiencePicker.saveDialog.namePlaceholder')}
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="saved-audience-desc">Description (optional)</Label>
+            <Label htmlFor="saved-audience-desc">
+              {t('inbox.audiencePicker.saveDialog.description')}
+            </Label>
             <Textarea
               id="saved-audience-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What this audience represents"
+              placeholder={t('inbox.audiencePicker.saveDialog.descriptionPlaceholder')}
               rows={3}
             />
           </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('inbox.audiencePicker.saveDialog.cancel')}
           </Button>
           <Button type="button" disabled={isSaving || !definition} onClick={save}>
             {isSaving ? <Loader2 className="me-1 h-4 w-4 animate-spin" /> : null}
-            Save
+            {t('inbox.audiencePicker.saveDialog.save')}
           </Button>
         </DialogFooter>
       </DialogContent>

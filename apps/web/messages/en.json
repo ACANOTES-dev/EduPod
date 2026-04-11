@@ -162,7 +162,13 @@
     "generalSettings": "General",
     "behaviourSettings": "Behaviour",
     "roles": "Roles",
-    "safeguardingKeywords": "Safeguarding keywords"
+    "safeguardingKeywords": "Safeguarding keywords",
+    "communicationsHub": "Communications",
+    "inboxHub": "Inbox",
+    "inboxAudiences": "Audiences",
+    "inboxOversight": "Oversight",
+    "messagingPolicyNav": "Messaging Policy",
+    "communicationsFallback": "Notification fallback"
   },
   "inbox": {
     "title": "Inbox",
@@ -388,7 +394,8 @@
     },
     "peoplePicker": {
       "placeholder": "Search by name or email…",
-      "empty": "No matches.",
+      "searching": "Searching…",
+      "empty": "No users match.",
       "error": "Could not search for people.",
       "maxRecipients": "You can select up to {max} recipients.",
       "removeRecipient": "Remove {name}"
@@ -396,7 +403,11 @@
     "channelSelector": {
       "title": "Additional channels",
       "description": "Inbox is always included. Choose extra channels to notify recipients.",
-      "inboxLabel": "In-app inbox (always)",
+      "inboxLabel": "Inbox",
+      "inboxSublabel": "Always sent · free",
+      "perRecipientCost": "{currency} {amount} / recipient",
+      "inboxOnly": "Inbox only · no external channels",
+      "estimate": "Estimated cost: <strong>{currency} {amount}</strong> for {count, plural, one {# recipient} other {# recipients}} · UX estimate, not billing",
       "estimateTitle": "Estimated cost",
       "estimateDescription": "Rough guide based on the configured channel rates. Not a billing source of truth.",
       "estimateEmpty": "No extra channels selected.",
@@ -407,21 +418,48 @@
       }
     },
     "attachmentUploader": {
-      "dropHint": "Drop files here or",
+      "dropHint": "Drag files here, or click to browse",
+      "addFiles": "Add files",
       "browse": "browse",
       "maxSize": "Up to {max} per file.",
       "remove": "Remove",
+      "removeAria": "Remove {filename}",
+      "cancelAria": "Cancel {filename}",
       "uploading": "Uploading…",
       "error": "Upload failed.",
-      "tooLarge": "File is too large.",
-      "disallowed": "That file type isn't allowed."
+      "tooLarge": "\"{filename}\" exceeds the 25 MB limit.",
+      "tooMany": "You can attach at most {max} files per message.",
+      "disallowed": "That file type isn't allowed.",
+      "disallowedType": "\"{filename}\" — file type \"{mime}\" is not allowed."
     },
     "audiencePicker": {
+      "modeAria": "Audience mode",
+      "modeQuick": "Quick pick",
       "modeSaved": "Saved audience",
-      "modeCustom": "Custom audience",
+      "modeCustom": "Build custom",
       "savedPlaceholder": "Select a saved audience",
+      "savedLoading": "Loading saved audiences…",
       "savedEmpty": "No saved audiences in this tenant yet.",
-      "customHelp": "Build a one-off audience from providers."
+      "savedEmptyGuide": "No saved audiences yet. Switch to the Custom tab, build one, then save it.",
+      "customHelp": "Build a one-off audience from providers.",
+      "saveAs": "Save as audience…",
+      "quick": {
+        "school": "Whole school",
+        "parents": "All parents",
+        "staff": "All staff"
+      },
+      "saveDialog": {
+        "title": "Save audience",
+        "name": "Name",
+        "namePlaceholder": "e.g. Parents in arrears",
+        "nameRequired": "Name is required.",
+        "description": "Description (optional)",
+        "descriptionPlaceholder": "What this audience represents",
+        "cancel": "Cancel",
+        "save": "Save",
+        "success": "Audience saved.",
+        "error": "Could not save audience."
+      }
     },
     "fallback": {
       "title": "Notification fallback",

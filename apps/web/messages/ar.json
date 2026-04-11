@@ -161,7 +161,13 @@
     "generalSettings": "عام",
     "behaviourSettings": "السلوك",
     "roles": "الأدوار",
-    "safeguardingKeywords": "كلمات الحماية"
+    "safeguardingKeywords": "كلمات الحماية",
+    "communicationsHub": "التواصل",
+    "inboxHub": "صندوق الوارد",
+    "inboxAudiences": "الجماهير",
+    "inboxOversight": "الرقابة",
+    "messagingPolicyNav": "سياسة الرسائل",
+    "communicationsFallback": "التصعيد التلقائي"
   },
   "inbox": {
     "title": "صندوق الرسائل",
@@ -554,6 +560,7 @@
     },
     "peoplePicker": {
       "placeholder": "ابحث بالاسم أو البريد الإلكتروني…",
+      "searching": "جارٍ البحث…",
       "empty": "لا توجد نتائج.",
       "error": "تعذّر البحث عن المستخدمين.",
       "maxRecipients": "يمكنك اختيار ما يصل إلى {max} مستلمًا.",
@@ -562,7 +569,11 @@
     "channelSelector": {
       "title": "قنوات إضافية",
       "description": "صندوق الوارد مُدرج دائمًا. اختر قنوات إضافية لإشعار المستلمين.",
-      "inboxLabel": "صندوق الوارد داخل التطبيق (دائمًا)",
+      "inboxLabel": "صندوق الوارد",
+      "inboxSublabel": "يُرسل دائمًا · مجاني",
+      "perRecipientCost": "{amount} {currency} / مستلم",
+      "inboxOnly": "صندوق الوارد فقط · لا توجد قنوات خارجية",
+      "estimate": "التكلفة التقديرية: <strong>{amount} {currency}</strong> لـ {count, plural, one {# مستلم} other {# مستلمًا}} · تقدير لواجهة المستخدم، وليس فاتورة",
       "estimateTitle": "التكلفة التقديرية",
       "estimateDescription": "دليل تقريبي بناءً على أسعار القنوات المكوَّنة. ليس مصدرًا رسميًا للفوترة.",
       "estimateEmpty": "لم تُحدَّد قنوات إضافية.",
@@ -573,21 +584,48 @@
       }
     },
     "attachmentUploader": {
-      "dropHint": "أفلِت الملفات هنا أو",
+      "dropHint": "اسحب الملفات هنا، أو انقر للتصفّح",
+      "addFiles": "إضافة ملفات",
       "browse": "تصفّح",
       "maxSize": "حتى {max} لكل ملف.",
       "remove": "إزالة",
+      "removeAria": "إزالة {filename}",
+      "cancelAria": "إلغاء {filename}",
       "uploading": "جارٍ الرفع…",
       "error": "فشل الرفع.",
-      "tooLarge": "حجم الملف كبير جدًا.",
-      "disallowed": "نوع الملف غير مسموح به."
+      "tooLarge": "\"{filename}\" يتجاوز الحد الأقصى 25 ميغابايت.",
+      "tooMany": "يمكنك إرفاق ما يصل إلى {max} ملفات لكل رسالة.",
+      "disallowed": "نوع الملف غير مسموح به.",
+      "disallowedType": "\"{filename}\" — نوع الملف \"{mime}\" غير مسموح به."
     },
     "audiencePicker": {
+      "modeAria": "وضع الجمهور",
+      "modeQuick": "اختيار سريع",
       "modeSaved": "جمهور محفوظ",
-      "modeCustom": "جمهور مخصص",
+      "modeCustom": "بناء مخصص",
       "savedPlaceholder": "اختر جمهورًا محفوظًا",
+      "savedLoading": "جارٍ تحميل الجماهير المحفوظة…",
       "savedEmpty": "لا توجد جماهير محفوظة في هذه المؤسسة بعد.",
-      "customHelp": "ابنِ جمهورًا لمرة واحدة من المزوّدين."
+      "savedEmptyGuide": "لا توجد جماهير محفوظة بعد. انتقل إلى تبويب المخصص، ابنِ جمهورًا، ثم احفظه.",
+      "customHelp": "ابنِ جمهورًا لمرة واحدة من المزوّدين.",
+      "saveAs": "حفظ كجمهور…",
+      "quick": {
+        "school": "المدرسة بالكامل",
+        "parents": "جميع أولياء الأمور",
+        "staff": "جميع الموظفين"
+      },
+      "saveDialog": {
+        "title": "حفظ الجمهور",
+        "name": "الاسم",
+        "namePlaceholder": "مثلاً: أولياء الأمور المتأخرون في السداد",
+        "nameRequired": "الاسم مطلوب.",
+        "description": "الوصف (اختياري)",
+        "descriptionPlaceholder": "ما الذي يمثّله هذا الجمهور",
+        "cancel": "إلغاء",
+        "save": "حفظ",
+        "success": "تم حفظ الجمهور.",
+        "error": "تعذّر حفظ الجمهور."
+      }
     },
     "fallback": {
       "title": "التصعيد التلقائي للإشعارات",

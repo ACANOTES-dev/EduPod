@@ -37,6 +37,9 @@ export const INBOX_DISPATCH_CHANNELS_JOB = 'inbox:dispatch-channels';
 /** BullMQ job name for the safeguarding keyword scan (Wave 3 impl 08). */
 export const SAFEGUARDING_SCAN_MESSAGE_JOB = 'safeguarding:scan-message';
 
+/** BullMQ job name for the per-tenant fallback escalation scan (Wave 3 impl 07). */
+export const INBOX_FALLBACK_SCAN_TENANT_JOB = 'inbox:fallback-scan-tenant';
+
 export interface DispatchChannelsPayload {
   tenant_id: string;
   conversation_id: string;
@@ -139,5 +142,38 @@ export class InboxOutboxService {
           `[outbox] failed to enqueue ${SAFEGUARDING_SCAN_MESSAGE_JOB} for message ${payload.message_id}: ${message}`,
         );
       });
+  }
+
+  /**
+   * Admin-triggered test scan. Bypasses the 5-minute cron and runs the
+   * per-tenant fallback scanner immediately. Used by the impl 15
+   * "Test fallback now" button on the `/settings/communications/fallback`
+   * page. The controller gates this behind the `INBOX_ALLOW_TEST_FALLBACK`
+   * env flag + `inbox.settings.write` permission — this method itself is
+   * trust-the-caller. Logs the enqueue as an error-logged side effect so
+   * ops can see an admin exercised it.
+   */
+  async enqueueFallbackTestScan(tenantId: string): Promise<void> {
+    try {
+      await this.notificationsQueue.add(
+        INBOX_FALLBACK_SCAN_TENANT_JOB,
+        { tenant_id: tenantId },
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 2_000 },
+          removeOnComplete: 50,
+          removeOnFail: 100,
+        },
+      );
+      this.logger.log(
+        `[outbox] admin-triggered ${INBOX_FALLBACK_SCAN_TENANT_JOB} for tenant ${tenantId}`,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.error(
+        `[outbox] failed to enqueue test ${INBOX_FALLBACK_SCAN_TENANT_JOB} for tenant ${tenantId}: ${message}`,
+      );
+      throw err;
+    }
   }
 }

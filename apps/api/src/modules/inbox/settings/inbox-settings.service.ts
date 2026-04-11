@@ -14,6 +14,9 @@ import {
   buildMatrixKey,
 } from '../policy/tenant-messaging-policy.repository';
 
+/**
+ * Settings surface for the inbox — reads (wave 2) and writes (wave 4 impl 13).
+ */
 export type PolicyMatrixDict = Record<MessagingRole, Record<MessagingRole, boolean>>;
 
 export interface TenantInboxSettingsRow {
@@ -70,11 +73,17 @@ export class InboxSettingsService {
     return row;
   }
 
+  /**
+   * PATCH the tenant `tenant_settings_inbox` row with any subset of the
+   * fields in `UpdateInboxSettingsDto`. Runs inside an RLS-scoped
+   * interactive transaction.
+   */
   async updateInboxSettings(
     tenantId: string,
     dto: UpdateInboxSettingsDto,
   ): Promise<TenantInboxSettingsRow> {
     await this.getInboxSettings(tenantId);
+
     const updated = await createRlsClient(this.prisma, { tenant_id: tenantId }).$transaction(
       async (tx) => {
         const db = tx as unknown as PrismaService;
@@ -84,9 +93,15 @@ export class InboxSettingsService {
         });
       },
     );
+
     return updated;
   }
 
+  /**
+   * Upsert a batch of policy-matrix cells in one interactive RLS
+   * transaction. Invalidates the tenant policy cache after the write so
+   * the next `canStartConversation` check reads the fresh matrix.
+   */
   async updatePolicyMatrix(
     tenantId: string,
     dto: UpdateMessagingPolicyDto,
@@ -112,6 +127,7 @@ export class InboxSettingsService {
         });
       }
     });
+
     this.policyRepository.invalidate(tenantId);
     return this.getPolicyMatrix(tenantId);
   }

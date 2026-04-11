@@ -312,15 +312,23 @@ export const hubConfigs: HubConfig[] = [
     // there is intentionally no sub-strip config for `operations` — the
     // dashboard itself is the navigation surface.
     labelKey: 'nav.operations',
+    basePaths: ['/operations', '/admissions', '/approvals', '/scheduling', '/rooms', '/engagement'],
+    roles: STAFF_ROLES,
+  },
+  {
+    // Communications hub: inbox, audiences, oversight, announcements,
+    // and the admin-tier comms settings (messaging policy, safeguarding
+    // keywords, fallback). Listed BEFORE `settings` so the more-specific
+    // `/settings/messaging-policy` and `/settings/communications/*`
+    // basePaths match here first (first-match wins in the layout's
+    // activeHub detection).
+    key: 'communications',
+    labelKey: 'nav.communicationsHub',
     basePaths: [
-      '/operations',
-      '/admissions',
-      '/communications',
       '/inbox',
-      '/approvals',
-      '/scheduling',
-      '/rooms',
-      '/engagement',
+      '/communications',
+      '/settings/messaging-policy',
+      '/settings/communications',
     ],
     roles: STAFF_ROLES,
   },
@@ -456,6 +464,34 @@ export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
     { labelKey: 'nav.feeAssignments', href: '/finance/fee-assignments', overflow: true },
   ],
   reports: [],
+  communications: [
+    { labelKey: 'nav.inboxHub', href: '/inbox' },
+    { labelKey: 'nav.inboxAudiences', href: '/inbox/audiences' },
+    { labelKey: 'nav.announcements', href: '/communications', roles: ADMIN_ROLES },
+    {
+      labelKey: 'nav.inboxOversight',
+      href: '/inbox/oversight',
+      roles: ADMIN_ROLES,
+    },
+    {
+      labelKey: 'nav.safeguardingKeywords',
+      href: '/settings/communications/safeguarding',
+      roles: ADMIN_ROLES,
+      overflow: true,
+    },
+    {
+      labelKey: 'nav.messagingPolicyNav',
+      href: '/settings/messaging-policy',
+      roles: ADMIN_ROLES,
+      overflow: true,
+    },
+    {
+      labelKey: 'nav.communicationsFallback',
+      href: '/settings/communications/fallback',
+      roles: ADMIN_ROLES,
+      overflow: true,
+    },
+  ],
   regulatory: [
     { labelKey: 'nav.regulatoryDashboard', href: '/regulatory' },
     { labelKey: 'nav.regulatoryTusla', href: '/regulatory/tusla' },
@@ -471,12 +507,6 @@ export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
     { labelKey: 'nav.generalSettings', href: '/settings' },
     { labelKey: 'nav.behaviourSettings', href: '/behaviour/settings', overflow: true },
     { labelKey: 'nav.roles', href: '/settings/roles' },
-    {
-      labelKey: 'nav.safeguardingKeywords',
-      href: '/settings/communications/safeguarding',
-      overflow: true,
-      roles: ADMIN_ROLES,
-    },
     { labelKey: 'nav.closures', href: '/closures', overflow: true },
     { labelKey: 'nav.website', href: '/website', overflow: true },
   ],

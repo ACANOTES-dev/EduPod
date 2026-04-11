@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2, Search, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type { InboxPeopleSearchResult } from '@school/shared/inbox';
@@ -42,6 +43,7 @@ type Props = SingleProps | MultiProps;
 const DEBOUNCE_MS = 200;
 
 export function PeoplePicker(props: Props) {
+  const t = useTranslations();
   const [query, setQuery] = React.useState('');
   const [results, setResults] = React.useState<InboxPeopleSearchResult[]>([]);
   const [isOpen, setIsOpen] = React.useState(false);
@@ -167,7 +169,7 @@ export function PeoplePicker(props: Props) {
               <span className="text-xs">{u.display_name}</span>
               <button
                 type="button"
-                aria-label={`Remove ${u.display_name}`}
+                aria-label={t('inbox.peoplePicker.removeRecipient', { name: u.display_name })}
                 onClick={() => removeUser(u.user_id)}
                 className="rounded-full p-0.5 hover:bg-background/40"
               >
@@ -192,7 +194,7 @@ export function PeoplePicker(props: Props) {
             window.setTimeout(() => setIsOpen(false), 150);
           }}
           onKeyDown={onKeyDown}
-          placeholder={props.placeholder}
+          placeholder={props.placeholder ?? t('inbox.peoplePicker.placeholder')}
           disabled={props.disabled}
           className="ps-9"
           autoComplete="off"
@@ -206,10 +208,10 @@ export function PeoplePicker(props: Props) {
           {isLoading && visibleResults.length === 0 ? (
             <div className="flex items-center gap-2 p-3 text-sm text-text-tertiary">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Searching…
+              {t('inbox.peoplePicker.searching')}
             </div>
           ) : visibleResults.length === 0 ? (
-            <div className="p-3 text-sm text-text-tertiary">No users match.</div>
+            <div className="p-3 text-sm text-text-tertiary">{t('inbox.peoplePicker.empty')}</div>
           ) : (
             <ul className="max-h-64 overflow-y-auto">
               {visibleResults.map((user, idx) => (

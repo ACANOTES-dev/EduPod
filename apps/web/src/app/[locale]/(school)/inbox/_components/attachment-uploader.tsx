@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertCircle, FileText, Loader2, Paperclip, UploadCloud, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -36,6 +37,7 @@ type PendingUpload = {
 };
 
 export function AttachmentUploader({ value, onChange, disabled }: Props) {
+  const t = useTranslations();
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [pending, setPending] = React.useState<PendingUpload[]>([]);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -50,7 +52,7 @@ export function AttachmentUploader({ value, onChange, disabled }: Props) {
       const currentCount = value.length + pending.filter((p) => p.state === 'uploading').length;
       const remaining = MAX_ATTACHMENTS_PER_MESSAGE - currentCount;
       if (remaining <= 0) {
-        toast.error(`You can attach at most ${MAX_ATTACHMENTS_PER_MESSAGE} files per message.`);
+        toast.error(t('inbox.attachmentUploader.tooMany', { max: MAX_ATTACHMENTS_PER_MESSAGE }));
         return;
       }
       const accepted = list.slice(0, remaining);
@@ -58,11 +60,13 @@ export function AttachmentUploader({ value, onChange, disabled }: Props) {
       for (const file of accepted) {
         const localId = `${file.name}-${file.size}-${Date.now()}-${Math.random()}`;
         if (!isAllowedMime(file.type)) {
-          toast.error(`"${file.name}" — file type "${file.type}" is not allowed.`);
+          toast.error(
+            t('inbox.attachmentUploader.disallowedType', { filename: file.name, mime: file.type }),
+          );
           continue;
         }
         if (file.size > MAX_ATTACHMENT_BYTES) {
-          toast.error(`"${file.name}" exceeds the 25 MB limit.`);
+          toast.error(t('inbox.attachmentUploader.tooLarge', { filename: file.name }));
           continue;
         }
         setPending((prev) => [
@@ -75,7 +79,7 @@ export function AttachmentUploader({ value, onChange, disabled }: Props) {
           setPending((prev) => prev.filter((p) => p.id !== localId));
         } catch (err) {
           console.error('[attachment-uploader.upload]', err);
-          const message = err instanceof Error ? err.message : 'Upload failed';
+          const message = err instanceof Error ? err.message : t('inbox.attachmentUploader.error');
           toast.error(`"${file.name}" — ${message}`);
           setPending((prev) =>
             prev.map((p) => (p.id === localId ? { ...p, state: 'error', error: message } : p)),
@@ -83,7 +87,7 @@ export function AttachmentUploader({ value, onChange, disabled }: Props) {
         }
       }
     },
-    [value, onChange, pending, disabled],
+    [value, onChange, pending, disabled, t],
   );
 
   const removeExisting = (storageKey: string) => {
@@ -119,7 +123,7 @@ export function AttachmentUploader({ value, onChange, disabled }: Props) {
         <div className="flex items-center gap-2 text-text-tertiary">
           <UploadCloud className="h-4 w-4" />
           <span>
-            Drag files here, or click to browse ·{' '}
+            {t('inbox.attachmentUploader.dropHint')} ·{' '}
             <span className="text-text-secondary">
               {effectiveCount}/{MAX_ATTACHMENTS_PER_MESSAGE}
             </span>
@@ -133,7 +137,7 @@ export function AttachmentUploader({ value, onChange, disabled }: Props) {
           onClick={() => inputRef.current?.click()}
         >
           <Paperclip className="me-1 h-4 w-4" />
-          Add files
+          {t('inbox.attachmentUploader.addFiles')}
         </Button>
         <input
           ref={inputRef}
@@ -159,7 +163,7 @@ export function AttachmentUploader({ value, onChange, disabled }: Props) {
               <span className="text-xs text-text-tertiary">{formatBytes(att.size_bytes)}</span>
               <button
                 type="button"
-                aria-label={`Remove ${att.filename}`}
+                aria-label={t('inbox.attachmentUploader.removeAria', { filename: att.filename })}
                 onClick={() => removeExisting(att.storage_key)}
                 className="rounded p-1 text-text-tertiary hover:bg-background/40"
               >
@@ -184,11 +188,13 @@ export function AttachmentUploader({ value, onChange, disabled }: Props) {
               )}
               <span className="flex-1 truncate">{p.filename}</span>
               <span className="text-xs text-text-tertiary">
-                {p.state === 'error' ? (p.error ?? 'Upload failed') : 'Uploading…'}
+                {p.state === 'error'
+                  ? (p.error ?? t('inbox.attachmentUploader.error'))
+                  : t('inbox.attachmentUploader.uploading')}
               </span>
               <button
                 type="button"
-                aria-label={`Cancel ${p.filename}`}
+                aria-label={t('inbox.attachmentUploader.cancelAria', { filename: p.filename })}
                 onClick={() => removePending(p.id)}
                 className="rounded p-1 text-text-tertiary hover:bg-background/40"
               >

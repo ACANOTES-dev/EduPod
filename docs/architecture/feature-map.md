@@ -2,7 +2,7 @@
 
 > **Purpose**: Complete inventory of every implemented feature, mapped to its code location. This document answers "what does the product do and where does it live?"
 > **Maintenance**: Update only when a feature change is confirmed final. This file is intended to be the architecture-level source of truth for product scope.
-> **Last verified**: 2026-04-06
+> **Last verified**: 2026-04-11
 
 ---
 
@@ -47,7 +47,8 @@
 | [Child Protection](#35-child-protection)                            | `modules/child-protection/`                                                                                                                                                                                                               | 12            | —              | —           |
 | [Regulatory](#36-regulatory)                                        | `modules/regulatory/`                                                                                                                                                                                                                     | 48            | 25             | —           |
 | [Staff Wellbeing](#37-staff-wellbeing)                              | `modules/staff-wellbeing/`                                                                                                                                                                                                                | 24            | 7              | —           |
-| **TOTAL**                                                           | **37 product domains across 50+ active modules**                                                                                                                                                                                          | **~1,375+**   | **~310+**      | **70+**     |
+| [Inbox & Messaging](#38-inbox--messaging)                           | `modules/inbox/`                                                                                                                                                                                                                          | 34            | 10             | 5           |
+| **TOTAL**                                                           | **38 product domains across 51+ active modules**                                                                                                                                                                                          | **~1,409+**   | **~320+**      | **75+**     |
 
 ---
 
@@ -406,7 +407,7 @@
 
 ## 14. Communications & Announcements
 
-**What it does**: Multi-channel messaging and announcement publishing with audience targeting, templates, approvals, delivery tracking, inboxes, retries, webhooks, and notification fan-out.
+**What it does**: Multi-channel messaging and announcement publishing with audience targeting, templates, approvals, delivery tracking, retries, webhooks, and notification fan-out. As of the 2026-04-11 inbox rebuild, every outbound message is **additionally** fanned into the new first-class in-app inbox (see §38) as its always-on default channel. SMS / Email / WhatsApp remain opt-in escalations.
 
 **Backend**: `apps/api/src/modules/communications/`
 
@@ -416,6 +417,7 @@
 - Delivery and failure tracking
 - Webhook handlers
 - Audience resolution and template rendering
+- Inbox channel bridge (impl 06 — forwards every fan-out into `ConversationsService`)
 
 **Frontend**:
 
@@ -437,7 +439,7 @@
 - `notifications:parent-daily-digest`
 - `notifications:dispatch-queued`
 
-**Depends on**: Approvals, GDPR consent, attendance, gradebook, pastoral, engagement, parent inquiries.
+**Depends on**: Approvals, GDPR consent, attendance, gradebook, pastoral, engagement, parent inquiries, **inbox** (as default channel).
 
 ---
 
@@ -1105,3 +1107,84 @@
 - `/wellbeing/surveys/[id]`
 
 **Depends on**: Payroll, scheduling, attendance, communications, audit and anonymity controls.
+
+---
+
+## 38. Inbox & Messaging
+
+**What it does**: First-class in-app messaging — the always-on default channel for every outbound fan-out. Supports three conversation kinds (direct / group / broadcast), a tenant-configurable 9×9 role permission matrix, smart audiences (static + dynamic with AND/OR/NOT providers like `fees_in_arrears`), read receipts (sender-only, one-way visibility rule), editable / deletable messages with full audit, attachments, admin oversight with freeze + PDF export, safeguarding keyword scanner, notification fallback to SMS / Email / WhatsApp, and full-text search. Shipped 2026-04-11 via the 16-implementation `new-inbox/` rebuild.
+
+**Backend**: `apps/api/src/modules/inbox/`
+
+- `conversations/` — `ConversationsService` + `MessagesService` for direct, group, and broadcast threads (create / reply / edit / delete / freeze / unfreeze)
+- `policy/` — `MessagingPolicyService` (single chokepoint for `canStartConversation` / `canReplyToConversation`), `RelationalScopeResolver` (hard-coded privacy invariants — teacher ↔ parent via taught classes), `RoleMappingService`, `TenantMessagingPolicyRepository` (per-tenant 5-minute cache)
+- `audience/` — `AudienceProviderRegistry` (process-wide singleton), 13 registered providers (`school`, `parents_school`, `staff_all`, `staff_by_role`, `year_group_parents`, `class_parents`, `section_parents`, `year_group_students`, `class_students`, `event_attendees`, `trip_roster`, `handpicked`, `saved_group`), `AudienceComposer` (AND/OR/NOT with cycle detection), `AudienceResolutionService`, `SavedAudiencesService` + `SavedAudiencesRepository`
+- `oversight/` — `InboxOversightService` (tenant-wide read, freeze / unfreeze, flag review, PDF export, audit log)
+- `settings/` — `InboxSettingsService` + `InboxSettingsController` for the matrix / kill switches / edit window / retention / fallback config
+- `safeguarding/` — keyword CRUD + bulk import + scanner trigger (scanner processor lives in worker)
+- `search/` — full-text search backed by `messages.body_search` generated `tsvector` GIN-indexed column (raw SQL inside RLS middleware — the one exception permitted by schema)
+- `common/inbox-outbox.service.ts` — the enqueue-after-commit layer for `inbox:dispatch-channels`, `safeguarding:scan-message`, and (new in impl 16) `inbox:fallback-scan-tenant` debug enqueue
+- Cross-module providers: `FeesInArrearsProvider` (lives in `FinanceModule`, resolves households → parents); `EventAttendeesProvider` + `TripRosterProvider` (placeholders in `EventsModule`/`TripsModule` stubs)
+- Bridge into `CommunicationsModule` dispatcher: every outbound fan-out calls `ConversationsService.createConversation` / `sendMessage` so the inbox is always delivered
+
+**API Endpoints** (prefixed `v1/inbox/`):
+
+- Conversations: `GET /conversations`, `POST /conversations`, `GET /conversations/:id`, `POST /conversations/:id/messages`, `PATCH /conversations/:id/messages/:mid`, `DELETE /conversations/:id/messages/:mid`, `POST /conversations/:id/read`, `GET /conversations/:id/read-receipts`, `GET /state`
+- Search: `GET /search`
+- People picker: `GET /people-search`
+- Attachments: `POST /attachments`
+- Audiences: `GET /audiences`, `POST /audiences`, `GET /audiences/:id`, `PUT /audiences/:id`, `DELETE /audiences/:id`, `POST /audiences/preview`, `POST /audiences/:id/resolve`, `GET /audiences/providers`
+- Settings: `GET /settings/policy`, `GET /settings/inbox`, `PUT /settings/inbox`, `PUT /settings/policy`, `POST /settings/policy/reset`, `POST /settings/fallback/test` (impl 16 debug endpoint, env-flag gated)
+- Oversight: `GET /oversight/conversations`, `GET /oversight/conversations/:id`, `GET /oversight/flags`, `POST /oversight/flags/:id/dismiss`, `POST /oversight/flags/:id/escalate`, `POST /oversight/conversations/:id/freeze`, `POST /oversight/conversations/:id/unfreeze`, `POST /oversight/conversations/:id/export`, `GET /oversight/audit-log`
+- Safeguarding keywords: `GET /safeguarding/keywords`, `POST /safeguarding/keywords`, `PATCH /safeguarding/keywords/:id`, `DELETE /safeguarding/keywords/:id`, `POST /safeguarding/keywords/bulk-import`
+- **34 endpoints total**
+
+**Frontend**: `apps/web/src/app/[locale]/(school)/inbox/` and `settings/communications/*` / `settings/messaging-policy/`
+
+- `/inbox` — sidebar + thread list + empty state
+- `/inbox/threads/[id]` — thread view with reply composer, read receipts, frozen banner
+- `/inbox/search?q=…` — full-text search results with snippet highlighting
+- `/inbox/audiences` — saved audiences manager (list, filter, search, duplicate, delete)
+- `/inbox/audiences/new` + `/inbox/audiences/[id]` — react-hook-form audience editor with live preview + people picker + chip builder
+- `/inbox/oversight` — tabbed dashboard (Conversations / Flags / Audit log), required audit-log banner
+- `/inbox/oversight/threads/[id]` — read-only thread view with freeze / unfreeze / export / flag-review toolbar
+- `/settings/messaging-policy` — 9×9 matrix + global kill switches + edit window + retention + confirmation modals
+- `/settings/communications/safeguarding` — keyword list / edit / bulk-import / toggle
+- `/settings/communications/fallback` — per-sender-class fallback window and channel routing
+- Morph bar: `InboxBadge` (envelope + unread pill) on every school-facing page, powered by `InboxPollingProvider` at the school-shell layout
+- Morph bar hub: dedicated `communications` hub with sub-strip tabs Inbox / Audiences / Announcements / Oversight (+ overflow: Safeguarding keywords, Messaging Policy, Fallback)
+- Dashboard: `SafeguardingAlertsWidget` (polls every 60s, shows pending flags, never renders message bodies)
+- Compose surface: `ComposeDialog` launched from the sidebar Compose button or the `c` keyboard shortcut — three tabs (Direct / Group / Broadcast) + `PeoplePicker` + `AudiencePicker` + `ChannelSelector` + `AttachmentUploader`
+- **10 distinct pages**
+
+**Worker jobs**:
+
+- `inbox:dispatch-channels` (notifications queue) — fan-out to extra channels after every message commit
+- `inbox:fallback-check` (notifications queue, cron every 5 minutes) — cross-tenant scan, enqueues one `inbox:fallback-scan-tenant` per tenant with `fallback_enabled = true`
+- `inbox:fallback-scan-tenant` (notifications queue) — per-tenant fallback escalation for unread messages past the configured window
+- `safeguarding:scan-message` (safeguarding queue) — keyword matcher per inbound message; creates `message_flags` rows on matches
+- `safeguarding:notify-reviewers` (safeguarding queue) — severity-routed notification to admin-tier reviewers after a flag is created
+- **5 new jobs**
+
+**Permissions** (seeded by `InboxPermissionsInit` at boot):
+
+- `inbox.read` — seen by everyone (parents / students included, per inbox-always-on invariant)
+- `inbox.send` — staff roles; governs the people-picker surface and send rate
+- `inbox.oversight.read` — admin tier (owner / principal / vice principal)
+- `inbox.settings.read` — admin tier
+- `inbox.settings.write` — admin tier (gates matrix edits, fallback config, keyword CRUD, fallback-test debug endpoint)
+
+**Tables** (14 new, all tenant-scoped with `FORCE ROW LEVEL SECURITY` + `tenant_isolation` policy):
+
+- `conversations`, `conversation_participants`, `messages`, `message_reads`, `message_edits`, `message_attachments`
+- `broadcast_audience_definitions`, `broadcast_audience_snapshots`, `saved_audiences`
+- `tenant_messaging_policy`, `tenant_settings_inbox`
+- `safeguarding_keywords`, `message_flags`, `oversight_access_log`
+
+**State machines**: `ConversationLifecycle` (active → frozen → unfrozen → archived) and `MessageFlagReviewState` (pending → dismissed / escalated / frozen) — see `docs/architecture/state-machines.md`.
+
+**Danger zones**: `DZ-Inbox-1` (inbox must remain default channel in every dispatch path), `DZ-Inbox-2` (tenant policy matrix cached 5 min), `DZ-Inbox-3` (broadcast replies spawn new direct conversations) — see `docs/architecture/danger-zones.md`.
+
+**Tenant feature reference**: `docs/features/inbox.md`.
+
+**Depends on**: Rbac (role resolution), Finance (`FeesInArrearsProvider`), Safeguarding (downstream handoff), Communications (dispatcher bridge), Pdf rendering (oversight exports), Notifications queue.
