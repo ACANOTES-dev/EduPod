@@ -17,6 +17,7 @@ export const QUEUE_NAMES = {
   PDF_RENDERING: 'pdf-rendering',
   REGULATORY: 'regulatory',
   REPORTS: 'reports',
+  SAFEGUARDING: 'safeguarding',
   SCHEDULING: 'scheduling',
   SEARCH_SYNC: 'search-sync',
   SECURITY: 'security',

@@ -14,3 +14,20 @@ export type CreateSafeguardingKeywordDto = z.infer<typeof createSafeguardingKeyw
 export const updateSafeguardingKeywordSchema = createSafeguardingKeywordSchema.partial();
 
 export type UpdateSafeguardingKeywordDto = z.infer<typeof updateSafeguardingKeywordSchema>;
+
+export const setSafeguardingKeywordActiveSchema = z.object({
+  active: z.boolean(),
+});
+
+export type SetSafeguardingKeywordActiveDto = z.infer<typeof setSafeguardingKeywordActiveSchema>;
+
+export const bulkImportSafeguardingKeywordsSchema = z.object({
+  keywords: z
+    .array(createSafeguardingKeywordSchema)
+    .min(1, 'At least one keyword is required')
+    .max(2000, 'Bulk imports are capped at 2000 keywords per request'),
+});
+
+export type BulkImportSafeguardingKeywordsDto = z.infer<
+  typeof bulkImportSafeguardingKeywordsSchema
+>;

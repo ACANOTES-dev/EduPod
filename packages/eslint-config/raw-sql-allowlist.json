@@ -360,6 +360,18 @@
       "methods": ["$executeRaw", "$queryRaw"],
       "category": "rls-infrastructure",
       "reason": "Cross-tenant discovery scan ($queryRaw) for expired conditional approvals, plus per-tenant RLS context setting via set_config ($executeRaw) inside each revert/promotion transaction"
+    },
+    {
+      "file": "apps/worker/src/processors/safeguarding/message-scan.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template. New-inbox impl 08 safeguarding keyword scanner."
+    },
+    {
+      "file": "apps/worker/src/processors/safeguarding/notify-reviewers.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template. New-inbox impl 08 safeguarding reviewer notifier."
     }
   ]
 }
