@@ -108,24 +108,24 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                | Wave | Depends on             | Status        | Completed at     | Commit SHA |
-| --- | ---------------------------------------------------- | ---- | ---------------------- | ------------- | ---------------- | ---------- |
-| 01  | Schema foundation                                    | 1    | —                      | `completed`   | 2026-04-11 06:55 | 2a8e307c   |
-| 02  | Messaging policy engine                              | 2    | 01                     | `completed`   | 2026-04-11 07:29 | 18672264   |
-| 03  | Audience engine v2                                   | 2    | 01                     | `completed`   | 2026-04-11 09:37 | f7e6d823   |
-| 04  | Conversations + messages service                     | 2    | 01                     | `completed`   | 2026-04-11 11:01 | 6be890d6   |
-| 05  | Admin oversight service                              | 2    | 01                     | `completed`   | 2026-04-11 09:36 | 0eeb8930   |
-| 06  | Inbox channel provider in dispatcher                 | 3    | 01, 04                 | `completed`   | 2026-04-11 11:45 | b11a3b02   |
-| 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `completed`   | 2026-04-11 11:26 | 3362bc12   |
-| 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `completed`   | 2026-04-11 11:46 | 565d35b1   |
-| 09  | Full-text search                                     | 3    | 01, 04                 | `completed`   | 2026-04-11 11:25 | 9b77fd16   |
-| 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `completed`   | 2026-04-11 12:36 | a099ca57   |
-| 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `completed`   | 2026-04-11 13:02 | 4e0b8f6a   |
-| 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `completed`   | 2026-04-11 12:30 | 96ea1875   |
-| 13  | Messaging policy settings page                       | 4    | 01, 02                 | `completed`   | 2026-04-11 13:15 | b37c9f1c   |
-| 14  | Safeguarding settings + dashboard alerts widget      | 4    | 01, 08                 | `completed`   | 2026-04-11 12:14 | 40fc7201   |
-| 15  | Admin oversight UI + fallback settings               | 4    | 01, 05, 07             | `in-progress` | —                | —          |
-| 16  | Polish, translations, mobile pass, morph bar wire-up | 5    | 10–15                  | `pending`     | —                | —          |
+| #   | Title                                                | Wave | Depends on             | Status      | Completed at     | Commit SHA |
+| --- | ---------------------------------------------------- | ---- | ---------------------- | ----------- | ---------------- | ---------- |
+| 01  | Schema foundation                                    | 1    | —                      | `completed` | 2026-04-11 06:55 | 2a8e307c   |
+| 02  | Messaging policy engine                              | 2    | 01                     | `completed` | 2026-04-11 07:29 | 18672264   |
+| 03  | Audience engine v2                                   | 2    | 01                     | `completed` | 2026-04-11 09:37 | f7e6d823   |
+| 04  | Conversations + messages service                     | 2    | 01                     | `completed` | 2026-04-11 11:01 | 6be890d6   |
+| 05  | Admin oversight service                              | 2    | 01                     | `completed` | 2026-04-11 09:36 | 0eeb8930   |
+| 06  | Inbox channel provider in dispatcher                 | 3    | 01, 04                 | `completed` | 2026-04-11 11:45 | b11a3b02   |
+| 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `completed` | 2026-04-11 11:26 | 3362bc12   |
+| 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `completed` | 2026-04-11 11:46 | 565d35b1   |
+| 09  | Full-text search                                     | 3    | 01, 04                 | `completed` | 2026-04-11 11:25 | 9b77fd16   |
+| 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `completed` | 2026-04-11 12:36 | a099ca57   |
+| 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `completed` | 2026-04-11 13:02 | 4e0b8f6a   |
+| 12  | Saved audiences manager UI                           | 4    | 01, 03                 | `completed` | 2026-04-11 12:30 | 96ea1875   |
+| 13  | Messaging policy settings page                       | 4    | 01, 02                 | `completed` | 2026-04-11 13:15 | b37c9f1c   |
+| 14  | Safeguarding settings + dashboard alerts widget      | 4    | 01, 08                 | `completed` | 2026-04-11 12:14 | 40fc7201   |
+| 15  | Admin oversight UI + fallback settings               | 4    | 01, 05, 07             | `completed` | 2026-04-11 13:22 | 151c774c   |
+| 16  | Polish, translations, mobile pass, morph bar wire-up | 5    | 10–15                  | `pending`   | —                | —          |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -1056,3 +1056,82 @@ inbox`, `PUT /v1/inbox/settings/policy`, and `POST /v1/inbox/
 settings/policy/reset` all return 401 `UNAUTHORIZED` (routes
   registered, auth + permission guards active); `/en/settings/
 messaging-policy` on nhqs returns 200.
+
+### [IMPL 15] — Admin oversight UI + fallback settings
+
+- **Completed:** 2026-04-11T13:22+01:00 Europe/Dublin
+- **Commit:** `151c774c` (local `21cf9990`)
+- **Deployed to production:** yes (web rebuild + `pm2 restart web`)
+- **Summary (≤ 200 words):**
+  Landed three admin-facing frontend surfaces under
+  `apps/web/src/app/[locale]/(school)/`:
+  - `inbox/oversight/page.tsx` — tabbed dashboard
+    (Conversations / Flags / Audit log) backed by impl 05's
+    `/v1/inbox/oversight/{conversations,flags,audit-log}` reads.
+    Flag actions (dismiss, escalate, freeze) are inline with
+    required-notes modals. Escalate toast surfaces the presigned
+    PDF `export_url` as a clickable Download PDF action.
+  - `inbox/oversight/threads/[id]/page.tsx` — read-only thread view
+    with freeze / unfreeze / export-to-PDF action toolbar, frozen
+    banner, strikethrough tombstones for deleted messages, and
+    expandable `message_edits` history. No composer — admins read
+    but never write into threads they aren't a participant of.
+  - `settings/communications/fallback/page.tsx` — react-hook-form
+    - zod form driving the six `tenant_settings_inbox` fallback
+      fields through impl 13's `PUT /v1/inbox/settings/inbox`.
+      Per-source Test-fallback buttons wired to the backend debug
+      endpoint.
+
+  Shared components under `inbox/oversight/_components/`:
+  `oversight-banner.tsx` (amber audit-log reminder, required on
+  every oversight surface), `freeze-dialog.tsx` (freeze confirmation
+  with required reason), `flag-review-modal.tsx` (notes-required
+  dismiss/escalate), `oversight-types.ts` (ISO-string response
+  shapes mirroring the API service types).
+
+- **Follow-ups:**
+  - The `POST /v1/inbox/settings/fallback/test` debug endpoint is
+    **not yet implemented on the API**. Impl 15 was going to land
+    it on `InboxSettingsController` but parallel wave-4 sessions
+    repeatedly clobbered my edits to `inbox-settings.controller.ts`
+    (shared with impl 13). I dropped the backend endpoint from my
+    commit rather than racing impl 13. The frontend "Test fallback
+    now" button currently hits a 404 and surfaces the resulting
+    `toast.error` gracefully. A follow-up should add the endpoint
+    (gated by `inbox.settings.write` + `AdminTierOnlyGuard` +
+    `INBOX_ALLOW_TEST_FALLBACK=true` env flag) and enqueue
+    `inbox:fallback-scan-tenant` on the `notifications` queue.
+    Impl 16 (polish) is a reasonable home.
+  - Impl 16 still owns morph-bar / sub-strip wire-up for the new
+    routes. The oversight page is currently only reachable by
+    deep link.
+  - The oversight thread detail endpoint does not return
+    message-level flag data — impl 15's thread view echoes the
+    `?flag=<id>` query param in a banner so reviewers know the
+    thread was opened in flag-review context, but it cannot
+    scroll-focus the flagged message yet. A schema follow-up would
+    expose `messages[].flag_id` / `.matched_keywords` for an
+    in-thread highlight.
+  - The StatusBadge `variant="outline"` isn't a supported badge
+    variant in `@school/ui`; I used `variant="secondary"` for the
+    oversight dashboard badges. Original impl spec wording
+    suggested outline, but the component does not offer one.
+- **Session notes:** Wave 4 coordination pain. Parallel sessions
+  (impls 10, 11, 12, 13, 14) repeatedly stomped the working tree
+  — `apps/web/src/app/[locale]/(school)/inbox/oversight/` and
+  `.../settings/communications/fallback/` disappeared between
+  Write and `git add` on the first two commit attempts (likely
+  `git clean` or `git reset --hard` from a neighbouring session).
+  Recovered by re-creating files and running stage+commit in a
+  single atomic bash block. Translation keys (`inbox.oversight.*`
+  - `inbox.fallback.*`) were absorbed into impl 10's
+    translation-restore commit (`320a081b`) before I reached commit
+    time, so my commit contained frontend code only.
+    Deploy flow: commit `21cf9990` → patch → `scp` → `git am` on
+    prod (prod SHA `151c774c`) → `rm -rf apps/web/.next` → `pnpm
+  turbo run build --filter=@school/web` (3m0s, 1 cached) → `pm2
+  restart web`. Smoke tests on `nhqs.edupod.app` (via
+    `edupod.app` host header): `/en/login` 200, `/en/inbox/
+oversight` 200 (rendered the Oversight heading + loading
+    skeletons in the HTML), `/en/inbox/oversight/threads/<uuid>`
+    200, `/en/settings/communications/fallback` 200.
