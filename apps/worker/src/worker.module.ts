@@ -77,6 +77,9 @@ import { HomeworkOverdueDetectionProcessor } from './processors/homework/overdue
 import { ImportFileCleanupProcessor } from './processors/imports/import-file-cleanup.processor';
 import { ImportProcessingProcessor } from './processors/imports/import-processing.processor';
 import { ImportValidationProcessor } from './processors/imports/import-validation.processor';
+import { InboxFallbackCheckProcessor } from './processors/inbox/inbox-fallback-check.processor';
+import { InboxFallbackScanTenantProcessor } from './processors/inbox/inbox-fallback-scan-tenant.processor';
+import { InboxFallbackTemplatesInit } from './processors/inbox/inbox-fallback-templates.init';
 import { CanaryProcessor } from './processors/monitoring/canary.processor';
 import { DlqMonitorProcessor } from './processors/monitoring/dlq-monitor.processor';
 import { DispatchQueuedProcessor } from './processors/notifications/dispatch-queued.processor';
@@ -430,6 +433,10 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     ImportValidationProcessor,
     ImportProcessingProcessor,
     ImportFileCleanupProcessor,
+    // Inbox fallback (Wave 3 impl 07) — cron + per-tenant scan on notifications queue
+    InboxFallbackCheckProcessor,
+    InboxFallbackScanTenantProcessor,
+    InboxFallbackTemplatesInit,
     // Compliance processors
     ComplianceExecutionProcessor,
     DeadlineCheckProcessor,

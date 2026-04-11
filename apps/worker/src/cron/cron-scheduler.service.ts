@@ -37,6 +37,7 @@ import { HOMEWORK_DIGEST_JOB } from '../processors/homework/digest-homework.proc
 import { HOMEWORK_GENERATE_RECURRING_JOB } from '../processors/homework/generate-recurring.processor';
 import { HOMEWORK_OVERDUE_DETECTION_JOB } from '../processors/homework/overdue-detection.processor';
 import { IMPORT_FILE_CLEANUP_JOB } from '../processors/imports/import-file-cleanup.processor';
+import { INBOX_FALLBACK_CHECK_JOB } from '../processors/inbox/inbox-fallback-check.processor';
 import { DLQ_MONITOR_JOB } from '../processors/monitoring/dlq-monitor.processor';
 import { DISPATCH_QUEUED_JOB } from '../processors/notifications/dispatch-queued.processor';
 import { PARENT_DAILY_DIGEST_JOB } from '../processors/notifications/parent-daily-digest.processor';
@@ -92,6 +93,7 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerEngagementCronJobs();
     await this.registerPastoralCronJobs();
     await this.registerAdmissionsCronJobs();
+    await this.registerInboxCronJobs();
     await this.registerMonitoringCronJobs();
     await this.registerCanaryCronJobs();
   }
@@ -729,6 +731,33 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${ADMISSIONS_PAYMENT_EXPIRY_JOB} (every 15 min)`);
+  }
+
+  private async registerInboxCronJobs(): Promise<void> {
+    // ── inbox:fallback-check ───────────────────────────────────────────────
+    // Runs every 15 minutes. Cross-tenant — no tenant_id in payload.
+    // Fans out one `inbox:fallback-scan-tenant` job per tenant that has
+    // inbox messaging enabled and at least one fallback bucket active.
+    // Each per-tenant scan finds unread staff-originated messages older
+    // than the tenant's configured threshold and materialises external
+    // channel notification rows (email / SMS / WhatsApp) for the unread
+    // recipients, then stamps `messages.fallback_dispatched_at` so the
+    // same message never escalates twice.
+    //
+    // 15-minute cadence is the granularity floor — a 3-hour teacher SLA
+    // sees messages escalated 3h00–3h15 after send. Reducing the cadence
+    // would swamp the notifications queue once many tenants are onboarded.
+    await this.notificationsQueue.add(
+      INBOX_FALLBACK_CHECK_JOB,
+      {},
+      {
+        repeat: { pattern: '*/15 * * * *' },
+        jobId: `cron:${INBOX_FALLBACK_CHECK_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${INBOX_FALLBACK_CHECK_JOB} (every 15 min)`);
   }
 
   private async registerMonitoringCronJobs(): Promise<void> {

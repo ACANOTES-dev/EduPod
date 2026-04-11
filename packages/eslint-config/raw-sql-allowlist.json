@@ -254,6 +254,12 @@
       "reason": "RLS context-setting via set_config() within transaction — tagged template"
     },
     {
+      "file": "apps/worker/src/processors/inbox/inbox-fallback-scan-tenant.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template"
+    },
+    {
       "file": "apps/worker/src/processors/scheduling-stale-reaper.processor.ts",
       "methods": ["$executeRaw"],
       "category": "rls-infrastructure",
