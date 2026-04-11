@@ -30,6 +30,17 @@ Default role assignments: `school_owner`, `school_principal`, `school_vice_princ
 
 See `docs/architecture/module-blast-radius.md` (AdmissionsModule entry) for imports/exports and cross-module hooks, `docs/architecture/state-machines.md` (ApplicationStatus section) for the full state graph, and `docs/architecture/event-job-catalog.md` (admissions queues + notifications jobs) for the job flows.
 
+## Household numbers & sibling flow
+
+- Every household gets a stable 6-character identifier (e.g. `XYZ476`) at creation.
+- Student numbers are derived from the household number (`XYZ476-01`, `XYZ476-02`), making sibling relationships obvious at a glance.
+- The public apply form supports new families (with full household detail) and existing families (via household-number + parent-email lookup).
+- Multiple children can be added in one submission — each becomes its own Application row linked to a shared `submission_batch_id`.
+- Sibling applications get priority on the waiting list: auto-promotion runs tiered FIFO, picking siblings first before non-siblings.
+- Hard cap: 99 students per household.
+
+See `household-numbers/PLAN.md` for the full design.
+
 ## Tenant settings
 
 Under `tenant.settings.admissions`:
