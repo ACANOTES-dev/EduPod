@@ -324,9 +324,13 @@ export const hubConfigs: HubConfig[] = [
     // activeHub detection).
     key: 'communications',
     labelKey: 'nav.communicationsHub',
+    // /communications is FIRST so clicking the hub pill in the morph bar
+    // always lands on the dashboard, not on /inbox. The other entries are
+    // still here for active-hub detection when the user is deep inside
+    // inbox / audiences / oversight / the admin-tier comms settings.
     basePaths: [
-      '/inbox',
       '/communications',
+      '/inbox',
       '/settings/messaging-policy',
       '/settings/communications',
     ],
