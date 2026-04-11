@@ -107,6 +107,7 @@ function FieldRenderer({
   readOnly?: boolean;
 }) {
   const tCommon = useTranslations('common');
+  const t = useTranslations('admissions');
   const stringVal = value != null ? String(value) : '';
 
   switch (field.field_type) {
@@ -276,11 +277,15 @@ function FieldRenderer({
         >
           <div className="flex items-center gap-2">
             <RadioGroupItem value="yes" id={`field-${field.field_key}-yes`} />
-            <Label htmlFor={`field-${field.field_key}-yes`} className="text-sm">{tCommon('yes')}</Label>
+            <Label htmlFor={`field-${field.field_key}-yes`} className="text-sm">
+              {tCommon('yes')}
+            </Label>
           </div>
           <div className="flex items-center gap-2">
             <RadioGroupItem value="no" id={`field-${field.field_key}-no`} />
-            <Label htmlFor={`field-${field.field_key}-no`} className="text-sm">{tCommon('no')}</Label>
+            <Label htmlFor={`field-${field.field_key}-no`} className="text-sm">
+              {tCommon('no')}
+            </Label>
           </div>
         </RadioGroup>
       );
