@@ -140,6 +140,36 @@
       "reason": "Aggregate query within RLS transaction for admissions statistics"
     },
     {
+      "file": "apps/api/src/modules/admissions/admissions-auto-promotion.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "select-for-update",
+      "reason": "SELECT FOR UPDATE and FOR UPDATE SKIP LOCKED within RLS transaction for FIFO waiting-list promotion concurrency control"
+    },
+    {
+      "file": "apps/api/src/modules/admissions/admissions-capacity.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "aggregate-query",
+      "reason": "Capacity aggregation query within RLS transaction for class-capacity, enrolled-count, and conditional-approval availability calculation"
+    },
+    {
+      "file": "apps/api/src/modules/admissions/admissions-payment.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "select-for-update",
+      "reason": "SELECT FOR UPDATE within RLS transaction for conditional-approval payment recording lock"
+    },
+    {
+      "file": "apps/api/src/modules/admissions/application-conversion.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "select-for-update",
+      "reason": "SELECT FOR UPDATE within RLS transaction to serialize application-to-student conversion"
+    },
+    {
+      "file": "apps/api/src/modules/admissions/application-state-machine.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "select-for-update",
+      "reason": "SELECT FOR UPDATE within RLS transaction for admissions state-transition and capacity concurrency guards"
+    },
+    {
       "file": "apps/api/src/modules/behaviour/behaviour-student-analytics.service.ts",
       "methods": ["$queryRaw"],
       "category": "aggregate-query",

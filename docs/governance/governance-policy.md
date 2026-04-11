@@ -70,3 +70,20 @@ When a health-risk change closes, the closing note should identify:
 - docs updated
 - rollback or containment path confirmed
 - any remaining suggestion-level follow-up
+
+## Active tradeoffs
+
+### 2026-04-11 - Temporary Next.js GHSA-q4gf-8mx6-v5v3 audit exception
+
+- what was deferred or weakened
+  - The `audit:security` gate now ignores `GHSA-q4gf-8mx6-v5v3` for the current `next@14.2.x` line instead of forcing an immediate upgrade to the patched `15.5.15+` major.
+- why it could not be completed now
+  - The repo is carrying 100+ local commits that need to be pushed and verified tonight. A same-session Next major upgrade would materially increase regression risk across the App Router frontend, visual smoke coverage, and deployment path.
+- what compensating control exists in the meantime
+  - The app already uses the existing explicit Next.js audit exception process, this new exception is documented in version control, the rest of the fast security gate remains enforced, and the transitive `basic-ftp` high-severity finding is being patched rather than ignored.
+- owner
+  - Ram
+- expiry date
+  - 2026-05-31
+- exact follow-up backlog item
+  - `AUD-029` in `docs/governance/recovery-backlog.md`

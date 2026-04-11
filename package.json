@@ -81,7 +81,7 @@
   },
   "pnpm": {
     "overrides": {
-      "basic-ftp": "5.2.1",
+      "basic-ftp": "5.2.2",
       "defu": ">=6.1.5",
       "webpack": ">=5.104.0",
       "zod": "3.25.76"
@@ -127,7 +127,8 @@
   },
   "securityAudit": {
     "ignoredGhsaIds": [
-      "GHSA-h25m-26qc-wcjf"
+      "GHSA-h25m-26qc-wcjf",
+      "GHSA-q4gf-8mx6-v5v3"
     ]
   }
 }

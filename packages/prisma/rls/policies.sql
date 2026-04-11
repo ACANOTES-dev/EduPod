@@ -518,6 +518,14 @@ CREATE POLICY report_comment_windows_tenant_isolation ON report_comment_windows
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
 
+-- report_comment_window_homerooms (standard)
+ALTER TABLE report_comment_window_homerooms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE report_comment_window_homerooms FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS report_comment_window_homerooms_tenant_isolation ON report_comment_window_homerooms;
+CREATE POLICY report_comment_window_homerooms_tenant_isolation ON report_comment_window_homerooms
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
 -- report_card_subject_comments (standard)
 ALTER TABLE report_card_subject_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_card_subject_comments FORCE ROW LEVEL SECURITY;
