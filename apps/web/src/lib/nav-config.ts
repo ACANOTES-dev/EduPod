@@ -452,21 +452,9 @@ export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
   ],
   // Operations intentionally has no sub-strip — the /operations dashboard
   // page is the navigation surface for this hub (six cards → six sub-pages).
-  finance: [
-    { labelKey: 'nav.financeOverview', href: '/finance' },
-    { labelKey: 'nav.feeStructures', href: '/finance/fee-structures' },
-    { labelKey: 'nav.invoices', href: '/finance/invoices' },
-    { labelKey: 'nav.payments', href: '/finance/payments' },
-    { labelKey: 'nav.credits', href: '/finance/credit-notes' },
-    { labelKey: 'nav.refunds', href: '/finance/refunds' },
-    { labelKey: 'nav.paymentPlans', href: '/finance/payment-plans' },
-    { labelKey: 'nav.statements', href: '/finance/statements' },
-    { labelKey: 'nav.financeReports', href: '/finance/reports' },
-    { labelKey: 'nav.audit', href: '/finance/audit', overflow: true },
-    { labelKey: 'nav.scholarships', href: '/finance/scholarships', overflow: true },
-    { labelKey: 'nav.discounts', href: '/finance/discounts', overflow: true },
-    { labelKey: 'nav.feeAssignments', href: '/finance/fee-assignments', overflow: true },
-  ],
+  // Finance intentionally has no sub-strip — the /finance dashboard is the
+  // master control center with categorised navigation cards for all sub-pages.
+  finance: [],
   reports: [],
   // The communications hub intentionally has no sub-strip tabs — the
   // `/communications` dashboard is the entire hub navigation. All inbox

@@ -4094,6 +4094,23 @@
     "descPaymentPlans": "Review payment plan requests",
     "descReports": "Financial reports and analytics",
     "descAuditTrail": "Track all financial actions",
+    "viewFullBreakdown": "View Full Breakdown",
+    "debtBreakdown": {
+      "title": "Household Debt Breakdown",
+      "description": "Filter and view households by outstanding debt percentage",
+      "allBuckets": "All",
+      "bucket0to10": "0–10%",
+      "bucket10to30": "10–30%",
+      "bucket30to50": "30–50%",
+      "bucket50plus": "50%+",
+      "colHousehold": "Household",
+      "colTotalBilled": "Total Billed",
+      "colOutstanding": "Outstanding",
+      "colPctOwed": "% Owed",
+      "colInvoices": "Invoices",
+      "noResults": "No households in this debt range.",
+      "print": "Print"
+    },
     "saving": "Saving...",
     "reports": {
       "title": "Financial Reports",

@@ -263,4 +263,76 @@ export class FinanceDashboardService {
       draft_invoices: invoiceStatusCounts.draft ?? 0,
     };
   }
+
+  // ─── Debt Breakdown Detail ──────────────────────────────────────────────────
+
+  async getDebtBreakdown(tenantId: string, bucket?: string) {
+    const invoices = await this.prisma.invoice.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: { notIn: ['void', 'cancelled'] },
+      },
+      select: {
+        household_id: true,
+        total_amount: true,
+        balance_amount: true,
+        household: { select: { id: true, household_name: true } },
+      },
+    });
+
+    const householdMap = new Map<
+      string,
+      { name: string; total: number; balance: number; invoiceCount: number }
+    >();
+    for (const inv of invoices) {
+      const existing = householdMap.get(inv.household_id) ?? {
+        name: inv.household.household_name,
+        total: 0,
+        balance: 0,
+        invoiceCount: 0,
+      };
+      existing.total += Number(inv.total_amount);
+      existing.balance += Number(inv.balance_amount);
+      existing.invoiceCount++;
+      householdMap.set(inv.household_id, existing);
+    }
+
+    const rows: Array<{
+      household_id: string;
+      household_name: string;
+      total_billed: number;
+      outstanding: number;
+      pct_owed: number;
+      invoice_count: number;
+      bucket: string;
+    }> = [];
+
+    for (const [householdId, data] of householdMap) {
+      if (data.total <= 0) continue;
+      const pctOwed = roundMoney((data.balance / data.total) * 100);
+      if (pctOwed <= 0) continue;
+
+      let bucketLabel: string;
+      if (pctOwed <= 10) bucketLabel = '0_10';
+      else if (pctOwed <= 30) bucketLabel = '10_30';
+      else if (pctOwed <= 50) bucketLabel = '30_50';
+      else bucketLabel = '50_plus';
+
+      if (bucket && bucket !== bucketLabel) continue;
+
+      rows.push({
+        household_id: householdId,
+        household_name: data.name,
+        total_billed: roundMoney(data.total),
+        outstanding: roundMoney(data.balance),
+        pct_owed: pctOwed,
+        invoice_count: data.invoiceCount,
+        bucket: bucketLabel,
+      });
+    }
+
+    rows.sort((a, b) => b.pct_owed - a.pct_owed);
+
+    return { data: rows };
+  }
 }

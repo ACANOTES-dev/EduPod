@@ -4086,6 +4086,23 @@
     "descPaymentPlans": "مراجعة طلبات خطط الدفع",
     "descReports": "التقارير والتحليلات المالية",
     "descAuditTrail": "تتبع جميع الإجراءات المالية",
+    "viewFullBreakdown": "عرض التفاصيل الكاملة",
+    "debtBreakdown": {
+      "title": "تفصيل ديون الأسر",
+      "description": "تصفية وعرض الأسر حسب نسبة الديون المستحقة",
+      "allBuckets": "الكل",
+      "bucket0to10": "٠–١٠٪",
+      "bucket10to30": "١٠–٣٠٪",
+      "bucket30to50": "٣٠–٥٠٪",
+      "bucket50plus": "٥٠٪+",
+      "colHousehold": "الأسرة",
+      "colTotalBilled": "إجمالي الفواتير",
+      "colOutstanding": "المستحق",
+      "colPctOwed": "٪ المستحق",
+      "colInvoices": "الفواتير",
+      "noResults": "لا توجد أسر في هذا النطاق.",
+      "print": "طباعة"
+    },
     "saving": "جارٍ الحفظ...",
     "reports": {
       "title": "التقارير المالية",

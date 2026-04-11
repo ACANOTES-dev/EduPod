@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 
 import type { TenantContext } from '@school/shared';
 
@@ -14,9 +14,17 @@ import { FinanceDashboardService } from './finance-dashboard.service';
 export class FinanceDashboardController {
   constructor(private readonly dashboardService: FinanceDashboardService) {}
 
+  // GET /v1/finance/dashboard
   @Get()
   @RequiresPermission('finance.view')
   async getDashboard(@CurrentTenant() tenant: TenantContext) {
     return this.dashboardService.getDashboardData(tenant.tenant_id);
+  }
+
+  // GET /v1/finance/dashboard/debt-breakdown?bucket=10_30
+  @Get('debt-breakdown')
+  @RequiresPermission('finance.view')
+  async getDebtBreakdown(@CurrentTenant() tenant: TenantContext, @Query('bucket') bucket?: string) {
+    return this.dashboardService.getDebtBreakdown(tenant.tenant_id, bucket);
   }
 }

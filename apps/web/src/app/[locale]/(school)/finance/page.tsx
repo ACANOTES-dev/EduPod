@@ -26,7 +26,6 @@ import {
   InvoicePipeline,
   OverdueInvoices,
   PendingActionsBanner,
-  TopDebtors,
   formatCurrency,
 } from './_components/dashboard-sections';
 import { PaymentStatusBadge } from './_components/payment-status-badge';
@@ -114,73 +113,167 @@ function QuickAction({
 
 // ─── Household Debt Breakdown ────────────────────────────────────────────────
 
+const DEBT_BUCKETS = [
+  {
+    key: 'pct_0_10',
+    labelKey: 'debt0to10',
+    filterValue: '0_10',
+    color: 'bg-success-400',
+    textColor: 'text-success-700',
+    bgLight: 'bg-success-50',
+  },
+  {
+    key: 'pct_10_30',
+    labelKey: 'debt10to30',
+    filterValue: '10_30',
+    color: 'bg-warning-400',
+    textColor: 'text-warning-700',
+    bgLight: 'bg-warning-50',
+  },
+  {
+    key: 'pct_30_50',
+    labelKey: 'debt30to50',
+    filterValue: '30_50',
+    color: 'bg-warning-600',
+    textColor: 'text-warning-800',
+    bgLight: 'bg-warning-50',
+  },
+  {
+    key: 'pct_50_plus',
+    labelKey: 'debt50plus',
+    filterValue: '50_plus',
+    color: 'bg-danger-500',
+    textColor: 'text-danger-700',
+    bgLight: 'bg-danger-50',
+  },
+] as const;
+
 function HouseholdDebtBreakdown({
   breakdown,
+  topDebtors,
 }: {
   breakdown: FinanceDashboardData['household_debt_breakdown'];
+  topDebtors: FinanceDashboardData['top_debtors'];
 }) {
   const t = useTranslations('finance');
+  const locale = useLocale();
   const total =
     breakdown.pct_0_10 + breakdown.pct_10_30 + breakdown.pct_30_50 + breakdown.pct_50_plus;
-  const buckets = [
-    { key: 'pct_0_10', label: t('debt0to10'), count: breakdown.pct_0_10, color: 'bg-success-400' },
-    {
-      key: 'pct_10_30',
-      label: t('debt10to30'),
-      count: breakdown.pct_10_30,
-      color: 'bg-warning-400',
-    },
-    {
-      key: 'pct_30_50',
-      label: t('debt30to50'),
-      count: breakdown.pct_30_50,
-      color: 'bg-warning-600',
-    },
-    {
-      key: 'pct_50_plus',
-      label: t('debt50plus'),
-      count: breakdown.pct_50_plus,
-      color: 'bg-danger-500',
-    },
-  ];
+  const counts: Record<string, number> = {
+    pct_0_10: breakdown.pct_0_10,
+    pct_10_30: breakdown.pct_10_30,
+    pct_30_50: breakdown.pct_30_50,
+    pct_50_plus: breakdown.pct_50_plus,
+  };
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-text-primary">{t('householdDebtBreakdown')}</h3>
-        <span className="text-sm font-mono text-text-secondary">
-          {total} {t('householdsTotal')}
-        </span>
+      {/* Header */}
+      <div className="mb-5 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-text-primary">{t('householdDebtBreakdown')}</h3>
+          <p className="mt-0.5 text-xs text-text-tertiary">
+            {total} {t('householdsTotal')}
+          </p>
+        </div>
+        <Link
+          href={`/${locale}/finance/debt-breakdown`}
+          className="flex items-center gap-1.5 rounded-lg bg-surface-secondary px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-surface-hover"
+        >
+          {t('viewFullBreakdown')}
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
       </div>
+
+      {/* Segmented bar */}
       {total > 0 && (
-        <div className="mb-4 flex h-3 overflow-hidden rounded-full bg-surface-secondary">
-          {buckets.map((bucket) => {
-            const pct = total > 0 ? (bucket.count / total) * 100 : 0;
+        <div className="mb-5 flex h-4 overflow-hidden rounded-full bg-surface-secondary">
+          {DEBT_BUCKETS.map((bucket) => {
+            const count = counts[bucket.key] ?? 0;
+            const pct = total > 0 ? (count / total) * 100 : 0;
             if (pct === 0) return null;
             return (
-              <div
+              <Link
                 key={bucket.key}
-                className={`${bucket.color} transition-all`}
+                href={`/${locale}/finance/debt-breakdown?bucket=${bucket.filterValue}`}
+                className={`${bucket.color} transition-all hover:brightness-110`}
                 style={{ width: `${pct}%` }}
-                title={`${bucket.label}: ${bucket.count}`}
+                title={`${t(bucket.labelKey)}: ${count}`}
               />
             );
           })}
         </div>
       )}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {buckets.map((bucket) => (
-          <div key={bucket.key} className="flex items-center gap-2">
-            <div className={`h-3 w-3 shrink-0 rounded-full ${bucket.color}`} />
-            <div>
-              <p className="text-xs text-text-tertiary">{bucket.label}</p>
-              <p className="text-sm font-semibold text-text-primary">
-                {bucket.count} {t('households')}
+
+      {/* Bucket cards — clickable, full-width grid */}
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {DEBT_BUCKETS.map((bucket) => {
+          const count = counts[bucket.key] ?? 0;
+          return (
+            <Link
+              key={bucket.key}
+              href={`/${locale}/finance/debt-breakdown?bucket=${bucket.filterValue}`}
+              className={`group rounded-xl border border-border p-3 transition-all hover:border-border-strong hover:shadow-sm ${count > 0 ? '' : 'opacity-50'}`}
+            >
+              <div className="flex items-center gap-2">
+                <div className={`h-3 w-3 shrink-0 rounded-full ${bucket.color}`} />
+                <span className="text-xs font-medium text-text-tertiary">{t(bucket.labelKey)}</span>
+              </div>
+              <p
+                className={`mt-1.5 text-2xl font-bold ${count > 0 ? bucket.textColor : 'text-text-tertiary'}`}
+              >
+                {count}
               </p>
-            </div>
-          </div>
-        ))}
+              <p className="text-[11px] text-text-tertiary">{t('households')}</p>
+            </Link>
+          );
+        })}
       </div>
+
+      {/* Top debtors preview */}
+      {topDebtors.length > 0 && (
+        <div className="border-t border-border pt-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+              {t('topDebtors')}
+            </h4>
+            <Link
+              href={`/${locale}/finance/debt-breakdown`}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              {t('viewAll')}
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {topDebtors.slice(0, 6).map((debtor, i) => (
+              <Link
+                key={debtor.household_id}
+                href={`/${locale}/finance/statements/${debtor.household_id}`}
+                className="flex items-center gap-3 rounded-lg border border-border p-2.5 transition-all hover:border-border-strong hover:shadow-sm"
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-danger-100 text-[10px] font-bold text-danger-700">
+                  {i + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-text-primary">
+                    {debtor.household_name}
+                  </p>
+                  <p className="text-[11px] text-text-tertiary">
+                    {debtor.invoice_count}{' '}
+                    {debtor.invoice_count === 1 ? t('invoice') : t('invoicesLabel')}
+                  </p>
+                </div>
+                <span
+                  className="shrink-0 font-mono text-sm font-semibold text-danger-600"
+                  dir="ltr"
+                >
+                  {formatCurrency(debtor.total_owed)}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -452,14 +545,14 @@ export default function FinanceDashboardPage() {
         <AgingOverview aging={data.aging_summary} />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <HouseholdDebtBreakdown breakdown={data.household_debt_breakdown} />
-        <TopDebtors debtors={data.top_debtors} />
-      </div>
+      <HouseholdDebtBreakdown
+        breakdown={data.household_debt_breakdown}
+        topDebtors={data.top_debtors}
+      />
 
       <OverdueInvoices invoices={data.overdue_invoices} />
-      <RecentPayments payments={data.recent_payments} />
       <FinanceNavigate />
+      <RecentPayments payments={data.recent_payments} />
     </div>
   );
 }
