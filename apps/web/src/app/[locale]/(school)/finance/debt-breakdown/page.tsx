@@ -21,6 +21,8 @@ interface DebtRow {
   pct_owed: number;
   invoice_count: number;
   bucket: string;
+  billing_parent_name: string | null;
+  billing_parent_phone: string | null;
 }
 
 type BucketFilter = 'all' | '0_10' | '10_30' | '30_50' | '50_plus';
@@ -68,6 +70,15 @@ export default function DebtBreakdownPage() {
   const [rows, setRows] = React.useState<DebtRow[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [activeBucket, setActiveBucket] = React.useState<BucketFilter>(initialBucket);
+
+  // Sync bucket from URL param when searchParams becomes available
+  React.useEffect(() => {
+    const urlBucket = searchParams?.get('bucket') as BucketFilter | null;
+    if (urlBucket && urlBucket !== activeBucket) {
+      setActiveBucket(urlBucket);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const fetchData = React.useCallback(async (bucket: BucketFilter) => {
     setIsLoading(true);
@@ -174,6 +185,12 @@ export default function DebtBreakdownPage() {
                 <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
                   {t('debtBreakdown.colHousehold')}
                 </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('debtBreakdown.colBillingParent')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('debtBreakdown.colPhone')}
+                </th>
                 <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
                   {t('debtBreakdown.colTotalBilled')}
                 </th>
@@ -199,6 +216,12 @@ export default function DebtBreakdownPage() {
                 >
                   <td className="px-4 py-3 text-sm font-medium text-text-primary">
                     {row.household_name}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">
+                    {row.billing_parent_name ?? '—'}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-mono text-text-secondary" dir="ltr">
+                    {row.billing_parent_phone ?? '—'}
                   </td>
                   <td
                     className="px-4 py-3 text-end font-mono text-sm text-text-secondary"

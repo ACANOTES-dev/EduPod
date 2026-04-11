@@ -4108,6 +4108,8 @@
       "colOutstanding": "Outstanding",
       "colPctOwed": "% Owed",
       "colInvoices": "Invoices",
+      "colBillingParent": "Billing Parent",
+      "colPhone": "Phone",
       "noResults": "No households in this debt range.",
       "print": "Print"
     },
@@ -4195,6 +4197,7 @@
       "namePlaceholder": "e.g. Academic Excellence Award",
       "student": "Student",
       "selectStudent": "Select a student",
+      "type": "Type",
       "discountType": "Discount Type",
       "typePercent": "Percentage",
       "typeFixed": "Fixed Amount",

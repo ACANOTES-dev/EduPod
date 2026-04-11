@@ -167,7 +167,7 @@ export default function FinanceAuditTrailPage() {
       header: t('auditTrail.reference'),
       render: (row: AuditLogEntry) => (
         <span className="font-mono text-xs text-text-secondary">
-          {row.reference ?? row.entity_id.slice(0, 8) + '…'}
+          {row.reference ?? (row.entity_id ? row.entity_id.slice(0, 8) + '…' : '—')}
         </span>
       ),
     },
@@ -219,9 +219,9 @@ export default function FinanceAuditTrailPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('auditTrail.allTypes')}</SelectItem>
-            <SelectItem value="invoice">{t('invoices.title')}</SelectItem>
-            <SelectItem value="payment">{t('payments.title')}</SelectItem>
-            <SelectItem value="refund">{t('refunds.title')}</SelectItem>
+            <SelectItem value="invoice">{t('invoices')}</SelectItem>
+            <SelectItem value="payment">{t('payments')}</SelectItem>
+            <SelectItem value="refund">{t('refunds')}</SelectItem>
             <SelectItem value="fee_structure">{t('feeStructures.title')}</SelectItem>
             <SelectItem value="discount">{t('discounts.title')}</SelectItem>
             <SelectItem value="fee_assignment">{t('feeAssignments.title')}</SelectItem>

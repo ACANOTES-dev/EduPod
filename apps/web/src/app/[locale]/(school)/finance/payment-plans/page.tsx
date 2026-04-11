@@ -19,7 +19,6 @@ import {
   toast,
 } from '@school/ui';
 
-
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
@@ -27,7 +26,6 @@ import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../_components/currency-display';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,7 +91,7 @@ export default function PaymentPlansPage() {
         status: statusFilter,
       });
       const res = await apiClient<{ data: PaymentPlanRequest[]; meta: { total: number } }>(
-        `/api/v1/finance/payment-plan-requests?${params.toString()}`,
+        `/api/v1/finance/payment-plans?${params.toString()}`,
       );
       setRequests(res.data);
       setTotal(res.meta.total);
@@ -117,7 +115,7 @@ export default function PaymentPlansPage() {
   async function handleApprove(req: PaymentPlanRequest) {
     setApproving(req.id);
     try {
-      await apiClient(`/api/v1/finance/payment-plan-requests/${req.id}/approve`, {
+      await apiClient(`/api/v1/finance/payment-plans/${req.id}/approve`, {
         method: 'POST',
       });
       toast.success(t('paymentPlans.approved'));
@@ -134,7 +132,7 @@ export default function PaymentPlansPage() {
     if (!rejectTarget) return;
     setRejecting(true);
     try {
-      await apiClient(`/api/v1/finance/payment-plan-requests/${rejectTarget.id}/reject`, {
+      await apiClient(`/api/v1/finance/payment-plans/${rejectTarget.id}/reject`, {
         method: 'POST',
         body: JSON.stringify({ admin_notes: rejectNote }),
       });
@@ -155,7 +153,7 @@ export default function PaymentPlansPage() {
     if (!counterTarget || counterInstallments.length === 0) return;
     setCountering(true);
     try {
-      await apiClient(`/api/v1/finance/payment-plan-requests/${counterTarget.id}/counter-offer`, {
+      await apiClient(`/api/v1/finance/payment-plans/${counterTarget.id}/counter-offer`, {
         method: 'POST',
         body: JSON.stringify({
           proposed_installments: counterInstallments,
@@ -212,7 +210,7 @@ export default function PaymentPlansPage() {
   const columns = [
     {
       key: 'invoice_number',
-      header: t('invoices.title'),
+      header: t('invoices'),
       render: (row: PaymentPlanRequest) => (
         <span className="font-mono text-xs text-text-secondary">{row.invoice_number}</span>
       ),

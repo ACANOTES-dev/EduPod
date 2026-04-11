@@ -101,30 +101,31 @@ export default function FinanceReportsPage() {
         const qs = params.toString() ? `?${params.toString()}` : '';
 
         if (tab === 'aging') {
-          const res = await apiClient<{ data: AgingBucket[] }>(
+          const res = await apiClient<Record<string, AgingBucket>>(
             `/api/v1/finance/reports/aging${qs}`,
           );
-          setAgingData(res.data);
+          // Backend returns { current, overdue_1_30, ... } — convert to array
+          setAgingData(Object.values(res));
         } else if (tab === 'revenue') {
-          const res = await apiClient<{ data: RevenuePoint[] }>(
-            `/api/v1/finance/reports/revenue${qs}`,
+          const raw = await apiClient<RevenuePoint[] | { data: RevenuePoint[] }>(
+            `/api/v1/finance/reports/revenue-by-period${qs}`,
           );
-          setRevenueData(res.data);
+          setRevenueData(Array.isArray(raw) ? raw : raw.data);
         } else if (tab === 'year_group') {
-          const res = await apiClient<{ data: YearGroupCollection[] }>(
+          const raw = await apiClient<YearGroupCollection[] | { data: YearGroupCollection[] }>(
             `/api/v1/finance/reports/collection-by-year-group${qs}`,
           );
-          setYearGroupData(res.data);
+          setYearGroupData(Array.isArray(raw) ? raw : raw.data);
         } else if (tab === 'payment_methods') {
-          const res = await apiClient<{ data: PaymentMethodBreakdown[] }>(
-            `/api/v1/finance/reports/payment-methods${qs}`,
-          );
-          setPaymentMethodData(res.data);
+          const raw = await apiClient<
+            PaymentMethodBreakdown[] | { data: PaymentMethodBreakdown[] }
+          >(`/api/v1/finance/reports/payment-methods${qs}`);
+          setPaymentMethodData(Array.isArray(raw) ? raw : raw.data);
         } else if (tab === 'fee_performance') {
-          const res = await apiClient<{ data: FeePerformanceRow[] }>(
-            `/api/v1/finance/reports/fee-performance${qs}`,
+          const raw = await apiClient<FeePerformanceRow[] | { data: FeePerformanceRow[] }>(
+            `/api/v1/finance/reports/fee-structure-performance${qs}`,
           );
-          setFeePerformanceData(res.data);
+          setFeePerformanceData(Array.isArray(raw) ? raw : raw.data);
         }
       } catch (err) {
         // Keep stale data

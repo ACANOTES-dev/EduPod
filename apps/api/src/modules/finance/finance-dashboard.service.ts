@@ -276,17 +276,35 @@ export class FinanceDashboardService {
         household_id: true,
         total_amount: true,
         balance_amount: true,
-        household: { select: { id: true, household_name: true } },
+        household: {
+          select: {
+            id: true,
+            household_name: true,
+            billing_parent: {
+              select: { first_name: true, last_name: true, phone: true },
+            },
+          },
+        },
       },
     });
 
     const householdMap = new Map<
       string,
-      { name: string; total: number; balance: number; invoiceCount: number }
+      {
+        name: string;
+        billing_parent_name: string | null;
+        billing_parent_phone: string | null;
+        total: number;
+        balance: number;
+        invoiceCount: number;
+      }
     >();
     for (const inv of invoices) {
+      const bp = inv.household.billing_parent;
       const existing = householdMap.get(inv.household_id) ?? {
         name: inv.household.household_name,
+        billing_parent_name: bp ? `${bp.first_name} ${bp.last_name}` : null,
+        billing_parent_phone: bp?.phone ?? null,
         total: 0,
         balance: 0,
         invoiceCount: 0,
@@ -300,6 +318,8 @@ export class FinanceDashboardService {
     const rows: Array<{
       household_id: string;
       household_name: string;
+      billing_parent_name: string | null;
+      billing_parent_phone: string | null;
       total_billed: number;
       outstanding: number;
       pct_owed: number;
@@ -323,6 +343,8 @@ export class FinanceDashboardService {
       rows.push({
         household_id: householdId,
         household_name: data.name,
+        billing_parent_name: data.billing_parent_name,
+        billing_parent_phone: data.billing_parent_phone,
         total_billed: roundMoney(data.total),
         outstanding: roundMoney(data.balance),
         pct_owed: pctOwed,

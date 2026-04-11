@@ -1,7 +1,7 @@
 'use client';
 
 import { Bell, Download, FileText, Search, Send, XCircle } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -19,7 +19,6 @@ import {
   toast,
 } from '@school/ui';
 
-
 import { DataTable } from '@/components/data-table';
 import { EntityLink } from '@/components/entity-link';
 import { PageHeader } from '@/components/page-header';
@@ -29,7 +28,6 @@ import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../_components/currency-display';
 import { InvoiceStatusBadge } from '../_components/invoice-status-badge';
-
 
 interface InvoiceHousehold {
   id: string;
@@ -64,6 +62,7 @@ const statusTabs: Array<{ value: string; label: string }> = [
 export default function InvoicesPage() {
   const t = useTranslations('finance');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { hasAnyRole } = useRoleCheck();
   const canManage = hasAnyRole('school_principal', 'accounting');
 
@@ -74,7 +73,7 @@ export default function InvoicesPage() {
   const pageSize = 20;
 
   const [search, setSearch] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState('all');
+  const [statusFilter, setStatusFilter] = React.useState(searchParams?.get('status') ?? 'all');
   const [householdFilter] = React.useState('');
   const [dateFrom, setDateFrom] = React.useState('');
   const [dateTo, setDateTo] = React.useState('');
@@ -370,7 +369,10 @@ export default function InvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('navInvoices')} description="View and manage invoices for all households" />
+      <PageHeader
+        title={t('navInvoices')}
+        description="View and manage invoices for all households"
+      />
 
       {!isLoading && invoices.length === 0 && !hasActiveFilters ? (
         <EmptyState
