@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { S3Module } from '../s3/s3.module';
 
+import { InboxAttachmentsController } from './attachments/inbox-attachments.controller';
 import { AudienceComposer } from './audience/audience-composer';
 import { AudienceProviderRegistry } from './audience/audience-provider.registry';
 import { AudienceResolutionService } from './audience/audience-resolution.service';
@@ -39,6 +40,8 @@ import { InboxOversightController } from './oversight/inbox-oversight.controller
 import { InboxOversightService } from './oversight/inbox-oversight.service';
 import { OversightAuditService } from './oversight/oversight-audit.service';
 import { OversightPdfService } from './oversight/oversight-pdf.service';
+import { InboxPeopleSearchController } from './people-search/people-search.controller';
+import { InboxPeopleSearchService } from './people-search/people-search.service';
 import { MessagingPolicyService } from './policy/messaging-policy.service';
 import { RelationalScopeResolver } from './policy/relational-scope.resolver';
 import { RoleMappingService } from './policy/role-mapping.service';
@@ -91,6 +94,8 @@ import { InboxSettingsService } from './settings/inbox-settings.service';
     InboxSettingsController,
     InboxOversightController,
     InboxSearchController,
+    InboxPeopleSearchController,
+    InboxAttachmentsController,
     SavedAudiencesController,
     ConversationsController,
     MessagesController,
@@ -112,6 +117,8 @@ import { InboxSettingsService } from './settings/inbox-settings.service';
     OversightPdfService,
     // Full-text search (impl 09)
     InboxSearchService,
+    // People search for compose dialog (impl 11)
+    InboxPeopleSearchService,
     // Conversations + messages (impl 04)
     AttachmentValidator,
     InboxOutboxService,

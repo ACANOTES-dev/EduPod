@@ -15,6 +15,7 @@
  * - Permission checks return the full role→permission chain for callers to evaluate.
  */
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -487,6 +488,61 @@ export class RbacReadFacade {
       where: { role_key: roleKey, tenant_id: null },
       select: { id: true, role_key: true },
     });
+  }
+
+  /**
+   * Search active tenant members by name or email for the inbox
+   * compose-dialog people picker. Returns up to `limit` rows, ordered
+   * lexicographically by `last_name, first_name`, excluding the sender.
+   * Used by `InboxPeopleSearchService` in Wave 4 (impl 11).
+   */
+  async searchActiveMembersByName(
+    tenantId: string,
+    opts: { senderUserId: string; query: string; limit: number },
+  ): Promise<
+    Array<{
+      user_id: string;
+      first_name: string;
+      last_name: string;
+      email: string;
+    }>
+  > {
+    const where: Prisma.TenantMembershipWhereInput = {
+      tenant_id: tenantId,
+      membership_status: 'active',
+      user_id: { not: opts.senderUserId },
+    };
+    const trimmed = opts.query.trim();
+    if (trimmed.length > 0) {
+      where.user = {
+        OR: [
+          { first_name: { contains: trimmed, mode: 'insensitive' } },
+          { last_name: { contains: trimmed, mode: 'insensitive' } },
+          { email: { contains: trimmed, mode: 'insensitive' } },
+        ],
+      };
+    }
+    const rows = await this.prisma.tenantMembership.findMany({
+      where,
+      take: opts.limit,
+      orderBy: [{ user: { last_name: 'asc' } }, { user: { first_name: 'asc' } }],
+      select: {
+        user_id: true,
+        user: {
+          select: {
+            first_name: true,
+            last_name: true,
+            email: true,
+          },
+        },
+      },
+    });
+    return rows.map((row) => ({
+      user_id: row.user_id,
+      first_name: row.user.first_name,
+      last_name: row.user.last_name,
+      email: row.user.email,
+    }));
   }
 
   /**

@@ -5,6 +5,7 @@ export * from './audience-provider-params.schema';
 export * from './create-conversation.schema';
 export * from './inbox-settings.schema';
 export * from './oversight.schema';
+export * from './people-search.schema';
 export * from './safeguarding-keyword.schema';
 export * from './saved-audience.schema';
 export * from './search.schema';
