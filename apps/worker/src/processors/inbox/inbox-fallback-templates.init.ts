@@ -1,5 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import type { NotificationChannel, PrismaClient } from '@prisma/client';
+import type { NotificationChannel, Prisma, PrismaClient } from '@prisma/client';
+
+import { SYSTEM_USER_SENTINEL } from '../../base/tenant-aware-job';
 
 /**
  * Seeds the platform-level `inbox_message_fallback` notification templates.
@@ -94,34 +96,48 @@ export class InboxFallbackTemplatesInit implements OnModuleInit {
   constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async onModuleInit(): Promise<void> {
+    // The `notification_templates` RLS policy evaluates
+    // `current_setting('app.current_tenant_id')::uuid` unconditionally,
+    // so we must seed inside a transaction with a valid tenant context
+    // even though our target rows are platform-level (tenant_id IS NULL).
+    // The sentinel UUID matches no real tenant row, keeping cross-tenant
+    // isolation intact while letting the `tenant_id IS NULL` branch of
+    // the OR fire.
     let created = 0;
+    await this.prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${SYSTEM_USER_SENTINEL}::text, true)`;
+        await tx.$executeRaw`SELECT set_config('app.current_user_id', ${SYSTEM_USER_SENTINEL}::text, true)`;
 
-    for (const seed of TEMPLATE_SEEDS) {
-      const existing = await this.prisma.notificationTemplate.findFirst({
-        where: {
-          tenant_id: null,
-          template_key: TEMPLATE_KEY,
-          channel: seed.channel,
-          locale: seed.locale,
-        },
-        select: { id: true },
-      });
+        for (const seed of TEMPLATE_SEEDS) {
+          const existing = await tx.notificationTemplate.findFirst({
+            where: {
+              tenant_id: null,
+              template_key: TEMPLATE_KEY,
+              channel: seed.channel,
+              locale: seed.locale,
+            },
+            select: { id: true },
+          });
 
-      if (existing) continue;
+          if (existing) continue;
 
-      await this.prisma.notificationTemplate.create({
-        data: {
-          tenant_id: null,
-          template_key: TEMPLATE_KEY,
-          channel: seed.channel,
-          locale: seed.locale,
-          subject_template: seed.subject_template,
-          body_template: seed.body_template,
-          is_system: true,
-        },
-      });
-      created += 1;
-    }
+          await tx.notificationTemplate.create({
+            data: {
+              tenant_id: null,
+              template_key: TEMPLATE_KEY,
+              channel: seed.channel,
+              locale: seed.locale,
+              subject_template: seed.subject_template,
+              body_template: seed.body_template,
+              is_system: true,
+            },
+          });
+          created += 1;
+        }
+      },
+      { maxWait: 10_000, timeout: 30_000 },
+    );
 
     if (created > 0) {
       this.logger.log(

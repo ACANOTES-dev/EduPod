@@ -260,6 +260,12 @@
       "reason": "RLS context-setting via set_config() within transaction — tagged template"
     },
     {
+      "file": "apps/worker/src/processors/inbox/inbox-fallback-templates.init.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "Platform-level notification_template seeding — RLS policy evaluates ::uuid cast unconditionally so the init must set a sentinel tenant context before querying"
+    },
+    {
       "file": "apps/worker/src/processors/scheduling-stale-reaper.processor.ts",
       "methods": ["$executeRaw"],
       "category": "rls-infrastructure",
