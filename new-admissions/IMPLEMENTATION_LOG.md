@@ -111,7 +111,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`     | —                              | —                                      |
 | 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `completed`   | 2026-04-11 00:15 Europe/Dublin | `f56d6768` (local) / `8ff0c5a2` (prod) |
 | 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `completed`   | 2026-04-11 00:55 Europe/Dublin | `459ad8ce` (local) / `bb1357de` (prod) |
-| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `in-progress` | —                              | —                                      |
+| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `completed`   | 2026-04-11 01:17 Europe/Dublin | `d40f091d` (local) / `790d7d98` (prod) |
 | 12  | Application detail rewrite         | 4    | 01, 03, 07         | `deploying`   | —                              | —                                      |
 | 13  | Form preview page                  | 4    | 01, 04             | `completed`   | 2026-04-11 00:45 Europe/Dublin | `fc0ea7a6` (local) / `f5563c1f` (prod) |
 | 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `in-progress` | —                              | —                                      |
@@ -620,3 +620,83 @@ started` at 23:50:29Z. `curl` against
   - Pre-existing `approval_requests.callback_status` column-drift
     error in prod logs is unrelated and was already flagged in impl
     09's session notes.
+
+### [IMPL 11] — Queue sub-pages
+
+- **Completed:** 2026-04-11T01:17:00+01:00 (Europe/Dublin)
+- **Commit:** `d40f091d` (local) / `790d7d98` (prod)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Built the four admissions queue sub-pages and the backend surface
+  they read. New service methods on `ApplicationsService`:
+  `getReadyToAdmitQueue` (groups by year group with
+  `AdmissionsCapacityService.getAvailableSeatsBatch`, FIFO within
+  group), `getWaitingListQueue` (splits rows into Waiting and
+  `awaiting_year_setup` sub-buckets with capacity for the Waiting
+  side only), `getConditionalApprovalQueue` (sorted by
+  `payment_deadline ASC`, computes `normal`/`near_expiry`/`overdue`
+  urgency server-side and returns near-expiry + overdue counts in
+  `meta`), `getRejectedArchive` (paginated, search by student/parent
+  name), and `manuallyPromote` (delegates to the state machine).
+  New routes on `ApplicationsController`:
+  `GET /v1/applications/queues/{ready-to-admit,waiting-list,conditional-approval,rejected}`
+  and `POST /v1/applications/:id/manual-promote`. State machine
+  grew a new `manuallyPromoteToReadyToAdmit(tenantId, id, {actingUserId, justification})`
+  method — row-locks the application, asserts `status=waiting_list`,
+  refuses `awaiting_year_setup`, re-checks capacity, writes a
+  justification-bearing internal note. Zod schemas
+  (`listRejectedApplicationsSchema`, `listConditionalApprovalQueueSchema`,
+  `manualPromoteApplicationSchema`) in `@school/shared`.
+  Frontend: four pages under `admissions/{ready-to-admit,waiting-list,
+conditional-approval,rejected}/page.tsx` plus shared components
+  in `admissions/_components/`: `queue-header`, `capacity-chip`,
+  `application-row`, `queue-types`, `reject-dialog`,
+  `manual-promote-dialog`, `payment-record-modal` (cash/bank/stripe
+  tabs, rejects amounts below expected), `force-approve-modal` (role
+  gated to `school_owner` / `school_principal` via `useRoleCheck`).
+  Full `admissionsQueues` i18n namespace added in en.json + ar.json.
+  6 new state-machine unit tests (happy path, capacity exhausted,
+  awaiting_year_setup refusal, justification length, invalid
+  status, not found) — all 31 state-machine tests + all 202
+  admissions tests green. Smoke tests on prod: all four queue
+  pages return 200 at `/en/admissions/*`; all four API routes
+  return 401 (auth guard live); Nest startup logs show
+  `Nest application successfully started` at 00:17:01Z.
+- **Follow-ups:**
+  - Deployment matrix in §3 lists impl 11 as "Web restart only" but
+    this implementation added new backend endpoints (queue reads +
+    manual-promote) so API was restarted too. Matrix should be
+    updated in impl 15 or a later docs sweep to reflect that impls
+    11 needed API + web.
+  - Impl 12 was `deploying` when I was ready to ship; its log row
+    did not flip to `completed` but production already had impl 12's
+    commit (`251a7846`) at HEAD with API + web restarted. I applied
+    my patch on top after confirming the prod restart cycle had
+    finished (API 26 s uptime, web 4 min uptime at the time of
+    check). Flagged: impl 12's log needs its completion record.
+  - `manualPromote` delegates through `ApplicationsService` to
+    `ApplicationStateMachineService.manuallyPromoteToReadyToAdmit`.
+    A future tool that wants a batch-manual-promote operation can
+    loop over this per application id — individual row locks make
+    the concurrency story simple.
+  - Conditional approval queue's `Copy Payment Link` button uses the
+    existing impl 06 `/payment-link/regenerate` endpoint. If impl 15
+    adds rate limiting to that endpoint, the copy button will need
+    a debounce.
+- **Session notes:**
+  - Wave 4 ran hot with 10/11/12/13/14 in the same worktree. Impl 10,
+    12, 13, 14 had already committed by the time I was ready to push,
+    so `git add` needed explicit file lists to avoid picking up
+    impl 14's public-tenants / tenant-resolution middleware work
+    that was still uncommitted in the tree.
+  - Prod patch was committed to local first, then `git format-patch`
+    against my SHA (`d40f091d`) directly rather than HEAD — HEAD had
+    moved by one commit (impl 10's log flip) between my commit and
+    my format-patch attempt.
+  - First `turbo run build --filter=@school/web` call returned a
+    spurious `middleware-manifest.json` MODULE_NOT_FOUND — a
+    parallel session had apparently cleared `.next` mid-build.
+    A direct `pnpm --filter @school/web build` with a manual
+    `rm -rf .next` succeeded. No code fix required.
+  - 401 smoke tests hit the `Host: nhqs.edupod.app` header trick to
+    bypass the dev / prod routing layer inside the API.
