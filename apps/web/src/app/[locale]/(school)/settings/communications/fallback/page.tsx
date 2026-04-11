@@ -10,7 +10,7 @@ import type { UpdateInboxSettingsDto } from '@school/shared/inbox';
 import { Button, Checkbox, Input, Label, Switch, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 // ─── Form schema ──────────────────────────────────────────────────────────────
 //
@@ -93,15 +93,22 @@ export default function FallbackSettingsPage() {
     const load = async () => {
       setIsLoading(true);
       try {
-        const row = await apiClient<InboxSettingsRow>('/api/v1/inbox/settings/inbox');
+        const response = await apiClient<InboxSettingsRow | { data: InboxSettingsRow }>(
+          '/api/v1/inbox/settings/inbox',
+        );
         if (cancelled) return;
+        const row = unwrap<InboxSettingsRow>(response);
         reset({
-          fallback_admin_enabled: row.fallback_admin_enabled,
-          fallback_admin_after_hours: row.fallback_admin_after_hours,
-          fallback_admin_channels: row.fallback_admin_channels,
-          fallback_teacher_enabled: row.fallback_teacher_enabled,
-          fallback_teacher_after_hours: row.fallback_teacher_after_hours,
-          fallback_teacher_channels: row.fallback_teacher_channels,
+          fallback_admin_enabled: row.fallback_admin_enabled ?? DEFAULTS.fallback_admin_enabled,
+          fallback_admin_after_hours:
+            row.fallback_admin_after_hours ?? DEFAULTS.fallback_admin_after_hours,
+          fallback_admin_channels: row.fallback_admin_channels ?? DEFAULTS.fallback_admin_channels,
+          fallback_teacher_enabled:
+            row.fallback_teacher_enabled ?? DEFAULTS.fallback_teacher_enabled,
+          fallback_teacher_after_hours:
+            row.fallback_teacher_after_hours ?? DEFAULTS.fallback_teacher_after_hours,
+          fallback_teacher_channels:
+            row.fallback_teacher_channels ?? DEFAULTS.fallback_teacher_channels,
         });
       } catch (err) {
         console.error('[FallbackSettingsPage.load]', err);
