@@ -9,6 +9,7 @@ import {
   ParentReadFacade,
   GdprReadFacade,
 } from '../../common/tests/mock-facades';
+import { HouseholdNumberService } from '../households/household-number.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { SequenceService } from '../sequence/sequence.service';
@@ -97,11 +98,13 @@ describe('StudentsService — create', () => {
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockRedis: ReturnType<typeof buildMockRedis>;
   let mockSequence: { nextNumber: jest.Mock };
+  let mockHouseholdNumber: { generateStudentNumber: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRedis = buildMockRedis();
     mockSequence = { nextNumber: jest.fn().mockResolvedValue('STU-000001') };
+    mockHouseholdNumber = { generateStudentNumber: jest.fn().mockResolvedValue('STU-000001') };
 
     mockRlsTx.student.create.mockReset().mockResolvedValue({
       ...baseStudent,
@@ -132,6 +135,7 @@ describe('StudentsService — create', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
+        { provide: HouseholdNumberService, useValue: mockHouseholdNumber },
         {
           provide: HouseholdReadFacade,
           useValue: { existsOrThrow: mockFacades.householdExistsOrThrow },
@@ -155,11 +159,10 @@ describe('StudentsService — create', () => {
   it('should create a student and generate a student number', async () => {
     await service.create(TENANT_ID, baseCreateDto);
 
-    expect(mockSequence.nextNumber).toHaveBeenCalledWith(
-      TENANT_ID,
-      'student',
+    expect(mockHouseholdNumber.generateStudentNumber).toHaveBeenCalledWith(
       expect.anything(),
-      'STU',
+      TENANT_ID,
+      HOUSEHOLD_ID,
     );
     expect(mockRlsTx.student.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -256,6 +259,10 @@ describe('StudentsService — findAll', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: HouseholdNumberService,
+          useValue: { generateStudentNumber: jest.fn().mockResolvedValue('STU-000001') },
+        },
       ],
     }).compile();
 
@@ -359,6 +366,10 @@ describe('StudentsService — allergyReport', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
         {
+          provide: HouseholdNumberService,
+          useValue: { generateStudentNumber: jest.fn().mockResolvedValue('STU-000001') },
+        },
+        {
           provide: GdprReadFacade,
           useValue: {
             findConsentRecordsWhere: jest.fn().mockResolvedValue([{ subject_id: 'student-1' }]),
@@ -403,6 +414,10 @@ describe('StudentsService — findOne', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: HouseholdNumberService,
+          useValue: { generateStudentNumber: jest.fn().mockResolvedValue('STU-000001') },
+        },
       ],
     }).compile();
 
@@ -454,6 +469,10 @@ describe('StudentsService — updateStatus (status machine)', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: HouseholdNumberService,
+          useValue: { generateStudentNumber: jest.fn().mockResolvedValue('STU-000001') },
+        },
       ],
     }).compile();
 
@@ -609,6 +628,10 @@ describe('StudentsService — update', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: HouseholdNumberService,
+          useValue: { generateStudentNumber: jest.fn().mockResolvedValue('STU-000001') },
+        },
         { provide: HouseholdReadFacade, useValue: mockHouseholdFacade },
         { provide: AcademicReadFacade, useValue: mockAcademicFacade },
         { provide: ClassesReadFacade, useValue: mockClassesFacade },
@@ -716,6 +739,10 @@ describe('StudentsService — preview', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: HouseholdNumberService,
+          useValue: { generateStudentNumber: jest.fn().mockResolvedValue('STU-000001') },
+        },
       ],
     }).compile();
 
@@ -845,6 +872,10 @@ describe('StudentsService — getExportData', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: HouseholdNumberService,
+          useValue: { generateStudentNumber: jest.fn().mockResolvedValue('STU-000001') },
+        },
       ],
     }).compile();
 
@@ -925,6 +956,10 @@ describe('StudentsService — exportPack', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: HouseholdNumberService,
+          useValue: { generateStudentNumber: jest.fn().mockResolvedValue('STU-000001') },
+        },
       ],
     }).compile();
 
@@ -982,6 +1017,10 @@ describe('StudentsService — updateStatus (re-enrolment transitions)', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: HouseholdNumberService,
+          useValue: { generateStudentNumber: jest.fn().mockResolvedValue('STU-000001') },
+        },
       ],
     }).compile();
 
@@ -1076,6 +1115,10 @@ describe('StudentsService — create (class_homeroom_id validation)', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
         {
+          provide: HouseholdNumberService,
+          useValue: { generateStudentNumber: jest.fn().mockResolvedValue('STU-000001') },
+        },
+        {
           provide: HouseholdReadFacade,
           useValue: { existsOrThrow: jest.fn().mockResolvedValue(undefined) },
         },
@@ -1145,6 +1188,10 @@ describe('StudentsService — findAll (household_id filter)', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: HouseholdNumberService,
+          useValue: { generateStudentNumber: jest.fn().mockResolvedValue('STU-000001') },
+        },
       ],
     }).compile();
 
@@ -1222,6 +1269,10 @@ describe('StudentsService — update (nullable field branches)', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: HouseholdNumberService,
+          useValue: { generateStudentNumber: jest.fn().mockResolvedValue('STU-000001') },
+        },
         {
           provide: HouseholdReadFacade,
           useValue: { existsOrThrow: jest.fn().mockResolvedValue(undefined) },
@@ -1442,6 +1493,10 @@ describe('StudentsService — allergyReport (filter branches)', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
         {
+          provide: HouseholdNumberService,
+          useValue: { generateStudentNumber: jest.fn().mockResolvedValue('STU-000001') },
+        },
+        {
           provide: GdprReadFacade,
           useValue: {
             findConsentRecordsWhere: jest.fn().mockResolvedValue([{ subject_id: 'student-1' }]),
@@ -1539,6 +1594,7 @@ describe('StudentsService — preview (secondary label edge cases)', () => {
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockRedis: ReturnType<typeof buildMockRedis>;
   let mockSequence: { nextNumber: jest.Mock };
+  let mockHouseholdNumber: { generateStudentNumber: jest.Mock };
 
   const studentPreviewBase = {
     id: STUDENT_ID,
@@ -1555,6 +1611,7 @@ describe('StudentsService — preview (secondary label edge cases)', () => {
     mockPrisma = buildMockPrisma();
     mockRedis = buildMockRedis();
     mockSequence = { nextNumber: jest.fn() };
+    mockHouseholdNumber = { generateStudentNumber: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -1563,6 +1620,7 @@ describe('StudentsService — preview (secondary label edge cases)', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
+        { provide: HouseholdNumberService, useValue: mockHouseholdNumber },
       ],
     }).compile();
 

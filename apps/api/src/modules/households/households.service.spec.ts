@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { SequenceService } from '../sequence/sequence.service';
 
+import { HouseholdNumberService } from './household-number.service';
 import { HouseholdsCrudService } from './households-crud.service';
 import { HouseholdsRelationsService } from './households-relations.service';
 import { HouseholdsStructuralService } from './households-structural.service';
@@ -81,6 +82,15 @@ function buildMockSequence() {
   return { generateHouseholdReference: jest.fn().mockResolvedValue('HH-REF-001') };
 }
 
+function buildMockHouseholdNumber() {
+  return {
+    generateUniqueForTenant: jest.fn().mockResolvedValue('ABC123'),
+    previewForTenant: jest.fn().mockResolvedValue('ABC123'),
+    incrementStudentCounter: jest.fn().mockResolvedValue(1),
+    generateStudentNumber: jest.fn().mockResolvedValue('ABC123-01'),
+  };
+}
+
 function resetAllMockRlsTx() {
   Object.values(mockRlsTx).forEach((model) => {
     if (typeof model === 'function') {
@@ -139,10 +149,12 @@ describe('HouseholdsService — create', () => {
   let service: HouseholdsService;
   let mockRedis: ReturnType<typeof buildMockRedis>;
   let mockSequence: ReturnType<typeof buildMockSequence>;
+  let mockHouseholdNum: ReturnType<typeof buildMockHouseholdNumber>;
 
   beforeEach(async () => {
     mockRedis = buildMockRedis();
     mockSequence = buildMockSequence();
+    mockHouseholdNum = buildMockHouseholdNumber();
 
     mockRlsTx.household.create.mockReset().mockResolvedValue(baseHousehold);
     mockRlsTx.householdEmergencyContact.create.mockReset().mockResolvedValue(baseContact);
@@ -167,6 +179,7 @@ describe('HouseholdsService — create', () => {
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
+        { provide: HouseholdNumberService, useValue: mockHouseholdNum },
       ],
     }).compile();
 
@@ -178,13 +191,13 @@ describe('HouseholdsService — create', () => {
   it('should create a household with emergency contacts', async () => {
     const result = await service.create(TENANT_ID, baseCreateDto);
 
-    expect(mockSequence.generateHouseholdReference).toHaveBeenCalledWith(TENANT_ID, mockRlsTx);
+    expect(mockHouseholdNum.generateUniqueForTenant).toHaveBeenCalledWith(mockRlsTx, TENANT_ID);
     expect(mockRlsTx.household.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           tenant_id: TENANT_ID,
           household_name: 'Smith Family',
-          household_number: 'HH-REF-001',
+          household_number: 'ABC123',
           status: 'active',
         }),
       }),
@@ -326,6 +339,7 @@ describe('HouseholdsService — findAll', () => {
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
+        { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
       ],
     }).compile();
 
@@ -457,6 +471,7 @@ describe('HouseholdsService — findOne', () => {
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
+        { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
       ],
     }).compile();
 
@@ -554,6 +569,7 @@ describe('HouseholdsService — update', () => {
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
+        { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
       ],
     }).compile();
 
@@ -669,6 +685,7 @@ describe('HouseholdsService — updateStatus', () => {
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: buildMockRedis() },
         { provide: SequenceService, useValue: buildMockSequence() },
+        { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
       ],
     }).compile();
 
@@ -735,6 +752,7 @@ describe('HouseholdsService — addEmergencyContact', () => {
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
+        { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
       ],
     }).compile();
 
@@ -810,6 +828,7 @@ describe('HouseholdsService — updateEmergencyContact', () => {
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: buildMockRedis() },
         { provide: SequenceService, useValue: buildMockSequence() },
+        { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
       ],
     }).compile();
 
@@ -890,6 +909,7 @@ describe('HouseholdsService — removeEmergencyContact', () => {
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
+        { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
       ],
     }).compile();
 
@@ -970,6 +990,7 @@ describe('HouseholdsService — linkParent', () => {
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: buildMockRedis() },
         { provide: SequenceService, useValue: buildMockSequence() },
+        { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
       ],
     }).compile();
 
@@ -1094,6 +1115,7 @@ describe('HouseholdsService — unlinkParent', () => {
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
+        { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
       ],
     }).compile();
 
@@ -1176,6 +1198,7 @@ describe('HouseholdsService — setBillingParent', () => {
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
+        { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
       ],
     }).compile();
 
@@ -1292,6 +1315,7 @@ describe('HouseholdsService — merge', () => {
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
+        { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
       ],
     }).compile();
 
@@ -1487,6 +1511,7 @@ describe('HouseholdsService — split', () => {
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
+        { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
       ],
     }).compile();
 
@@ -1738,6 +1763,7 @@ describe('HouseholdsService — preview', () => {
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
+        { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
       ],
     }).compile();
 

@@ -9,6 +9,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 import { MOCK_FACADE_PROVIDERS, AuthReadFacade } from '../../common/tests/mock-facades';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { InvoicesService } from '../finance/invoices.service';
+import { HouseholdNumberService } from '../households/household-number.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
 
@@ -23,11 +24,14 @@ describe('RegistrationService', () => {
     user: { findUnique: jest.Mock };
   };
   let mockSequenceService: {
-    generateHouseholdReference: jest.Mock;
     nextNumber: jest.Mock;
   };
   let mockInvoicesService: {
     issue: jest.Mock;
+  };
+  let mockHouseholdNumberService: {
+    generateUniqueForTenant: jest.Mock;
+    generateStudentNumber: jest.Mock;
   };
   let mockAuthReadFacade: { findUserByEmail: jest.Mock };
   const mockCreateRlsClient = createRlsClient as jest.Mock;
@@ -38,10 +42,11 @@ describe('RegistrationService', () => {
     };
     mockSequenceService = {
       generateHouseholdReference: jest.fn().mockResolvedValue('HH-202603-0001'),
-      nextNumber: jest
-        .fn()
-        .mockResolvedValueOnce('STU-202603-0001')
-        .mockResolvedValueOnce('INV-202603-0001'),
+      nextNumber: jest.fn().mockResolvedValue('INV-202603-0001'),
+    };
+    mockHouseholdNumberService = {
+      generateUniqueForTenant: jest.fn().mockResolvedValue('ABC123'),
+      generateStudentNumber: jest.fn().mockResolvedValue('ABC123-01'),
     };
     mockInvoicesService = {
       issue: jest.fn().mockResolvedValue({ status: 'issued' }),
@@ -53,6 +58,7 @@ describe('RegistrationService', () => {
         RegistrationService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequenceService },
+        { provide: HouseholdNumberService, useValue: mockHouseholdNumberService },
         { provide: InvoicesService, useValue: mockInvoicesService },
         {
           provide: AuthReadFacade,
@@ -848,10 +854,8 @@ describe('RegistrationService', () => {
     }
 
     beforeEach(() => {
-      mockSequenceService.nextNumber = jest
-        .fn()
-        .mockResolvedValueOnce('STU-202603-0002')
-        .mockResolvedValueOnce('INV-202603-0002');
+      mockHouseholdNumberService.generateStudentNumber = jest.fn().mockResolvedValue('ABC123-02');
+      mockSequenceService.nextNumber = jest.fn().mockResolvedValue('INV-202603-0002');
     });
 
     it('should add a student to an existing household', async () => {
@@ -874,7 +878,7 @@ describe('RegistrationService', () => {
       };
 
       expect(result.student.first_name).toBe('Alex');
-      expect(result.student.student_number).toBe('STU-202603-0002');
+      expect(result.student.student_number).toBe('ABC123-02');
       expect(mockTx.student.create).toHaveBeenCalledTimes(1);
       expect(mockTx.studentParent.create).toHaveBeenCalledTimes(1);
     });
