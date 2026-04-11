@@ -1,5 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import type { ApplicationStatus } from '@prisma/client';
 
 import type {
   AdmissionsAnalyticsQuery,
@@ -13,6 +16,8 @@ import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { SearchIndexService } from '../search/search-index.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { AdmissionsCapacityService } from './admissions-capacity.service';
 import { AdmissionsRateLimitService } from './admissions-rate-limit.service';
@@ -148,13 +153,35 @@ export interface ApplicationTimelineEvent {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─── Multi-student response shape ────────────────────────────────────────────
+
+export interface CreatePublicResult {
+  mode: 'new_household' | 'existing_household';
+  submission_batch_id: string;
+  household_number: string | null;
+  applications: Array<{
+    id: string;
+    application_number: string;
+    status: ApplicationStatus;
+    student_first_name: string;
+    student_last_name: string;
+    target_year_group_id: string;
+  }>;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Injectable()
 export class ApplicationsService {
+  private readonly logger = new Logger(ApplicationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly rateLimitService: AdmissionsRateLimitService,
     private readonly stateMachineService: ApplicationStateMachineService,
     private readonly capacityService: AdmissionsCapacityService,
+    private readonly sequenceService: SequenceService,
+    private readonly searchIndexService: SearchIndexService,
   ) {}
 
   // ─── Delegated: State Machine ─────────────────────────────────────────────
@@ -219,14 +246,24 @@ export class ApplicationsService {
 
   // ─── Create Public ────────────────────────────────────────────────────────
 
-  async createPublic(tenantId: string, dto: CreatePublicApplicationDto, ip: string) {
+  /**
+   * Multi-student public application submission. Creates one Application row
+   * per student, each gated independently through the capacity state machine.
+   * For `existing_household` mode, all apps link to the household immediately.
+   * For `new_household` mode, household_id stays NULL until conversion.
+   */
+  async createPublic(
+    tenantId: string,
+    dto: CreatePublicApplicationDto,
+    ip: string,
+  ): Promise<CreatePublicResult> {
     // Honeypot check — if website_url is filled, it's a bot
     if (dto.website_url) {
-      // Silently accept but don't create — prevents bots from knowing they were caught
       return {
-        id: 'ignored',
-        application_number: 'ignored',
-        status: 'submitted',
+        mode: dto.mode,
+        submission_batch_id: randomUUID(),
+        household_number: null,
+        applications: [],
       };
     }
 
@@ -241,28 +278,19 @@ export class ApplicationsService {
       });
     }
 
-    // Bridge: extract the first student from the multi-student DTO.
-    // Impl 03 will rewrite this method to loop over all students and handle
-    // household linking + batch IDs. Until then, only the first student is processed.
-    // Zod validates students.min(1) so [0] is guaranteed present.
-    const student = dto.students[0]!;
+    const submissionBatchId = randomUUID();
+    const applyDate = new Date();
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    // Validate form is published and the payload satisfies its required
-    // fields. A small read-only RLS transaction lets us surface FORM_NOT_FOUND
-    // and VALIDATION_ERROR before the state machine opens its own write
-    // transaction.
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-    await prismaWithRls.$transaction(async (tx) => {
+    const result = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
+      // Validate form is published
       const form = await db.admissionFormDefinition.findFirst({
         where: {
           id: dto.form_definition_id,
           tenant_id: tenantId,
           status: 'published',
-        },
-        include: {
-          fields: { where: { active: true }, orderBy: { display_order: 'asc' } },
         },
       });
 
@@ -275,27 +303,148 @@ export class ApplicationsService {
         });
       }
 
-      // payload_json validation removed — impl 03 re-adds with multi-student shape
-    });
+      // Resolve household context
+      let householdIdForApps: string | null = null;
+      let householdNumberForResponse: string | null = null;
+      let isSibling = false;
 
-    const application = await this.stateMachineService.submit(tenantId, {
-      formDefinitionId: dto.form_definition_id,
-      studentFirstName: student.first_name,
-      studentLastName: student.last_name,
-      dateOfBirth: student.date_of_birth ? new Date(student.date_of_birth) : null,
-      targetAcademicYearId: student.target_academic_year_id,
-      targetYearGroupId: student.target_year_group_id,
-      payloadJson: {
-        __consents: dto.consents,
-      },
-      submittedByParentId: null,
-    });
+      if (dto.mode === 'existing_household') {
+        const household = await db.household.findFirst({
+          where: {
+            id: dto.existing_household_id,
+            tenant_id: tenantId,
+            household_number: { not: null },
+          },
+          select: {
+            id: true,
+            household_number: true,
+            _count: { select: { students: { where: { status: 'active' } } } },
+          },
+        });
 
-    return {
-      id: application.id,
-      application_number: application.application_number,
-      status: application.status,
-    };
+        if (!household || !household.household_number) {
+          throw new NotFoundException({
+            error: {
+              code: 'HOUSEHOLD_NOT_FOUND',
+              message: 'The specified household was not found',
+            },
+          });
+        }
+
+        householdIdForApps = household.id;
+        householdNumberForResponse = household.household_number;
+        // Sibling = household has at least one active student
+        isSibling = household._count.students > 0;
+      }
+      // For new_household: householdIdForApps stays null, isSibling stays false
+
+      // Create one Application per student, gate each independently
+      const applications: Array<{
+        id: string;
+        application_number: string;
+        status: ApplicationStatus;
+        student_first_name: string;
+        student_last_name: string;
+        target_year_group_id: string;
+      }> = [];
+
+      for (const student of dto.students) {
+        // Build payload_json: household_payload (for new_household) + student fields + consents
+        const payloadJson: Record<string, unknown> = {
+          ...(dto.household_payload ?? {}),
+          student_first_name: student.first_name,
+          student_middle_name: student.middle_name ?? null,
+          student_last_name: student.last_name,
+          student_dob: student.date_of_birth,
+          student_gender: student.gender,
+          student_national_id: student.national_id,
+          student_medical_notes: student.medical_notes ?? null,
+          student_allergies: student.has_allergies ?? null,
+          __consents: dto.consents,
+        };
+
+        const applicationNumber = await this.sequenceService.nextNumber(
+          tenantId,
+          'application',
+          tx,
+        );
+
+        const row = await db.application.create({
+          data: {
+            tenant_id: tenantId,
+            form_definition_id: dto.form_definition_id,
+            application_number: applicationNumber,
+            submitted_by_parent_id: null,
+            student_first_name: student.first_name,
+            student_last_name: student.last_name,
+            date_of_birth: new Date(student.date_of_birth),
+            status: 'submitted',
+            submitted_at: applyDate,
+            apply_date: applyDate,
+            target_academic_year_id: student.target_academic_year_id,
+            target_year_group_id: student.target_year_group_id,
+            payload_json: payloadJson as Prisma.InputJsonValue,
+            household_id: householdIdForApps,
+            submission_batch_id: submissionBatchId,
+            is_sibling_application: isSibling,
+          },
+        });
+
+        // Gate and route via the state machine
+        const routed = await this.stateMachineService.routeSubmittedApplication(
+          db,
+          tenantId,
+          row.id,
+        );
+
+        applications.push({
+          id: routed.id,
+          application_number: routed.application_number,
+          status: routed.status as ApplicationStatus,
+          student_first_name: routed.student_first_name,
+          student_last_name: routed.student_last_name,
+          target_year_group_id: student.target_year_group_id,
+        });
+      }
+
+      return {
+        mode: dto.mode,
+        submission_batch_id: submissionBatchId,
+        household_number: householdNumberForResponse,
+        applications,
+      };
+    })) as CreatePublicResult;
+
+    // Fire side effects outside the transaction (non-blocking)
+    for (const app of result.applications) {
+      this.fireApplicationSideEffects(tenantId, app).catch((err) => {
+        this.logger.warn(
+          `[createPublic] side effects failed for ${app.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+    }
+
+    return result;
+  }
+
+  private async fireApplicationSideEffects(
+    tenantId: string,
+    app: {
+      id: string;
+      application_number: string;
+      status: ApplicationStatus;
+      student_first_name: string;
+      student_last_name: string;
+    },
+  ): Promise<void> {
+    await this.searchIndexService.indexEntity('applications', {
+      id: app.id,
+      tenant_id: tenantId,
+      application_number: app.application_number,
+      student_first_name: app.student_first_name,
+      student_last_name: app.student_last_name,
+      status: app.status,
+    });
   }
 
   // ─── Find All ─────────────────────────────────────────────────────────────
