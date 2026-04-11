@@ -117,7 +117,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 05  | Admin oversight service                              | 2    | 01                     | `completed` | 2026-04-11 09:36 | 0eeb8930   |
 | 06  | Inbox channel provider in dispatcher                 | 3    | 01, 04                 | `completed` | 2026-04-11 11:45 | b11a3b02   |
 | 07  | Notification fallback worker                         | 3    | 01, 04, 06             | `completed` | 2026-04-11 11:26 | 3362bc12   |
-| 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `deploying` | —                | —          |
+| 08  | Safeguarding keyword scanner                         | 3    | 01, 04                 | `completed` | 2026-04-11 11:46 | 565d35b1   |
 | 09  | Full-text search                                     | 3    | 01, 04                 | `completed` | 2026-04-11 11:25 | 9b77fd16   |
 | 10  | Inbox shell + thread list + thread view              | 4    | 01, 02, 03, 04, 06     | `pending`   | —                | —          |
 | 11  | Compose dialog + audience picker + channel selector  | 4    | 01, 02, 03, 04, 06, 10 | `pending`   | —                | —          |
@@ -628,3 +628,72 @@ new platform-level row(s).` and every subsequent boot logs
   registered, auth guard active). Worker boot log shows
   `NestApplication successfully started` and the existing
   `InboxFallbackCheckProcessor` cron firing on schedule.
+
+### [IMPL 08] — Safeguarding keyword scanner
+
+- **Completed:** 2026-04-11T11:46+01:00 Europe/Dublin
+- **Commit:** `565d35b1` (local `4fe75b4f`)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Landed the tenant-configurable keyword scanner on a new
+  `safeguarding` BullMQ queue. `KeywordSafeguardingScanner` (API,
+  `apps/api/src/modules/safeguarding/scanner/`) implements the
+  `SafeguardingScanner` interface with an escapeRegex + word-boundary
+  loop and a 5-minute per-tenant active-keyword cache via
+  `SafeguardingKeywordsRepository`. Word-boundary guards drop the
+  leading/trailing `\b` for non-word-char keywords (e.g. `c++`). CRUD
+  surface at `/v1/safeguarding/keywords` behind `AuthGuard +
+PermissionGuard + AdminTierOnlyGuard` and the new
+  `safeguarding.keywords.write` permission (seeded by
+  `SafeguardingPermissionsInit` — "Safeguarding permissions ensured —
+  4 tenants, 8 admin-tier grants"). `SafeguardingModule` extends the
+  existing Phase-D module and imports `InboxModule` to pick up
+  `AdminTierOnlyGuard` (now exported). Worker processors
+  `SafeguardingScanMessageProcessor` (inlines a worker-local scanner
+  clone — can't reach API DI), and
+  `SafeguardingNotifyReviewersProcessor` (idempotent in-app
+  `Notification` rows keyed `safeguarding:<flag>:<user>`).
+  `notifyNeedsSafeguardingScan` fire-and-forgets onto the new queue.
+  Shared Zod: `bulkImportSafeguardingKeywordsSchema`,
+  `setSafeguardingKeywordActiveSchema`. 38 new unit tests; queue-config
+  drift check updated to 23 queues.
+- **Follow-ups:**
+  - Wave 4 impl 14 (safeguarding settings + dashboard widget)
+    consumes `GET /v1/safeguarding/keywords` for CRUD and reads
+    `Notification` rows where `channel = 'in_app'`,
+    `template_key = 'safeguarding.flag.new'` for the dashboard
+    alerts. `payload_json.review_url` points at
+    `/inbox/oversight/conversations?flag=<id>` for the deep link.
+  - The worker processor inlines the scanner (keyword fetch +
+    regex loop) rather than injecting `KeywordSafeguardingScanner`
+    from the API's DI graph — the worker is a separate Nest
+    application and cannot cross into API internals. The regex
+    logic is duplicated in two places; when a v2 ML scanner lands,
+    both sites must be updated together.
+  - The `message_flags` table has no unique constraint on
+    `message_id`. The processor uses a manual `findFirst` +
+    `create`-or-`update` pattern inside the RLS transaction
+    instead of `upsert`. If the scanner ever parallelises (v2),
+    add `uniq_message_flags_message_id` in a follow-up migration.
+  - Word-boundary ASCII-only limitation documented in the v1
+    scanner's header comment. A future multilingual rework will
+    need to reconsider boundary detection for Arabic content.
+- **Session notes:** Coded in parallel with impls 06/07/09.
+  During execution the working tree churned heavily because
+  parallel sessions were editing the same shared files
+  (`inbox-outbox.service.ts`, `inbox.module.ts`,
+  `worker.module.ts`) — my final commit excludes those shared
+  files entirely; impl 06's commit (`b11a3b02` prod /
+  `0c4824b5` local) already carried my `worker.module.ts`
+  additions (SafeguardingScanMessageProcessor /
+  NotifyReviewersProcessor imports + providers + `SAFEGUARDING`
+  queue registration) because a linter merged the two sets of
+  edits mid-flight. On prod, a manual `sed` had removed those
+  lines from `worker.module.ts` when impl 06 deployed first (the
+  processor source files weren't present yet), so the deploy
+  applied my patch and then `git checkout HEAD --
+apps/worker/src/worker.module.ts` to restore the references
+  before rebuilding. API/worker restart clean;
+  `SafeguardingPermissionsInit` backfill completed;
+  `/api/v1/safeguarding/keywords` returns 401 (route registered,
+  guards active); `/api/health` 200.
