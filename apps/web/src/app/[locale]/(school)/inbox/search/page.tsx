@@ -9,6 +9,8 @@ import { Button, EmptyState, Input } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
+import { sanitiseSnippet } from './sanitise-snippet';
+
 /**
  * Inbox full-text search results page. Reads `?q=` and `?page=` from
  * the URL, calls `GET /v1/inbox/search` (impl 09, user-scoped), and
@@ -225,19 +227,4 @@ function formatRelative(iso: string): string {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d`;
   return d.toLocaleDateString();
-}
-
-/**
- * Sanitise a snippet from `ts_headline`. Only `<mark>` / `</mark>`
- * survive; everything else is HTML-entity escaped so arbitrary message
- * content cannot inject markup. Exported for unit tests.
- */
-export function sanitiseSnippet(input: string): string {
-  const escaped = input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-  return escaped.replace(/&lt;mark&gt;/g, '<mark>').replace(/&lt;\/mark&gt;/g, '</mark>');
 }

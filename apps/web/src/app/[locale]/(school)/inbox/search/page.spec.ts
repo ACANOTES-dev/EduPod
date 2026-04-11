@@ -1,4 +1,4 @@
-import { sanitiseSnippet } from './page';
+import { sanitiseSnippet } from './sanitise-snippet';
 
 describe('sanitiseSnippet', () => {
   it('preserves <mark> and </mark> tags emitted by ts_headline', () => {
