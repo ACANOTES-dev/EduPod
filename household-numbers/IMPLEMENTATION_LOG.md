@@ -136,14 +136,14 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status        | Completed at | Commit SHA |
-| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ------------- | ------------ | ---------- |
-| 01  | Schema foundation                             | 1    | schema         | serial               | —          | `in-progress` | —            | —          |
-| 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `pending`     | —            | —          |
-| 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `pending`     | —            | —          |
-| 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `pending`     | —            | —          |
-| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `pending`     | —            | —          |
-| 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `pending`     | —            | —          |
+| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status      | Completed at              | Commit SHA |
+| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ----------- | ------------------------- | ---------- |
+| 01  | Schema foundation                             | 1    | schema         | serial               | —          | `completed` | 2026-04-11T15:00:00+01:00 | 7ff33d56   |
+| 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `pending`   | —                         | —          |
+| 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `pending`   | —                         | —          |
+| 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `pending`   | —                         | —          |
+| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `pending`   | —                         | —          |
+| 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `pending`   | —                         | —          |
 
 ---
 
@@ -165,3 +165,32 @@ Append new records below in chronological order. Format:
 ```
 
 <!-- ─── Append records below this line ─── -->
+
+### [IMPL 01] — Schema foundation
+
+- **Completed:** 2026-04-11T15:00:00+01:00 (Europe/Dublin)
+- **Commits:** bf8b1c54, 174dee9d, 2f6f11b4, 7ff33d56
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Created `packages/shared/src/households/household-number.ts` with format constants
+  (`HOUSEHOLD_NUMBER_PATTERN`, `HOUSEHOLD_MAX_STUDENTS`), `isValidHouseholdNumber()`,
+  and `formatStudentNumberFromHousehold()`. Migration adds `student_counter` to
+  `households`, adds `household_id`, `submission_batch_id`, `is_sibling_application` to
+  `applications` with partial indexes for tiered FIFO auto-promotion. Rewrote
+  `createPublicApplicationSchema` from single-student to multi-student shape with
+  `mode` (new_household/existing_household), `household_payload`, and `students[]` array
+  with Zod refine validation. Added `publicHouseholdLookupSchema` with case coercion to
+  `household.schema.ts`. Bridged `applications.service.ts` `createPublic` to extract
+  first student from `students[]` (temporary — impl 03 rewrites properly). Updated e2e
+  test helpers for new schema. **Key deviation:** production already had 692
+  `household_number` values in legacy `XXX999-N` format (8 chars) and 2 in `HH-000001`
+  format (9 chars). Kept `VARCHAR(50)` instead of tightening to `VARCHAR(6)`. Removed
+  the format CHECK constraint. The generator in impl 02 will write strict 6-char values;
+  existing legacy values coexist.
+- **Follow-ups:** Impl 02 should validate that the generator only writes 6-char values
+  and document how legacy household numbers interact with the student number format.
+  The `HouseholdDetail` interface in `households.service.ts` now includes
+  `student_counter` — downstream code referencing this interface should be aware.
+- **Session notes:** Advisory lock from crashed migration attempt needed manual
+  `pg_terminate_backend` to clear. Pre-existing ESLint OOM on large staged file sets
+  requires `NODE_OPTIONS=--max-old-space-size=8192` for commits touching many files.
