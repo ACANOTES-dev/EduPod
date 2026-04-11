@@ -99,6 +99,15 @@ const mockPrisma = {
   mfaRecoveryCode: {
     deleteMany: jest.fn(),
   },
+  tenantSettingsInbox: {
+    upsert: jest.fn().mockResolvedValue({}),
+  },
+  tenantMessagingPolicy: {
+    createMany: jest.fn().mockResolvedValue({ count: 81 }),
+  },
+  safeguardingKeyword: {
+    createMany: jest.fn().mockResolvedValue({ count: 31 }),
+  },
   $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
     return fn(mockPrisma);
   }),

@@ -780,6 +780,22 @@ model Tenant {
   subject_period_weights SubjectPeriodWeight[]
   period_year_weights    PeriodYearWeight[]
 
+  // Inbox Relations (Wave 1 of new-inbox rebuild)
+  conversations                  Conversation[]
+  conversation_participants      ConversationParticipant[]
+  inbox_messages                 Message[]
+  message_reads                  MessageRead[]
+  message_edits                  MessageEdit[]
+  message_attachments            MessageAttachment[]
+  broadcast_audience_definitions BroadcastAudienceDefinition[]
+  broadcast_audience_snapshots   BroadcastAudienceSnapshot[]
+  saved_audiences                SavedAudience[]
+  tenant_messaging_policy        TenantMessagingPolicy[]
+  tenant_settings_inbox          TenantSettingsInbox?
+  safeguarding_keywords          SafeguardingKeyword[]
+  message_flags                  MessageFlag[]
+  oversight_access_log           OversightAccessLog[]
+
   @@map("tenants")
 }
 
@@ -1272,6 +1288,17 @@ model User {
   eng_risk_approvals         EngagementEvent[]          @relation("eng_risk_approver")
   eng_incidents_reported     EngagementIncidentReport[] @relation("eng_incident_reporter")
   eng_conf_bookings_made     ConferenceBooking[]        @relation("eng_conf_booker")
+
+  // Inbox Relations (Wave 1 of new-inbox rebuild)
+  conversations_created   Conversation[]            @relation("conversation_creator")
+  conversations_frozen    Conversation[]            @relation("conversation_freezer")
+  inbox_participations    ConversationParticipant[]
+  inbox_messages_sent     Message[]
+  inbox_messages_read     MessageRead[]
+  inbox_message_edits     MessageEdit[]
+  saved_audiences_created SavedAudience[]
+  message_flags_reviewed  MessageFlag[]
+  oversight_actions       OversightAccessLog[]      @relation("oversight_actor")
 
   @@map("users")
 }
@@ -1853,11 +1880,11 @@ model AcademicYear {
   updated_at DateTime           @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant    Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  periods   AcademicPeriod[]
-  classes   Class[]
-  schedules Schedule[]
-  target_applications Application[] @relation("applications_target_year")
+  tenant              Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  periods             AcademicPeriod[]
+  classes             Class[]
+  schedules           Schedule[]
+  target_applications Application[]    @relation("applications_target_year")
 
   // P4B Relations
   schedule_period_templates     SchedulePeriodTemplate[]
@@ -2257,9 +2284,9 @@ model YearGroup {
   updated_at         DateTime       @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant               Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  next_year_group      YearGroup?  @relation("year_group_chain", fields: [next_year_group_id], references: [id], onDelete: SetNull)
-  previous_year_groups YearGroup[] @relation("year_group_chain")
+  tenant               Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  next_year_group      YearGroup?    @relation("year_group_chain", fields: [next_year_group_id], references: [id], onDelete: SetNull)
+  previous_year_groups YearGroup[]   @relation("year_group_chain")
   students             Student[]
   classes              Class[]
   target_applications  Application[] @relation("applications_target_year_group")
@@ -2529,16 +2556,16 @@ model Application {
   updated_at                 DateTime                         @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant               Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  form_definition      AdmissionFormDefinition @relation(fields: [form_definition_id], references: [id], onDelete: Cascade)
-  submitted_by         Parent?                 @relation(fields: [submitted_by_parent_id], references: [id], onDelete: SetNull)
-  reviewed_by          User?                   @relation("reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
-  target_academic_year AcademicYear?           @relation("applications_target_year", fields: [target_academic_year_id], references: [id], onDelete: SetNull)
-  target_year_group    YearGroup?              @relation("applications_target_year_group", fields: [target_year_group_id], references: [id], onDelete: SetNull)
-  override_record      AdmissionOverride?      @relation("application_override_record", fields: [override_record_id], references: [id], onDelete: SetNull)
-  materialised_student Student?                @relation("application_materialised_student", fields: [materialised_student_id], references: [id], onDelete: SetNull)
+  tenant               Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  form_definition      AdmissionFormDefinition  @relation(fields: [form_definition_id], references: [id], onDelete: Cascade)
+  submitted_by         Parent?                  @relation(fields: [submitted_by_parent_id], references: [id], onDelete: SetNull)
+  reviewed_by          User?                    @relation("reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
+  target_academic_year AcademicYear?            @relation("applications_target_year", fields: [target_academic_year_id], references: [id], onDelete: SetNull)
+  target_year_group    YearGroup?               @relation("applications_target_year_group", fields: [target_year_group_id], references: [id], onDelete: SetNull)
+  override_record      AdmissionOverride?       @relation("application_override_record", fields: [override_record_id], references: [id], onDelete: SetNull)
+  materialised_student Student?                 @relation("application_materialised_student", fields: [materialised_student_id], references: [id], onDelete: SetNull)
   notes                ApplicationNote[]
-  overrides            AdmissionOverride[]     @relation("overrides_of_application")
+  overrides            AdmissionOverride[]      @relation("overrides_of_application")
   payment_events       AdmissionsPaymentEvent[]
 
   @@unique([tenant_id, application_number], name: "idx_applications_number")
@@ -2576,14 +2603,14 @@ model AdmissionOverride {
 /// Mirrors Payment.external_event_id but scoped to admissions so it does not
 /// collide with invoice payment processing. Tenant-scoped, RLS-enforced.
 model AdmissionsPaymentEvent {
-  id                String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id         String                      @db.Uuid
-  application_id    String                      @db.Uuid
-  stripe_event_id   String                      @unique @db.VarChar(255)
-  stripe_session_id String?                     @db.VarChar(255)
+  id                String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String                       @db.Uuid
+  application_id    String                       @db.Uuid
+  stripe_event_id   String                       @unique @db.VarChar(255)
+  stripe_session_id String?                      @db.VarChar(255)
   amount_cents      Int
   status            AdmissionsPaymentEventStatus
-  created_at        DateTime                    @default(now()) @db.Timestamptz()
+  created_at        DateTime                     @default(now()) @db.Timestamptz()
 
   tenant      Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   application Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
@@ -9702,4 +9729,337 @@ model GradeEditAudit {
   @@index([tenant_id, assessment_id], name: "idx_grade_edit_audits_assessment")
   @@index([tenant_id, grade_id], name: "idx_grade_edit_audits_grade")
   @@map("grade_edit_audits")
+}
+
+// ─── Inbox / Messaging (new-inbox rebuild Wave 1) ───────────────────────────
+
+enum ConversationKind {
+  direct
+  group
+  broadcast
+}
+
+enum MessagingRole {
+  owner
+  principal
+  vice_principal
+  office
+  finance
+  nurse
+  teacher
+  parent
+  student
+}
+
+enum SavedAudienceKind {
+  static
+  dynamic
+}
+
+enum MessageFlagSeverity {
+  low
+  medium
+  high
+}
+
+enum MessageFlagReviewState {
+  pending
+  dismissed
+  escalated
+  frozen
+}
+
+enum OversightAction {
+  read_thread
+  search
+  freeze
+  unfreeze
+  dismiss_flag
+  escalate_flag
+  export_thread
+}
+
+model Conversation {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String           @db.Uuid
+  kind               ConversationKind
+  subject            String?          @db.VarChar(255)
+  created_by_user_id String           @db.Uuid
+  allow_replies      Boolean          @default(false)
+  frozen_at          DateTime?        @db.Timestamptz()
+  frozen_by_user_id  String?          @db.Uuid
+  freeze_reason      String?          @db.Text
+  archived_at        DateTime?        @db.Timestamptz()
+  last_message_at    DateTime?        @db.Timestamptz()
+  created_at         DateTime         @default(now()) @db.Timestamptz()
+  updated_at         DateTime         @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant              Tenant                       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by          User                         @relation("conversation_creator", fields: [created_by_user_id], references: [id])
+  frozen_by           User?                        @relation("conversation_freezer", fields: [frozen_by_user_id], references: [id])
+  participants        ConversationParticipant[]
+  messages            Message[]
+  audience_definition BroadcastAudienceDefinition?
+  audience_snapshot   BroadcastAudienceSnapshot?
+
+  @@index([tenant_id, kind, last_message_at(sort: Desc)], name: "idx_conversations_tenant_kind_recent")
+  @@index([tenant_id, frozen_at], name: "idx_conversations_frozen")
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String        @db.Uuid
+  conversation_id String        @db.Uuid
+  user_id         String        @db.Uuid
+  role_at_join    MessagingRole
+  unread_count    Int           @default(0)
+  muted_at        DateTime?     @db.Timestamptz()
+  archived_at     DateTime?     @db.Timestamptz()
+  joined_at       DateTime      @default(now()) @db.Timestamptz()
+  last_read_at    DateTime?     @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [user_id], references: [id])
+
+  @@unique([conversation_id, user_id], name: "uniq_conversation_user")
+  @@index([tenant_id, user_id, archived_at, unread_count(sort: Desc)], name: "idx_participants_user_inbox")
+  @@map("conversation_participants")
+}
+
+model Message {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String                   @db.Uuid
+  conversation_id        String                   @db.Uuid
+  sender_user_id         String                   @db.Uuid
+  body                   String                   @db.Text
+  body_search            Unsupported("tsvector")?
+  attachment_count       Int                      @default(0)
+  edited_at              DateTime?                @db.Timestamptz()
+  deleted_at             DateTime?                @db.Timestamptz()
+  fallback_dispatched_at DateTime?                @db.Timestamptz()
+  disable_fallback       Boolean                  @default(false)
+  created_at             DateTime                 @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  conversation Conversation        @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  sender       User                @relation(fields: [sender_user_id], references: [id])
+  reads        MessageRead[]
+  edits        MessageEdit[]
+  attachments  MessageAttachment[]
+  flags        MessageFlag[]
+
+  @@index([tenant_id, conversation_id, created_at(sort: Desc)], name: "idx_messages_thread_recent")
+  @@index([tenant_id, sender_user_id, created_at(sort: Desc)], name: "idx_messages_sender")
+  @@index([tenant_id, fallback_dispatched_at, created_at], name: "idx_messages_fallback_scan")
+  @@map("messages")
+}
+
+model MessageRead {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String   @db.Uuid
+  message_id String   @db.Uuid
+  user_id    String   @db.Uuid
+  read_at    DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [user_id], references: [id])
+
+  @@unique([message_id, user_id], name: "uniq_message_user_read")
+  @@index([tenant_id, user_id, read_at(sort: Desc)], name: "idx_message_reads_user")
+  @@map("message_reads")
+}
+
+model MessageEdit {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String   @db.Uuid
+  message_id        String   @db.Uuid
+  previous_body     String   @db.Text
+  edited_at         DateTime @default(now()) @db.Timestamptz()
+  edited_by_user_id String   @db.Uuid
+
+  // Relations
+  tenant    Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  message   Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  edited_by User    @relation(fields: [edited_by_user_id], references: [id])
+
+  @@index([tenant_id, message_id, edited_at(sort: Desc)], name: "idx_message_edits_history")
+  @@map("message_edits")
+}
+
+model MessageAttachment {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String   @db.Uuid
+  message_id          String   @db.Uuid
+  storage_key         String   @db.Text
+  filename            String   @db.VarChar(512)
+  mime_type           String   @db.VarChar(128)
+  size_bytes          Int
+  uploaded_by_user_id String   @db.Uuid
+  created_at          DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, message_id], name: "idx_attachments_message")
+  @@map("message_attachments")
+}
+
+model BroadcastAudienceDefinition {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String   @db.Uuid
+  conversation_id   String   @unique @db.Uuid
+  definition_json   Json
+  saved_audience_id String?  @db.Uuid
+  created_at        DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant         Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  conversation   Conversation   @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  saved_audience SavedAudience? @relation(fields: [saved_audience_id], references: [id], onDelete: SetNull)
+
+  @@map("broadcast_audience_definitions")
+}
+
+model BroadcastAudienceSnapshot {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  conversation_id    String   @unique @db.Uuid
+  recipient_user_ids String[] @db.Uuid
+  resolved_at        DateTime @default(now()) @db.Timestamptz()
+  resolved_count     Int
+
+  // Relations
+  tenant       Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+
+  @@map("broadcast_audience_snapshots")
+}
+
+model SavedAudience {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String            @db.Uuid
+  name               String            @db.VarChar(255)
+  description        String?           @db.VarChar(1024)
+  kind               SavedAudienceKind
+  definition_json    Json
+  created_by_user_id String            @db.Uuid
+  created_at         DateTime          @default(now()) @db.Timestamptz()
+  updated_at         DateTime          @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant             Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by         User                          @relation(fields: [created_by_user_id], references: [id])
+  uses_in_broadcasts BroadcastAudienceDefinition[]
+
+  @@unique([tenant_id, name], name: "uniq_saved_audience_name_per_tenant")
+  @@index([tenant_id, kind], name: "idx_saved_audiences_kind")
+  @@map("saved_audiences")
+}
+
+model TenantMessagingPolicy {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String        @db.Uuid
+  sender_role    MessagingRole
+  recipient_role MessagingRole
+  allowed        Boolean
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, sender_role, recipient_role], name: "uniq_messaging_policy_pair")
+  @@index([tenant_id], name: "idx_messaging_policy_tenant")
+  @@map("tenant_messaging_policy")
+}
+
+model TenantSettingsInbox {
+  id                                           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                                    String   @unique @db.Uuid
+  messaging_enabled                            Boolean  @default(true)
+  students_can_initiate                        Boolean  @default(false)
+  parents_can_initiate                         Boolean  @default(false)
+  parent_to_parent_messaging                   Boolean  @default(false)
+  student_to_student_messaging                 Boolean  @default(false)
+  student_to_parent_messaging                  Boolean  @default(false)
+  require_admin_approval_for_parent_to_teacher Boolean  @default(false)
+  edit_window_minutes                          Int      @default(10)
+  retention_days                               Int?
+  fallback_admin_enabled                       Boolean  @default(true)
+  fallback_admin_after_hours                   Int      @default(24)
+  fallback_admin_channels                      String[] @default(["email"])
+  fallback_teacher_enabled                     Boolean  @default(true)
+  fallback_teacher_after_hours                 Int      @default(3)
+  fallback_teacher_channels                    String[] @default(["email"])
+  created_at                                   DateTime @default(now()) @db.Timestamptz()
+  updated_at                                   DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("tenant_settings_inbox")
+}
+
+model SafeguardingKeyword {
+  id         String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String              @db.Uuid
+  keyword    String              @db.VarChar(255)
+  severity   MessageFlagSeverity
+  category   String              @db.VarChar(64)
+  active     Boolean             @default(true)
+  created_at DateTime            @default(now()) @db.Timestamptz()
+  updated_at DateTime            @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, keyword], name: "uniq_safeguarding_keyword_per_tenant")
+  @@index([tenant_id, active], name: "idx_safeguarding_keywords_active")
+  @@map("safeguarding_keywords")
+}
+
+model MessageFlag {
+  id                  String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String                 @db.Uuid
+  message_id          String                 @db.Uuid
+  matched_keywords    String[]
+  highest_severity    MessageFlagSeverity
+  review_state        MessageFlagReviewState @default(pending)
+  reviewed_by_user_id String?                @db.Uuid
+  reviewed_at         DateTime?              @db.Timestamptz()
+  review_notes        String?                @db.Text
+  created_at          DateTime               @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  message     Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  reviewed_by User?   @relation(fields: [reviewed_by_user_id], references: [id])
+
+  @@index([tenant_id, review_state, created_at(sort: Desc)], name: "idx_message_flags_review_queue")
+  @@map("message_flags")
+}
+
+model OversightAccessLog {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String          @db.Uuid
+  actor_user_id   String          @db.Uuid
+  action          OversightAction
+  conversation_id String?         @db.Uuid
+  message_flag_id String?         @db.Uuid
+  metadata_json   Json?
+  created_at      DateTime        @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  actor  User   @relation("oversight_actor", fields: [actor_user_id], references: [id])
+
+  @@index([tenant_id, actor_user_id, created_at(sort: Desc)], name: "idx_oversight_log_actor")
+  @@index([tenant_id, action, created_at(sort: Desc)], name: "idx_oversight_log_action")
+  @@map("oversight_access_log")
 }

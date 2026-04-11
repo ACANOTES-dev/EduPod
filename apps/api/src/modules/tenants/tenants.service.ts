@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import { seedInboxDefaultsForTenant } from '@school/prisma';
 import {
   MODULE_KEYS,
   NOTIFICATION_TYPES,
@@ -263,6 +264,10 @@ export class TenantsService {
         }
       }
     });
+
+    // Seed inbox defaults (tenant_settings_inbox row, 81-row messaging policy
+    // matrix, starter safeguarding keyword list). Idempotent — safe to re-run.
+    await seedInboxDefaultsForTenant(this.prisma, tenant.id);
 
     // Return tenant with related data
     return this.getTenant(tenant.id);

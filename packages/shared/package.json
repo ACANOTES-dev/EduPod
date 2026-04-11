@@ -44,6 +44,9 @@
       ],
       "admissions": [
         "src/admissions/index.ts"
+      ],
+      "inbox": [
+        "src/inbox/index.ts"
       ]
     }
   },
@@ -115,6 +118,10 @@
     "./admissions": {
       "types": "./src/admissions/index.ts",
       "default": "./dist/admissions/index.js"
+    },
+    "./inbox": {
+      "types": "./src/inbox/index.ts",
+      "default": "./dist/inbox/index.js"
     }
   },
   "scripts": {

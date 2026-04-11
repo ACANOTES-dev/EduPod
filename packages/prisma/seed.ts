@@ -13,6 +13,7 @@ import {
 import { GDPR_EXPORT_POLICY_SEEDS } from './seed/gdpr-export-policies';
 import { PERMISSION_SEEDS } from './seed/permissions';
 import { SYSTEM_ROLES } from './seed/system-roles';
+import { seedInboxDefaultsForTenant } from './src/inbox-defaults';
 
 /**
  * Seed script for the School Operating System.
@@ -380,6 +381,10 @@ async function main() {
           }
         }
       }
+
+      // Seed inbox defaults (settings row, 81-row messaging policy matrix,
+      // starter safeguarding keyword list) — idempotent.
+      await seedInboxDefaultsForTenant(prisma, tenant.id);
 
       console.log(`  Tenant "${t.name}" seeded with all defaults.`);
     }
