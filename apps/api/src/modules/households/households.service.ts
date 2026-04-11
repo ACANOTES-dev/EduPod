@@ -79,6 +79,7 @@ export interface HouseholdDetail {
   tenant_id: string;
   household_name: string;
   household_number: string | null;
+  student_counter: number;
   primary_billing_parent_id: string | null;
   address_line_1: string | null;
   address_line_2: string | null;

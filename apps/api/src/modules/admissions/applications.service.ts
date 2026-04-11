@@ -244,7 +244,8 @@ export class ApplicationsService {
     // Bridge: extract the first student from the multi-student DTO.
     // Impl 03 will rewrite this method to loop over all students and handle
     // household linking + batch IDs. Until then, only the first student is processed.
-    const student = dto.students[0];
+    // Zod validates students.min(1) so [0] is guaranteed present.
+    const student = dto.students[0]!;
 
     // Validate form is published and the payload satisfies its required
     // fields. A small read-only RLS transaction lets us surface FORM_NOT_FOUND
