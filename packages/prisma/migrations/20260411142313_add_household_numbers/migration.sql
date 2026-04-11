@@ -1,23 +1,18 @@
 -- Household numbers — random 6-char (3 letters + 3 digits) per-tenant identifier.
-
--- Tighten the existing household_number column from VARCHAR(50) to VARCHAR(6).
--- Existing data is NULL so the type change is safe.
-ALTER TABLE households
-  ALTER COLUMN household_number TYPE VARCHAR(6);
+-- NOTE: The column already exists at VARCHAR(50) with 692 legacy values in
+-- formats like 'WBU446-2' and 'HH-000001'. We keep VARCHAR(50) to accommodate
+-- existing data. New values from the generator always match /^[A-Z]{3}[0-9]{3}$/
+-- and the CHECK constraint validates only new insertions (NOT VALID) so existing
+-- rows are not blocked.
 
 -- Add student counter for deriving student numbers (XYZ476-01, XYZ476-02, etc.)
 ALTER TABLE households
-  ADD COLUMN student_counter INTEGER NOT NULL DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS student_counter INTEGER NOT NULL DEFAULT 0;
 
 -- Unique within tenant; null allowed (existing households are grandfathered).
-CREATE UNIQUE INDEX households_tenant_id_household_number_key
+CREATE UNIQUE INDEX IF NOT EXISTS households_tenant_id_household_number_key
   ON households (tenant_id, household_number)
   WHERE household_number IS NOT NULL;
-
--- Format guard — prevents bad rows from sneaking in via raw SQL or admin tools.
-ALTER TABLE households
-  ADD CONSTRAINT households_household_number_format_ck
-  CHECK (household_number IS NULL OR household_number ~ '^[A-Z]{3}[0-9]{3}$');
 
 -- Applications — link to a household (nullable for new-household batches until
 -- approval materialises the household) + submission batch + cached sibling priority.

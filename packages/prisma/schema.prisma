@@ -1527,7 +1527,7 @@ model Household {
   id                        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                 String          @db.Uuid
   household_name            String          @db.VarChar(255)
-  household_number          String?         @db.VarChar(6)
+  household_number          String?         @db.VarChar(50)
   student_counter           Int             @default(0)
   primary_billing_parent_id String?         @db.Uuid
   address_line_1            String?         @db.VarChar(255)
