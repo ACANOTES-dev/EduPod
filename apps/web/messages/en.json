@@ -4559,7 +4559,8 @@
     "autoApplyNeedsCondition": "Select a condition type for automatic discounts",
     "householdsPluralLabel": "Households",
     "colStudent": "Student",
-    "colStudentNumber": "Student #"
+    "colStudentNumber": "Student #",
+    "viewInvoices": "View Invoices"
   },
   "scheduling": {
     "rooms": "Rooms",

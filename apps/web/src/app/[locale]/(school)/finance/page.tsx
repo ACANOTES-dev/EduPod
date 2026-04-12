@@ -510,7 +510,9 @@ export default function FinanceDashboardPage() {
             />
           }
           icon={TrendingDown}
-          href="/finance/overview"
+          href={
+            data.overdue_invoices.length > 0 ? '/finance/overview?overdue=yes' : '/finance/overview'
+          }
           accent="bg-danger-100 text-danger-700"
           subtitle={
             data.overdue_invoices.length > 0
@@ -576,7 +578,7 @@ export default function FinanceDashboardPage() {
           accent="bg-success-100 text-success-700"
         />
         <QuickAction
-          label={t('createInvoice')}
+          label={t('viewInvoices')}
           icon={Receipt}
           href="/finance/invoices"
           accent="bg-info-100 text-info-700"

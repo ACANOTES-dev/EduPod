@@ -4551,7 +4551,8 @@
     "autoApplyNeedsCondition": "اختر نوع الشرط للخصومات التلقائية",
     "householdsPluralLabel": "الأسر",
     "colStudent": "الطالب",
-    "colStudentNumber": "رقم الطالب"
+    "colStudentNumber": "رقم الطالب",
+    "viewInvoices": "عرض الفواتير"
   },
   "scheduling": {
     "rooms": "الغرف",
