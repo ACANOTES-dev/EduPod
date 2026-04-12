@@ -79,7 +79,7 @@ export default function StatementsIndexPage() {
           `/api/v1/households?${params.toString()}`,
         ),
         apiClient<{ data: OverviewRow[] }>(
-          '/api/v1/finance/dashboard/household-overview?pageSize=500',
+          '/api/v1/finance/dashboard/household-overview?pageSize=100',
         ),
       ]);
 
