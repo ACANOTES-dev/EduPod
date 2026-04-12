@@ -18,7 +18,11 @@ Format: `- <BUG-ID> (YYYY-MM-DD): <decision>. — <agent>`
 - FIN-011 (2026-04-12): Backend bug, not missing UI. Top-debtor derivation in `finance-dashboard.service.ts` was joined to overdueInvoices (due_date < now); widened to all outstanding invoices so debtors with not-yet-overdue balance appear. — Claude Opus 4.6
 - FIN-012+FIN-015 (2026-04-12): Bundled into one commit since both touch the finance hub page. — Claude Opus 4.6
 - FIN-019 (2026-04-12): No-op. Code at `refunds.service.ts:188` already throws on self-approval and test at `refunds.service.spec.ts:224` covers it. Marked Verified without change. — Claude Opus 4.6
-- FIN-021, FIN-022, FIN-023, FIN-026 (2026-04-12): Blocked — need product/architecture decisions outside a bug-fix pass. See per-entry "Open question for the user". — Claude Opus 4.6
+- FIN-021, FIN-022, FIN-023, FIN-026 (2026-04-12): Blocked pending user input — see per-entry "Open question". — Claude Opus 4.6
+- FIN-021 (2026-04-13): User chose hard cap. Set to 200 (matches documented perf-spec max) rather than 50 — 12-month stability goal + ~10 tenants at launch means 50 would create friction sooner than the infra change is worth. — Claude Opus 4.6
+- FIN-022 (2026-04-13): User approved migration. Applied to prod via `DATABASE_MIGRATE_URL` (superuser). Used plain `CREATE INDEX` — Prisma migrations run inside a transaction which is incompatible with `CREATE INDEX CONCURRENTLY`. Volume is small enough that the brief lock is a non-event. — Claude Opus 4.6
+- FIN-023 (2026-04-13): Option 1 (reconciliation cron) over Option 2 (saga). Alert-only initially. Inlined AES decrypt in the worker processor (same pattern as admissions-payment-link and key-rotation processors). — Claude Opus 4.6
+- FIN-026 (2026-04-13): Investigation revealed not three competing code paths but a timeline artifact — `782bc94d` on 2026-04-07 stripped YYYYMM from all sequence consumers. User chose to keep current `{prefix}-NNNNNN` and leave pre-Apr-7 records as historical. — Claude Opus 4.6
 - FIN-024 (2026-04-12): Ref guard against StrictMode double-invoke; kept simple rather than wrapping in a dedup cache. — Claude Opus 4.6
 - FIN-025 (2026-04-12): Module-scoped promise cache in use-tenant-currency rather than a React context provider — unchanged hook API, no layout refactor. — Claude Opus 4.6
 - FIN-028 (2026-04-12): `ar-u-nu-latn` locale variant preserves Arabic text, forces Latin digits. — Claude Opus 4.6

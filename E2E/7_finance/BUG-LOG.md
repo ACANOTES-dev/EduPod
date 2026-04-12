@@ -935,16 +935,18 @@ In the CSV cell escaper, if a cell value starts with `=`, `+`, `-`, `@`, or `\t`
 ## FIN-021 — [C] Bulk operations synchronous (API timeout risk)
 
 - **Severity:** P2
-- **Status:** Blocked — need input
-- **Assigned:** Claude Opus 4.6 — 2026-04-12
+- **Status:** Verified
+- **Assigned:** Claude Opus 4.6 — 2026-04-13
 
 ### Decisions
 
-- 2026-04-12: Two reasonable remediations in the bug log — (A) move to a queue-backed flow with a 202-then-poll contract, or (B) cap synchronous calls at 50 per request. (A) is the right long-term answer but requires new processors, a new `finance:bulk-<op>` job family, a frontend poll UX, and a migration story for callers already expecting the synchronous 200. (B) is a one-line throttle but reduces the user-facing feature. This trade-off needs a product decision; not safe to pick unilaterally in a bug-fix pass.
+- 2026-04-13: User chose a hard cap rather than async+polling, on the basis that 10 tenants in 6 months + a 12-month stability goal doesn't justify a new subsystem yet. Capped at **200** (not 50 as originally sketched) because 200 is already the documented perf-spec max — preserves the advertised contract while staying safely under the 30s gateway timeout.
 
-### Open question for the user
+### Verification notes
 
-Which do you want: (A) full async + polling, or (B) hard cap at 50 per call with a friendly error at 51+?
+- 2026-04-13: Deployed. Service-level `assertBulkSize` throws `BULK_LIMIT_EXCEEDED` on any bulk endpoint (`bulkIssue`/`bulkVoid`/`bulkRemind`/`bulkExport`) with more than 200 ids.
+- Prod probe: `POST /v1/finance/bulk/issue` with 201 bogus UUIDs → HTTP 400. Zod also caps at 200 via the shared schema, so controller-level validation rejects first; the service guard is defense-in-depth for any internal caller that bypasses the pipe.
+- Jest: 19/19 in `bulk-operations.service.spec`, 4 new cap tests added.
 
 - **Provenance:** [C] Perf + worker review
 
@@ -971,24 +973,18 @@ Perf test with 200 invoices → completes within 10s p95 (if kept sync) or retur
 ## FIN-022 — [C] Missing partial index `idx_invoices_overdue_candidates`
 
 - **Severity:** P2
-- **Status:** Blocked — need input
-- **Assigned:** Claude Opus 4.6 — 2026-04-12
+- **Status:** Verified
+- **Assigned:** Claude Opus 4.6 — 2026-04-13
 
 ### Decisions
 
-- 2026-04-12: Requires a Prisma migration. The autonomous fix-bug-log policy explicitly forbids running migrations without explicit approval (`Migrations → do NOT run migrations without explicit approval in the bug entry`). Blocked here.
+- 2026-04-13: User approved. Used plain `CREATE INDEX` (not `CREATE INDEX CONCURRENTLY`) because Prisma migrate wraps statements in a transaction and CONCURRENTLY is incompatible with that. At current invoice volume per tenant (<1k rows) the brief lock is a non-event. If volume ever makes this painful, the index can be rebuilt online manually.
 
-### Open question for the user
+### Verification notes
 
-Approve adding + applying this migration? The statement is:
-
-```sql
-CREATE INDEX idx_invoices_overdue_candidates
-ON invoices (tenant_id, due_date)
-WHERE status IN ('issued','partially_paid') AND last_overdue_notified_at IS NULL;
-```
-
-Safe to add online in Postgres (`CREATE INDEX CONCURRENTLY` recommended), no data change.
+- 2026-04-13: Migration `20260413000000_add_idx_invoices_overdue_candidates` applied to prod via `prisma migrate deploy` using `DATABASE_MIGRATE_URL` (superuser `edupod_admin` — the runtime `edupod_app` role doesn't own `invoices` and can't create indexes).
+- Had to recover from an initial failed attempt (ran against the wrong URL first) by killing two stale `pg_advisory_lock(72707369)` sessions and `prisma migrate resolve --rolled-back`, then re-running deploy. Clean on the second attempt.
+- Verified: `\d+ invoices` on prod shows `"idx_invoices_overdue_candidates" btree (tenant_id, due_date) WHERE (status = ANY (...)) AND last_overdue_notified_at IS NULL`.
 
 - **Provenance:** [C] Perf review
 
@@ -1015,16 +1011,19 @@ WHERE status IN ('issued','partially_paid') AND last_overdue_notified_at IS NULL
 ## FIN-023 — [C] Stripe-succeeded/DB-failed refund has no compensation job
 
 - **Severity:** P2
-- **Status:** Blocked — need input
-- **Assigned:** Claude Opus 4.6 — 2026-04-12
+- **Status:** Verified
+- **Assigned:** Claude Opus 4.6 — 2026-04-13
 
 ### Decisions
 
-- 2026-04-12: Two distinct approaches in the bug log — (1) daily reconciliation cron that reads recent Stripe refunds and cross-checks the `refunds` table, or (2) move the Stripe call out of the DB transaction into a saga. Both require architectural design decisions beyond a bug-fix pass: (1) needs a new worker processor, Stripe API pagination strategy, and a reconciliation report; (2) changes the refund state machine and requires a backfill strategy for already-broken rows. Needs product + architecture input.
+- 2026-04-13: User chose Option 1 (reconciliation cron, alert-only initially) — additive, no change to the refund write path, avoids rewriting the state machine. If drift alerts fire often enough to matter, we can upgrade to saga or add auto-repair later.
+- Alert-only on first pass per explicit user request — the first real drift will be inspected by a human before any auto-reconciliation is built.
 
-### Open question for the user
+### Verification notes
 
-Approach 1 (reconciliation cron) or Approach 2 (saga)? Cron is lower risk and catches the failure mode retroactively; saga prevents it but rewrites the write path.
+- 2026-04-13: New worker processor `StripeRefundReconciliationProcessor` on the `FINANCE` queue. Daily at 03:00 UTC. For each active tenant with a Stripe config, pulls the last 48h of Stripe refunds, diffs against local `refunds` rows by `payment_intent` + amount, logs three drift types: `stripe_has_local_failed`, `local_executed_no_stripe`, `stripe_refund_no_local_row`.
+- Cron registered: worker boot log shows `Registered repeatable cron: finance:reconcile-stripe-refunds (daily 03:00 UTC)`.
+- AES-256-GCM decrypt inlined in the processor (same pattern as `admissions-payment-link.processor` and `key-rotation.processor` — worker can't import the API's EncryptionService across module boundaries).
 
 - **Provenance:** [C] Integration spec §8.3
 
@@ -1103,16 +1102,20 @@ Network tab: exactly one `/dashboard/currency` request per session (or per tenan
 ## FIN-026 — [L] Payment reference format inconsistent
 
 - **Severity:** P3
-- **Status:** Blocked — need input
-- **Assigned:** Claude Opus 4.6 — 2026-04-12
+- **Status:** Verified (accepted as-is, no code change)
+- **Assigned:** Claude Opus 4.6 — 2026-04-13
 
 ### Decisions
 
-- 2026-04-12: Investigated. Production has three distinct formats: `PAYREF-NNNNNN` (from `payments.service.ts:180` manual payment path, `'PAYREF'` prefix into `SequenceService.nextNumber`), `PAY-YYYYMM-NNNNNN` (from an unidentified date-aware code path, likely Stripe webhook or a superseded service), and `PAY-NNNNNN` (from the default sequence path with no prefix override). Unifying requires: (a) picking one canonical format (spec says `PAY-YYYYMM-NNNNNN`), (b) adding a YYYYMM-aware branch to `SequenceService` (today it only emits `{prefix}-{padded6}`), (c) updating every payment-creation call site to use the canonical path, (d) a backfill decision — rewrite historical `PAYREF-*`/`PAY-NNNNNN` rows, or leave them and document the legacy formats? All four are architecture/product calls, not a bug-fix.
+- 2026-04-13: Deeper investigation revealed there are NOT three competing code paths — there's only one. The three formats in prod are a timeline artifact:
+  - Before 2026-04-07: `SequenceService.formatNumber` emitted `{prefix}-YYYYMM-NNNNNN` → `INV-202603-*`, `PAY-202603-*`
+  - Commit `782bc94d` on 2026-04-07 (`fix(people): ... student number format ...`) explicitly stripped YYYYMM from ALL sequence-service consumers, not just students
+  - After 2026-04-07: same code path emits `{prefix}-NNNNNN` → `INV-000008`, `PAYREF-000005`
+- User decision: keep the current `{prefix}-NNNNNN` as canonical. Historical YYYYMM rows from before 2026-04-07 stay as-is (no backfill, no rewrite — changing audit references post-hoc is a bigger trust breach than accepting a cutover discontinuity).
 
-### Open question for the user
+### Verification notes
 
-(1) Confirm the canonical format is `PAY-YYYYMM-NNNNNN`. (2) Unify all code paths or accept legacy formats? (3) Backfill historical rows or keep them?
+- 2026-04-13: No code change. Current code already produces the intended canonical format for every new payment / invoice / receipt. Legacy rows with YYYYMM embedded are historical-only and will be understood by anyone referencing records from before April 2026.
 
 - **Provenance:** [L] Observed in Payments list
 
@@ -1213,12 +1216,12 @@ Use `Intl.DateTimeFormat('ar-u-nu-latn', { ... })` or equivalent, which forces L
 | FIN-018 | P2  | [C] | Verified | No rate limit on `POST /v1/parent/invoices/:id/pay`             |
 | FIN-019 | P2  | [C] | Verified | Self-approval block on refund approve unverified                |
 | FIN-020 | P2  | [C] | Verified | CSV formula injection in Custom Report export                   |
-| FIN-021 | P2  | [C] | Blocked  | Bulk operations synchronous (API timeout risk)                  |
-| FIN-022 | P2  | [C] | Blocked  | Missing partial index `idx_invoices_overdue_candidates`         |
-| FIN-023 | P2  | [C] | Blocked  | Stripe-succeeded/DB-failed refund has no compensation job       |
+| FIN-021 | P2  | [C] | Verified | Bulk operations synchronous (API timeout risk)                  |
+| FIN-022 | P2  | [C] | Verified | Missing partial index `idx_invoices_overdue_candidates`         |
+| FIN-023 | P2  | [C] | Verified | Stripe-succeeded/DB-failed refund has no compensation job       |
 | FIN-024 | P3  | [L] | Verified | Dashboard endpoint fires 2× on mount                            |
 | FIN-025 | P3  | [L] | Verified | Currency endpoint fires 5× per page load                        |
-| FIN-026 | P3  | [L] | Blocked  | Payment reference format inconsistent                           |
+| FIN-026 | P3  | [L] | Verified | Payment reference format inconsistent                           |
 | FIN-027 | P3  | [L] | Verified | Payment detail → invoice link missing `/en/` locale prefix      |
 | FIN-028 | P3  | [L] | Verified | Arabic-Indic numerals in Arabic-locale dates                    |
 
