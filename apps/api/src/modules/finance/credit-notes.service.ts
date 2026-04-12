@@ -36,6 +36,7 @@ export class CreditNotesService {
         orderBy: { created_at: 'desc' },
         include: {
           household: { select: { id: true, household_name: true } },
+          issued_by: { select: { id: true, first_name: true, last_name: true } },
           applications: {
             select: {
               id: true,
@@ -60,6 +61,7 @@ export class CreditNotesService {
       where: { id, tenant_id: tenantId },
       include: {
         household: { select: { id: true, household_name: true } },
+        issued_by: { select: { id: true, first_name: true, last_name: true } },
         applications: {
           include: {
             invoice: {
@@ -202,14 +204,20 @@ export class CreditNotesService {
 
   private serialize<
     A extends { applied_amount: Decimal },
-    T extends { amount: Decimal; remaining_balance: Decimal; applications?: A[] },
-  >(
-    cn: T,
-  ): Omit<T, 'amount' | 'remaining_balance' | 'applications'> & {
-    amount: number;
-    remaining_balance: number;
-    applications: (Omit<A, 'applied_amount'> & { applied_amount: number })[] | undefined;
-  } {
+    T extends {
+      amount: Decimal;
+      remaining_balance: Decimal;
+      applications?: A[];
+      household?: { household_name?: string | null } | null;
+      issued_by?: { first_name?: string | null; last_name?: string | null } | null;
+    },
+  >(cn: T) {
+    const household = cn.household;
+    const issuedBy = cn.issued_by;
+    const household_name = household?.household_name ?? null;
+    const issued_by_name = issuedBy
+      ? `${issuedBy.first_name ?? ''} ${issuedBy.last_name ?? ''}`.trim() || null
+      : null;
     return {
       ...cn,
       amount: serializeDecimal(cn.amount),
@@ -217,6 +225,8 @@ export class CreditNotesService {
       applications: Array.isArray(cn.applications)
         ? cn.applications.map((a) => ({ ...a, applied_amount: serializeDecimal(a.applied_amount) }))
         : undefined,
+      household_name,
+      issued_by_name,
     };
   }
 }
