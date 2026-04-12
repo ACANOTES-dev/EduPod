@@ -160,12 +160,28 @@ export default function FinanceAuditTrailPage() {
     return `/${locale}${basePath}/${entry.entity_id}`;
   }
 
+  // Backend's audit interceptor currently writes the raw "POST /api/v1/..."
+  // string into action. Until the interceptor emits semantic actions
+  // (tracked as FIN-008 backend follow-up), normalize client-side so the
+  // action pill + description render correctly.
+  function normalizeAction(action: string): 'create' | 'update' | 'delete' | 'other' {
+    if (/^(create|update|delete)$/i.test(action)) {
+      return action.toLowerCase() as 'create' | 'update' | 'delete';
+    }
+    const methodMatch = /^\s*(GET|POST|PATCH|PUT|DELETE)\b/i.exec(action);
+    const method = methodMatch?.[1]?.toUpperCase();
+    if (method === 'POST') return 'create';
+    if (method === 'PATCH' || method === 'PUT') return 'update';
+    if (method === 'DELETE') return 'delete';
+    return 'other';
+  }
+
   function getDescription(entry: AuditLogEntry): string {
     const entityLabel = entry.entity_type.replace(/_/g, ' ');
     const ref = getEntityReference(entry);
     const refSuffix = ref !== '\u2014' ? ` (${ref})` : '';
 
-    switch (entry.action) {
+    switch (normalizeAction(entry.action)) {
       case 'create':
         return t('auditDescCreated', { entity: entityLabel, ref: refSuffix });
       case 'update':
@@ -185,7 +201,14 @@ export default function FinanceAuditTrailPage() {
     create: 'bg-success-100 text-success-700',
     update: 'bg-info-100 text-info-700',
     delete: 'bg-danger-100 text-danger-700',
+    other: 'bg-surface-secondary text-text-secondary',
   };
+
+  function getActionLabel(action: string): string {
+    const normalized = normalizeAction(action);
+    if (normalized === 'other') return action;
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }
 
   const columns = [
     {
@@ -209,15 +232,18 @@ export default function FinanceAuditTrailPage() {
     {
       key: 'action',
       header: t('auditTrail.action'),
-      render: (row: AuditLogEntry) => (
-        <span
-          className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
-            actionBadgeClass[row.action] ?? 'bg-surface-secondary text-text-secondary'
-          }`}
-        >
-          {row.action}
-        </span>
-      ),
+      render: (row: AuditLogEntry) => {
+        const normalized = normalizeAction(row.action);
+        return (
+          <span
+            className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
+              actionBadgeClass[normalized] ?? actionBadgeClass.other
+            }`}
+          >
+            {getActionLabel(row.action)}
+          </span>
+        );
+      },
     },
     {
       key: 'entity_type',
