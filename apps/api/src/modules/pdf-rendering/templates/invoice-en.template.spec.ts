@@ -106,11 +106,43 @@ describe('renderInvoiceEn', () => {
     expect(result).toContain('EUR 1550.00');
   });
 
-  it('should include dates', () => {
+  it('should include dates formatted for display', () => {
     const result = renderInvoiceEn(INVOICE_DATA, BRANDING);
 
-    expect(result).toContain('2026-01-15');
-    expect(result).toContain('2026-02-15');
+    expect(result).toContain('15 Jan 2026');
+    expect(result).toContain('15 Feb 2026');
+  });
+
+  it('should accept Date objects for issue_date and due_date without crashing (regression: FIN-001)', () => {
+    const data = {
+      ...INVOICE_DATA,
+      issue_date: new Date('2026-01-15T00:00:00.000Z'),
+      due_date: new Date('2026-02-15T00:00:00.000Z'),
+    };
+    const result = renderInvoiceEn(data, BRANDING);
+
+    expect(typeof result).toBe('string');
+    expect(result).toContain('15 Jan 2026');
+    expect(result).toContain('15 Feb 2026');
+  });
+
+  it('should accept nested payment.payment_reference / payment.received_at shape (service include)', () => {
+    const data = {
+      ...INVOICE_DATA,
+      payment_allocations: [
+        {
+          allocated_amount: 1000.0,
+          payment: {
+            payment_reference: 'PAY-202601-0001',
+            received_at: new Date('2026-01-20T00:00:00.000Z'),
+          },
+        },
+      ],
+    };
+    const result = renderInvoiceEn(data, BRANDING);
+
+    expect(result).toContain('PAY-202601-0001');
+    expect(result).toContain('20 Jan 2026');
   });
 
   it('should render payment allocations', () => {

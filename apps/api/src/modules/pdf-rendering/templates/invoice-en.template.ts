@@ -8,16 +8,20 @@ interface InvoiceLineData {
 }
 
 interface PaymentAllocationData {
-  payment_reference: string;
   allocated_amount: number;
-  received_at: string;
+  payment_reference?: string | null;
+  received_at?: Date | string | null;
+  payment?: {
+    payment_reference?: string | null;
+    received_at?: Date | string | null;
+  } | null;
 }
 
 interface InvoiceData {
   invoice_number: string;
   status: string;
-  issue_date: string | null;
-  due_date: string;
+  issue_date: Date | string | null;
+  due_date: Date | string;
   currency_code: string;
   household: {
     household_name: string;
@@ -37,13 +41,21 @@ interface InvoiceData {
   payment_allocations: PaymentAllocationData[];
 }
 
-function escapeHtml(str: string | null | undefined): string {
-  if (!str) return '';
+function escapeHtml(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const str = typeof value === 'string' ? value : String(value);
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function formatDate(value: Date | string | null | undefined): string {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function formatCurrency(amount: number, currency: string): string {
@@ -95,17 +107,16 @@ export function renderInvoiceEn(data: unknown, branding: PdfBranding): string {
           .map(
             (pa) => `
         <tr>
-          <td style="padding: 6px 8px; font-size: 12px; border-bottom: 1px solid #f3f4f6;">${escapeHtml(pa.payment_reference)}</td>
-          <td style="padding: 6px 8px; font-size: 12px; border-bottom: 1px solid #f3f4f6;">${escapeHtml(pa.received_at)}</td>
+          <td style="padding: 6px 8px; font-size: 12px; border-bottom: 1px solid #f3f4f6;">${escapeHtml(pa.payment?.payment_reference ?? pa.payment_reference ?? '')}</td>
+          <td style="padding: 6px 8px; font-size: 12px; border-bottom: 1px solid #f3f4f6;">${formatDate(pa.payment?.received_at ?? pa.received_at ?? null)}</td>
           <td style="padding: 6px 8px; font-size: 12px; border-bottom: 1px solid #f3f4f6; text-align: right;">${formatCurrency(pa.allocated_amount, inv.currency_code)}</td>
         </tr>`,
           )
           .join('')
       : '';
 
-  const paymentSection =
-    paymentRows
-      ? `
+  const paymentSection = paymentRows
+    ? `
     <div style="margin-top: 24px;">
       <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: ${primaryColor};">Payment History</h3>
       <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
@@ -119,7 +130,7 @@ export function renderInvoiceEn(data: unknown, branding: PdfBranding): string {
         <tbody>${paymentRows}</tbody>
       </table>
     </div>`
-      : '';
+    : '';
 
   const addressLines = [
     inv.household.address_line_1,
@@ -166,10 +177,10 @@ export function renderInvoiceEn(data: unknown, branding: PdfBranding): string {
             <td style="padding: 3px 12px 3px 0; color: #6b7280; font-weight: 500;">Invoice #:</td>
             <td style="padding: 3px 0; font-weight: 600;">${escapeHtml(inv.invoice_number)}</td>
           </tr>
-          ${inv.issue_date ? `<tr><td style="padding: 3px 12px 3px 0; color: #6b7280; font-weight: 500;">Issue Date:</td><td style="padding: 3px 0;">${escapeHtml(inv.issue_date)}</td></tr>` : ''}
+          ${inv.issue_date ? `<tr><td style="padding: 3px 12px 3px 0; color: #6b7280; font-weight: 500;">Issue Date:</td><td style="padding: 3px 0;">${formatDate(inv.issue_date)}</td></tr>` : ''}
           <tr>
             <td style="padding: 3px 12px 3px 0; color: #6b7280; font-weight: 500;">Due Date:</td>
-            <td style="padding: 3px 0;">${escapeHtml(inv.due_date)}</td>
+            <td style="padding: 3px 0;">${formatDate(inv.due_date)}</td>
           </tr>
           <tr>
             <td style="padding: 3px 12px 3px 0; color: #6b7280; font-weight: 500;">Status:</td>

@@ -8,16 +8,20 @@ interface InvoiceLineData {
 }
 
 interface PaymentAllocationData {
-  payment_reference: string;
   allocated_amount: number;
-  received_at: string;
+  payment_reference?: string | null;
+  received_at?: Date | string | null;
+  payment?: {
+    payment_reference?: string | null;
+    received_at?: Date | string | null;
+  } | null;
 }
 
 interface InvoiceData {
   invoice_number: string;
   status: string;
-  issue_date: string | null;
-  due_date: string;
+  issue_date: Date | string | null;
+  due_date: Date | string;
   currency_code: string;
   household: {
     household_name: string;
@@ -37,13 +41,22 @@ interface InvoiceData {
   payment_allocations: PaymentAllocationData[];
 }
 
-function escapeHtml(str: string | null | undefined): string {
-  if (!str) return '';
+function escapeHtml(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const str = typeof value === 'string' ? value : String(value);
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function formatDate(value: Date | string | null | undefined): string {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  // Arabic locale with Latin numerals (CLAUDE.md: Western numerals in both locales)
+  return d.toLocaleDateString('ar-u-nu-latn', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function formatCurrency(amount: number, currency: string): string {
@@ -53,7 +66,8 @@ function formatCurrency(amount: number, currency: string): string {
 function formatStatusAr(status: string): string {
   const map: Record<string, string> = {
     draft: '\u0645\u0633\u0648\u062F\u0629',
-    pending_approval: '\u0628\u0627\u0646\u062A\u0638\u0627\u0631 \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629',
+    pending_approval:
+      '\u0628\u0627\u0646\u062A\u0638\u0627\u0631 \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629',
     issued: '\u0635\u0627\u062F\u0631\u0629',
     partially_paid: '\u0645\u062F\u0641\u0648\u0639\u0629 \u062C\u0632\u0626\u064A\u0627\u064B',
     paid: '\u0645\u062F\u0641\u0648\u0639\u0629',
@@ -103,17 +117,16 @@ export function renderInvoiceAr(data: unknown, branding: PdfBranding): string {
           .map(
             (pa) => `
         <tr>
-          <td style="padding: 6px 8px; font-size: 12px; border-bottom: 1px solid #f3f4f6;" dir="ltr">${escapeHtml(pa.payment_reference)}</td>
-          <td style="padding: 6px 8px; font-size: 12px; border-bottom: 1px solid #f3f4f6;" dir="ltr">${escapeHtml(pa.received_at)}</td>
+          <td style="padding: 6px 8px; font-size: 12px; border-bottom: 1px solid #f3f4f6;" dir="ltr">${escapeHtml(pa.payment?.payment_reference ?? pa.payment_reference ?? '')}</td>
+          <td style="padding: 6px 8px; font-size: 12px; border-bottom: 1px solid #f3f4f6;" dir="ltr">${formatDate(pa.payment?.received_at ?? pa.received_at ?? null)}</td>
           <td style="padding: 6px 8px; font-size: 12px; border-bottom: 1px solid #f3f4f6; text-align: left;" dir="ltr">${formatCurrency(pa.allocated_amount, inv.currency_code)}</td>
         </tr>`,
           )
           .join('')
       : '';
 
-  const paymentSection =
-    paymentRows
-      ? `
+  const paymentSection = paymentRows
+    ? `
     <div style="margin-top: 24px;">
       <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: ${primaryColor};">\u0633\u062C\u0644 \u0627\u0644\u0645\u062F\u0641\u0648\u0639\u0627\u062A</h3>
       <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
@@ -127,7 +140,7 @@ export function renderInvoiceAr(data: unknown, branding: PdfBranding): string {
         <tbody>${paymentRows}</tbody>
       </table>
     </div>`
-      : '';
+    : '';
 
   const addressLines = [
     inv.household.address_line_1,
@@ -175,10 +188,10 @@ export function renderInvoiceAr(data: unknown, branding: PdfBranding): string {
             <td style="padding: 3px 0 3px 12px; color: #6b7280; font-weight: 500;">\u0631\u0642\u0645 \u0627\u0644\u0641\u0627\u062A\u0648\u0631\u0629:</td>
             <td style="padding: 3px 0; font-weight: 600;" dir="ltr">${escapeHtml(inv.invoice_number)}</td>
           </tr>
-          ${inv.issue_date ? `<tr><td style="padding: 3px 0 3px 12px; color: #6b7280; font-weight: 500;">\u062A\u0627\u0631\u064A\u062E \u0627\u0644\u0625\u0635\u062F\u0627\u0631:</td><td style="padding: 3px 0;" dir="ltr">${escapeHtml(inv.issue_date)}</td></tr>` : ''}
+          ${inv.issue_date ? `<tr><td style="padding: 3px 0 3px 12px; color: #6b7280; font-weight: 500;">\u062A\u0627\u0631\u064A\u062E \u0627\u0644\u0625\u0635\u062F\u0627\u0631:</td><td style="padding: 3px 0;" dir="ltr">${formatDate(inv.issue_date)}</td></tr>` : ''}
           <tr>
             <td style="padding: 3px 0 3px 12px; color: #6b7280; font-weight: 500;">\u062A\u0627\u0631\u064A\u062E \u0627\u0644\u0627\u0633\u062A\u062D\u0642\u0627\u0642:</td>
-            <td style="padding: 3px 0;" dir="ltr">${escapeHtml(inv.due_date)}</td>
+            <td style="padding: 3px 0;" dir="ltr">${formatDate(inv.due_date)}</td>
           </tr>
           <tr>
             <td style="padding: 3px 0 3px 12px; color: #6b7280; font-weight: 500;">\u0627\u0644\u062D\u0627\u0644\u0629:</td>

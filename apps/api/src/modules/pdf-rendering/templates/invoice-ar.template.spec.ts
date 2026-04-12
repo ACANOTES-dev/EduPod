@@ -219,7 +219,20 @@ describe('renderInvoiceAr', () => {
     const data = { ...INVOICE_DATA, issue_date: '2026-01-15' };
     const result = renderInvoiceAr(data, BRANDING);
 
-    expect(result).toContain('2026-01-15');
+    // Formatted with Latin numerals (CLAUDE.md constraint); month name localized to Arabic
+    expect(result).toMatch(/15[\s\u00a0]\S+[\s\u00a0]2026/);
+  });
+
+  it('should accept Date objects for issue_date and due_date without crashing (regression: FIN-001)', () => {
+    const data = {
+      ...INVOICE_DATA,
+      issue_date: new Date('2026-01-15T00:00:00.000Z'),
+      due_date: new Date('2026-02-15T00:00:00.000Z'),
+    };
+    const result = renderInvoiceAr(data, BRANDING);
+
+    expect(typeof result).toBe('string');
+    expect(result).toMatch(/15[\s\u00a0]\S+[\s\u00a0]2026/);
   });
 
   // ─── Billing parent name branch ────────────────────────────────────────────
