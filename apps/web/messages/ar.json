@@ -885,7 +885,12 @@
       "financesUnavailableDesc": "تعذّر تحميل المعلومات المالية.",
       "contactSchoolForPayment": "تواصل مع المدرسة للدفع",
       "aiInsightTitle": "رؤية الذكاء الاصطناعي",
-      "aiInsightFallback": "{name} ({yearGroup}) يتقدم بشكل جيد هذا الفصل. تحقق من علامات وبيانات الحضور للتفاصيل الكاملة."
+      "aiInsightFallback": "{name} ({yearGroup}) يتقدم بشكل جيد هذا الفصل. تحقق من علامات وبيانات الحضور للتفاصيل الكاملة.",
+      "quickActions": {
+        "payInvoice": "دفع الفاتورة",
+        "viewGrades": "عرض الدرجات",
+        "contactSchool": "الاتصال بالمدرسة"
+      }
     },
     "teacherSummary": "إليك نظرة سريعة على يومك.",
     "todaysLessons": "حصص اليوم",

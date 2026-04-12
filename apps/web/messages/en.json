@@ -893,7 +893,12 @@
       "actionCenterCta": "Open engagement",
       "pendingForms": "Pending Forms",
       "upcomingActions": "Upcoming Actions",
-      "outstandingPayments": "Outstanding Payments"
+      "outstandingPayments": "Outstanding Payments",
+      "quickActions": {
+        "payInvoice": "Pay Invoice",
+        "viewGrades": "View Grades",
+        "contactSchool": "Contact School"
+      }
     },
     "teacherSummary": "Here's your day at a glance.",
     "todaysLessons": "Today's Lessons",
