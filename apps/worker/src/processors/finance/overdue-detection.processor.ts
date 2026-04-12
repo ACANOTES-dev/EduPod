@@ -8,10 +8,18 @@ import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
 
-export interface OverdueDetectionPayload extends Partial<TenantJobPayload> {
-  /** When omitted, processor iterates all active tenants (cron mode). */
+/**
+ * Payload accepted by the processor at the queue boundary. `tenant_id` is
+ * optional because the cron-mode run omits it — the processor iterates all
+ * active tenants internally in that case. Inside the TenantAwareJob subclass
+ * `tenant_id` is always present (`ScopedOverdueDetectionPayload`).
+ */
+export interface OverdueDetectionPayload {
   tenant_id?: string;
-  /** Optional: run detection only for a specific date. Defaults to today. */
+  as_of_date?: string;
+}
+
+interface ScopedOverdueDetectionPayload extends TenantJobPayload {
   as_of_date?: string;
 }
 
@@ -70,10 +78,10 @@ export class OverdueDetectionProcessor extends WorkerHost {
 
 // ─── TenantAwareJob implementation ───────────────────────────────────────────
 
-class OverdueDetectionJob extends TenantAwareJob<OverdueDetectionPayload> {
+class OverdueDetectionJob extends TenantAwareJob<ScopedOverdueDetectionPayload> {
   private readonly logger = new Logger(OverdueDetectionJob.name);
 
-  protected async processJob(data: OverdueDetectionPayload, tx: PrismaClient): Promise<void> {
+  protected async processJob(data: ScopedOverdueDetectionPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, as_of_date } = data;
     const cutoffDate = as_of_date ? new Date(as_of_date) : new Date();
 
