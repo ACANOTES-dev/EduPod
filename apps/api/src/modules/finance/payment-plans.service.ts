@@ -16,7 +16,6 @@ import type {
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
-import { HouseholdReadFacade } from '../households/household-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { serializeDecimal } from './helpers/serialize-decimal.helper';
@@ -28,10 +27,7 @@ interface ProposedInstallment {
 
 @Injectable()
 export class PaymentPlansService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly householdReadFacade: HouseholdReadFacade,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async findAll(tenantId: string, query: PaymentPlanRequestQueryDto) {
     const { page, pageSize, status } = query;
@@ -343,8 +339,24 @@ export class PaymentPlansService {
    * Auto-approved with status 'active'. Not tied to any specific invoice.
    */
   async createAdminPlan(tenantId: string, adminUserId: string, dto: CreateAdminPaymentPlanDto) {
-    // Validate household exists (throws NotFoundException if not found)
-    await this.householdReadFacade.existsOrThrow(tenantId, dto.household_id);
+    // Validate household exists via an invoice or fee assignment check
+    // (Cannot access Household table directly — owned by households module)
+    const hasFinanceRelation = await this.prisma.invoice.findFirst({
+      where: { household_id: dto.household_id, tenant_id: tenantId },
+      select: { id: true },
+    });
+    const hasFeeAssignment = hasFinanceRelation
+      ? true
+      : !!(await this.prisma.householdFeeAssignment.findFirst({
+          where: { household_id: dto.household_id, tenant_id: tenantId },
+          select: { id: true },
+        }));
+    if (!hasFinanceRelation && !hasFeeAssignment) {
+      throw new NotFoundException({
+        code: 'HOUSEHOLD_NOT_FOUND',
+        message: `Household with id "${dto.household_id}" not found or has no finance records`,
+      });
+    }
 
     // Validate installment total equals plan total (original_balance - discount)
     const planTotal = dto.original_balance - (dto.discount_amount ?? 0);

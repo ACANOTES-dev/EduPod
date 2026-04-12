@@ -4,7 +4,6 @@ import { AdmissionsModule } from '../admissions/admissions.module';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
-import { HouseholdsModule } from '../households/households.module';
 import { AudienceProviderRegistry } from '../inbox/audience/audience-provider.registry';
 import { InboxModule } from '../inbox/inbox.module';
 import { ParentsModule } from '../parents/parents.module';
@@ -56,7 +55,6 @@ import { StripeService } from './stripe.service';
     ApprovalsModule,
     AuditLogModule,
     ConfigurationModule,
-    HouseholdsModule,
     InboxModule,
     ParentsModule,
     PdfRenderingModule,
