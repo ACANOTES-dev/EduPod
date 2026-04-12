@@ -27,13 +27,14 @@
 **Additional test accounts:**
 
 - Admin: **Yusuf Rahman** (`owner@nhqs.test` / `Password123!`)
-- Teacher: **Sarah Daly** (`Sarah.daly@nhqs.test` / `Password123!`)
+- Teacher: **Sarah Daly** (`sarah.daly@nhqs.test` / `Password123!`)
 
 **Permissions referenced:**
 
 - `inbox.send` — compose, reply, people search, attachments
 - `inbox.read` — list conversations, get thread, mark read, mute, archive, search
 - `parent.view_announcements` — parent announcement feed (`GET /v1/announcements/my`)
+- `parent.submit_inquiry` — submit and reply to own inquiries (`POST /v1/inquiries`, `POST /v1/inquiries/:id/messages/parent`)
 
 **Parent-specific behaviour notes:**
 
@@ -43,6 +44,90 @@
 - Relational scope: parent can message teachers of their children, admin-tier roles, and office/finance/nurse roles. Parent-to-parent messaging is controlled by a tenant toggle
 - Inquiries: parents can list, create, view, and reply but CANNOT close inquiries
 - Announcements: read-only feed of published announcements via `/announcements`
+
+---
+
+## Spec Pack Context
+
+This document is the **parent UI leg (leg 1)** of the `/e2e-full` release-readiness pack for the Communications module. Sibling specs cover integration, worker, perf, and security. The composite index is `RELEASE-READINESS.md` at the module folder root.
+
+Run ONLY this spec for a parent-shell smoke; run the full pack (`/e2e-full`) for tenant-onboarding readiness.
+
+---
+
+## Prerequisites — Multi-Tenant Test Environment (MANDATORY)
+
+### Tenants
+
+| Slug     | Hostname                    | Notes                                                   |
+| -------- | --------------------------- | ------------------------------------------------------- |
+| `nhqs`   | `https://nhqs.edupod.app`   | Primary — Zainab Ali is parent of a student in Class 2A |
+| `test-b` | `https://test-b.edupod.app` | Hostile neighbour — Zainab has NO membership here       |
+
+### Users required
+
+| Tenant   | Role                   | Name           | Login email               | Password       | Notes                                         |
+| -------- | ---------------------- | -------------- | ------------------------- | -------------- | --------------------------------------------- |
+| `nhqs`   | parent (primary)       | Zainab Ali     | `parent@nhqs.test`        | `Password123!` | Parent of a student in Class 2A               |
+| `nhqs`   | admin                  | Yusuf Rahman   | `owner@nhqs.test`         | `Password123!` | Admin-tier                                    |
+| `nhqs`   | teacher (in-scope)     | Sarah Daly     | `sarah.daly@nhqs.test`    | `Password123!` | Teacher of Zainab's child — messaging allowed |
+| `nhqs`   | teacher (out-of-scope) | Other Teacher  | `other.teacher@nhqs.test` | `Password123!` | NOT teacher of Zainab's child — scope denied  |
+| `nhqs`   | parent (other family)  | Other Parent   | `other.parent@nhqs.test`  | `Password123!` | Used for parent-to-parent tests               |
+| `nhqs`   | student                | Zainab's Child | existing student account  | —              | —                                             |
+| `test-b` | parent                 | Test-B Parent  | `parent@test-b.test`      | `Password123!` | Used for cross-tenant hostile pair            |
+
+### Tenant setup
+
+| Setting                                            | Value required for primary flows                                     |
+| -------------------------------------------------- | -------------------------------------------------------------------- |
+| `messaging_enabled`                                | `true`                                                               |
+| `parents_can_initiate`                             | `true` (must toggle between true/false for §5 conditional broadcast) |
+| `parent_to_parent_messaging`                       | `false` by default; toggle to `true` for one happy-path check        |
+| Messaging policy parent→teacher cell               | `allowed = true` (default)                                           |
+| Messaging policy parent→admin cell                 | `allowed = true`                                                     |
+| Messaging policy parent→office/finance/nurse cells | `allowed = true`                                                     |
+
+### Seed data
+
+| Entity                                                | Count for `nhqs` |
+| ----------------------------------------------------- | ---------------- |
+| Zainab's unread inbox conversations                   | ≥ 3              |
+| Zainab's read inbox conversations                     | ≥ 5              |
+| Broadcast announcements targeting Zainab's household  | ≥ 2 published    |
+| Published announcements school-wide                   | ≥ 5              |
+| Zainab's inquiries (open)                             | ≥ 2              |
+| Zainab's inquiries (in_progress)                      | ≥ 1              |
+| Zainab's inquiries (closed)                           | ≥ 1              |
+| Frozen conversation involving Zainab                  | 1 (admin-frozen) |
+| Broadcast with `allow_replies=true` including Zainab  | 1                |
+| Broadcast with `allow_replies=false` including Zainab | 1                |
+
+### Hostile-pair assertions (enforce during execution)
+
+1. As Zainab, navigate to `/en/inbox/threads/{test-b_conversation_id}` → **404** / empty-state redirect.
+2. As Zainab, `GET /api/v1/inbox/conversations/{test-b_conversation_id}` via DevTools fetch → **404**.
+3. As Zainab, `GET /api/v1/announcements/my` → returns ONLY nhqs announcements (never test-b).
+4. As Zainab, `GET /api/v1/inquiries/my` → returns ONLY Zainab's own inquiries (never another parent's from same tenant).
+5. As Zainab, navigate to `/en/communications` → **redirect to `/en/inbox`** (non-admin).
+6. As Zainab, navigate to `/en/inbox/oversight` → **redirect to `/en/inbox`**.
+7. As Zainab, navigate to `/en/inbox/audiences` → **redirect to `/en/inbox`**.
+8. As Zainab, navigate to `/en/communications/inquiries` (admin list) → **redirect to `/en/inbox`**.
+
+---
+
+## Out of Scope for This Spec
+
+This spec covers only the UI-visible surface for the parent role. Not covered:
+
+- RLS leakage matrix, API contract tests (Zod validation edge cases), state-machine exhaustiveness → `integration/communications-integration-spec.md`
+- Stripe — n/a for Communications
+- Resend/Twilio webhook signature, replay, idempotency → `integration/communications-integration-spec.md` §§5–6
+- BullMQ dispatch, fallback scans, safeguarding keyword scan, announcement publish job → `worker/communications-worker-spec.md`
+- Latency budgets (p50/p95/p99), load, bundle size → `perf/communications-perf-spec.md`
+- OWASP Top 10, unsubscribe-token forgery, attachment upload abuse (ZIP-bomb, SSRF, MIME spoof), rate-limit abuse → `security/communications-security-spec.md`
+- Handlebars template rendering correctness, multi-locale template fallback → `integration/communications-integration-spec.md` §7
+
+A tester who runs ONLY this spec validates the parent-shell UI. Pair with siblings for release-readiness.
 
 ---
 
@@ -70,9 +155,10 @@
 20. [Admin-Only Pages -- Negative Assertions](#20-admin-only-pages----negative-assertions)
 21. [Route Blocking -- All Redirects](#21-route-blocking----all-redirects)
 22. [Arabic / RTL](#22-arabic--rtl)
-23. [Backend Endpoint Map](#23-backend-endpoint-map)
-24. [Console & Network Health](#24-console--network-health)
-25. [End of Spec](#25-end-of-spec)
+23. [Data Invariants](#23-data-invariants-run-after-each-major-flow)
+24. [Backend Endpoint Map](#24-backend-endpoint-map)
+25. [Console & Network Health](#25-console--network-health)
+26. [End of Spec](#26-end-of-spec)
 
 ---
 
@@ -741,7 +827,76 @@ Navigate to each URL directly (paste into address bar) while logged in as **Zain
 
 ---
 
-## 23. Backend Endpoint Map
+## 23. Data Invariants (run after each major flow)
+
+UI-only checks are blind to silent data corruption. Run these SQL (or API-read) assertions after each parent flow.
+
+> **Setup:** `SET app.current_tenant_id = '<nhqs_tenant_uuid>';` first so RLS applies.
+
+### 23.1 Parent-initiated conversation invariants
+
+| #      | What to assert                                                                                                                  | Expected query result                                                                                                             | Pass/Fail |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 23.1.1 | After Zainab composes a direct message to Sarah (in-scope teacher): `conversations` row exists, `created_by_user_id = <zainab>` | `SELECT id FROM conversations WHERE created_by_user_id = '<zainab>' AND kind = 'direct' ORDER BY created_at DESC LIMIT 1` matches |           |
+| 23.1.2 | Zainab's participant row has `role_at_join = 'parent'`                                                                          | `SELECT role_at_join FROM conversation_participants WHERE user_id = '<zainab>' AND conversation_id = '<id>'` = `'parent'`         |           |
+| 23.1.3 | Zainab composes to out-of-scope teacher → rejected (RELATIONAL_SCOPE_DENIED), NO conversation created                           | No new row; API returns 403                                                                                                       |           |
+| 23.1.4 | Zainab composes broadcast → rejected (BROADCAST_NOT_ALLOWED_FOR_ROLE); parents cannot broadcast                                 | API returns 403; UI error toast                                                                                                   |           |
+| 23.1.5 | Zainab composes group — allowed only if `parents_can_initiate = true` AND participants include at least one staff               | Conversation created under both conditions; 403 otherwise                                                                         |           |
+| 23.1.6 | Zainab composes to another parent when `parent_to_parent_messaging=false` → 403 `PARENT_TO_PARENT_DISABLED`                     | API returns 403                                                                                                                   |           |
+| 23.1.7 | Zainab composes to another parent when `parent_to_parent_messaging=true` → success                                              | Conversation created                                                                                                              |           |
+
+### 23.2 Message invariants
+
+| #      | What to assert                                                                                         | Expected query result                                                                    | Pass/Fail |
+| ------ | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | --------- |
+| 23.2.1 | After Zainab sends a reply: `conversations.last_message_at = messages.created_at` (± 1s)               | Equal                                                                                    |           |
+| 23.2.2 | Read receipts: Zainab's UI does NOT show other participants' `read_state` (staff-only feature)         | UI omits read-receipts chip; API still returns read data but UI hides it for parent role |           |
+| 23.2.3 | Deleted message body: Zainab sees `[message deleted]`, DB retains original `body`                      | DB: `body` original, `deleted_at` set; UI renders placeholder                            |           |
+| 23.2.4 | Edit/delete own message within `edit_window_minutes`: Zainab can edit her own message; backend accepts | `message_edits` row added                                                                |           |
+
+### 23.3 Parent announcement feed
+
+| #      | What to assert                                                                                   | Expected query result                                                                               | Pass/Fail |
+| ------ | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- | --------- |
+| 23.3.1 | `GET /v1/announcements/my` returns ONLY announcements whose audience includes Zainab's household | Response `data[]` filtered to household + school scope; no announcements targeting other households |           |
+| 23.3.2 | Announcements never cross tenants                                                                | `SELECT DISTINCT tenant_id FROM announcements WHERE id IN (<response_ids>)` = nhqs                  |           |
+| 23.3.3 | Draft / scheduled / archived announcements are EXCLUDED                                          | Only `status = 'published'` in response                                                             |           |
+
+### 23.4 Inquiry invariants
+
+| #      | What to assert                                                                                                      | Expected query result                                   | Pass/Fail |
+| ------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------- |
+| 23.4.1 | After Zainab submits new inquiry: one `parent_inquiries` row, `status='open'`, `parent_id = <zainab_parent_id>`     | Row present                                             |           |
+| 23.4.2 | First message row exists with `author_type='parent'`, `author_user_id = <zainab>`                                   | Row present                                             |           |
+| 23.4.3 | Zainab replies: new message row with `author_type='parent'`                                                         | Row present                                             |           |
+| 23.4.4 | Zainab CANNOT close her own inquiry — close endpoint returns 403 `PARENT_CANNOT_CLOSE_INQUIRY`                      | UI has no close button; API returns 403                 |           |
+| 23.4.5 | When admin closes the inquiry: status becomes `'closed'`; Zainab's subsequent reply attempts → 409 `INQUIRY_CLOSED` | UI disables composer; API returns 409                   |           |
+| 23.4.6 | `GET /v1/inquiries/my` returns only Zainab's inquiries (never other parents' from same tenant)                      | All returned rows have `parent_id = <zainab_parent_id>` |           |
+
+### 23.5 Tenant isolation (cross-tenant)
+
+| #      | What to assert                                                                         | Expected query result                                   | Pass/Fail |
+| ------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------- |
+| 23.5.1 | Zainab cannot access any `test-b` entity (conversation, announcement, inquiry) by UUID | All URL-hit attempts → 404                              |           |
+| 23.5.2 | Parent announcement feed never leaks `test-b` announcements                            | All returned announcement IDs have `tenant_id = <nhqs>` |           |
+| 23.5.3 | Parent inquiry list never leaks `test-b` inquiries                                     | All returned IDs have `tenant_id = <nhqs>`              |           |
+
+### 23.6 Hostile-pair execution log
+
+| #      | Assertion                                                                                    | Observed Result | Pass/Fail |
+| ------ | -------------------------------------------------------------------------------------------- | --------------- | --------- |
+| 23.6.1 | Direct URL to test-b conversation as Zainab                                                  |                 |           |
+| 23.6.2 | `GET /api/v1/inbox/conversations/{test-b_id}` as Zainab                                      |                 |           |
+| 23.6.3 | `GET /api/v1/announcements/my` as Zainab — contains no test-b data                           |                 |           |
+| 23.6.4 | `GET /api/v1/inquiries/my` as Zainab — contains no test-b data or another nhqs parent's data |                 |           |
+| 23.6.5 | Navigate to `/en/communications` as Zainab                                                   |                 |           |
+| 23.6.6 | Navigate to `/en/inbox/oversight` as Zainab                                                  |                 |           |
+| 23.6.7 | Navigate to `/en/inbox/audiences` as Zainab                                                  |                 |           |
+| 23.6.8 | Navigate to `/en/communications/inquiries` (admin list) as Zainab                            |                 |           |
+
+---
+
+## 24. Backend Endpoint Map
 
 ### 23.1 Endpoints the Parent CAN Access
 
@@ -803,7 +958,7 @@ Navigate to each URL directly (paste into address bar) while logged in as **Zain
 
 ---
 
-## 24. Console & Network Health
+## 25. Console & Network Health
 
 | #     | What to Check                                | Expected Result                                                                                                                                                       | Pass/Fail |
 | ----- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
@@ -827,7 +982,7 @@ Navigate to each URL directly (paste into address bar) while logged in as **Zain
 
 ---
 
-## 25. End of Spec
+## 26. End of Spec
 
 This specification covers the complete Communications module as experienced by a Parent role user. All 24 sections must pass for the module to be considered E2E-verified for the Parent view.
 

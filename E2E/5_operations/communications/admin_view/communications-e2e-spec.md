@@ -25,12 +25,8 @@
 > - `/profile/communication` — Profile communication preferences
 
 **Base URL:** `https://nhqs.edupod.app`
-**Prerequisite:** Logged in as **Yusuf Rahman** (`owner@nhqs.test` / `Password123!`), who holds the **School Owner** role.
-**Additional test accounts:**
-
-- Teacher: **Sarah Daly** (`Sarah.daly@nhqs.test` / `Password123!`)
-- Parent: **Zainab Ali** (`parent@nhqs.test` / `Password123!`)
-  **Navigation path to start:** Click **Inbox** (envelope icon) in the morph bar.
+**Primary login:** **Yusuf Rahman** (`owner@nhqs.test` / `Password123!`) — School Owner.
+**Navigation path to start:** Click **Inbox** (envelope icon) in the morph bar.
 
 **Admin roles covered:** school_owner, school_principal, school_vice_principal, admin
 **Admin-tier (oversight):** school_owner, school_principal, school_vice_principal only (NOT admin)
@@ -46,7 +42,117 @@
 - `communications.view` — list announcements, get announcement, delivery status
 - `communications.manage` — create/update/archive announcements
 - `communications.send` — publish announcements
+- `communications.unsubscribe` — manage template assignments and unsubscribe workflows (if seeded)
 - `parent.view_announcements` — parent announcement feed
+- `safeguarding.keywords.write` — manage safeguarding keyword list (admin-tier only)
+
+---
+
+## Spec Pack Context
+
+This document is the **admin UI leg (leg 1)** of the `/e2e-full` release-readiness pack for the Communications module. The full pack includes four sibling legs that together target 99.99% release-readiness:
+
+| Leg | Spec document                                       | Executor                       |
+| --- | --------------------------------------------------- | ------------------------------ |
+| 1   | `admin_view/communications-e2e-spec.md` (this file) | QC engineer + Playwright       |
+| 1   | `teacher_view/communications-e2e-spec.md`           | QC engineer + Playwright       |
+| 1   | `parent_view/communications-e2e-spec.md`            | QC engineer + Playwright       |
+| 1   | `student_view/communications-e2e-spec.md`           | QC engineer + Playwright       |
+| 2   | `integration/communications-integration-spec.md`    | Jest / Supertest harness       |
+| 3   | `worker/communications-worker-spec.md`              | Jest + BullMQ / k6             |
+| 4   | `perf/communications-perf-spec.md`                  | k6 / Artillery / Lighthouse    |
+| 5   | `security/communications-security-spec.md`          | Security engineer / pen-tester |
+
+The composite index is `RELEASE-READINESS.md` at the module folder root. Running ONLY this spec is a thorough admin-shell smoke; running it alongside the four siblings is the full tenant-onboarding readiness check.
+
+---
+
+## Prerequisites — Multi-Tenant Test Environment (MANDATORY)
+
+A single-tenant run is insufficient; this spec exercises the UI-visible side of tenant isolation, so the environment must satisfy the following before you begin:
+
+### Tenants
+
+| Slug     | Currency | Hostname                    | Messaging policy defaults                                                        | Fallback config                           | Safeguarding keywords seeded       |
+| -------- | -------- | --------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------- | ---------------------------------- |
+| `nhqs`   | GBP      | `https://nhqs.edupod.app`   | Defaults (Wave 2)                                                                | Teacher-fallback 3 h, Admin-fallback 24 h | 12 keywords (3 high, 5 med, 4 low) |
+| `test-b` | USD      | `https://test-b.edupod.app` | **Inverted**: students AND parents can initiate, parent_to_parent_messaging=true | Teacher-fallback 1 h, Admin-fallback 6 h  | 3 keywords (1 each severity)       |
+
+Data differences are deliberate — a cross-tenant leak would be visibly wrong (e.g. a GBP invoice reference appearing in a USD tenant's inbox, or a `nhqs` safeguarding keyword triggering a flag on a `test-b` message).
+
+### Users required per tenant (8 total)
+
+| Tenant   | Role         | Name (suggested) | Login email            | Password       | Permissions                                                                      |
+| -------- | ------------ | ---------------- | ---------------------- | -------------- | -------------------------------------------------------------------------------- |
+| `nhqs`   | school_owner | Yusuf Rahman     | `owner@nhqs.test`      | `Password123!` | Full admin-tier (inbox._ + communications._)                                     |
+| `nhqs`   | teacher      | Sarah Daly       | `sarah.daly@nhqs.test` | `Password123!` | `inbox.send`, `inbox.read`                                                       |
+| `nhqs`   | parent       | Zainab Ali       | `parent@nhqs.test`     | `Password123!` | `inbox.send`, `inbox.read`, `parent.view_announcements`, `parent.submit_inquiry` |
+| `nhqs`   | student      | Adam Moore       | `adam.moore@nhqs.test` | `Password123!` | `inbox.send`, `inbox.read`                                                       |
+| `test-b` | school_owner | Test-B Owner     | `owner@test-b.test`    | `Password123!` | Full admin-tier                                                                  |
+| `test-b` | teacher      | Test-B Teacher   | `teacher@test-b.test`  | `Password123!` | `inbox.send`, `inbox.read`                                                       |
+| `test-b` | parent       | Test-B Parent    | `parent@test-b.test`   | `Password123!` | `inbox.send`, `inbox.read`, `parent.view_announcements`                          |
+| `test-b` | student      | Test-B Student   | `student@test-b.test`  | `Password123!` | `inbox.send`, `inbox.read`                                                       |
+
+### Seed data per tenant (minimum)
+
+| Entity                    | Tenant `nhqs`                                                          | Tenant `test-b`              |
+| ------------------------- | ---------------------------------------------------------------------- | ---------------------------- |
+| Conversations (direct)    | ≥ 20 (mix of unread/read)                                              | ≥ 5                          |
+| Conversations (group)     | ≥ 5 (≥ 3 participants each)                                            | ≥ 2                          |
+| Conversations (broadcast) | ≥ 3 (school-wide, class, custom)                                       | ≥ 1                          |
+| Saved audiences (static)  | ≥ 4                                                                    | ≥ 1                          |
+| Saved audiences (dynamic) | ≥ 3 (one per provider: class_parents, year_group_students, handpicked) | ≥ 1                          |
+| Announcements (draft)     | ≥ 2                                                                    | ≥ 1                          |
+| Announcements (published) | ≥ 10                                                                   | ≥ 2                          |
+| Announcements (scheduled) | ≥ 1 (future `scheduled_publish_at`)                                    | 0                            |
+| Announcements (archived)  | ≥ 2                                                                    | 0                            |
+| Parent inquiries (open)   | ≥ 3                                                                    | ≥ 1                          |
+| Parent inquiries (closed) | ≥ 2                                                                    | 0                            |
+| Message flags (pending)   | ≥ 3 (one per severity)                                                 | 0                            |
+| Message flags (dismissed) | ≥ 1                                                                    | 0                            |
+| Message flags (escalated) | ≥ 1                                                                    | 0                            |
+| Notification settings     | All types enabled for owner                                            | All types disabled for owner |
+| Frozen conversation       | 1 (with `freeze_reason` set)                                           | 0                            |
+
+### Hostile-pair assertions (enforce during execution)
+
+The tester MUST execute these cross-tenant assertions at least once during the run (captured in §40 below):
+
+1. Logged in as `nhqs` owner, navigate to `/en/inbox/threads/{test-b_conversation_id}` → **expected 404 or redirect to /inbox**, NEVER 200 with Tenant B data.
+2. Logged in as `nhqs` owner, `GET /api/v1/inbox/conversations/{test-b_conversation_id}` via DevTools fetch → **expected 404**.
+3. Logged in as `nhqs` owner, `GET /api/v1/announcements/{test-b_announcement_id}` → **expected 404**.
+4. Logged in as `nhqs` owner, `GET /api/v1/inbox/audiences/{test-b_audience_id}` → **expected 404**.
+5. Logged in as `nhqs` owner, `GET /api/v1/inbox/oversight/conversations/{test-b_conversation_id}` → **expected 404**.
+6. Logged in as `nhqs` owner, `GET /api/v1/safeguarding/keywords` → response contains only `nhqs` keywords (verifiable by count).
+
+Full RLS matrix (every tenant-scoped endpoint × every role × every sibling tenant) is exercised in **/e2e-integration** (`integration/communications-integration-spec.md`); this spec exercises the UI-visible tenant-isolation path only.
+
+### Environment flags
+
+- `INBOX_ALLOW_TEST_FALLBACK=true` on the API for §28.8 test-fallback button
+- Resend + Twilio keys set to sandbox credentials (messages won't actually deliver but provider_message_id still set)
+- RLS must be `FORCE ROW LEVEL SECURITY` on all 19 comms tables
+
+---
+
+## Out of Scope for This Spec
+
+This spec exercises the UI-visible surface of the Communications module as a human (or Playwright agent) clicking through the admin shells. It does **NOT** cover:
+
+- **RLS leakage matrix (every endpoint × every role × every sibling tenant)** → `integration/communications-integration-spec.md` §§1–3
+- **Stripe webhooks** — n/a; this module does not touch Stripe. Resend + Twilio webhooks (HMAC signature, replay, idempotency) → `integration/communications-integration-spec.md` §§5–6
+- **API contract tests bypassing the UI** (every endpoint × every permission role, every Zod validation edge case, every state-machine transition including invalid ones) → `integration/communications-integration-spec.md` §§4, 7–8
+- **DB-level invariants after each flow** (machine-executable SQL) → covered here as §40 AND in `integration/communications-integration-spec.md` §9
+- **Concurrency / race conditions** (parallel compose, parallel publish-same-announcement, parallel-freeze) → `integration/communications-integration-spec.md` §10
+- **BullMQ jobs, cron schedulers, async side-effect chains** — every processor listed in `worker/communications-worker-spec.md` (notifications:dispatch-queued, communications:dispatch-notifications, communications:publish-announcement, communications:announcement-approval-callback, communications:inquiry-notification, safeguarding:scan-message, safeguarding:notify-reviewers, safeguarding:critical-escalation, safeguarding:sla-check, safeguarding:attachment-scan, safeguarding:break-glass-expiry, inbox:fallback-check, inbox:fallback-scan-tenant, behaviour:digest-notifications, behaviour:notification-reconciliation, behaviour:parent-notification)
+- **Load / throughput / latency budgets** (p50/p95/p99 per endpoint, inbox on 10k conversations, PDF export render time, bundle size) → `perf/communications-perf-spec.md`
+- **Security hardening** (OWASP Top 10, XSS/SQLi injection fuzz, CSRF, JWT refresh, rate-limit abuse, unsubscribe-token forgery, encrypted-field leakage via provider_message_id, CSP/HSTS headers) → `security/communications-security-spec.md`
+- **PDF content correctness** — this spec verifies Content-Type / Content-Disposition / filename after oversight export; byte-level PDF structural assertions (pages, metadata, cover sheet content) are in `integration/communications-integration-spec.md` §6
+- **Handlebars template rendering correctness** (`announcement.published`, `inquiry.new_message`, etc. rendered with every locale) → `integration/communications-integration-spec.md` §7
+- **Long-lived regressions from modules outside Communications** that import InboxBridgeService, AudienceResolutionService, or NotificationDispatchService — tracked at `docs/architecture/module-blast-radius.md`, not here
+- **Browser / device matrix beyond desktop Chrome and 375 px mobile emulation** — deferred to manual QA cycle on Safari, Firefox, Edge, iOS Safari, Android Chrome
+
+A tester who runs ONLY this spec is doing a thorough admin-shell smoke + regression pass. They are NOT doing a full tenant-readiness check. For the latter, run the full `/e2e-full` pack — see `RELEASE-READINESS.md`.
 
 ---
 
@@ -88,9 +194,10 @@
 34. [Oversight Flow End-to-End](#34-oversight-flow-end-to-end)
 35. [Reply Configuration Testing](#35-reply-configuration-testing)
 36. [Arabic / RTL](#36-arabic--rtl)
-37. [Backend Endpoint Map](#37-backend-endpoint-map)
-38. [Console and Network Health](#38-console-and-network-health)
-39. [Sign-off](#39-sign-off)
+37. [Data Invariants](#37-data-invariants-run-after-each-major-flow)
+38. [Backend Endpoint Map](#38-backend-endpoint-map)
+39. [Console and Network Health](#39-console-and-network-health)
+40. [Sign-off](#40-sign-off)
 
 ---
 
@@ -1869,7 +1976,140 @@ This section tests the complete Communications module when the locale is switche
 
 ---
 
-## 37. Backend Endpoint Map
+## 37. Data Invariants (run after each major flow)
+
+Click-then-check-UI is structurally blind to silent data corruption (orphan rows, mis-set `tenant_id`, double-flagging, counter drift, unread skew). Every row below is an SQL query — or, if DB access is unavailable, an API read-call — that must hold true after the referenced flow. The tester executes these against the DB and records Pass/Fail alongside the UI rows.
+
+> **How to run:** open a psql session pointed at the staging DB. For each row, set the RLS tenant context first — `SET app.current_tenant_id = '<nhqs_tenant_uuid>';` — then run the query. Expected result column describes what "correct" looks like. Tolerance is 0 unless stated.
+
+### 37.1 Conversation lifecycle invariants
+
+| #      | What to assert                                                                                                                                                                                | Expected query result                                                                                                                                        | Pass/Fail |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 37.1.1 | After compose-direct: a `conversations` row exists with `kind='direct'`, `created_by_user_id = <sender>`, `tenant_id = <nhqs>`                                                                | `SELECT COUNT(*) FROM conversations WHERE id = '<new_id>' AND kind = 'direct' AND created_by_user_id = '<sender_id>' AND tenant_id = '<nhqs_tenant_id>'` → 1 |           |
+| 37.1.2 | After compose-direct: exactly two `conversation_participants` rows (sender + recipient), each with `tenant_id = <nhqs>`, `role_at_join` set, `unread_count = 0` for sender, `1` for recipient | `SELECT user_id, unread_count FROM conversation_participants WHERE conversation_id = '<new_id>'` → 2 rows matching shape                                     |           |
+| 37.1.3 | After compose-group: exactly N+1 `conversation_participants` rows (sender + N invitees)                                                                                                       | `SELECT COUNT(*) FROM conversation_participants WHERE conversation_id = '<new_id>'` = (participants_in_payload + 1)                                          |           |
+| 37.1.4 | After compose-broadcast: exactly one `broadcast_audience_definitions` row linked to the conversation                                                                                          | `SELECT COUNT(*) FROM broadcast_audience_definitions WHERE conversation_id = '<new_id>'` = 1                                                                 |           |
+| 37.1.5 | After compose-broadcast: exactly one `broadcast_audience_snapshots` row with `recipient_user_ids` non-empty                                                                                   | `SELECT array_length(recipient_user_ids,1) FROM broadcast_audience_snapshots WHERE conversation_id = '<new_id>'` ≥ 1                                         |           |
+| 37.1.6 | After compose-broadcast: number of `conversation_participants` matches `broadcast_audience_snapshots.resolved_count + 1` (sender)                                                             | `SELECT COUNT(*) FROM conversation_participants WHERE conversation_id = '<new_id>'` = resolved_count + 1                                                     |           |
+| 37.1.7 | After send-message: `messages.conversation_id` matches, `sender_user_id` matches, `tenant_id` matches current tenant, `body_search` tsvector is non-null                                      | `SELECT body_search IS NOT NULL FROM messages WHERE id = '<new_msg_id>'` → true                                                                              |           |
+| 37.1.8 | After send-message: `conversations.last_message_at = messages.created_at` (atomic on send)                                                                                                    | `SELECT c.last_message_at, m.created_at FROM conversations c JOIN messages m ON m.id = '<new_msg_id>' WHERE c.id = m.conversation_id` → equal (± 1 sec)      |           |
+| 37.1.9 | After send-message: `unread_count` increments for every participant **other than sender** by exactly 1                                                                                        | `SELECT user_id, unread_count FROM conversation_participants WHERE conversation_id = '<id>'` — non-sender rows equal pre-send + 1                            |           |
+
+### 37.2 Message edit / delete invariants
+
+| #      | What to assert                                                                                                           | Expected query result                                                                                 | Pass/Fail |
+| ------ | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | --------- |
+| 37.2.1 | After edit-message: a `message_edits` row exists with `previous_body`, `edited_by_user_id`, `edited_at` ≤ now            | `SELECT COUNT(*) FROM message_edits WHERE message_id = '<msg_id>'` ≥ 1 and row contains previous_body |           |
+| 37.2.2 | After edit-message: `messages.edited_at` is set, `body` is new                                                           | `SELECT body, edited_at FROM messages WHERE id = '<msg_id>'` → body = new, edited_at IS NOT NULL      |           |
+| 37.2.3 | After delete-message: `messages.deleted_at` set; `messages.body` left intact in DB (UI just renders `[message deleted]`) | `SELECT deleted_at IS NOT NULL FROM messages WHERE id = '<msg_id>'` → true                            |           |
+| 37.2.4 | Edit outside `edit_window_minutes` is rejected (UI shows error toast; DB not mutated)                                    | Row `messages` unchanged; `message_edits` not appended                                                |           |
+
+### 37.3 Broadcast and audience resolution invariants
+
+| #      | What to assert                                                                                                          | Expected query result                                                                                                                | Pass/Fail |
+| ------ | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 37.3.1 | After broadcast send: `resolved_count` equals the resolved user set size at the snapshot moment                         | `SELECT resolved_count, array_length(recipient_user_ids,1) FROM broadcast_audience_snapshots WHERE conversation_id = '<id>'` → equal |           |
+| 37.3.2 | Saved-audience preview matches resolution: previewing an audience returns the same count as resolving the same audience | `GET /v1/inbox/audiences/{id}/resolve` count == `POST /v1/inbox/audiences/preview` count for same definition                         |           |
+| 37.3.3 | Dynamic audience with `saved_group` provider that creates a cycle → ERROR "AUDIENCE_CYCLE_DETECTED"                     | Response 400/409 with `code = 'AUDIENCE_CYCLE_DETECTED'`                                                                             |           |
+| 37.3.4 | Broadcast audience excludes the sender if they fall outside the definition                                              | `recipient_user_ids` does NOT include `conversations.created_by_user_id` if provider filter excludes them                            |           |
+
+### 37.4 Announcement lifecycle invariants
+
+| #      | What to assert                                                                                                                                                 | Expected query result                                                                                                                                                 | Pass/Fail |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 37.4.1 | After create-draft: `announcements.status = 'draft'`, `published_at IS NULL`                                                                                   | `SELECT status, published_at FROM announcements WHERE id = '<id>'` → draft, NULL                                                                                      |           |
+| 37.4.2 | After publish: `status = 'published'`, `published_at` set to now (± 2 sec)                                                                                     | `SELECT status, published_at FROM announcements WHERE id = '<id>'` → published, within 2 sec                                                                          |           |
+| 37.4.3 | After publish: one `notifications` row per target recipient per channel (in_app always included)                                                               | `SELECT channel, COUNT(*) FROM notifications WHERE source_entity_id = '<announcement_id>' GROUP BY channel` → matches expected target set × channels                  |           |
+| 37.4.4 | After publish scheduled (future `scheduled_publish_at`): `status = 'scheduled'`, BullMQ cron dedupe key `cron:communications:publish-announcement:<id>` exists | BullMQ: `ZSCORE bull:notifications:delayed "<jobId>"` returns a future timestamp                                                                                      |           |
+| 37.4.5 | After archive: `status = 'archived'`, `published_at` preserved                                                                                                 | `SELECT status, published_at FROM announcements WHERE id = '<id>'` → archived, original timestamp                                                                     |           |
+| 37.4.6 | No orphan notifications: every `notifications.source_entity_id` of type `announcement` refers to an existing announcement                                      | `SELECT COUNT(*) FROM notifications n WHERE n.source_entity_type = 'announcement' AND NOT EXISTS (SELECT 1 FROM announcements a WHERE a.id = n.source_entity_id)` = 0 |           |
+
+### 37.5 Inquiry lifecycle invariants
+
+| #      | What to assert                                                                                                                 | Expected query result                                                                                                                               | Pass/Fail |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 37.5.1 | After parent submits: one `parent_inquiries` row with `status='open'` and one `parent_inquiry_messages` row authored by parent | `SELECT COUNT(*) FROM parent_inquiry_messages WHERE inquiry_id = '<id>' AND author_type = 'parent'` ≥ 1                                             |           |
+| 37.5.2 | After admin reply: new `parent_inquiry_messages` row with `author_type='staff'`, `author_user_id` set                          | `SELECT author_type, author_user_id FROM parent_inquiry_messages WHERE inquiry_id = '<id>' ORDER BY created_at DESC LIMIT 1` → staff, current admin |           |
+| 37.5.3 | After admin first-reply: inquiry transitions `open → in_progress`                                                              | `SELECT status FROM parent_inquiries WHERE id = '<id>'` → in_progress                                                                               |           |
+| 37.5.4 | After close: `parent_inquiries.status = 'closed'`; reply endpoints return 409 `INQUIRY_CLOSED`                                 | UI reply textarea disabled; `POST /v1/inquiries/{id}/messages/parent` → 409                                                                         |           |
+
+### 37.6 Oversight and safeguarding invariants
+
+| #      | What to assert                                                                                                                                                                                | Expected query result                                                                                                                              | Pass/Fail |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 37.6.1 | After freeze: `conversations.frozen_at` set, `frozen_by_user_id = current admin`, `freeze_reason` non-empty                                                                                   | `SELECT frozen_at, frozen_by_user_id, freeze_reason FROM conversations WHERE id = '<id>'` → all set                                                |           |
+| 37.6.2 | After freeze: send-message attempts against the conversation → 409 `CONVERSATION_FROZEN`                                                                                                      | UI shows frozen composer banner; API returns 409                                                                                                   |           |
+| 37.6.3 | After unfreeze: `frozen_at IS NULL`, `freeze_reason` preserved for audit                                                                                                                      | `SELECT frozen_at FROM conversations WHERE id = '<id>'` → NULL                                                                                     |           |
+| 37.6.4 | Every oversight action writes one `oversight_access_log` row with matching `action` enum                                                                                                      | `SELECT action, COUNT(*) FROM oversight_access_log WHERE conversation_id = '<id>' AND created_at > '<t0>' GROUP BY action` → rows per action taken |           |
+| 37.6.5 | After message send against a conversation with a matching safeguarding keyword: one `message_flags` row with `review_state='pending'`                                                         | `SELECT review_state, highest_severity, matched_keywords FROM message_flags WHERE message_id = '<msg_id>'` → pending + non-empty keywords          |           |
+| 37.6.6 | After keyword deleted: messages that previously matched only that keyword → flag deleted (`safeguarding:scan-message` rerun) or `matched_keywords` shrunk                                     | `SELECT matched_keywords FROM message_flags WHERE message_id = '<msg_id>'` → deleted keyword absent                                                |           |
+| 37.6.7 | After flag dismiss: `review_state='dismissed'`, `reviewed_by_user_id = current admin`, `reviewed_at` set                                                                                      | All three columns set                                                                                                                              |           |
+| 37.6.8 | After flag escalate: `review_state='escalated'`, `reviewed_*` columns set                                                                                                                     | All set                                                                                                                                            |           |
+| 37.6.9 | After export: PDF response `Content-Type: application/pdf`, `Content-Disposition: attachment; filename="conversation-{id}.pdf"`; one `oversight_access_log` row with `action='export_thread'` | Full headers + DB row present                                                                                                                      |           |
+
+### 37.7 Settings invariants
+
+| #      | What to assert                                                                                                         | Expected query result                                                                                                             | Pass/Fail |
+| ------ | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 37.7.1 | After toggle `messaging_enabled = false`: new messages rejected tenant-wide with 403 `MESSAGING_DISABLED`              | `POST /v1/inbox/conversations` → 403                                                                                              |           |
+| 37.7.2 | After save policy matrix: `tenant_messaging_policy` holds exactly 9×9 = 81 rows (one per sender_role × recipient_role) | `SELECT COUNT(*) FROM tenant_messaging_policy WHERE tenant_id = '<nhqs>'` = 81                                                    |           |
+| 37.7.3 | After reset policy: matrix equals the default (derived from `MessagingPolicyService.getDefaultMatrix()`)               | `SELECT sender_role, recipient_role, allowed FROM tenant_messaging_policy ORDER BY sender_role, recipient_role` → matches default |           |
+| 37.7.4 | After test-fallback: one BullMQ `inbox:fallback-check` job enqueued (visible in `LRANGE bull:notifications:wait 0 -1`) | Job present with `tenant_id` in payload                                                                                           |           |
+| 37.7.5 | Saving fallback with empty `fallback_admin_channels` when `fallback_admin_enabled = true` → rejected 422               | UI blocks submit; API returns 422 with field-level error                                                                          |           |
+
+### 37.8 Tenant isolation (RLS) — UI-visible slice
+
+| #      | What to assert                                                                                             | Expected query result                                                                                                                                 | Pass/Fail |
+| ------ | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 37.8.1 | Every row created in §37 has `tenant_id = <current tenant>`                                                | `SELECT DISTINCT tenant_id FROM <table> WHERE id IN (<just-created-ids>)` returns exactly one value = expected tenant                                 |           |
+| 37.8.2 | Opening a `test-b` conversation URL while authed as `nhqs` → 404 and UI redirect to `/inbox` (empty state) | UI + API both 404, no test-b data leaked                                                                                                              |           |
+| 37.8.3 | Listing inbox as `nhqs` returns zero conversations whose `created_by_user_id` belongs to a `test-b` user   | `SELECT COUNT(*) FROM conversations WHERE tenant_id = '<nhqs>' AND created_by_user_id IN (SELECT id FROM users u WHERE u.id IN (<test-b users>))` = 0 |           |
+
+### 37.9 Full-text search consistency
+
+| #      | What to assert                                                                   | Expected query result                                                                                                              | Pass/Fail |
+| ------ | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 37.9.1 | Inbox search returns every message whose body matches the query (tsvector match) | `SELECT COUNT(*) FROM messages WHERE body_search @@ websearch_to_tsquery('<q>') AND tenant_id = '<nhqs>'` == search endpoint total |           |
+| 37.9.2 | Oversight search is scoped to tenant only (never returns test-b messages)        | No `test-b` message IDs in response                                                                                                |           |
+
+### 37.10 Notification pipeline invariants
+
+| #       | What to assert                                                                                                                                 | Expected query result                                                                  | Pass/Fail |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------- |
+| 37.10.1 | After in-app notification dispatch: `notifications.status = 'delivered'`, `delivered_at IS NOT NULL`                                           | row state matches                                                                      |           |
+| 37.10.2 | After email dispatch (sandbox): `notifications.status = 'sent'` and `provider_message_id` populated from Resend                                | `SELECT status, provider_message_id FROM notifications WHERE id = '<id>'`              |           |
+| 37.10.3 | On channel fallback (whatsapp fail → sms): two `notifications` rows linked to same `source_entity_id` (unless replay-safe dedupe consolidates) | Count matches expected chain                                                           |           |
+| 37.10.4 | Idempotency: replaying the same notification twice with the same `idempotency_key` does NOT create a second row                                | `SELECT COUNT(*) FROM notifications WHERE idempotency_key = '<key>'` ≤ 1               |           |
+| 37.10.5 | Failed dispatch with exhausted retries: `status = 'failed'`, `failure_reason` non-empty, dead-letter queue has the job                         | `SELECT status, failure_reason FROM notifications WHERE id = '<id>'` → failed + reason |           |
+
+### 37.11 Orphan-row checks (run once at end)
+
+| #       | What to assert                                                                  | Expected query result                                                                                                                                               | Pass/Fail |
+| ------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 37.11.1 | No orphan `conversation_participants` (FK intact)                               | `SELECT COUNT(*) FROM conversation_participants cp WHERE NOT EXISTS (SELECT 1 FROM conversations c WHERE c.id = cp.conversation_id)` = 0                            |           |
+| 37.11.2 | No orphan `messages`                                                            | `SELECT COUNT(*) FROM messages m WHERE NOT EXISTS (SELECT 1 FROM conversations c WHERE c.id = m.conversation_id)` = 0                                               |           |
+| 37.11.3 | No orphan `message_flags`                                                       | `SELECT COUNT(*) FROM message_flags f WHERE NOT EXISTS (SELECT 1 FROM messages m WHERE m.id = f.message_id)` = 0                                                    |           |
+| 37.11.4 | No orphan `parent_inquiry_messages`                                             | `SELECT COUNT(*) FROM parent_inquiry_messages pim WHERE NOT EXISTS (SELECT 1 FROM parent_inquiries pi WHERE pi.id = pim.inquiry_id)` = 0                            |           |
+| 37.11.5 | No orphan `message_attachments`                                                 | `SELECT COUNT(*) FROM message_attachments a WHERE NOT EXISTS (SELECT 1 FROM messages m WHERE m.id = a.message_id)` = 0                                              |           |
+| 37.11.6 | No orphan `oversight_access_log` entries pointing to non-existent conversations | `SELECT COUNT(*) FROM oversight_access_log o WHERE o.conversation_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM conversations c WHERE c.id = o.conversation_id)` = 0 |           |
+
+### 37.12 Hostile-pair execution log (from Prerequisites)
+
+Fill in the actual response observed for each hostile-pair assertion defined in Prerequisites:
+
+| #       | Assertion                                                                                  | Observed Result | Pass/Fail |
+| ------- | ------------------------------------------------------------------------------------------ | --------------- | --------- |
+| 37.12.1 | Direct URL `/en/inbox/threads/{test-b_conversation_id}` as `nhqs` owner                    |                 |           |
+| 37.12.2 | `GET /api/v1/inbox/conversations/{test-b_conversation_id}` as `nhqs` owner                 |                 |           |
+| 37.12.3 | `GET /api/v1/announcements/{test-b_announcement_id}` as `nhqs` owner                       |                 |           |
+| 37.12.4 | `GET /api/v1/inbox/audiences/{test-b_audience_id}` as `nhqs` owner                         |                 |           |
+| 37.12.5 | `GET /api/v1/inbox/oversight/conversations/{test-b_conversation_id}` as `nhqs` owner       |                 |           |
+| 37.12.6 | `GET /api/v1/safeguarding/keywords` as `nhqs` owner — count equals nhqs keyword count only |                 |           |
+
+---
+
+## 38. Backend Endpoint Map
 
 Complete reference of every API endpoint the Communications module UI calls.
 
@@ -1930,7 +2170,7 @@ Complete reference of every API endpoint the Communications module UI calls.
 
 ---
 
-## 38. Console and Network Health
+## 39. Console and Network Health
 
 | #     | What to Check                                                                          | Expected Result                                                                                                                                                                                                                      | Pass/Fail |
 | ----- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
@@ -1947,7 +2187,7 @@ Complete reference of every API endpoint the Communications module UI calls.
 
 ---
 
-## 39. Sign-off
+## 40. Sign-off
 
 | #    | What to Check                                               | Expected Result                                                                                                                        | Pass/Fail |
 | ---- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------- |
@@ -1957,11 +2197,11 @@ Complete reference of every API endpoint the Communications module UI calls.
 | 39.4 | Arabic/RTL testing (36) has been completed                  | All pages have been verified in Arabic locale with correct RTL layout.                                                                 |           |
 | 39.5 | Console and network health (38) is clean                    | No uncaught errors, no CORS issues, no rate limiting, correct polling cadence.                                                         |           |
 
-**Tester Name:** ************\_\_\_************
-**Date:** ************\_\_\_************
+**Tester Name:** ****\*\*\*\*****\_\_\_****\*\*\*\*****
+**Date:** ****\*\*\*\*****\_\_\_****\*\*\*\*****
 **Environment:** Production (`https://nhqs.edupod.app`)
-**Browser:** ************\_\_\_************
-**Viewport(s) Tested:** ************\_\_\_************
+**Browser:** ****\*\*\*\*****\_\_\_****\*\*\*\*****
+**Viewport(s) Tested:** ****\*\*\*\*****\_\_\_****\*\*\*\*****
 
 ---
 

@@ -47,6 +47,85 @@
 
 ---
 
+## Spec Pack Context
+
+This document is the **student UI leg (leg 1)** of the `/e2e-full` release-readiness pack for the Communications module. Sibling specs cover integration, worker, perf, and security. The composite index lives at `RELEASE-READINESS.md` in the module folder root.
+
+Run ONLY this spec for a student-shell smoke; run `/e2e-full` for tenant-onboarding readiness.
+
+---
+
+## Prerequisites — Multi-Tenant Test Environment (MANDATORY)
+
+### Tenants
+
+| Slug     | Hostname                    | Notes                                           |
+| -------- | --------------------------- | ----------------------------------------------- |
+| `nhqs`   | `https://nhqs.edupod.app`   | Primary — Adam is a student in Class 2A         |
+| `test-b` | `https://test-b.edupod.app` | Hostile neighbour — Adam has NO membership here |
+
+### Users required
+
+| Tenant   | Role                   | Name           | Login email               | Password       | Notes                                                 |
+| -------- | ---------------------- | -------------- | ------------------------- | -------------- | ----------------------------------------------------- |
+| `nhqs`   | student (primary)      | Adam Moore     | `adam.moore@nhqs.test`    | `Password123!` | Student of Class 2A                                   |
+| `nhqs`   | teacher (in-scope)     | Sarah Daly     | `sarah.daly@nhqs.test`    | `Password123!` | Teacher of Class 2A — messaging allowed               |
+| `nhqs`   | teacher (out-of-scope) | Other Teacher  | `other.teacher@nhqs.test` | `Password123!` | NOT a teacher of Adam's class — scope denied          |
+| `nhqs`   | parent                 | Zainab Ali     | `parent@nhqs.test`        | `Password123!` | Adam's parent (or another parent for cross-role test) |
+| `nhqs`   | student (peer)         | Other Student  | `other.student@nhqs.test` | `Password123!` | Used for student-to-student toggle tests              |
+| `nhqs`   | admin                  | Yusuf Rahman   | `owner@nhqs.test`         | `Password123!` | Admin-tier                                            |
+| `test-b` | student                | Test-B Student | `student@test-b.test`     | `Password123!` | Used for cross-tenant hostile pair                    |
+
+### Tenant-setting toggles required (test all four combinations)
+
+| Scenario | `students_can_initiate` | `student_to_student_messaging` | `student_to_parent_messaging` | Expected for student send                   |
+| -------- | ----------------------- | ------------------------------ | ----------------------------- | ------------------------------------------- |
+| A        | `false`                 | `false`                        | `false`                       | All sends blocked                           |
+| B        | `true`                  | `false`                        | `false`                       | Student → teacher/admin only                |
+| C        | `true`                  | `true`                         | `false`                       | Student → teacher/admin + student           |
+| D        | `true`                  | `true`                         | `true`                        | All sends allowed (within relational scope) |
+
+Default seed for flow execution: **scenario A** — Adam begins blocked from initiating, to exercise the most restrictive UX first.
+
+### Seed data
+
+| Entity                                                      | Count for `nhqs`                 |
+| ----------------------------------------------------------- | -------------------------------- |
+| Conversations Adam participates in (incoming from teachers) | ≥ 4 (2 unread)                   |
+| Broadcast targeting Adam (allow_replies=true)               | 1                                |
+| Broadcast targeting Adam (allow_replies=false)              | 1                                |
+| Frozen conversation including Adam                          | 1 (admin-frozen)                 |
+| Messages authored by Adam                                   | ≥ 2 (to test no-edit, no-delete) |
+
+### Hostile-pair assertions (enforce during execution)
+
+1. As Adam, navigate to `/en/inbox/threads/{test-b_conversation_id}` → **404** / redirect.
+2. As Adam, `GET /api/v1/inbox/conversations/{test-b_conversation_id}` via DevTools fetch → **404**.
+3. As Adam, `GET /api/v1/inbox/people-search?q=<test-b_name>` → zero test-b users.
+4. As Adam, navigate to `/en/announcements` → **redirect to `/en/inbox`** (students lack `parent.view_announcements`).
+5. As Adam, navigate to `/en/inquiries` → **redirect to `/en/inbox`**.
+6. As Adam, navigate to `/en/communications` → **redirect to `/en/inbox`**.
+7. As Adam, navigate to `/en/inbox/oversight` → **redirect to `/en/inbox`**.
+8. As Adam, navigate to `/en/inbox/audiences` → **redirect to `/en/inbox`**.
+9. As Adam, navigate to `/en/settings/*` → **redirect to `/en`**.
+
+---
+
+## Out of Scope for This Spec
+
+This spec covers only the UI-visible surface for the student role. Not covered:
+
+- RLS leakage matrix, policy-engine unit correctness → `integration/communications-integration-spec.md`
+- Webhook signature, replay, idempotency → `integration/communications-integration-spec.md` §§5–6
+- BullMQ dispatch, fallback scans, safeguarding keyword scan → `worker/communications-worker-spec.md`
+- Latency budgets, scale, load → `perf/communications-perf-spec.md`
+- OWASP Top 10, unsubscribe-token forgery, attachment-upload abuse → `security/communications-security-spec.md`
+- PDF byte-level correctness — students cannot export
+
+A tester who runs ONLY this spec validates the student-shell UI. Pair with siblings for release-readiness.
+
+---
+
 ## Table of Contents
 
 1. [Navigation & Landing (Student Dashboard)](#1-navigation--landing-student-dashboard)
@@ -65,9 +144,10 @@
 14. [Admin-Only Pages — Negative Assertions](#14-admin-only-pages--negative-assertions)
 15. [Route Blocking — All Redirects](#15-route-blocking--all-redirects)
 16. [Arabic / RTL](#16-arabic--rtl)
-17. [Backend Endpoint Map](#17-backend-endpoint-map)
-18. [Console & Network Health](#18-console--network-health)
-19. [End of Spec](#19-end-of-spec)
+17. [Data Invariants](#17-data-invariants-run-after-each-major-flow)
+18. [Backend Endpoint Map](#18-backend-endpoint-map)
+19. [Console & Network Health](#19-console--network-health)
+20. [End of Spec](#20-end-of-spec)
 
 ---
 
@@ -596,7 +676,65 @@ Navigate to each of these URLs directly (paste into address bar) while logged in
 
 ---
 
-## 17. Backend Endpoint Map
+## 17. Data Invariants (run after each major flow)
+
+UI-only checks are blind to silent data corruption. Run these SQL (or API-read) assertions after each student flow.
+
+> **Setup:** `SET app.current_tenant_id = '<nhqs_tenant_uuid>';` first so RLS applies.
+
+### 17.1 Student-initiated conversation invariants
+
+| #      | What to assert                                                                                                                | Expected query result                          | Pass/Fail |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | --------- |
+| 17.1.1 | With `students_can_initiate=false`: Adam's compose attempt returns 403 `STUDENT_INITIATION_DISABLED`; no conversation created | No new row in `conversations` authored by Adam |           |
+| 17.1.2 | With `students_can_initiate=true`, Adam sends to Sarah (teacher of 2A): conversation created; `created_by_user_id = <adam>`   | Row present                                    |           |
+| 17.1.3 | With `students_can_initiate=true`, Adam sends to an out-of-scope teacher: 403 `RELATIONAL_SCOPE_DENIED`                       | No row                                         |           |
+| 17.1.4 | With `student_to_student_messaging=false`, Adam sends to peer student: 403 `STUDENT_TO_STUDENT_DISABLED`                      | No row                                         |           |
+| 17.1.5 | With `student_to_student_messaging=true`, Adam sends to peer student: conversation created                                    | Row present                                    |           |
+| 17.1.6 | With `student_to_parent_messaging=false`, Adam sends to a parent: 403 `STUDENT_TO_PARENT_DISABLED`                            | No row                                         |           |
+| 17.1.7 | Broadcast attempt by Adam: always rejected with 403 `BROADCAST_NOT_ALLOWED_FOR_ROLE`                                          | No conversation created                        |           |
+
+### 17.2 Message invariants (read-only for history, constrained for own)
+
+| #      | What to assert                                                                                    | Expected query result                     | Pass/Fail |
+| ------ | ------------------------------------------------------------------------------------------------- | ----------------------------------------- | --------- |
+| 17.2.1 | Edit attempts by Adam on his own message → 403 `EDIT_NOT_ALLOWED_FOR_ROLE` (students cannot edit) | API returns 403; UI hides edit control    |           |
+| 17.2.2 | Delete attempts by Adam → 403 `DELETE_NOT_ALLOWED_FOR_ROLE`                                       | API returns 403; UI hides delete          |           |
+| 17.2.3 | Read receipts: Adam's UI does NOT show other participants' `read_state`                           | UI omits read-receipts chip               |           |
+| 17.2.4 | Deleted message masking: Adam sees `[message deleted]`, original body retained in DB              | DB: body retained; UI renders placeholder |           |
+
+### 17.3 Tenant isolation
+
+| #      | What to assert                                                                         | Expected query result              | Pass/Fail |
+| ------ | -------------------------------------------------------------------------------------- | ---------------------------------- | --------- |
+| 17.3.1 | Adam's inbox listing never includes conversations with `tenant_id = '<test-b>'`        | All rows have `tenant_id = <nhqs>` |           |
+| 17.3.2 | Direct URL to test-b conversation ID → 404                                             | UI + API both 404                  |           |
+| 17.3.3 | `/announcements` and `/inquiries` redirect to `/inbox` (students lack the permissions) | UI redirects                       |           |
+
+### 17.4 Frozen-conversation behaviour
+
+| #      | What to assert                                                                                                      | Expected query result | Pass/Fail |
+| ------ | ------------------------------------------------------------------------------------------------------------------- | --------------------- | --------- |
+| 17.4.1 | When Adam's conversation is frozen by admin: send attempts return 409 `CONVERSATION_FROZEN`; UI shows frozen banner | 409 + banner          |           |
+| 17.4.2 | Adam can still read past messages in the frozen thread                                                              | API returns history   |           |
+
+### 17.5 Hostile-pair execution log
+
+| #      | Assertion                                             | Observed Result | Pass/Fail |
+| ------ | ----------------------------------------------------- | --------------- | --------- |
+| 17.5.1 | Direct URL to test-b conversation as Adam             |                 |           |
+| 17.5.2 | `GET /api/v1/inbox/conversations/{test-b_id}` as Adam |                 |           |
+| 17.5.3 | `GET /api/v1/inbox/people-search?q=<test-b>` as Adam  |                 |           |
+| 17.5.4 | Navigate to `/en/announcements` as Adam               |                 |           |
+| 17.5.5 | Navigate to `/en/inquiries` as Adam                   |                 |           |
+| 17.5.6 | Navigate to `/en/communications` as Adam              |                 |           |
+| 17.5.7 | Navigate to `/en/inbox/oversight` as Adam             |                 |           |
+| 17.5.8 | Navigate to `/en/inbox/audiences` as Adam             |                 |           |
+| 17.5.9 | Navigate to `/en/settings/messaging-policy` as Adam   |                 |           |
+
+---
+
+## 18. Backend Endpoint Map
 
 Reference table of all API endpoints relevant to the student role, with their required permissions.
 
@@ -654,7 +792,7 @@ Reference table of all API endpoints relevant to the student role, with their re
 
 ---
 
-## 18. Console & Network Health
+## 19. Console & Network Health
 
 | #     | What to Check                              | Expected Result                                                                                                                                                                                                                                               | Pass/Fail |
 | ----- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
@@ -674,7 +812,7 @@ Reference table of all API endpoints relevant to the student role, with their re
 
 ---
 
-## 19. End of Spec
+## 20. End of Spec
 
 This specification covers the complete Communications / Inbox module as experienced by a Student role user. All 19 sections must pass for the module to be considered E2E-verified for the Student view.
 

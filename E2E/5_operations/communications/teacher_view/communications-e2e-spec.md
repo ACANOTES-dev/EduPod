@@ -19,11 +19,93 @@
 > - Settings pages (`/en/settings/messaging-policy`, `/en/settings/communications/safeguarding`, `/en/settings/communications/fallback`, `/en/settings/notifications`)
 
 **Base URL:** `https://nhqs.edupod.app`
-**Prerequisite:** Logged in as **Sarah Daly** (`Sarah.daly@nhqs.test` / `Password123!`), who holds the **Teacher** role.
-**Additional test accounts:**
+**Primary login:** **Sarah Daly** (`sarah.daly@nhqs.test` / `Password123!`) — Teacher, assigned to Classes 2A and 3B.
 
-- Admin: **Yusuf Rahman** (`owner@nhqs.test` / `Password123!`)
-- Parent: **Zainab Ali** (`parent@nhqs.test` / `Password123!`)
+---
+
+## Spec Pack Context
+
+This document is the **teacher UI leg (leg 1)** of the `/e2e-full` release-readiness pack for the Communications module. Sibling specs (integration, worker, perf, security) live alongside. See `RELEASE-READINESS.md` at the module folder root for the composite sign-off sheet.
+
+Running ONLY this spec = thorough teacher-shell smoke; running the full pack = tenant-onboarding readiness.
+
+---
+
+## Prerequisites — Multi-Tenant Test Environment (MANDATORY)
+
+### Tenants
+
+| Slug     | Hostname                    | Notes                                              |
+| -------- | --------------------------- | -------------------------------------------------- |
+| `nhqs`   | `https://nhqs.edupod.app`   | Primary — teacher is assigned to classes 2A, 3B    |
+| `test-b` | `https://test-b.edupod.app` | Hostile neighbour — teacher has NO membership here |
+
+### Users required
+
+| Tenant   | Role                   | Name                                      | Login email                    | Password       | Relational scope to primary teacher |
+| -------- | ---------------------- | ----------------------------------------- | ------------------------------ | -------------- | ----------------------------------- |
+| `nhqs`   | teacher (primary)      | Sarah Daly                                | `sarah.daly@nhqs.test`         | `Password123!` | Self — assigned to classes 2A, 3B   |
+| `nhqs`   | teacher (out-of-scope) | Any teacher NOT teaching Adam Moore       | e.g. `other.teacher@nhqs.test` | `Password123!` | No class overlap with Sarah         |
+| `nhqs`   | admin                  | Yusuf Rahman                              | `owner@nhqs.test`              | `Password123!` | N/A (admin-tier)                    |
+| `nhqs`   | parent (in-scope)      | Zainab Ali                                | `parent@nhqs.test`             | `Password123!` | Parent of a student in class 2A     |
+| `nhqs`   | parent (out-of-scope)  | Any parent whose child is not in 2A or 3B | e.g. `other.parent@nhqs.test`  | `Password123!` | —                                   |
+| `nhqs`   | student (in-scope)     | Adam Moore                                | `adam.moore@nhqs.test`         | `Password123!` | Student of class 2A                 |
+| `test-b` | teacher                | Test-B Teacher                            | `teacher@test-b.test`          | `Password123!` | Used for cross-tenant hostile pair  |
+
+### Tenant setup prerequisites
+
+| Setting                               | `nhqs` value                        | `test-b` value (for comparison) |
+| ------------------------------------- | ----------------------------------- | ------------------------------- |
+| `messaging_enabled`                   | `true`                              | `true`                          |
+| `students_can_initiate`               | `false` (tested inverted scenarios) | `true`                          |
+| `parents_can_initiate`                | `true`                              | `true`                          |
+| `parent_to_parent_messaging`          | `false`                             | `true`                          |
+| `student_to_student_messaging`        | `false`                             | `true`                          |
+| `student_to_parent_messaging`         | `true`                              | `true`                          |
+| Messaging policy teacher→parent cell  | `allowed = true`                    | `allowed = true`                |
+| Messaging policy teacher→student cell | `allowed = true`                    | `allowed = true`                |
+| Messaging policy teacher→teacher cell | `allowed = true`                    | `allowed = true`                |
+| Safeguarding keywords                 | 12 seeded (various severity)        | 3 seeded                        |
+
+### Seed data for teacher scope
+
+| Entity                                                               | Count for `nhqs`               |
+| -------------------------------------------------------------------- | ------------------------------ |
+| Conversations Sarah participates in (direct, read)                   | ≥ 5                            |
+| Conversations Sarah participates in (direct, unread)                 | ≥ 3                            |
+| Conversations Sarah participates in (group, she initiated)           | ≥ 2                            |
+| Conversations Sarah participates in (group, admin initiated)         | ≥ 2                            |
+| Conversations Sarah participates in (broadcast, allow_replies=true)  | ≥ 1                            |
+| Conversations Sarah participates in (broadcast, allow_replies=false) | ≥ 1                            |
+| Frozen conversations involving Sarah                                 | 1 (frozen by admin)            |
+| Messages authored by Sarah in past 20 min                            | ≥ 2 (eligible for edit/delete) |
+| Messages authored by Sarah ≥ 20 min ago                              | ≥ 2 (past edit window)         |
+
+### Hostile-pair assertions (enforce during execution)
+
+1. As Sarah (nhqs teacher), navigate to `/en/inbox/threads/{test-b_conversation_id}` → **404 / redirect**, not 200.
+2. As Sarah, `GET /api/v1/inbox/conversations/{test-b_conversation_id}` via DevTools fetch → **404**.
+3. As Sarah, `GET /api/v1/inbox/people-search?q=<test-b_name>` → no `test-b` users in results.
+4. As Sarah, navigate to `/en/communications` → **redirect to `/en/inbox`** (teacher is non-admin).
+5. As Sarah, navigate to `/en/inbox/oversight` → **redirect to `/en/inbox`** (teacher is non-admin-tier).
+6. As Sarah, navigate to `/en/inbox/audiences` → **redirect to `/en/inbox`**.
+
+---
+
+## Out of Scope for This Spec
+
+This spec covers only the UI-visible surface as a teacher. It does **NOT** cover:
+
+- RLS leakage matrix → `integration/communications-integration-spec.md`
+- Policy-engine unit logic (the service layer) → `integration/communications-integration-spec.md` §4
+- Webhook signature and replay → `integration/communications-integration-spec.md` §§5–6
+- BullMQ job behaviours (dispatch, fallback scanning, safeguarding scan) → `worker/communications-worker-spec.md`
+- Perf under load (100-thread inbox, 10k search results) → `perf/communications-perf-spec.md`
+- Attachment malware scan, SSRF via presigned URLs, rate-limit abuse → `security/communications-security-spec.md`
+- PDF byte-level correctness — teachers cannot export, so n/a here
+- Platform admin routes (`(platform)/`) — not teacher-accessible and out of module
+
+A tester who runs ONLY this spec validates the teacher-shell UI. Pair with siblings for release-readiness.
 
 ---
 
@@ -55,9 +137,11 @@
 24. [Route Blocking -- Negative Assertions](#24-route-blocking--negative-assertions)
 25. [API Permission Enforcement -- 403 Paths](#25-api-permission-enforcement--403-paths)
 26. [Arabic / RTL](#26-arabic--rtl)
-27. [Backend Endpoint Map](#27-backend-endpoint-map)
-28. [Console & Network Health](#28-console--network-health)
-29. [End of Spec](#29-end-of-spec)
+27. [Data Invariants](#27-data-invariants-run-after-each-major-flow)
+28. [Backend Endpoint Map](#28-backend-endpoint-map)
+29. [Console & Network Health](#29-console--network-health)
+30. [End of Spec](#30-end-of-spec)
+31. [End of Spec](#29-end-of-spec)
 
 ---
 
@@ -694,7 +778,81 @@ Note: The audience API endpoints require `inbox.send` permission, which the teac
 
 ---
 
-## 27. Backend Endpoint Map
+## 27. Data Invariants (run after each major flow)
+
+Click-then-check-UI is blind to silent data corruption. The following SQL queries (or API read-calls if DB access isn't available) are executed after the teacher flows and recorded Pass/Fail alongside the UI rows.
+
+> **Setup:** `SET app.current_tenant_id = '<nhqs_tenant_uuid>';` first so RLS applies.
+
+### 27.1 Conversation and participant invariants (teacher-initiated)
+
+| #      | What to assert                                                                                                                          | Expected query result                                                                                                                   | Pass/Fail |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 27.1.1 | After Sarah composes a direct message to parent Zainab: conversation row exists, `kind='direct'`, Sarah is `created_by_user_id`         | `SELECT id FROM conversations WHERE created_by_user_id = '<sarah>' AND kind = 'direct' ORDER BY created_at DESC LIMIT 1` matches new_id |           |
+| 27.1.2 | Two participant rows: Sarah (unread 0) + Zainab (unread 1)                                                                              | Rows present with correct `unread_count` per user                                                                                       |           |
+| 27.1.3 | Sarah's `role_at_join = 'teacher'`; Zainab's = `'parent'`                                                                               | `SELECT user_id, role_at_join FROM conversation_participants WHERE conversation_id = '<id>'` matches                                    |           |
+| 27.1.4 | After Sarah composes a direct message to an out-of-scope parent (child not in Sarah's class): request rejected, no conversation created | `POST /v1/inbox/conversations` → 403 `RELATIONAL_SCOPE_DENIED`; no row in `conversations` authored by Sarah targeting that parent       |           |
+| 27.1.5 | Group conversation Sarah initiates: exactly N+1 `conversation_participants` rows                                                        | Count matches                                                                                                                           |           |
+| 27.1.6 | Broadcast by Sarah is rejected: `BROADCAST_NOT_ALLOWED_FOR_ROLE` (teachers cannot send broadcasts)                                      | UI error toast + 403 from API                                                                                                           |           |
+
+### 27.2 Message lifecycle invariants
+
+| #      | What to assert                                                                                                             | Expected query result                                                                      | Pass/Fail |
+| ------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------- |
+| 27.2.1 | After Sarah sends a reply: `conversations.last_message_at = messages.created_at` (± 1s)                                    | Equal                                                                                      |           |
+| 27.2.2 | Sarah's `unread_count` stays at 0 after her own send; other participants increment by 1                                    | Per-participant `unread_count` as expected                                                 |           |
+| 27.2.3 | Sarah edits her own message within `edit_window_minutes` (default 10): `message_edits` row added, `messages.edited_at` set | Row present + column set                                                                   |           |
+| 27.2.4 | Sarah tries to edit > 10 min after send: 409 `EDIT_WINDOW_EXPIRED`                                                         | UI shows error; no DB mutation                                                             |           |
+| 27.2.5 | Sarah tries to edit another user's message: 403 `EDIT_NOT_OWN_MESSAGE`                                                     | UI hides edit control; API returns 403                                                     |           |
+| 27.2.6 | Sarah deletes her own message: `messages.deleted_at` set; UI renders `[message deleted]`, original body retained in DB     | `SELECT deleted_at, body FROM messages WHERE id = '<id>'` → deleted_at set, body unchanged |           |
+
+### 27.3 Read receipts & unread counters
+
+| #      | What to assert                                                                                            | Expected query result                                                                                                 | Pass/Fail |
+| ------ | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | --------- |
+| 27.3.1 | Opening a thread marks all unread messages as read for Sarah: `message_reads` row per unread message      | `SELECT COUNT(*) FROM message_reads WHERE user_id = '<sarah>' AND message_id IN (<unread_msg_ids>)` = count_of_unread |           |
+| 27.3.2 | `conversation_participants.unread_count = 0` and `last_read_at` updated after mark-read                   | Row state matches                                                                                                     |           |
+| 27.3.3 | Read receipts: Sarah CAN see other participants' `read_state` (staff-only feature); parent/student cannot | UI shows read receipts chip; matches `message_reads` rows                                                             |           |
+
+### 27.4 Frozen-conversation behaviour
+
+| #      | What to assert                                                                         | Expected query result                       | Pass/Fail |
+| ------ | -------------------------------------------------------------------------------------- | ------------------------------------------- | --------- |
+| 27.4.1 | When conversation is frozen by admin: Sarah's send attempt → 409 `CONVERSATION_FROZEN` | UI composer disabled, API returns 409       |           |
+| 27.4.2 | Sarah can still READ the frozen thread — past messages remain visible                  | UI lists messages; API returns full history |           |
+| 27.4.3 | Sarah sees freeze banner with `freeze_reason` and `frozen_at` timestamp                | Banner renders reason                       |           |
+
+### 27.5 Tenant isolation (cross-tenant hostile checks)
+
+| #      | What to assert                                                                  | Expected query result                                                                                                                                        | Pass/Fail |
+| ------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 27.5.1 | Sarah's people-search never returns `test-b` users                              | `GET /v1/inbox/people-search?q=<test-b_name>` → empty results                                                                                                |           |
+| 27.5.2 | Sarah's inbox listing never returns conversations with `tenant_id = '<test-b>'` | `SELECT DISTINCT tenant_id FROM conversations c JOIN conversation_participants cp ON cp.conversation_id = c.id WHERE cp.user_id = '<sarah>'` → `<nhqs>` only |           |
+| 27.5.3 | Direct URL hit on test-b conversation ID → 404, UI redirects to `/inbox`        | UI + API both 404                                                                                                                                            |           |
+
+### 27.6 Relational scope (policy engine)
+
+| #      | What to assert                                                                             | Expected query result             | Pass/Fail |
+| ------ | ------------------------------------------------------------------------------------------ | --------------------------------- | --------- |
+| 27.6.1 | Sarah can message parents of students in her classes (2A, 3B)                              | Conversation created successfully |           |
+| 27.6.2 | Sarah cannot message parents of students NOT in her classes: 403 `RELATIONAL_SCOPE_DENIED` | API denies, UI toast error        |           |
+| 27.6.3 | Sarah cannot message students in classes she does not teach: 403 `RELATIONAL_SCOPE_DENIED` | API denies                        |           |
+| 27.6.4 | Sarah can message other teachers (teacher→teacher allowed per default policy)              | Conversation created              |           |
+
+### 27.7 Hostile-pair execution log
+
+| #      | Assertion                                                  | Observed Result | Pass/Fail |
+| ------ | ---------------------------------------------------------- | --------------- | --------- |
+| 27.7.1 | Direct URL to test-b conversation as Sarah                 |                 |           |
+| 27.7.2 | `GET /api/v1/inbox/conversations/{test-b_id}` as Sarah     |                 |           |
+| 27.7.3 | `GET /api/v1/inbox/people-search?q=<test-b_user>` as Sarah |                 |           |
+| 27.7.4 | Navigate to `/en/communications` as Sarah                  |                 |           |
+| 27.7.5 | Navigate to `/en/inbox/oversight` as Sarah                 |                 |           |
+| 27.7.6 | Navigate to `/en/inbox/audiences` as Sarah                 |                 |           |
+
+---
+
+## 28. Backend Endpoint Map
 
 Reference table of all API endpoints relevant to the teacher role, with their required permissions.
 
@@ -742,7 +900,7 @@ Reference table of all API endpoints relevant to the teacher role, with their re
 
 ---
 
-## 28. Console & Network Health
+## 29. Console & Network Health
 
 | #     | What to Check                              | Expected Result                                                                                                                                                                                                    | Pass/Fail |
 | ----- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
@@ -760,7 +918,7 @@ Reference table of all API endpoints relevant to the teacher role, with their re
 
 ---
 
-## 29. End of Spec
+## 30. End of Spec
 
 This specification covers the complete Communications / Inbox module as experienced by a Teacher role user. All 29 sections must pass for the module to be considered E2E-verified for the Teacher view.
 
