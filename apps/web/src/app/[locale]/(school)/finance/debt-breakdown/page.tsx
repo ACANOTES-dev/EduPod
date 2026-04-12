@@ -11,6 +11,9 @@ import { Button } from '@school/ui';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { CurrencyDisplay } from '../_components/currency-display';
+import { useTenantCurrency } from '../_components/use-tenant-currency';
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface DebtRow {
@@ -37,13 +40,6 @@ const BUCKET_TABS: Array<{ key: BucketFilter; labelKey: string; color: string }>
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function formatCurrency(value: number): string {
-  return Number(value).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 function pctColor(pct: number): string {
   if (pct <= 10) return 'text-success-700';
   if (pct <= 30) return 'text-warning-700';
@@ -66,6 +62,7 @@ export default function DebtBreakdownPage() {
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const searchParams = useSearchParams();
   const initialBucket = (searchParams?.get('bucket') as BucketFilter) ?? 'all';
+  const currencyCode = useTenantCurrency();
 
   const [rows, setRows] = React.useState<DebtRow[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -159,9 +156,12 @@ export default function DebtBreakdownPage() {
             <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
               {t('debtBreakdown.colOutstanding')}
             </p>
-            <p className="text-lg font-bold text-danger-600" dir="ltr">
-              {formatCurrency(totalOutstanding)}
-            </p>
+            <CurrencyDisplay
+              amount={totalOutstanding}
+              currency_code={currencyCode}
+              className="text-lg font-bold text-danger-600"
+              locale={locale}
+            />
           </div>
         </div>
       )}
@@ -223,17 +223,21 @@ export default function DebtBreakdownPage() {
                   <td className="px-4 py-3 text-sm font-mono text-text-secondary" dir="ltr">
                     {row.billing_parent_phone ?? '—'}
                   </td>
-                  <td
-                    className="px-4 py-3 text-end font-mono text-sm text-text-secondary"
-                    dir="ltr"
-                  >
-                    {formatCurrency(row.total_billed)}
+                  <td className="px-4 py-3 text-end" dir="ltr">
+                    <CurrencyDisplay
+                      amount={row.total_billed}
+                      currency_code={currencyCode}
+                      className="font-mono text-sm text-text-secondary"
+                      locale={locale}
+                    />
                   </td>
-                  <td
-                    className="px-4 py-3 text-end font-mono text-sm font-semibold text-text-primary"
-                    dir="ltr"
-                  >
-                    {formatCurrency(row.outstanding)}
+                  <td className="px-4 py-3 text-end" dir="ltr">
+                    <CurrencyDisplay
+                      amount={row.outstanding}
+                      currency_code={currencyCode}
+                      className="font-mono text-sm font-semibold text-text-primary"
+                      locale={locale}
+                    />
                   </td>
                   <td className="px-4 py-3 text-end" dir="ltr">
                     <span

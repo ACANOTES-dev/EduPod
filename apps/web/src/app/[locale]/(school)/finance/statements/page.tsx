@@ -11,6 +11,8 @@ import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { CurrencyDisplay } from '../_components/currency-display';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface HouseholdApiItem {
@@ -160,13 +162,12 @@ export default function StatementsIndexPage() {
           return <span className="text-sm text-text-tertiary">--</span>;
         }
         return (
-          <span className="text-sm font-mono font-medium text-danger-text">
-            {currencyCode}{' '}
-            {row.outstanding.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </span>
+          <CurrencyDisplay
+            amount={row.outstanding}
+            currency_code={currencyCode}
+            className="text-sm font-mono font-medium text-danger-text"
+            locale={locale}
+          />
         );
       },
     },

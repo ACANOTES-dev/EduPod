@@ -24,6 +24,7 @@ export default function NewFeeStructurePage() {
       amount: values.amount,
       billing_frequency: values.billing_frequency,
       year_group_id: values.year_group_id || undefined,
+      fee_type_id: values.fee_type_id || undefined,
     };
     await apiClient('/api/v1/finance/fee-structures', {
       method: 'POST',

@@ -9,7 +9,9 @@ import { Button, Input } from '@school/ui';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { CurrencyDisplay } from '../_components/currency-display';
 import { CustomReportBuilder } from '../_components/custom-report-builder';
+import { useTenantCurrency } from '../_components/use-tenant-currency';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,6 +42,7 @@ type ReportTab = 'aging' | 'fee_performance' | 'custom';
 
 export default function FinanceReportsPage() {
   const t = useTranslations('finance');
+  const currencyCode = useTenantCurrency();
 
   const [activeTab, setActiveTab] = React.useState<ReportTab>('aging');
   const [dateFrom, setDateFrom] = React.useState('');
@@ -226,12 +229,11 @@ export default function FinanceReportsPage() {
                       {bucket.invoice_count} {t('reports.invoices')}
                     </span>
                   </div>
-                  <span className="font-mono text-sm font-semibold text-danger-700" dir="ltr">
-                    {bucket.total.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
+                  <CurrencyDisplay
+                    amount={bucket.total}
+                    currency_code={currencyCode}
+                    className="font-mono text-sm font-semibold text-danger-700"
+                  />
                 </button>
 
                 {expandedBucket === bucket.bucket && bucket.households.length > 0 && (
@@ -257,14 +259,12 @@ export default function FinanceReportsPage() {
                             className="border-b border-border last:border-b-0"
                           >
                             <td className="px-4 py-2 text-text-primary">{hh.household_name}</td>
-                            <td
-                              className="px-4 py-2 text-end font-mono text-text-secondary"
-                              dir="ltr"
-                            >
-                              {hh.amount.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
+                            <td className="px-4 py-2 text-end" dir="ltr">
+                              <CurrencyDisplay
+                                amount={hh.amount}
+                                currency_code={currencyCode}
+                                className="font-mono text-text-secondary"
+                              />
                             </td>
                             <td
                               className="px-4 py-2 text-end font-mono text-text-secondary"
@@ -320,17 +320,19 @@ export default function FinanceReportsPage() {
                     <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
                       {row.total_assigned}
                     </td>
-                    <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                      {row.total_billed.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                    <td className="px-4 py-3 text-end" dir="ltr">
+                      <CurrencyDisplay
+                        amount={row.total_billed}
+                        currency_code={currencyCode}
+                        className="font-mono text-text-secondary"
+                      />
                     </td>
-                    <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                      {row.total_collected.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                    <td className="px-4 py-3 text-end" dir="ltr">
+                      <CurrencyDisplay
+                        amount={row.total_collected}
+                        currency_code={currencyCode}
+                        className="font-mono text-text-secondary"
+                      />
                     </td>
                     <td className="px-4 py-3 text-end" dir="ltr">
                       {(() => {

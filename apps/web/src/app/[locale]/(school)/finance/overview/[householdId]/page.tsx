@@ -15,6 +15,7 @@ import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../../_components/currency-display';
 import { InvoiceStatusBadge } from '../../_components/invoice-status-badge';
+import { useTenantCurrency } from '../../_components/use-tenant-currency';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -92,6 +93,7 @@ export default function HouseholdInvoiceOverviewPage() {
   const router = useRouter();
   const locale = useLocale();
   const householdId = params?.householdId as string;
+  const tenantCurrency = useTenantCurrency();
 
   const [household, setHousehold] = React.useState<Household | null>(null);
   const [invoices, setInvoices] = React.useState<Invoice[]>([]);
@@ -146,7 +148,9 @@ export default function HouseholdInvoiceOverviewPage() {
     };
   }, [invoices]);
 
-  const currencyCode = invoices[0]?.currency_code ?? 'USD';
+  // Always use the tenant currency — the invoice currency_code is unreliable
+  // because historical records may have been created with different values.
+  const currencyCode = tenantCurrency;
 
   // ─── Table Columns ─────────────────────────────────────────────────────
 
@@ -201,7 +205,7 @@ export default function HouseholdInvoiceOverviewPage() {
         render: (row: Invoice) => (
           <CurrencyDisplay
             amount={row.total_amount}
-            currency_code={row.currency_code}
+            currency_code={currencyCode}
             className="font-medium"
           />
         ),
@@ -215,7 +219,7 @@ export default function HouseholdInvoiceOverviewPage() {
           return (
             <CurrencyDisplay
               amount={paid}
-              currency_code={row.currency_code}
+              currency_code={currencyCode}
               className="text-text-secondary"
             />
           );
@@ -228,7 +232,7 @@ export default function HouseholdInvoiceOverviewPage() {
         render: (row: Invoice) => (
           <CurrencyDisplay
             amount={row.balance_amount}
-            currency_code={row.currency_code}
+            currency_code={currencyCode}
             className={
               row.balance_amount > 0 ? 'font-medium text-danger-text' : 'text-text-secondary'
             }

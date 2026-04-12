@@ -53,7 +53,14 @@ export class PaymentsService {
     if (household_id) where.household_id = household_id;
     if (status) where.status = status;
     if (payment_method) where.payment_method = payment_method;
-    if (search) where.payment_reference = { contains: search, mode: 'insensitive' };
+    if (search) {
+      const term = search.trim();
+      where.OR = [
+        { payment_reference: { contains: term, mode: 'insensitive' } },
+        { household: { household_name: { contains: term, mode: 'insensitive' } } },
+        { household: { household_number: { contains: term, mode: 'insensitive' } } },
+      ];
+    }
     if (accepted_by_user_id) where.posted_by_user_id = accepted_by_user_id;
     if (date_from || date_to) {
       const dateFilter: Record<string, unknown> = {};

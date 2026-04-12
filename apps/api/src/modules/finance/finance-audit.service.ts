@@ -5,18 +5,41 @@ import type { FinanceAuditQueryDto } from '@school/shared';
 import { AuditLogReadFacade } from '../audit-log/audit-log-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
+// Entity types recorded by AuditLogInterceptor when parsing URLs of the form
+// /v1/finance/{resource}. These are kebab-cased because that's how they appear
+// in the URL; the interceptor now preserves that casing verbatim.
 const FINANCE_ENTITY_TYPES = [
+  'invoices',
   'invoice',
+  'payments',
   'payment',
+  'refunds',
   'refund',
+  'fee-structures',
   'fee_structure',
+  'fee-assignments',
   'fee_assignment',
+  'fee-types',
+  'fee_type',
+  'discounts',
   'discount',
+  'credit-notes',
   'credit_note',
+  'late-fee-configs',
   'late_fee',
+  'scholarships',
   'scholarship',
+  'payment-plans',
   'payment_plan_request',
+  'recurring-configs',
   'recurring_invoice_config',
+  'fee-generation',
+  'reports',
+  'receipts',
+  'receipt',
+  'allocations',
+  'bulk',
+  'reminders',
 ];
 
 @Injectable()

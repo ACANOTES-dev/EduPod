@@ -73,9 +73,8 @@ export class PaymentsController {
     return this.paymentsService.createManual(tenant.tenant_id, user.sub, dto);
   }
 
-  @Post(':id/allocations/suggest')
+  @Get(':id/allocations/suggest')
   @RequiresPermission('finance.manage')
-  @HttpCode(HttpStatus.OK)
   async suggestAllocations(
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,

@@ -132,7 +132,9 @@ export class AuditLogInterceptor implements NestInterceptor {
    * Parse entity_type and entity_id from URL path.
    *
    * Looks for pattern `/v1/{resource}/{uuid}` or `/v1/{...}/{resource}/{uuid}`.
-   * Falls back to the first non-version segment as entity_type.
+   * Falls back to the LAST non-scope segment as entity_type — scope segments
+   * are module prefixes like "finance", "admissions", "gdpr" that would
+   * otherwise swallow the actual entity name on POST create endpoints.
    */
   private parseEntityFromPath(url: string): { entityType: string; entityId: string | null } {
     const segments = url.split('/').filter(Boolean);
@@ -140,12 +142,26 @@ export class AuditLogInterceptor implements NestInterceptor {
     let entityType = 'unknown';
     let entityId: string | null = null;
 
+    // Module prefix segments that must not be treated as entity types — they
+    // group subresources (e.g., /v1/finance/payments) and would otherwise win
+    // because they come first in the URL.
+    const scopePrefixes = new Set([
+      'v1',
+      'api',
+      'finance',
+      'admissions',
+      'gdpr',
+      'rbac',
+      'audit-log',
+      'audit-logs',
+    ]);
+
     // Walk segments looking for resource/uuid pairs
     for (let i = 0; i < segments.length; i++) {
       const segment = segments[i]!;
 
-      // Skip version prefix
-      if (segment === 'v1' || segment === 'api') {
+      // Skip scope prefixes entirely
+      if (scopePrefixes.has(segment)) {
         continue;
       }
 
@@ -159,10 +175,11 @@ export class AuditLogInterceptor implements NestInterceptor {
         continue;
       }
 
-      // If this is not followed by a UUID and we haven't found a type yet, use it
-      if (entityType === 'unknown') {
-        entityType = segment;
-      }
+      // Non-UUID segment. Prefer the LAST such segment as the entity type so
+      // that nested paths like /v1/finance/payments/{uuid}/allocations report
+      // "allocations" rather than "payments" (and POST /v1/finance/fee-types
+      // reports "fee-types" rather than "finance").
+      entityType = segment;
     }
 
     return { entityType, entityId };

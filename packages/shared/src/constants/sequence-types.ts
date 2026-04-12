@@ -8,6 +8,8 @@ export const SEQUENCE_TYPES = [
   'household',
   'payment',
   'refund',
+  'credit_note',
+  'payment_plan',
   'sen_support_plan',
   'behaviour_incident',
   'behaviour_sanction',

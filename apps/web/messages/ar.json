@@ -45,7 +45,11 @@
     "errorBoundaryRetry": "حاول مرة أخرى",
     "eGMath": "[AR] e.g. MATH",
     "nextPage": "[AR] Next page",
-    "previousPage": "[AR] Previous page"
+    "previousPage": "[AR] Previous page",
+    "status": "الحالة",
+    "created": "تم الإنشاء بنجاح",
+    "updated": "تم التحديث بنجاح",
+    "deleting": "جارٍ الحذف..."
   },
   "nav": {
     "home": "الرئيسية",
@@ -3812,7 +3816,11 @@
       "freqMonthly": "شهرياً",
       "freqCustom": "مخصص",
       "yearGroupPlaceholder": "اختر مجموعة سنوية",
-      "allYearGroups": "جميع المجموعات السنوية"
+      "allYearGroups": "جميع المجموعات السنوية",
+      "fieldFeeType": "نوع الرسوم",
+      "feeTypePlaceholder": "اختر نوع الرسوم",
+      "noFeeType": "لا يوجد نوع رسوم",
+      "feeTypeHelp": "ربط نوع الرسوم يتيح لمعالج إنشاء الرسوم مطابقة هذا الهيكل عند إصدار الرسوم حسب النوع."
     },
     "discounts": {
       "title": "الخصومات",

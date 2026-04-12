@@ -25,6 +25,7 @@ import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../_components/currency-display';
+import { useTenantCurrency } from '../_components/use-tenant-currency';
 
 interface PaymentHousehold {
   id: string;
@@ -64,6 +65,7 @@ export default function PaymentsPage() {
   const { hasAnyRole } = useRoleCheck();
   const canManage = hasAnyRole('school_principal', 'accounting');
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+  const currencyCode = useTenantCurrency();
 
   const [payments, setPayments] = React.useState<Payment[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -153,11 +155,7 @@ export default function PaymentsPage() {
       header: t('totalAmount'),
       className: 'text-end',
       render: (row: Payment) => (
-        <CurrencyDisplay
-          amount={row.amount}
-          currency_code={row.currency_code}
-          className="font-medium"
-        />
+        <CurrencyDisplay amount={row.amount} currency_code={currencyCode} className="font-medium" />
       ),
     },
     {

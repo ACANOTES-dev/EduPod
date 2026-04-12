@@ -16,9 +16,8 @@ import { formatDate, formatDateTime } from '@/lib/format-date';
 import { CurrencyDisplay } from '../../_components/currency-display';
 import { PdfPreviewModal } from '../../_components/pdf-preview-modal';
 import { RefundStatusBadge } from '../../_components/refund-status-badge';
+import { useTenantCurrency } from '../../_components/use-tenant-currency';
 import { AllocationPanel } from '../_components/allocation-panel';
-
-
 
 interface Allocation {
   id: string;
@@ -100,6 +99,7 @@ export default function PaymentDetailPage() {
   const t = useTranslations('finance');
   const _params = useParams<{ id: string }>();
   const id = _params?.id ?? '';
+  const currencyCode = useTenantCurrency();
 
   const [payment, setPayment] = React.useState<PaymentDetail | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -145,7 +145,9 @@ export default function PaymentDetailPage() {
 
   if (!payment) {
     return (
-      <div className="flex h-64 items-center justify-center text-text-tertiary">{t('paymentNotFound')}</div>
+      <div className="flex h-64 items-center justify-center text-text-tertiary">
+        {t('paymentNotFound')}
+      </div>
     );
   }
 
@@ -170,7 +172,7 @@ export default function PaymentDetailPage() {
       value: (
         <CurrencyDisplay
           amount={payment.amount}
-          currency_code={payment.currency_code}
+          currency_code={currencyCode}
           className="font-bold"
         />
       ),
@@ -188,7 +190,7 @@ export default function PaymentDetailPage() {
       value: (
         <CurrencyDisplay
           amount={payment.allocated_amount}
-          currency_code={payment.currency_code}
+          currency_code={currencyCode}
           className="text-success-text"
         />
       ),
@@ -198,7 +200,7 @@ export default function PaymentDetailPage() {
       value: (
         <CurrencyDisplay
           amount={payment.unallocated_amount}
-          currency_code={payment.currency_code}
+          currency_code={currencyCode}
           className={payment.unallocated_amount > 0 ? 'text-warning-text' : ''}
         />
       ),
@@ -234,11 +236,21 @@ export default function PaymentDetailPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-surface-secondary">
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('invoice')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('dueDate')}</th>
-                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('invoiceTotal')}</th>
-                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('allocated')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('date')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('invoice')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('dueDate')}
+                </th>
+                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('invoiceTotal')}
+                </th>
+                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('allocated')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('date')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -261,13 +273,13 @@ export default function PaymentDetailPage() {
                   <td className="px-4 py-3 text-end text-sm text-text-secondary">
                     <CurrencyDisplay
                       amount={alloc.invoice.total_amount}
-                      currency_code={payment.currency_code}
+                      currency_code={currencyCode}
                     />
                   </td>
                   <td className="px-4 py-3 text-end text-sm font-medium text-text-primary">
                     <CurrencyDisplay
                       amount={alloc.allocated_amount ?? alloc.amount ?? 0}
-                      currency_code={payment.currency_code}
+                      currency_code={currencyCode}
                     />
                   </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">
@@ -284,7 +296,7 @@ export default function PaymentDetailPage() {
         <AllocationPanel
           paymentId={payment.id}
           paymentAmount={payment.unallocated_amount}
-          currencyCode={payment.currency_code}
+          currencyCode={currencyCode}
           onAllocationComplete={fetchPayment}
         />
       )}
@@ -305,10 +317,18 @@ export default function PaymentDetailPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-surface-secondary">
-                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('amount')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('reason')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('status')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('date')}</th>
+                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('amount')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('reason')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('status')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('date')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -318,7 +338,7 @@ export default function PaymentDetailPage() {
                   className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary"
                 >
                   <td className="px-4 py-3 text-end text-sm font-medium text-text-primary">
-                    <CurrencyDisplay amount={refund.amount} currency_code={payment.currency_code} />
+                    <CurrencyDisplay amount={refund.amount} currency_code={currencyCode} />
                   </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{refund.reason}</td>
                   <td className="px-4 py-3">

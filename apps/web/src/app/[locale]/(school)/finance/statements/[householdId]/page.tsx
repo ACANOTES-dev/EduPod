@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { PdfPreviewModal } from '../../_components/pdf-preview-modal';
+import { useTenantCurrency } from '../../_components/use-tenant-currency';
 
 // ─── Date Filter (client) ─────────────────────────────────────────────────────
 
@@ -86,7 +87,20 @@ function EntryTypeBadge({ type }: { type: StatementEntry['type'] }) {
 
 function formatAmount(value: number | null, currencyCode: string): string {
   if (value === null || value === undefined) return '--';
-  return `${currencyCode} ${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const code =
+    typeof currencyCode === 'string' && currencyCode.trim().length >= 3
+      ? currencyCode.trim().toUpperCase()
+      : 'USD';
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(value));
+  } catch {
+    return `${code} ${Number(value).toFixed(2)}`;
+  }
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -95,6 +109,7 @@ export default function HouseholdStatementPage() {
   const t = useTranslations('finance');
   const params = useParams();
   const householdId = params?.householdId as string;
+  const tenantCurrency = useTenantCurrency();
 
   const [data, setData] = React.useState<HouseholdStatementData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -160,7 +175,9 @@ export default function HouseholdStatementPage() {
     );
   }
 
-  const currency = data.currency_code;
+  // Always prefer the tenant-level currency so every page reads the same source
+  // of truth. The statement payload's currency_code is kept as a fallback only.
+  const currency = tenantCurrency || data.currency_code;
 
   return (
     <div className="space-y-6">

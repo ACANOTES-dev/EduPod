@@ -8,7 +8,9 @@ import { Button, Input } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
+import { CurrencyDisplay } from './currency-display';
 import { MultiCheckSelect } from './multi-check-select';
+import { useTenantCurrency } from './use-tenant-currency';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +43,7 @@ interface FeeTypeOption {
 
 export function CustomReportBuilder() {
   const t = useTranslations('finance');
+  const currencyCode = useTenantCurrency();
 
   const [yearGroupOptions, setYearGroupOptions] = React.useState<YearGroupOption[]>([]);
   const [feeTypeOptions, setFeeTypeOptions] = React.useState<FeeTypeOption[]>([]);
@@ -325,29 +328,30 @@ export function CustomReportBuilder() {
                         {row.billing_parent_email ?? '\u2014'}
                       </td>
                       <td className="px-3 py-2 text-text-secondary">{row.fee_type}</td>
-                      <td className="px-3 py-2 text-end font-mono text-text-secondary" dir="ltr">
-                        {row.amount_billed.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+                      <td className="px-3 py-2 text-end" dir="ltr">
+                        <CurrencyDisplay
+                          amount={row.amount_billed}
+                          currency_code={currencyCode}
+                          className="font-mono text-text-secondary"
+                        />
                       </td>
-                      <td className="px-3 py-2 text-end font-mono text-text-secondary" dir="ltr">
-                        {row.amount_paid.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+                      <td className="px-3 py-2 text-end" dir="ltr">
+                        <CurrencyDisplay
+                          amount={row.amount_paid}
+                          currency_code={currencyCode}
+                          className="font-mono text-text-secondary"
+                        />
                       </td>
-                      <td className="px-3 py-2 text-end font-mono" dir="ltr">
-                        <span
+                      <td className="px-3 py-2 text-end" dir="ltr">
+                        <CurrencyDisplay
+                          amount={row.balance}
+                          currency_code={currencyCode}
                           className={
-                            row.balance > 0 ? 'font-semibold text-danger-700' : 'text-success-700'
+                            row.balance > 0
+                              ? 'font-mono font-semibold text-danger-700'
+                              : 'font-mono text-success-700'
                           }
-                        >
-                          {row.balance.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </span>
+                        />
                       </td>
                     </tr>
                   ))}
@@ -357,29 +361,26 @@ export function CustomReportBuilder() {
                     <td colSpan={8} className="px-3 py-2.5 text-text-primary">
                       {t('reports.customTotal')}
                     </td>
-                    <td className="px-3 py-2.5 text-end font-mono text-text-primary" dir="ltr">
-                      {customData
-                        .reduce((s, r) => s + r.amount_billed, 0)
-                        .toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+                    <td className="px-3 py-2.5 text-end" dir="ltr">
+                      <CurrencyDisplay
+                        amount={customData.reduce((s, r) => s + r.amount_billed, 0)}
+                        currency_code={currencyCode}
+                        className="font-mono text-text-primary"
+                      />
                     </td>
-                    <td className="px-3 py-2.5 text-end font-mono text-text-primary" dir="ltr">
-                      {customData
-                        .reduce((s, r) => s + r.amount_paid, 0)
-                        .toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+                    <td className="px-3 py-2.5 text-end" dir="ltr">
+                      <CurrencyDisplay
+                        amount={customData.reduce((s, r) => s + r.amount_paid, 0)}
+                        currency_code={currencyCode}
+                        className="font-mono text-text-primary"
+                      />
                     </td>
-                    <td className="px-3 py-2.5 text-end font-mono text-danger-700" dir="ltr">
-                      {customData
-                        .reduce((s, r) => s + r.balance, 0)
-                        .toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+                    <td className="px-3 py-2.5 text-end" dir="ltr">
+                      <CurrencyDisplay
+                        amount={customData.reduce((s, r) => s + r.balance, 0)}
+                        currency_code={currencyCode}
+                        className="font-mono text-danger-700"
+                      />
                     </td>
                   </tr>
                 </tfoot>

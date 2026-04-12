@@ -31,6 +31,7 @@ import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../_components/currency-display';
+import { useTenantCurrency } from '../_components/use-tenant-currency';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -75,6 +76,7 @@ export default function CreditNotesPage() {
   const t = useTranslations('finance');
   const { hasAnyRole } = useRoleCheck();
   const canManage = hasAnyRole('school_principal', 'accounting');
+  const currencyCode = useTenantCurrency();
 
   const [creditNotes, setCreditNotes] = React.useState<CreditNote[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -236,11 +238,7 @@ export default function CreditNotesPage() {
       header: t('totalAmount'),
       className: 'text-end',
       render: (row: CreditNote) => (
-        <CurrencyDisplay
-          amount={row.amount}
-          currency_code={row.currency_code}
-          className="font-medium"
-        />
+        <CurrencyDisplay amount={row.amount} currency_code={currencyCode} className="font-medium" />
       ),
     },
     {
@@ -250,7 +248,7 @@ export default function CreditNotesPage() {
       render: (row: CreditNote) => (
         <CurrencyDisplay
           amount={row.remaining_balance}
-          currency_code={row.currency_code}
+          currency_code={currencyCode}
           className={
             row.remaining_balance > 0 ? 'font-semibold text-success-700' : 'text-text-tertiary'
           }
@@ -503,7 +501,7 @@ export default function CreditNotesPage() {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}{' '}
-                      {inv.currency_code}
+                      {currencyCode}
                     </SelectItem>
                   ))}
                 </SelectContent>

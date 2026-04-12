@@ -33,6 +33,7 @@ import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../_components/currency-display';
+import { useTenantCurrency } from '../_components/use-tenant-currency';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ export default function ScholarshipsPage() {
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { hasAnyRole } = useRoleCheck();
   const canManage = hasAnyRole('school_principal', 'accounting');
+  const currencyCode = useTenantCurrency();
 
   const [scholarships, setScholarships] = React.useState<Scholarship[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -259,7 +261,7 @@ export default function ScholarshipsPage() {
         ) : (
           <CurrencyDisplay
             amount={row.value}
-            currency_code={row.currency_code}
+            currency_code={currencyCode}
             className="font-semibold"
           />
         ),

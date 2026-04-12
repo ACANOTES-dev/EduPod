@@ -36,6 +36,7 @@ import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../_components/currency-display';
 import { HouseholdSelector } from '../_components/household-selector';
+import { useTenantCurrency } from '../_components/use-tenant-currency';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -100,7 +101,7 @@ export default function PaymentPlansPage() {
 
   const [expandedRow, setExpandedRow] = React.useState<string | null>(null);
   const [statusFilter, setStatusFilter] = React.useState<string>('active');
-  const [currencyCode, setCurrencyCode] = React.useState('USD');
+  const currencyCode = useTenantCurrency();
 
   // ─── Create modal state ─────────────────────────────────────────────────────
   const [showCreate, setShowCreate] = React.useState(false);
@@ -124,13 +125,6 @@ export default function PaymentPlansPage() {
   const planTotal = Math.max(0, parsedOriginalBalance - parsedDiscount);
   const installmentSum = installments.reduce((sum, inst) => sum + inst.amount, 0);
   const totalMismatch = installments.length > 0 && Math.abs(installmentSum - planTotal) > 0.01;
-
-  // ─── Fetch currency ─────────────────────────────────────────────────────────
-  React.useEffect(() => {
-    apiClient<{ currency_code: string }>('/api/v1/finance/dashboard/currency')
-      .then((res) => setCurrencyCode(res.currency_code))
-      .catch((err) => console.error('[PaymentPlansPage]', err));
-  }, []);
 
   // ─── Fetch plans ────────────────────────────────────────────────────────────
   const fetchPlans = React.useCallback(async () => {

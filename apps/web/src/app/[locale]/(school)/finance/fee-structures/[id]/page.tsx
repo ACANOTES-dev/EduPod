@@ -20,6 +20,7 @@ interface FeeStructureDetail {
   billing_frequency: BillingFrequency;
   active: boolean;
   year_group_id: string | null;
+  fee_type_id: string | null;
 }
 
 export default function EditFeeStructurePage() {
@@ -39,7 +40,10 @@ export default function EditFeeStructurePage() {
     if (!id) return;
     apiClient<{ data: FeeStructureDetail }>(`/api/v1/finance/fee-structures/${id}`)
       .then((res) => setFeeStructure(res.data))
-      .catch((err) => { console.error('[FinanceFeeStructuresPage]', err); return setError(t('feeStructures.loadError')); })
+      .catch((err) => {
+        console.error('[FinanceFeeStructuresPage]', err);
+        return setError(t('feeStructures.loadError'));
+      })
       .finally(() => setLoading(false));
   }, [id, t]);
 
@@ -49,6 +53,7 @@ export default function EditFeeStructurePage() {
       amount: values.amount,
       billing_frequency: values.billing_frequency,
       year_group_id: values.year_group_id || null,
+      fee_type_id: values.fee_type_id || null,
       active: values.active,
     };
     await apiClient(`/api/v1/finance/fee-structures/${id}`, {
@@ -83,6 +88,7 @@ export default function EditFeeStructurePage() {
     amount: feeStructure.amount,
     billing_frequency: feeStructure.billing_frequency,
     year_group_id: feeStructure.year_group_id ?? '',
+    fee_type_id: feeStructure.fee_type_id ?? '',
     active: feeStructure.active,
   };
 

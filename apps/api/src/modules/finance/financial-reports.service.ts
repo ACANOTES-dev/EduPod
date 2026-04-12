@@ -16,7 +16,15 @@ export interface AgingBucket {
   label: string;
   count: number;
   total: number;
-  households: Array<{ household_id: string; household_name: string; balance: number }>;
+  // `balance` kept for backward compatibility; `amount` + `oldest_days` match
+  // the frontend AgingBucket.households contract.
+  households: Array<{
+    household_id: string;
+    household_name: string;
+    balance: number;
+    amount: number;
+    oldest_days: number;
+  }>;
 }
 
 export interface AgingReport {
@@ -86,19 +94,29 @@ export class FinancialReportsService {
     private readonly redisService: RedisService,
   ) {}
 
-  async agingReport(tenantId: string, _filters: DateRangeFilter): Promise<AgingReport> {
-    const cacheKey = `finance:aging:${tenantId}`;
+  async agingReport(tenantId: string, filters: DateRangeFilter): Promise<AgingReport> {
+    // Cache key includes the date range so callers with different filters
+    // don't clobber each other's results.
+    const cacheKey = `finance:aging:${tenantId}:${filters.date_from ?? 'any'}:${filters.date_to ?? 'any'}`;
 
     const cached = await this.tryGetCache<AgingReport>(cacheKey);
     if (cached) return cached;
 
     const now = new Date();
 
+    const where: Record<string, unknown> = {
+      tenant_id: tenantId,
+      status: { in: ['issued', 'partially_paid', 'overdue'] },
+    };
+    if (filters.date_from || filters.date_to) {
+      const dateFilter: Record<string, Date> = {};
+      if (filters.date_from) dateFilter.gte = new Date(filters.date_from);
+      if (filters.date_to) dateFilter.lte = new Date(filters.date_to);
+      where.due_date = dateFilter;
+    }
+
     const invoices = await this.prisma.invoice.findMany({
-      where: {
-        tenant_id: tenantId,
-        status: { in: ['issued', 'partially_paid', 'overdue'] },
-      },
+      where,
       select: {
         balance_amount: true,
         due_date: true,
@@ -142,6 +160,8 @@ export class FinancialReportsService {
         household_id: inv.household_id,
         household_name: inv.household.household_name,
         balance,
+        amount: balance,
+        oldest_days: Math.max(0, daysPastDue),
       });
       buckets.grand_total = roundMoney(buckets.grand_total + balance);
     }

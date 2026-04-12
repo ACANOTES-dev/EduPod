@@ -29,6 +29,11 @@ interface YearGroup {
   name: string;
 }
 
+interface FeeType {
+  id: string;
+  name: string;
+}
+
 // Extend the create schema with `active` (edit-only field)
 const feeStructureFormSchema = createFeeStructureSchema.extend({
   active: z.boolean().optional(),
@@ -57,11 +62,22 @@ export function FeeStructureForm({
   const tc = useTranslations('common');
 
   const [yearGroups, setYearGroups] = React.useState<YearGroup[]>([]);
+  const [feeTypes, setFeeTypes] = React.useState<FeeType[]>([]);
 
   React.useEffect(() => {
     apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100')
       .then((res) => setYearGroups(res.data))
-      .catch((err) => { console.error('[FeeStructureForm]', err); return setYearGroups([]); });
+      .catch((err) => {
+        console.error('[FeeStructureForm]', err);
+        return setYearGroups([]);
+      });
+
+    apiClient<{ data: FeeType[] }>('/api/v1/finance/fee-types?pageSize=100&active=true')
+      .then((res) => setFeeTypes(res.data))
+      .catch((err) => {
+        console.error('[FeeStructureForm]', err);
+        return setFeeTypes([]);
+      });
   }, []);
 
   const form = useForm<FeeStructureFormValues>({
@@ -71,6 +87,7 @@ export function FeeStructureForm({
       amount: initialValues?.amount ?? ('' as unknown as number),
       billing_frequency: initialValues?.billing_frequency ?? 'one_off',
       year_group_id: initialValues?.year_group_id ?? '',
+      fee_type_id: initialValues?.fee_type_id ?? '',
       active: initialValues?.active ?? true,
     },
   });
@@ -170,6 +187,33 @@ export function FeeStructureForm({
                 </Select>
               )}
             />
+          </div>
+
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="fee_type_id">{t('feeStructures.fieldFeeType')}</Label>
+            <Controller
+              control={form.control}
+              name="fee_type_id"
+              render={({ field }) => (
+                <Select
+                  value={field.value ?? 'none'}
+                  onValueChange={(v) => field.onChange(v === 'none' ? undefined : v)}
+                >
+                  <SelectTrigger id="fee_type_id">
+                    <SelectValue placeholder={t('feeStructures.feeTypePlaceholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{t('feeStructures.noFeeType')}</SelectItem>
+                    {feeTypes.map((ft) => (
+                      <SelectItem key={ft.id} value={ft.id}>
+                        {ft.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            <p className="text-xs text-text-tertiary">{t('feeStructures.feeTypeHelp')}</p>
           </div>
 
           {isEdit && (

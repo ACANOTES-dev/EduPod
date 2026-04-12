@@ -31,6 +31,7 @@ import { apiClient } from '@/lib/api-client';
 
 import { CurrencyDisplay } from '../_components/currency-display';
 import { RefundStatusBadge } from '../_components/refund-status-badge';
+import { useTenantCurrency } from '../_components/use-tenant-currency';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -70,6 +71,7 @@ export default function RefundsPage() {
   const tCommon = useTranslations('common');
   const { hasAnyRole } = useRoleCheck();
   const canManage = hasAnyRole('school_principal', 'accounting');
+  const currencyCode = useTenantCurrency();
 
   const [refunds, setRefunds] = React.useState<Refund[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -185,6 +187,20 @@ export default function RefundsPage() {
     }
   }, [paymentSearch]);
 
+  // Debounced auto-search so the results update as the user types. Without
+  // this the user has to press Enter or click the search button — which was
+  // reported in E2E as "refund search finds nothing".
+  React.useEffect(() => {
+    if (!paymentSearch.trim()) {
+      setPaymentResults([]);
+      return;
+    }
+    const handle = setTimeout(() => {
+      void handleSearchPayments();
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [paymentSearch, handleSearchPayments]);
+
   function resetCreateModal() {
     setPaymentSearch('');
     setPaymentResults([]);
@@ -259,13 +275,11 @@ export default function RefundsPage() {
       key: 'amount',
       header: t('totalAmount'),
       render: (row: Refund) => (
-        <span className="font-mono text-sm text-text-primary">
-          {row.currency_code}{' '}
-          {Number(row.amount).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
-        </span>
+        <CurrencyDisplay
+          amount={Number(row.amount)}
+          currency_code={currencyCode}
+          className="font-mono text-sm text-text-primary"
+        />
       ),
     },
     {
@@ -476,7 +490,7 @@ export default function RefundsPage() {
                             </span>
                             <CurrencyDisplay
                               amount={payment.amount}
-                              currency_code={payment.currency_code}
+                              currency_code={currencyCode}
                               className="text-sm font-medium"
                             />
                           </div>
@@ -531,7 +545,7 @@ export default function RefundsPage() {
                       <span className="text-text-tertiary">{t('totalAmount')}</span>
                       <CurrencyDisplay
                         amount={selectedPayment.amount}
-                        currency_code={selectedPayment.currency_code}
+                        currency_code={currencyCode}
                         className="font-medium"
                       />
                     </div>

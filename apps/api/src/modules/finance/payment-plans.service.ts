@@ -431,18 +431,20 @@ export class PaymentPlansService {
 
   // ─── Serialization ──────────────────────────────────────────────────────────
 
-  private serialize<T>(
-    r: T & { invoice?: { total_amount: Decimal; [k: string]: unknown } | null },
-  ): T & {
-    invoice?: Omit<{ total_amount: Decimal; [k: string]: unknown }, 'total_amount'> & {
-      total_amount: number;
-    };
-  } {
+  private serialize<
+    T extends {
+      invoice?: { total_amount: Decimal; [k: string]: unknown } | null;
+      original_balance?: Decimal | null;
+      discount_amount?: Decimal | null;
+    },
+  >(r: T) {
     return {
       ...r,
       invoice: r.invoice
         ? { ...r.invoice, total_amount: serializeDecimal(r.invoice.total_amount) }
         : undefined,
+      original_balance: r.original_balance ? serializeDecimal(r.original_balance) : 0,
+      discount_amount: r.discount_amount ? serializeDecimal(r.discount_amount) : 0,
     };
   }
 

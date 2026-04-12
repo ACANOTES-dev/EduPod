@@ -25,6 +25,7 @@ import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 
 import { CurrencyDisplay } from '../_components/currency-display';
+import { useTenantCurrency } from '../_components/use-tenant-currency';
 
 interface YearGroup {
   id: string;
@@ -56,6 +57,7 @@ export default function FeeStructuresPage() {
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { hasAnyRole } = useRoleCheck();
   const canManage = hasAnyRole('school_principal', 'accounting');
+  const currencyCode = useTenantCurrency();
 
   const [feeStructures, setFeeStructures] = React.useState<FeeStructure[]>([]);
   const [, setYearGroups] = React.useState<YearGroup[]>([]);
@@ -127,8 +129,9 @@ export default function FeeStructuresPage() {
       render: (row: FeeStructure) => (
         <CurrencyDisplay
           amount={row.amount}
-          currency_code={row.currency_code ?? 'AED'}
+          currency_code={currencyCode}
           className="font-mono text-sm text-text-primary"
+          locale={locale}
         />
       ),
     },

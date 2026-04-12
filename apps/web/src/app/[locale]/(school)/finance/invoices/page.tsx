@@ -14,6 +14,7 @@ import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../_components/currency-display';
+import { useTenantCurrency } from '../_components/use-tenant-currency';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,6 +112,7 @@ function flattenInvoices(invoices: Invoice[]): InvoiceRow[] {
 export default function InvoicesPage() {
   const t = useTranslations('finance');
   const router = useRouter();
+  const currencyCode = useTenantCurrency();
 
   const [invoices, setInvoices] = React.useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -222,7 +224,7 @@ export default function InvoicesPage() {
       render: (row: InvoiceRow) => (
         <CurrencyDisplay
           amount={row.totalAmount}
-          currency_code={row.currencyCode}
+          currency_code={currencyCode}
           className="font-medium"
         />
       ),

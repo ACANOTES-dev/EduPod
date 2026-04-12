@@ -7,19 +7,18 @@ import * as React from 'react';
 import type { InvoiceStatus } from '@school/shared';
 import { Skeleton } from '@school/ui';
 
-
 import { EntityLink } from '@/components/entity-link';
 import { RecordHub } from '@/components/record-hub';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../../_components/currency-display';
+import { useTenantCurrency } from '../../_components/use-tenant-currency';
 
 import { InvoiceActions } from './_components/invoice-actions';
 import { InvoiceInstallmentsTab } from './_components/invoice-installments-tab';
 import { InvoiceLinesTab } from './_components/invoice-lines-tab';
 import { InvoicePaymentsTab } from './_components/invoice-payments-tab';
-
 
 interface InvoiceLine {
   id: string;
@@ -113,6 +112,7 @@ export default function InvoiceDetailPage() {
   const t = useTranslations('finance');
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+  const currencyCode = useTenantCurrency();
 
   const [invoice, setInvoice] = React.useState<InvoiceDetail | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -146,23 +146,23 @@ export default function InvoiceDetailPage() {
 
   if (!invoice) {
     return (
-      <div className="flex h-64 items-center justify-center text-text-tertiary">{t('invoiceNotFound')}</div>
+      <div className="flex h-64 items-center justify-center text-text-tertiary">
+        {t('invoiceNotFound')}
+      </div>
     );
   }
 
   const metrics = [
     {
       label: 'Subtotal',
-      value: (
-        <CurrencyDisplay amount={invoice.subtotal_amount} currency_code={invoice.currency_code} />
-      ),
+      value: <CurrencyDisplay amount={invoice.subtotal_amount} currency_code={currencyCode} />,
     },
     {
       label: 'Discount',
       value: (
         <CurrencyDisplay
           amount={invoice.discount_amount}
-          currency_code={invoice.currency_code}
+          currency_code={currencyCode}
           className="text-success-text"
         />
       ),
@@ -172,7 +172,7 @@ export default function InvoiceDetailPage() {
       value: (
         <CurrencyDisplay
           amount={invoice.total_amount}
-          currency_code={invoice.currency_code}
+          currency_code={currencyCode}
           className="font-bold"
         />
       ),
@@ -182,7 +182,7 @@ export default function InvoiceDetailPage() {
       value: (
         <CurrencyDisplay
           amount={invoice.total_amount - invoice.balance_amount}
-          currency_code={invoice.currency_code}
+          currency_code={currencyCode}
           className="text-success-text"
         />
       ),
@@ -192,7 +192,7 @@ export default function InvoiceDetailPage() {
       value: (
         <CurrencyDisplay
           amount={invoice.balance_amount}
-          currency_code={invoice.currency_code}
+          currency_code={currencyCode}
           className={
             invoice.balance_amount > 0 ? 'font-bold text-danger-text' : 'text-success-text'
           }
@@ -241,7 +241,7 @@ export default function InvoiceDetailPage() {
         {
           key: 'lines',
           label: 'Lines',
-          content: <InvoiceLinesTab lines={invoice.lines} currencyCode={invoice.currency_code} />,
+          content: <InvoiceLinesTab lines={invoice.lines} currencyCode={currencyCode} />,
         },
         {
           key: 'payments',
@@ -249,7 +249,7 @@ export default function InvoiceDetailPage() {
           content: (
             <InvoicePaymentsTab
               allocations={invoice.payment_allocations}
-              currencyCode={invoice.currency_code}
+              currencyCode={currencyCode}
             />
           ),
         },
@@ -260,7 +260,7 @@ export default function InvoiceDetailPage() {
             <InvoiceInstallmentsTab
               invoiceId={invoice.id}
               installments={invoice.installments}
-              currencyCode={invoice.currency_code}
+              currencyCode={currencyCode}
               invoiceTotal={invoice.total_amount}
               invoiceStatus={invoice.status}
               onInstallmentsCreated={fetchInvoice}
@@ -273,7 +273,9 @@ export default function InvoiceDetailPage() {
       {invoice.status === 'pending_approval' && invoice.approval && (
         <div className="rounded-xl border border-warning-border bg-warning-surface px-6 py-4">
           <p className="text-sm font-semibold text-warning-text">{t('pendingApproval')}</p>
-          <p className="mt-1 text-sm text-text-secondary">{t('requestedBy2')}{invoice.approval.requested_by_name ?? 'Unknown'}{' '}
+          <p className="mt-1 text-sm text-text-secondary">
+            {t('requestedBy2')}
+            {invoice.approval.requested_by_name ?? 'Unknown'}{' '}
             {invoice.approval.requested_at ? `on ${formatDate(invoice.approval.requested_at)}` : ''}
           </p>
         </div>

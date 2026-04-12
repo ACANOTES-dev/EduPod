@@ -45,7 +45,11 @@
     "errorBoundaryRetry": "Try again",
     "eGMath": "e.g. MATH",
     "nextPage": "Next page",
-    "previousPage": "Previous page"
+    "previousPage": "Previous page",
+    "status": "Status",
+    "created": "Created successfully",
+    "updated": "Updated successfully",
+    "deleting": "Deleting..."
   },
   "nav": {
     "home": "Home",
@@ -3820,7 +3824,11 @@
       "freqMonthly": "Monthly",
       "freqCustom": "Custom",
       "yearGroupPlaceholder": "Select year group",
-      "allYearGroups": "All Year Groups"
+      "allYearGroups": "All Year Groups",
+      "fieldFeeType": "Fee Type",
+      "feeTypePlaceholder": "Select fee type",
+      "noFeeType": "No fee type",
+      "feeTypeHelp": "Linking to a fee type lets the Fee Generation wizard match this structure when you issue fees by type."
     },
     "discounts": {
       "title": "Discounts",

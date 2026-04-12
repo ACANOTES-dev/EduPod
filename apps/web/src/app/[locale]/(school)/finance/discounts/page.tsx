@@ -92,7 +92,9 @@ export default function DiscountsPage() {
       key: 'discount_type',
       header: t('discounts.colType'),
       render: (row: Discount) => (
-        <span className="text-text-secondary capitalize">{row.discount_type}</span>
+        <span className="text-text-secondary">
+          {row.discount_type === 'percent' ? t('discounts.typePercent') : t('discounts.typeFixed')}
+        </span>
       ),
     },
     {

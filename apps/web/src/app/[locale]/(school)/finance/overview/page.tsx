@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { CurrencyDisplay } from '../_components/currency-display';
+import { useTenantCurrency } from '../_components/use-tenant-currency';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -46,15 +47,6 @@ const STATUS_CONFIG: Record<
   unpaid: { semantic: 'danger', labelKey: 'overview.unpaid' },
 };
 
-// ─── Currency formatting helper for the summary strip ───────────────────────
-
-function formatCurrency(value: number): string {
-  return Number(value).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function FinancialOverviewPage() {
@@ -62,6 +54,7 @@ export default function FinancialOverviewPage() {
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+  const currencyCode = useTenantCurrency();
 
   const [rows, setRows] = React.useState<HouseholdOverviewRow[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -160,7 +153,7 @@ export default function FinancialOverviewPage() {
       header: t('overview.colTotal'),
       className: 'text-end',
       render: (row: HouseholdOverviewRow) => (
-        <CurrencyDisplay amount={row.total} currency_code="SAR" className="font-medium" />
+        <CurrencyDisplay amount={row.total} currency_code={currencyCode} className="font-medium" />
       ),
     },
     {
@@ -168,7 +161,11 @@ export default function FinancialOverviewPage() {
       header: t('overview.colPaid'),
       className: 'text-end',
       render: (row: HouseholdOverviewRow) => (
-        <CurrencyDisplay amount={row.paid} currency_code="SAR" className="text-text-secondary" />
+        <CurrencyDisplay
+          amount={row.paid}
+          currency_code={currencyCode}
+          className="text-text-secondary"
+        />
       ),
     },
     {
@@ -178,7 +175,7 @@ export default function FinancialOverviewPage() {
       render: (row: HouseholdOverviewRow) => (
         <CurrencyDisplay
           amount={row.balance}
-          currency_code="SAR"
+          currency_code={currencyCode}
           className={row.balance > 0 ? 'font-medium text-danger-text' : 'text-text-secondary'}
         />
       ),
@@ -258,27 +255,36 @@ export default function FinancialOverviewPage() {
             <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
               Total Expected
             </p>
-            <p className="text-lg font-bold text-text-primary" dir="ltr">
-              {formatCurrency(summaryTotalExpected)}
-            </p>
+            <CurrencyDisplay
+              amount={summaryTotalExpected}
+              currency_code={currencyCode}
+              className="text-lg font-bold text-text-primary"
+              locale={locale}
+            />
           </div>
           <div className="h-8 w-px bg-border" />
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
               Total Received
             </p>
-            <p className="text-lg font-bold text-success-600" dir="ltr">
-              {formatCurrency(summaryTotalReceived)}
-            </p>
+            <CurrencyDisplay
+              amount={summaryTotalReceived}
+              currency_code={currencyCode}
+              className="text-lg font-bold text-success-600"
+              locale={locale}
+            />
           </div>
           <div className="h-8 w-px bg-border" />
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
               Total Outstanding
             </p>
-            <p className="text-lg font-bold text-danger-600" dir="ltr">
-              {formatCurrency(summaryTotalOutstanding)}
-            </p>
+            <CurrencyDisplay
+              amount={summaryTotalOutstanding}
+              currency_code={currencyCode}
+              className="text-lg font-bold text-danger-600"
+              locale={locale}
+            />
           </div>
         </div>
       )}
