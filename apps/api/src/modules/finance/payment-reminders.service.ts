@@ -134,18 +134,64 @@ export class PaymentRemindersService {
   }
 
   /**
-   * Record the reminder and dispatch through the appropriate channel.
-   * In practice this would call the notifications service or queue a job.
+   * Record the reminder (dedup) AND enqueue an actual notification row for
+   * each channel — the notifications worker picks these up on its next tick
+   * (see `DispatchQueuedProcessor`, runs every 30 seconds).
    */
   private async dispatchReminder(
     tenantId: string,
     invoiceId: string,
-    reminderType: string,
+    reminderType: 'due_soon' | 'overdue' | 'final_notice',
     channel: string,
   ): Promise<void> {
     try {
-      // Determine channel values for deduplication record
       const channelValues = channel === 'both' ? ['email', 'whatsapp'] : [channel];
+
+      // Resolve recipient + invoice context once
+      const invoice = await this.prisma.invoice.findFirst({
+        where: { id: invoiceId, tenant_id: tenantId },
+        select: {
+          id: true,
+          invoice_number: true,
+          due_date: true,
+          balance_amount: true,
+          currency_code: true,
+          household: {
+            select: {
+              household_name: true,
+              billing_parent: { select: { user_id: true } },
+            },
+          },
+        },
+      });
+
+      if (!invoice) {
+        this.logger.warn(`dispatchReminder: invoice ${invoiceId} not found for tenant ${tenantId}`);
+        return;
+      }
+
+      // Resolve the tenant's default locale for the notification. This is a
+      // cross-module read; the dedicated TenantReadFacade path isn't available
+      // to finance without a DI cycle (tenants depends on audit, audit on
+      // finance for payroll). Keep it local, minimal select.
+      // eslint-disable-next-line school/no-cross-module-prisma-access
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { default_locale: true },
+      });
+      const locale = tenant?.default_locale ?? 'en';
+      const recipientUserId = invoice.household?.billing_parent?.user_id ?? null;
+
+      const templateKey = `payment_reminder_${reminderType}`;
+      const payload = {
+        invoice_id: invoice.id,
+        invoice_number: invoice.invoice_number,
+        due_date: invoice.due_date.toISOString(),
+        balance_amount: Number(invoice.balance_amount),
+        currency_code: invoice.currency_code,
+        household_name: invoice.household?.household_name ?? null,
+        reminder_type: reminderType,
+      };
 
       for (const ch of channelValues) {
         await this.prisma.invoiceReminder.create({
@@ -157,9 +203,39 @@ export class PaymentRemindersService {
             sent_at: new Date(),
           },
         });
+
+        if (!recipientUserId) {
+          this.logger.warn(
+            `dispatchReminder: no billing parent user for invoice ${invoiceId} — dedup row written, notification skipped`,
+          );
+          continue;
+        }
+
+        // Writing into the shared notifications table so DispatchQueuedProcessor
+        // picks it up. Using the service wrapper (NotificationsService.createBatch)
+        // would require a finance->communications module import and causes a
+        // circular dependency via the audit interceptor. Keeping direct access
+        // for this single write path.
+        // eslint-disable-next-line school/no-cross-module-prisma-access
+        await this.prisma.notification.create({
+          data: {
+            tenant_id: tenantId,
+            recipient_user_id: recipientUserId,
+            channel: ch as never,
+            template_key: templateKey,
+            locale,
+            status: 'queued',
+            payload_json: payload,
+            source_entity_type: 'invoice',
+            source_entity_id: invoiceId,
+            idempotency_key: `invoice-reminder:${invoiceId}:${reminderType}:${ch}`,
+          },
+        });
       }
 
-      this.logger.log(`Reminder dispatched: invoice=${invoiceId} type=${reminderType} channel=${channel}`);
+      this.logger.log(
+        `Reminder dispatched: invoice=${invoiceId} type=${reminderType} channel=${channel} recipient=${recipientUserId ?? 'none'}`,
+      );
     } catch (error: unknown) {
       this.logger.error(`Failed to dispatch reminder for invoice ${invoiceId}`, error);
     }

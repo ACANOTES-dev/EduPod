@@ -23,13 +23,32 @@ const defaultSettings = {
   },
 };
 
+const mockInvoiceContext = {
+  id: 'invoice-uuid-1111',
+  invoice_number: 'INV-000001',
+  due_date: new Date('2026-04-15T00:00:00Z'),
+  balance_amount: 100,
+  currency_code: 'EUR',
+  household: {
+    household_name: 'Test Family',
+    billing_parent: { user_id: 'user-uuid-2222' },
+  },
+};
+
 const mockPrisma = {
   invoice: {
     findMany: jest.fn(),
+    findFirst: jest.fn().mockResolvedValue(mockInvoiceContext),
   },
   invoiceReminder: {
     create: jest.fn(),
     findMany: jest.fn(),
+  },
+  notification: {
+    create: jest.fn().mockResolvedValue({ id: 'notif-1' }),
+  },
+  tenant: {
+    findUnique: jest.fn().mockResolvedValue({ default_locale: 'en' }),
   },
 };
 
@@ -86,6 +105,18 @@ describe('PaymentRemindersService', () => {
       expect(mockPrisma.invoiceReminder.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ reminder_type: 'due_soon', invoice_id: INVOICE_ID }),
+        }),
+      );
+      // FIN-005: an actual notification must be written so DispatchQueuedProcessor picks it up
+      expect(mockPrisma.notification.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            template_key: 'payment_reminder_due_soon',
+            recipient_user_id: 'user-uuid-2222',
+            source_entity_type: 'invoice',
+            source_entity_id: INVOICE_ID,
+            status: 'queued',
+          }),
         }),
       );
     });
