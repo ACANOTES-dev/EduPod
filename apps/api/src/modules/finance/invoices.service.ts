@@ -34,6 +34,7 @@ interface InvoiceFilters {
   search?: string;
   sort?: string;
   order?: 'asc' | 'desc';
+  include_lines?: boolean;
 }
 
 @Injectable()
@@ -51,8 +52,18 @@ export class InvoicesService {
    * (parent portal view — parents must not see unpublished invoices).
    */
   async findAll(tenantId: string, filters: InvoiceFilters, parentHouseholdIds?: string[]) {
-    const { page, pageSize, status, household_id, date_from, date_to, search, sort, order } =
-      filters;
+    const {
+      page,
+      pageSize,
+      status,
+      household_id,
+      date_from,
+      date_to,
+      search,
+      sort,
+      order,
+      include_lines,
+    } = filters;
     const skip = (page - 1) * pageSize;
 
     const where: Record<string, unknown> = { tenant_id: tenantId };
@@ -108,6 +119,18 @@ export class InvoicesService {
               unit_amount: true,
               line_total: true,
               student_id: true,
+              ...(include_lines
+                ? {
+                    student: {
+                      select: {
+                        id: true,
+                        first_name: true,
+                        last_name: true,
+                        student_number: true,
+                      },
+                    },
+                  }
+                : {}),
             },
           },
         },

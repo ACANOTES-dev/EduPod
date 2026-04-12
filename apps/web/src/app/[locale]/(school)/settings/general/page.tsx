@@ -373,6 +373,21 @@ export default function GeneralSettingsPage() {
             value={settings.finance.lateFeeEnabled}
             onChange={(v) => updateSection('finance', { lateFeeEnabled: v })}
           />
+
+          {/* Payment apportionment */}
+          <SelectRow
+            label={t('paymentApportionment')}
+            value={settings.finance.paymentApportionmentStrategy ?? 'proportional'}
+            options={[
+              { value: 'proportional', label: t('apportionmentProportional') },
+              { value: 'sequential', label: t('apportionmentSequential') },
+            ]}
+            onChange={(v) =>
+              updateSection('finance', {
+                paymentApportionmentStrategy: v as 'proportional' | 'sequential',
+              })
+            }
+          />
         </SectionCard>
 
         {/* Communications */}

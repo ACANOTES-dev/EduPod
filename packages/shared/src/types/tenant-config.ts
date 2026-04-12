@@ -54,6 +54,8 @@ export const DEFAULT_ADMISSIONS_SETTINGS: TenantSettingsAdmissions = {
   require_override_approval_role: 'school_principal',
 };
 
+export type PaymentApportionmentStrategy = 'proportional' | 'sequential';
+
 export interface TenantSettingsFinance {
   requireApprovalForInvoiceIssue: boolean;
   defaultPaymentTermDays: number;
@@ -65,6 +67,7 @@ export interface TenantSettingsFinance {
   autoIssueRecurringInvoices: boolean;
   lateFeeEnabled: boolean;
   defaultLateFeeConfigId: string | null;
+  paymentApportionmentStrategy: PaymentApportionmentStrategy;
 }
 
 export interface TenantSettingsCommunications {

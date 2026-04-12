@@ -19,6 +19,7 @@ import { ApplicationConversionService } from '../admissions/application-conversi
 import { ApplicationStateMachineService } from '../admissions/application-state-machine.service';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SequenceService } from '../sequence/sequence.service';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { isPayableStatus, roundMoney } from './helpers/invoice-status.helper';
@@ -55,6 +56,7 @@ export class StripeService {
     private readonly applicationStateMachineService: ApplicationStateMachineService,
     @Inject(forwardRef(() => AdmissionsFinanceBridgeService))
     private readonly admissionsFinanceBridge: AdmissionsFinanceBridgeService,
+    private readonly sequenceService: SequenceService,
   ) {}
 
   private get webhookSecret(): string | undefined {
@@ -561,12 +563,20 @@ export class StripeService {
         return;
       }
 
+      // Generate sequential payment reference
+      const paymentRef = await this.sequenceService.nextNumber(
+        tenantId,
+        'payment',
+        undefined,
+        'PAYREF',
+      );
+
       // Create payment record
       const payment = await prisma.payment.create({
         data: {
           tenant_id: tenantId,
           household_id: householdId,
-          payment_reference: `STRIPE-${session.id}`,
+          payment_reference: paymentRef,
           payment_method: 'stripe',
           external_provider: 'stripe',
           external_event_id: paymentIntentId,

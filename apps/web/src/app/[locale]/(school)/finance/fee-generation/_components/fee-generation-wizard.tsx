@@ -8,13 +8,11 @@ import * as React from 'react';
 import type { FeeGenerationPreview as PreviewData } from '@school/shared';
 import { Button, Checkbox, Input, Label } from '@school/ui';
 
-
 import { apiClient } from '@/lib/api-client';
 
 import { CurrencyDisplay } from '../../_components/currency-display';
 
 import { FeeGenerationPreview } from './fee-generation-preview';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +24,14 @@ interface YearGroup {
 interface FeeStructureOption {
   id: string;
   name: string;
+  fee_type?: { id: string; name: string } | null;
+  year_group?: { id: string; name: string } | null;
+}
+
+interface FeeTypeOption {
+  id: string;
+  name: string;
+  description: string | null;
 }
 
 type WizardStep = 1 | 2 | 3;
@@ -82,9 +88,10 @@ export function FeeGenerationWizard() {
 
   // Step 1 state
   const [yearGroups, setYearGroups] = React.useState<YearGroup[]>([]);
+  const [feeTypes, setFeeTypes] = React.useState<FeeTypeOption[]>([]);
   const [feeStructures, setFeeStructures] = React.useState<FeeStructureOption[]>([]);
   const [selectedYearGroups, setSelectedYearGroups] = React.useState<Set<string>>(new Set());
-  const [selectedFeeStructures, setSelectedFeeStructures] = React.useState<Set<string>>(new Set());
+  const [selectedFeeTypes, setSelectedFeeTypes] = React.useState<Set<string>>(new Set());
   const [billingPeriodStart, setBillingPeriodStart] = React.useState('');
   const [billingPeriodEnd, setBillingPeriodEnd] = React.useState('');
   const [dueDate, setDueDate] = React.useState('');
@@ -103,20 +110,37 @@ export function FeeGenerationWizard() {
   } | null>(null);
   const [confirmError, setConfirmError] = React.useState('');
 
-  // Currency code (default SAR, should come from tenant config ideally)
-  const currencyCode = 'SAR';
+  // Currency code from tenant
+  const [currencyCode, setCurrencyCode] = React.useState('USD');
 
   // Fetch reference data on mount
   React.useEffect(() => {
     apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100')
       .then((res) => setYearGroups(res.data))
-      .catch((err) => { console.error('[FeeGenerationWizard]', err); return setYearGroups([]); });
+      .catch((err) => {
+        console.error('[FeeGenerationWizard]', err);
+        return setYearGroups([]);
+      });
+
+    apiClient<{ data: FeeTypeOption[] }>('/api/v1/finance/fee-types?pageSize=100&active=true')
+      .then((res) => setFeeTypes(res.data))
+      .catch((err) => {
+        console.error('[FeeGenerationWizard]', err);
+        return setFeeTypes([]);
+      });
 
     apiClient<{ data: FeeStructureOption[] }>(
       '/api/v1/finance/fee-structures?pageSize=100&active=true',
     )
       .then((res) => setFeeStructures(res.data))
-      .catch((err) => { console.error('[FeeGenerationWizard]', err); return setFeeStructures([]); });
+      .catch((err) => {
+        console.error('[FeeGenerationWizard]', err);
+        return setFeeStructures([]);
+      });
+
+    apiClient<{ currency_code: string }>('/api/v1/finance/dashboard/currency')
+      .then((res) => setCurrencyCode(res.currency_code))
+      .catch((err) => console.error('[FeeGenerationWizard]', err));
   }, []);
 
   const toggleYearGroup = (id: string) => {
@@ -128,14 +152,28 @@ export function FeeGenerationWizard() {
     });
   };
 
-  const toggleFeeStructure = (id: string) => {
-    setSelectedFeeStructures((prev) => {
+  const toggleFeeType = (id: string) => {
+    setSelectedFeeTypes((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
   };
+
+  // Resolve fee types + year groups → matching fee structure IDs
+  const resolvedFeeStructureIds = React.useMemo(() => {
+    if (selectedFeeTypes.size === 0 || selectedYearGroups.size === 0) return [];
+    return feeStructures
+      .filter((fs) => {
+        // Must have a matching fee type
+        if (!fs.fee_type || !selectedFeeTypes.has(fs.fee_type.id)) return false;
+        // Must match selected year group OR be unscoped (no year group)
+        if (fs.year_group && !selectedYearGroups.has(fs.year_group.id)) return false;
+        return true;
+      })
+      .map((fs) => fs.id);
+  }, [feeStructures, selectedFeeTypes, selectedYearGroups]);
 
   const toggleExcludeHousehold = (householdId: string) => {
     setExcludedHouseholds((prev) => {
@@ -148,7 +186,8 @@ export function FeeGenerationWizard() {
 
   const canProceedStep1 =
     selectedYearGroups.size > 0 &&
-    selectedFeeStructures.size > 0 &&
+    selectedFeeTypes.size > 0 &&
+    resolvedFeeStructureIds.length > 0 &&
     billingPeriodStart &&
     billingPeriodEnd &&
     dueDate;
@@ -159,7 +198,7 @@ export function FeeGenerationWizard() {
     try {
       const payload = {
         year_group_ids: Array.from(selectedYearGroups),
-        fee_structure_ids: Array.from(selectedFeeStructures),
+        fee_structure_ids: resolvedFeeStructureIds,
         billing_period_start: billingPeriodStart,
         billing_period_end: billingPeriodEnd,
         due_date: dueDate,
@@ -185,7 +224,7 @@ export function FeeGenerationWizard() {
     try {
       const payload = {
         year_group_ids: Array.from(selectedYearGroups),
-        fee_structure_ids: Array.from(selectedFeeStructures),
+        fee_structure_ids: resolvedFeeStructureIds,
         billing_period_start: billingPeriodStart,
         billing_period_end: billingPeriodEnd,
         due_date: dueDate,
@@ -258,30 +297,43 @@ export function FeeGenerationWizard() {
             </div>
           </div>
 
-          {/* Fee Structures */}
+          {/* Issue Fees For (Fee Types) */}
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <h3 className="mb-4 text-base font-semibold text-text-primary">
-              {t('feeGeneration.selectFeeStructures')}
+            <h3 className="mb-1 text-base font-semibold text-text-primary">
+              {t('feeGeneration.issueFeeFor')}
             </h3>
+            <p className="mb-4 text-xs text-text-tertiary">{t('feeGeneration.issueFeeForDesc')}</p>
             <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-              {feeStructures.map((fs) => (
+              {feeTypes.map((ft) => (
                 <label
-                  key={fs.id}
+                  key={ft.id}
                   className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-surface-secondary transition-colors"
                 >
                   <Checkbox
-                    checked={selectedFeeStructures.has(fs.id)}
-                    onCheckedChange={() => toggleFeeStructure(fs.id)}
+                    checked={selectedFeeTypes.has(ft.id)}
+                    onCheckedChange={() => toggleFeeType(ft.id)}
                   />
-                  <span className="text-sm text-text-primary">{fs.name}</span>
+                  <div className="min-w-0">
+                    <span className="text-sm font-medium text-text-primary">{ft.name}</span>
+                    {ft.description && (
+                      <p className="text-xs text-text-tertiary truncate">{ft.description}</p>
+                    )}
+                  </div>
                 </label>
               ))}
-              {feeStructures.length === 0 && (
+              {feeTypes.length === 0 && (
                 <p className="text-sm text-text-tertiary col-span-full">
-                  {t('feeGeneration.noFeeStructures')}
+                  {t('feeGeneration.noFeeTypes')}
                 </p>
               )}
             </div>
+            {selectedFeeTypes.size > 0 && selectedYearGroups.size > 0 && (
+              <div className="mt-3 rounded-lg bg-surface-secondary px-3 py-2">
+                <p className="text-xs text-text-secondary">
+                  {t('feeGeneration.matchingStructures', { count: resolvedFeeStructureIds.length })}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Dates */}
@@ -445,7 +497,7 @@ export function FeeGenerationWizard() {
               onClick={() => {
                 setStep(1);
                 setSelectedYearGroups(new Set());
-                setSelectedFeeStructures(new Set());
+                setSelectedFeeTypes(new Set());
                 setBillingPeriodStart('');
                 setBillingPeriodEnd('');
                 setDueDate('');

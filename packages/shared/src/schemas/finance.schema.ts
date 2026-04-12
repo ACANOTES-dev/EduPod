@@ -207,6 +207,7 @@ export const invoiceQuerySchema = z.object({
   search: z.string().optional(),
   sort: z.string().optional(),
   order: z.enum(['asc', 'desc']).optional(),
+  include_lines: z.coerce.boolean().optional(),
 });
 
 export const invoicePdfQuerySchema = z.object({

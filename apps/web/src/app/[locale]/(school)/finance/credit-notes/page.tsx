@@ -24,7 +24,6 @@ import {
   toast,
 } from '@school/ui';
 
-
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
@@ -32,7 +31,6 @@ import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../_components/currency-display';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -128,14 +126,27 @@ export default function CreditNotesPage() {
 
   React.useEffect(() => {
     if (showCreate) {
-      apiClient<{ data: HouseholdOption[] }>('/api/v1/households?pageSize=200')
-        .then((res) => setHouseholds(res.data))
-        .catch((err) => { console.error('[FinanceCreditNotesPage]', err); return setHouseholds([]); });
+      apiClient<{ data: HouseholdOption[]; meta?: unknown }>('/api/v1/households?pageSize=200')
+        .then((res) => {
+          const items = Array.isArray(res.data) ? res.data : [];
+          setHouseholds(items);
+        })
+        .catch((err) => {
+          console.error('[FinanceCreditNotesPage]', err);
+          return setHouseholds([]);
+        });
     }
   }, [showCreate]);
 
   async function handleCreate() {
-    if (!createForm.household_id || !createForm.amount || !createForm.reason) {
+    const parsedAmount = parseFloat(createForm.amount);
+    if (
+      !createForm.household_id ||
+      !createForm.amount ||
+      isNaN(parsedAmount) ||
+      parsedAmount <= 0 ||
+      !createForm.reason.trim()
+    ) {
       toast.error(t('creditNotes.validationError'));
       return;
     }
@@ -145,8 +156,8 @@ export default function CreditNotesPage() {
         method: 'POST',
         body: JSON.stringify({
           household_id: createForm.household_id,
-          amount: parseFloat(createForm.amount),
-          reason: createForm.reason,
+          amount: parsedAmount,
+          reason: createForm.reason.trim(),
         }),
       });
       toast.success(t('creditNotes.created'));
@@ -167,10 +178,10 @@ export default function CreditNotesPage() {
     setApplyInvoiceId('');
     setApplyAmount('');
     try {
-      const res = await apiClient<{ data: OpenInvoice[] }>(
+      const res = await apiClient<{ data: OpenInvoice[]; meta?: unknown }>(
         `/api/v1/finance/invoices?household_id=${cn.household_id}&status=issued,partially_paid,overdue&pageSize=100`,
       );
-      setOpenInvoices(res.data);
+      setOpenInvoices(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('[FinanceCreditNotesPage]', err);
       setOpenInvoices([]);
@@ -179,17 +190,19 @@ export default function CreditNotesPage() {
   }
 
   async function handleApply() {
-    if (!applyInvoiceId || !applyAmount) {
+    const parsedApplyAmount = parseFloat(applyAmount);
+    if (!applyInvoiceId || !applyAmount || isNaN(parsedApplyAmount) || parsedApplyAmount <= 0) {
       toast.error(t('creditNotes.validationError'));
       return;
     }
     setApplying(true);
     try {
-      await apiClient(`/api/v1/finance/credit-notes/${applyTargetId}/apply`, {
+      await apiClient('/api/v1/finance/credit-notes/apply', {
         method: 'POST',
         body: JSON.stringify({
+          credit_note_id: applyTargetId,
           invoice_id: applyInvoiceId,
-          amount: parseFloat(applyAmount),
+          applied_amount: parsedApplyAmount,
         }),
       });
       toast.success(t('creditNotes.applied'));

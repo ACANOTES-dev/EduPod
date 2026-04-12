@@ -1,28 +1,36 @@
 'use client';
 
-import { RotateCcw, Search } from 'lucide-react';
+import { Plus, RotateCcw, Search } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type { RefundStatus } from '@school/shared';
 import {
   Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   EmptyState,
   Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Textarea,
+  toast,
 } from '@school/ui';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
+import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 
+import { CurrencyDisplay } from '../_components/currency-display';
 import { RefundStatusBadge } from '../_components/refund-status-badge';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,11 +53,23 @@ interface Refund {
   requested_by?: { id: string; first_name: string; last_name: string } | null;
 }
 
+interface PaymentSearchResult {
+  id: string;
+  payment_reference: string;
+  amount: number;
+  payment_method: string;
+  currency_code: string;
+  household?: { id: string; household_name: string } | null;
+  refunded_amount?: number;
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RefundsPage() {
   const t = useTranslations('finance');
   const tCommon = useTranslations('common');
+  const { hasAnyRole } = useRoleCheck();
+  const canManage = hasAnyRole('school_principal', 'accounting');
 
   const [refunds, setRefunds] = React.useState<Refund[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -60,6 +80,16 @@ export default function RefundsPage() {
   const [search, setSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
+
+  // Create refund modal
+  const [showCreate, setShowCreate] = React.useState(false);
+  const [paymentSearch, setPaymentSearch] = React.useState('');
+  const [paymentResults, setPaymentResults] = React.useState<PaymentSearchResult[]>([]);
+  const [searchingPayments, setSearchingPayments] = React.useState(false);
+  const [selectedPayment, setSelectedPayment] = React.useState<PaymentSearchResult | null>(null);
+  const [refundAmount, setRefundAmount] = React.useState('');
+  const [refundReason, setRefundReason] = React.useState('');
+  const [creating, setCreating] = React.useState(false);
 
   const fetchRefunds = React.useCallback(async () => {
     setIsLoading(true);
@@ -131,6 +161,69 @@ export default function RefundsPage() {
       console.error('[fetchRefunds]', err);
     } finally {
       setActionLoading(null);
+    }
+  }
+
+  // ─── Create Refund ────────────────────────────────────────────────────────
+
+  const handleSearchPayments = React.useCallback(async () => {
+    if (!paymentSearch.trim()) {
+      setPaymentResults([]);
+      return;
+    }
+    setSearchingPayments(true);
+    try {
+      const res = await apiClient<{ data: PaymentSearchResult[]; meta: { total: number } }>(
+        `/api/v1/finance/payments?search=${encodeURIComponent(paymentSearch.trim())}&pageSize=10`,
+      );
+      setPaymentResults(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error('[RefundsPage.searchPayments]', err);
+      setPaymentResults([]);
+    } finally {
+      setSearchingPayments(false);
+    }
+  }, [paymentSearch]);
+
+  function resetCreateModal() {
+    setPaymentSearch('');
+    setPaymentResults([]);
+    setSelectedPayment(null);
+    setRefundAmount('');
+    setRefundReason('');
+  }
+
+  async function handleCreateRefund() {
+    if (!selectedPayment) return;
+    const parsedAmount = parseFloat(refundAmount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0 || !refundReason.trim()) {
+      toast.error(t('refundValidationError'));
+      return;
+    }
+    const refundableAmount = selectedPayment.amount - (selectedPayment.refunded_amount ?? 0);
+    if (parsedAmount > refundableAmount) {
+      toast.error(t('refundExceedsPayment'));
+      return;
+    }
+    setCreating(true);
+    try {
+      await apiClient('/api/v1/finance/refunds', {
+        method: 'POST',
+        body: JSON.stringify({
+          payment_id: selectedPayment.id,
+          amount: parsedAmount,
+          reason: refundReason.trim(),
+        }),
+      });
+      toast.success(t('refundCreated'));
+      setShowCreate(false);
+      resetCreateModal();
+      void fetchRefunds();
+    } catch (err) {
+      console.error('[RefundsPage.createRefund]', err);
+      toast.error(t('refundCreateFailed'));
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -287,7 +380,23 @@ export default function RefundsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('refunds')} description={t('refundsDescription')} />
+      <PageHeader
+        title={t('refunds')}
+        description={t('refundsDescription')}
+        actions={
+          canManage ? (
+            <Button
+              onClick={() => {
+                resetCreateModal();
+                setShowCreate(true);
+              }}
+            >
+              <Plus className="me-2 h-4 w-4" />
+              {t('createRefund')}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {!isLoading && refunds.length === 0 && !search && statusFilter === 'all' ? (
         <EmptyState icon={RotateCcw} title={t('noRefunds')} description={t('noRefundsDesc')} />
@@ -304,6 +413,189 @@ export default function RefundsPage() {
           isLoading={isLoading}
         />
       )}
+
+      {/* Create Refund Dialog */}
+      <Dialog
+        open={showCreate}
+        onOpenChange={(open) => {
+          setShowCreate(open);
+          if (!open) resetCreateModal();
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t('createRefund')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {!selectedPayment ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label>{t('searchPayment')}</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder={t('searchPaymentPlaceholder')}
+                      value={paymentSearch}
+                      onChange={(e) => setPaymentSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void handleSearchPayments();
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleSearchPayments()}
+                      disabled={searchingPayments || !paymentSearch.trim()}
+                    >
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {searchingPayments && (
+                  <p className="text-sm text-text-tertiary">{tCommon('loading')}...</p>
+                )}
+
+                {!searchingPayments && paymentResults.length > 0 && (
+                  <div className="max-h-[240px] space-y-2 overflow-y-auto">
+                    {paymentResults.map((payment) => {
+                      const refundableAmount = payment.amount - (payment.refunded_amount ?? 0);
+                      return (
+                        <button
+                          key={payment.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPayment(payment);
+                            setRefundAmount('');
+                            setRefundReason('');
+                          }}
+                          className="w-full rounded-lg border border-border p-3 text-start transition-colors hover:bg-surface-secondary"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-xs text-text-secondary">
+                              {payment.payment_reference}
+                            </span>
+                            <CurrencyDisplay
+                              amount={payment.amount}
+                              currency_code={payment.currency_code}
+                              className="text-sm font-medium"
+                            />
+                          </div>
+                          <div className="mt-1 flex items-center justify-between text-xs text-text-tertiary">
+                            <span>{payment.household?.household_name ?? '—'}</span>
+                            <span>
+                              {t('refundable')}:{' '}
+                              <span dir="ltr">
+                                {refundableAmount.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </span>
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {!searchingPayments && paymentSearch.trim() && paymentResults.length === 0 && (
+                  <p className="text-sm text-text-tertiary">{t('noPaymentsFound')}</p>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Selected payment summary */}
+                <div className="rounded-lg border border-border bg-surface-secondary p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-text-primary">
+                      {t('selectedPayment')}
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedPayment(null)}>
+                      {t('changePayment')}
+                    </Button>
+                  </div>
+                  <div className="mt-2 space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-text-tertiary">{t('reference')}</span>
+                      <span className="font-mono text-text-secondary">
+                        {selectedPayment.payment_reference}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-text-tertiary">{t('household')}</span>
+                      <span className="text-text-secondary">
+                        {selectedPayment.household?.household_name ?? '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-text-tertiary">{t('totalAmount')}</span>
+                      <CurrencyDisplay
+                        amount={selectedPayment.amount}
+                        currency_code={selectedPayment.currency_code}
+                        className="font-medium"
+                      />
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-text-tertiary">{t('method')}</span>
+                      <span className="text-text-secondary capitalize">
+                        {selectedPayment.payment_method.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-text-tertiary">{t('refundable')}</span>
+                      <span className="font-medium text-success-700" dir="ltr">
+                        {(
+                          selectedPayment.amount - (selectedPayment.refunded_amount ?? 0)
+                        ).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>{t('refundAmountLabel')}</Label>
+                  <Input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    max={selectedPayment.amount - (selectedPayment.refunded_amount ?? 0)}
+                    value={refundAmount}
+                    onChange={(e) => setRefundAmount(e.target.value)}
+                    placeholder="0.00"
+                    dir="ltr"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>{t('reason')}</Label>
+                  <Textarea
+                    value={refundReason}
+                    onChange={(e) => setRefundReason(e.target.value)}
+                    placeholder={t('refundReasonPlaceholder')}
+                    rows={3}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreate(false)} disabled={creating}>
+              {tCommon('cancel')}
+            </Button>
+            {selectedPayment && (
+              <Button
+                onClick={() => void handleCreateRefund()}
+                disabled={creating || !refundAmount || !refundReason.trim()}
+              >
+                {creating ? tCommon('saving') : t('createRefund')}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

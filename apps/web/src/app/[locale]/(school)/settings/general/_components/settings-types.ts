@@ -58,6 +58,7 @@ export interface FinanceSettings {
   autoIssueRecurringInvoices: boolean;
   lateFeeEnabled: boolean;
   defaultLateFeeConfigId: string | null;
+  paymentApportionmentStrategy: 'proportional' | 'sequential';
 }
 
 export interface CommunicationsSettings {
@@ -208,6 +209,7 @@ export const DEFAULT_SETTINGS: TenantSettings = {
     autoIssueRecurringInvoices: false,
     lateFeeEnabled: false,
     defaultLateFeeConfigId: null,
+    paymentApportionmentStrategy: 'proportional' as const,
   },
   communications: {
     primaryOutboundChannel: 'email',

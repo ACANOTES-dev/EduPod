@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import type { PaymentStatus, PaymentMethod } from '@school/shared';
+import type { PaymentMethod, PaymentStatus } from '@school/shared';
 import {
   Button,
   Input,
@@ -17,7 +17,6 @@ import {
   EmptyState,
 } from '@school/ui';
 
-
 import { DataTable } from '@/components/data-table';
 import { EntityLink } from '@/components/entity-link';
 import { PageHeader } from '@/components/page-header';
@@ -26,8 +25,6 @@ import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../_components/currency-display';
-import { PaymentStatusBadge } from '../_components/payment-status-badge';
-
 
 interface PaymentHousehold {
   id: string;
@@ -86,7 +83,10 @@ export default function PaymentsPage() {
   React.useEffect(() => {
     apiClient<{ data: StaffOption[] }>('/api/v1/finance/payments/staff')
       .then((res) => setStaffOptions(res.data))
-      .catch((err) => { console.error('[FinancePaymentsPage]', err); return setStaffOptions([]); });
+      .catch((err) => {
+        console.error('[FinancePaymentsPage]', err);
+        return setStaffOptions([]);
+      });
   }, []);
 
   const fetchPayments = React.useCallback(async () => {
@@ -168,11 +168,6 @@ export default function PaymentsPage() {
       ),
     },
     {
-      key: 'status',
-      header: t('status'),
-      render: (row: Payment) => <PaymentStatusBadge status={row.status} />,
-    },
-    {
       key: 'received_at',
       header: t('date'),
       render: (row: Payment) => (
@@ -182,11 +177,19 @@ export default function PaymentsPage() {
     {
       key: 'accepted_by',
       header: t('acceptedBy'),
-      render: (row: Payment) => (
-        <span className="text-sm text-text-secondary">
-          {row.posted_by ? `${row.posted_by.first_name} ${row.posted_by.last_name}` : '—'}
-        </span>
-      ),
+      render: (row: Payment) => {
+        if (row.payment_method === 'stripe') {
+          return <span className="text-sm text-text-secondary">Stripe</span>;
+        }
+        if (row.payment_method === 'bank_transfer' && !row.posted_by) {
+          return <span className="text-sm text-text-secondary">{t('bankTransfer')}</span>;
+        }
+        return (
+          <span className="text-sm text-text-secondary">
+            {row.posted_by ? `${row.posted_by.first_name} ${row.posted_by.last_name}` : '—'}
+          </span>
+        );
+      },
     },
   ];
 
@@ -278,7 +281,9 @@ export default function PaymentsPage() {
         actions={
           canManage ? (
             <Button onClick={() => router.push('/finance/payments/new')}>
-              <Plus className="me-2 h-4 w-4" />{t('newPayment')}</Button>
+              <Plus className="me-2 h-4 w-4" />
+              {t('newPayment')}
+            </Button>
           ) : undefined
         }
       />

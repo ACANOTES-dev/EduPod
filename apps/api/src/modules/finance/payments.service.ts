@@ -170,7 +170,7 @@ export class PaymentsService {
       tenantId,
       'payment',
       undefined,
-      'PAY',
+      'PAYREF',
     );
 
     const payment = await this.prisma.payment.create({
