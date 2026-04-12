@@ -175,7 +175,13 @@
     "inboxAudiences": "Audiences",
     "inboxOversight": "Oversight",
     "messagingPolicyNav": "Messaging Policy",
-    "communicationsFallback": "Notification fallback"
+    "communicationsFallback": "Notification fallback",
+    "financeDashboard": "Dashboard",
+    "creditNotes": "Credit Notes",
+    "feeTypes": "Fee Types",
+    "feeGeneration": "Fee Generation",
+    "debtBreakdown": "Debt Breakdown",
+    "auditTrail": "Audit Trail"
   },
   "inbox": {
     "title": "Inbox",

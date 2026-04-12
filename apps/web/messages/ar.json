@@ -174,7 +174,13 @@
     "inboxAudiences": "الجماهير",
     "inboxOversight": "الرقابة",
     "messagingPolicyNav": "سياسة الرسائل",
-    "communicationsFallback": "التصعيد التلقائي"
+    "communicationsFallback": "التصعيد التلقائي",
+    "financeDashboard": "لوحة التحكم",
+    "creditNotes": "الإشعارات الدائنة",
+    "feeTypes": "أنواع الرسوم",
+    "feeGeneration": "إنشاء الرسوم",
+    "debtBreakdown": "تفصيل الديون",
+    "auditTrail": "سجل التدقيق"
   },
   "inbox": {
     "title": "صندوق الرسائل",
