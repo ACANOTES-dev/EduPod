@@ -31,6 +31,7 @@ import { ANNUAL_CONSENT_RENEWAL_JOB } from '../processors/engagement/engagement-
 import { CONFERENCE_REMINDERS_JOB } from '../processors/engagement/engagement-conference-reminders.processor';
 import { EXPIRE_PENDING_JOB } from '../processors/engagement/expire-pending.processor';
 import { OVERDUE_DETECTION_JOB } from '../processors/finance/overdue-detection.processor';
+import { FINANCE_RECONCILE_STRIPE_REFUNDS_JOB } from '../processors/finance/stripe-refund-reconciliation.processor';
 import { GRADEBOOK_DETECT_RISKS_JOB } from '../processors/gradebook/gradebook-risk-detection.processor';
 import { REPORT_CARD_AUTO_GENERATE_JOB } from '../processors/gradebook/report-card-auto-generate.processor';
 import { HOMEWORK_COMPLETION_REMINDER_JOB } from '../processors/homework/completion-reminder.processor';
@@ -117,6 +118,24 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${OVERDUE_DETECTION_JOB} (daily 00:05 UTC)`);
+
+    // ── finance:reconcile-stripe-refunds ────────────────────────────────────
+    // FIN-023: runs daily at 03:00 UTC. Cross-tenant — processor iterates all
+    // active tenants that have a Stripe config and alerts (logs only) on
+    // drift between Stripe refunds and local refund rows.
+    await this.financeQueue.add(
+      FINANCE_RECONCILE_STRIPE_REFUNDS_JOB,
+      {},
+      {
+        repeat: { pattern: '0 3 * * *' },
+        jobId: `cron:${FINANCE_RECONCILE_STRIPE_REFUNDS_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(
+      `Registered repeatable cron: ${FINANCE_RECONCILE_STRIPE_REFUNDS_JOB} (daily 03:00 UTC)`,
+    );
   }
 
   private async registerEarlyWarningCronJobs(): Promise<void> {

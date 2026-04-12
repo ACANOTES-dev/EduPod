@@ -54,6 +54,7 @@ import { ExpirePendingProcessor } from './processors/engagement/expire-pending.p
 import { GenerateEventInvoicesProcessor } from './processors/engagement/generate-invoices.processor';
 import { InvoiceApprovalCallbackProcessor } from './processors/finance/invoice-approval-callback.processor';
 import { OverdueDetectionProcessor } from './processors/finance/overdue-detection.processor';
+import { StripeRefundReconciliationProcessor } from './processors/finance/stripe-refund-reconciliation.processor';
 import { BulkImportProcessor } from './processors/gradebook/bulk-import.processor';
 import { GradebookQueueDispatcher } from './processors/gradebook/gradebook-queue-dispatcher';
 import { GradebookRiskDetectionProcessor } from './processors/gradebook/gradebook-risk-detection.processor';
@@ -443,6 +444,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     CronSchedulerService,
     // Finance queue processors
     OverdueDetectionProcessor,
+    StripeRefundReconciliationProcessor,
     InvoiceApprovalCallbackProcessor,
     // Imports queue processors
     ImportValidationProcessor,
