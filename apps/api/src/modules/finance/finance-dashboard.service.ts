@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import type { FinanceDashboardData } from '@school/shared';
+import type { FinanceDashboardData, HouseholdOverviewRow } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -356,5 +356,133 @@ export class FinanceDashboardService {
     rows.sort((a, b) => b.pct_owed - a.pct_owed);
 
     return { data: rows };
+  }
+
+  // ─── Household Financial Overview ───────────────────────────────────────────
+
+  async getHouseholdOverview(
+    tenantId: string,
+    filters: {
+      page: number;
+      pageSize: number;
+      search?: string;
+      status?: 'fully_paid' | 'partially_paid' | 'unpaid';
+      overdue?: boolean;
+    },
+  ): Promise<{
+    data: HouseholdOverviewRow[];
+    meta: { page: number; pageSize: number; total: number };
+  }> {
+    const { page, pageSize, search, status, overdue } = filters;
+    const now = new Date();
+
+    // ─── Fetch all non-void/cancelled invoices with household relation ────────
+    const invoices = await this.prisma.invoice.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: { notIn: ['void', 'cancelled'] },
+      },
+      select: {
+        household_id: true,
+        total_amount: true,
+        balance_amount: true,
+        due_date: true,
+        status: true,
+        household: {
+          select: {
+            id: true,
+            household_name: true,
+            household_number: true,
+          },
+        },
+      },
+    });
+
+    // ─── Aggregate per household ─────────────────────────────────────────────
+    const householdMap = new Map<
+      string,
+      {
+        household_name: string;
+        household_number: string | null;
+        total: number;
+        balance: number;
+        hasOverdue: boolean;
+        invoiceCount: number;
+      }
+    >();
+
+    for (const inv of invoices) {
+      const existing = householdMap.get(inv.household_id) ?? {
+        household_name: inv.household.household_name,
+        household_number: inv.household.household_number,
+        total: 0,
+        balance: 0,
+        hasOverdue: false,
+        invoiceCount: 0,
+      };
+
+      existing.total += Number(inv.total_amount);
+      existing.balance += Number(inv.balance_amount);
+      existing.invoiceCount++;
+
+      if (inv.due_date < now && Number(inv.balance_amount) > 0) {
+        existing.hasOverdue = true;
+      }
+
+      householdMap.set(inv.household_id, existing);
+    }
+
+    // ─── Build rows with derived status ──────────────────────────────────────
+    let rows: HouseholdOverviewRow[] = [];
+
+    for (const [householdId, data] of householdMap) {
+      const total = roundMoney(data.total);
+      const balance = roundMoney(data.balance);
+      const paid = roundMoney(total - balance);
+
+      let rowStatus: HouseholdOverviewRow['status'];
+      if (balance <= 0) rowStatus = 'fully_paid';
+      else if (paid <= 0) rowStatus = 'unpaid';
+      else rowStatus = 'partially_paid';
+
+      rows.push({
+        household_id: householdId,
+        household_name: data.household_name,
+        household_number: data.household_number,
+        status: rowStatus,
+        total,
+        paid,
+        balance,
+        overdue: data.hasOverdue,
+        invoice_count: data.invoiceCount,
+      });
+    }
+
+    // ─── Apply filters ──────────────────────────────────────────────────────
+    if (search) {
+      const lowerSearch = search.toLowerCase();
+      rows = rows.filter((r) => r.household_name.toLowerCase().includes(lowerSearch));
+    }
+
+    if (status) {
+      rows = rows.filter((r) => r.status === status);
+    }
+
+    if (overdue !== undefined) {
+      rows = rows.filter((r) => r.overdue === overdue);
+    }
+
+    // ─── Sort by balance descending (highest debt first) ─────────────────────
+    rows.sort((a, b) => b.balance - a.balance);
+
+    // ─── Paginate ────────────────────────────────────────────────────────────
+    const total = rows.length;
+    const start = (page - 1) * pageSize;
+    const paginatedRows = rows.slice(start, start + pageSize);
+
+    return {
+      data: paginatedRows,
+      meta: { page, pageSize, total },
+    };
   }
 }

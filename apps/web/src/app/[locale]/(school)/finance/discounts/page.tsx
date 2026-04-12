@@ -1,7 +1,8 @@
 'use client';
 
-import { Percent, Plus, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { ArrowLeft, Percent, Plus, Search } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -35,6 +36,8 @@ export default function DiscountsPage() {
   const t = useTranslations('finance');
   const tCommon = useTranslations('common');
   const router = useRouter();
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { hasAnyRole } = useRoleCheck();
   const canManage = hasAnyRole('school_principal', 'accounting');
 
@@ -143,12 +146,21 @@ export default function DiscountsPage() {
         title={t('discounts.title')}
         description={t('discounts.description')}
         actions={
-          canManage ? (
-            <Button onClick={() => router.push('discounts/new')}>
-              <Plus className="me-2 h-4 w-4" />
-              {t('discounts.newButton')}
-            </Button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/${locale}/finance`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary"
+            >
+              <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+              Back
+            </Link>
+            {canManage && (
+              <Button onClick={() => router.push('discounts/new')}>
+                <Plus className="me-2 h-4 w-4" />
+                {t('discounts.newButton')}
+              </Button>
+            )}
+          </div>
         }
       />
 

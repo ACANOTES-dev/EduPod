@@ -1,7 +1,8 @@
 'use client';
 
-import { DollarSign, Plus, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { ArrowLeft, DollarSign, Plus, Search } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -18,14 +19,12 @@ import {
   EmptyState,
 } from '@school/ui';
 
-
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 
 import { CurrencyDisplay } from '../_components/currency-display';
-
 
 interface YearGroup {
   id: string;
@@ -53,6 +52,8 @@ export default function FeeStructuresPage() {
   const t = useTranslations('finance');
   const tCommon = useTranslations('common');
   const router = useRouter();
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { hasAnyRole } = useRoleCheck();
   const canManage = hasAnyRole('school_principal', 'accounting');
 
@@ -189,12 +190,21 @@ export default function FeeStructuresPage() {
         title={t('feeStructures.title')}
         description={t('feeStructures.description')}
         actions={
-          canManage ? (
-            <Button onClick={() => router.push('fee-structures/new')}>
-              <Plus className="me-2 h-4 w-4" />
-              {t('feeStructures.newButton')}
-            </Button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/${locale}/finance`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary"
+            >
+              <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+              Back
+            </Link>
+            {canManage && (
+              <Button onClick={() => router.push('fee-structures/new')}>
+                <Plus className="me-2 h-4 w-4" />
+                {t('feeStructures.newButton')}
+              </Button>
+            )}
+          </div>
         }
       />
 

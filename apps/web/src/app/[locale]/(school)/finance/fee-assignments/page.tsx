@@ -1,12 +1,12 @@
 'use client';
 
-import { FileText, Plus } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { ArrowLeft, FileText, Plus } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Button, EmptyState } from '@school/ui';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -14,7 +14,6 @@ import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 
 import { HouseholdSelector } from '../_components/household-selector';
-
 
 interface FeeAssignment {
   id: string;
@@ -29,6 +28,8 @@ interface FeeAssignment {
 export default function FeeAssignmentsPage() {
   const t = useTranslations('finance');
   const router = useRouter();
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { hasAnyRole } = useRoleCheck();
   const canManage = hasAnyRole('school_principal', 'accounting');
 
@@ -148,12 +149,21 @@ export default function FeeAssignmentsPage() {
         title={t('feeAssignments.title')}
         description={t('feeAssignments.description')}
         actions={
-          canManage ? (
-            <Button onClick={() => router.push('fee-assignments/new')}>
-              <Plus className="me-2 h-4 w-4" />
-              {t('feeAssignments.newButton')}
-            </Button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/${locale}/finance`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary"
+            >
+              <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+              Back
+            </Link>
+            {canManage && (
+              <Button onClick={() => router.push('fee-assignments/new')}>
+                <Plus className="me-2 h-4 w-4" />
+                {t('feeAssignments.newButton')}
+              </Button>
+            )}
+          </div>
         }
       />
 

@@ -50,6 +50,9 @@ export class FeeStructuresService {
           year_group: {
             select: { id: true, name: true },
           },
+          fee_type: {
+            select: { id: true, name: true },
+          },
         },
       }),
       this.prisma.feeStructure.count({ where }),
@@ -69,6 +72,9 @@ export class FeeStructuresService {
       where: { id, tenant_id: tenantId },
       include: {
         year_group: {
+          select: { id: true, name: true },
+        },
+        fee_type: {
           select: { id: true, name: true },
         },
       },
@@ -113,16 +119,43 @@ export class FeeStructuresService {
       }
     }
 
+    // If fee_type_id provided, derive name from fee type
+    let resolvedName = dto.name ?? '';
+    if (dto.fee_type_id) {
+      const feeType = await this.prisma.feeType.findFirst({
+        where: { id: dto.fee_type_id, tenant_id: tenantId },
+      });
+      if (!feeType) {
+        throw new BadRequestException({
+          code: 'FEE_TYPE_NOT_FOUND',
+          message: `Fee type with id "${dto.fee_type_id}" not found`,
+        });
+      }
+      if (!resolvedName) {
+        resolvedName = feeType.name;
+      }
+    }
+    if (!resolvedName) {
+      throw new BadRequestException({
+        code: 'NAME_REQUIRED',
+        message: 'Either name or fee_type_id must be provided',
+      });
+    }
+
     const created = await this.prisma.feeStructure.create({
       data: {
         tenant_id: tenantId,
-        name: dto.name,
+        name: resolvedName,
+        fee_type_id: dto.fee_type_id ?? null,
         year_group_id: dto.year_group_id ?? null,
         amount: dto.amount,
         billing_frequency: dto.billing_frequency,
       },
       include: {
         year_group: {
+          select: { id: true, name: true },
+        },
+        fee_type: {
           select: { id: true, name: true },
         },
       },
@@ -162,6 +195,7 @@ export class FeeStructuresService {
       where: { id },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.fee_type_id !== undefined && { fee_type_id: dto.fee_type_id }),
         ...(dto.year_group_id !== undefined && { year_group_id: dto.year_group_id }),
         ...(dto.amount !== undefined && { amount: dto.amount }),
         ...(dto.billing_frequency !== undefined && { billing_frequency: dto.billing_frequency }),
@@ -169,6 +203,9 @@ export class FeeStructuresService {
       },
       include: {
         year_group: {
+          select: { id: true, name: true },
+        },
+        fee_type: {
           select: { id: true, name: true },
         },
       },

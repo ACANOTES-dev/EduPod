@@ -29,10 +29,17 @@ const discountFormSchema = z
     discount_type: z.enum(['fixed', 'percent']),
     value: z.number().positive(),
     active: z.boolean().optional(),
+    auto_apply: z.boolean().default(false),
+    auto_condition_type: z.enum(['sibling', 'staff']).optional(),
+    auto_condition_min_students: z.number().int().min(2).optional(),
   })
   .refine((data) => data.discount_type !== 'percent' || data.value <= 100, {
     message: 'Percentage discount value must be <= 100',
     path: ['value'],
+  })
+  .refine((data) => !data.auto_apply || data.auto_condition_type != null, {
+    message: 'Select a condition type for automatic discounts',
+    path: ['auto_condition_type'],
   });
 
 export type DiscountFormValues = z.infer<typeof discountFormSchema>;
@@ -64,12 +71,17 @@ export function DiscountForm({
       discount_type: initialValues?.discount_type ?? 'fixed',
       value: initialValues?.value ?? ('' as unknown as number),
       active: initialValues?.active ?? true,
+      auto_apply: initialValues?.auto_apply ?? false,
+      auto_condition_type: initialValues?.auto_condition_type ?? undefined,
+      auto_condition_min_students: initialValues?.auto_condition_min_students ?? 2,
     },
   });
 
   const [formError, setFormError] = React.useState('');
 
   const watchDiscountType = form.watch('discount_type');
+  const watchAutoApply = form.watch('auto_apply');
+  const watchConditionType = form.watch('auto_condition_type');
 
   const handleSubmit = form.handleSubmit(async (values) => {
     setFormError('');
@@ -161,6 +173,76 @@ export function DiscountForm({
                 )}
               />
               <Label htmlFor="active">{t('discounts.fieldActive')}</Label>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Auto-Apply Configuration */}
+      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-2 text-base font-semibold text-text-primary">
+          {t('discounts.autoApplyTitle')}
+        </h2>
+        <p className="mb-4 text-sm text-text-secondary">{t('discounts.autoApplyDesc')}</p>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Controller
+              control={form.control}
+              name="auto_apply"
+              render={({ field }) => (
+                <Switch id="auto_apply" checked={field.value} onCheckedChange={field.onChange} />
+              )}
+            />
+            <Label htmlFor="auto_apply">{t('discounts.enableAutoApply')}</Label>
+          </div>
+
+          {watchAutoApply && (
+            <div className="ms-8 space-y-4 border-s-2 border-primary-200 ps-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="auto_condition_type">{t('discounts.conditionType')}</Label>
+                <Controller
+                  control={form.control}
+                  name="auto_condition_type"
+                  render={({ field }) => (
+                    <Select
+                      value={field.value ?? ''}
+                      onValueChange={(v) => field.onChange(v as 'sibling' | 'staff')}
+                    >
+                      <SelectTrigger id="auto_condition_type">
+                        <SelectValue placeholder={t('discounts.selectCondition')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sibling">{t('discounts.conditionSibling')}</SelectItem>
+                        <SelectItem value="staff">{t('discounts.conditionStaff')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {form.formState.errors.auto_condition_type && (
+                  <p className="text-sm text-danger-text">
+                    {form.formState.errors.auto_condition_type.message}
+                  </p>
+                )}
+              </div>
+
+              {watchConditionType === 'sibling' && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="min_students">{t('discounts.minStudents')}</Label>
+                  <p className="text-xs text-text-tertiary">{t('discounts.minStudentsDesc')}</p>
+                  <Input
+                    id="min_students"
+                    type="number"
+                    min="2"
+                    dir="ltr"
+                    className="w-full sm:w-24"
+                    {...form.register('auto_condition_min_students', { valueAsNumber: true })}
+                  />
+                </div>
+              )}
+
+              {watchConditionType === 'staff' && (
+                <p className="text-sm text-text-secondary">{t('discounts.staffDesc')}</p>
+              )}
             </div>
           )}
         </div>

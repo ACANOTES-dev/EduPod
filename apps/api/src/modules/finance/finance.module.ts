@@ -23,6 +23,8 @@ import { FeeGenerationController } from './fee-generation.controller';
 import { FeeGenerationService } from './fee-generation.service';
 import { FeeStructuresController } from './fee-structures.controller';
 import { FeeStructuresService } from './fee-structures.service';
+import { FeeTypesController } from './fee-types.controller';
+import { FeeTypesService } from './fee-types.service';
 import { FinanceAuditService } from './finance-audit.service';
 import { FinanceDashboardController } from './finance-dashboard.controller';
 import { FinanceDashboardService } from './finance-dashboard.service';
@@ -61,6 +63,7 @@ import { StripeService } from './stripe.service';
     TenantsModule,
   ],
   controllers: [
+    FeeTypesController,
     FeeStructuresController,
     DiscountsController,
     FeeAssignmentsController,
@@ -75,6 +78,7 @@ import { StripeService } from './stripe.service';
     ParentFinanceController,
   ],
   providers: [
+    FeeTypesService,
     FeeStructuresService,
     DiscountsService,
     FeeAssignmentsService,

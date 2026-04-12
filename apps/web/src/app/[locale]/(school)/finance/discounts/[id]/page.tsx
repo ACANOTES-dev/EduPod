@@ -13,12 +13,19 @@ import { apiClient } from '@/lib/api-client';
 
 import { DiscountForm, type DiscountFormValues } from '../_components/discount-form';
 
+interface DiscountAutoCondition {
+  type: 'sibling' | 'staff';
+  min_students?: number;
+}
+
 interface DiscountDetail {
   id: string;
   name: string;
   discount_type: DiscountType;
   value: number;
   active: boolean;
+  auto_apply: boolean;
+  auto_condition: DiscountAutoCondition | null;
 }
 
 export default function EditDiscountPage() {
@@ -38,16 +45,31 @@ export default function EditDiscountPage() {
     if (!id) return;
     apiClient<{ data: DiscountDetail }>(`/api/v1/finance/discounts/${id}`)
       .then((res) => setDiscount(res.data))
-      .catch((err) => { console.error('[FinanceDiscountsPage]', err); return setError(t('discounts.loadError')); })
+      .catch((err) => {
+        console.error('[FinanceDiscountsPage]', err);
+        return setError(t('discounts.loadError'));
+      })
       .finally(() => setLoading(false));
   }, [id, t]);
 
   const handleSubmit = async (values: DiscountFormValues) => {
+    const autoCondition =
+      values.auto_apply && values.auto_condition_type
+        ? {
+            type: values.auto_condition_type,
+            ...(values.auto_condition_type === 'sibling' &&
+              values.auto_condition_min_students && {
+                min_students: values.auto_condition_min_students,
+              }),
+          }
+        : null;
     const payload = {
       name: values.name,
       discount_type: values.discount_type,
       value: values.value,
       active: values.active,
+      auto_apply: values.auto_apply,
+      auto_condition: autoCondition,
     };
     await apiClient(`/api/v1/finance/discounts/${id}`, {
       method: 'PATCH',
@@ -81,6 +103,9 @@ export default function EditDiscountPage() {
     discount_type: discount.discount_type,
     value: discount.value,
     active: discount.active,
+    auto_apply: discount.auto_apply,
+    auto_condition_type: discount.auto_condition?.type,
+    auto_condition_min_students: discount.auto_condition?.min_students ?? 2,
   };
 
   return (

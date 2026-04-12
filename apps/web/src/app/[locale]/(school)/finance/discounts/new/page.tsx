@@ -19,10 +19,22 @@ export default function NewDiscountPage() {
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const handleSubmit = async (values: DiscountFormValues) => {
+    const autoCondition =
+      values.auto_apply && values.auto_condition_type
+        ? {
+            type: values.auto_condition_type,
+            ...(values.auto_condition_type === 'sibling' &&
+              values.auto_condition_min_students && {
+                min_students: values.auto_condition_min_students,
+              }),
+          }
+        : null;
     const payload = {
       name: values.name,
       discount_type: values.discount_type,
       value: values.value,
+      auto_apply: values.auto_apply,
+      auto_condition: autoCondition,
     };
     await apiClient('/api/v1/finance/discounts', {
       method: 'POST',

@@ -61,11 +61,24 @@ export function HoverPreviewCard({ entityType, entityId, children }: HoverPrevie
 
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       const isRtl = document.documentElement.dir === 'rtl';
-      setPosition({
-        top: rect.bottom + window.scrollY + 4,
-        left: isRtl ? window.innerWidth - rect.right + window.scrollX : rect.left + window.scrollX,
-        isRtl,
-      });
+      // Use viewport-relative positioning (fixed) — no scroll offset needed
+      const cardWidth = 256; // w-64 = 16rem = 256px
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+
+      let top = rect.bottom + 4;
+      let left = isRtl ? viewportWidth - rect.right : rect.left;
+
+      // Prevent card from overflowing right edge
+      if (!isRtl && left + cardWidth > viewportWidth - 8) {
+        left = viewportWidth - cardWidth - 8;
+      }
+      // Prevent card from overflowing bottom (flip above if needed)
+      if (top + 160 > viewportHeight) {
+        top = rect.top - 160 - 4;
+      }
+
+      setPosition({ top, left, isRtl });
 
       showTimerRef.current = setTimeout(() => {
         setVisible(true);

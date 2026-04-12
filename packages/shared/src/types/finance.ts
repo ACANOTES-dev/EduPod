@@ -1,5 +1,26 @@
 export type BillingFrequency = 'one_off' | 'term' | 'monthly' | 'custom';
 export type DiscountType = 'fixed' | 'percent';
+export type DiscountAutoConditionType = 'sibling' | 'staff';
+
+export interface DiscountAutoCondition {
+  type: DiscountAutoConditionType;
+  min_students?: number; // sibling: minimum students in household to trigger
+  applies_to?: string[]; // optional: fee_type_ids this discount applies to
+}
+
+export type HouseholdFinancialStatus = 'fully_paid' | 'partially_paid' | 'unpaid';
+
+export interface HouseholdOverviewRow {
+  household_id: string;
+  household_name: string;
+  household_number: string | null;
+  status: HouseholdFinancialStatus;
+  total: number;
+  paid: number;
+  balance: number;
+  overdue: boolean;
+  invoice_count: number;
+}
 export type InvoiceStatus =
   | 'draft'
   | 'pending_approval'

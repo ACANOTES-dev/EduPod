@@ -420,6 +420,8 @@ function DashboardSkeleton() {
 
 export default function FinanceDashboardPage() {
   const t = useTranslations('finance');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const [data, setData] = React.useState<FinanceDashboardData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
@@ -469,7 +471,7 @@ export default function FinanceDashboardPage() {
           label={t('expectedRevenue')}
           value={formatCurrency(data.expected_revenue)}
           icon={Receipt}
-          href="/finance/invoices"
+          href="/finance/overview"
           accent="bg-primary/10 text-primary"
           subtitle={`${(data.invoice_status_counts.issued ?? 0) + (data.invoice_status_counts.partially_paid ?? 0)} ${t('activeInvoices')}`}
         />
@@ -477,14 +479,14 @@ export default function FinanceDashboardPage() {
           label={t('receivedPayments')}
           value={formatCurrency(data.received_payments)}
           icon={TrendingUp}
-          href="/finance/payments"
+          href="/finance/overview"
           accent="bg-success-100 text-success-700"
         />
         <KpiCard
           label={t('outstandingAmount')}
           value={formatCurrency(data.outstanding)}
           icon={TrendingDown}
-          href="/finance/statements"
+          href="/finance/overview"
           accent="bg-danger-100 text-danger-700"
           subtitle={
             data.overdue_invoices.length > 0
@@ -492,19 +494,42 @@ export default function FinanceDashboardPage() {
               : undefined
           }
         />
-        <KpiCard
-          label={t('collectionRate')}
-          value={`${data.collection_rate.toFixed(1)}%`}
-          icon={BadgeDollarSign}
-          href="/finance/reports"
-          accent={
-            data.collection_rate >= 80
-              ? 'bg-success-100 text-success-700'
-              : data.collection_rate >= 50
-                ? 'bg-warning-100 text-warning-700'
-                : 'bg-danger-100 text-danger-700'
-          }
-        />
+        {/* Split card: Outstanding % + Financial Reports */}
+        <div className="flex flex-col gap-2">
+          <div className="flex-1 rounded-2xl border border-border bg-surface p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+              {t('outstandingPct')}
+            </p>
+            <p
+              className={`mt-1 text-[22px] font-bold leading-tight tracking-tight ${
+                data.outstanding > 0 && data.expected_revenue > 0
+                  ? (data.outstanding / data.expected_revenue) * 100 > 30
+                    ? 'text-danger-600'
+                    : (data.outstanding / data.expected_revenue) * 100 > 15
+                      ? 'text-warning-600'
+                      : 'text-success-600'
+                  : 'text-success-600'
+              }`}
+              dir="ltr"
+            >
+              {data.expected_revenue > 0
+                ? `${((data.outstanding / data.expected_revenue) * 100).toFixed(1)}%`
+                : '0.0%'}
+            </p>
+          </div>
+          <Link
+            href={`/${locale}/finance/reports`}
+            className="group flex flex-1 items-center gap-3 rounded-2xl border border-border bg-surface p-4 transition-all hover:border-border-strong hover:shadow-sm"
+          >
+            <div className="rounded-lg bg-info-100 p-2">
+              <BadgeDollarSign className="h-4 w-4 text-info-700" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-text-primary">{t('navReports')}</p>
+            </div>
+            <ArrowRight className="h-3.5 w-3.5 text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100" />
+          </Link>
+        </div>
       </div>
 
       <PendingActionsBanner

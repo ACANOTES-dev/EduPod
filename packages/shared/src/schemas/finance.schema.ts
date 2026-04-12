@@ -1,9 +1,32 @@
 import { z } from 'zod';
 
+// ─── Fee Types ──────────────────────────────────────────────
+
+export const createFeeTypeSchema = z.object({
+  name: z.string().min(1).max(150),
+  description: z.string().max(500).optional(),
+});
+export type CreateFeeTypeDto = z.infer<typeof createFeeTypeSchema>;
+
+export const updateFeeTypeSchema = z.object({
+  name: z.string().min(1).max(150).optional(),
+  description: z.string().max(500).nullable().optional(),
+  active: z.boolean().optional(),
+});
+export type UpdateFeeTypeDto = z.infer<typeof updateFeeTypeSchema>;
+
+export const feeTypeQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  active: z.coerce.boolean().optional(),
+  search: z.string().optional(),
+});
+
 // ─── Fee Structures ─────────────────────────────────────────
 
 export const createFeeStructureSchema = z.object({
-  name: z.string().min(1).max(150),
+  name: z.string().min(1).max(150).optional(),
+  fee_type_id: z.string().uuid().optional(),
   year_group_id: z.string().uuid().optional(),
   amount: z.number().positive(),
   billing_frequency: z.enum(['one_off', 'term', 'monthly', 'custom']),
@@ -12,6 +35,7 @@ export type CreateFeeStructureDto = z.infer<typeof createFeeStructureSchema>;
 
 export const updateFeeStructureSchema = z.object({
   name: z.string().min(1).max(150).optional(),
+  fee_type_id: z.string().uuid().nullable().optional(),
   year_group_id: z.string().uuid().nullable().optional(),
   amount: z.number().positive().optional(),
   billing_frequency: z.enum(['one_off', 'term', 'monthly', 'custom']).optional(),
@@ -29,14 +53,28 @@ export const feeStructureQuerySchema = z.object({
 
 // ─── Discounts ──────────────────────────────────────────────
 
-export const createDiscountSchema = z.object({
-  name: z.string().min(1).max(150),
-  discount_type: z.enum(['fixed', 'percent']),
-  value: z.number().positive(),
-}).refine(
-  (data) => data.discount_type !== 'percent' || data.value <= 100,
-  { message: 'Percentage discount value must be <= 100', path: ['value'] },
-);
+const discountAutoConditionSchema = z.object({
+  type: z.enum(['sibling', 'staff']),
+  min_students: z.number().int().min(2).optional(),
+  applies_to: z.array(z.string().uuid()).optional(),
+});
+
+export const createDiscountSchema = z
+  .object({
+    name: z.string().min(1).max(150),
+    discount_type: z.enum(['fixed', 'percent']),
+    value: z.number().positive(),
+    auto_apply: z.boolean().default(false),
+    auto_condition: discountAutoConditionSchema.nullable().optional(),
+  })
+  .refine((data) => data.discount_type !== 'percent' || data.value <= 100, {
+    message: 'Percentage discount value must be <= 100',
+    path: ['value'],
+  })
+  .refine((data) => !data.auto_apply || data.auto_condition != null, {
+    message: 'Auto-apply discounts must have a condition',
+    path: ['auto_condition'],
+  });
 export type CreateDiscountDto = z.infer<typeof createDiscountSchema>;
 
 export const updateDiscountSchema = z.object({
@@ -44,6 +82,8 @@ export const updateDiscountSchema = z.object({
   discount_type: z.enum(['fixed', 'percent']).optional(),
   value: z.number().positive().optional(),
   active: z.boolean().optional(),
+  auto_apply: z.boolean().optional(),
+  auto_condition: discountAutoConditionSchema.nullable().optional(),
 });
 export type UpdateDiscountDto = z.infer<typeof updateDiscountSchema>;
 
@@ -67,7 +107,10 @@ export type CreateFeeAssignmentDto = z.infer<typeof createFeeAssignmentSchema>;
 
 export const updateFeeAssignmentSchema = z.object({
   discount_id: z.string().uuid().nullable().optional(),
-  effective_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  effective_to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 export type UpdateFeeAssignmentDto = z.infer<typeof updateFeeAssignmentSchema>;
 
@@ -119,7 +162,10 @@ export const createInvoiceSchema = z.object({
 export type CreateInvoiceDto = z.infer<typeof createInvoiceSchema>;
 
 export const updateInvoiceSchema = z.object({
-  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  due_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   lines: z.array(invoiceLineSchema).min(1).optional(),
   expected_updated_at: z.string().datetime(),
 });
@@ -133,13 +179,31 @@ export type WriteOffDto = z.infer<typeof writeOffSchema>;
 export const invoiceQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  status: z.union([
-    z.enum(['draft', 'pending_approval', 'issued', 'partially_paid', 'paid', 'overdue', 'void', 'cancelled', 'written_off']),
-    z.string().transform(s => s.split(',')),
-  ]).optional(),
+  status: z
+    .union([
+      z.enum([
+        'draft',
+        'pending_approval',
+        'issued',
+        'partially_paid',
+        'paid',
+        'overdue',
+        'void',
+        'cancelled',
+        'written_off',
+      ]),
+      z.string().transform((s) => s.split(',')),
+    ])
+    .optional(),
   household_id: z.string().uuid().optional(),
-  date_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  date_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  date_from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  date_to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   search: z.string().optional(),
   sort: z.string().optional(),
   order: z.enum(['asc', 'desc']).optional(),
@@ -176,10 +240,18 @@ export const paymentQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   household_id: z.string().uuid().optional(),
-  status: z.enum(['pending', 'posted', 'failed', 'voided', 'refunded_partial', 'refunded_full']).optional(),
+  status: z
+    .enum(['pending', 'posted', 'failed', 'voided', 'refunded_partial', 'refunded_full'])
+    .optional(),
   payment_method: z.enum(['stripe', 'cash', 'bank_transfer', 'card_manual']).optional(),
-  date_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  date_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  date_from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  date_to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   search: z.string().optional(),
   accepted_by_user_id: z.string().uuid().optional(),
 });
@@ -229,14 +301,26 @@ export const refundRejectionCommentSchema = z.object({
 // ─── Household Statement ────────────────────────────────────
 
 export const statementQuerySchema = z.object({
-  date_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  date_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  date_from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  date_to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 
 export const statementPdfQuerySchema = z.object({
   locale: z.enum(['en', 'ar']).optional(),
-  date_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  date_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  date_from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  date_to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 
 // ─── Credit Notes ────────────────────────────────────────────────────────────
@@ -301,7 +385,10 @@ export const createScholarshipSchema = z.object({
   value: z.number().positive(),
   student_id: z.string().uuid(),
   award_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  renewal_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  renewal_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   fee_structure_id: z.string().uuid().optional(),
 });
 export type CreateScholarshipDto = z.infer<typeof createScholarshipSchema>;
@@ -330,7 +417,10 @@ export type CreateRecurringInvoiceConfigDto = z.infer<typeof createRecurringInvo
 
 export const updateRecurringInvoiceConfigSchema = z.object({
   frequency: z.enum(['monthly', 'term']).optional(),
-  next_generation_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  next_generation_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   active: z.boolean().optional(),
 });
 export type UpdateRecurringInvoiceConfigDto = z.infer<typeof updateRecurringInvoiceConfigSchema>;
@@ -386,8 +476,14 @@ export const financeAuditQuerySchema = z.object({
   entity_type: z.string().optional(),
   entity_id: z.string().uuid().optional(),
   search: z.string().optional(),
-  date_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  date_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  date_from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  date_to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 export type FinanceAuditQueryDto = z.infer<typeof financeAuditQuerySchema>;
 
@@ -403,3 +499,13 @@ export const bulkExportSchema = z.object({
   format: z.enum(['csv', 'pdf']).default('csv'),
 });
 export type BulkExportDto = z.infer<typeof bulkExportSchema>;
+
+// ─── Household Overview ──────────────────────────────────────────────────────
+
+export const householdOverviewQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().optional(),
+  status: z.enum(['fully_paid', 'partially_paid', 'unpaid']).optional(),
+  overdue: z.coerce.boolean().optional(),
+});

@@ -1,6 +1,8 @@
 'use client';
 
-import { Award, Plus } from 'lucide-react';
+import { ArrowLeft, Award, Plus } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -24,7 +26,6 @@ import {
   toast,
 } from '@school/ui';
 
-
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
@@ -32,7 +33,6 @@ import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../_components/currency-display';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,6 +69,8 @@ type StatusFilter = 'all' | 'active' | 'expired' | 'revoked';
 
 export default function ScholarshipsPage() {
   const t = useTranslations('finance');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { hasAnyRole } = useRoleCheck();
   const canManage = hasAnyRole('school_principal', 'accounting');
 
@@ -350,12 +352,21 @@ export default function ScholarshipsPage() {
         title={t('scholarships.title')}
         description={t('scholarships.description')}
         actions={
-          canManage ? (
-            <Button onClick={() => setShowCreate(true)}>
-              <Plus className="me-2 h-4 w-4" />
-              {t('scholarships.create')}
-            </Button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/${locale}/finance`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary"
+            >
+              <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+              Back
+            </Link>
+            {canManage && (
+              <Button onClick={() => setShowCreate(true)}>
+                <Plus className="me-2 h-4 w-4" />
+                {t('scholarships.create')}
+              </Button>
+            )}
+          </div>
         }
       />
 

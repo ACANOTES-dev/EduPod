@@ -87,6 +87,8 @@ export class DiscountsService {
         name: dto.name,
         discount_type: dto.discount_type,
         value: dto.value,
+        auto_apply: dto.auto_apply ?? false,
+        auto_condition: dto.auto_condition ?? undefined,
       },
     });
 
@@ -137,6 +139,10 @@ export class DiscountsService {
         ...(dto.discount_type !== undefined && { discount_type: dto.discount_type }),
         ...(dto.value !== undefined && { value: dto.value }),
         ...(dto.active !== undefined && { active: dto.active }),
+        ...(dto.auto_apply !== undefined && { auto_apply: dto.auto_apply }),
+        ...(dto.auto_condition !== undefined && {
+          auto_condition: dto.auto_condition ?? undefined,
+        }),
       },
     });
 

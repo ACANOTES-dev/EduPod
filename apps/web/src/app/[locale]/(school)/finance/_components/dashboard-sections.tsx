@@ -9,6 +9,7 @@ import {
   Clock,
   CreditCard,
   FileText,
+  Layers,
   Percent,
   Receipt,
   RotateCcw,
@@ -377,6 +378,12 @@ const NAV_SECTIONS: NavSection[] = [
     titleKey: 'navSetup',
     items: [
       {
+        labelKey: 'navFeeTypes',
+        href: '/finance/fee-types',
+        icon: Layers,
+        descKey: 'descFeeTypes',
+      },
+      {
         labelKey: 'navFeeStructures',
         href: '/finance/fee-structures',
         icon: Calculator,
@@ -389,10 +396,10 @@ const NAV_SECTIONS: NavSection[] = [
         descKey: 'descDiscounts',
       },
       {
-        labelKey: 'navFeeAssignments',
+        labelKey: 'navSpecialFeeAssignment',
         href: '/finance/fee-assignments',
         icon: FileText,
-        descKey: 'descFeeAssignments',
+        descKey: 'descSpecialFeeAssignment',
       },
       {
         labelKey: 'navScholarships',
@@ -406,6 +413,12 @@ const NAV_SECTIONS: NavSection[] = [
     titleKey: 'navOperations',
     items: [
       {
+        labelKey: 'navOverview',
+        href: '/finance/overview',
+        icon: Receipt,
+        descKey: 'descOverview',
+      },
+      {
         labelKey: 'navFeeGeneration',
         href: '/finance/fee-generation',
         icon: Zap,
@@ -414,7 +427,7 @@ const NAV_SECTIONS: NavSection[] = [
       {
         labelKey: 'navInvoices',
         href: '/finance/invoices',
-        icon: Receipt,
+        icon: FileText,
         descKey: 'descInvoices',
       },
       {

@@ -5,7 +5,6 @@ import * as React from 'react';
 
 import { Button, toast } from '@school/ui';
 
-
 import { apiClient } from '@/lib/api-client';
 
 import { AiSection } from './_components/ai-section';
@@ -27,6 +26,87 @@ import {
   TextRow,
 } from './_components/settings-ui';
 
+// ─── Currency Setting ────────────────────────────────────────────────────────
+
+const COMMON_CURRENCIES = [
+  { code: 'USD', label: 'US Dollar (USD)' },
+  { code: 'EUR', label: 'Euro (EUR)' },
+  { code: 'GBP', label: 'British Pound (GBP)' },
+  { code: 'AED', label: 'UAE Dirham (AED)' },
+  { code: 'SAR', label: 'Saudi Riyal (SAR)' },
+  { code: 'QAR', label: 'Qatari Riyal (QAR)' },
+  { code: 'KWD', label: 'Kuwaiti Dinar (KWD)' },
+  { code: 'BHD', label: 'Bahraini Dinar (BHD)' },
+  { code: 'OMR', label: 'Omani Rial (OMR)' },
+  { code: 'EGP', label: 'Egyptian Pound (EGP)' },
+  { code: 'JOD', label: 'Jordanian Dinar (JOD)' },
+  { code: 'INR', label: 'Indian Rupee (INR)' },
+  { code: 'PKR', label: 'Pakistani Rupee (PKR)' },
+  { code: 'TRY', label: 'Turkish Lira (TRY)' },
+  { code: 'NGN', label: 'Nigerian Naira (NGN)' },
+  { code: 'ZAR', label: 'South African Rand (ZAR)' },
+  { code: 'CAD', label: 'Canadian Dollar (CAD)' },
+  { code: 'AUD', label: 'Australian Dollar (AUD)' },
+  { code: 'MYR', label: 'Malaysian Ringgit (MYR)' },
+  { code: 'SGD', label: 'Singapore Dollar (SGD)' },
+];
+
+function CurrencySettingRow() {
+  const t = useTranslations('settings');
+  const [currency, setCurrency] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    void (async () => {
+      try {
+        const res = await apiClient<{ currency_code: string }>(
+          '/api/v1/finance/dashboard/currency',
+        );
+        setCurrency(res.currency_code);
+      } catch (err) {
+        console.error('[CurrencySettingRow]', err);
+      }
+    })();
+  }, []);
+
+  const handleChange = async (newCode: string) => {
+    setCurrency(newCode);
+    setSaving(true);
+    try {
+      await apiClient('/api/v1/finance/dashboard/currency', {
+        method: 'PATCH',
+        body: JSON.stringify({ currency_code: newCode }),
+      });
+      toast.success(t('currencySaved'));
+    } catch (err) {
+      console.error('[CurrencySettingRow]', err);
+      toast.error(t('saveFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <span className="text-sm font-medium text-text-primary">{t('tenantCurrency')}</span>
+        <p className="text-xs text-text-tertiary">{t('tenantCurrencyDesc')}</p>
+      </div>
+      <select
+        value={currency}
+        onChange={(e) => void handleChange(e.target.value)}
+        disabled={saving}
+        className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 sm:w-64"
+      >
+        {COMMON_CURRENCIES.map((c) => (
+          <option key={c.code} value={c.code}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -214,6 +294,7 @@ export default function GeneralSettingsPage() {
 
         {/* Finance */}
         <SectionCard title={t('sectionFinance')} description={t('sectionFinanceDesc')}>
+          <CurrencySettingRow />
           <BooleanRow
             label={t('requireApprovalForInvoiceIssue')}
             value={settings.finance.requireApprovalForInvoiceIssue}
