@@ -136,9 +136,17 @@ export function CustomReportBuilder() {
       r.amount_paid.toFixed(2),
       r.balance.toFixed(2),
     ]);
-    const csvContent = [headers, ...rows]
-      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
+    // FIN-020: CSV formula injection guard — cells starting with =/+/-/@/\t
+    // execute as formulas when opened in Excel/Sheets. Prepend a single
+    // apostrophe so the cell renders as text. Then standard quoting + escape.
+    function escapeCsvCell(raw: unknown): string {
+      let str = String(raw ?? '');
+      if (/^[=+\-@\t]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    const csvContent = [headers, ...rows].map((row) => row.map(escapeCsvCell).join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
