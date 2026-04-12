@@ -9,8 +9,11 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 
 import { checkoutSessionSchema, requestPaymentPlanSchema } from '@school/shared';
 import type { JwtPayload, RequestPaymentPlanDto, TenantContext } from '@school/shared';
@@ -29,6 +32,7 @@ import { StudentReadFacade } from '../students/student-read.facade';
 
 import { InvoicesService } from './invoices.service';
 import { PaymentPlansService } from './payment-plans.service';
+import { ReceiptsService } from './receipts.service';
 import { StripeService } from './stripe.service';
 
 @Controller('v1/parent')
@@ -42,6 +46,7 @@ export class ParentFinanceController {
     private readonly parentReadFacade: ParentReadFacade,
     private readonly studentReadFacade: StudentReadFacade,
     private readonly householdReadFacade: HouseholdReadFacade,
+    private readonly receiptsService: ReceiptsService,
   ) {}
 
   /**
@@ -136,6 +141,39 @@ export class ParentFinanceController {
   }
 
   /**
+   * Parent downloads the receipt PDF for a payment belonging to their household.
+   */
+  @Get('payments/:id/receipt/pdf')
+  @RequiresPermission('parent.view_finances')
+  async getReceiptPdf(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('locale') locale: string | undefined,
+    @Res() res: Response,
+  ) {
+    await this.verifyParentPaymentAccess(user.sub, tenant.tenant_id, id);
+
+    const resolvedLocale = locale ?? 'en';
+    const pdfBuffer = await this.receiptsService.renderPdf(tenant.tenant_id, id, resolvedLocale);
+
+    let filenameStem = `receipt-${id}`;
+    const receipt = await this.receiptsService
+      .findByPayment(tenant.tenant_id, id)
+      .catch(() => null);
+    if (receipt?.receipt_number) {
+      filenameStem = `receipt-${receipt.receipt_number}`;
+    }
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${filenameStem}.pdf"`,
+      'Content-Length': pdfBuffer.length,
+    });
+    res.end(pdfBuffer);
+  }
+
+  /**
    * Parent accepts a counter-offer from admin.
    */
   @Post('payment-plans/:id/accept')
@@ -184,6 +222,42 @@ export class ParentFinanceController {
     }
 
     return household;
+  }
+
+  private async verifyParentPaymentAccess(
+    userId: string,
+    tenantId: string,
+    paymentId: string,
+  ): Promise<void> {
+    const parent = await this.parentReadFacade.findByUserId(tenantId, userId);
+    if (!parent) {
+      throw new NotFoundException(
+        apiError('PARENT_NOT_FOUND', 'No parent profile found for the current user'),
+      );
+    }
+
+    const linkedStudentIds = await this.parentReadFacade.findLinkedStudentIds(tenantId, parent.id);
+    const students =
+      linkedStudentIds.length > 0
+        ? await this.studentReadFacade.findByIds(tenantId, linkedStudentIds)
+        : [];
+    const householdIds = students
+      .map((s) => s.household_id)
+      .filter((id): id is string => id !== null);
+
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        id: paymentId,
+        tenant_id: tenantId,
+        household_id: { in: householdIds },
+      },
+    });
+
+    if (!payment) {
+      throw new ForbiddenException(
+        apiError('PAYMENT_ACCESS_DENIED', 'Payment not found or access denied'),
+      );
+    }
   }
 
   private async verifyParentInvoiceAccess(

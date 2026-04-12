@@ -97,18 +97,138 @@ export function FinancesTab() {
   const [submittingPlan, setSubmittingPlan] = React.useState(false);
 
   React.useEffect(() => {
-    apiClient<{ data: ParentFinancesData }>('/api/v1/parent/finances')
-      .then((res) => setData(res.data))
-      .catch((err) => { console.error('[FinancesTab]', err); return setData(null); })
-      .finally(() => setIsLoading(false));
+    async function load() {
+      try {
+        // Step 1: load linked students via the parent dashboard aggregator
+        const dashboardRes = await apiClient<{
+          data: { students: Array<{ student_id: string }> };
+        }>('/api/v1/dashboard/parent');
+        const studentIds = (dashboardRes.data.students ?? []).map((s) => s.student_id);
+
+        if (studentIds.length === 0) {
+          setData({
+            outstanding_balance: 0,
+            currency_code: '',
+            invoices: [],
+            payments: [],
+            stripe_enabled: false,
+          });
+          return;
+        }
+
+        // Step 2: per-student finance data, then aggregate
+        interface BackendStudentFinances {
+          household_id: string;
+          total_outstanding_balance: number;
+          invoices: Array<{
+            id: string;
+            invoice_number: string;
+            description?: string | null;
+            total_amount: number | string;
+            balance_amount: number | string;
+            due_date: string;
+            status: InvoiceStatus;
+            currency_code: string;
+            stripe_enabled?: boolean;
+          }>;
+          payment_history: Array<{
+            id: string;
+            payment_reference: string;
+            payment_method: string;
+            amount: number | string;
+            received_at: string;
+            status: string;
+          }>;
+        }
+
+        const perStudent = await Promise.all(
+          studentIds.map((id) =>
+            apiClient<{ data: BackendStudentFinances } | BackendStudentFinances>(
+              `/api/v1/parent/students/${id}/finances`,
+            ).catch((err) => {
+              console.error('[FinancesTab]', err);
+              return null;
+            }),
+          ),
+        );
+
+        // Unwrap either {data: ...} or bare-object responses (endpoint returns bare object)
+        const payloads = perStudent
+          .filter((r): r is NonNullable<typeof r> => r !== null)
+          .map((r) =>
+            typeof r === 'object' && r !== null && 'data' in r
+              ? (r as { data: BackendStudentFinances }).data
+              : (r as BackendStudentFinances),
+          );
+
+        // Dedupe invoices + payments by id across households
+        const invoiceMap = new Map<string, ParentInvoice>();
+        const paymentMap = new Map<string, ParentPayment>();
+        let totalBalance = 0;
+        let currency = '';
+        let stripeEnabled = false;
+
+        for (const p of payloads) {
+          totalBalance += Number(p.total_outstanding_balance ?? 0);
+          for (const inv of p.invoices ?? []) {
+            if (invoiceMap.has(inv.id)) continue;
+            currency = currency || inv.currency_code;
+            stripeEnabled = stripeEnabled || Boolean(inv.stripe_enabled);
+            invoiceMap.set(inv.id, {
+              id: inv.id,
+              invoice_number: inv.invoice_number,
+              description: inv.description ?? null,
+              total_amount: Number(inv.total_amount),
+              balance_amount: Number(inv.balance_amount),
+              due_date: inv.due_date,
+              status: inv.status,
+              currency_code: inv.currency_code,
+              stripe_enabled: Boolean(inv.stripe_enabled),
+            });
+          }
+          for (const pay of p.payment_history ?? []) {
+            if (paymentMap.has(pay.id)) continue;
+            paymentMap.set(pay.id, {
+              id: pay.id,
+              payment_reference: pay.payment_reference,
+              amount: Number(pay.amount),
+              currency_code: currency,
+              received_at: pay.received_at,
+              payment_method: pay.payment_method,
+            });
+          }
+        }
+
+        setData({
+          outstanding_balance: Math.round(totalBalance * 100) / 100,
+          currency_code: currency,
+          invoices: Array.from(invoiceMap.values()),
+          payments: Array.from(paymentMap.values()),
+          stripe_enabled: stripeEnabled,
+        });
+      } catch (err) {
+        console.error('[FinancesTab]', err);
+        setData(null);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    void load();
   }, []);
 
   async function handlePayNow(invoice: ParentInvoice) {
     setPayingId(invoice.id);
     try {
-      const res = await apiClient<{ checkout_url: string }>(
-        `/api/v1/parent/finances/invoices/${invoice.id}/checkout`,
-        { method: 'POST' },
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const res = await apiClient<{ checkout_url: string; session_id: string }>(
+        `/api/v1/parent/invoices/${invoice.id}/pay`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            success_url: `${origin}/dashboard/parent?payment=success`,
+            cancel_url: `${origin}/dashboard/parent?payment=cancelled`,
+          }),
+        },
       );
       window.location.href = res.checkout_url;
     } catch (err) {
@@ -121,7 +241,7 @@ export function FinancesTab() {
   function handleDownloadReceipt(paymentId: string) {
     setDownloadingId(paymentId);
     const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
-    window.open(`${baseUrl}/api/v1/parent/finances/payments/${paymentId}/receipt`, '_blank');
+    window.open(`${baseUrl}/api/v1/parent/payments/${paymentId}/receipt/pdf`, '_blank');
     setDownloadingId(null);
   }
 
@@ -161,10 +281,9 @@ export function FinancesTab() {
     }
     setSubmittingPlan(true);
     try {
-      await apiClient('/api/v1/parent/finances/payment-plan-requests', {
+      await apiClient(`/api/v1/parent/invoices/${planInvoice.id}/request-payment-plan`, {
         method: 'POST',
         body: JSON.stringify({
-          invoice_id: planInvoice.id,
           proposed_installments: planInstallments.filter((i) => i.due_date && i.amount > 0),
           reason: planReason,
         }),
@@ -270,7 +389,8 @@ export function FinancesTab() {
                         {invoice.currency_code}
                       </p>
                       {invoice.balance_amount !== invoice.total_amount && (
-                        <p className="text-xs text-text-tertiary" dir="ltr">{t('of')}{' '}
+                        <p className="text-xs text-text-tertiary" dir="ltr">
+                          {t('of')}{' '}
                           {invoice.total_amount.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,

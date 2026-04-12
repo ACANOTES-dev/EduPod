@@ -16,6 +16,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { InvoicesService } from './invoices.service';
 import { ParentFinanceController } from './parent-finance.controller';
 import { PaymentPlansService } from './payment-plans.service';
+import { ReceiptsService } from './receipts.service';
 import { StripeService } from './stripe.service';
 
 const TENANT: TenantContext = {
@@ -65,6 +66,11 @@ const mockPaymentPlansService = {
   acceptCounterOffer: jest.fn(),
 };
 
+const mockReceiptsService = {
+  renderPdf: jest.fn(),
+  findByPayment: jest.fn(),
+};
+
 describe('ParentFinanceController', () => {
   let controller: ParentFinanceController;
   let parentReadFacade: Record<string, jest.Mock>;
@@ -80,6 +86,7 @@ describe('ParentFinanceController', () => {
         { provide: InvoicesService, useValue: mockInvoicesService },
         { provide: StripeService, useValue: mockStripeService },
         { provide: PaymentPlansService, useValue: mockPaymentPlansService },
+        { provide: ReceiptsService, useValue: mockReceiptsService },
         {
           provide: ParentReadFacade,
           useValue: {

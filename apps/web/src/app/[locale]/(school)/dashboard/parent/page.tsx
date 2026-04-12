@@ -15,14 +15,12 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { Button, EmptyState, StatusBadge } from '@school/ui';
 
-
 import { apiClient } from '@/lib/api-client';
 
 import { AiInsightCard } from './_components/ai-insight-card';
 import { FinancesTab } from './_components/finances-tab';
 import { GradesTab } from './_components/grades-tab';
 import { TimetableTab } from './_components/timetable-tab';
-
 
 interface LinkedStudent {
   student_id: string;
@@ -53,6 +51,7 @@ interface ParentEngagementEvent {
 
 interface ParentFinanceSummary {
   invoices: Array<{
+    id?: string;
     status: string;
   }>;
 }
@@ -123,12 +122,18 @@ export default function ParentDashboardPage() {
   // Fetch homework summary for dashboard card
   useEffect(() => {
     Promise.all([
-      apiClient<{ data: typeof hwToday }>('/api/v1/parent/homework/today').catch((err) => { console.error('[DashboardParentPage]', err); return ({
-        data: [] as typeof hwToday,
-      }); }),
-      apiClient<{ data: typeof hwOverdue }>('/api/v1/parent/homework/overdue').catch((err) => { console.error('[DashboardParentPage]', err); return ({
-        data: [] as typeof hwOverdue,
-      }); }),
+      apiClient<{ data: typeof hwToday }>('/api/v1/parent/homework/today').catch((err) => {
+        console.error('[DashboardParentPage]', err);
+        return {
+          data: [] as typeof hwToday,
+        };
+      }),
+      apiClient<{ data: typeof hwOverdue }>('/api/v1/parent/homework/overdue').catch((err) => {
+        console.error('[DashboardParentPage]', err);
+        return {
+          data: [] as typeof hwOverdue,
+        };
+      }),
     ])
       .then(([todayRes, overdueRes]) => {
         setHwToday(todayRes.data ?? []);
@@ -144,7 +149,10 @@ export default function ParentDashboardPage() {
       data.students.map((s) =>
         apiClient<{ data: Array<{ acknowledged: boolean }>; meta: { total: number } }>(
           `/api/v1/diary/${s.student_id}/parent-notes?page=1&pageSize=50`,
-        ).catch((err) => { console.error('[DashboardParentPage]', err); return ({ data: [] as Array<{ acknowledged: boolean }>, meta: { total: 0 } }); }),
+        ).catch((err) => {
+          console.error('[DashboardParentPage]', err);
+          return { data: [] as Array<{ acknowledged: boolean }>, meta: { total: 0 } };
+        }),
       ),
     )
       .then((results) => {
@@ -158,16 +166,33 @@ export default function ParentDashboardPage() {
   }, [data]);
 
   useEffect(() => {
+    if (!data?.students) return;
+
+    const studentIds = data.students.map((s) => s.student_id);
+
     Promise.all([
-      apiClient<ParentPendingForm[]>('/api/v1/parent/engagement/pending-forms').catch((err) => { console.error('[DashboardParentPage]', err); return []; }),
+      apiClient<ParentPendingForm[]>('/api/v1/parent/engagement/pending-forms').catch((err) => {
+        console.error('[DashboardParentPage]', err);
+        return [];
+      }),
       apiClient<{ data: ParentEngagementEvent[]; meta: { total: number } }>(
         '/api/v1/parent/engagement/events?page=1&pageSize=20',
-      ).catch((err) => { console.error('[DashboardParentPage]', err); return ({ data: [], meta: { total: 0 } }); }),
-      apiClient<{ data: ParentFinanceSummary }>('/api/v1/parent/finances').catch((err) => { console.error('[DashboardParentPage]', err); return ({
-        data: { invoices: [] },
-      }); }),
+      ).catch((err) => {
+        console.error('[DashboardParentPage]', err);
+        return { data: [], meta: { total: 0 } };
+      }),
+      Promise.all(
+        studentIds.map((id) =>
+          apiClient<{ data: ParentFinanceSummary }>(`/api/v1/parent/students/${id}/finances`).catch(
+            (err) => {
+              console.error('[DashboardParentPage]', err);
+              return { data: { invoices: [] } as ParentFinanceSummary };
+            },
+          ),
+        ),
+      ),
     ])
-      .then(([forms, eventsResponse, financeResponse]) => {
+      .then(([forms, eventsResponse, financeResponses]) => {
         const actionableEvents = (eventsResponse.data ?? []).filter((event) =>
           event.participants.some(
             (participant) =>
@@ -177,9 +202,19 @@ export default function ParentDashboardPage() {
           ),
         ).length;
 
-        const outstandingPayments = financeResponse.data.invoices.filter((invoice) =>
-          ['issued', 'partially_paid', 'overdue'].includes(invoice.status),
-        ).length;
+        // Aggregate outstanding invoices across all linked students, deduped by invoice id
+        const seenInvoiceIds = new Set<string>();
+        let outstandingPayments = 0;
+        for (const res of financeResponses) {
+          for (const invoice of res.data.invoices ?? []) {
+            const invoiceId = (invoice as unknown as { id?: string }).id;
+            if (invoiceId && seenInvoiceIds.has(invoiceId)) continue;
+            if (invoiceId) seenInvoiceIds.add(invoiceId);
+            if (['issued', 'partially_paid', 'overdue'].includes(invoice.status)) {
+              outstandingPayments += 1;
+            }
+          }
+        }
 
         setActionCenter({
           pendingForms: forms.length,
@@ -188,7 +223,7 @@ export default function ParentDashboardPage() {
         });
       })
       .catch((err) => console.error('[ParentDashboard] Failed to load action center', err));
-  }, []);
+  }, [data]);
 
   const children =
     data?.students.map((s) => ({
