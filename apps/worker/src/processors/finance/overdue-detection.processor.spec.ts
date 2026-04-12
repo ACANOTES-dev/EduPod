@@ -68,12 +68,24 @@ describe('OverdueDetectionProcessor', () => {
       expect(mockTx.invoice.findMany).not.toHaveBeenCalled();
     });
 
-    it('should reject jobs without tenant_id', async () => {
-      const job = buildMockJob(OVERDUE_DETECTION_JOB, {});
+    it('should iterate all active tenants when tenant_id missing (cron mode)', async () => {
+      const mockPrisma = buildMockPrisma(mockTx);
+      (mockPrisma as unknown as { tenant: { findMany: jest.Mock } }).tenant = {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { id: '11111111-1111-1111-1111-111111111111' },
+            { id: '22222222-2222-2222-2222-222222222222' },
+          ]),
+      };
+      processor = new OverdueDetectionProcessor(mockPrisma as never);
+      mockTx.invoice.findMany.mockResolvedValue([]);
 
-      await expect(processor.process(job)).rejects.toThrow(
-        'Job rejected: missing tenant_id in payload.',
-      );
+      const job = buildMockJob(OVERDUE_DETECTION_JOB, {});
+      await expect(processor.process(job)).resolves.toBeUndefined();
+
+      // Two tenants → two invoice.findMany calls in the processJob body
+      expect(mockTx.invoice.findMany).toHaveBeenCalledTimes(2);
     });
   });
 

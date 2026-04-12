@@ -68,6 +68,7 @@ function buildService() {
   const engagementQueue = buildQueue();
   const pastoralQueue = buildQueue();
   const admissionsQueue = buildQueue();
+  const financeQueue = buildQueue();
 
   return {
     admissionsQueue,
@@ -76,6 +77,7 @@ function buildService() {
     complianceQueue,
     earlyWarningQueue,
     engagementQueue,
+    financeQueue,
     gradebookQueue,
     homeworkQueue,
     importsQueue,
@@ -98,6 +100,7 @@ function buildService() {
       engagementQueue,
       pastoralQueue,
       admissionsQueue,
+      financeQueue,
     ),
     wellbeingQueue,
   };

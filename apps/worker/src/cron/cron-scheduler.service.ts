@@ -30,6 +30,7 @@ import { CHASE_OUTSTANDING_JOB } from '../processors/engagement/chase-outstandin
 import { ANNUAL_CONSENT_RENEWAL_JOB } from '../processors/engagement/engagement-annual-renewal.processor';
 import { CONFERENCE_REMINDERS_JOB } from '../processors/engagement/engagement-conference-reminders.processor';
 import { EXPIRE_PENDING_JOB } from '../processors/engagement/expire-pending.processor';
+import { OVERDUE_DETECTION_JOB } from '../processors/finance/overdue-detection.processor';
 import { GRADEBOOK_DETECT_RISKS_JOB } from '../processors/gradebook/gradebook-risk-detection.processor';
 import { REPORT_CARD_AUTO_GENERATE_JOB } from '../processors/gradebook/report-card-auto-generate.processor';
 import { HOMEWORK_COMPLETION_REMINDER_JOB } from '../processors/homework/completion-reminder.processor';
@@ -75,6 +76,7 @@ export class CronSchedulerService implements OnModuleInit {
     @InjectQueue(QUEUE_NAMES.ENGAGEMENT) private readonly engagementQueue: Queue,
     @InjectQueue(QUEUE_NAMES.PASTORAL) private readonly pastoralQueue: Queue,
     @InjectQueue(QUEUE_NAMES.ADMISSIONS) private readonly admissionsQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.FINANCE) private readonly financeQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -96,6 +98,25 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerInboxCronJobs();
     await this.registerMonitoringCronJobs();
     await this.registerCanaryCronJobs();
+    await this.registerFinanceCronJobs();
+  }
+
+  private async registerFinanceCronJobs(): Promise<void> {
+    // ── finance:overdue-detection ───────────────────────────────────────────
+    // Runs daily at 00:05 UTC. Cross-tenant — no tenant_id in payload.
+    // Processor iterates all active tenants and transitions issued/partially_paid
+    // invoices past their due_date to 'overdue' status.
+    await this.financeQueue.add(
+      OVERDUE_DETECTION_JOB,
+      {},
+      {
+        repeat: { pattern: '5 0 * * *' },
+        jobId: `cron:${OVERDUE_DETECTION_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${OVERDUE_DETECTION_JOB} (daily 00:05 UTC)`);
   }
 
   private async registerEarlyWarningCronJobs(): Promise<void> {

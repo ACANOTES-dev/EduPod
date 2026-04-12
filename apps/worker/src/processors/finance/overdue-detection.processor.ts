@@ -8,7 +8,9 @@ import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
 
-export interface OverdueDetectionPayload extends TenantJobPayload {
+export interface OverdueDetectionPayload extends Partial<TenantJobPayload> {
+  /** When omitted, processor iterates all active tenants (cron mode). */
+  tenant_id?: string;
   /** Optional: run detection only for a specific date. Defaults to today. */
   as_of_date?: string;
 }
@@ -36,16 +38,33 @@ export class OverdueDetectionProcessor extends WorkerHost {
       return;
     }
 
-    const { tenant_id } = job.data;
+    const { tenant_id, as_of_date } = job.data;
 
+    // Cron-mode: no tenant_id → iterate all active tenants. Per-tenant errors
+    // must not abort the whole run (spec §4.19).
     if (!tenant_id) {
-      throw new Error('Job rejected: missing tenant_id in payload.');
+      const tenants = await this.prisma.tenant.findMany({
+        where: { status: 'active' },
+        select: { id: true },
+      });
+      this.logger.log(
+        `Processing ${OVERDUE_DETECTION_JOB} — cross-tenant run across ${tenants.length} active tenants`,
+      );
+      const overdueJob = new OverdueDetectionJob(this.prisma);
+      for (const { id } of tenants) {
+        try {
+          await overdueJob.execute({ tenant_id: id, as_of_date });
+        } catch (err) {
+          this.logger.error(`${OVERDUE_DETECTION_JOB} failed for tenant ${id}: ${String(err)}`);
+        }
+      }
+      return;
     }
 
     this.logger.log(`Processing ${OVERDUE_DETECTION_JOB} — tenant ${tenant_id}`);
 
     const overdueJob = new OverdueDetectionJob(this.prisma);
-    await overdueJob.execute(job.data);
+    await overdueJob.execute({ tenant_id, as_of_date });
   }
 }
 
