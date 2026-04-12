@@ -69,12 +69,26 @@ export default function FinanceReportsPage() {
         const qs = params.toString() ? `?${params.toString()}` : '';
 
         if (tab === 'aging') {
-          const res = await apiClient<
-            Record<
-              string,
-              { label: string; count: number; total: number; households: AgingBucket['households'] }
-            >
+          // Backend wraps responses in { data: T }. Unwrap so the bucket
+          // entries are at the top level of what we iterate.
+          type AgingBucketResponse = {
+            label: string;
+            count: number;
+            total: number;
+            households: AgingBucket['households'];
+          };
+          const raw = await apiClient<
+            | Record<string, AgingBucketResponse | number>
+            | { data: Record<string, AgingBucketResponse | number> }
           >(`/api/v1/finance/reports/aging${qs}`);
+          const res =
+            raw &&
+            typeof raw === 'object' &&
+            'data' in raw &&
+            raw.data &&
+            typeof raw.data === 'object'
+              ? (raw.data as Record<string, AgingBucketResponse | number>)
+              : (raw as Record<string, AgingBucketResponse | number>);
           const bucketKeyMap: Record<string, AgingBucket['bucket']> = {
             current: 'current',
             overdue_1_30: '1_30',
@@ -84,7 +98,10 @@ export default function FinanceReportsPage() {
           };
           setAgingData(
             Object.entries(res)
-              .filter(([key]) => key in bucketKeyMap)
+              .filter(
+                (entry): entry is [string, AgingBucketResponse] =>
+                  entry[0] in bucketKeyMap && typeof entry[1] === 'object' && entry[1] !== null,
+              )
               .map(([key, val]) => ({
                 bucket: bucketKeyMap[key] as AgingBucket['bucket'],
                 total: val.total,

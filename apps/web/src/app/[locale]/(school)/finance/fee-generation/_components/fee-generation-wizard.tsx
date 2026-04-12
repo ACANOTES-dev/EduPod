@@ -11,6 +11,7 @@ import { Button, Checkbox, Input, Label } from '@school/ui';
 import { apiClient } from '@/lib/api-client';
 
 import { CurrencyDisplay } from '../../_components/currency-display';
+import { useTenantCurrency } from '../../_components/use-tenant-currency';
 
 import { FeeGenerationPreview } from './fee-generation-preview';
 
@@ -110,8 +111,8 @@ export function FeeGenerationWizard() {
   } | null>(null);
   const [confirmError, setConfirmError] = React.useState('');
 
-  // Currency code from tenant
-  const [currencyCode, setCurrencyCode] = React.useState('USD');
+  // Currency code from tenant — shared hook handles the response envelope
+  const currencyCode = useTenantCurrency();
 
   // Fetch reference data on mount
   React.useEffect(() => {
@@ -137,10 +138,6 @@ export function FeeGenerationWizard() {
         console.error('[FeeGenerationWizard]', err);
         return setFeeStructures([]);
       });
-
-    apiClient<{ currency_code: string }>('/api/v1/finance/dashboard/currency')
-      .then((res) => setCurrencyCode(res.currency_code))
-      .catch((err) => console.error('[FeeGenerationWizard]', err));
   }, []);
 
   const toggleYearGroup = (id: string) => {

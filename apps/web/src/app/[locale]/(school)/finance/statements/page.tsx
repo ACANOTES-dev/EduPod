@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { CurrencyDisplay } from '../_components/currency-display';
+import { useTenantCurrency } from '../_components/use-tenant-currency';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,14 +58,7 @@ export default function StatementsIndexPage() {
   const pageSize = 20;
 
   const [search, setSearch] = React.useState('');
-  const [currencyCode, setCurrencyCode] = React.useState('USD');
-
-  // Fetch currency code once
-  React.useEffect(() => {
-    apiClient<{ currency_code: string }>('/api/v1/finance/dashboard/currency')
-      .then((res) => setCurrencyCode(res.currency_code))
-      .catch((err) => console.error('[StatementsPage] currency fetch', err));
-  }, []);
+  const currencyCode = useTenantCurrency();
 
   const fetchHouseholds = React.useCallback(async () => {
     setIsLoading(true);

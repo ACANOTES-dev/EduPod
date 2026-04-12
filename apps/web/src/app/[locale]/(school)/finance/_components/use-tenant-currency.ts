@@ -19,9 +19,19 @@ export function useTenantCurrency(): string {
 
   React.useEffect(() => {
     let cancelled = false;
-    apiClient<{ currency_code: string }>('/api/v1/finance/dashboard/currency')
+    // Cache-bust the request — a 304 Not Modified from the browser would make
+    // apiClient throw (response.ok is false) and leave the hook at its 'USD'
+    // default forever. A changing query string bypasses the browser cache so
+    // we always see the real body.
+    // The backend ResponseTransformInterceptor wraps every response in
+    // `{ data: T }`. Older call sites read res.currency_code directly and
+    // silently failed — leaving the hook stuck on 'USD'. Accept both shapes.
+    apiClient<{ currency_code?: string; data?: { currency_code?: string } }>(
+      `/api/v1/finance/dashboard/currency?_t=${Date.now()}`,
+    )
       .then((res) => {
-        if (!cancelled && res.currency_code) setCurrency(res.currency_code);
+        const code = res?.data?.currency_code ?? res?.currency_code;
+        if (!cancelled && code) setCurrency(code);
       })
       .catch((err) => {
         console.error('[useTenantCurrency]', err);

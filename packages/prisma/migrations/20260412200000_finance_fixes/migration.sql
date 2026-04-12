@@ -5,6 +5,10 @@
 -- Match structure name substring to fee type name. For "TUITION 1ST CLASS"
 -- the "TUITION" prefix maps to the "Tuition Fees" fee_type.
 
+-- Disable RLS on fee_structures/fee_types to update across all tenants.
+ALTER TABLE fee_structures DISABLE ROW LEVEL SECURITY;
+ALTER TABLE fee_types DISABLE ROW LEVEL SECURITY;
+
 UPDATE fee_structures fs
 SET fee_type_id = ft.id
 FROM fee_types ft
@@ -38,32 +42,47 @@ WHERE fs.tenant_id = ft.tenant_id
   AND fs.fee_type_id IS NULL
   AND ft.name = 'Miscellaneous';
 
+-- Re-enable RLS.
+ALTER TABLE fee_structures ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fee_structures FORCE ROW LEVEL SECURITY;
+ALTER TABLE fee_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fee_types FORCE ROW LEVEL SECURITY;
+
 -- ── 2. Seed credit_note sequence rows for all existing tenants ─────────────
 -- SequenceService.nextNumber throws 500 when the row is missing; without this
 -- every credit-note POST fails on tenants that were onboarded before the
 -- credit-note feature was wired into seeding.
 
-INSERT INTO tenant_sequences (tenant_id, sequence_type, current_value, created_at, updated_at)
-SELECT t.id, 'credit_note', 0, NOW(), NOW()
+-- tenant_sequences has RLS FORCED on it. Disable for this migration so we can
+-- insert rows across all tenants in one statement.
+ALTER TABLE tenant_sequences DISABLE ROW LEVEL SECURITY;
+
+INSERT INTO tenant_sequences (tenant_id, sequence_type, current_value)
+SELECT t.id, 'credit_note', 0
 FROM tenants t
-WHERE NOT EXISTS (
-  SELECT 1 FROM tenant_sequences ts
-  WHERE ts.tenant_id = t.id AND ts.sequence_type = 'credit_note'
-);
+ON CONFLICT (tenant_id, sequence_type) DO NOTHING;
 
 -- Payment plans may eventually need one too; seed defensively.
-INSERT INTO tenant_sequences (tenant_id, sequence_type, current_value, created_at, updated_at)
-SELECT t.id, 'payment_plan', 0, NOW(), NOW()
+INSERT INTO tenant_sequences (tenant_id, sequence_type, current_value)
+SELECT t.id, 'payment_plan', 0
 FROM tenants t
-WHERE NOT EXISTS (
-  SELECT 1 FROM tenant_sequences ts
-  WHERE ts.tenant_id = t.id AND ts.sequence_type = 'payment_plan'
-);
+ON CONFLICT (tenant_id, sequence_type) DO NOTHING;
+
+-- Ensure every tenant has a payment sequence row too; the Stripe backfill
+-- below depends on it.
+INSERT INTO tenant_sequences (tenant_id, sequence_type, current_value)
+SELECT t.id, 'payment', 0
+FROM tenants t
+ON CONFLICT (tenant_id, sequence_type) DO NOTHING;
 
 -- ── 3. Backfill Stripe-style payment references to sequential PAYREF-NNNNNN ─
 -- Existing tenants have payments like `STRIPE-cs_test_a1...` (80+ chars) that
 -- break PDF rendering and tables. Replace with the next PAYREF sequence value
 -- per tenant, atomically.
+
+-- Disable RLS on payments for this migration too so the DO block can select
+-- across tenants.
+ALTER TABLE payments DISABLE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE
@@ -73,11 +92,6 @@ DECLARE
 BEGIN
   FOR tenant_rec IN SELECT DISTINCT tenant_id FROM payments WHERE payment_reference LIKE 'STRIPE-cs_%'
   LOOP
-    -- Ensure the payment sequence row exists
-    INSERT INTO tenant_sequences (tenant_id, sequence_type, current_value, created_at, updated_at)
-    VALUES (tenant_rec.tenant_id, 'payment', 0, NOW(), NOW())
-    ON CONFLICT (tenant_id, sequence_type) DO NOTHING;
-
     FOR payment_rec IN
       SELECT id FROM payments
       WHERE tenant_id = tenant_rec.tenant_id
@@ -95,3 +109,9 @@ BEGIN
     END LOOP;
   END LOOP;
 END $$;
+
+-- Re-enable RLS for the tables we touched.
+ALTER TABLE tenant_sequences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_sequences FORCE ROW LEVEL SECURITY;
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payments FORCE ROW LEVEL SECURITY;
