@@ -13,33 +13,59 @@ import { apiClient } from '@/lib/api-client';
  *
  * Returns a safe default ('USD') while loading so that Intl.NumberFormat
  * never receives `undefined` (which produces the "undefined 0.00" bug).
+ *
+ * FIN-025: the result is cached in a module-scoped promise so that N
+ * <CurrencyDisplay> instances on one page share a single network request.
+ * Subsequent mounts in the same session read from the cache.
  */
+
+let cachedCurrency: string | null = null;
+let inFlight: Promise<string> | null = null;
+
+function fetchCurrency(): Promise<string> {
+  if (cachedCurrency) return Promise.resolve(cachedCurrency);
+  if (inFlight) return inFlight;
+
+  inFlight = apiClient<{ currency_code?: string; data?: { currency_code?: string } }>(
+    `/api/v1/finance/dashboard/currency?_t=${Date.now()}`,
+  )
+    .then((res) => {
+      const code = res?.data?.currency_code ?? res?.currency_code ?? 'USD';
+      cachedCurrency = code;
+      return code;
+    })
+    .catch((err) => {
+      console.error('[useTenantCurrency]', err);
+      return 'USD';
+    })
+    .finally(() => {
+      inFlight = null;
+    });
+  return inFlight;
+}
+
 export function useTenantCurrency(): string {
-  const [currency, setCurrency] = React.useState<string>('USD');
+  const [currency, setCurrency] = React.useState<string>(cachedCurrency ?? 'USD');
 
   React.useEffect(() => {
+    if (cachedCurrency) return;
     let cancelled = false;
-    // Cache-bust the request — a 304 Not Modified from the browser would make
-    // apiClient throw (response.ok is false) and leave the hook at its 'USD'
-    // default forever. A changing query string bypasses the browser cache so
-    // we always see the real body.
-    // The backend ResponseTransformInterceptor wraps every response in
-    // `{ data: T }`. Older call sites read res.currency_code directly and
-    // silently failed — leaving the hook stuck on 'USD'. Accept both shapes.
-    apiClient<{ currency_code?: string; data?: { currency_code?: string } }>(
-      `/api/v1/finance/dashboard/currency?_t=${Date.now()}`,
-    )
-      .then((res) => {
-        const code = res?.data?.currency_code ?? res?.currency_code;
-        if (!cancelled && code) setCurrency(code);
-      })
-      .catch((err) => {
-        console.error('[useTenantCurrency]', err);
-      });
+    void fetchCurrency().then((code) => {
+      if (!cancelled) setCurrency(code);
+    });
     return () => {
       cancelled = true;
     };
   }, []);
 
   return currency;
+}
+
+/**
+ * Clear the module cache — for use only after tenant currency changes
+ * (e.g. in settings/general page). Not exported widely.
+ */
+export function resetTenantCurrencyCache(): void {
+  cachedCurrency = null;
+  inFlight = null;
 }
