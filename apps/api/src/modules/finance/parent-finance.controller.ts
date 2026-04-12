@@ -13,6 +13,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 
 import { checkoutSessionSchema, requestPaymentPlanSchema } from '@school/shared';
@@ -109,6 +110,9 @@ export class ParentFinanceController {
   @Post('invoices/:id/pay')
   @RequiresPermission('parent.make_payments')
   @HttpCode(HttpStatus.OK)
+  // FIN-018: cap checkout-session creation to stop a compromised parent account
+  // (or buggy client) from hammering Stripe and tripping quota/rate limits.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async payInvoice(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
