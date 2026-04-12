@@ -30,6 +30,8 @@ interface Discount {
   discount_type: DiscountType;
   value: number;
   active: boolean;
+  auto_apply?: boolean;
+  auto_condition?: { type?: string; min_siblings?: number } | null;
 }
 
 export default function DiscountsPage() {
@@ -105,6 +107,33 @@ export default function DiscountsPage() {
           {row.discount_type === 'percent' ? `${row.value}%` : row.value.toFixed(2)}
         </span>
       ),
+    },
+    {
+      key: 'auto_apply',
+      header: t('discounts.colAutoApply'),
+      render: (row: Discount) => {
+        if (!row.auto_apply) {
+          return (
+            <StatusBadge status="neutral" dot>
+              {tCommon('no')}
+            </StatusBadge>
+          );
+        }
+        const condition = row.auto_condition;
+        if (condition?.type === 'sibling') {
+          const min = condition.min_siblings ?? 2;
+          return (
+            <StatusBadge status="success" dot>
+              {t('discounts.autoApplySibling', { min })}
+            </StatusBadge>
+          );
+        }
+        return (
+          <StatusBadge status="success" dot>
+            {tCommon('yes')}
+          </StatusBadge>
+        );
+      },
     },
     {
       key: 'active',

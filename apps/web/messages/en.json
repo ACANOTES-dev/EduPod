@@ -3871,7 +3871,9 @@
       "conditionStaff": "Staff Discount",
       "minStudents": "Minimum Students",
       "minStudentsDesc": "Minimum number of students in the household to trigger the discount",
-      "staffDesc": "Automatically applies to households linked to a staff member"
+      "staffDesc": "Automatically applies to households linked to a staff member",
+      "colAutoApply": "Auto-apply",
+      "autoApplySibling": "Sibling (min {min})"
     },
     "feeTypes": {
       "title": "Fee Types",
