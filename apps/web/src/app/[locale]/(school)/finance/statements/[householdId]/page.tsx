@@ -8,12 +8,10 @@ import * as React from 'react';
 import type { HouseholdStatementData, StatementEntry } from '@school/shared';
 import { Button, EmptyState, StatusBadge } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { PdfPreviewModal } from '../../_components/pdf-preview-modal';
-
 
 // ─── Date Filter (client) ─────────────────────────────────────────────────────
 
@@ -168,7 +166,7 @@ export default function HouseholdStatementPage() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        title={t('householdStatement')}
+        title={t('householdStatementTitle')}
         description={data.household.household_name}
         actions={
           <Button variant="outline" onClick={() => setShowPdf(true)}>
