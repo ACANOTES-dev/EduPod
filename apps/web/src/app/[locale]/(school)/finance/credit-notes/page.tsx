@@ -126,7 +126,7 @@ export default function CreditNotesPage() {
 
   React.useEffect(() => {
     if (showCreate) {
-      apiClient<{ data: HouseholdOption[]; meta?: unknown }>('/api/v1/households?pageSize=200')
+      apiClient<{ data: HouseholdOption[]; meta?: unknown }>('/api/v1/households?pageSize=100')
         .then((res) => {
           const items = Array.isArray(res.data) ? res.data : [];
           setHouseholds(items);
