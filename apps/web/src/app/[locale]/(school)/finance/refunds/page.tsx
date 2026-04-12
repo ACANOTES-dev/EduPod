@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, RotateCcw, Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -12,7 +12,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  EmptyState,
   Input,
   Label,
   Select,
@@ -450,21 +449,20 @@ export default function RefundsPage() {
         }
       />
 
-      {!isLoading && refunds.length === 0 && !search && statusFilter === 'all' ? (
-        <EmptyState icon={RotateCcw} title={t('noRefunds')} description={t('noRefundsDesc')} />
-      ) : (
-        <DataTable
-          columns={columns}
-          data={refunds}
-          toolbar={toolbar}
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          onPageChange={setPage}
-          keyExtractor={(row) => row.id}
-          isLoading={isLoading}
-        />
-      )}
+      {/* FIN-016: toolbar stays mounted even when empty so admins can still
+          apply a non-default filter before any refunds exist. DataTable's
+          built-in empty row handles the "no results" message. */}
+      <DataTable
+        columns={columns}
+        data={refunds}
+        toolbar={toolbar}
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={setPage}
+        keyExtractor={(row) => row.id}
+        isLoading={isLoading}
+      />
 
       {/* Create Refund Dialog */}
       <Dialog
