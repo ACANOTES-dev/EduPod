@@ -15,7 +15,10 @@ export function GreetingRow({ schoolName }: { schoolName: string }) {
   if (hour >= 12 && hour < 17) greeting = t('goodAfternoon', { name: user?.first_name || 'Admin' });
   if (hour >= 17) greeting = t('goodEvening', { name: user?.first_name || 'Admin' });
 
-  const dateStr = new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA' : 'en-IE', {
+  // FIN-028: Arabic locale must use Western (Latin) numerals per CLAUDE.md.
+  // `ar-u-nu-latn` forces Latin digits while keeping Arabic month/weekday names
+  // and Gregorian calendar.
+  const dateStr = new Intl.DateTimeFormat(locale === 'ar' ? 'ar-u-nu-latn' : 'en-IE', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
