@@ -43,12 +43,22 @@ export function InboxSidebar() {
   const polling = useInboxPolling();
 
   const activeFilter = search?.get('filter') ?? 'all';
+  const composeParam = search?.get('compose') ?? null;
   const searchInput = React.useRef<HTMLInputElement>(null);
 
   const [threads, setThreads] = React.useState<InboxThreadSummary[] | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [composeOpen, setComposeOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (composeParam !== '1') return;
+    setComposeOpen(true);
+    const qp = new URLSearchParams(search?.toString() ?? '');
+    qp.delete('compose');
+    const next = qp.toString();
+    router.replace(`/${locale}/inbox${next ? `?${next}` : ''}`);
+  }, [composeParam, locale, router, search]);
 
   React.useEffect(() => {
     const handler = (event: KeyboardEvent) => {

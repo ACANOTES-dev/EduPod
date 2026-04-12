@@ -9,15 +9,33 @@ import { SchoolSnapshot } from './school-snapshot';
 
 export function FrontOfficeHome({ schoolName }: { schoolName: string }) {
   const officeStats = [
-    { label: 'Active Students', value: '584', icon: GraduationCap, color: 'emerald', href: '/students' },
-    { label: 'Pending Apps', value: '12', icon: ClipboardCheck, color: 'amber', href: '/admissions' },
-    { label: 'Today\'s Attendance', value: '96%', icon: UserCheck, color: 'blue', href: '/attendance' },
+    {
+      label: 'Active Students',
+      value: '584',
+      icon: GraduationCap,
+      color: 'emerald',
+      href: '/students',
+    },
+    {
+      label: 'Pending Apps',
+      value: '12',
+      icon: ClipboardCheck,
+      color: 'amber',
+      href: '/admissions',
+    },
+    {
+      label: "Today's Attendance",
+      value: '96%',
+      icon: UserCheck,
+      color: 'blue',
+      href: '/attendance',
+    },
   ];
 
   const officeActions = [
     { icon: Users, label: 'Register Family', href: '/admissions' },
     { icon: ClipboardCheck, label: 'Check Attendance', href: '/attendance' },
-    { icon: Send, label: 'New Communication', href: '/communications/messages/new' },
+    { icon: Send, label: 'New Communication', href: '/inbox?compose=1' },
     { icon: MessageSquare, label: 'Open Inquiries', href: '/admissions' },
   ];
 
@@ -30,15 +48,15 @@ export function FrontOfficeHome({ schoolName }: { schoolName: string }) {
       href: '/admissions',
       icon: Users,
       iconColor: 'text-amber-600 dark:text-amber-400',
-      iconBg: 'bg-amber-100 dark:bg-amber-500/20'
-    }
+      iconBg: 'bg-amber-100 dark:bg-amber-500/20',
+    },
   ];
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
       <div className="flex-1 min-w-0 space-y-6">
         <GreetingRow schoolName={schoolName} />
-        
+
         <div className="lg:hidden space-y-6">
           <QuickActions variant="horizontal" customActions={officeActions} />
           <SchoolSnapshot variant="compact" customStats={officeStats} title="Operations" />

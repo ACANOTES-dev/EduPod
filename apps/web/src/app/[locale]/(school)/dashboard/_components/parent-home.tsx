@@ -133,7 +133,7 @@ export function ParentHome({ schoolName }: { schoolName: string }) {
     {
       icon: Phone,
       label: t('parentDashboard.quickActions.contactSchool'),
-      href: '/communications/messages/new',
+      href: '/inbox?compose=1',
     },
   ];
 
