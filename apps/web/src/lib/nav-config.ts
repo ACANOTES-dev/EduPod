@@ -337,10 +337,13 @@ export const hubConfigs: HubConfig[] = [
     roles: STAFF_ROLES,
   },
   {
+    // FIN-014: parents do not get a top-level Finance hub — the finance
+    // surface for parents is the Finances tab on /dashboard/parent. The hub
+    // routes to admin-only pages that 403 parents.
     key: 'finance',
     labelKey: 'nav.finance',
     basePaths: ['/finance', '/payroll'],
-    roles: [...ADMIN_ROLES, 'parent'],
+    roles: ADMIN_ROLES,
   },
   {
     key: 'reports',
