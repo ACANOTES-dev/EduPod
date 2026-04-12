@@ -167,13 +167,17 @@ export default function FinanceAuditTrailPage() {
 
     switch (entry.action) {
       case 'create':
-        return `Created ${entityLabel}${refSuffix}`;
+        return t('auditDescCreated', { entity: entityLabel, ref: refSuffix });
       case 'update':
-        return `Updated ${entityLabel}${refSuffix}`;
+        return t('auditDescUpdated', { entity: entityLabel, ref: refSuffix });
       case 'delete':
-        return `Deleted ${entityLabel}${refSuffix}`;
+        return t('auditDescDeleted', { entity: entityLabel, ref: refSuffix });
       default:
-        return `${entry.action} ${entityLabel}${refSuffix}`;
+        return t('auditDescOther', {
+          action: entry.action,
+          entity: entityLabel,
+          ref: refSuffix,
+        });
     }
   }
 

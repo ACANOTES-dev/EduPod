@@ -11,8 +11,6 @@ import { apiClient } from '@/lib/api-client';
 
 import { PdfPreviewModal } from '../../../_components/pdf-preview-modal';
 
-
-
 interface InvoiceForActions {
   id: string;
   status: InvoiceStatus;
@@ -48,11 +46,11 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
       await apiClient(`/api/v1/finance/invoices/${invoice.id}/issue`, {
         method: 'POST',
       });
-      toast.success('Invoice issued successfully');
+      toast.success(t('issueSuccess'));
       onActionComplete();
     } catch (err) {
       console.error('[InvoiceActions]', err);
-      toast.error('Failed to issue invoice');
+      toast.error(t('issueFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -64,12 +62,12 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
       await apiClient(`/api/v1/finance/invoices/${invoice.id}/void`, {
         method: 'POST',
       });
-      toast.success('Invoice voided successfully');
+      toast.success(t('voidSuccess'));
       setShowVoidConfirm(false);
       onActionComplete();
     } catch (err) {
       console.error('[InvoiceActions]', err);
-      toast.error('Failed to void invoice');
+      toast.error(t('voidFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -81,12 +79,12 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
       await apiClient(`/api/v1/finance/invoices/${invoice.id}/cancel`, {
         method: 'POST',
       });
-      toast.success('Invoice cancelled successfully');
+      toast.success(t('cancelSuccess'));
       setShowCancelConfirm(false);
       onActionComplete();
     } catch (err) {
       console.error('[InvoiceActions]', err);
-      toast.error('Failed to cancel invoice');
+      toast.error(t('cancelFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -94,7 +92,7 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
 
   const handleWriteOff = async () => {
     if (!writeOffReason.trim()) {
-      toast.error('Write-off reason is required');
+      toast.error(t('writeOffRequiresReason'));
       return;
     }
     setIsSubmitting(true);
@@ -103,13 +101,13 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
         method: 'POST',
         body: JSON.stringify({ write_off_reason: writeOffReason }),
       });
-      toast.success('Invoice written off successfully');
+      toast.success(t('writeOffSuccess'));
       setShowWriteOff(false);
       setWriteOffReason('');
       onActionComplete();
     } catch (err) {
       console.error('[InvoiceActions]', err);
-      toast.error('Failed to write off invoice');
+      toast.error(t('writeOffFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -120,7 +118,9 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
       <div className="flex flex-wrap items-center gap-2">
         {canIssue && (
           <Button onClick={() => void handleIssue()} disabled={isSubmitting}>
-            <Send className="me-2 h-4 w-4" />{t('issue2')}</Button>
+            <Send className="me-2 h-4 w-4" />
+            {t('issue2')}
+          </Button>
         )}
 
         {canVoid && (
@@ -129,7 +129,9 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
             onClick={() => setShowVoidConfirm(true)}
             disabled={isSubmitting}
           >
-            <Ban className="me-2 h-4 w-4" />{t('void')}</Button>
+            <Ban className="me-2 h-4 w-4" />
+            {t('void')}
+          </Button>
         )}
 
         {canCancel && (
@@ -138,12 +140,16 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
             onClick={() => setShowCancelConfirm(true)}
             disabled={isSubmitting}
           >
-            <XCircle className="me-2 h-4 w-4" />{t('cancel')}</Button>
+            <XCircle className="me-2 h-4 w-4" />
+            {t('cancel')}
+          </Button>
         )}
 
         {canWriteOff && (
           <Button variant="outline" onClick={() => setShowWriteOff(true)} disabled={isSubmitting}>
-            <FileX className="me-2 h-4 w-4" />{t('writeOff')}</Button>
+            <FileX className="me-2 h-4 w-4" />
+            {t('writeOff')}
+          </Button>
         )}
 
         {canPrint && (
@@ -167,8 +173,8 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
         open={showVoidConfirm}
         onOpenChange={setShowVoidConfirm}
         title={t('voidInvoice')}
-        description="This will void the invoice. This action cannot be undone. Are you sure?"
-        confirmLabel="Void Invoice"
+        description={t('voidConfirmDescription')}
+        confirmLabel={t('voidInvoiceAction')}
         variant="destructive"
         isLoading={isSubmitting}
         onConfirm={() => void handleVoid()}
@@ -179,8 +185,8 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
         open={showCancelConfirm}
         onOpenChange={setShowCancelConfirm}
         title={t('cancelInvoice')}
-        description="This will cancel the invoice. This action cannot be undone. Are you sure?"
-        confirmLabel="Cancel Invoice"
+        description={t('cancelConfirmDescription')}
+        confirmLabel={t('cancelInvoiceAction')}
         variant="destructive"
         isLoading={isSubmitting}
         onConfirm={() => void handleCancel()}
@@ -194,8 +200,8 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
           if (!open) setWriteOffReason('');
         }}
         title={t('writeOffInvoice')}
-        description="Provide a reason for writing off this invoice. This action cannot be undone."
-        confirmLabel="Write Off"
+        description={t('writeOffConfirmDescription')}
+        confirmLabel={t('writeOffAction')}
         variant="destructive"
         isLoading={isSubmitting}
         onConfirm={() => void handleWriteOff()}

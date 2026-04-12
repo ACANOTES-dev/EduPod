@@ -3,12 +3,10 @@
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
 import { EntityLink } from '@/components/entity-link';
 import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../../../_components/currency-display';
-
 
 interface PaymentAllocation {
   id: string;
@@ -22,11 +20,11 @@ interface PaymentAllocation {
   };
 }
 
-const methodLabelMap: Record<string, string> = {
-  stripe: 'Stripe',
-  cash: 'Cash',
-  bank_transfer: 'Bank Transfer',
-  card_manual: 'Card (Manual)',
+const methodLabelKeyMap: Record<string, string> = {
+  stripe: 'stripe',
+  cash: 'cash',
+  bank_transfer: 'bankTransfer',
+  card_manual: 'cardManual',
 };
 
 interface InvoicePaymentsTabProps {
@@ -36,6 +34,10 @@ interface InvoicePaymentsTabProps {
 
 export function InvoicePaymentsTab({ allocations, currencyCode }: InvoicePaymentsTabProps) {
   const t = useTranslations('finance');
+  const translateMethod = (method: string): string => {
+    const key = methodLabelKeyMap[method];
+    return key ? t(key) : method;
+  };
   if (allocations.length === 0) {
     return <p className="text-sm text-text-tertiary">{t('noPaymentsAllocatedToThis')}</p>;
   }
@@ -45,10 +47,18 @@ export function InvoicePaymentsTab({ allocations, currencyCode }: InvoicePayment
       <table className="w-full">
         <thead>
           <tr className="border-b border-border bg-surface-secondary">
-            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('paymentReference2')}</th>
-            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('method')}</th>
-            <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('amountAllocated')}</th>
-            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('date')}</th>
+            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+              {t('paymentReference2')}
+            </th>
+            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+              {t('method')}
+            </th>
+            <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+              {t('amountAllocated')}
+            </th>
+            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+              {t('date')}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -66,7 +76,7 @@ export function InvoicePaymentsTab({ allocations, currencyCode }: InvoicePayment
                 />
               </td>
               <td className="px-4 py-3 text-sm text-text-secondary">
-                {methodLabelMap[alloc.payment.payment_method] ?? alloc.payment.payment_method}
+                {translateMethod(alloc.payment.payment_method)}
               </td>
               <td className="px-4 py-3 text-end text-sm font-medium text-text-primary">
                 <CurrencyDisplay amount={alloc.amount} currency_code={currencyCode} />

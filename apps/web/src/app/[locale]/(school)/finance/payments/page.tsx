@@ -51,11 +51,11 @@ interface StaffOption {
   name: string;
 }
 
-const methodLabelMap: Record<PaymentMethod, string> = {
-  stripe: 'Stripe',
-  cash: 'Cash',
-  bank_transfer: 'Bank Transfer',
-  card_manual: 'Card (Manual)',
+const methodLabelKeyMap: Record<PaymentMethod, string> = {
+  stripe: 'stripe',
+  cash: 'cash',
+  bank_transfer: 'bankTransfer',
+  card_manual: 'cardManual',
 };
 
 export default function PaymentsPage() {
@@ -160,9 +160,11 @@ export default function PaymentsPage() {
     },
     {
       key: 'payment_method',
-      header: 'Method',
+      header: t('method'),
       render: (row: Payment) => (
-        <span className="text-sm text-text-secondary">{methodLabelMap[row.payment_method]}</span>
+        <span className="text-sm text-text-secondary">
+          {t(methodLabelKeyMap[row.payment_method])}
+        </span>
       ),
     },
     {
@@ -177,7 +179,7 @@ export default function PaymentsPage() {
       header: t('acceptedBy'),
       render: (row: Payment) => {
         if (row.payment_method === 'stripe') {
-          return <span className="text-sm text-text-secondary">Stripe</span>;
+          return <span className="text-sm text-text-secondary">{t('stripe')}</span>;
         }
         if (row.payment_method === 'bank_transfer' && !row.posted_by) {
           return <span className="text-sm text-text-secondary">{t('bankTransfer')}</span>;
@@ -275,7 +277,7 @@ export default function PaymentsPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('navPayments')}
-        description="View and manage incoming payments"
+        description={t('paymentsListDescription')}
         actions={
           canManage ? (
             <Button onClick={() => router.push('/finance/payments/new')}>
@@ -290,10 +292,10 @@ export default function PaymentsPage() {
         <EmptyState
           icon={Banknote}
           title={t('noPaymentsYet')}
-          description="Record your first payment to get started."
+          description={t('newPaymentDescription')}
           action={
             canManage
-              ? { label: 'Record Payment', onClick: () => router.push('/finance/payments/new') }
+              ? { label: t('recordPayment'), onClick: () => router.push('/finance/payments/new') }
               : undefined
           }
         />

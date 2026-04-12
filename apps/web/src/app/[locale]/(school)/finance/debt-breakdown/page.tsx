@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Printer } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -58,24 +58,35 @@ function pctBg(pct: number): string {
 
 export default function DebtBreakdownPage() {
   const t = useTranslations('finance');
+  const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const searchParams = useSearchParams();
-  const initialBucket = (searchParams?.get('bucket') as BucketFilter) ?? 'all';
+  const validBuckets = React.useMemo<BucketFilter[]>(
+    () => ['all', '0_10', '10_30', '30_50', '50_plus'],
+    [],
+  );
+  const initialBucket = React.useMemo<BucketFilter>(() => {
+    const q = searchParams?.get('bucket') ?? 'all';
+    return validBuckets.includes(q as BucketFilter) ? (q as BucketFilter) : 'all';
+  }, [searchParams, validBuckets]);
   const currencyCode = useTenantCurrency();
 
   const [rows, setRows] = React.useState<DebtRow[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [activeBucket, setActiveBucket] = React.useState<BucketFilter>(initialBucket);
 
-  // Sync bucket from URL param when searchParams becomes available
+  // Sync bucket state when user uses browser back/forward to change ?bucket=
   React.useEffect(() => {
-    const urlBucket = searchParams?.get('bucket') as BucketFilter | null;
-    if (urlBucket && urlBucket !== activeBucket) {
-      setActiveBucket(urlBucket);
+    const urlBucket = searchParams?.get('bucket');
+    const normalised: BucketFilter = validBuckets.includes(urlBucket as BucketFilter)
+      ? (urlBucket as BucketFilter)
+      : 'all';
+    if (normalised !== activeBucket) {
+      setActiveBucket(normalised);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, validBuckets]);
 
   const fetchData = React.useCallback(async (bucket: BucketFilter) => {
     setIsLoading(true);
@@ -87,6 +98,9 @@ export default function DebtBreakdownPage() {
       setRows(res.data);
     } catch (err) {
       console.error('[DebtBreakdown]', err);
+      // Reset rows on error so stale data from a previous bucket doesn't
+      // leak into the new view.
+      setRows([]);
     } finally {
       setIsLoading(false);
     }
@@ -98,6 +112,16 @@ export default function DebtBreakdownPage() {
 
   const handleBucketChange = (bucket: BucketFilter) => {
     setActiveBucket(bucket);
+    // Keep the URL in sync with the active bucket so deep-links and
+    // back/forward history both reflect the user's filter choice.
+    const params = new URLSearchParams(searchParams?.toString() ?? '');
+    if (bucket === 'all') {
+      params.delete('bucket');
+    } else {
+      params.set('bucket', bucket);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : (pathname ?? ''));
   };
 
   const totalOutstanding = rows.reduce((s, r) => s + r.outstanding, 0);
@@ -147,7 +171,7 @@ export default function DebtBreakdownPage() {
         <div className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-surface-secondary/50 px-5 py-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-              {t('debtBreakdown.colHousehold')}s
+              {t('householdsPluralLabel')}
             </p>
             <p className="text-lg font-bold text-text-primary">{rows.length}</p>
           </div>
@@ -210,9 +234,7 @@ export default function DebtBreakdownPage() {
                 <tr
                   key={row.household_id}
                   className="border-b border-border last:border-b-0 cursor-pointer transition-colors hover:bg-surface-secondary"
-                  onClick={() =>
-                    window.location.assign(`/${locale}/finance/statements/${row.household_id}`)
-                  }
+                  onClick={() => router.push(`/${locale}/finance/statements/${row.household_id}`)}
                 >
                   <td className="px-4 py-3 text-sm font-medium text-text-primary">
                     {row.household_name}

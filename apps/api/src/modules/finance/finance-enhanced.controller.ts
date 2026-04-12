@@ -6,8 +6,8 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
-  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -37,6 +37,7 @@ import type {
   UpdateLateFeeConfigDto,
   UpdateRecurringInvoiceConfigDto,
 } from '@school/shared';
+import type { ReportQueryDto } from '@school/shared';
 import {
   applyCreditNoteSchema,
   approvePaymentPlanSchema,
@@ -55,6 +56,7 @@ import {
   paymentPlanRequestQuerySchema,
   recurringInvoiceConfigQuerySchema,
   rejectPaymentPlanSchema,
+  reportQuerySchema,
   revokeScholarshipSchema,
   scholarshipQuerySchema,
   updateLateFeeConfigSchema,
@@ -85,17 +87,6 @@ import { PaymentPlansService } from './payment-plans.service';
 import { PaymentRemindersService } from './payment-reminders.service';
 import { RecurringInvoicesService } from './recurring-invoices.service';
 import { ScholarshipsService } from './scholarships.service';
-
-const reportQuerySchema = z.object({
-  date_from: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-  date_to: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-});
 
 @Controller('v1/finance')
 @UseGuards(AuthGuard, PermissionGuard)
@@ -185,7 +176,7 @@ export class FinanceEnhancedController {
     return this.lateFeesService.createConfig(tenant.tenant_id, dto);
   }
 
-  @Put('late-fee-configs/:id')
+  @Patch('late-fee-configs/:id')
   @RequiresPermission('finance.manage_late_fees')
   async updateLateFeeConfig(
     @CurrentTenant() tenant: TenantContext,
@@ -306,7 +297,7 @@ export class FinanceEnhancedController {
     return this.recurringInvoicesService.createConfig(tenant.tenant_id, dto);
   }
 
-  @Put('recurring-configs/:id')
+  @Patch('recurring-configs/:id')
   @RequiresPermission('finance.manage')
   async updateRecurringConfig(
     @CurrentTenant() tenant: TenantContext,
@@ -331,7 +322,7 @@ export class FinanceEnhancedController {
   @RequiresPermission('finance.view_reports')
   async getAgingReport(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(reportQuerySchema)) query: z.infer<typeof reportQuerySchema>,
+    @Query(new ZodValidationPipe(reportQuerySchema)) query: ReportQueryDto,
   ): Promise<AgingReport> {
     return this.financialReportsService.agingReport(tenant.tenant_id, query);
   }
@@ -340,7 +331,7 @@ export class FinanceEnhancedController {
   @RequiresPermission('finance.view_reports')
   async getRevenueByPeriod(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(reportQuerySchema)) query: z.infer<typeof reportQuerySchema>,
+    @Query(new ZodValidationPipe(reportQuerySchema)) query: ReportQueryDto,
   ): Promise<RevenuePeriodItem[]> {
     return this.financialReportsService.revenueByPeriod(tenant.tenant_id, query);
   }
@@ -349,7 +340,7 @@ export class FinanceEnhancedController {
   @RequiresPermission('finance.view_reports')
   async getCollectionByYearGroup(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(reportQuerySchema)) query: z.infer<typeof reportQuerySchema>,
+    @Query(new ZodValidationPipe(reportQuerySchema)) query: ReportQueryDto,
   ): Promise<CollectionByYearGroup[]> {
     return this.financialReportsService.collectionByYearGroup(tenant.tenant_id, query);
   }
@@ -358,7 +349,7 @@ export class FinanceEnhancedController {
   @RequiresPermission('finance.view_reports')
   async getPaymentMethodBreakdown(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(reportQuerySchema)) query: z.infer<typeof reportQuerySchema>,
+    @Query(new ZodValidationPipe(reportQuerySchema)) query: ReportQueryDto,
   ): Promise<PaymentMethodBreakdown[]> {
     return this.financialReportsService.paymentMethodBreakdown(tenant.tenant_id, query);
   }
@@ -367,7 +358,7 @@ export class FinanceEnhancedController {
   @RequiresPermission('finance.view_reports')
   async getFeeStructurePerformance(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(reportQuerySchema)) query: z.infer<typeof reportQuerySchema>,
+    @Query(new ZodValidationPipe(reportQuerySchema)) query: ReportQueryDto,
   ): Promise<FeeStructurePerformance[]> {
     return this.financialReportsService.feeStructurePerformance(tenant.tenant_id, query);
   }

@@ -22,27 +22,34 @@ import {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 // createDiscountSchema uses .refine() (ZodEffects), so we build the form schema
-// independently from the same fields plus the edit-only `active` field.
-const discountFormSchema = z
-  .object({
-    name: z.string().min(1).max(150),
-    discount_type: z.enum(['fixed', 'percent']),
-    value: z.number().positive(),
-    active: z.boolean().optional(),
-    auto_apply: z.boolean().default(false),
-    auto_condition_type: z.enum(['sibling', 'staff']).optional(),
-    auto_condition_min_students: z.number().int().min(2).optional(),
-  })
-  .refine((data) => data.discount_type !== 'percent' || data.value <= 100, {
-    message: 'Percentage discount value must be <= 100',
-    path: ['value'],
-  })
-  .refine((data) => !data.auto_apply || data.auto_condition_type != null, {
-    message: 'Select a condition type for automatic discounts',
-    path: ['auto_condition_type'],
-  });
+// independently from the same fields plus the edit-only `active` field. Refine
+// messages are sourced from translations via a factory so that Arabic users see
+// Arabic validation errors instead of English fallbacks.
+const baseDiscountSchema = z.object({
+  name: z.string().min(1).max(150),
+  discount_type: z.enum(['fixed', 'percent']),
+  value: z.number().positive(),
+  active: z.boolean().optional(),
+  auto_apply: z.boolean().default(false),
+  auto_condition_type: z.enum(['sibling', 'staff']).optional(),
+  auto_condition_min_students: z.number().int().min(2).optional(),
+});
 
-export type DiscountFormValues = z.infer<typeof discountFormSchema>;
+type DiscountBaseValues = z.infer<typeof baseDiscountSchema>;
+
+function makeDiscountFormSchema(messages: { percentMax: string; needCondition: string }) {
+  return baseDiscountSchema
+    .refine((data) => data.discount_type !== 'percent' || data.value <= 100, {
+      message: messages.percentMax,
+      path: ['value'],
+    })
+    .refine((data) => !data.auto_apply || data.auto_condition_type != null, {
+      message: messages.needCondition,
+      path: ['auto_condition_type'],
+    });
+}
+
+export type DiscountFormValues = DiscountBaseValues;
 
 interface DiscountFormProps {
   initialValues?: Partial<DiscountFormValues>;
@@ -64,8 +71,17 @@ export function DiscountForm({
   const t = useTranslations('finance');
   const tc = useTranslations('common');
 
+  const schema = React.useMemo(
+    () =>
+      makeDiscountFormSchema({
+        percentMax: t('discountPercentMax'),
+        needCondition: t('autoApplyNeedsCondition'),
+      }),
+    [t],
+  );
+
   const form = useForm<DiscountFormValues>({
-    resolver: zodResolver(discountFormSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       name: initialValues?.name ?? '',
       discount_type: initialValues?.discount_type ?? 'fixed',

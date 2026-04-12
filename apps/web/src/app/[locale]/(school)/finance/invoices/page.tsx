@@ -1,11 +1,20 @@
 'use client';
 
 import { FileText, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { EmptyState, Input } from '@school/ui';
+import type { InvoiceStatus } from '@school/shared';
+import {
+  EmptyState,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { EntityLink } from '@/components/entity-link';
@@ -14,6 +23,7 @@ import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../_components/currency-display';
+import { InvoiceStatusBadge } from '../_components/invoice-status-badge';
 import { useTenantCurrency } from '../_components/use-tenant-currency';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -41,6 +51,7 @@ interface InvoiceLine {
 interface Invoice {
   id: string;
   invoice_number: string;
+  status: InvoiceStatus;
   total_amount: number;
   due_date: string;
   issue_date: string | null;
@@ -55,6 +66,7 @@ interface InvoiceRow {
   rowKey: string;
   invoiceId: string;
   invoiceNumber: string;
+  status: InvoiceStatus;
   issueDate: string | null;
   dueDate: string;
   currencyCode: string;
@@ -63,6 +75,19 @@ interface InvoiceRow {
   studentName: string | null;
   studentNumber: string | null;
 }
+
+const STATUS_OPTIONS: Array<{ value: 'all' | InvoiceStatus; labelKey: string }> = [
+  { value: 'all', labelKey: 'allStatuses' },
+  { value: 'draft', labelKey: 'draft' },
+  { value: 'pending_approval', labelKey: 'pendingApproval' },
+  { value: 'issued', labelKey: 'issued' },
+  { value: 'partially_paid', labelKey: 'partiallyPaid' },
+  { value: 'paid', labelKey: 'paid' },
+  { value: 'overdue', labelKey: 'overdue' },
+  { value: 'void', labelKey: 'void' },
+  { value: 'cancelled', labelKey: 'cancelled' },
+  { value: 'written_off', labelKey: 'writtenOff' },
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -77,6 +102,7 @@ function flattenInvoices(invoices: Invoice[]): InvoiceRow[] {
         rowKey: inv.id,
         invoiceId: inv.id,
         invoiceNumber: inv.invoice_number,
+        status: inv.status,
         issueDate: inv.issue_date,
         dueDate: inv.due_date,
         currencyCode: inv.currency_code,
@@ -92,6 +118,7 @@ function flattenInvoices(invoices: Invoice[]): InvoiceRow[] {
           rowKey: `${inv.id}_${line.id}`,
           invoiceId: inv.id,
           invoiceNumber: inv.invoice_number,
+          status: inv.status,
           issueDate: inv.issue_date,
           dueDate: inv.due_date,
           currencyCode: inv.currency_code,
@@ -112,7 +139,14 @@ function flattenInvoices(invoices: Invoice[]): InvoiceRow[] {
 export default function InvoicesPage() {
   const t = useTranslations('finance');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const currencyCode = useTenantCurrency();
+
+  const initialStatus = React.useMemo<'all' | InvoiceStatus>(() => {
+    const q = searchParams?.get('status') ?? '';
+    const allowed = STATUS_OPTIONS.map((o) => o.value);
+    return (allowed as string[]).includes(q) ? (q as 'all' | InvoiceStatus) : 'all';
+  }, [searchParams]);
 
   const [invoices, setInvoices] = React.useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -120,9 +154,19 @@ export default function InvoicesPage() {
   const [total, setTotal] = React.useState(0);
   const pageSize = 20;
 
-  const [search, setSearch] = React.useState('');
+  const [searchInput, setSearchInput] = React.useState('');
+  const [search, setSearch] = React.useState(''); // debounced
   const [dateFrom, setDateFrom] = React.useState('');
   const [dateTo, setDateTo] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState<'all' | InvoiceStatus>(initialStatus);
+
+  // Debounce the search input — 300ms — to avoid firing a request on every keystroke.
+  React.useEffect(() => {
+    const id = window.setTimeout(() => {
+      setSearch(searchInput);
+    }, 300);
+    return () => window.clearTimeout(id);
+  }, [searchInput]);
 
   const fetchInvoices = React.useCallback(async () => {
     setIsLoading(true);
@@ -135,6 +179,7 @@ export default function InvoicesPage() {
       if (search) params.set('search', search);
       if (dateFrom) params.set('date_from', dateFrom);
       if (dateTo) params.set('date_to', dateTo);
+      if (statusFilter !== 'all') params.set('status', statusFilter);
 
       const res = await apiClient<{ data: Invoice[]; meta: { total: number } }>(
         `/api/v1/finance/invoices?${params.toString()}`,
@@ -148,7 +193,7 @@ export default function InvoicesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, search, dateFrom, dateTo]);
+  }, [page, search, dateFrom, dateTo, statusFilter]);
 
   React.useEffect(() => {
     void fetchInvoices();
@@ -156,7 +201,7 @@ export default function InvoicesPage() {
 
   React.useEffect(() => {
     setPage(1);
-  }, [search, dateFrom, dateTo]);
+  }, [search, dateFrom, dateTo, statusFilter]);
 
   const rows = React.useMemo(() => flattenInvoices(invoices), [invoices]);
 
@@ -165,7 +210,7 @@ export default function InvoicesPage() {
   const columns = [
     {
       key: 'issue_date',
-      header: 'Issue Date',
+      header: t('issueDate'),
       render: (row: InvoiceRow) => (
         <span className="text-sm text-text-secondary">
           {row.issueDate ? formatDate(row.issueDate) : '--'}
@@ -174,7 +219,7 @@ export default function InvoicesPage() {
     },
     {
       key: 'invoice_number',
-      header: 'Invoice #',
+      header: t('invoiceNumber'),
       render: (row: InvoiceRow) => (
         <button
           type="button"
@@ -190,7 +235,7 @@ export default function InvoicesPage() {
     },
     {
       key: 'household',
-      header: 'Household',
+      header: t('household'),
       render: (row: InvoiceRow) =>
         row.household ? (
           <EntityLink
@@ -205,21 +250,26 @@ export default function InvoicesPage() {
     },
     {
       key: 'student_name',
-      header: 'Student',
+      header: t('colStudent'),
       render: (row: InvoiceRow) => (
         <span className="text-sm text-text-primary">{row.studentName ?? '--'}</span>
       ),
     },
     {
       key: 'student_number',
-      header: 'Student #',
+      header: t('colStudentNumber'),
       render: (row: InvoiceRow) => (
         <span className="font-mono text-xs text-text-secondary">{row.studentNumber ?? '--'}</span>
       ),
     },
     {
+      key: 'status',
+      header: t('status'),
+      render: (row: InvoiceRow) => <InvoiceStatusBadge status={row.status} />,
+    },
+    {
       key: 'total_amount',
-      header: 'Total',
+      header: t('total'),
       className: 'text-end',
       render: (row: InvoiceRow) => (
         <CurrencyDisplay
@@ -231,7 +281,7 @@ export default function InvoicesPage() {
     },
     {
       key: 'due_date',
-      header: 'Due Date',
+      header: t('dueDate'),
       render: (row: InvoiceRow) => (
         <span className="text-sm text-text-secondary">{formatDate(row.dueDate)}</span>
       ),
@@ -246,11 +296,27 @@ export default function InvoicesPage() {
         <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
         <Input
           placeholder={t('searchInvoices')}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           className="ps-9"
         />
       </div>
+
+      <Select
+        value={statusFilter}
+        onValueChange={(value) => setStatusFilter(value as 'all' | InvoiceStatus)}
+      >
+        <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectValue placeholder={t('status')} />
+        </SelectTrigger>
+        <SelectContent>
+          {STATUS_OPTIONS.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {t(opt.labelKey)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       <Input
         type="date"
@@ -270,18 +336,14 @@ export default function InvoicesPage() {
     </div>
   );
 
-  const hasActiveFilters = search || dateFrom || dateTo;
+  const hasActiveFilters = Boolean(search || dateFrom || dateTo || statusFilter !== 'all');
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('navInvoices')} description="View invoices by student" />
+      <PageHeader title={t('navInvoices')} description={t('invoicesListDescription')} />
 
       {!isLoading && rows.length === 0 && !hasActiveFilters ? (
-        <EmptyState
-          icon={FileText}
-          title={t('noInvoicesYet')}
-          description="No invoices this term -- create fee assignments first, then run the fee generation wizard."
-        />
+        <EmptyState icon={FileText} title={t('noInvoicesYet')} description={t('noInvoicesDesc')} />
       ) : (
         <DataTable
           columns={columns}

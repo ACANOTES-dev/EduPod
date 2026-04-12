@@ -77,14 +77,26 @@ export const createDiscountSchema = z
   });
 export type CreateDiscountDto = z.infer<typeof createDiscountSchema>;
 
-export const updateDiscountSchema = z.object({
-  name: z.string().min(1).max(150).optional(),
-  discount_type: z.enum(['fixed', 'percent']).optional(),
-  value: z.number().positive().optional(),
-  active: z.boolean().optional(),
-  auto_apply: z.boolean().optional(),
-  auto_condition: discountAutoConditionSchema.nullable().optional(),
-});
+export const updateDiscountSchema = z
+  .object({
+    name: z.string().min(1).max(150).optional(),
+    discount_type: z.enum(['fixed', 'percent']).optional(),
+    value: z.number().positive().optional(),
+    active: z.boolean().optional(),
+    auto_apply: z.boolean().optional(),
+    auto_condition: discountAutoConditionSchema.nullable().optional(),
+  })
+  // Carry the create-time refinements into update so PATCH requests are
+  // blocked at the validation boundary rather than leaking to the service.
+  // We only enforce the percent cap when a value is actually being set.
+  .refine((data) => data.discount_type !== 'percent' || data.value == null || data.value <= 100, {
+    message: 'Percentage discount value must be <= 100',
+    path: ['value'],
+  })
+  .refine((data) => !data.auto_apply || data.auto_condition != null, {
+    message: 'Auto-apply discounts must have a condition',
+    path: ['auto_condition'],
+  });
 export type UpdateDiscountDto = z.infer<typeof updateDiscountSchema>;
 
 export const discountQuerySchema = z.object({
@@ -125,23 +137,56 @@ export const feeAssignmentQuerySchema = z.object({
 
 // ─── Fee Generation ─────────────────────────────────────────
 
-export const feeGenerationPreviewSchema = z.object({
-  year_group_ids: z.array(z.string().uuid()).min(1),
-  fee_structure_ids: z.array(z.string().uuid()).min(1),
-  billing_period_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  billing_period_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+// ─── Financial Reports — shared query schema ────────────────
+// Used by aging, revenue-by-period, collection-by-year-group,
+// payment-methods, and fee-structure-performance. Previously inlined inside
+// `finance-enhanced.controller.ts` — exported here so test fixtures and the
+// frontend can share the same validation rules.
+
+export const reportQuerySchema = z.object({
+  date_from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  date_to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
+export type ReportQueryDto = z.infer<typeof reportQuerySchema>;
+
+const dateOrderRefinement = {
+  message: 'billing_period_end must be on or after billing_period_start',
+  path: ['billing_period_end'],
+};
+const dueDateRefinement = {
+  message: 'due_date must be on or after billing_period_start',
+  path: ['due_date'],
+};
+
+export const feeGenerationPreviewSchema = z
+  .object({
+    year_group_ids: z.array(z.string().uuid()).min(1),
+    fee_structure_ids: z.array(z.string().uuid()).min(1),
+    billing_period_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    billing_period_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  })
+  .refine((d) => d.billing_period_end >= d.billing_period_start, dateOrderRefinement)
+  .refine((d) => d.due_date >= d.billing_period_start, dueDateRefinement);
 export type FeeGenerationPreviewDto = z.infer<typeof feeGenerationPreviewSchema>;
 
-export const feeGenerationConfirmSchema = z.object({
-  year_group_ids: z.array(z.string().uuid()).min(1),
-  fee_structure_ids: z.array(z.string().uuid()).min(1),
-  billing_period_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  billing_period_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  excluded_household_ids: z.array(z.string().uuid()).default([]),
-});
+export const feeGenerationConfirmSchema = z
+  .object({
+    year_group_ids: z.array(z.string().uuid()).min(1),
+    fee_structure_ids: z.array(z.string().uuid()).min(1),
+    billing_period_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    billing_period_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    excluded_household_ids: z.array(z.string().uuid()).default([]),
+  })
+  .refine((d) => d.billing_period_end >= d.billing_period_start, dateOrderRefinement)
+  .refine((d) => d.due_date >= d.billing_period_start, dueDateRefinement);
 export type FeeGenerationConfirmDto = z.infer<typeof feeGenerationConfirmSchema>;
 
 // ─── Invoices ───────────────────────────────────────────────

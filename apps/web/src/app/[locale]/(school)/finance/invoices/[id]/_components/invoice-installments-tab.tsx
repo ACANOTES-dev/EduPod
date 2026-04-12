@@ -7,13 +7,11 @@ import * as React from 'react';
 import type { InvoiceStatus, InstallmentStatus } from '@school/shared';
 import { Button, StatusBadge } from '@school/ui';
 
-
 import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../../../_components/currency-display';
 
 import { InstallmentForm } from './installment-form';
-
 
 interface Installment {
   id: string;
@@ -31,10 +29,10 @@ const installmentStatusVariantMap: Record<
   overdue: 'danger',
 };
 
-const installmentStatusLabelMap: Record<InstallmentStatus, string> = {
-  pending: 'Pending',
-  paid: 'Paid',
-  overdue: 'Overdue',
+const installmentStatusLabelKeyMap: Record<InstallmentStatus, string> = {
+  pending: 'pending',
+  paid: 'paid',
+  overdue: 'overdue',
 };
 
 interface InvoiceInstallmentsTabProps {
@@ -65,7 +63,9 @@ export function InvoiceInstallmentsTab({
       {canCreateInstallments && (
         <div className="flex justify-end">
           <Button variant="outline" onClick={() => setShowForm(true)}>
-            <Plus className="me-2 h-4 w-4" />{t('createInstallmentPlan')}</Button>
+            <Plus className="me-2 h-4 w-4" />
+            {t('createInstallmentPlan')}
+          </Button>
         </div>
       )}
 
@@ -76,9 +76,15 @@ export function InvoiceInstallmentsTab({
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-surface-secondary">
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('dueDate')}</th>
-                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('amount')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('status')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('dueDate')}
+                </th>
+                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('amount')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('status')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -95,7 +101,7 @@ export function InvoiceInstallmentsTab({
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={installmentStatusVariantMap[inst.status]} dot>
-                      {installmentStatusLabelMap[inst.status]}
+                      {t(installmentStatusLabelKeyMap[inst.status])}
                     </StatusBadge>
                   </td>
                 </tr>

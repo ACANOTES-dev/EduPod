@@ -19,10 +19,13 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
 import type { FinanceDashboardData, InvoiceStatus } from '@school/shared';
+
+import { CurrencyDisplay } from './currency-display';
+import { useTenantCurrency } from './use-tenant-currency';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -31,6 +34,13 @@ function useLocale() {
   return (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 }
 
+/**
+ * Format a raw number with 2dp localised thousands separators.
+ *
+ * This returns just the number — callers that need a currency symbol should
+ * use `<CurrencyDisplay>` instead. Kept exported so a few non-currency
+ * callers (e.g. percentage bars) can still use the same 2dp formatting.
+ */
 export function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -127,12 +137,12 @@ export function InvoicePipeline({ counts }: { counts: Record<string, number> }) 
 
 // ─── Aging Overview ──────────────────────────────────────────────────────────
 
-const AGING_BUCKET_LABELS: Record<string, string> = {
-  current: 'Current',
-  '1_30': '1\u201330 days',
-  '31_60': '31\u201360 days',
-  '61_90': '61\u201390 days',
-  '90_plus': '90+ days',
+const AGING_BUCKET_LABEL_KEYS: Record<string, string> = {
+  current: 'agingCurrent',
+  '1_30': 'aging1to30',
+  '31_60': 'aging31to60',
+  '61_90': 'aging61to90',
+  '90_plus': 'aging90plus',
 };
 
 const AGING_COLORS: Record<string, string> = {
@@ -146,6 +156,7 @@ const AGING_COLORS: Record<string, string> = {
 export function AgingOverview({ aging }: { aging: FinanceDashboardData['aging_summary'] }) {
   const t = useTranslations('finance');
   const locale = useLocale();
+  const currencyCode = useTenantCurrency();
   const totalAmount = aging.reduce((s, b) => s + b.total, 0);
 
   return (
@@ -165,7 +176,7 @@ export function AgingOverview({ aging }: { aging: FinanceDashboardData['aging_su
           return (
             <div key={bucket.bucket} className="flex items-center gap-3">
               <span className="w-20 shrink-0 text-xs font-medium text-text-secondary">
-                {AGING_BUCKET_LABELS[bucket.bucket]}
+                {t(AGING_BUCKET_LABEL_KEYS[bucket.bucket] ?? 'agingCurrent')}
               </span>
               <div className="flex-1">
                 <div className="h-5 overflow-hidden rounded-full bg-surface-secondary">
@@ -176,9 +187,12 @@ export function AgingOverview({ aging }: { aging: FinanceDashboardData['aging_su
                 </div>
               </div>
               <div className="flex w-28 shrink-0 items-center justify-end gap-2">
-                <span className="text-xs font-mono text-text-secondary" dir="ltr">
-                  {formatCurrency(bucket.total)}
-                </span>
+                <CurrencyDisplay
+                  amount={bucket.total}
+                  currency_code={currencyCode}
+                  className="text-xs font-mono text-text-secondary"
+                  locale={locale}
+                />
                 <span
                   className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${AGING_COLORS[bucket.bucket] ?? ''}`}
                 >
@@ -198,6 +212,7 @@ export function AgingOverview({ aging }: { aging: FinanceDashboardData['aging_su
 export function TopDebtors({ debtors }: { debtors: FinanceDashboardData['top_debtors'] }) {
   const t = useTranslations('finance');
   const locale = useLocale();
+  const currencyCode = useTenantCurrency();
   if (debtors.length === 0) return null;
 
   return (
@@ -231,9 +246,12 @@ export function TopDebtors({ debtors }: { debtors: FinanceDashboardData['top_deb
                 {t('overdue').toLowerCase()}
               </p>
             </div>
-            <span className="shrink-0 font-mono text-sm font-semibold text-danger-600" dir="ltr">
-              {formatCurrency(debtor.total_owed)}
-            </span>
+            <CurrencyDisplay
+              amount={debtor.total_owed}
+              currency_code={currencyCode}
+              className="shrink-0 font-mono text-sm font-semibold text-danger-600"
+              locale={locale}
+            />
           </Link>
         ))}
       </div>
@@ -250,6 +268,8 @@ export function OverdueInvoices({
 }) {
   const t = useTranslations('finance');
   const locale = useLocale();
+  const router = useRouter();
+  const currencyCode = useTenantCurrency();
   if (invoices.length === 0) return null;
 
   return (
@@ -287,12 +307,17 @@ export function OverdueInvoices({
               <tr
                 key={inv.id}
                 className="border-b border-border last:border-b-0 cursor-pointer transition-colors hover:bg-surface-secondary"
-                onClick={() => window.location.assign(`/${locale}/finance/invoices/${inv.id}`)}
+                onClick={() => router.push(`/${locale}/finance/invoices/${inv.id}`)}
               >
                 <td className="px-3 py-2 font-mono text-sm text-primary">{inv.invoice_number}</td>
                 <td className="px-3 py-2 text-sm text-text-primary">{inv.household_name}</td>
-                <td className="px-3 py-2 text-end font-mono text-sm text-text-primary" dir="ltr">
-                  {formatCurrency(inv.balance_amount)}
+                <td className="px-3 py-2 text-end" dir="ltr">
+                  <CurrencyDisplay
+                    amount={inv.balance_amount}
+                    currency_code={currencyCode}
+                    className="font-mono text-sm text-text-primary"
+                    locale={locale}
+                  />
                 </td>
                 <td className="px-3 py-2 text-end" dir="ltr">
                   <span className="rounded-md bg-danger-100 px-2 py-0.5 text-xs font-semibold text-danger-700">

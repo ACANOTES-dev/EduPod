@@ -98,6 +98,7 @@ describe('DiscountsService', () => {
         name: 'Sibling Discount',
         discount_type: 'percent',
         value: 10,
+        auto_apply: false,
       });
 
       expect(result.name).toBe('Sibling Discount');
@@ -112,6 +113,7 @@ describe('DiscountsService', () => {
           name: 'Sibling Discount',
           discount_type: 'percent',
           value: 10,
+          auto_apply: false,
         }),
       ).rejects.toThrow(ConflictException);
     });

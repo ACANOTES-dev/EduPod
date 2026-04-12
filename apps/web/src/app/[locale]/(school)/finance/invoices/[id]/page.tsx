@@ -94,22 +94,23 @@ const invoiceStatusVariantMap: Record<
   written_off: 'info',
 };
 
-const invoiceStatusLabelMap: Record<InvoiceStatus, string> = {
-  draft: 'Draft',
-  pending_approval: 'Pending Approval',
-  issued: 'Issued',
-  partially_paid: 'Partially Paid',
-  paid: 'Paid',
-  overdue: 'Overdue',
-  void: 'Void',
-  cancelled: 'Cancelled',
-  written_off: 'Written Off',
+const invoiceStatusLabelKeyMap: Record<InvoiceStatus, string> = {
+  draft: 'invoiceStatus.draft',
+  pending_approval: 'invoiceStatus.pending_approval',
+  issued: 'invoiceStatus.issued',
+  partially_paid: 'invoiceStatus.partially_paid',
+  paid: 'invoiceStatus.paid',
+  overdue: 'invoiceStatus.overdue',
+  void: 'invoiceStatus.void',
+  cancelled: 'invoiceStatus.cancelled',
+  written_off: 'invoiceStatus.written_off',
 };
 
 export default function InvoiceDetailPage() {
   const _params = useParams<{ id: string }>();
   const id = _params?.id ?? '';
   const t = useTranslations('finance');
+  const tCommon = useTranslations('common');
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const currencyCode = useTenantCurrency();
@@ -154,11 +155,11 @@ export default function InvoiceDetailPage() {
 
   const metrics = [
     {
-      label: 'Subtotal',
+      label: t('subtotal'),
       value: <CurrencyDisplay amount={invoice.subtotal_amount} currency_code={currencyCode} />,
     },
     {
-      label: 'Discount',
+      label: t('discount'),
       value: (
         <CurrencyDisplay
           amount={invoice.discount_amount}
@@ -168,7 +169,7 @@ export default function InvoiceDetailPage() {
       ),
     },
     {
-      label: 'Total',
+      label: t('total'),
       value: (
         <CurrencyDisplay
           amount={invoice.total_amount}
@@ -178,7 +179,7 @@ export default function InvoiceDetailPage() {
       ),
     },
     {
-      label: 'Paid',
+      label: t('paid'),
       value: (
         <CurrencyDisplay
           amount={invoice.total_amount - invoice.balance_amount}
@@ -188,7 +189,7 @@ export default function InvoiceDetailPage() {
       ),
     },
     {
-      label: 'Balance',
+      label: t('balance'),
       value: (
         <CurrencyDisplay
           amount={invoice.balance_amount}
@@ -203,7 +204,7 @@ export default function InvoiceDetailPage() {
 
   const headerMetrics = [
     {
-      label: 'Household',
+      label: t('household'),
       value: (
         <EntityLink
           entityType="household"
@@ -214,11 +215,11 @@ export default function InvoiceDetailPage() {
       ),
     },
     {
-      label: 'Issue Date',
+      label: t('issueDate'),
       value: invoice.issue_date ? formatDate(invoice.issue_date) : '--',
     },
     {
-      label: 'Due Date',
+      label: t('dueDate'),
       value: formatDate(invoice.due_date),
     },
     ...metrics,
@@ -231,7 +232,7 @@ export default function InvoiceDetailPage() {
       title={invoice.invoice_number}
       subtitle={invoice.household.household_name}
       status={{
-        label: invoiceStatusLabelMap[invoice.status],
+        label: t(invoiceStatusLabelKeyMap[invoice.status]),
         variant: invoiceStatusVariantMap[invoice.status],
       }}
       reference={invoice.invoice_number}
@@ -240,12 +241,12 @@ export default function InvoiceDetailPage() {
       tabs={[
         {
           key: 'lines',
-          label: 'Lines',
+          label: t('tabLines'),
           content: <InvoiceLinesTab lines={invoice.lines} currencyCode={currencyCode} />,
         },
         {
           key: 'payments',
-          label: 'Payments',
+          label: t('tabPayments'),
           content: (
             <InvoicePaymentsTab
               allocations={invoice.payment_allocations}
@@ -255,7 +256,7 @@ export default function InvoiceDetailPage() {
         },
         {
           key: 'installments',
-          label: 'Installments',
+          label: t('tabInstallments'),
           content: (
             <InvoiceInstallmentsTab
               invoiceId={invoice.id}
@@ -274,9 +275,10 @@ export default function InvoiceDetailPage() {
         <div className="rounded-xl border border-warning-border bg-warning-surface px-6 py-4">
           <p className="text-sm font-semibold text-warning-text">{t('pendingApproval')}</p>
           <p className="mt-1 text-sm text-text-secondary">
-            {t('requestedBy2')}
-            {invoice.approval.requested_by_name ?? 'Unknown'}{' '}
-            {invoice.approval.requested_at ? `on ${formatDate(invoice.approval.requested_at)}` : ''}
+            {t('requestedBy2')} {invoice.approval.requested_by_name ?? tCommon('unknown')}
+            {invoice.approval.requested_at
+              ? ` ${tCommon('on')} ${formatDate(invoice.approval.requested_at)}`
+              : ''}
           </p>
         </div>
       )}

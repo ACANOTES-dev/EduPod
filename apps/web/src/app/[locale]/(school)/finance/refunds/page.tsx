@@ -93,6 +93,22 @@ export default function RefundsPage() {
   const [refundReason, setRefundReason] = React.useState('');
   const [creating, setCreating] = React.useState(false);
 
+  // Reject modal — server requires a non-empty comment, so we collect it here
+  // instead of sending an empty body (which always 400s).
+  const [rejectTarget, setRejectTarget] = React.useState<string | null>(null);
+  const [rejectReason, setRejectReason] = React.useState('');
+
+  const methodLabelKey: Record<string, string> = {
+    stripe: 'stripe',
+    cash: 'cash',
+    bank_transfer: 'bankTransfer',
+    card_manual: 'cardManual',
+  };
+  const translateMethod = (method: string): string => {
+    const key = methodLabelKey[method];
+    return key ? t(key) : method;
+  };
+
   const fetchRefunds = React.useCallback(async () => {
     setIsLoading(true);
     try {
@@ -130,24 +146,45 @@ export default function RefundsPage() {
   async function handleApprove(refundId: string) {
     setActionLoading(refundId);
     try {
-      await apiClient(`/api/v1/finance/refunds/${refundId}/approve`, { method: 'POST' });
+      await apiClient(`/api/v1/finance/refunds/${refundId}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      toast.success(t('approveSuccess'));
       void fetchRefunds();
     } catch (err) {
-      // error handled by apiClient
-      console.error('[fetchRefunds]', err);
+      console.error('[RefundsPage.approve]', err);
+      toast.error(t('approveFailed'));
     } finally {
       setActionLoading(null);
     }
   }
 
-  async function handleReject(refundId: string) {
-    setActionLoading(refundId);
+  function openRejectModal(refundId: string) {
+    setRejectTarget(refundId);
+    setRejectReason('');
+  }
+
+  async function handleReject() {
+    if (!rejectTarget) return;
+    const comment = rejectReason.trim();
+    if (!comment) {
+      toast.error(t('rejectCommentRequired'));
+      return;
+    }
+    setActionLoading(rejectTarget);
     try {
-      await apiClient(`/api/v1/finance/refunds/${refundId}/reject`, { method: 'POST' });
+      await apiClient(`/api/v1/finance/refunds/${rejectTarget}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ comment }),
+      });
+      toast.success(t('rejectSuccess'));
+      setRejectTarget(null);
+      setRejectReason('');
       void fetchRefunds();
     } catch (err) {
-      // error handled by apiClient
-      console.error('[fetchRefunds]', err);
+      console.error('[RefundsPage.reject]', err);
+      toast.error(t('rejectFailed'));
     } finally {
       setActionLoading(null);
     }
@@ -157,10 +194,11 @@ export default function RefundsPage() {
     setActionLoading(refundId);
     try {
       await apiClient(`/api/v1/finance/refunds/${refundId}/execute`, { method: 'POST' });
+      toast.success(t('executeSuccess'));
       void fetchRefunds();
     } catch (err) {
-      // error handled by apiClient
-      console.error('[fetchRefunds]', err);
+      console.error('[RefundsPage.execute]', err);
+      toast.error(t('executeFailed'));
     } finally {
       setActionLoading(null);
     }
@@ -333,7 +371,7 @@ export default function RefundsPage() {
                 className="text-danger-text border-danger-border hover:bg-danger-50"
                 onClick={(e) => {
                   e.stopPropagation();
-                  void handleReject(row.id);
+                  openRejectModal(row.id);
                 }}
                 disabled={loading}
               >
@@ -551,8 +589,8 @@ export default function RefundsPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-text-tertiary">{t('method')}</span>
-                      <span className="text-text-secondary capitalize">
-                        {selectedPayment.payment_method.replace(/_/g, ' ')}
+                      <span className="text-text-secondary">
+                        {translateMethod(selectedPayment.payment_method)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -607,6 +645,52 @@ export default function RefundsPage() {
                 {creating ? tCommon('saving') : t('createRefund')}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Refund Dialog — server requires a non-empty comment */}
+      <Dialog
+        open={rejectTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectTarget(null);
+            setRejectReason('');
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('rejectTitle')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="reject-reason">{t('rejectCommentLabel')}</Label>
+            <Textarea
+              id="reject-reason"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder={t('rejectCommentPlaceholder')}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRejectTarget(null);
+                setRejectReason('');
+              }}
+              disabled={actionLoading === rejectTarget}
+            >
+              {tCommon('cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void handleReject()}
+              disabled={actionLoading === rejectTarget || !rejectReason.trim()}
+            >
+              {actionLoading === rejectTarget ? tCommon('saving') : t('reject')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -21,8 +21,6 @@ import { apiClient } from '@/lib/api-client';
 
 import { CurrencyDisplay } from '../../../_components/currency-display';
 
-
-
 interface InstallmentRow {
   due_date: string;
   amount: string;
@@ -90,7 +88,7 @@ export function InstallmentForm({
         body: JSON.stringify({ installments }),
       });
 
-      toast.success('Installment plan created');
+      toast.success(t('installmentPlanCreated'));
       setRows([
         { due_date: '', amount: '' },
         { due_date: '', amount: '' },
@@ -98,7 +96,7 @@ export function InstallmentForm({
       onSuccess();
     } catch (err) {
       console.error('[InstallmentForm]', err);
-      toast.error('Failed to create installment plan');
+      toast.error(t('installmentPlanFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -160,7 +158,9 @@ export function InstallmentForm({
           </div>
 
           <Button variant="outline" size="sm" onClick={addRow}>
-            <Plus className="me-2 h-3.5 w-3.5" />{t('addInstallment')}</Button>
+            <Plus className="me-2 h-3.5 w-3.5" />
+            {t('addInstallment')}
+          </Button>
 
           {/* Running total */}
           <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
@@ -177,7 +177,7 @@ export function InstallmentForm({
               />
               {Math.abs(remaining) >= 0.01 && (
                 <span className="text-xs text-danger-text">
-                  ({remaining > 0 ? 'Remaining' : 'Over'}:{' '}
+                  ({remaining > 0 ? t('remaining') : t('overLabel')}:{' '}
                   <CurrencyDisplay amount={Math.abs(remaining)} currency_code={currencyCode} />)
                 </span>
               )}
@@ -186,9 +186,11 @@ export function InstallmentForm({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>{t('cancel')}</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+            {t('cancel')}
+          </Button>
           <Button onClick={() => void handleSubmit()} disabled={!isValid || isSubmitting}>
-            {isSubmitting ? 'Creating...' : 'Create Plan'}
+            {isSubmitting ? t('creating') : t('createPlan')}
           </Button>
         </DialogFooter>
       </DialogContent>

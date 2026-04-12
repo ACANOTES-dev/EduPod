@@ -111,7 +111,7 @@ export default function DiscountsPage() {
       header: t('discounts.colStatus'),
       render: (row: Discount) => (
         <StatusBadge status={row.active ? 'success' : 'neutral'} dot>
-          {row.active ? 'Active' : 'Inactive'}
+          {row.active ? t('active') : t('inactive')}
         </StatusBadge>
       ),
     },
@@ -154,7 +154,7 @@ export default function DiscountsPage() {
               className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary"
             >
               <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-              Back
+              {tCommon('back')}
             </Link>
             {canManage && (
               <Button onClick={() => router.push('discounts/new')}>

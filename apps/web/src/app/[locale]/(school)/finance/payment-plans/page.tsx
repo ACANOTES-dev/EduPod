@@ -459,7 +459,7 @@ export default function PaymentPlansPage() {
         }
       />
 
-      {!isLoading && plans.length === 0 ? (
+      {!isLoading && plans.length === 0 && statusFilter === 'active' ? (
         <EmptyState
           icon={CalendarClock}
           title={t('paymentPlans.emptyTitle')}

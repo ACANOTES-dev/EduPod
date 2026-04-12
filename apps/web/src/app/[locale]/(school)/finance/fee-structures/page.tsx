@@ -42,11 +42,11 @@ interface FeeStructure {
   currency_code?: string;
 }
 
-const frequencyLabels: Record<BillingFrequency, string> = {
-  one_off: 'One-off',
-  term: 'Per Term',
-  monthly: 'Monthly',
-  custom: 'Custom',
+const frequencyLabelKeyMap: Record<BillingFrequency, string> = {
+  one_off: 'feeStructures.freqOneOff',
+  term: 'feeStructures.freqTerm',
+  monthly: 'feeStructures.freqMonthly',
+  custom: 'feeStructures.freqCustom',
 };
 
 export default function FeeStructuresPage() {
@@ -139,8 +139,8 @@ export default function FeeStructuresPage() {
       key: 'billing_frequency',
       header: t('feeStructures.colFrequency'),
       render: (row: FeeStructure) => (
-        <span className="text-text-secondary capitalize">
-          {frequencyLabels[row.billing_frequency]}
+        <span className="text-text-secondary">
+          {t(frequencyLabelKeyMap[row.billing_frequency])}
         </span>
       ),
     },
@@ -156,7 +156,7 @@ export default function FeeStructuresPage() {
       header: t('feeStructures.colStatus'),
       render: (row: FeeStructure) => (
         <StatusBadge status={row.active ? 'success' : 'neutral'} dot>
-          {row.active ? 'Active' : 'Inactive'}
+          {row.active ? t('active') : t('inactive')}
         </StatusBadge>
       ),
     },
@@ -199,7 +199,7 @@ export default function FeeStructuresPage() {
               className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary"
             >
               <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-              Back
+              {tCommon('back')}
             </Link>
             {canManage && (
               <Button onClick={() => router.push('fee-structures/new')}>
@@ -216,10 +216,14 @@ export default function FeeStructuresPage() {
           icon={DollarSign}
           title={t('feeStructures.emptyTitle')}
           description={t('feeStructures.emptyDescription')}
-          action={{
-            label: t('feeStructures.newButton'),
-            onClick: () => router.push('fee-structures/new'),
-          }}
+          action={
+            canManage
+              ? {
+                  label: t('feeStructures.newButton'),
+                  onClick: () => router.push('fee-structures/new'),
+                }
+              : undefined
+          }
         />
       ) : (
         <DataTable

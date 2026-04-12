@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import type { CreateRefundDto } from '@school/shared';
 
@@ -8,6 +8,7 @@ import { SequenceService } from '../sequence/sequence.service';
 
 import { roundMoney } from './helpers/invoice-status.helper';
 import { InvoicesService } from './invoices.service';
+import { StripeService } from './stripe.service';
 
 interface RefundFilters {
   page: number;
@@ -18,10 +19,13 @@ interface RefundFilters {
 
 @Injectable()
 export class RefundsService {
+  private readonly logger = new Logger(RefundsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
     private readonly invoicesService: InvoicesService,
+    private readonly stripeService: StripeService,
   ) {}
 
   async findAll(tenantId: string, filters: RefundFilters) {
@@ -265,9 +269,18 @@ export class RefundsService {
       });
     }
 
+    // Probe the payment method up-front so we know whether this will trigger
+    // a Stripe API call. We do the DB mutation first (status=executed +
+    // allocation reversal + payment status recompute) and then call Stripe.
+    // If Stripe fails we compensate by marking the refund `failed`.
+    const paymentRow = await this.prisma.payment.findFirst({
+      where: { id: refund.payment_id, tenant_id: tenantId },
+      select: { payment_method: true, external_event_id: true },
+    });
+
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    return rlsClient.$transaction(async (tx) => {
+    const dbResult = await rlsClient.$transaction(async (tx) => {
       const prisma = tx as unknown as typeof this.prisma;
 
       // Atomically check status and update to prevent concurrent execution race
@@ -324,6 +337,37 @@ export class RefundsService {
         amount: Number(updated!.amount),
       };
     });
+
+    // Stripe-backed payments: fire the external refund now that the local
+    // ledger has been updated. If Stripe rejects the call (network error,
+    // already-fully-refunded, etc.), flip the refund to `failed` and surface
+    // the Stripe error. The LIFO reversal is NOT undone — operators must
+    // retry or manually reconcile, which is the standard pattern because
+    // allocation reversals are compensating actions, not atomic w/ Stripe.
+    if (paymentRow?.payment_method === 'stripe' && paymentRow.external_event_id) {
+      try {
+        await this.stripeService.processRefund(tenantId, refund.payment_id, Number(refund.amount));
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Stripe refund failed with unknown error';
+        this.logger.error(
+          `Stripe refund failed for refund=${refundId} payment=${refund.payment_id}: ${message}`,
+        );
+        await this.prisma.refund.update({
+          where: { id: refundId },
+          data: {
+            status: 'failed',
+            failure_reason: `Stripe refund failed: ${message}`,
+          },
+        });
+        throw new BadRequestException({
+          code: 'STRIPE_REFUND_FAILED',
+          message,
+        });
+      }
+    }
+
+    return dbResult;
   }
 
   /**

@@ -20,16 +20,17 @@ import type { FinanceDashboardData } from '@school/shared';
 
 import { apiClient } from '@/lib/api-client';
 
+import { CurrencyDisplay } from './_components/currency-display';
 import {
   AgingOverview,
   FinanceNavigate,
   InvoicePipeline,
   OverdueInvoices,
   PendingActionsBanner,
-  formatCurrency,
 } from './_components/dashboard-sections';
 import { PaymentStatusBadge } from './_components/payment-status-badge';
 import { PdfPreviewModal } from './_components/pdf-preview-modal';
+import { useTenantCurrency } from './_components/use-tenant-currency';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -49,7 +50,7 @@ function KpiCard({
   subtitle,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   icon: LucideIcon;
   href: string;
   accent: string;
@@ -66,12 +67,12 @@ function KpiCard({
           <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
             {label}
           </p>
-          <p
+          <div
             className="mt-1 text-[28px] font-bold leading-tight tracking-tight text-text-primary"
             dir="ltr"
           >
             {value}
-          </p>
+          </div>
           {subtitle && <p className="mt-1 text-xs text-text-secondary">{subtitle}</p>}
         </div>
         <div className={`rounded-xl p-2.5 ${accent}`}>
@@ -157,6 +158,7 @@ function HouseholdDebtBreakdown({
 }) {
   const t = useTranslations('finance');
   const locale = useLocale();
+  const currencyCode = useTenantCurrency();
   const total =
     breakdown.pct_0_10 + breakdown.pct_10_30 + breakdown.pct_30_50 + breakdown.pct_50_plus;
   const counts: Record<string, number> = {
@@ -263,12 +265,12 @@ function HouseholdDebtBreakdown({
                     {debtor.invoice_count === 1 ? t('invoice') : t('invoicesLabel')}
                   </p>
                 </div>
-                <span
+                <CurrencyDisplay
+                  amount={debtor.total_owed}
+                  currency_code={currencyCode}
                   className="shrink-0 font-mono text-sm font-semibold text-danger-600"
-                  dir="ltr"
-                >
-                  {formatCurrency(debtor.total_owed)}
-                </span>
+                  locale={locale}
+                />
               </Link>
             ))}
           </div>
@@ -284,6 +286,7 @@ function RecentPayments({ payments }: { payments: FinanceDashboardData['recent_p
   const t = useTranslations('finance');
   const router = useRouter();
   const locale = useLocale();
+  const currencyCode = useTenantCurrency();
   const [receiptPdfUrl, setReceiptPdfUrl] = React.useState<string | null>(null);
   const [showReceiptPdf, setShowReceiptPdf] = React.useState(false);
 
@@ -343,11 +346,13 @@ function RecentPayments({ payments }: { payments: FinanceDashboardData['recent_p
                     <td className="px-4 py-3 text-sm font-medium text-text-primary">
                       {payment.household_name}
                     </td>
-                    <td
-                      className="px-4 py-3 text-end text-sm font-mono text-text-primary"
-                      dir="ltr"
-                    >
-                      {formatCurrency(payment.amount)}
+                    <td className="px-4 py-3 text-end" dir="ltr">
+                      <CurrencyDisplay
+                        amount={payment.amount}
+                        currency_code={currencyCode}
+                        className="text-sm font-mono text-text-primary"
+                        locale={locale}
+                      />
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <PaymentStatusBadge status={payment.status} />
@@ -422,6 +427,7 @@ export default function FinanceDashboardPage() {
   const t = useTranslations('finance');
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+  const currencyCode = useTenantCurrency();
   const [data, setData] = React.useState<FinanceDashboardData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
@@ -469,7 +475,13 @@ export default function FinanceDashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label={t('expectedRevenue')}
-          value={formatCurrency(data.expected_revenue)}
+          value={
+            <CurrencyDisplay
+              amount={data.expected_revenue}
+              currency_code={currencyCode}
+              locale={locale}
+            />
+          }
           icon={Receipt}
           href="/finance/overview"
           accent="bg-primary/10 text-primary"
@@ -477,14 +489,26 @@ export default function FinanceDashboardPage() {
         />
         <KpiCard
           label={t('receivedPayments')}
-          value={formatCurrency(data.received_payments)}
+          value={
+            <CurrencyDisplay
+              amount={data.received_payments}
+              currency_code={currencyCode}
+              locale={locale}
+            />
+          }
           icon={TrendingUp}
           href="/finance/overview"
           accent="bg-success-100 text-success-700"
         />
         <KpiCard
           label={t('outstandingAmount')}
-          value={formatCurrency(data.outstanding)}
+          value={
+            <CurrencyDisplay
+              amount={data.outstanding}
+              currency_code={currencyCode}
+              locale={locale}
+            />
+          }
           icon={TrendingDown}
           href="/finance/overview"
           accent="bg-danger-100 text-danger-700"

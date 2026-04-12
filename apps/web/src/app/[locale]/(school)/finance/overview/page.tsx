@@ -51,6 +51,7 @@ const STATUS_CONFIG: Record<
 
 export default function FinancialOverviewPage() {
   const t = useTranslations('finance');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -212,7 +213,9 @@ export default function FinancialOverviewPage() {
         onChange={(e) => setStatusFilter(e.target.value as HouseholdStatus | '')}
         className="h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary"
       >
-        <option value="">{t('overview.colStatus')}: All</option>
+        <option value="">
+          {t('overview.colStatus')}: {tCommon('all')}
+        </option>
         <option value="fully_paid">{t('overview.fullyPaid')}</option>
         <option value="partially_paid">{t('overview.partiallyPaid')}</option>
         <option value="unpaid">{t('overview.unpaid')}</option>
@@ -224,7 +227,9 @@ export default function FinancialOverviewPage() {
         onChange={(e) => setOverdueFilter(e.target.value as '' | 'true' | 'false')}
         className="h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary"
       >
-        <option value="">{t('overview.colOverdue')}: All</option>
+        <option value="">
+          {t('overview.colOverdue')}: {tCommon('all')}
+        </option>
         <option value="true">{t('overview.yes')}</option>
         <option value="false">{t('overview.no')}</option>
       </select>
@@ -253,7 +258,7 @@ export default function FinancialOverviewPage() {
         <div className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-surface-secondary/50 px-5 py-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-              Total Expected
+              {t('overview.totalExpected')}
             </p>
             <CurrencyDisplay
               amount={summaryTotalExpected}
@@ -265,7 +270,7 @@ export default function FinancialOverviewPage() {
           <div className="h-8 w-px bg-border" />
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-              Total Received
+              {t('overview.totalReceived')}
             </p>
             <CurrencyDisplay
               amount={summaryTotalReceived}
@@ -277,7 +282,7 @@ export default function FinancialOverviewPage() {
           <div className="h-8 w-px bg-border" />
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-              Total Outstanding
+              {t('overview.totalOutstanding')}
             </p>
             <CurrencyDisplay
               amount={summaryTotalOutstanding}

@@ -70,6 +70,7 @@ type StatusFilter = 'all' | 'active' | 'expired' | 'revoked';
 
 export default function ScholarshipsPage() {
   const t = useTranslations('finance');
+  const tCommon = useTranslations('common');
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { hasAnyRole } = useRoleCheck();
@@ -360,7 +361,7 @@ export default function ScholarshipsPage() {
               className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary"
             >
               <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-              Back
+              {tCommon('back')}
             </Link>
             {canManage && (
               <Button onClick={() => setShowCreate(true)}>

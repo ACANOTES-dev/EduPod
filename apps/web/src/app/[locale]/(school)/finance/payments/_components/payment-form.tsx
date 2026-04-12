@@ -170,7 +170,7 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
 
       <div className="flex justify-end gap-2">
         <Button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? 'Recording...' : 'Record Payment'}
+          {form.formState.isSubmitting ? t('recording') : t('recordPayment')}
         </Button>
       </div>
     </form>

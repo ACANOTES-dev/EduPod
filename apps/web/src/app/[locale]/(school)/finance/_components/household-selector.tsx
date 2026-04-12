@@ -43,6 +43,11 @@ export function HouseholdSelector({
   const [households, setHouseholds] = React.useState<Household[]>([]);
   const [search, setSearch] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
+  // Stores the selected household name when `value` is set to an id that is
+  // not in the currently-loaded `households` page (e.g. after a server
+  // filter). Without this, the trigger would fall back to the placeholder
+  // and the user would see no indication of what is selected.
+  const [selectedFallback, setSelectedFallback] = React.useState<Household | null>(null);
 
   const fetchHouseholds = React.useCallback(async (query: string) => {
     setIsLoading(true);
@@ -65,7 +70,37 @@ export function HouseholdSelector({
     }
   }, [open, search, fetchHouseholds]);
 
-  const selectedHousehold = households.find((h) => h.id === value);
+  // Resolve `value` → household when the current page doesn't contain it.
+  // This fires whenever `value` changes and covers the "editing existing
+  // record" case where the preloaded row's household isn't in the default
+  // search results.
+  React.useEffect(() => {
+    if (!value) {
+      setSelectedFallback(null);
+      return;
+    }
+    if (households.some((h) => h.id === value)) {
+      setSelectedFallback(null);
+      return;
+    }
+    if (selectedFallback?.id === value) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await apiClient<{ data: Household }>(`/api/v1/households/${value}`);
+        if (!cancelled) setSelectedFallback(res.data);
+      } catch (err) {
+        console.error('[HouseholdSelector]', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [value, households, selectedFallback]);
+
+  const selectedHousehold = households.find((h) => h.id === value) ?? selectedFallback;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

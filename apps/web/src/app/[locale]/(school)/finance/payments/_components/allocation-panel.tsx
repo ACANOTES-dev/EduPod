@@ -7,12 +7,10 @@ import * as React from 'react';
 import type { AllocationSuggestion } from '@school/shared';
 import { Button, Input, toast } from '@school/ui';
 
-
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../../_components/currency-display';
-
 
 interface AllocationRow {
   invoice_id: string;
@@ -66,7 +64,7 @@ export function AllocationPanel({
 
       const suggestions = res.data;
       if (suggestions.length === 0) {
-        toast.info('No outstanding invoices found for this household');
+        toast.info(t('noOutstandingForHousehold'));
         return;
       }
 
@@ -82,7 +80,7 @@ export function AllocationPanel({
       setHasSuggested(true);
     } catch (err) {
       console.error('[AllocationPanel]', err);
-      toast.error('Failed to fetch allocation suggestions');
+      toast.error(t('suggestFailed'));
     } finally {
       setIsSuggesting(false);
     }
@@ -109,11 +107,11 @@ export function AllocationPanel({
         body: JSON.stringify({ allocations }),
       });
 
-      toast.success('Allocations confirmed');
+      toast.success(t('allocationsConfirmed'));
       onAllocationComplete();
     } catch (err) {
       console.error('[AllocationPanel]', err);
-      toast.error('Failed to confirm allocations');
+      toast.error(t('confirmAllocationsFailed'));
     } finally {
       setIsConfirming(false);
     }
@@ -130,7 +128,7 @@ export function AllocationPanel({
           disabled={isSuggesting}
         >
           <Sparkles className="me-2 h-3.5 w-3.5" />
-          {isSuggesting ? 'Suggesting...' : 'Suggest Allocations'}
+          {isSuggesting ? t('suggesting') : t('suggestAllocations')}
         </Button>
       </div>
 
@@ -146,10 +144,18 @@ export function AllocationPanel({
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-surface-secondary">
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('invoice')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('dueDate')}</th>
-                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('balanceAmount')}</th>
-                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('allocate')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('invoice')}
+                  </th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('dueDate')}
+                  </th>
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('balanceAmount')}
+                  </th>
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('allocate')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -230,7 +236,7 @@ export function AllocationPanel({
           <div className="flex justify-end">
             <Button onClick={() => void handleConfirm()} disabled={!isValid || isConfirming}>
               <Check className="me-2 h-4 w-4" />
-              {isConfirming ? 'Confirming...' : 'Confirm Allocations'}
+              {isConfirming ? t('confirming') : t('confirmAllocations')}
             </Button>
           </div>
         </>

@@ -1,7 +1,7 @@
 'use client';
 
 import { FileText } from 'lucide-react';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -79,26 +79,28 @@ const paymentStatusVariantMap: Record<
   refunded_full: 'info',
 };
 
-const paymentStatusLabelMap: Record<PaymentStatus, string> = {
-  pending: 'Pending',
-  posted: 'Posted',
-  failed: 'Failed',
-  voided: 'Voided',
-  refunded_partial: 'Partially Refunded',
-  refunded_full: 'Fully Refunded',
+const paymentStatusLabelKeyMap: Record<PaymentStatus, string> = {
+  pending: 'paymentStatus.pending',
+  posted: 'paymentStatus.posted',
+  failed: 'paymentStatus.failed',
+  voided: 'paymentStatus.voided',
+  refunded_partial: 'paymentStatus.refunded_partial',
+  refunded_full: 'paymentStatus.refunded_full',
 };
 
-const methodLabelMap: Record<PaymentMethod, string> = {
-  stripe: 'Stripe',
-  cash: 'Cash',
-  bank_transfer: 'Bank Transfer',
-  card_manual: 'Card (Manual)',
+const methodLabelKeyMap: Record<PaymentMethod, string> = {
+  stripe: 'stripe',
+  cash: 'cash',
+  bank_transfer: 'bankTransfer',
+  card_manual: 'cardManual',
 };
 
 export default function PaymentDetailPage() {
   const t = useTranslations('finance');
   const _params = useParams<{ id: string }>();
   const id = _params?.id ?? '';
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const currencyCode = useTenantCurrency();
 
   const [payment, setPayment] = React.useState<PaymentDetail | null>(null);
@@ -157,18 +159,18 @@ export default function PaymentDetailPage() {
 
   const metrics = [
     {
-      label: 'Household',
+      label: t('household'),
       value: (
         <EntityLink
           entityType="household"
           entityId={payment.household.id}
           label={payment.household.household_name}
-          href={`/households/${payment.household.id}`}
+          href={`/${locale}/households/${payment.household.id}`}
         />
       ),
     },
     {
-      label: 'Amount',
+      label: t('amount'),
       value: (
         <CurrencyDisplay
           amount={payment.amount}
@@ -178,15 +180,15 @@ export default function PaymentDetailPage() {
       ),
     },
     {
-      label: 'Method',
-      value: methodLabelMap[payment.payment_method],
+      label: t('method'),
+      value: t(methodLabelKeyMap[payment.payment_method]),
     },
     {
-      label: 'Received',
+      label: t('received'),
       value: formatDateTime(payment.received_at),
     },
     {
-      label: 'Allocated',
+      label: t('allocated'),
       value: (
         <CurrencyDisplay
           amount={payment.allocated_amount}
@@ -196,7 +198,7 @@ export default function PaymentDetailPage() {
       ),
     },
     {
-      label: 'Unallocated',
+      label: t('unallocated'),
       value: (
         <CurrencyDisplay
           amount={payment.unallocated_amount}
@@ -361,15 +363,15 @@ export default function PaymentDetailPage() {
       title={payment.payment_reference}
       subtitle={payment.household.household_name}
       status={{
-        label: paymentStatusLabelMap[payment.status],
+        label: t(paymentStatusLabelKeyMap[payment.status]),
         variant: paymentStatusVariantMap[payment.status],
       }}
       reference={payment.payment_reference}
       actions={actions}
       metrics={metrics}
       tabs={[
-        { key: 'allocations', label: 'Allocations', content: allocationsContent },
-        { key: 'refunds', label: 'Refunds', content: refundsContent },
+        { key: 'allocations', label: t('tabAllocations'), content: allocationsContent },
+        { key: 'refunds', label: t('tabRefunds'), content: refundsContent },
       ]}
     >
       {/* Reason note */}

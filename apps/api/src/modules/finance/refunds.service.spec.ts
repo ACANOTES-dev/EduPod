@@ -13,6 +13,7 @@ import { SequenceService } from '../sequence/sequence.service';
 
 import { InvoicesService } from './invoices.service';
 import { RefundsService } from './refunds.service';
+import { StripeService } from './stripe.service';
 
 const TENANT_ID = 'tenant-uuid-1111';
 const USER_ID = 'user-uuid-1111';
@@ -51,6 +52,10 @@ const mockInvoicesService = {
   recalculateBalance: jest.fn(),
 };
 
+const mockStripeService = {
+  processRefund: jest.fn(),
+};
+
 const makeRefund = (overrides: Record<string, unknown> = {}) => ({
   id: REFUND_ID,
   tenant_id: TENANT_ID,
@@ -77,6 +82,7 @@ describe('RefundsService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequenceService },
         { provide: InvoicesService, useValue: mockInvoicesService },
+        { provide: StripeService, useValue: mockStripeService },
       ],
     }).compile();
 

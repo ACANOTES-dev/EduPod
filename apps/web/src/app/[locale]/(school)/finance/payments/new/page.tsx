@@ -8,8 +8,6 @@ import { PageHeader } from '@/components/page-header';
 
 import { PaymentForm } from '../_components/payment-form';
 
-
-
 export default function NewPaymentPage() {
   const t = useTranslations('finance');
   const router = useRouter();
@@ -20,7 +18,7 @@ export default function NewPaymentPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('newPayment')} description="Record a manual payment from a household" />
+      <PageHeader title={t('newPayment')} description={t('newPaymentDescription')} />
 
       <div className="rounded-xl border border-border bg-surface p-6">
         <PaymentForm onSuccess={handleSuccess} />

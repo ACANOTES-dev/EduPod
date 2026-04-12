@@ -67,18 +67,19 @@ const entryTypeVariantMap: Record<
   write_off: 'danger',
 };
 
-const entryTypeLabelMap: Record<StatementEntry['type'], string> = {
-  invoice_issued: 'Invoice',
-  payment_received: 'Payment',
-  allocation: 'Allocation',
-  refund: 'Refund',
-  write_off: 'Write-off',
+const entryTypeLabelKeyMap: Record<StatementEntry['type'], string> = {
+  invoice_issued: 'entryInvoice',
+  payment_received: 'entryPayment',
+  allocation: 'entryAllocation',
+  refund: 'entryRefund',
+  write_off: 'entryWriteOff',
 };
 
 function EntryTypeBadge({ type }: { type: StatementEntry['type'] }) {
+  const t = useTranslations('finance');
   return (
     <StatusBadge status={entryTypeVariantMap[type]} dot>
-      {entryTypeLabelMap[type]}
+      {t(entryTypeLabelKeyMap[type])}
     </StatusBadge>
   );
 }

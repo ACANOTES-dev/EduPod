@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   Param,
   ParseUUIDPipe,
   Post,
@@ -35,6 +36,8 @@ import { ReceiptsService } from './receipts.service';
 @Controller('v1/finance/payments')
 @UseGuards(AuthGuard, PermissionGuard)
 export class PaymentsController {
+  private readonly logger = new Logger(PaymentsController.name);
+
   constructor(
     private readonly paymentsService: PaymentsService,
     private readonly receiptsService: ReceiptsService,
@@ -50,8 +53,10 @@ export class PaymentsController {
     return this.paymentsService.findAll(tenant.tenant_id, query);
   }
 
+  // Narrower than the list/read endpoints: only users who can actually
+  // record or allocate payments need the staff filter.
   @Get('staff')
-  @RequiresPermission('finance.view')
+  @RequiresPermission('finance.manage')
   async getAcceptingStaff(@CurrentTenant() tenant: TenantContext) {
     return this.paymentsService.getAcceptingStaff(tenant.tenant_id);
   }
@@ -111,9 +116,25 @@ export class PaymentsController {
     const resolvedLocale = locale ?? 'en';
     const pdfBuffer = await this.receiptsService.renderPdf(tenant.tenant_id, id, resolvedLocale);
 
+    // Prefer the receipt_number over the payment UUID so downloaded files
+    // are human-meaningful. Fall back to the UUID when the payment has no
+    // linked receipt (e.g. legacy records pre-dating receipt auto-creation).
+    let filenameStem = `receipt-${id}`;
+    try {
+      const receipt = await this.receiptsService.findByPayment(tenant.tenant_id, id);
+      if (receipt?.receipt_number) {
+        filenameStem = `receipt-${receipt.receipt_number}`;
+      }
+    } catch (err) {
+      // Fall through to the UUID stem — PDF content is already ready.
+      // Not fatal: receipt may not exist yet (legacy records pre-dating
+      // receipt auto-creation). Log so the miss is still observable.
+      this.logger.warn(`Receipt lookup failed for payment ${id}: ${String(err)}`);
+    }
+
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="receipt-${id}.pdf"`,
+      'Content-Disposition': `inline; filename="${filenameStem}.pdf"`,
       'Content-Length': pdfBuffer.length,
     });
     res.end(pdfBuffer);
