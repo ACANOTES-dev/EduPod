@@ -913,6 +913,54 @@ describe('InvoicesService', () => {
   });
 
   describe('serializeInvoice — edge cases', () => {
+    it('should flatten student + fee_structure into student_name/fee_structure_name (FIN-006)', async () => {
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        ...makeInvoice(),
+        lines: [
+          {
+            id: 'line-1',
+            description: 'TUITION',
+            quantity: '1',
+            unit_amount: '8000',
+            line_total: '8000',
+            student_id: 'student-1',
+            fee_structure_id: 'fs-1',
+            student: { first_name: 'Amira', last_name: 'Al-Saleh' },
+            fee_structure: { name: 'Tuition Term 1' },
+          },
+        ],
+      });
+
+      const result = await service.findOne(TENANT_ID, INVOICE_ID);
+      const line = result.lines?.[0] as Record<string, unknown> | undefined;
+      expect(line?.student_name).toBe('Amira Al-Saleh');
+      expect(line?.fee_structure_name).toBe('Tuition Term 1');
+    });
+
+    it('should return null student_name/fee_structure_name when joins absent', async () => {
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        ...makeInvoice(),
+        lines: [
+          {
+            id: 'line-1',
+            description: 'Ad-hoc charge',
+            quantity: '1',
+            unit_amount: '50',
+            line_total: '50',
+            student_id: null,
+            fee_structure_id: null,
+            student: null,
+            fee_structure: null,
+          },
+        ],
+      });
+
+      const result = await service.findOne(TENANT_ID, INVOICE_ID);
+      const line = result.lines?.[0] as Record<string, unknown> | undefined;
+      expect(line?.student_name).toBeNull();
+      expect(line?.fee_structure_name).toBeNull();
+    });
+
     it('should handle undefined optional fields', async () => {
       const invoice = {
         id: INVOICE_ID,

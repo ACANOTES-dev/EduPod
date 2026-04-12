@@ -719,6 +719,8 @@ export class InvoicesService {
       quantity: unknown;
       unit_amount: unknown;
       line_total: unknown;
+      student?: { first_name?: string | null; last_name?: string | null } | null;
+      fee_structure?: { name?: string | null } | null;
       [key: string]: unknown;
     }>;
     [key: string]: unknown;
@@ -734,12 +736,25 @@ export class InvoicesService {
         invoice.balance_amount !== undefined ? Number(invoice.balance_amount) : undefined,
       write_off_amount: invoice.write_off_amount != null ? Number(invoice.write_off_amount) : null,
       lines: Array.isArray(invoice.lines)
-        ? invoice.lines.map((l) => ({
-            ...l,
-            quantity: Number(l.quantity),
-            unit_amount: Number(l.unit_amount),
-            line_total: Number(l.line_total),
-          }))
+        ? invoice.lines.map((l) => {
+            const student = l.student as
+              | { first_name?: string | null; last_name?: string | null }
+              | null
+              | undefined;
+            const feeStructure = l.fee_structure as { name?: string | null } | null | undefined;
+            const student_name = student
+              ? `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || null
+              : null;
+            const fee_structure_name = feeStructure?.name ?? null;
+            return {
+              ...l,
+              quantity: Number(l.quantity),
+              unit_amount: Number(l.unit_amount),
+              line_total: Number(l.line_total),
+              student_name,
+              fee_structure_name,
+            };
+          })
         : undefined,
     };
   }
