@@ -266,7 +266,7 @@ export default function PaymentDetailPage() {
                       entityType="invoice"
                       entityId={alloc.invoice.id}
                       label={alloc.invoice.invoice_number}
-                      href={`/finance/invoices/${alloc.invoice.id}`}
+                      href={`/${locale}/finance/invoices/${alloc.invoice.id}`}
                     />
                   </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">
