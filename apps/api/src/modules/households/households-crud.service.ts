@@ -159,7 +159,7 @@ export class HouseholdsCrudService {
           include: {
             _count: { select: { students: true, emergency_contacts: true } },
             billing_parent: {
-              select: { id: true, first_name: true, last_name: true },
+              select: { id: true, first_name: true, last_name: true, phone: true },
             },
           },
         }),
@@ -168,7 +168,12 @@ export class HouseholdsCrudService {
     })) as [
       (HouseholdListItem & {
         _count: { students: number; emergency_contacts: number };
-        billing_parent: { id: string; first_name: string; last_name: string } | null;
+        billing_parent: {
+          id: string;
+          first_name: string;
+          last_name: string;
+          phone: string | null;
+        } | null;
       })[],
       number,
     ];

@@ -198,11 +198,11 @@ export interface CreditNoteRow {
 
 export interface PaymentPlanRequestRow {
   id: string;
-  invoice_id: string;
+  invoice_id: string | null;
   household_id: string;
-  requested_by_parent_id: string;
+  requested_by_parent_id: string | null;
   proposed_installments_json: unknown;
-  reason: string;
+  reason: string | null;
   status: PaymentPlanStatus;
   admin_notes: string | null;
   reviewed_at: Date | null;

@@ -42,9 +42,11 @@ export class HouseholdStatementsService {
 
     const tenant = await this.tenantReadFacade.findById(tenantId);
 
-    // Build date range filter
-    const dateFrom = filters.date_from ? new Date(filters.date_from) : undefined;
-    const dateTo = filters.date_to ? new Date(filters.date_to) : undefined;
+    // Build date range filter — use start-of-day / end-of-day to capture timestamps
+    // within the boundary dates. Without this, a payment at 2024-04-11T14:00:00Z
+    // would be missed when date_to is "2024-04-11" (parsed as midnight UTC).
+    const dateFrom = filters.date_from ? new Date(`${filters.date_from}T00:00:00.000Z`) : undefined;
+    const dateTo = filters.date_to ? new Date(`${filters.date_to}T23:59:59.999Z`) : undefined;
 
     // Gather invoices (not void/cancelled)
     const invoiceWhere: Record<string, unknown> = {

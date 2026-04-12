@@ -248,7 +248,7 @@ export default function HouseholdStatementPage() {
                   <td className="px-4 py-3 text-sm">
                     <EntryTypeBadge type={entry.type} />
                   </td>
-                  <td className="px-4 py-3 text-sm font-mono text-text-secondary">
+                  <td className="px-4 py-3 text-sm font-mono text-text-secondary max-w-[180px] truncate">
                     {entry.reference}
                   </td>
                   <td className="px-4 py-3 text-sm text-text-secondary max-w-[300px] truncate">

@@ -67,12 +67,19 @@ export class ReceiptsService {
   }
 
   async renderPdf(tenantId: string, paymentId: string, locale: string): Promise<Buffer> {
-    // Load receipt, payment, allocations, and household data
+    // Load receipt, payment, allocations, household, and billing parent data
     const payment = await this.prisma.payment.findFirst({
       where: { id: paymentId, tenant_id: tenantId },
       include: {
         household: {
-          select: { id: true, household_name: true },
+          select: {
+            id: true,
+            household_name: true,
+            household_number: true,
+            billing_parent: {
+              select: { first_name: true, last_name: true, phone: true },
+            },
+          },
         },
         allocations: {
           include: {
@@ -92,9 +99,28 @@ export class ReceiptsService {
       });
     }
 
+    // ─── Snapshot balances ────────────────────────────────────────────────────
+    // Sum all outstanding invoice balances for this household
+    const balanceResult = await this.prisma.invoice.aggregate({
+      where: {
+        tenant_id: tenantId,
+        household_id: payment.household.id,
+        status: { in: ['issued', 'partially_paid', 'overdue'] },
+      },
+      _sum: { balance_amount: true },
+    });
+    const remainingAfter = Number(balanceResult._sum.balance_amount ?? 0);
+    const outstandingBefore = remainingAfter + Number(payment.amount);
+
     const branding = await this.tenantReadFacade.findBranding(tenantId);
 
     const tenant = await this.tenantReadFacade.findById(tenantId);
+
+    const billingParent = payment.household.billing_parent;
+    const billingParentName = billingParent
+      ? `${billingParent.first_name} ${billingParent.last_name}`
+      : null;
+    const billingParentPhone = billingParent?.phone ?? null;
 
     const pdfBranding = {
       school_name: branding?.school_name_display ?? tenant?.name ?? '',
@@ -105,12 +131,22 @@ export class ReceiptsService {
 
     const receiptData = {
       receipt_number: payment.receipt?.receipt_number ?? '',
-      payment_reference: payment.payment_reference,
-      payment_method: payment.payment_method,
-      amount: Number(payment.amount),
+      issued_at: payment.receipt?.issued_at?.toISOString() ?? new Date().toISOString(),
       currency_code: payment.currency_code,
-      received_at: payment.received_at.toISOString(),
-      household_name: payment.household.household_name,
+      household: {
+        household_name: payment.household.household_name,
+        household_number: payment.household.household_number ?? '--',
+        billing_parent_name: billingParentName,
+        billing_parent_phone: billingParentPhone,
+      },
+      payment: {
+        payment_reference: payment.payment_reference,
+        payment_method: payment.payment_method,
+        amount: Number(payment.amount),
+        received_at: payment.received_at.toISOString(),
+      },
+      outstanding_before: outstandingBefore,
+      remaining_after: remainingAfter,
       allocations: payment.allocations.map((a) => ({
         invoice_number: a.invoice.invoice_number,
         invoice_total: Number(a.invoice.total_amount),

@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import type { CustomFinanceReportQueryDto } from '@school/shared';
+
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -56,6 +58,21 @@ export interface FeeStructurePerformance {
   total_billed: number;
   total_collected: number;
   default_rate: number;
+}
+
+export interface CustomReportRow {
+  student_id: string;
+  student_name: string;
+  student_number: string | null;
+  year_group: string | null;
+  household_name: string;
+  billing_parent_name: string | null;
+  billing_parent_phone: string | null;
+  billing_parent_email: string | null;
+  fee_type: string;
+  amount_billed: number;
+  amount_paid: number;
+  balance: number;
 }
 
 const CACHE_TTL = 300; // 5 minutes
@@ -191,7 +208,10 @@ export class FinancialReportsService {
     return result;
   }
 
-  async collectionByYearGroup(tenantId: string, _filters: DateRangeFilter): Promise<CollectionByYearGroup[]> {
+  async collectionByYearGroup(
+    tenantId: string,
+    _filters: DateRangeFilter,
+  ): Promise<CollectionByYearGroup[]> {
     const cacheKey = `finance:collection-year-group:${tenantId}`;
 
     const cached = await this.tryGetCache<CollectionByYearGroup[]>(cacheKey);
@@ -260,7 +280,10 @@ export class FinancialReportsService {
     return result;
   }
 
-  async paymentMethodBreakdown(tenantId: string, filters: DateRangeFilter): Promise<PaymentMethodBreakdown[]> {
+  async paymentMethodBreakdown(
+    tenantId: string,
+    filters: DateRangeFilter,
+  ): Promise<PaymentMethodBreakdown[]> {
     const cacheKey = `finance:payment-methods:${tenantId}:${filters.date_from ?? ''}:${filters.date_to ?? ''}`;
 
     const cached = await this.tryGetCache<PaymentMethodBreakdown[]>(cacheKey);
@@ -308,7 +331,10 @@ export class FinancialReportsService {
     return result;
   }
 
-  async feeStructurePerformance(tenantId: string, _filters: DateRangeFilter): Promise<FeeStructurePerformance[]> {
+  async feeStructurePerformance(
+    tenantId: string,
+    _filters: DateRangeFilter,
+  ): Promise<FeeStructurePerformance[]> {
     const cacheKey = `finance:fee-structure-perf:${tenantId}`;
 
     const cached = await this.tryGetCache<FeeStructurePerformance[]>(cacheKey);
@@ -356,14 +382,140 @@ export class FinancialReportsService {
         total_assigned: fs.household_fee_assignments.length,
         total_billed: totalBilled,
         total_collected: totalCollected,
-        default_rate: totalBilled > 0
-          ? roundMoney(((totalBilled - totalCollected) / totalBilled) * 100)
-          : 0,
+        default_rate:
+          totalBilled > 0 ? roundMoney(((totalBilled - totalCollected) / totalBilled) * 100) : 0,
       };
     });
 
     await this.trySetCache(cacheKey, result);
     return result;
+  }
+
+  async customReport(
+    tenantId: string,
+    query: CustomFinanceReportQueryDto,
+  ): Promise<CustomReportRow[]> {
+    const { year_group_ids, fee_type_ids, date_from, date_to, status } = query;
+
+    // Build invoice line where clause
+    const lineWhere: Record<string, unknown> = {
+      tenant_id: tenantId,
+      student: { isNot: null },
+      invoice: {
+        status: { notIn: ['void', 'cancelled', 'draft'] },
+      },
+    };
+
+    // Filter by year group on the student
+    if (year_group_ids && year_group_ids.length > 0) {
+      lineWhere.student = { isNot: null, year_group_id: { in: year_group_ids } };
+    }
+
+    // Filter by fee type on the fee structure
+    if (fee_type_ids && fee_type_ids.length > 0) {
+      lineWhere.fee_structure = { fee_type_id: { in: fee_type_ids } };
+    }
+
+    // Date filter on issue_date
+    if (date_from || date_to) {
+      const invoiceFilter = lineWhere.invoice as Record<string, unknown>;
+      const dateFilter: Record<string, Date> = {};
+      if (date_from) dateFilter.gte = new Date(date_from);
+      if (date_to) dateFilter.lte = new Date(date_to);
+      invoiceFilter.issue_date = dateFilter;
+    }
+
+    // Status filter: outstanding means balance > 0, paid means balance = 0
+    if (status === 'outstanding') {
+      const invoiceFilter = lineWhere.invoice as Record<string, unknown>;
+      invoiceFilter.balance_amount = { gt: 0 };
+    } else if (status === 'paid') {
+      const invoiceFilter = lineWhere.invoice as Record<string, unknown>;
+      invoiceFilter.balance_amount = { lte: 0 };
+    }
+
+    const lines = await this.prisma.invoiceLine.findMany({
+      where: lineWhere,
+      select: {
+        line_total: true,
+        description: true,
+        student: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            student_number: true,
+            year_group: { select: { name: true } },
+            household: {
+              select: {
+                household_name: true,
+                billing_parent: {
+                  select: {
+                    first_name: true,
+                    last_name: true,
+                    phone: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        fee_structure: {
+          select: {
+            fee_type: { select: { name: true } },
+          },
+        },
+        invoice: {
+          select: {
+            total_amount: true,
+            balance_amount: true,
+          },
+        },
+      },
+      orderBy: { invoice: { created_at: 'desc' } },
+    });
+
+    // Aggregate per student + fee type
+    const keyMap = new Map<string, CustomReportRow>();
+
+    for (const line of lines) {
+      if (!line.student) continue;
+
+      const feeTypeName = line.fee_structure?.fee_type?.name ?? line.description;
+      const key = `${line.student.id}::${feeTypeName}`;
+
+      const lineTotal = Number(line.line_total);
+      const invoiceTotal = Number(line.invoice.total_amount);
+      const invoiceBalance = Number(line.invoice.balance_amount);
+      const fraction = invoiceTotal > 0 ? lineTotal / invoiceTotal : 0;
+      const lineCollected = roundMoney(fraction * (invoiceTotal - invoiceBalance));
+
+      const existing = keyMap.get(key);
+      if (existing) {
+        existing.amount_billed = roundMoney(existing.amount_billed + lineTotal);
+        existing.amount_paid = roundMoney(existing.amount_paid + lineCollected);
+        existing.balance = roundMoney(existing.amount_billed - existing.amount_paid);
+      } else {
+        const bp = line.student.household.billing_parent;
+        keyMap.set(key, {
+          student_id: line.student.id,
+          student_name: `${line.student.first_name} ${line.student.last_name}`,
+          student_number: line.student.student_number,
+          year_group: line.student.year_group?.name ?? null,
+          household_name: line.student.household.household_name,
+          billing_parent_name: bp ? `${bp.first_name} ${bp.last_name}` : null,
+          billing_parent_phone: bp?.phone ?? null,
+          billing_parent_email: bp?.email ?? null,
+          fee_type: feeTypeName,
+          amount_billed: lineTotal,
+          amount_paid: lineCollected,
+          balance: roundMoney(lineTotal - lineCollected),
+        });
+      }
+    }
+
+    return Array.from(keyMap.values());
   }
 
   private async tryGetCache<T>(key: string): Promise<T | null> {

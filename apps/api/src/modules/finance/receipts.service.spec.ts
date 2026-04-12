@@ -27,6 +27,9 @@ const mockPrisma = {
   tenant: {
     findUnique: jest.fn(),
   },
+  invoice: {
+    aggregate: jest.fn().mockResolvedValue({ _sum: { balance_amount: null } }),
+  },
 };
 
 const mockPdfRenderingService = {
@@ -140,15 +143,21 @@ describe('ReceiptsService', () => {
         amount: '500.00',
         currency_code: 'EUR',
         received_at: new Date('2026-03-24'),
-        household: { id: 'hh-1', household_name: 'Smith' },
+        household: {
+          id: 'hh-1',
+          household_name: 'Smith',
+          household_number: 'HH-001',
+          billing_parent: { first_name: 'John', last_name: 'Smith', phone: '+971501234567' },
+        },
         allocations: [
           {
             allocated_amount: '500.00',
             invoice: { id: 'inv-1', invoice_number: 'INV-001', total_amount: '1000.00' },
           },
         ],
-        receipt: { receipt_number: 'REC-001' },
+        receipt: { receipt_number: 'REC-001', issued_at: new Date('2026-03-24') },
       });
+      mockPrisma.invoice.aggregate.mockResolvedValue({ _sum: { balance_amount: 500 } });
       mockPrisma.tenantBranding.findUnique.mockResolvedValue({
         school_name_display: 'Test School',
         school_name_ar: null,
@@ -164,7 +173,13 @@ describe('ReceiptsService', () => {
       expect(mockPdfRenderingService.renderPdf).toHaveBeenCalledWith(
         'receipt',
         'en',
-        expect.objectContaining({ receipt_number: 'REC-001' }),
+        expect.objectContaining({
+          receipt_number: 'REC-001',
+          household: expect.objectContaining({ household_name: 'Smith' }),
+          payment: expect.objectContaining({ payment_reference: 'PAY-001' }),
+          outstanding_before: 1000,
+          remaining_after: 500,
+        }),
         expect.objectContaining({ school_name: 'Test School' }),
       );
     });
@@ -184,10 +199,16 @@ describe('ReceiptsService', () => {
         amount: '300.00',
         currency_code: 'USD',
         received_at: new Date('2026-03-24'),
-        household: { id: 'hh-1', household_name: 'Jones' },
+        household: {
+          id: 'hh-1',
+          household_name: 'Jones',
+          household_number: null,
+          billing_parent: null,
+        },
         allocations: [],
         receipt: null,
       });
+      mockPrisma.invoice.aggregate.mockResolvedValue({ _sum: { balance_amount: null } });
       mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
 
       const result = await service.renderPdf(TENANT_ID, PAYMENT_ID, 'en');
@@ -196,7 +217,10 @@ describe('ReceiptsService', () => {
       expect(mockPdfRenderingService.renderPdf).toHaveBeenCalledWith(
         'receipt',
         'en',
-        expect.objectContaining({ receipt_number: '' }),
+        expect.objectContaining({
+          receipt_number: '',
+          household: expect.objectContaining({ household_name: 'Jones', household_number: '--' }),
+        }),
         expect.objectContaining({ school_name: 'Test School' }),
       );
     });
@@ -229,10 +253,16 @@ describe('ReceiptsService', () => {
         amount: '100.00',
         currency_code: 'EUR',
         received_at: new Date('2026-03-24'),
-        household: { id: 'hh-1', household_name: 'Null Family' },
+        household: {
+          id: 'hh-1',
+          household_name: 'Null Family',
+          household_number: null,
+          billing_parent: null,
+        },
         allocations: [],
         receipt: null,
       });
+      mockPrisma.invoice.aggregate.mockResolvedValue({ _sum: { balance_amount: null } });
       mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
 
       const result = await svc.renderPdf(TENANT_ID, PAYMENT_ID, 'en');

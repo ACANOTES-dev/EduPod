@@ -8,6 +8,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import { HouseholdReadFacade } from '../households/household-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { PaymentPlansService } from './payment-plans.service';
@@ -42,12 +43,20 @@ const mockPrisma = {
   },
 };
 
+const mockHouseholdReadFacade = {
+  existsOrThrow: jest.fn(),
+};
+
 describe('PaymentPlansService', () => {
   let service: PaymentPlansService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PaymentPlansService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        PaymentPlansService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: HouseholdReadFacade, useValue: mockHouseholdReadFacade },
+      ],
     }).compile();
 
     service = module.get<PaymentPlansService>(PaymentPlansService);

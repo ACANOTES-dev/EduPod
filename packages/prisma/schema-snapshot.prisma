@@ -1082,6 +1082,7 @@ model User {
   credit_notes_issued      CreditNote[]            @relation("credit_note_issuer")
   credit_note_applications CreditNoteApplication[] @relation("credit_note_applier")
   payment_plans_reviewed   PaymentPlanRequest[]    @relation("payment_plan_reviewer")
+  payment_plans_created    PaymentPlanRequest[]    @relation("payment_plan_creator")
   scholarships_awarded     Scholarship[]           @relation("scholarship_awarder")
 
   // P6B Relations
@@ -3177,6 +3178,9 @@ enum PaymentPlanStatus {
   approved
   rejected
   counter_offered
+  active
+  completed
+  cancelled
 }
 
 enum ScholarshipStatus {
@@ -4942,24 +4946,30 @@ model LateFeeApplication {
 model PaymentPlanRequest {
   id                         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                  String            @db.Uuid
-  invoice_id                 String            @db.Uuid
+  invoice_id                 String?           @db.Uuid
   household_id               String            @db.Uuid
-  requested_by_parent_id     String            @db.Uuid
+  requested_by_parent_id     String?           @db.Uuid
   proposed_installments_json Json
-  reason                     String            @db.Text
+  reason                     String?           @db.Text
   status                     PaymentPlanStatus @default(pending)
   admin_notes                String?           @db.Text
   reviewed_by_user_id        String?           @db.Uuid
   reviewed_at                DateTime?         @db.Timestamptz()
   created_at                 DateTime          @default(now()) @db.Timestamptz()
   updated_at                 DateTime          @default(now()) @updatedAt @db.Timestamptz()
+  // Admin-created plan fields
+  original_balance           Decimal?          @db.Decimal(12, 2)
+  discount_amount            Decimal?          @db.Decimal(12, 2)
+  discount_reason            String?           @db.Text
+  created_by_user_id         String?           @db.Uuid
 
   // Relations
   tenant              Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  invoice             Invoice   @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  invoice             Invoice?  @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
   household           Household @relation(fields: [household_id], references: [id], onDelete: Cascade)
-  requested_by_parent Parent    @relation("payment_plan_requester", fields: [requested_by_parent_id], references: [id], onDelete: Cascade)
+  requested_by_parent Parent?   @relation("payment_plan_requester", fields: [requested_by_parent_id], references: [id], onDelete: Cascade)
   reviewed_by         User?     @relation("payment_plan_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
+  created_by          User?     @relation("payment_plan_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
 
   @@index([tenant_id, status], name: "idx_payment_plan_requests_tenant")
   @@index([tenant_id, invoice_id], name: "idx_payment_plan_requests_invoice")

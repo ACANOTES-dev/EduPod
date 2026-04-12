@@ -465,9 +465,36 @@ export type CounterOfferPaymentPlanDto = z.infer<typeof counterOfferPaymentPlanS
 export const paymentPlanRequestQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  status: z.enum(['pending', 'approved', 'rejected', 'counter_offered']).optional(),
+  status: z
+    .enum([
+      'pending',
+      'approved',
+      'rejected',
+      'counter_offered',
+      'active',
+      'completed',
+      'cancelled',
+    ])
+    .optional(),
 });
 export type PaymentPlanRequestQueryDto = z.infer<typeof paymentPlanRequestQuerySchema>;
+
+export const createAdminPaymentPlanSchema = z.object({
+  household_id: z.string().uuid(),
+  original_balance: z.number().positive(),
+  discount_amount: z.number().min(0).default(0),
+  discount_reason: z.string().max(2000).optional(),
+  installments: z
+    .array(
+      z.object({
+        due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        amount: z.number().positive(),
+      }),
+    )
+    .min(1),
+  admin_notes: z.string().max(2000).optional(),
+});
+export type CreateAdminPaymentPlanDto = z.infer<typeof createAdminPaymentPlanSchema>;
 
 // ─── Finance Audit ────────────────────────────────────────────────────────────
 
@@ -500,6 +527,33 @@ export const bulkExportSchema = z.object({
   format: z.enum(['csv', 'pdf']).default('csv'),
 });
 export type BulkExportDto = z.infer<typeof bulkExportSchema>;
+
+// ─── Custom Report ───────────────────────────────────────────────────────────
+
+export const customFinanceReportQuerySchema = z.object({
+  year_group_ids: z
+    .preprocess(
+      (val) => (typeof val === 'string' ? val.split(',').filter(Boolean) : val),
+      z.array(z.string().uuid()),
+    )
+    .optional(),
+  fee_type_ids: z
+    .preprocess(
+      (val) => (typeof val === 'string' ? val.split(',').filter(Boolean) : val),
+      z.array(z.string().uuid()),
+    )
+    .optional(),
+  date_from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  date_to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  status: z.enum(['all', 'outstanding', 'paid']).default('all'),
+});
+export type CustomFinanceReportQueryDto = z.infer<typeof customFinanceReportQuerySchema>;
 
 // ─── Household Overview ──────────────────────────────────────────────────────
 

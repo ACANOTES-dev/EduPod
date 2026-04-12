@@ -9,12 +9,14 @@ import { Decimal } from '@prisma/client/runtime/library';
 import type {
   ApprovePaymentPlanDto,
   CounterOfferPaymentPlanDto,
+  CreateAdminPaymentPlanDto,
   PaymentPlanRequestQueryDto,
   RejectPaymentPlanDto,
   RequestPaymentPlanDto,
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { HouseholdReadFacade } from '../households/household-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { serializeDecimal } from './helpers/serialize-decimal.helper';
@@ -26,7 +28,10 @@ interface ProposedInstallment {
 
 @Injectable()
 export class PaymentPlansService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly householdReadFacade: HouseholdReadFacade,
+  ) {}
 
   async findAll(tenantId: string, query: PaymentPlanRequestQueryDto) {
     const { page, pageSize, status } = query;
@@ -185,13 +190,13 @@ export class PaymentPlansService {
       const installments = request.proposed_installments_json as unknown as ProposedInstallment[];
 
       await db.installment.deleteMany({
-        where: { invoice_id: request.invoice_id, tenant_id: tenantId },
+        where: { invoice_id: request.invoice_id!, tenant_id: tenantId },
       });
 
       await db.installment.createMany({
         data: installments.map((i) => ({
           tenant_id: tenantId,
-          invoice_id: request.invoice_id,
+          invoice_id: request.invoice_id!,
           due_date: new Date(i.due_date),
           amount: i.amount,
           status: 'pending',
@@ -314,13 +319,13 @@ export class PaymentPlansService {
       const installments = request.proposed_installments_json as unknown as ProposedInstallment[];
 
       await db.installment.deleteMany({
-        where: { invoice_id: request.invoice_id, tenant_id: tenantId },
+        where: { invoice_id: request.invoice_id!, tenant_id: tenantId },
       });
 
       await db.installment.createMany({
         data: installments.map((i) => ({
           tenant_id: tenantId,
-          invoice_id: request.invoice_id,
+          invoice_id: request.invoice_id!,
           due_date: new Date(i.due_date),
           amount: i.amount,
           status: 'pending',
@@ -330,6 +335,89 @@ export class PaymentPlansService {
       return this.serialize(updatedRequest);
     });
   }
+
+  // ─── Admin-Created Payment Plans ────────────────────────────────────────────
+
+  /**
+   * Admin creates a standalone payment plan for a household.
+   * Auto-approved with status 'active'. Not tied to any specific invoice.
+   */
+  async createAdminPlan(tenantId: string, adminUserId: string, dto: CreateAdminPaymentPlanDto) {
+    // Validate household exists (throws NotFoundException if not found)
+    await this.householdReadFacade.existsOrThrow(tenantId, dto.household_id);
+
+    // Validate installment total equals plan total (original_balance - discount)
+    const planTotal = dto.original_balance - (dto.discount_amount ?? 0);
+    const installmentTotal = dto.installments.reduce((sum, i) => sum + i.amount, 0);
+
+    if (Math.abs(installmentTotal - planTotal) > 0.01) {
+      throw new BadRequestException({
+        code: 'INSTALLMENT_SUM_MISMATCH',
+        message: `Installments total (${installmentTotal.toFixed(2)}) must equal plan total (${planTotal.toFixed(2)})`,
+      });
+    }
+
+    if (planTotal <= 0) {
+      throw new BadRequestException({
+        code: 'INVALID_PLAN_TOTAL',
+        message: 'Plan total after discount must be positive',
+      });
+    }
+
+    const plan = await this.prisma.paymentPlanRequest.create({
+      data: {
+        tenant_id: tenantId,
+        household_id: dto.household_id,
+        proposed_installments_json: dto.installments as never,
+        status: 'active',
+        original_balance: dto.original_balance,
+        discount_amount: dto.discount_amount ?? 0,
+        discount_reason: dto.discount_reason ?? null,
+        admin_notes: dto.admin_notes ?? null,
+        created_by_user_id: adminUserId,
+      },
+      include: {
+        household: { select: { id: true, household_name: true } },
+      },
+    });
+
+    return this.serializeAdminPlan(plan);
+  }
+
+  /**
+   * Cancel an active admin-created payment plan.
+   */
+  async cancelPlan(tenantId: string, id: string) {
+    const plan = await this.prisma.paymentPlanRequest.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
+
+    if (!plan) {
+      throw new NotFoundException({
+        code: 'PAYMENT_PLAN_NOT_FOUND',
+        message: `Payment plan "${id}" not found`,
+      });
+    }
+
+    if (plan.status !== 'active') {
+      throw new BadRequestException({
+        code: 'INVALID_STATUS',
+        message: `Cannot cancel plan with status "${plan.status}"`,
+      });
+    }
+
+    const updated = await this.prisma.paymentPlanRequest.update({
+      where: { id },
+      data: { status: 'cancelled' },
+      include: {
+        household: { select: { id: true, household_name: true } },
+      },
+    });
+
+    return this.serializeAdminPlan(updated);
+  }
+
+  // ─── Serialization ──────────────────────────────────────────────────────────
 
   private serialize<T>(
     r: T & { invoice?: { total_amount: Decimal; [k: string]: unknown } | null },
@@ -343,6 +431,19 @@ export class PaymentPlansService {
       invoice: r.invoice
         ? { ...r.invoice, total_amount: serializeDecimal(r.invoice.total_amount) }
         : undefined,
+    };
+  }
+
+  private serializeAdminPlan<
+    T extends {
+      original_balance?: Decimal | null;
+      discount_amount?: Decimal | null;
+    },
+  >(r: T) {
+    return {
+      ...r,
+      original_balance: r.original_balance ? serializeDecimal(r.original_balance) : 0,
+      discount_amount: r.discount_amount ? serializeDecimal(r.discount_amount) : 0,
     };
   }
 }

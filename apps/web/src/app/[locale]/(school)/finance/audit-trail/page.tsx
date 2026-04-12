@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronDown, ChevronRight, Download, Search } from 'lucide-react';
+import { Download, ExternalLink, Search } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -18,17 +19,30 @@ import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function useLocale() {
+  const pathname = usePathname();
+  return (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface AuditLogActor {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
 
 interface AuditLogEntry {
   id: string;
   created_at: string;
-  user_name: string;
+  actor: AuditLogActor | null;
   action: string;
   entity_type: string;
-  entity_id: string;
-  reference: string | null;
-  changes: Record<string, { old: unknown; new: unknown }> | null;
+  entity_id: string | null;
+  metadata_json: Record<string, unknown> | null;
 }
 
 type EntityTypeFilter =
@@ -37,15 +51,29 @@ type EntityTypeFilter =
   | 'payment'
   | 'refund'
   | 'fee_structure'
+  | 'fee_type'
   | 'discount'
   | 'fee_assignment'
   | 'credit_note'
-  | 'scholarship';
+  | 'scholarship'
+  | 'receipt';
+
+// ─── Entity link map ──────────────────────────────────────────────────────────
+
+const ENTITY_LINK_MAP: Record<string, string> = {
+  invoice: '/finance/invoices',
+  payment: '/finance/payments',
+  refund: '/finance/refunds',
+  fee_structure: '/finance/fee-structures',
+  credit_note: '/finance/credit-notes',
+  scholarship: '/finance/scholarships',
+};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function FinanceAuditTrailPage() {
   const t = useTranslations('finance');
+  const locale = useLocale();
 
   const [entries, setEntries] = React.useState<AuditLogEntry[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -53,13 +81,10 @@ export default function FinanceAuditTrailPage() {
   const [total, setTotal] = React.useState(0);
   const pageSize = 25;
 
-  const [expandedRow, setExpandedRow] = React.useState<string | null>(null);
-
   const [search, setSearch] = React.useState('');
   const [entityTypeFilter, setEntityTypeFilter] = React.useState<EntityTypeFilter>('all');
   const [dateFrom, setDateFrom] = React.useState('');
   const [dateTo, setDateTo] = React.useState('');
-  const [userFilter, setUserFilter] = React.useState('');
 
   const fetchEntries = React.useCallback(async () => {
     setIsLoading(true);
@@ -67,16 +92,14 @@ export default function FinanceAuditTrailPage() {
       const params = new URLSearchParams({
         page: String(page),
         pageSize: String(pageSize),
-        domain: 'finance',
       });
       if (search) params.set('search', search);
       if (entityTypeFilter !== 'all') params.set('entity_type', entityTypeFilter);
       if (dateFrom) params.set('date_from', dateFrom);
       if (dateTo) params.set('date_to', dateTo);
-      if (userFilter) params.set('user_search', userFilter);
 
       const res = await apiClient<{ data: AuditLogEntry[]; meta: { total: number } }>(
-        `/api/v1/audit-logs?${params.toString()}`,
+        `/api/v1/finance/audit-trail?${params.toString()}`,
       );
       setEntries(res.data);
       setTotal(res.meta.total);
@@ -87,7 +110,7 @@ export default function FinanceAuditTrailPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, search, entityTypeFilter, dateFrom, dateTo, userFilter]);
+  }, [page, search, entityTypeFilter, dateFrom, dateTo]);
 
   React.useEffect(() => {
     void fetchEntries();
@@ -95,7 +118,7 @@ export default function FinanceAuditTrailPage() {
 
   React.useEffect(() => {
     setPage(1);
-  }, [search, entityTypeFilter, dateFrom, dateTo, userFilter]);
+  }, [search, entityTypeFilter, dateFrom, dateTo]);
 
   function handleExportCsv() {
     const params = new URLSearchParams({ domain: 'finance' });
@@ -117,6 +140,43 @@ export default function FinanceAuditTrailPage() {
     });
   }
 
+  function getEntityReference(entry: AuditLogEntry): string {
+    const meta = entry.metadata_json;
+    if (meta) {
+      if (typeof meta.invoice_number === 'string') return meta.invoice_number;
+      if (typeof meta.receipt_number === 'string') return meta.receipt_number;
+      if (typeof meta.payment_reference === 'string') return meta.payment_reference;
+      if (typeof meta.credit_note_number === 'string') return meta.credit_note_number;
+      if (typeof meta.name === 'string') return meta.name;
+      if (typeof meta.reference === 'string') return meta.reference;
+    }
+    return entry.entity_id ? entry.entity_id.slice(0, 8) + '\u2026' : '\u2014';
+  }
+
+  function getEntityLink(entry: AuditLogEntry): string | null {
+    if (!entry.entity_id) return null;
+    const basePath = ENTITY_LINK_MAP[entry.entity_type];
+    if (!basePath) return null;
+    return `/${locale}${basePath}/${entry.entity_id}`;
+  }
+
+  function getDescription(entry: AuditLogEntry): string {
+    const entityLabel = entry.entity_type.replace(/_/g, ' ');
+    const ref = getEntityReference(entry);
+    const refSuffix = ref !== '\u2014' ? ` (${ref})` : '';
+
+    switch (entry.action) {
+      case 'create':
+        return `Created ${entityLabel}${refSuffix}`;
+      case 'update':
+        return `Updated ${entityLabel}${refSuffix}`;
+      case 'delete':
+        return `Deleted ${entityLabel}${refSuffix}`;
+      default:
+        return `${entry.action} ${entityLabel}${refSuffix}`;
+    }
+  }
+
   const actionBadgeClass: Record<string, string> = {
     create: 'bg-success-100 text-success-700',
     update: 'bg-info-100 text-info-700',
@@ -134,10 +194,12 @@ export default function FinanceAuditTrailPage() {
       ),
     },
     {
-      key: 'user_name',
+      key: 'actor',
       header: t('auditTrail.user'),
       render: (row: AuditLogEntry) => (
-        <span className="text-sm text-text-primary">{row.user_name}</span>
+        <span className="text-sm text-text-primary">
+          {row.actor ? `${row.actor.first_name} ${row.actor.last_name}` : '\u2014'}
+        </span>
       ),
     },
     {
@@ -165,35 +227,29 @@ export default function FinanceAuditTrailPage() {
     {
       key: 'reference',
       header: t('auditTrail.reference'),
-      render: (row: AuditLogEntry) => (
-        <span className="font-mono text-xs text-text-secondary">
-          {row.reference ?? (row.entity_id ? row.entity_id.slice(0, 8) + '…' : '—')}
-        </span>
-      ),
+      render: (row: AuditLogEntry) => {
+        const ref = getEntityReference(row);
+        const link = getEntityLink(row);
+        if (link) {
+          return (
+            <a
+              href={link}
+              className="inline-flex items-center gap-1 font-mono text-xs text-primary hover:underline"
+            >
+              {ref}
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          );
+        }
+        return <span className="font-mono text-xs text-text-secondary">{ref}</span>;
+      },
     },
     {
-      key: 'changes',
-      header: '',
-      render: (row: AuditLogEntry) =>
-        row.changes ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpandedRow(expandedRow === row.id ? null : row.id);
-            }}
-            className="flex items-center gap-1 text-xs text-primary hover:underline"
-          >
-            {t('auditTrail.viewChanges')}
-            {expandedRow === row.id ? (
-              <ChevronDown className="h-3 w-3" />
-            ) : (
-              <ChevronRight className="h-3 w-3" />
-            )}
-          </button>
-        ) : (
-          <span className="text-xs text-text-tertiary">—</span>
-        ),
+      key: 'description',
+      header: t('auditTrail.descriptionCol'),
+      render: (row: AuditLogEntry) => (
+        <span className="text-sm text-text-secondary">{getDescription(row)}</span>
+      ),
     },
   ];
 
@@ -222,20 +278,15 @@ export default function FinanceAuditTrailPage() {
             <SelectItem value="invoice">{t('invoices')}</SelectItem>
             <SelectItem value="payment">{t('payments')}</SelectItem>
             <SelectItem value="refund">{t('refunds')}</SelectItem>
+            <SelectItem value="receipt">{t('auditTrail.receipt')}</SelectItem>
             <SelectItem value="fee_structure">{t('feeStructures.title')}</SelectItem>
+            <SelectItem value="fee_type">{t('auditTrail.feeType')}</SelectItem>
             <SelectItem value="discount">{t('discounts.title')}</SelectItem>
             <SelectItem value="fee_assignment">{t('feeAssignments.title')}</SelectItem>
             <SelectItem value="credit_note">{t('creditNotes.title')}</SelectItem>
             <SelectItem value="scholarship">{t('scholarships.title')}</SelectItem>
           </SelectContent>
         </Select>
-
-        <Input
-          placeholder={t('auditTrail.filterByUser')}
-          value={userFilter}
-          onChange={(e) => setUserFilter(e.target.value)}
-          className="w-full sm:w-[160px]"
-        />
 
         <Input
           type="date"
@@ -266,63 +317,17 @@ export default function FinanceAuditTrailPage() {
         }
       />
 
-      <div className="space-y-2">
-        <DataTable
-          columns={columns}
-          data={entries}
-          toolbar={toolbar}
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          onPageChange={setPage}
-          keyExtractor={(row) => row.id}
-          isLoading={isLoading}
-        />
-
-        {/* Inline diff expansion */}
-        {entries
-          .filter((e) => e.id === expandedRow && e.changes)
-          .map((entry) => (
-            <div
-              key={`diff-${entry.id}`}
-              className="rounded-xl border border-border bg-surface-secondary p-4"
-            >
-              <h4 className="mb-3 text-xs font-semibold uppercase text-text-tertiary">
-                {t('auditTrail.changes')}
-              </h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="pb-2 pe-4 text-start font-semibold uppercase text-text-tertiary">
-                        {t('auditTrail.field')}
-                      </th>
-                      <th className="pb-2 pe-4 text-start font-semibold uppercase text-text-tertiary">
-                        {t('auditTrail.oldValue')}
-                      </th>
-                      <th className="pb-2 text-start font-semibold uppercase text-text-tertiary">
-                        {t('auditTrail.newValue')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(entry.changes ?? {}).map(([field, diff]) => (
-                      <tr key={field} className="border-b border-border last:border-b-0">
-                        <td className="py-1.5 pe-4 font-mono text-text-secondary">{field}</td>
-                        <td className="py-1.5 pe-4 font-mono text-danger-700">
-                          {diff.old != null ? String(diff.old) : '—'}
-                        </td>
-                        <td className="py-1.5 font-mono text-success-700">
-                          {diff.new != null ? String(diff.new) : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
-      </div>
+      <DataTable
+        columns={columns}
+        data={entries}
+        toolbar={toolbar}
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={setPage}
+        keyExtractor={(row) => row.id}
+        isLoading={isLoading}
+      />
     </div>
   );
 }

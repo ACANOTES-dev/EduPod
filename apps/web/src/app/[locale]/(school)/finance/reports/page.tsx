@@ -3,26 +3,13 @@
 import { Download } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 
 import { Button, Input } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+import { CustomReportBuilder } from '../_components/custom-report-builder';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,40 +25,16 @@ interface AgingBucket {
   }>;
 }
 
-interface RevenuePoint {
-  month: string;
-  invoiced: number;
-  collected: number;
-  outstanding: number;
-}
-
-interface YearGroupCollection {
-  year_group: string;
-  total_billed: number;
-  total_collected: number;
-  collection_rate: number;
-}
-
-interface PaymentMethodBreakdown {
-  method: string;
-  amount: number;
-  count: number;
-  percentage: number;
-}
-
 interface FeePerformanceRow {
   fee_structure_id: string;
-  fee_structure_name: string;
-  households_assigned: number;
+  name: string;
+  total_assigned: number;
   total_billed: number;
   total_collected: number;
-  collection_rate: number;
   default_rate: number;
 }
 
-type ReportTab = 'aging' | 'revenue' | 'year_group' | 'payment_methods' | 'fee_performance';
-
-const PIE_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
+type ReportTab = 'aging' | 'fee_performance' | 'custom';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -83,16 +46,18 @@ export default function FinanceReportsPage() {
   const [dateTo, setDateTo] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
 
-  // Report data
+  // Aging state
   const [agingData, setAgingData] = React.useState<AgingBucket[]>([]);
-  const [revenueData, setRevenueData] = React.useState<RevenuePoint[]>([]);
-  const [yearGroupData, setYearGroupData] = React.useState<YearGroupCollection[]>([]);
-  const [paymentMethodData, setPaymentMethodData] = React.useState<PaymentMethodBreakdown[]>([]);
-  const [feePerformanceData, setFeePerformanceData] = React.useState<FeePerformanceRow[]>([]);
   const [expandedBucket, setExpandedBucket] = React.useState<string | null>(null);
+
+  // Fee performance state
+  const [feePerformanceData, setFeePerformanceData] = React.useState<FeePerformanceRow[]>([]);
+
+  // ─── Fetch report data ──────────────────────────────────────────────────────
 
   const fetchReport = React.useCallback(
     async (tab: ReportTab) => {
+      if (tab === 'custom') return;
       setIsLoading(true);
       try {
         const params = new URLSearchParams();
@@ -107,7 +72,6 @@ export default function FinanceReportsPage() {
               { label: string; count: number; total: number; households: AgingBucket['households'] }
             >
           >(`/api/v1/finance/reports/aging${qs}`);
-          // Backend returns { current, overdue_1_30, ... } — transform to array
           const bucketKeyMap: Record<string, AgingBucket['bucket']> = {
             current: 'current',
             overdue_1_30: '1_30',
@@ -125,21 +89,6 @@ export default function FinanceReportsPage() {
                 households: val.households ?? [],
               })),
           );
-        } else if (tab === 'revenue') {
-          const raw = await apiClient<RevenuePoint[] | { data: RevenuePoint[] }>(
-            `/api/v1/finance/reports/revenue-by-period${qs}`,
-          );
-          setRevenueData(Array.isArray(raw) ? raw : raw.data);
-        } else if (tab === 'year_group') {
-          const raw = await apiClient<YearGroupCollection[] | { data: YearGroupCollection[] }>(
-            `/api/v1/finance/reports/collection-by-year-group${qs}`,
-          );
-          setYearGroupData(Array.isArray(raw) ? raw : raw.data);
-        } else if (tab === 'payment_methods') {
-          const raw = await apiClient<
-            PaymentMethodBreakdown[] | { data: PaymentMethodBreakdown[] }
-          >(`/api/v1/finance/reports/payment-methods${qs}`);
-          setPaymentMethodData(Array.isArray(raw) ? raw : raw.data);
         } else if (tab === 'fee_performance') {
           const raw = await apiClient<FeePerformanceRow[] | { data: FeePerformanceRow[] }>(
             `/api/v1/finance/reports/fee-structure-performance${qs}`,
@@ -147,8 +96,7 @@ export default function FinanceReportsPage() {
           setFeePerformanceData(Array.isArray(raw) ? raw : raw.data);
         }
       } catch (err) {
-        // Keep stale data
-        console.error('[setFeePerformanceData]', err);
+        console.error('[FinanceReportsPage]', err);
       } finally {
         setIsLoading(false);
       }
@@ -168,12 +116,12 @@ export default function FinanceReportsPage() {
     window.open(`${baseUrl}/api/v1/finance/reports/export?${params.toString()}`, '_blank');
   }
 
+  // ─── Tab config ─────────────────────────────────────────────────────────────
+
   const tabs: Array<{ key: ReportTab; label: string }> = [
     { key: 'aging', label: t('reports.tabAging') },
-    { key: 'revenue', label: t('reports.tabRevenue') },
-    { key: 'year_group', label: t('reports.tabYearGroup') },
-    { key: 'payment_methods', label: t('reports.tabPaymentMethods') },
     { key: 'fee_performance', label: t('reports.tabFeePerformance') },
+    { key: 'custom', label: t('reports.tabCustom') },
   ];
 
   const bucketLabel: Record<string, string> = {
@@ -184,45 +132,51 @@ export default function FinanceReportsPage() {
     '90_plus': t('reports.bucket90plus'),
   };
 
+  // ─── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-6">
       <PageHeader
         title={t('reports.title')}
         description={t('reports.description')}
         actions={
-          <Button variant="outline" onClick={handleExportCsv}>
-            <Download className="me-2 h-4 w-4" />
-            {t('reports.exportCsv')}
-          </Button>
+          activeTab !== 'custom' ? (
+            <Button variant="outline" onClick={handleExportCsv}>
+              <Download className="me-2 h-4 w-4" />
+              {t('reports.exportCsv')}
+            </Button>
+          ) : undefined
         }
       />
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-4">
-        <span className="text-sm font-medium text-text-secondary">{t('reports.dateRange')}</span>
-        <Input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-          className="w-full sm:w-[150px]"
-          placeholder={t('from')}
-        />
-        <Input
-          type="date"
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-          className="w-full sm:w-[150px]"
-          placeholder={t('to')}
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void fetchReport(activeTab)}
-          disabled={isLoading}
-        >
-          {t('reports.apply')}
-        </Button>
-      </div>
+      {/* Shared date filter for aging/fee performance */}
+      {activeTab !== 'custom' && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-4">
+          <span className="text-sm font-medium text-text-secondary">{t('reports.dateRange')}</span>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="w-full sm:w-[150px]"
+            placeholder={t('from')}
+          />
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="w-full sm:w-[150px]"
+            placeholder={t('to')}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void fetchReport(activeTab)}
+            disabled={isLoading}
+          >
+            {t('reports.apply')}
+          </Button>
+        </div>
+      )}
 
       {/* Tab navigation */}
       <nav className="flex gap-1 overflow-x-auto border-b border-border pb-px">
@@ -242,8 +196,8 @@ export default function FinanceReportsPage() {
         ))}
       </nav>
 
-      {/* Loading overlay */}
-      {isLoading && (
+      {/* Loading overlay for aging/fee performance */}
+      {isLoading && activeTab !== 'custom' && (
         <div className="flex items-center justify-center py-16">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-200 border-t-primary-700" />
         </div>
@@ -330,282 +284,6 @@ export default function FinanceReportsPage() {
         </div>
       )}
 
-      {/* ── Revenue Report ── */}
-      {!isLoading && activeTab === 'revenue' && (
-        <div className="space-y-6">
-          {revenueData.length === 0 ? (
-            <p className="py-8 text-center text-sm text-text-tertiary">{t('reports.noData')}</p>
-          ) : (
-            <>
-              <div className="rounded-xl border border-border bg-surface p-4">
-                <h3 className="mb-4 text-sm font-semibold text-text-primary">
-                  {t('reports.revenueChart')}
-                </h3>
-                <ResponsiveContainer width="100%" height={320}>
-                  <LineChart data={revenueData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis
-                      dataKey="month"
-                      tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }}
-                    />
-                    <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} />
-                    <Tooltip />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="invoiced"
-                      name={t('reports.invoiced')}
-                      stroke="#6366f1"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="collected"
-                      name={t('reports.collected')}
-                      stroke="#22c55e"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="outstanding"
-                      name={t('reports.outstanding')}
-                      stroke="#ef4444"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="overflow-x-auto rounded-xl border border-border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-secondary">
-                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
-                        {t('reports.month')}
-                      </th>
-                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-text-tertiary">
-                        {t('reports.invoiced')}
-                      </th>
-                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-text-tertiary">
-                        {t('reports.collected')}
-                      </th>
-                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-text-tertiary">
-                        {t('reports.outstanding')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {revenueData.map((row) => (
-                      <tr key={row.month} className="border-b border-border last:border-b-0">
-                        <td className="px-4 py-3 font-medium text-text-primary">{row.month}</td>
-                        <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                          {row.invoiced.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-                        <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                          {row.collected.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-                        <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                          {row.outstanding.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ── Year Group Collection ── */}
-      {!isLoading && activeTab === 'year_group' && (
-        <div className="space-y-6">
-          {yearGroupData.length === 0 ? (
-            <p className="py-8 text-center text-sm text-text-tertiary">{t('reports.noData')}</p>
-          ) : (
-            <>
-              <div className="rounded-xl border border-border bg-surface p-4">
-                <h3 className="mb-4 text-sm font-semibold text-text-primary">
-                  {t('reports.collectionByYearGroup')}
-                </h3>
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={yearGroupData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis
-                      dataKey="year_group"
-                      tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }}
-                    />
-                    <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} />
-                    <Tooltip />
-                    <Legend />
-                    <Bar
-                      dataKey="total_billed"
-                      name={t('reports.totalBilled')}
-                      fill="#6366f1"
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <Bar
-                      dataKey="total_collected"
-                      name={t('reports.totalCollected')}
-                      fill="#22c55e"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="overflow-x-auto rounded-xl border border-border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-secondary">
-                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
-                        {t('reports.yearGroup')}
-                      </th>
-                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-text-tertiary">
-                        {t('reports.totalBilled')}
-                      </th>
-                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-text-tertiary">
-                        {t('reports.totalCollected')}
-                      </th>
-                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-text-tertiary">
-                        {t('reports.collectionRate')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {yearGroupData.map((row) => (
-                      <tr key={row.year_group} className="border-b border-border last:border-b-0">
-                        <td className="px-4 py-3 font-medium text-text-primary">
-                          {row.year_group}
-                        </td>
-                        <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                          {row.total_billed.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-                        <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                          {row.total_collected.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-                        <td className="px-4 py-3 text-end" dir="ltr">
-                          <span
-                            className={
-                              row.collection_rate >= 80
-                                ? 'text-success-700 font-semibold'
-                                : row.collection_rate >= 50
-                                  ? 'text-warning-700 font-semibold'
-                                  : 'text-danger-700 font-semibold'
-                            }
-                          >
-                            {row.collection_rate.toFixed(1)}%
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ── Payment Methods ── */}
-      {!isLoading && activeTab === 'payment_methods' && (
-        <div className="space-y-6">
-          {paymentMethodData.length === 0 ? (
-            <p className="py-8 text-center text-sm text-text-tertiary">{t('reports.noData')}</p>
-          ) : (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div className="rounded-xl border border-border bg-surface p-4">
-                <h3 className="mb-4 text-sm font-semibold text-text-primary">
-                  {t('reports.paymentMethodBreakdown')}
-                </h3>
-                <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
-                    <Pie
-                      data={paymentMethodData}
-                      dataKey="amount"
-                      nameKey="method"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      label={({ name, percent }: { name?: string; percent?: number }) =>
-                        name && percent !== undefined
-                          ? `${name} (${(percent * 100).toFixed(1)}%)`
-                          : ''
-                      }
-                    >
-                      {paymentMethodData.map((_, idx) => (
-                        <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="overflow-x-auto rounded-xl border border-border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-secondary">
-                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
-                        {t('reports.method')}
-                      </th>
-                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-text-tertiary">
-                        {t('totalAmount')}
-                      </th>
-                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-text-tertiary">
-                        {t('reports.count')}
-                      </th>
-                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-text-tertiary">
-                        {t('reports.share')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paymentMethodData.map((row) => (
-                      <tr key={row.method} className="border-b border-border last:border-b-0">
-                        <td className="px-4 py-3 font-medium text-text-primary capitalize">
-                          {row.method.replace(/_/g, ' ')}
-                        </td>
-                        <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                          {row.amount.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-                        <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                          {row.count}
-                        </td>
-                        <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                          {row.percentage.toFixed(1)}%
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* ── Fee Performance ── */}
       {!isLoading && activeTab === 'fee_performance' && (
         <div className="overflow-x-auto rounded-xl border border-border">
@@ -638,11 +316,9 @@ export default function FinanceReportsPage() {
               <tbody>
                 {feePerformanceData.map((row) => (
                   <tr key={row.fee_structure_id} className="border-b border-border last:border-b-0">
-                    <td className="px-4 py-3 font-medium text-text-primary">
-                      {row.fee_structure_name}
-                    </td>
+                    <td className="px-4 py-3 font-medium text-text-primary">{row.name}</td>
                     <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                      {row.households_assigned}
+                      {row.total_assigned}
                     </td>
                     <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
                       {row.total_billed.toLocaleString(undefined, {
@@ -657,17 +333,23 @@ export default function FinanceReportsPage() {
                       })}
                     </td>
                     <td className="px-4 py-3 text-end" dir="ltr">
-                      <span
-                        className={
-                          row.collection_rate >= 80
-                            ? 'font-semibold text-success-700'
-                            : row.collection_rate >= 50
-                              ? 'font-semibold text-warning-700'
-                              : 'font-semibold text-danger-700'
-                        }
-                      >
-                        {row.collection_rate.toFixed(1)}%
-                      </span>
+                      {(() => {
+                        const rate =
+                          row.total_billed > 0 ? (row.total_collected / row.total_billed) * 100 : 0;
+                        return (
+                          <span
+                            className={
+                              rate >= 80
+                                ? 'font-semibold text-success-700'
+                                : rate >= 50
+                                  ? 'font-semibold text-warning-700'
+                                  : 'font-semibold text-danger-700'
+                            }
+                          >
+                            {rate.toFixed(1)}%
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-end font-mono text-danger-700" dir="ltr">
                       {row.default_rate.toFixed(1)}%
@@ -679,6 +361,9 @@ export default function FinanceReportsPage() {
           )}
         </div>
       )}
+
+      {/* ── Custom Report Builder ── */}
+      {activeTab === 'custom' && <CustomReportBuilder />}
     </div>
   );
 }

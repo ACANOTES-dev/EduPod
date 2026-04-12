@@ -19,10 +19,12 @@ import type {
   BulkExportDto,
   BulkInvoiceIdsDto,
   CounterOfferPaymentPlanDto,
+  CreateAdminPaymentPlanDto,
   CreateCreditNoteDto,
   CreateLateFeeConfigDto,
   CreateRecurringInvoiceConfigDto,
   CreateScholarshipDto,
+  CustomFinanceReportQueryDto,
   FinanceAuditQueryDto,
   JwtPayload,
   LateFeeConfigQueryDto,
@@ -41,11 +43,13 @@ import {
   bulkExportSchema,
   bulkInvoiceIdsSchema,
   counterOfferPaymentPlanSchema,
+  createAdminPaymentPlanSchema,
   createCreditNoteSchema,
   createLateFeeConfigSchema,
   createRecurringInvoiceConfigSchema,
   createScholarshipSchema,
   creditNoteQuerySchema,
+  customFinanceReportQuerySchema,
   financeAuditQuerySchema,
   lateFeeConfigQuerySchema,
   paymentPlanRequestQuerySchema,
@@ -70,6 +74,7 @@ import { FinanceAuditService } from './finance-audit.service';
 import type {
   AgingReport,
   CollectionByYearGroup,
+  CustomReportRow,
   FeeStructurePerformance,
   PaymentMethodBreakdown,
   RevenuePeriodItem,
@@ -367,6 +372,17 @@ export class FinanceEnhancedController {
     return this.financialReportsService.feeStructurePerformance(tenant.tenant_id, query);
   }
 
+  // GET /v1/finance/reports/custom
+  @Get('reports/custom')
+  @RequiresPermission('finance.view_reports')
+  async getCustomReport(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(customFinanceReportQuerySchema))
+    query: CustomFinanceReportQueryDto,
+  ): Promise<CustomReportRow[]> {
+    return this.financialReportsService.customReport(tenant.tenant_id, query);
+  }
+
   // ─── Payment Plans ────────────────────────────────────────────────────────
 
   @Get('payment-plans')
@@ -376,6 +392,18 @@ export class FinanceEnhancedController {
     @Query(new ZodValidationPipe(paymentPlanRequestQuerySchema)) query: PaymentPlanRequestQueryDto,
   ) {
     return this.paymentPlansService.findAll(tenant.tenant_id, query);
+  }
+
+  // POST /v1/finance/payment-plans/admin-create (static — before :id)
+  @Post('payment-plans/admin-create')
+  @RequiresPermission('finance.manage')
+  @HttpCode(HttpStatus.CREATED)
+  async createAdminPlan(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(createAdminPaymentPlanSchema)) dto: CreateAdminPaymentPlanDto,
+  ) {
+    return this.paymentPlansService.createAdminPlan(tenant.tenant_id, user.sub, dto);
   }
 
   @Get('payment-plans/:id')
@@ -421,6 +449,14 @@ export class FinanceEnhancedController {
     @Body(new ZodValidationPipe(counterOfferPaymentPlanSchema)) dto: CounterOfferPaymentPlanDto,
   ) {
     return this.paymentPlansService.counterOffer(tenant.tenant_id, user.sub, id, dto);
+  }
+
+  // POST /v1/finance/payment-plans/:id/cancel
+  @Post('payment-plans/:id/cancel')
+  @RequiresPermission('finance.manage')
+  @HttpCode(HttpStatus.OK)
+  async cancelPlan(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.paymentPlansService.cancelPlan(tenant.tenant_id, id);
   }
 
   // ─── Audit Trail ──────────────────────────────────────────────────────────

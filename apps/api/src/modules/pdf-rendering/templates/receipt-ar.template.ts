@@ -11,7 +11,9 @@ interface ReceiptData {
   currency_code: string;
   household: {
     household_name: string;
+    household_number: string;
     billing_parent_name: string | null;
+    billing_parent_phone: string | null;
   };
   payment: {
     payment_reference: string;
@@ -19,6 +21,8 @@ interface ReceiptData {
     amount: number;
     received_at: string;
   };
+  outstanding_before: number;
+  remaining_after: number;
   allocations: AllocationData[];
 }
 
@@ -35,6 +39,15 @@ function formatCurrency(amount: number, currency: string): string {
   return `${currency} ${amount.toFixed(2)}`;
 }
 
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return iso;
+  }
+}
+
 function formatPaymentMethodAr(method: string): string {
   const map: Record<string, string> = {
     stripe: '\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A (Stripe)',
@@ -47,14 +60,15 @@ function formatPaymentMethodAr(method: string): string {
 
 export function renderReceiptAr(data: unknown, branding: PdfBranding): string {
   const r = data as ReceiptData;
-  const primaryColor = branding.primary_color || '#1e40af';
+  const dash = '- - - - - - - - - - - - - - - - - - -';
+  const doubleDash = '= = = = = = = = = = = = = = = = = = =';
 
   const allocationRows = r.allocations
     .map(
       (a) => `
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;" dir="ltr">${escapeHtml(a.invoice_number)}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: left;" dir="ltr">${formatCurrency(a.allocated_amount, r.currency_code)}</td>
+        <td style="padding: 2px 0; font-size: 11px;" dir="ltr">${escapeHtml(a.invoice_number)}</td>
+        <td style="padding: 2px 0; font-size: 11px; text-align: left; font-family: 'Courier New', monospace;" dir="ltr">${formatCurrency(a.allocated_amount, r.currency_code)}</td>
       </tr>`,
     )
     .join('');
@@ -66,91 +80,149 @@ export function renderReceiptAr(data: unknown, branding: PdfBranding): string {
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Noto Sans Arabic', 'Arial', sans-serif; color: #111827; font-size: 14px; background: white; direction: rtl; }
-    @page { size: A4; margin: 0; }
+    body {
+      font-family: 'Noto Sans Arabic', 'Arial', sans-serif;
+      color: #111;
+      font-size: 12px;
+      background: white;
+      direction: rtl;
+      width: 80mm;
+      margin: 0 auto;
+    }
+    @page { size: 80mm auto; margin: 4mm; }
+    .receipt { padding: 2mm 0; }
+    .center { text-align: center; }
+    .divider { text-align: center; color: #999; font-size: 10px; margin: 6px 0; letter-spacing: 1px; overflow: hidden; white-space: nowrap; }
+    .row { display: flex; justify-content: space-between; padding: 2px 0; }
+    .label { color: #555; font-size: 11px; }
+    .value { font-size: 11px; }
+    .mono { font-family: 'Courier New', monospace; }
+    .bold { font-weight: 700; }
+    .big { font-size: 16px; }
   </style>
 </head>
 <body>
-  <div style="padding: 0;">
-    <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid ${primaryColor}; padding-bottom: 16px; margin-bottom: 24px;">
-      <div>
-        <h1 style="font-size: 28px; font-weight: 700; color: ${primaryColor}; letter-spacing: -0.5px;">\u0625\u064A\u0635\u0627\u0644</h1>
-        <p style="font-size: 16px; font-weight: 600; margin-top: 4px;">${escapeHtml(branding.school_name_ar || branding.school_name)}</p>
-      </div>
-      ${branding.logo_url ? `<img src="${escapeHtml(branding.logo_url)}" alt="\u0627\u0644\u0634\u0639\u0627\u0631" style="height: 60px; max-width: 120px; object-fit: contain;">` : ''}
+  <div class="receipt">
+    <!-- School Name -->
+    <div class="center" style="margin-bottom: 4px;">
+      <div style="font-size: 14px; font-weight: 700;">${escapeHtml(branding.school_name_ar || branding.school_name)}</div>
     </div>
+
+    <!-- Title -->
+    <div class="center" style="margin-bottom: 2px;">
+      <div style="font-size: 13px; font-weight: 600; letter-spacing: 2px;">\u0625\u064A\u0635\u0627\u0644 \u062F\u0641\u0639</div>
+    </div>
+
+    <div class="divider">${dash}</div>
 
     <!-- Receipt Info -->
-    <div style="display: flex; justify-content: space-between; margin-bottom: 28px;">
-      <div>
-        <p style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">\u0645\u0633\u062A\u0644\u0645 \u0645\u0646</p>
-        <p style="font-size: 14px; font-weight: 600;">${escapeHtml(r.household.household_name)}</p>
-        ${r.household.billing_parent_name ? `<p style="font-size: 13px; color: #374151;">${escapeHtml(r.household.billing_parent_name)}</p>` : ''}
-      </div>
-      <div>
-        <table style="font-size: 13px;">
-          <tr>
-            <td style="padding: 3px 0 3px 12px; color: #6b7280; font-weight: 500;">\u0631\u0642\u0645 \u0627\u0644\u0625\u064A\u0635\u0627\u0644:</td>
-            <td style="padding: 3px 0; font-weight: 600;" dir="ltr">${escapeHtml(r.receipt_number)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 3px 0 3px 12px; color: #6b7280; font-weight: 500;">\u0627\u0644\u062A\u0627\u0631\u064A\u062E:</td>
-            <td style="padding: 3px 0;" dir="ltr">${escapeHtml(r.issued_at)}</td>
-          </tr>
-        </table>
-      </div>
+    <div class="row">
+      <span class="label">\u0631\u0642\u0645 \u0627\u0644\u0625\u064A\u0635\u0627\u0644:</span>
+      <span class="value mono" dir="ltr">${escapeHtml(r.receipt_number)}</span>
+    </div>
+    <div class="row">
+      <span class="label">\u0627\u0644\u062A\u0627\u0631\u064A\u062E:</span>
+      <span class="value" dir="ltr">${formatDate(r.issued_at)}</span>
     </div>
 
-    <!-- Payment Details -->
-    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 20px; margin-bottom: 24px;">
-      <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: ${primaryColor};">\u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u062F\u0641\u0639</h3>
-      <table style="width: 100%; font-size: 13px;">
-        <tr>
-          <td style="padding: 4px 0; color: #6b7280; width: 160px;">\u0645\u0631\u062C\u0639 \u0627\u0644\u062F\u0641\u0639:</td>
-          <td style="padding: 4px 0; font-weight: 500;" dir="ltr">${escapeHtml(r.payment.payment_reference)}</td>
-        </tr>
-        <tr>
-          <td style="padding: 4px 0; color: #6b7280;">\u0637\u0631\u064A\u0642\u0629 \u0627\u0644\u062F\u0641\u0639:</td>
-          <td style="padding: 4px 0; font-weight: 500;">${formatPaymentMethodAr(r.payment.payment_method)}</td>
-        </tr>
-        <tr>
-          <td style="padding: 4px 0; color: #6b7280;">\u062A\u0627\u0631\u064A\u062E \u0627\u0644\u0627\u0633\u062A\u0644\u0627\u0645:</td>
-          <td style="padding: 4px 0; font-weight: 500;" dir="ltr">${escapeHtml(r.payment.received_at)}</td>
-        </tr>
-      </table>
+    <div class="divider">${dash}</div>
+
+    <!-- Household Info -->
+    <div class="row">
+      <span class="label">\u0627\u0644\u0639\u0627\u0626\u0644\u0629:</span>
+      <span class="value">${escapeHtml(r.household.household_name)}</span>
+    </div>
+    <div class="row">
+      <span class="label">\u0631\u0642\u0645 \u0627\u0644\u0639\u0627\u0626\u0644\u0629:</span>
+      <span class="value mono" dir="ltr">${escapeHtml(r.household.household_number)}</span>
+    </div>
+    ${
+      r.household.billing_parent_name
+        ? `
+    <div class="row">
+      <span class="label">\u0648\u0644\u064A \u0627\u0644\u0623\u0645\u0631:</span>
+      <span class="value">${escapeHtml(r.household.billing_parent_name)}</span>
+    </div>`
+        : ''
+    }
+    ${
+      r.household.billing_parent_phone
+        ? `
+    <div class="row">
+      <span class="label">\u0627\u0644\u0647\u0627\u062A\u0641:</span>
+      <span class="value mono" dir="ltr">${escapeHtml(r.household.billing_parent_phone)}</span>
+    </div>`
+        : ''
+    }
+
+    <div class="divider">${dash}</div>
+
+    <!-- Payment Info -->
+    <div class="row">
+      <span class="label">\u0645\u0631\u062C\u0639 \u0627\u0644\u062F\u0641\u0639:</span>
+      <span class="value mono" dir="ltr">${escapeHtml(r.payment.payment_reference)}</span>
+    </div>
+    <div class="row">
+      <span class="label">\u0637\u0631\u064A\u0642\u0629 \u0627\u0644\u062F\u0641\u0639:</span>
+      <span class="value">${formatPaymentMethodAr(r.payment.payment_method)}</span>
     </div>
 
-    <!-- Allocation Details -->
-    ${r.allocations.length > 0 ? `
-    <div style="margin-bottom: 24px;">
-      <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: ${primaryColor};">\u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u062A\u0648\u0632\u064A\u0639</h3>
-      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-        <thead>
-          <tr style="background: #f9fafb;">
-            <th style="padding: 8px; text-align: right; font-weight: 600; font-size: 12px;">\u0627\u0644\u0641\u0627\u062A\u0648\u0631\u0629</th>
-            <th style="padding: 8px; text-align: left; font-weight: 600; font-size: 12px;">\u0627\u0644\u0645\u0628\u0644\u063A \u0627\u0644\u0645\u0637\u0628\u0642</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${allocationRows}
-        </tbody>
-      </table>
-    </div>` : ''}
+    <div class="divider">${doubleDash}</div>
 
-    <!-- Total -->
-    <div style="display: flex; justify-content: flex-start; margin-top: 16px;">
-      <div style="background: ${primaryColor}; color: white; padding: 16px 24px; border-radius: 6px; min-width: 260px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 14px; font-weight: 600;">\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u0628\u0644\u063A \u0627\u0644\u0645\u0633\u062A\u0644\u0645</span>
-          <span style="font-size: 18px; font-weight: 700; margin-right: 24px;" dir="ltr">${formatCurrency(r.payment.amount, r.currency_code)}</span>
-        </div>
-      </div>
+    <!-- Amount Paid -->
+    <div class="center" style="padding: 8px 0;">
+      <div class="label" style="font-size: 11px; margin-bottom: 4px;">\u0627\u0644\u0645\u0628\u0644\u063A \u0627\u0644\u0645\u062F\u0641\u0648\u0639</div>
+      <div class="mono bold big" dir="ltr">${formatCurrency(r.payment.amount, r.currency_code)}</div>
     </div>
+
+    <div class="divider">${dash}</div>
+
+    <!-- Balance Summary -->
+    <div class="row">
+      <span class="label">\u0627\u0644\u0631\u0635\u064A\u062F \u0642\u0628\u0644:</span>
+      <span class="value mono" dir="ltr">${formatCurrency(r.outstanding_before, r.currency_code)}</span>
+    </div>
+    <div class="row">
+      <span class="label">\u0627\u0644\u0645\u0628\u0644\u063A \u0627\u0644\u0645\u062F\u0641\u0648\u0639:</span>
+      <span class="value mono" dir="ltr">-${formatCurrency(r.payment.amount, r.currency_code)}</span>
+    </div>
+    <div class="row bold">
+      <span class="label bold">\u0627\u0644\u0631\u0635\u064A\u062F \u0628\u0639\u062F:</span>
+      <span class="value mono bold" dir="ltr">${formatCurrency(r.remaining_after, r.currency_code)}</span>
+    </div>
+
+    ${
+      r.allocations.length > 0
+        ? `
+    <div class="divider">${dash}</div>
+
+    <!-- Allocations -->
+    <div class="center" style="margin-bottom: 4px;">
+      <span class="label" style="font-size: 10px; letter-spacing: 1px;">\u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u062A\u0648\u0632\u064A\u0639</span>
+    </div>
+    <table style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="text-align: right; font-size: 10px; color: #555; padding: 2px 0; font-weight: 600;">\u0627\u0644\u0641\u0627\u062A\u0648\u0631\u0629</th>
+          <th style="text-align: left; font-size: 10px; color: #555; padding: 2px 0; font-weight: 600;">\u0627\u0644\u0645\u0628\u0644\u063A</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${allocationRows}
+      </tbody>
+    </table>`
+        : ''
+    }
+
+    <div class="divider">${doubleDash}</div>
 
     <!-- Footer -->
-    <div style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center;">
-      <p>${escapeHtml(branding.school_name_ar || branding.school_name)} &mdash; \u0647\u0630\u0627 \u0625\u064A\u0635\u0627\u0644 \u0631\u0633\u0645\u064A \u0628\u0627\u0644\u062F\u0641\u0639.</p>
+    <div class="center" style="padding: 6px 0;">
+      <div style="font-size: 11px; color: #333;">\u0634\u0643\u0631\u064B\u0627 \u0644\u062F\u0641\u0639\u0643\u0645</div>
+    </div>
+
+    <div class="center" style="font-size: 9px; color: #999; padding-top: 4px;">
+      ${escapeHtml(branding.school_name_ar || branding.school_name)}
     </div>
   </div>
 </body>

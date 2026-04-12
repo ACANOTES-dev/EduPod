@@ -67,7 +67,7 @@ export function renderHouseholdStatementAr(data: unknown, branding: PdfBranding)
       <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#f9fafb'};">
         <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; white-space: nowrap;" dir="ltr">${formatDate(e.date)}</td>
         <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px;">${formatTypeAr(e.type)}</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-family: 'Courier New', monospace;" dir="ltr">${escapeHtml(e.reference)}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-family: 'Courier New', monospace; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" dir="ltr">${escapeHtml(e.reference)}</td>
         <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; color: #374151;">${escapeHtml(e.description)}</td>
         <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 11px; font-family: 'Courier New', monospace;" dir="ltr">${e.debit !== null ? formatCurrency(e.debit, stmt.currency_code) : ''}</td>
         <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 11px; font-family: 'Courier New', monospace; color: #059669;" dir="ltr">${e.credit !== null ? formatCurrency(e.credit, stmt.currency_code) : ''}</td>

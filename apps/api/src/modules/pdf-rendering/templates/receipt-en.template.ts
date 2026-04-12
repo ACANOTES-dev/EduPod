@@ -11,7 +11,9 @@ interface ReceiptData {
   currency_code: string;
   household: {
     household_name: string;
+    household_number: string;
     billing_parent_name: string | null;
+    billing_parent_phone: string | null;
   };
   payment: {
     payment_reference: string;
@@ -19,6 +21,8 @@ interface ReceiptData {
     amount: number;
     received_at: string;
   };
+  outstanding_before: number;
+  remaining_after: number;
   allocations: AllocationData[];
 }
 
@@ -35,6 +39,15 @@ function formatCurrency(amount: number, currency: string): string {
   return `${currency} ${amount.toFixed(2)}`;
 }
 
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return iso;
+  }
+}
+
 function formatPaymentMethod(method: string): string {
   const map: Record<string, string> = {
     stripe: 'Online (Stripe)',
@@ -47,14 +60,15 @@ function formatPaymentMethod(method: string): string {
 
 export function renderReceiptEn(data: unknown, branding: PdfBranding): string {
   const r = data as ReceiptData;
-  const primaryColor = branding.primary_color || '#1e40af';
+  const dash = '- - - - - - - - - - - - - - - - - - -';
+  const doubleDash = '= = = = = = = = = = = = = = = = = = =';
 
   const allocationRows = r.allocations
     .map(
       (a) => `
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${escapeHtml(a.invoice_number)}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">${formatCurrency(a.allocated_amount, r.currency_code)}</td>
+        <td style="padding: 2px 0; font-size: 11px;">${escapeHtml(a.invoice_number)}</td>
+        <td style="padding: 2px 0; font-size: 11px; text-align: right; font-family: 'Courier New', monospace;">${formatCurrency(a.allocated_amount, r.currency_code)}</td>
       </tr>`,
     )
     .join('');
@@ -65,91 +79,148 @@ export function renderReceiptEn(data: unknown, branding: PdfBranding): string {
   <meta charset="UTF-8">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #111827; font-size: 14px; background: white; }
-    @page { size: A4; margin: 0; }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      color: #111;
+      font-size: 12px;
+      background: white;
+      width: 80mm;
+      margin: 0 auto;
+    }
+    @page { size: 80mm auto; margin: 4mm; }
+    .receipt { padding: 2mm 0; }
+    .center { text-align: center; }
+    .divider { text-align: center; color: #999; font-size: 10px; margin: 6px 0; letter-spacing: 1px; overflow: hidden; white-space: nowrap; }
+    .row { display: flex; justify-content: space-between; padding: 2px 0; }
+    .label { color: #555; font-size: 11px; }
+    .value { font-size: 11px; text-align: right; }
+    .mono { font-family: 'Courier New', monospace; }
+    .bold { font-weight: 700; }
+    .big { font-size: 16px; }
   </style>
 </head>
 <body>
-  <div style="padding: 0;">
-    <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid ${primaryColor}; padding-bottom: 16px; margin-bottom: 24px;">
-      <div>
-        <h1 style="font-size: 28px; font-weight: 700; color: ${primaryColor}; letter-spacing: -0.5px;">RECEIPT</h1>
-        <p style="font-size: 16px; font-weight: 600; margin-top: 4px;">${escapeHtml(branding.school_name)}</p>
-      </div>
-      ${branding.logo_url ? `<img src="${escapeHtml(branding.logo_url)}" alt="Logo" style="height: 60px; max-width: 120px; object-fit: contain;">` : ''}
+  <div class="receipt">
+    <!-- School Name -->
+    <div class="center" style="margin-bottom: 4px;">
+      <div style="font-size: 14px; font-weight: 700;">${escapeHtml(branding.school_name)}</div>
     </div>
+
+    <!-- Title -->
+    <div class="center" style="margin-bottom: 2px;">
+      <div style="font-size: 13px; font-weight: 600; letter-spacing: 2px;">PAYMENT RECEIPT</div>
+    </div>
+
+    <div class="divider">${dash}</div>
 
     <!-- Receipt Info -->
-    <div style="display: flex; justify-content: space-between; margin-bottom: 28px;">
-      <div>
-        <p style="font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Received From</p>
-        <p style="font-size: 14px; font-weight: 600;">${escapeHtml(r.household.household_name)}</p>
-        ${r.household.billing_parent_name ? `<p style="font-size: 13px; color: #374151;">${escapeHtml(r.household.billing_parent_name)}</p>` : ''}
-      </div>
-      <div style="text-align: right;">
-        <table style="font-size: 13px; margin-left: auto;">
-          <tr>
-            <td style="padding: 3px 12px 3px 0; color: #6b7280; font-weight: 500;">Receipt #:</td>
-            <td style="padding: 3px 0; font-weight: 600;">${escapeHtml(r.receipt_number)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 3px 12px 3px 0; color: #6b7280; font-weight: 500;">Date:</td>
-            <td style="padding: 3px 0;">${escapeHtml(r.issued_at)}</td>
-          </tr>
-        </table>
-      </div>
+    <div class="row">
+      <span class="label">Receipt #:</span>
+      <span class="value mono">${escapeHtml(r.receipt_number)}</span>
+    </div>
+    <div class="row">
+      <span class="label">Date:</span>
+      <span class="value">${formatDate(r.issued_at)}</span>
     </div>
 
-    <!-- Payment Details -->
-    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 20px; margin-bottom: 24px;">
-      <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: ${primaryColor};">Payment Details</h3>
-      <table style="width: 100%; font-size: 13px;">
-        <tr>
-          <td style="padding: 4px 0; color: #6b7280; width: 160px;">Payment Reference:</td>
-          <td style="padding: 4px 0; font-weight: 500;">${escapeHtml(r.payment.payment_reference)}</td>
-        </tr>
-        <tr>
-          <td style="padding: 4px 0; color: #6b7280;">Payment Method:</td>
-          <td style="padding: 4px 0; font-weight: 500;">${formatPaymentMethod(r.payment.payment_method)}</td>
-        </tr>
-        <tr>
-          <td style="padding: 4px 0; color: #6b7280;">Date Received:</td>
-          <td style="padding: 4px 0; font-weight: 500;">${escapeHtml(r.payment.received_at)}</td>
-        </tr>
-      </table>
+    <div class="divider">${dash}</div>
+
+    <!-- Household Info -->
+    <div class="row">
+      <span class="label">Household:</span>
+      <span class="value">${escapeHtml(r.household.household_name)}</span>
+    </div>
+    <div class="row">
+      <span class="label">Household #:</span>
+      <span class="value mono">${escapeHtml(r.household.household_number)}</span>
+    </div>
+    ${
+      r.household.billing_parent_name
+        ? `
+    <div class="row">
+      <span class="label">Billing Parent:</span>
+      <span class="value">${escapeHtml(r.household.billing_parent_name)}</span>
+    </div>`
+        : ''
+    }
+    ${
+      r.household.billing_parent_phone
+        ? `
+    <div class="row">
+      <span class="label">Phone:</span>
+      <span class="value mono">${escapeHtml(r.household.billing_parent_phone)}</span>
+    </div>`
+        : ''
+    }
+
+    <div class="divider">${dash}</div>
+
+    <!-- Payment Info -->
+    <div class="row">
+      <span class="label">Payment Ref:</span>
+      <span class="value mono">${escapeHtml(r.payment.payment_reference)}</span>
+    </div>
+    <div class="row">
+      <span class="label">Method:</span>
+      <span class="value">${formatPaymentMethod(r.payment.payment_method)}</span>
     </div>
 
-    <!-- Allocation Details -->
-    ${r.allocations.length > 0 ? `
-    <div style="margin-bottom: 24px;">
-      <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: ${primaryColor};">Allocation Details</h3>
-      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-        <thead>
-          <tr style="background: #f9fafb;">
-            <th style="padding: 8px; text-align: left; font-weight: 600; font-size: 12px;">Invoice</th>
-            <th style="padding: 8px; text-align: right; font-weight: 600; font-size: 12px;">Amount Applied</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${allocationRows}
-        </tbody>
-      </table>
-    </div>` : ''}
+    <div class="divider">${doubleDash}</div>
 
-    <!-- Total -->
-    <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
-      <div style="background: ${primaryColor}; color: white; padding: 16px 24px; border-radius: 6px; min-width: 260px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 14px; font-weight: 600;">Total Amount Received</span>
-          <span style="font-size: 18px; font-weight: 700; margin-left: 24px;">${formatCurrency(r.payment.amount, r.currency_code)}</span>
-        </div>
-      </div>
+    <!-- Amount Paid -->
+    <div class="center" style="padding: 8px 0;">
+      <div class="label" style="font-size: 11px; margin-bottom: 4px;">Amount Paid</div>
+      <div class="mono bold big">${formatCurrency(r.payment.amount, r.currency_code)}</div>
     </div>
+
+    <div class="divider">${dash}</div>
+
+    <!-- Balance Summary -->
+    <div class="row">
+      <span class="label">Balance Before:</span>
+      <span class="value mono">${formatCurrency(r.outstanding_before, r.currency_code)}</span>
+    </div>
+    <div class="row">
+      <span class="label">Amount Paid:</span>
+      <span class="value mono">-${formatCurrency(r.payment.amount, r.currency_code)}</span>
+    </div>
+    <div class="row bold">
+      <span class="label bold">Balance After:</span>
+      <span class="value mono bold">${formatCurrency(r.remaining_after, r.currency_code)}</span>
+    </div>
+
+    ${
+      r.allocations.length > 0
+        ? `
+    <div class="divider">${dash}</div>
+
+    <!-- Allocations -->
+    <div class="center" style="margin-bottom: 4px;">
+      <span class="label" style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px;">Allocations</span>
+    </div>
+    <table style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="text-align: left; font-size: 10px; color: #555; padding: 2px 0; font-weight: 600;">Invoice</th>
+          <th style="text-align: right; font-size: 10px; color: #555; padding: 2px 0; font-weight: 600;">Applied</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${allocationRows}
+      </tbody>
+    </table>`
+        : ''
+    }
+
+    <div class="divider">${doubleDash}</div>
 
     <!-- Footer -->
-    <div style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center;">
-      <p>${escapeHtml(branding.school_name)} &mdash; This is an official receipt of payment.</p>
+    <div class="center" style="padding: 6px 0;">
+      <div style="font-size: 11px; color: #333;">Thank you for your payment</div>
+    </div>
+
+    <div class="center" style="font-size: 9px; color: #999; padding-top: 4px;">
+      ${escapeHtml(branding.school_name)}
     </div>
   </div>
 </body>
