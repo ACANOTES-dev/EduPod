@@ -212,11 +212,25 @@ export class FinanceDashboardService {
     });
 
     // ─── Top Debtors ────────────────────────────────────────────────────────
+    // FIN-011: aggregate ALL households with outstanding balance (not just
+    // overdue), since the spec asks for "top debtors by outstanding desc"
+    // and the breakdown bucket counts already include not-yet-overdue debt.
+    const outstandingInvoices = await this.prisma.invoice.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: { in: ['issued', 'partially_paid', 'overdue'] },
+        balance_amount: { gt: 0 },
+      },
+      select: {
+        balance_amount: true,
+        household: { select: { id: true, household_name: true } },
+      },
+    });
     const debtorMap = new Map<
       string,
       { household_id: string; household_name: string; total_owed: number; invoice_count: number }
     >();
-    for (const inv of overdueInvoices) {
+    for (const inv of outstandingInvoices) {
       const existing = debtorMap.get(inv.household.id);
       if (existing) {
         existing.total_owed = roundMoney(existing.total_owed + Number(inv.balance_amount));
@@ -232,7 +246,7 @@ export class FinanceDashboardService {
     }
     const topDebtors = Array.from(debtorMap.values())
       .sort((a, b) => b.total_owed - a.total_owed)
-      .slice(0, 5);
+      .slice(0, 6);
 
     // ─── Pending Payment Plans ─────────────────────────────��────────────────
     const pendingPaymentPlans = await this.prisma.paymentPlanRequest.count({
