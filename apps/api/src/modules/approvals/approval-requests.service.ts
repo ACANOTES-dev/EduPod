@@ -299,12 +299,23 @@ export class ApprovalRequestsService {
 
     if (callback) {
       try {
-        await callback.queue.add(callback.jobName, {
-          tenant_id: tenantId,
-          approval_request_id: requestId,
-          target_entity_id: request.target_entity_id,
-          approver_user_id: approverUserId,
-        });
+        // FIN-017: explicit retry policy — 5 attempts with exponential backoff
+        // and a dedup jobId so retries coalesce. Without this a transient DB
+        // blip during the callback leaves the entity stuck in pending_approval.
+        await callback.queue.add(
+          callback.jobName,
+          {
+            tenant_id: tenantId,
+            approval_request_id: requestId,
+            target_entity_id: request.target_entity_id,
+            approver_user_id: approverUserId,
+          },
+          {
+            attempts: 5,
+            backoff: { type: 'exponential', delay: 1000 },
+            jobId: `approval-callback:${requestId}`,
+          },
+        );
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         this.logger.error(`Failed to enqueue callback for approval ${requestId}: ${errorMessage}`);

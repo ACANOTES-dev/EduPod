@@ -371,6 +371,12 @@ describe('ApprovalRequestsService', () => {
           tenant_id: TENANT_ID,
           approval_request_id: REQUEST_ID,
         }),
+        // FIN-017: explicit retry policy + dedup jobId on approval callbacks
+        expect.objectContaining({
+          attempts: 5,
+          backoff: { type: 'exponential', delay: 1000 },
+          jobId: `approval-callback:${REQUEST_ID}`,
+        }),
       );
     });
 
