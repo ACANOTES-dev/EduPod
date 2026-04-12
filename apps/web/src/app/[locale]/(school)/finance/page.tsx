@@ -431,7 +431,13 @@ export default function FinanceDashboardPage() {
   const [data, setData] = React.useState<FinanceDashboardData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
+  const hasFetched = React.useRef(false);
   React.useEffect(() => {
+    // FIN-024: guard against duplicate fetches from React.StrictMode double-invoke
+    // in development and any parent re-mount edge case in production.
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
     let cancelled = false;
     void (async () => {
       try {
