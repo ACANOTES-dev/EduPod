@@ -85,6 +85,47 @@ describe('BulkOperationsService', () => {
     });
   });
 
+  describe('bulk size cap (FIN-021)', () => {
+    const tooMany = Array.from(
+      { length: 201 },
+      (_, i) => `00000000-0000-0000-0000-${String(i).padStart(12, '0')}`,
+    );
+
+    it('should reject bulkIssue when over 200 invoice ids', async () => {
+      await expect(service.bulkIssue(TENANT_ID, USER_ID, { invoice_ids: tooMany })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should reject bulkVoid when over 200 invoice ids', async () => {
+      await expect(service.bulkVoid(TENANT_ID, { invoice_ids: tooMany })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should reject bulkRemind when over 200 invoice ids', async () => {
+      await expect(service.bulkRemind(TENANT_ID, { invoice_ids: tooMany })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should reject bulkExport when over 200 invoice ids', async () => {
+      await expect(
+        service.bulkExport(TENANT_ID, { invoice_ids: tooMany, format: 'csv' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should accept exactly 200 invoice ids', async () => {
+      const exact = Array.from(
+        { length: 200 },
+        (_, i) => `00000000-0000-0000-0000-${String(i).padStart(12, '0')}`,
+      );
+      mockInvoicesService.voidInvoice.mockResolvedValue({ id: exact[0], status: 'void' });
+      const result = await service.bulkVoid(TENANT_ID, { invoice_ids: exact });
+      expect(result.total).toBe(200);
+    });
+  });
+
   describe('bulkRemind', () => {
     it('should throw BadRequestException with no invoice IDs', async () => {
       await expect(service.bulkRemind(TENANT_ID, { invoice_ids: [] })).rejects.toThrow(

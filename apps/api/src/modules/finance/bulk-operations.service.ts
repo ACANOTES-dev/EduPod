@@ -18,17 +18,35 @@ export interface BulkOperationResult {
 export class BulkOperationsService {
   private readonly logger = new Logger(BulkOperationsService.name);
 
+  /**
+   * FIN-021: hard cap on synchronous bulk operations. Perf spec budgets 6s p95
+   * at 100 invoices; extrapolated ~12s at 200. Above that we risk the API
+   * gateway timeout. Admins with larger batches split across multiple calls.
+   */
+  private static readonly MAX_BULK_SIZE = 200;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly invoicesService: InvoicesService,
     private readonly paymentRemindersService: PaymentRemindersService,
   ) {}
 
+  private assertBulkSize(invoiceIds: string[]): void {
+    if (invoiceIds.length > BulkOperationsService.MAX_BULK_SIZE) {
+      throw new BadRequestException({
+        code: 'BULK_LIMIT_EXCEEDED',
+        message: `Max ${BulkOperationsService.MAX_BULK_SIZE} invoices per request. Split the operation across multiple calls.`,
+        details: { limit: BulkOperationsService.MAX_BULK_SIZE, submitted: invoiceIds.length },
+      });
+    }
+  }
+
   async bulkIssue(
     tenantId: string,
     userId: string,
     dto: BulkInvoiceIdsDto,
   ): Promise<BulkOperationResult> {
+    this.assertBulkSize(dto.invoice_ids);
     const result: BulkOperationResult = {
       total: dto.invoice_ids.length,
       succeeded: 0,
@@ -54,6 +72,7 @@ export class BulkOperationsService {
   }
 
   async bulkVoid(tenantId: string, dto: BulkInvoiceIdsDto): Promise<BulkOperationResult> {
+    this.assertBulkSize(dto.invoice_ids);
     const result: BulkOperationResult = {
       total: dto.invoice_ids.length,
       succeeded: 0,
@@ -85,6 +104,7 @@ export class BulkOperationsService {
         message: 'At least one invoice ID is required',
       });
     }
+    this.assertBulkSize(dto.invoice_ids);
 
     const result: BulkOperationResult = {
       total: dto.invoice_ids.length,
@@ -141,6 +161,7 @@ export class BulkOperationsService {
     tenantId: string,
     dto: BulkExportDto,
   ): Promise<{ invoices: unknown[]; format: string }> {
+    this.assertBulkSize(dto.invoice_ids);
     const invoices = await this.prisma.invoice.findMany({
       where: {
         id: { in: dto.invoice_ids },
