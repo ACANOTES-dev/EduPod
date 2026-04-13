@@ -4,6 +4,13 @@
 .superpowers/
 
 # ============================================================
+# CLAUDE CODE LOCAL SESSION STATE
+# ============================================================
+# Runtime lock files written by /loop and /schedule — coordination
+# primitives, not shared project state. See commit history for context.
+.claude/*.lock
+
+# ============================================================
 # ENVIRONMENT & SECRETS
 # ============================================================
 .env
