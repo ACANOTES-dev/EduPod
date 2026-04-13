@@ -36,10 +36,13 @@ function FunnelChart({
   // Defer mounting the chart until after first paint so ResponsiveContainer
   // measures a parent that already has its computed width. Without this gate,
   // Recharts logs a `width(-1) height(-1)` warning during SSR/hydration even
-  // when the wrapper has explicit pixel dimensions. (ADM-019.)
+  // when the wrapper has explicit pixel dimensions. (ADM-019.) Uses a
+  // requestAnimationFrame so the layout pass for the explicit-height parent
+  // completes before ResponsiveContainer takes its first measurement.
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => {
-    setMounted(true);
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   return (
