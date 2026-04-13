@@ -56,8 +56,9 @@ export default function ParentInquiriesPage() {
       setMissingParentRecord(false);
     } catch (err) {
       const code =
-        err && typeof err === 'object' && 'code' in err
-          ? (err as { code?: string }).code
+        err && typeof err === 'object'
+          ? ((err as { error?: { code?: string }; code?: string }).error?.code ??
+            (err as { code?: string }).code)
           : undefined;
       if (code === 'MISSING_PARENT_RECORD') {
         setMissingParentRecord(true);
