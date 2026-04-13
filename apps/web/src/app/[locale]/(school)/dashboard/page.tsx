@@ -48,10 +48,25 @@ type BehaviourOverviewApiResponse = {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
+const ADMIN_DASHBOARD_ROLE_KEYS = [
+  'school_owner',
+  'school_principal',
+  'school_vice_principal',
+  'admin',
+  'school_accountant',
+  'front_office',
+];
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [data, setData] = React.useState<DashboardData | null>(null);
   const [priorityData, setPriorityData] = React.useState<PriorityData>({});
+
+  const showAdminDashboardWidgets = React.useMemo(() => {
+    if (!user?.memberships) return false;
+    const roleKeys = user.memberships.flatMap((m) => m.roles?.map((r) => r.role_key) ?? []);
+    return roleKeys.some((k) => ADMIN_DASHBOARD_ROLE_KEYS.includes(k));
+  }, [user]);
 
   const fetchDashboard = React.useCallback(async () => {
     try {
@@ -161,12 +176,20 @@ export default function DashboardPage() {
   }, []);
 
   React.useEffect(() => {
+    if (!showAdminDashboardWidgets) return;
     void fetchDashboard();
     void fetchFinance();
     void fetchBehaviour();
     void fetchUnlockRequests();
     void fetchReportCardRequests();
-  }, [fetchDashboard, fetchFinance, fetchBehaviour, fetchUnlockRequests, fetchReportCardRequests]);
+  }, [
+    showAdminDashboardWidgets,
+    fetchDashboard,
+    fetchFinance,
+    fetchBehaviour,
+    fetchUnlockRequests,
+    fetchReportCardRequests,
+  ]);
 
   const schoolName = user?.memberships?.[0]?.tenant?.name || 'EduPod School';
 
