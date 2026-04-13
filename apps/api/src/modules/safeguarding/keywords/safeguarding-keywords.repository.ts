@@ -35,20 +35,16 @@ export interface SafeguardingKeywordRow {
  * so every mutation sets `app.current_tenant_id` before touching the table.
  * Reads follow the same rule so RLS is exercised consistently.
  *
- * A 5-minute per-tenant in-memory cache of the active keyword set amortises
- * the per-message scanner round trip. It is invalidated on every mutation
- * that could change the active set (create / update / setActive / delete /
- * bulkImport).
+ * No in-process cache: the API and worker run as separate PM2 processes,
+ * so any per-process memo would go stale across the boundary — an admin
+ * deletes a keyword in the API process while the worker process still
+ * matches on it until its own TTL expires. Keyword lists are small and
+ * the tsvector query is cheap; read-through is fine at current scale.
+ * If this ever becomes a perf hotspot, introduce a Redis pub/sub-backed
+ * cache instead of a local one.
  */
 @Injectable()
 export class SafeguardingKeywordsRepository {
-  private static readonly CACHE_TTL_MS = 5 * 60 * 1000;
-
-  private readonly activeCache = new Map<
-    string,
-    { rows: SafeguardingKeywordRow[]; expiresAt: number }
-  >();
-
   constructor(private readonly prisma: PrismaService) {}
 
   /** Return all keywords for a tenant, active and inactive, ordered by keyword. */
@@ -62,29 +58,15 @@ export class SafeguardingKeywordsRepository {
     });
   }
 
-  /** Return the active keyword set for a tenant, using the 5-minute cache. */
+  /** Return the active keyword set for a tenant. Reads straight from DB. */
   async findActiveByTenant(tenantId: string): Promise<SafeguardingKeywordRow[]> {
-    const now = Date.now();
-    const cached = this.activeCache.get(tenantId);
-    if (cached && cached.expiresAt > now) {
-      return cached.rows;
-    }
-
-    const rows = await createRlsClient(this.prisma, { tenant_id: tenantId }).$transaction(
-      async (tx) => {
-        const db = tx as unknown as PrismaService;
-        return db.safeguardingKeyword.findMany({
-          where: { tenant_id: tenantId, active: true },
-          orderBy: { keyword: 'asc' },
-        });
-      },
-    );
-
-    this.activeCache.set(tenantId, {
-      rows,
-      expiresAt: now + SafeguardingKeywordsRepository.CACHE_TTL_MS,
+    return createRlsClient(this.prisma, { tenant_id: tenantId }).$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      return db.safeguardingKeyword.findMany({
+        where: { tenant_id: tenantId, active: true },
+        orderBy: { keyword: 'asc' },
+      });
     });
-    return rows;
   }
 
   async findById(tenantId: string, id: string): Promise<SafeguardingKeywordRow | null> {
@@ -113,7 +95,6 @@ export class SafeguardingKeywordsRepository {
       },
     );
 
-    this.invalidate(tenantId);
     return row;
   }
 
@@ -137,7 +118,6 @@ export class SafeguardingKeywordsRepository {
       },
     );
 
-    this.invalidate(tenantId);
     return row;
   }
 
@@ -149,7 +129,6 @@ export class SafeguardingKeywordsRepository {
         data: { active },
       });
     });
-    this.invalidate(tenantId);
   }
 
   async delete(tenantId: string, id: string): Promise<void> {
@@ -157,7 +136,6 @@ export class SafeguardingKeywordsRepository {
       const db = tx as unknown as PrismaService;
       await db.safeguardingKeyword.delete({ where: { id } });
     });
-    this.invalidate(tenantId);
   }
 
   /**
@@ -204,16 +182,6 @@ export class SafeguardingKeywordsRepository {
       { maxWait: 10_000, timeout: 60_000 },
     );
 
-    this.invalidate(tenantId);
     return result;
-  }
-
-  invalidate(tenantId: string): void {
-    this.activeCache.delete(tenantId);
-  }
-
-  /** Test helper — clear every cached tenant. Not used in production paths. */
-  clearAllForTest(): void {
-    this.activeCache.clear();
   }
 }
