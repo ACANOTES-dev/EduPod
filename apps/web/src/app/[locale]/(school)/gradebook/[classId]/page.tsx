@@ -139,6 +139,21 @@ interface AssessmentTemplate {
 
 type TabKey = 'assessments' | 'results' | 'grades';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatShortDate(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return iso;
+  }
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ClassGradebookPage() {
@@ -430,7 +445,7 @@ export default function ClassGradebookPage() {
       header: t('dueDate'),
       render: (row: Assessment) => (
         <span className="font-mono text-text-secondary text-xs" dir="ltr">
-          {row.due_date ?? '—'}
+          {formatShortDate(row.due_date)}
         </span>
       ),
     },
@@ -943,7 +958,7 @@ export default function ClassGradebookPage() {
                                     className="px-4 py-3 font-mono text-text-secondary text-xs"
                                     dir="ltr"
                                   >
-                                    {row.due_date ?? '—'}
+                                    {formatShortDate(row.due_date)}
                                   </td>
                                   <td className="px-4 py-3">
                                     {isOwned && (
