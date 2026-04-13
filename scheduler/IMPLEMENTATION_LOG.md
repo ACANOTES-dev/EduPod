@@ -22,16 +22,16 @@
 
 ## Status board
 
-| #   | Stage                                    | Status     | Owner (session/date) | Notes                                      |
-| --- | ---------------------------------------- | ---------- | -------------------- | ------------------------------------------ |
-| 1   | Schema migration + cover-teacher removal | `complete` | Claude / 2026-04-13  | Migration live on prod; commit `3893bec7`. |
-| 2   | Solver core updates                      | `complete` | Claude / 2026-04-14  | Pin/pool model live in solver on prod.     |
-| 3   | API surface updates                      | `pending`  | —                    | Unblocked by Stage 2                       |
-| 4   | Competencies page UI rebuild             | `pending`  | —                    | Blocked by Stage 3                         |
-| 5   | Seed NHQS data                           | `pending`  | —                    | Blocked by Stage 4                         |
-| 6   | Generate end-to-end on NHQS              | `pending`  | —                    | Blocked by Stage 5                         |
-| 7   | Substitutes page + table                 | `pending`  | —                    | Blocked by Stage 6                         |
-| 8   | Downstream rewire                        | `pending`  | —                    | Blocked by Stage 7                         |
+| #   | Stage                                    | Status     | Owner (session/date) | Notes                                           |
+| --- | ---------------------------------------- | ---------- | -------------------- | ----------------------------------------------- |
+| 1   | Schema migration + cover-teacher removal | `complete` | Claude / 2026-04-13  | Migration live on prod; commit `3893bec7`.      |
+| 2   | Solver core updates                      | `complete` | Claude / 2026-04-14  | Commit `d76344bb`; pin/pool model live on prod. |
+| 3   | API surface updates                      | `pending`  | —                    | Unblocked by Stage 2                            |
+| 4   | Competencies page UI rebuild             | `pending`  | —                    | Blocked by Stage 3                              |
+| 5   | Seed NHQS data                           | `pending`  | —                    | Blocked by Stage 4                              |
+| 6   | Generate end-to-end on NHQS              | `pending`  | —                    | Blocked by Stage 5                              |
+| 7   | Substitutes page + table                 | `pending`  | —                    | Blocked by Stage 6                              |
+| 8   | Downstream rewire                        | `pending`  | —                    | Blocked by Stage 7                              |
 
 ## Parallelisation
 
@@ -136,7 +136,7 @@ Each stage appends its own entry here when finished. Use this template exactly:
 ### Stage 2 — Solver core updates
 
 **Completed:** 2026-04-14
-**Local commit(s):** (see commit immediately preceding this log entry) `refactor(scheduling): teach solver pin/pool and rewire prereqs`
+**Local commit(s):** `d76344bb` refactor(scheduling): teach solver pin/pool and rewire prereqs
 **Deployed to production:** yes — 2026-04-14. Shared scheduler sources, `apps/api/src/modules/scheduling-runs/**`, the scheduler-orchestration service, the scheduling-read facade, and the classes-read facade rsynced to `/opt/edupod/app/`. `@school/api` and `@school/worker` rebuilt under the `edupod` user; `pm2 restart api worker` left both processes online and printing `Nest application successfully started`.
 
 **What was delivered:**
