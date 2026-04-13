@@ -113,14 +113,19 @@ function WorkloadHeatmap({ academicYearId }: { academicYearId: string }) {
       `/api/v1/scheduling-dashboard/workload?academic_year_id=${academicYearId}`,
     )
       .then((res) => setCells(res.data ?? []))
-      .catch((err) => { console.error('[SchedulingDashboardPage]', err); return setCells([]); })
+      .catch((err) => {
+        console.error('[SchedulingDashboardPage]', err);
+        return setCells([]);
+      })
       .finally(() => setLoading(false));
   }, [academicYearId]);
 
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-8 text-sm text-text-secondary">
-        <Loader2 className="h-4 w-4 animate-spin" />{tCommon('loading')}</div>
+        <Loader2 className="h-4 w-4 animate-spin" />
+        {tCommon('loading')}
+      </div>
     );
   }
 
@@ -243,19 +248,26 @@ function RoomUtilisationTab({ academicYearId }: { academicYearId: string }) {
       `/api/v1/scheduling-dashboard/room-utilisation?academic_year_id=${academicYearId}`,
     )
       .then((res) => setRooms(res.data ?? []))
-      .catch((err) => { console.error('[SchedulingDashboardPage]', err); return setRooms([]); })
+      .catch((err) => {
+        console.error('[SchedulingDashboardPage]', err);
+        return setRooms([]);
+      })
       .finally(() => setLoading(false));
   }, [academicYearId]);
 
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-8 text-sm text-text-secondary">
-        <Loader2 className="h-4 w-4 animate-spin" />{tCommon('loading')}</div>
+        <Loader2 className="h-4 w-4 animate-spin" />
+        {tCommon('loading')}
+      </div>
     );
   }
 
   if (rooms.length === 0) {
-    return <p className="py-8 text-center text-sm text-text-secondary">{t('noRoomDataAvailable')}</p>;
+    return (
+      <p className="py-8 text-center text-sm text-text-secondary">{t('noRoomDataAvailable')}</p>
+    );
   }
 
   return (
@@ -301,7 +313,10 @@ function RoomUtilisationTab({ academicYearId }: { academicYearId: string }) {
               <p className="text-xs text-blue-600">{t('underutilisedConsiderReassigning')}</p>
             )}
             {room.peak_period && (
-              <p className="text-xs text-text-tertiary">{t('peak')}{room.peak_period}</p>
+              <p className="text-xs text-text-tertiary">
+                {t('peak')}
+                {room.peak_period}
+              </p>
             )}
           </div>
         );
@@ -322,19 +337,26 @@ function TrendsTab({ academicYearId }: { academicYearId: string }) {
       `/api/v1/scheduling-dashboard/trends?academic_year_id=${academicYearId}`,
     )
       .then((res) => setTrends(res.data ?? []))
-      .catch((err) => { console.error('[SchedulingDashboardPage]', err); return setTrends([]); })
+      .catch((err) => {
+        console.error('[SchedulingDashboardPage]', err);
+        return setTrends([]);
+      })
       .finally(() => setLoading(false));
   }, [academicYearId]);
 
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-8 text-sm text-text-secondary">
-        <Loader2 className="h-4 w-4 animate-spin" />{tCommon('loading')}</div>
+        <Loader2 className="h-4 w-4 animate-spin" />
+        {tCommon('loading')}
+      </div>
     );
   }
 
   if (trends.length === 0) {
-    return <p className="py-8 text-center text-sm text-text-secondary">{t('noTrendDataAvailable')}</p>;
+    return (
+      <p className="py-8 text-center text-sm text-text-secondary">{t('noTrendDataAvailable')}</p>
+    );
   }
 
   return (
@@ -440,7 +462,9 @@ function OverviewTab({
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-text-secondary py-8">
-        <Loader2 className="h-4 w-4 animate-spin" />{tCommon('loading')}</div>
+        <Loader2 className="h-4 w-4 animate-spin" />
+        {tCommon('loading')}
+      </div>
     );
   }
 
@@ -551,12 +575,6 @@ function OverviewTab({
           </div>
         </div>
       )}
-
-      {/* Quick status info */}
-      <div className="rounded-2xl border border-border bg-surface p-5 space-y-2">
-        <h2 className="text-base font-semibold text-text-primary">{t('schedulingStatus')}</h2>
-        <p className="text-sm text-text-secondary">{t('useTheSidebarToConfigure')}</p>
-      </div>
     </div>
   );
 }
@@ -591,7 +609,9 @@ export default function SchedulingDashboardPage() {
           { silent: true },
         ).then((ov) => setOverview(ov));
       })
-      .catch((err) => { console.error('[SchedulingDashboardPage]', err); })
+      .catch((err) => {
+        console.error('[SchedulingDashboardPage]', err);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -602,10 +622,13 @@ export default function SchedulingDashboardPage() {
     { key: 'trends', label: 'Trends' },
   ];
 
+  const tHub = useTranslations('scheduling.hub');
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title={t('dashboard')}
+        title={tHub('analyticsDashboard')}
+        description={tHub('analyticsDashboardDesc')}
         actions={
           <Button onClick={() => router.push(`/${locale}/scheduling/auto`)} className="gap-1.5">
             <Sparkles className="h-4 w-4" />
