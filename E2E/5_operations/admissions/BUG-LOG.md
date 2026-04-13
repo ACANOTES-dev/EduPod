@@ -65,38 +65,41 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
   - `GET /api/v1/admission-overrides` returns 200 in Network tab.
   - Zero console errors.
 - **Release-gate:** Must ship before tenant launch. Even if no active overrides, the broken CTA erodes admin trust.
-- **Status:** In Progress.
-- **Notes:** Claude Opus 4.6 — 2026-04-13. Building dedicated overrides page (Option A).
+- **Status:** Verified.
+- **Notes:** Claude Opus 4.6 — 2026-04-13. Built dedicated overrides page (Option A).
 
 ### Decisions
 
 - 2026-04-13: Chose Option A (build dedicated overrides page that calls `GET /v1/admission-overrides`). The endpoint already exists and returns the right shape; building the missing page is lower-risk than re-routing the hub tile, and it preserves the dedicated audit surface.
 
-### ADM-004 [L] — Timeline & parent dashboard show `€` for an AED tenant
+### Verification notes
 
-- **Provenance:** `[L]` live-verified.
-- **Summary:** The approved application's Timeline tab shows `Cash payment recorded: €5000.00.` even though the Payment tab (on the same page) correctly shows `5000.00 AED`. Separately, the parent-facing `/en/dashboard` shows `Term 2 Fee Invoice €450 due in 3 days` for the same tenant. The hardcoded `€` currency symbol is presumably leaking from a formatter util that wasn't migrated to tenant-scoped currency.
-- **Severity:** P0 — incorrect currency in audit trail and in parent-visible financial copy. Legal/compliance risk, user-trust erosion.
-- **Reproduction (admin path):**
-  1. Login as owner → open `/en/admissions/35f30e73-739b-48a1-9e67-a6fb01ded9f3` → Timeline tab.
-  2. Third note shows `Cash payment recorded: €5000.00.`
-- **Reproduction (parent path):**
-  1. Login as `parent@nhqs.test` → navigates to `/en/dashboard`.
-  2. "Needs Your Attention" block shows `Term 2 Fee Invoice · €450 due in 3 days`.
-- **Expected:** All monetary rendering in a tenant must use that tenant's `currency_code` (AED for Nurul Huda). Format: `AED 5,000.00` or `5,000.00 AED` — consistent with Payment tab.
-- **Affected files (grep targets):**
-  - `grep -rn "€" apps/web/src/app` — find all hardcoded €.
-  - `apps/api/src/modules/admissions/application-state-machine.service.ts` — check the `ApplicationNote` text template in `moveToConditionalApproval` / `markApproved` (where the note body is composed with an amount).
-  - Notification template: `apps/worker/src/processors/admissions/admissions-payment-link.processor.ts` and any Handlebars template that assembles payment-link emails.
-  - Frontend formatter: `apps/web/src/components/currency-display.tsx` (used in Payment tab correctly) vs whatever the Timeline tab renders (likely plain text from `note.note`).
-- **Fix direction:**
-  - Root cause is two-part. (a) The backend stores the note body as plain text with currency formatted at write time — it uses `€` as a hardcoded symbol. Fix: when composing the note body, resolve tenant currency via `SettingsService.getTenantCurrency(tenantId)` and include it (or better, store the amount in a structured `payload_json` and let the frontend format with `CurrencyDisplay`). (b) The parent dashboard's "Term 2 Fee Invoice" summary is a cross-module issue — fix it to use `<CurrencyDisplay currency_code={useTenantCurrency()}>`.
-- **Verification:**
-  - Re-approve a test application (cash or override) in a staging tenant with currency=USD — note reads `USD 5,000.00` or `$5,000.00`, never `€`.
-  - Parent dashboard for a USD tenant shows `USD 450.00`.
-  - Grep `apps/web apps/api apps/worker` for literal `€`/`$` in string templates → zero matches outside explicit currency demos.
-- **Release-gate:** Must ship before launch — multilingual + multi-currency tenants are the primary targets.
-- **Status:** Open.
+- 2026-04-13: Logged in as `owner@nhqs.test` on prod, navigated to `/en/admissions/overrides`. Page renders the QueueHeader ("Overrides Log"), one row (`APP-000003 · Beta JuniorApplicant · Full waiver · €6,000.00 / €0.00 · Yusuf Rahman · 11-04-2026`). `GET /api/v1/admission-overrides?page=1&pageSize=20` → 200. Console: 0 errors. (Note: NHQS is a EUR tenant — the row currency renders correctly as `€6,000.00` via `<CurrencyDisplay>`.)
+
+### ADM-004 [L] — Payment tab uses stale `application.currency_code` instead of tenant currency
+
+- **Provenance:** `[L]` live-verified. Re-framed 2026-04-13 after user clarified NHQS is a EUR tenant.
+- **Summary (re-framed):** Original log assumed NHQS was AED and that the Timeline `€` and parent dashboard `€450` were the bug. NHQS is actually a **EUR tenant**, so those renderings are correct. The real bug is the inverse: the Payment tab on `/en/admissions/{id}` reads currency from `application.currency_code`, which is stale (`AED`) on rows created before the tenant currency was finalised. The tab therefore shows `5000.00 AED` for a EUR tenant.
+- **Severity:** P0 — payment tab shows the wrong currency code, which breaks the audit story for any application created before a tenant currency change. Erodes admin trust.
+- **Reproduction (verified 2026-04-13):**
+  1. Login as `owner@nhqs.test` on `https://nhqs.edupod.app`.
+  2. Open `/en/admissions/35f30e73-739b-48a1-9e67-a6fb01ded9f3` → Payment tab.
+  3. "Amount" reads `5000.00 AED` (wrong — tenant currency is EUR).
+- **Expected:** `€5,000.00` rendered via `<CurrencyDisplay>` driven by `useTenantCurrency()`. Per CLAUDE.md "Permanent Constraints" the tenant has a single currency; the application row's stored `currency_code` is the legacy denormalisation, not the source of truth.
+- **Affected files:**
+  - `apps/web/src/app/[locale]/(school)/admissions/[id]/_components/payment-tab.tsx`
+- **Fix direction:** Refactor `PaymentTab` to call `useTenantCurrency()` and render every monetary field through `<CurrencyDisplay>`, replacing the local `formatMoney` helper that consumed the stale `application.currency_code`.
+- **Verification (post-fix):** Reload `/en/admissions/35f30e73-739b-48a1-9e67-a6fb01ded9f3` → Payment tab → "Amount" reads `€5,000.00` with thousands separator (which incidentally also retires ADM-036 for this surface).
+- **Release-gate:** Must ship before launch — multi-currency tenants are the primary targets.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: User clarified NHQS is a EUR tenant. The original bug log was wrong about which side was the bug; the Timeline `€` is correct and the Payment tab's `AED` is the bug. Re-framed scope to fix Payment tab only — the parent dashboard `€450` line is already correct currency for an EUR tenant. Chose Option B (frontend uses `useTenantCurrency()`) over Option A (data backfill of `application.currency_code`) because it makes the source of truth explicit and is durable across future tenant currency changes.
+
+### Verification notes
+
+- 2026-04-13: Logged in as `owner@nhqs.test` on prod, navigated to `/en/admissions/35f30e73-739b-48a1-9e67-a6fb01ded9f3` → Payment tab. After fix, "Amount" reads `€5,000.00` (via `<CurrencyDisplay>`). Console: 0 errors.
 - **Notes:** Closely related to existing finance-pack fix sweep (commit 24073202) that introduced `<CurrencyDisplay>` across finance — admissions + parent dashboard missed the same migration.
 
 ---

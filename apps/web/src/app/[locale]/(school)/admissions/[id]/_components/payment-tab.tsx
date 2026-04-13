@@ -1,18 +1,16 @@
 'use client';
 
-import type { ApplicationDetail } from './types';
+import { CurrencyDisplay } from '../../../finance/_components/currency-display';
+import { useTenantCurrency } from '../../../finance/_components/use-tenant-currency';
 
-function formatMoney(cents: number | null, currency: string | null): string {
-  if (cents === null) return '—';
-  const amount = (cents / 100).toFixed(2);
-  return currency ? `${amount} ${currency}` : amount;
-}
+import type { ApplicationDetail } from './types';
 
 export function PaymentTab({ application }: { application: ApplicationDetail }) {
   const override = application.override_record;
   const deadline = application.payment_deadline ? new Date(application.payment_deadline) : null;
   const now = Date.now();
   const deadlineExpired = deadline ? deadline.getTime() < now : false;
+  const currencyCode = useTenantCurrency();
 
   return (
     <div className="space-y-4">
@@ -22,7 +20,14 @@ export function PaymentTab({ application }: { application: ApplicationDetail }) 
           <div>
             <dt className="text-xs text-text-tertiary">Amount</dt>
             <dd className="font-mono text-sm text-text-primary">
-              {formatMoney(application.payment_amount_cents, application.currency_code)}
+              {application.payment_amount_cents !== null ? (
+                <CurrencyDisplay
+                  amount={application.payment_amount_cents / 100}
+                  currency_code={currencyCode}
+                />
+              ) : (
+                '—'
+              )}
             </dd>
           </div>
           <div>
@@ -66,7 +71,10 @@ export function PaymentTab({ application }: { application: ApplicationDetail }) 
                 </div>
                 <div className="ms-3 shrink-0 text-end">
                   <p className="font-mono text-text-primary">
-                    {(event.amount_cents / 100).toFixed(2)}
+                    <CurrencyDisplay
+                      amount={event.amount_cents / 100}
+                      currency_code={currencyCode}
+                    />
                   </p>
                   <p className="text-text-tertiary">{event.status}</p>
                 </div>
@@ -95,13 +103,19 @@ export function PaymentTab({ application }: { application: ApplicationDetail }) 
             <div>
               <dt className="text-xs text-text-tertiary">Expected</dt>
               <dd className="font-mono text-sm text-text-primary">
-                {(override.expected_amount_cents / 100).toFixed(2)}
+                <CurrencyDisplay
+                  amount={override.expected_amount_cents / 100}
+                  currency_code={currencyCode}
+                />
               </dd>
             </div>
             <div>
               <dt className="text-xs text-text-tertiary">Collected</dt>
               <dd className="font-mono text-sm text-text-primary">
-                {(override.actual_amount_cents / 100).toFixed(2)}
+                <CurrencyDisplay
+                  amount={override.actual_amount_cents / 100}
+                  currency_code={currencyCode}
+                />
               </dd>
             </div>
             <div className="sm:col-span-2">
