@@ -201,6 +201,19 @@ export interface CreatePublicResult {
   }>;
 }
 
+// ─── Query budget ────────────────────────────────────────────────────────────
+
+/**
+ * Maximum Prisma-level operations allowed inside findOne. The budget covers:
+ *   - application.findFirst (1 call, Prisma resolves includes internally)
+ *   - admissionsPaymentEvent.findMany (1 call)
+ *   - capacityService.getAvailableSeats (1 call, uses raw SQL internally)
+ *
+ * If someone introduces a loop that issues per-row queries the counter will
+ * cross this threshold and emit a Logger.warn captured by Sentry/journald.
+ */
+export const FIND_ONE_QUERY_BUDGET = 10;
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -597,10 +610,12 @@ export class ApplicationsService {
 
   async findOne(tenantId: string, id: string): Promise<ApplicationDetail> {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+    let queryCount = 0;
 
     const detail = await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
+      queryCount++;
       const row = await db.application.findFirst({
         where: { id, tenant_id: tenantId },
         include: {
@@ -669,6 +684,7 @@ export class ApplicationsService {
         return null;
       }
 
+      queryCount++;
       const paymentEvents = await db.admissionsPaymentEvent.findMany({
         where: { tenant_id: tenantId, application_id: id },
         orderBy: { created_at: 'asc' },
@@ -682,6 +698,9 @@ export class ApplicationsService {
         },
       });
 
+      if (row.target_academic_year_id && row.target_year_group_id) {
+        queryCount++;
+      }
       const capacity =
         row.target_academic_year_id && row.target_year_group_id
           ? await this.capacityService.getAvailableSeats(db, {
@@ -693,6 +712,12 @@ export class ApplicationsService {
 
       return { row, paymentEvents, capacity };
     });
+
+    if (queryCount > FIND_ONE_QUERY_BUDGET) {
+      this.logger.warn(
+        `[perf.query_budget_exceeded] findOne exceeded ${FIND_ONE_QUERY_BUDGET} queries: count=${queryCount}`,
+      );
+    }
 
     if (!detail) {
       throw new NotFoundException({

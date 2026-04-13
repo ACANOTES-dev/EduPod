@@ -153,7 +153,11 @@ export const forceApproveOverrideSchema = z.object({
   justification: z.string().min(20).max(2000),
 });
 
-export const listAdmissionOverridesSchema = paginationQuerySchema;
+export const listAdmissionOverridesSchema = paginationQuerySchema.extend({
+  approved_by_user_id: z.string().uuid().optional(),
+  created_at_from: z.string().datetime().optional(),
+  created_at_to: z.string().datetime().optional(),
+});
 
 // ─── Admissions queue pages (Wave 4 impl 11) ───────────────────────────────
 

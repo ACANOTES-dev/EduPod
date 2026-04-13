@@ -580,5 +580,95 @@ describe('AdmissionsPaymentService', () => {
         }),
       );
     });
+
+    it('applies approved_by_user_id filter to where clause', async () => {
+      const harness = buildService();
+      (harness.prisma.admissionOverride.findMany as jest.Mock).mockResolvedValue([]);
+      (harness.prisma.admissionOverride.count as jest.Mock).mockResolvedValue(0);
+
+      await harness.service.listOverrides(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        approved_by_user_id: ADMIN_USER_ID,
+      });
+
+      expect((harness.prisma.admissionOverride.findMany as jest.Mock).mock.calls[0]?.[0]).toEqual(
+        expect.objectContaining({
+          where: { tenant_id: TENANT_ID, approved_by_user_id: ADMIN_USER_ID },
+        }),
+      );
+      expect((harness.prisma.admissionOverride.count as jest.Mock).mock.calls[0]?.[0]).toEqual(
+        expect.objectContaining({
+          where: { tenant_id: TENANT_ID, approved_by_user_id: ADMIN_USER_ID },
+        }),
+      );
+    });
+
+    it('applies created_at_from and created_at_to date range filters', async () => {
+      const harness = buildService();
+      (harness.prisma.admissionOverride.findMany as jest.Mock).mockResolvedValue([]);
+      (harness.prisma.admissionOverride.count as jest.Mock).mockResolvedValue(0);
+
+      const from = '2026-04-01T00:00:00.000Z';
+      const to = '2026-04-10T23:59:59.999Z';
+
+      await harness.service.listOverrides(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        created_at_from: from,
+        created_at_to: to,
+      });
+
+      const findManyArgs = (harness.prisma.admissionOverride.findMany as jest.Mock).mock
+        .calls[0]?.[0];
+      expect(findManyArgs.where.tenant_id).toBe(TENANT_ID);
+      expect(findManyArgs.where.created_at).toEqual({
+        gte: new Date(from),
+        lte: new Date(to),
+      });
+    });
+
+    it('applies only created_at_from when created_at_to is not provided', async () => {
+      const harness = buildService();
+      (harness.prisma.admissionOverride.findMany as jest.Mock).mockResolvedValue([]);
+      (harness.prisma.admissionOverride.count as jest.Mock).mockResolvedValue(0);
+
+      const from = '2026-04-01T00:00:00.000Z';
+
+      await harness.service.listOverrides(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        created_at_from: from,
+      });
+
+      const findManyArgs = (harness.prisma.admissionOverride.findMany as jest.Mock).mock
+        .calls[0]?.[0];
+      expect(findManyArgs.where.created_at).toEqual({ gte: new Date(from) });
+    });
+
+    it('combines all filters when provided together', async () => {
+      const harness = buildService();
+      (harness.prisma.admissionOverride.findMany as jest.Mock).mockResolvedValue([]);
+      (harness.prisma.admissionOverride.count as jest.Mock).mockResolvedValue(0);
+
+      const from = '2026-04-01T00:00:00.000Z';
+      const to = '2026-04-10T23:59:59.999Z';
+
+      await harness.service.listOverrides(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        approved_by_user_id: ADMIN_USER_ID,
+        created_at_from: from,
+        created_at_to: to,
+      });
+
+      const findManyArgs = (harness.prisma.admissionOverride.findMany as jest.Mock).mock
+        .calls[0]?.[0];
+      expect(findManyArgs.where).toEqual({
+        tenant_id: TENANT_ID,
+        approved_by_user_id: ADMIN_USER_ID,
+        created_at: { gte: new Date(from), lte: new Date(to) },
+      });
+    });
   });
 });

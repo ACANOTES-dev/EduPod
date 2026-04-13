@@ -12340,6 +12340,13 @@
       "full_waiver": "Full waiver",
       "partial_waiver": "Partial waiver",
       "deferred_payment": "Deferred payment"
+    },
+    "filter": {
+      "approver": "Approved by",
+      "allApprovers": "All approvers",
+      "dateFrom": "From date",
+      "dateTo": "To date",
+      "clear": "Clear filters"
     }
   },
   "admissionsSettings": {

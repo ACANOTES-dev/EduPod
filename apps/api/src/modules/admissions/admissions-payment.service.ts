@@ -285,16 +285,38 @@ export class AdmissionsPaymentService {
 
   async listOverrides(
     tenantId: string,
-    query: { page: number; pageSize: number },
+    query: {
+      page: number;
+      pageSize: number;
+      approved_by_user_id?: string;
+      created_at_from?: string;
+      created_at_to?: string;
+    },
   ): Promise<{
     data: AdmissionOverrideListItem[];
     meta: { page: number; pageSize: number; total: number };
   }> {
     const skip = (query.page - 1) * query.pageSize;
 
+    const where: Prisma.AdmissionOverrideWhereInput = { tenant_id: tenantId };
+
+    if (query.approved_by_user_id) {
+      where.approved_by_user_id = query.approved_by_user_id;
+    }
+
+    if (query.created_at_from || query.created_at_to) {
+      where.created_at = {};
+      if (query.created_at_from) {
+        where.created_at.gte = new Date(query.created_at_from);
+      }
+      if (query.created_at_to) {
+        where.created_at.lte = new Date(query.created_at_to);
+      }
+    }
+
     const [rows, total] = await Promise.all([
       this.prisma.admissionOverride.findMany({
-        where: { tenant_id: tenantId },
+        where,
         orderBy: { created_at: 'desc' },
         skip,
         take: query.pageSize,
@@ -311,7 +333,7 @@ export class AdmissionsPaymentService {
           },
         },
       }),
-      this.prisma.admissionOverride.count({ where: { tenant_id: tenantId } }),
+      this.prisma.admissionOverride.count({ where }),
     ]);
 
     const data: AdmissionOverrideListItem[] = rows.map((row) => ({

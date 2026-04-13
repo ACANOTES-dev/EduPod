@@ -12331,6 +12331,13 @@
       "full_waiver": "إعفاء كامل",
       "partial_waiver": "إعفاء جزئي",
       "deferred_payment": "دفع مؤجل"
+    },
+    "filter": {
+      "approver": "اعتمده",
+      "allApprovers": "جميع المعتمدين",
+      "dateFrom": "من تاريخ",
+      "dateTo": "إلى تاريخ",
+      "clear": "مسح الفلاتر"
     }
   },
   "admissionsSettings": {

@@ -125,6 +125,9 @@ export class AdmissionOverridesController {
     return this.service.listOverrides(tenant.tenant_id, {
       page: query.page,
       pageSize: query.pageSize,
+      approved_by_user_id: query.approved_by_user_id,
+      created_at_from: query.created_at_from,
+      created_at_to: query.created_at_to,
     });
   }
 }
