@@ -119,32 +119,42 @@ export class AdmissionsPaymentLinkProcessor extends WorkerHost {
 
     const { successUrl, cancelUrl } = this.buildCheckoutUrls(tenant_id, application_id);
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: (application.currency_code ?? 'EUR').toLowerCase(),
-            unit_amount: application.payment_amount_cents,
-            product_data: {
-              name: `Admission fee — application ${application.application_number}`,
-              description: `Upfront admission payment for ${application.student_first_name} ${application.student_last_name}`,
+    // ADM-013 idempotency: a BullMQ retry within Stripe's 24h idempotency
+    // window returns the same session instead of creating a zombie. The key
+    // changes when the application's payment_deadline changes (i.e. when a
+    // genuinely new payment cycle starts).
+    const idempotencyKey =
+      `admissions:${application_id}:${application.payment_deadline.toISOString()}`.slice(0, 255);
+
+    const session = await stripe.checkout.sessions.create(
+      {
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: (application.currency_code ?? 'EUR').toLowerCase(),
+              unit_amount: application.payment_amount_cents,
+              product_data: {
+                name: `Admission fee — application ${application.application_number}`,
+                description: `Upfront admission payment for ${application.student_first_name} ${application.student_last_name}`,
+              },
             },
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        mode: 'payment',
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        expires_at: Math.floor(application.payment_deadline.getTime() / 1000),
+        metadata: {
+          purpose: 'admissions',
+          tenant_id,
+          application_id,
+          expected_amount_cents: application.payment_amount_cents.toString(),
         },
-      ],
-      mode: 'payment',
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      expires_at: Math.floor(application.payment_deadline.getTime() / 1000),
-      metadata: {
-        purpose: 'admissions',
-        tenant_id,
-        application_id,
-        expected_amount_cents: application.payment_amount_cents.toString(),
       },
-    });
+      { idempotencyKey },
+    );
 
     await this.prisma.application.update({
       where: { id: application_id },
