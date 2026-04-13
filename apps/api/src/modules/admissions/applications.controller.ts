@@ -242,9 +242,7 @@ export class ApplicationsController {
     // ADM-011: write an internal audit note so spammed regenerates leave a
     // trail of who did it and which session was issued. Suffix only — full
     // session id has no PII but is unnecessary in the audit body.
-    const sessionId = (session as { stripe_checkout_session_id?: string })
-      .stripe_checkout_session_id;
-    const sessionSuffix = sessionId ? sessionId.slice(-8) : 'unknown';
+    const sessionSuffix = session.session_id ? session.session_id.slice(-8) : 'unknown';
     try {
       await this.applicationNotesService.create(tenant.tenant_id, id, user.sub, {
         note: `Regenerated payment link. New checkout session …${sessionSuffix}.`,

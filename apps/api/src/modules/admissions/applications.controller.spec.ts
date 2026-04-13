@@ -336,8 +336,7 @@ describe('ApplicationsController', () => {
 
     it('writes an internal audit note recording the new session suffix', async () => {
       mockStripeService.createAdmissionsCheckoutSession.mockResolvedValue({
-        session_id: 'cs_admissions_regen',
-        stripe_checkout_session_id: 'cs_test_abcd1234efgh5678',
+        session_id: 'cs_test_abcd1234efgh5678',
         checkout_url: 'https://checkout.stripe.com/regen',
         amount_cents: 700_000,
         currency_code: 'EUR',
@@ -355,8 +354,7 @@ describe('ApplicationsController', () => {
 
     it('returns the session even if the audit note write fails', async () => {
       mockStripeService.createAdmissionsCheckoutSession.mockResolvedValue({
-        session_id: 'cs_admissions_regen',
-        stripe_checkout_session_id: 'cs_test_abcd1234efgh5678',
+        session_id: 'cs_test_abcd1234efgh5678',
         checkout_url: 'https://checkout.stripe.com/regen',
         amount_cents: 700_000,
         currency_code: 'EUR',
@@ -365,7 +363,7 @@ describe('ApplicationsController', () => {
       mockApplicationNotesService.create.mockRejectedValue(new Error('db unavailable'));
 
       const result = await controller.regeneratePaymentLink(TENANT, APP_ID, USER, {});
-      expect(result.session_id).toBe('cs_admissions_regen');
+      expect(result.session_id).toBe('cs_test_abcd1234efgh5678');
     });
   });
 });

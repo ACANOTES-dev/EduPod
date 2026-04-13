@@ -395,7 +395,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Verification:**
   - Simulate a DB failure after Stripe call in a staging harness → second run does not create a second Stripe session.
 - **Release-gate:** Should ship before launch.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Idempotency key = `admissions:${applicationId}:${payment_deadline.toISOString()}` (truncated to Stripe's 255-char limit). Used `payment_deadline` rather than a per-request UUID because (a) it's stable across worker retries within Stripe's 24h key window — same retry → same session, no zombie; (b) genuinely new payment cycles always change the deadline (re-entering `conditional_approval` resets it), so the next session goes through; (c) no schema migration needed. Applied in both the worker processor and the API service path so the controller-driven regenerate gets the same protection. Also fixed a residual ADM-011 bug — the controller used a non-existent `stripe_checkout_session_id` field on the result instead of `session_id`.
+
+### Verification notes
+
+- 2026-04-13: 22/22 admissions controller tests pass (with corrected `session_id` field) and 870/870 worker tests pass. The pre-existing `stripe.service.spec.ts` failures (49/49) are unrelated — DI setup missing `SequenceService` predates this change. API + worker rebuilt and restarted on prod.
 
 ---
 

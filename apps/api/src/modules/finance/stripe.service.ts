@@ -301,33 +301,44 @@ export class StripeService {
     const productName = `Admission fee — application ${application.application_number}`;
     const productDescription = `Upfront admission payment for ${application.student_first_name} ${application.student_last_name}`;
 
+    // ADM-013 idempotency: keyed on (application_id, payment_deadline). A
+    // worker retry or duplicate controller call within Stripe's 24h
+    // idempotency window returns the same session instead of creating a
+    // zombie. Changing the payment_deadline (re-entering conditional
+    // approval) implicitly invalidates the key and lets a fresh session
+    // through.
+    const idempotencyKey = `admissions:${applicationId}:${deadline.toISOString()}`.slice(0, 255);
+
     const session = await this.circuitBreaker.exec('stripe', () =>
-      stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price_data: {
-              currency: currencyCode.toLowerCase(),
-              unit_amount: amountCents,
-              product_data: {
-                name: productName,
-                description: productDescription,
+      stripe.checkout.sessions.create(
+        {
+          payment_method_types: ['card'],
+          line_items: [
+            {
+              price_data: {
+                currency: currencyCode.toLowerCase(),
+                unit_amount: amountCents,
+                product_data: {
+                  name: productName,
+                  description: productDescription,
+                },
               },
+              quantity: 1,
             },
-            quantity: 1,
+          ],
+          mode: 'payment',
+          success_url: successUrl,
+          cancel_url: cancelUrl,
+          expires_at: expiresAt,
+          metadata: {
+            purpose: 'admissions',
+            tenant_id: tenantId,
+            application_id: applicationId,
+            expected_amount_cents: amountCents.toString(),
           },
-        ],
-        mode: 'payment',
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-        expires_at: expiresAt,
-        metadata: {
-          purpose: 'admissions',
-          tenant_id: tenantId,
-          application_id: applicationId,
-          expected_amount_cents: amountCents.toString(),
         },
-      }),
+        { idempotencyKey },
+      ),
     );
 
     // eslint-disable-next-line school/no-cross-module-prisma-access -- stripe_checkout_session_id is a finance-owned column on applications
