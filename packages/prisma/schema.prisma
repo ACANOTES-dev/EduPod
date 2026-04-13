@@ -5236,6 +5236,13 @@ model Notification {
   delivered_at        DateTime?           @db.Timestamptz(6)
   read_at             DateTime?           @db.Timestamptz(6)
 
+  // Fallback chain: every notification in a fallback chain
+  // (whatsapp → sms → email → in_app) shares a chain_id. Set on the
+  // first notification in a chain; propagated to each fallback row by
+  // the dispatcher. Nullable so existing rows stay valid. See
+  // COMMS-022.
+  chain_id String? @db.Uuid
+
   // Relations
   tenant    Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   recipient User   @relation("notification_recipient", fields: [recipient_user_id], references: [id])
@@ -5250,6 +5257,7 @@ model Notification {
 
   @@unique([tenant_id, idempotency_key], name: "idx_notifications_idempotency")
   @@index([tenant_id, recipient_user_id, status], name: "idx_notifications_tenant_recipient")
+  @@index([tenant_id, chain_id], name: "idx_notifications_tenant_chain")
   @@map("notifications")
 }
 

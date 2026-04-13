@@ -128,6 +128,7 @@ interface DispatchableNotification {
   source_entity_id: string | null;
   attempt_count: number;
   max_attempts: number;
+  chain_id: string | null;
 }
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -713,6 +714,20 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
       `Creating ${fallbackChannel} fallback notification for ${original.id} (was ${original.channel})`,
     );
 
+    // Chain tracking: if the original row already has a chain_id, the
+    // fallback inherits it. Otherwise this is the first fallback in a
+    // new chain — mint an id and backfill the original so the whole
+    // chain is linkable.
+    let chainId = original.chain_id;
+    if (!chainId) {
+      chainId = crypto.randomUUID();
+      await this.prisma.notification.update({
+        where: { id: original.id },
+        data: { chain_id: chainId },
+      });
+      original.chain_id = chainId;
+    }
+
     await this.prisma.notification.create({
       data: {
         tenant_id: original.tenant_id,
@@ -725,6 +740,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
         source_entity_type: original.source_entity_type,
         source_entity_id: original.source_entity_id,
         delivered_at: fallbackChannel === 'in_app' ? new Date() : null,
+        chain_id: chainId,
       },
     });
   }
