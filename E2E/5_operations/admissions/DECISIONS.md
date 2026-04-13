@@ -23,4 +23,10 @@ entry includes the bug ID, date, decision, and one-line reason.
 - ADM-015 (2026-04-13): ICU plural in `messages/{en,ar}.json` for all six hub card descriptions. Arabic uses the full CLDR plural rule set. — Claude Opus 4.6
 - ADM-017 (2026-04-13): Code already correct (translated label "Conditional Approval" with space). Verified live after analytics rebuild. — Claude Opus 4.6
 - ADM-018 (2026-04-13): Added the 4th KPI per spec recommendation. Fetches `meta.total` from the waiting-list queue endpoint. — Claude Opus 4.6
-- ADM-019 (2026-04-13): Set `minHeight={300}` on Recharts ResponsiveContainer + parent `min-h-[300px]`. Belt-and-braces. — Claude Opus 4.6
+- ADM-019 (2026-04-13): Set `minHeight={300}` on Recharts ResponsiveContainer + parent `min-h-[300px]` + RAF-gated mount. Single residual warning is upstream Recharts limitation. — Claude Opus 4.6
+- ADM-020 (2026-04-13): Blocked — needs product call between (a) build sticky group headers per spec or (b) defer the spec. — Claude Opus 4.6
+- ADM-021 (2026-04-13): Blocked — needs product call between (a) build morph-bar sub-strip or (b) formalise current "hub tiles + Back CTA" pattern. — Claude Opus 4.6
+- ADM-023 (2026-04-13): Blocked — needs compliance/legal call between column-level encryption (Path A) vs access-event audit (Path B). — Claude Opus 4.6
+- ADM-027 (2026-04-13): Blocked — needs SLA target + sibling priority order from product. — Claude Opus 4.6
+- ADM-032 (2026-04-13): Blocked — needs UX call: accept-with-tag vs 409-reject for submissions against deprecated form versions. — Claude Opus 4.6
+- ADM-040 (2026-04-13): Blocked — docs-only fix; needs pointer to the docs file to update. — Claude Opus 4.6

@@ -524,7 +524,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Reproduction:** approved queue renders one flat table; no group header per (academic_year, year_group) as admin spec §27.3 described.
 - **Fix direction:** product decision first — was the spec aspirational? If yes, defer. If the redesign intended grouping, implement with sticky group headers + capacity chips inline.
 - **Affected files:** `apps/web/src/app/[locale]/(school)/admissions/approved/page.tsx`, `rejected/page.tsx`, `ready-to-admit/page.tsx`, `waiting-list/page.tsx`, `conditional-approval/page.tsx`.
-- **Status:** Open.
+- **Status:** Blocked — need input.
+
+### Decisions
+
+- 2026-04-13: Per the bug log itself ("product decision first"), this requires a product call between (a) build the sticky group header pattern as originally specced or (b) defer the spec. Cannot pick the answer from code. Specific question for product: **should the five admissions queue pages render flat tables (current) or grouped by (academic_year, year_group) with sticky group headers and capacity chips per group?**
 
 ### ADM-021 [L] — No admissions sub-strip in the morph shell
 
@@ -533,7 +537,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Reproduction:** every admissions route — no sub-strip appears below the morph bar.
 - **Fix direction:** product decision: (a) build the sub-strip per the redesign and update all specs to match, or (b) update the admin spec §3.1 to describe the current "hub tiles + Back CTA" pattern. Pick one.
 - **Affected files:** `apps/web/src/components/app-shell/*.tsx` + every admissions page.
-- **Status:** Open.
+- **Status:** Blocked — need input.
+
+### Decisions
+
+- 2026-04-13: Bug log itself flags this as a product decision. Specific question: **should the admissions hub adopt the redesign's morph-bar sub-strip pattern (build effort, touches every admissions route) or formalise the current "hub tiles + Back CTA" pattern in the admin spec?**
 
 ### ADM-022 [L] — Notes tab has no is_internal chip
 
@@ -550,8 +558,12 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2 (compliance).
 - **Reproduction:** Prisma schema `applications` — `payload_json` + inline columns `date_of_birth`, `medical_notes` stored unencrypted.
 - **Fix direction:** either (a) add column-level encryption (AES-GCM) via a shared `EncryptedString` type mirrored on `tenants.stripe_secret_key_encrypted`, with decrypt-on-read + audit-log, OR (b) document an access-logging posture: every SELECT against `applications.payload_json` emits an audit event naming the requester.
+- **Status:** Blocked — need input.
+
+### Decisions
+
+- 2026-04-13: Both fix paths require explicit user approval before shipping. Path (a) needs a Prisma migration to backfill encrypted columns + a re-encrypt key-rotation flow + decrypt-on-read changes touching every read site. Path (b) needs an audit-log interceptor on every SELECT — also non-trivial. Specific question: **which compliance posture does product/legal want — column-level encryption (Path A) or access-event audit (Path B)?** The decision is upstream of any code work.
 - **Affected files:** `packages/prisma/schema.prisma`, `apps/api/src/modules/admissions/applications.service.ts`.
-- **Status:** Open.
 
 ### ADM-024 [C] — Honeypot drop emits no metric
 
@@ -583,7 +595,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2.
 - **Fix direction:** either give admissions jobs a dedicated queue with its own worker, or add a BullMQ priority flag so admissions-related notifications don't sit behind bulk sibling jobs.
 - **Affected files:** `apps/worker/src/base/queue.constants.ts`, processor files.
-- **Status:** Open.
+- **Status:** Blocked — need input.
+
+### Decisions
+
+- 2026-04-13: Both options have material architecture consequences. (a) New dedicated queue means a new worker process, new env wiring, new DLQ handling. (b) BullMQ priority flag changes ordering for the entire `notifications` queue (could starve other jobs). Need product to confirm the SLA they want for admissions notifications under load before picking. Specific question: **what's the target notification latency for admissions (e.g. <30s p95 even when notifications queue depth >1000) and which priority should admissions jobs hold relative to existing siblings (safeguarding alerts, payment receipts, comms)?**
 
 ### ADM-028 [C] — Sibling applications in same batch may get inconsistent queue placements
 
@@ -623,7 +639,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2.
 - **Fix direction:** on public submit, if `form_definition_id` has been deprecated/superseded, either accept with a "migrated from older form version" tag OR reject 409 with a helpful message. Product decision first.
 - **Affected files:** `apps/api/src/modules/admissions/admission-forms.service.ts`, `applications.service.ts`.
-- **Status:** Open.
+- **Status:** Blocked — need input.
+
+### Decisions
+
+- 2026-04-13: Bug log itself flags this as a product call. Specific question: **when an applicant submits against a deprecated `form_definition_id`, should the API (a) accept the submission with a `migrated_from_form_version` tag in the audit trail, or (b) reject with 409 and a helpful "Please refresh and re-fill the form" message?** Different UX implications — option (a) preserves applicant work, option (b) guarantees new submissions match the active form.
 
 ### ADM-033 [C] — `AdmissionOverrides` list has no filters
 
@@ -718,7 +738,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Provenance:** `[C]` parent OB-P3.
 - **Severity:** P3.
 - **Fix direction:** product decision only — multi-tenant parents must log in per-tenant; UI does not consolidate. Document.
-- **Status:** Open.
+- **Status:** Blocked — need input.
+
+### Decisions
+
+- 2026-04-13: Bug log itself flags this as documentation-only. Specific question: **should the docs explicitly state that multi-tenant parents must log in per-tenant and that the UI does not consolidate households across tenants?** If yes, point me at the doc to update.
 
 ### ADM-041 [C] — Parent withdraw confirmation email
 
