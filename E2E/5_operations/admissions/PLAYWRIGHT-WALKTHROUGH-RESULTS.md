@@ -256,15 +256,74 @@ Interesting secondary finding: `/en/dashboard` (without `/parent` suffix) render
 
 ---
 
-## Session 3 — Teacher + Student negative probes
+## Session 3 — Teacher + Student negative probes (re-attempted 2026-04-13)
 
-Intended: login as `Sarah.daly@nhqs.test` and `adam.moore@nhqs.test`; confirm admissions hub is hidden and direct URL redirects.
+**Context:** the original Playwright attempt on 2026-04-12 was blocked when the MCP browser crashed during a logout. Re-attempted the next day via direct HTTP (curl + JWT) against production — this is the authoritative security boundary; the browser-side redirect behaviour is the UX layer on top.
 
-**Outcome:** 🔒 Blocked — browser crashed during logout on the parent session and the MCP profile lock could not be released within this session. Evidence from the parent negative probe (which uses the same role-guard middleware at `layout.tsx` / route group) strongly implies teacher and student will also be redirected to their default dashboards without exposing `/en/admissions`. Suggest re-running Session 3 in a fresh browser profile to confirm.
+### 3.1 Teacher — `Sarah.daly@nhqs.test` (role: `teacher`)
 
-Code-level evidence that the guard is role-checked (not role-specific per role): the `(school)` route group's layout and the permission-based menu rendering in `apps/web/src/app/[locale]/(school)/admissions/page.tsx` both gate on `admissions.view` — which teachers and students also lack per `packages/shared/src/constants/roles.ts`. Spec §33 rows 3.1–3.29 document the expected 403/redirect behaviour.
+**Login:** `POST /api/v1/auth/login` → 200 with access_token. JWT payload `{ sub: 2638ae0a-c39f-49e0-bcad-b2a3837cbe0b, tenant_id: 3ba9b02c-..., type: access }` (no role claim in JWT — roles resolved server-side per membership).
 
-Recommendation: a short follow-up 5-minute session with cleared cookies verifies the two negative paths.
+**Probe matrix** — every admissions endpoint the admin/parent specs enumerate:
+
+| #   | Method | Endpoint                                           | Expected     | Actual                                        | Verdict |
+| --- | ------ | -------------------------------------------------- | ------------ | --------------------------------------------- | ------- |
+| 1   | GET    | `/v1/admissions/dashboard-summary`                 | 403          | 403 `PERMISSION_DENIED` / `admissions.view`   | ✅      |
+| 2   | GET    | `/v1/applications`                                 | 403          | 403 `PERMISSION_DENIED` / `admissions.view`   | ✅      |
+| 3   | GET    | `/v1/applications/queues/ready-to-admit`           | 403          | 403 `PERMISSION_DENIED` / `admissions.view`   | ✅      |
+| 4   | GET    | `/v1/applications/queues/waiting-list`             | 403          | 403 `PERMISSION_DENIED` / `admissions.view`   | ✅      |
+| 5   | GET    | `/v1/applications/queues/conditional-approval`     | 403          | 403 `PERMISSION_DENIED` / `admissions.view`   | ✅      |
+| 6   | GET    | `/v1/applications/queues/approved`                 | 403          | 403 `PERMISSION_DENIED` / `admissions.view`   | ✅      |
+| 7   | GET    | `/v1/applications/queues/rejected`                 | 403          | 403 `PERMISSION_DENIED` / `admissions.view`   | ✅      |
+| 8   | GET    | `/v1/applications/analytics`                       | 403          | 403 `PERMISSION_DENIED` / `admissions.view`   | ✅      |
+| 9   | GET    | `/v1/applications/35f30e73-...` (real approved id) | 403 (or 404) | 403 `PERMISSION_DENIED` / `admissions.view`   | ✅      |
+| 10  | GET    | `/v1/admission-forms/system`                       | 403          | 403 `PERMISSION_DENIED` / `admissions.view`   | ✅      |
+| 11  | GET    | `/v1/admission-overrides`                          | 403          | 403 `PERMISSION_DENIED` / `admissions.manage` | ✅      |
+| 12  | POST   | `/v1/applications/35f30e73-.../review`             | 403          | 403 `PERMISSION_DENIED` / `admissions.manage` | ✅      |
+| 13  | POST   | `/v1/admission-forms/system/rebuild`               | 403          | 403 `PERMISSION_DENIED` / `admissions.manage` | ✅      |
+
+**Verdict:** ✅ **Pass** — 13/13 admissions endpoints correctly deny the teacher role with structured `{ error: { code, message } }` responses.
+
+### 3.2 Student — `adam.moore@nhqs.test` (role: `student`)
+
+**Login:** `POST /api/v1/auth/login` → 200 with access_token for `adam.moore@nhqs.test`.
+
+**Probe matrix** (same 13 endpoints as teacher):
+
+- Rows 1–13: **all returned 403 `PERMISSION_DENIED`** with correct permission code (`admissions.view` for reads, `admissions.manage` for the two mutating POSTs and `/admission-overrides`).
+
+**Extra probe (parent portal endpoint):**
+
+| #   | Method | Endpoint                  | Expected (per spec §33.25) | Actual                                         | Verdict    |
+| --- | ------ | ------------------------- | -------------------------- | ---------------------------------------------- | ---------- |
+| 14  | GET    | `/v1/parent/applications` | 200 empty for non-parent   | **200** with `{ data: [] }` — NO `meta` object | ⚠️ Partial |
+
+**Verdict:** ✅ Admissions endpoints all 403. ⚠️ `/v1/parent/applications` is AuthGuard-only (not permission-gated) so a student authenticates past the guard and receives an empty-filtered list. This is the correct **row filter** behaviour (ownership-scoped). **However, the response shape `{ data: [] }` omits the `meta` object** — confirming the root cause of ADM-016 (frontend parent portal reads `res.meta.total` on undefined).
+
+### 3.3 Unauthenticated probes
+
+| #   | Method | Endpoint                           | Actual                                                          | Verdict |
+| --- | ------ | ---------------------------------- | --------------------------------------------------------------- | ------- |
+| 1   | GET    | `/v1/admissions/dashboard-summary` | 401 `UNAUTHORIZED` / "Missing authentication token"             | ✅      |
+| 2   | GET    | `/v1/applications`                 | 401 `UNAUTHORIZED`                                              | ✅      |
+| 3   | GET    | `/v1/admission-overrides`          | 401 `UNAUTHORIZED`                                              | ✅      |
+| 4   | GET    | `/v1/public/admissions/form`       | 200 with form definition (24 fields) — public, no auth required | ✅      |
+
+**Verdict:** ✅ All unauth negative assertions pass; the public form endpoint correctly served without a token.
+
+### 3.4 Page-level redirect behaviour (HTTP HEAD)
+
+`GET /en/admissions` with teacher or student JWT in `Authorization` header → **HTTP 200 with zero redirects** (Next.js ships the page shell regardless of role). The redirect to `/en/dashboard` that was observed during the parent session happens **client-side** after the admissions page's `apiClient` call returns 403 and the page router `.push()` fires.
+
+**Implication:** the true security gate is the API layer — verified above as 403 across all admissions endpoints for teacher and student. The client-side redirect is a UX nicety; an attacker with a forged-but-unsigned JWT would still hit a 200 page shell but every API call would fail with 401/403, rendering no data. Defensible design.
+
+### Session 3 summary
+
+**Verdict:** ✅ Pass — teacher and student are correctly locked out of admissions at the API layer.
+
+**New finding surfaced during the API probes:**
+
+- **ADM-016 root cause confirmed.** `GET /v1/parent/applications` returns `{ data: [] }` with no `meta` object for any non-parent caller (and likely the same for parents with zero rows — the prior parent walkthrough saw the same TypeError). See BUG-LOG `ADM-016` (status updated to "verified repro").
 
 ---
 
@@ -295,8 +354,9 @@ Every spec in the pack was **referenced** in this walkthrough:
 
 - Admin spec: §3, §4, §5, §6, §7, §8, §9, §10, §11, §12, §13–17 (approved), §21, §27, §31, §32, §33, mobile — all exercised live.
 - Admin spec §18–§20 + §22–§26: blocked by seed data (no ready_to_admit / conditional_approval / waiting_list rows in the live tenant).
-- Parent spec: §3, §4, §8, parent negative probe — exercised.
+- Parent spec: §3, §4, §8, parent negative probe — exercised in browser. Teacher + student negatives re-attempted and confirmed via direct API probes on 2026-04-13 (Session 3 above).
 - Parent spec: §5 (students repeater), §6 (submit), §7 (payment callbacks), §9 (detail) — blocked by "don't-mutate-prod" + no existing parent application.
-- Integration spec, worker spec, perf spec, security spec: by design not live-walkable — code-review findings from those specs are carried forward into BUG-LOG.md with `[C]` tags.
+- Security spec §3 (permission matrix): teacher + student rows (3.1-3.13 plus 3.25) now verified live via curl — 13/13 admissions endpoints 403 with correct codes; `/v1/parent/applications` returns 200 empty for non-parent with a malformed payload shape (surfaces ADM-016 root cause).
+- Integration spec, worker spec, perf spec, security spec (remainder): by design not live-walkable — code-review findings from those specs are carried forward into BUG-LOG.md with `[C]` tags.
 
 End of walkthrough log.
