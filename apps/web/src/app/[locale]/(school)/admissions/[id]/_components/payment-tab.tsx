@@ -47,15 +47,20 @@ export function PaymentTab({ application }: { application: ApplicationDetail }) 
           </div>
           <div>
             <dt className="text-xs text-text-tertiary">Current status</dt>
-            <dd className="text-sm text-text-primary">{application.status.replace(/_/g, ' ')}</dd>
+            <dd className="text-sm capitalize text-text-primary">
+              {application.status.replace(/_/g, ' ')}
+            </dd>
           </div>
         </dl>
       </div>
 
       <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-text-primary">Payment events</h3>
+        <h3 className="text-sm font-semibold text-text-primary">Stripe payment events</h3>
         {application.payment_events.length === 0 ? (
-          <p className="mt-2 text-sm text-text-tertiary">No payment events recorded.</p>
+          <p className="mt-2 text-sm text-text-tertiary">
+            No Stripe payment events recorded. Cash, bank transfer, and override approvals are
+            recorded in the Timeline tab.
+          </p>
         ) : (
           <ul className="mt-3 space-y-2">
             {application.payment_events.map((event) => (

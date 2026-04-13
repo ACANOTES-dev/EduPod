@@ -66,6 +66,7 @@ function NotesTab({
   onNoteAdded: () => void;
 }) {
   const [newNote, setNewNote] = React.useState('');
+  const [isInternal, setIsInternal] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
 
   const handleAddNote = async () => {
@@ -74,7 +75,7 @@ function NotesTab({
     try {
       await apiClient(`/api/v1/applications/${applicationId}/notes`, {
         method: 'POST',
-        body: JSON.stringify({ note: newNote, is_internal: true }),
+        body: JSON.stringify({ note: newNote, is_internal: isInternal }),
       });
       setNewNote('');
       onNoteAdded();
@@ -93,10 +94,19 @@ function NotesTab({
         <Textarea
           value={newNote}
           onChange={(e) => setNewNote(e.target.value)}
-          placeholder="Add an internal note"
+          placeholder={isInternal ? 'Add an internal note' : 'Add a note visible to the parent'}
           rows={3}
         />
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-text-secondary">
+            <input
+              type="checkbox"
+              checked={isInternal}
+              onChange={(e) => setIsInternal(e.target.checked)}
+              className="h-4 w-4"
+            />
+            Internal only (hide from parent)
+          </label>
           <Button size="sm" onClick={handleAddNote} disabled={submitting || !newNote.trim()}>
             Add note
           </Button>
@@ -109,11 +119,22 @@ function NotesTab({
         <div className="space-y-3">
           {notes.map((note) => (
             <div key={note.id} className="rounded-xl border border-border bg-surface p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-text-primary">
-                  {note.author.first_name} {note.author.last_name}
-                </span>
-                <span className="text-xs text-text-tertiary">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-sm font-medium text-text-primary">
+                    {note.author.first_name} {note.author.last_name}
+                  </span>
+                  <span
+                    className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                      note.is_internal
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-sky-100 text-sky-700'
+                    }`}
+                  >
+                    {note.is_internal ? 'Internal' : 'Parent-visible'}
+                  </span>
+                </div>
+                <span className="shrink-0 text-xs text-text-tertiary">
                   {formatDateTime(note.created_at)}
                 </span>
               </div>
