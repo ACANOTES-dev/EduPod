@@ -259,6 +259,38 @@ describe('NotificationTemplatesService', () => {
 
       await expect(service.create('tenant-1', dto)).rejects.toThrow('Database connection failed');
     });
+
+    it('should ignore any caller-supplied tenant_id and write caller tenant from auth context', async () => {
+      // Even if a caller manages to smuggle a tenant_id past validation
+      // (e.g. via direct service invocation), the service layer must
+      // always write the tenant_id resolved from the auth-derived
+      // tenantId argument. Defence-in-depth for COMMS-018.
+      const dto = {
+        channel: 'email',
+        template_key: 'ignore_tenant_id_in_body',
+        locale: 'en',
+        body_template: 'Hello',
+        // @ts-expect-error — deliberately testing extra field handling
+        tenant_id: null,
+      } as const;
+      const created = makeTenantTemplate({
+        template_key: 'ignore_tenant_id_in_body',
+      });
+      prisma.notificationTemplate.create.mockResolvedValue(created);
+
+      await service.create('tenant-caller', dto);
+
+      expect(prisma.notificationTemplate.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenant_id: 'tenant-caller',
+          is_system: false,
+        }),
+      });
+      const callArgs = prisma.notificationTemplate.create.mock.calls[0]?.[0] as
+        | { data: Record<string, unknown> }
+        | undefined;
+      expect(callArgs?.data.tenant_id).toBe('tenant-caller');
+    });
   });
 
   // ─── update() — extended ──────────────────────────────────────────────────
