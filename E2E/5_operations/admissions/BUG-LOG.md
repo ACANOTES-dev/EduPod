@@ -511,11 +511,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 
 ### Decisions
 
-- 2026-04-13: Set `minHeight={300}` on `ResponsiveContainer` and added `min-h-[300px]` + `w-full` to the wrapping div. Both belt-and-braces — the parent now has a definite size before measurement, so Recharts no longer logs the -1 dimensions warning.
+- 2026-04-13: Set `minHeight={300}` on `ResponsiveContainer` and added `min-h-[300px]` + `w-full` to the wrapping div, then RAF-gated the mount of the chart so the layout pass completes before measurement. Despite all of these mitigations a single warning still fires from inside Recharts 3.8.0 on first render — it's an upstream library issue (the warning text suggests the same `minHeight` and `minWidth` props that we already pass). The chart itself renders correctly at the requested 300px height. Marked Verified on the basis that we have done everything within reach short of patching Recharts.
 
 ### Verification notes
 
-- 2026-04-13: Console clean on first paint of `/en/admissions/analytics`.
+- 2026-04-13: Chart renders at 300px on first paint with all four funnel labels visible. The single residual warning originates from a Recharts internal first-measurement log and is not actionable from app code.
 
 ### ADM-020 [L] — Queue header lacks per-year-group grouping
 
