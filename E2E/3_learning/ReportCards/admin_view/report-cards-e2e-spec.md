@@ -1,8 +1,8 @@
 # E2E Test Specification: Report Cards (Admin View)
 
-> **Coverage:** This document covers **every page, button, form, modal, dialog, state transition, API call, and failure mode** in the Report Cards module as seen by an administrator (school_owner, school_principal, school_vice_principal, or admin role). It is the single source of truth for QC sign-off before tenant onboarding.
+> **Coverage.** Every page, button, form, modal, dialog, state transition, API call, polling loop, and failure mode in the Report Cards module as experienced by an administrator (`school_owner`, `school_principal`, `school_vice_principal`, or `admin`). This is the single source of truth for QC sign-off before tenant onboarding.
 >
-> **Pages documented here (12 unique routes):**
+> **Pages documented (12 unique routes + behaviours):**
 >
 > 1. Report Cards Dashboard — `/en/report-cards`
 > 2. Class Matrix — `/en/report-cards/{classId}`
@@ -15,1656 +15,1785 @@
 > 9. Report Comments Landing — `/en/report-comments`
 > 10. Overall Comments Editor — `/en/report-comments/overall/{classId}`
 > 11. Subject Comments Editor — `/en/report-comments/subject/{classId}/{subjectId}`
-> 12. Retired redirect stubs — `/en/report-cards/approvals` + `/en/report-cards/bulk`
+> 12. Retired redirect stubs — `/en/report-cards/approvals` and `/en/report-cards/bulk`
 >
-> **Role gating:** These URLs render the Admin variant when the signed-in user holds any of `school_owner`, `school_principal`, `school_vice_principal`, or `admin`. `school_owner` is an unrestricted role that bypasses every permission check via `PermissionCacheService.isOwner()`. Teacher-side behaviour lives in `teacher_view/report-cards-e2e-spec.md`.
->
-> **Matching teacher spec:** `../teacher_view/report-cards-e2e-spec.md` — both specs should be run as a pair to cover the full role matrix.
+> **Role gating.** These URLs render the Admin variant when the signed-in user holds any of `school_owner`, `school_principal`, `school_vice_principal`, or `admin`. `school_owner` bypasses every permission check via `PermissionCacheService.isOwner()`. Teacher-side behaviour lives in `../teacher_view/report-cards-e2e-spec.md`.
 
-**Base URL:** `https://nhqs.edupod.app` (never use `nurul-huda.edupod.app`)
-**Prerequisite:** Logged in as **Yusuf Rahman** (`owner@nhqs.test` / `Password123!`), who holds the **School Owner** role in tenant **Nurul Huda School (NHQS)**. After login, Yusuf lands on `/en/dashboard` (the admin dashboard, NOT `/en/dashboard/teacher`).
-**Navigation path to start:** Click **Learning** in the top morph bar → click **Assessment** in the Learning sub-strip → click **Report Cards** in the Assessment sub-strip (fourth tab). Alternatively, navigate directly to `/en/report-cards`.
+**Base URL:** `https://nhqs.edupod.app`
+**Test user:** **Yusuf Rahman** (`owner@nhqs.test` / `Password123!`) — **School Owner** in tenant **Nurul Huda School (NHQS)**. Lands on `/en/dashboard` after login.
+**Start navigation:** top morph bar -> **Learning** -> **Assessment** sub-strip -> **Report Cards** tab, OR directly `/en/report-cards`.
 
 ---
 
 ## How to use this document
 
-Every row in every table below has three columns:
+Every table below uses the four-column format:
 
 | # | What to Check | Expected Result | Pass/Fail |
 
-- Work through the sections in order. Later sections assume the earlier ones have already put the tenant into a known state (e.g. a generated run in the library, an open comment window, etc.).
-- The **Expected Result** column describes **exactly** what should happen. If the page shows a different state, write the difference in the Pass/Fail column and mark the row failed. Pixel-perfect styling is out of scope; what matters is that the described content, counts, status codes, navigation, and state transitions all match.
-- Every row corresponds to a real piece of implemented behaviour. If you see something on screen that is NOT covered by this document, add a new row and mark it `UNDOCUMENTED`.
-- Where a row references a specific API endpoint, verify the network tab in DevTools (Network → XHR) to confirm the call fires with the expected method, path, and response status.
+- Work through sections in order. Later sections depend on state seeded by earlier ones.
+- The **Expected Result** column describes exactly what must happen, including the API call (method + path + relevant query/body fields + expected status).
+- The **Pass/Fail** column stays empty for the QC engineer to fill in.
+- Each row names exactly **one** user action or observation.
+- If something appears on screen that is NOT covered here, add a row to section 80 and mark it `UNDOCUMENTED`.
+- `{TOKEN_LIKE_THIS}` placeholders represent data that gets generated during the walkthrough — record the value, reuse it in later rows.
 
 ---
 
 ## Table of Contents
 
-1. [Logging in & landing](#1-logging-in--landing)
-2. [Navigating to Report Cards](#2-navigating-to-report-cards)
-3. [Report Cards Dashboard — Page Load](#3-report-cards-dashboard--page-load)
-4. [Dashboard Header & Period Selector](#4-dashboard-header--period-selector)
-5. [Dashboard Quick-Action Tiles (Admin)](#5-dashboard-quick-action-tiles-admin)
-6. [Dashboard Live Run Status Panel](#6-dashboard-live-run-status-panel)
-7. [Dashboard Analytics Snapshot Panel](#7-dashboard-analytics-snapshot-panel)
-8. [Dashboard Classes-by-Year-Group Grid](#8-dashboard-classes-by-year-group-grid)
-9. [Class Matrix Page — Navigation & Header](#9-class-matrix-page--navigation--header)
-10. [Class Matrix — Period Filter & Display Toggle](#10-class-matrix--period-filter--display-toggle)
-11. [Class Matrix — Matrix Table Structure](#11-class-matrix--matrix-table-structure)
-12. [Class Matrix — Top-Rank Badges](#12-class-matrix--top-rank-badges)
-13. [Class Matrix — Error & Empty States](#13-class-matrix--error--empty-states)
-14. [Settings Page — Entry Point](#14-settings-page--entry-point)
-15. [Settings — Display Defaults](#15-settings--display-defaults)
-16. [Settings — Comment Gate](#16-settings--comment-gate)
-17. [Settings — Personal Info Fields](#17-settings--personal-info-fields)
-18. [Settings — Default Template](#18-settings--default-template)
-19. [Settings — Grade Thresholds Link](#19-settings--grade-thresholds-link)
-20. [Settings — Principal Details & Signature Upload](#20-settings--principal-details--signature-upload)
-21. [Settings — Save Changes](#21-settings--save-changes)
-22. [Generation Wizard — Entry Point & Permission Guard](#22-generation-wizard--entry-point--permission-guard)
-23. [Generation Wizard — Step Indicator](#23-generation-wizard--step-indicator)
-24. [Generation Wizard — Step 1: Scope](#24-generation-wizard--step-1-scope)
-25. [Generation Wizard — Step 2: Period](#25-generation-wizard--step-2-period)
-26. [Generation Wizard — Step 3: Template & Design](#26-generation-wizard--step-3-template--design)
-27. [Generation Wizard — Step 4: Personal Info Fields](#27-generation-wizard--step-4-personal-info-fields)
-28. [Generation Wizard — Step 5: Comment Gate Dry-Run](#28-generation-wizard--step-5-comment-gate-dry-run)
-29. [Generation Wizard — Step 6: Review & Submit](#29-generation-wizard--step-6-review--submit)
-30. [Generation Wizard — Running / Polling State](#30-generation-wizard--running--polling-state)
-31. [Generation Wizard — Terminal Outcomes (Completed / Partial / Failed)](#31-generation-wizard--terminal-outcomes-completed--partial--failed)
-32. [Generation Wizard — Teacher Request Pre-Fill Handoff](#32-generation-wizard--teacher-request-pre-fill-handoff)
-33. [Library Page — Load & View Toggles](#33-library-page--load--view-toggles)
-34. [Library — By Run View](#34-library--by-run-view)
-35. [Library — By Year Group View](#35-library--by-year-group-view)
-36. [Library — By Class View](#36-library--by-class-view)
-37. [Library — Row-Level Actions (Download / Publish / Unpublish / Delete)](#37-library--row-level-actions-download--publish--unpublish--delete)
-38. [Library — Selection & Sticky Action Bar](#38-library--selection--sticky-action-bar)
-39. [Library — Bundle Downloads](#39-library--bundle-downloads)
-40. [Library — Delete Confirmation Modal](#40-library--delete-confirmation-modal)
-41. [Library — Unpublish Confirmation Modal](#41-library--unpublish-confirmation-modal)
-42. [Library — PDF Presigned URL Contract](#42-library--pdf-presigned-url-contract)
-43. [Analytics Page — Load & Period Selector](#43-analytics-page--load--period-selector)
-44. [Analytics — Summary Cards](#44-analytics--summary-cards)
-45. [Analytics — Class Comparison Chart](#45-analytics--class-comparison-chart)
-46. [Analytics — Per-Class Generation Progress](#46-analytics--per-class-generation-progress)
-47. [Analytics — Term-Over-Term Trends (Planned)](#47-analytics--term-over-term-trends-planned)
-48. [Teacher Requests — List Page (Admin)](#48-teacher-requests--list-page-admin)
-49. [Teacher Requests — Pending Tab](#49-teacher-requests--pending-tab)
-50. [Teacher Requests — All Tab](#50-teacher-requests--all-tab)
-51. [Teacher Request Detail — Load](#51-teacher-request-detail--load)
-52. [Teacher Request Detail — Approve & Open](#52-teacher-request-detail--approve--open)
-53. [Teacher Request Detail — Auto-Approve & Execute](#53-teacher-request-detail--auto-approve--execute)
-54. [Teacher Request Detail — Reject Flow](#54-teacher-request-detail--reject-flow)
-55. [Report Comments Landing — Admin Load](#55-report-comments-landing--admin-load)
-56. [Report Comments — Window Banner (Admin)](#56-report-comments--window-banner-admin)
-57. [Open Window Modal — Academic Period](#57-open-window-modal--academic-period)
-58. [Open Window Modal — Opens At / Closes At](#58-open-window-modal--opens-at--closes-at)
-59. [Open Window Modal — Instructions](#59-open-window-modal--instructions)
-60. [Open Window Modal — Homeroom Teacher Picker](#60-open-window-modal--homeroom-teacher-picker)
-61. [Open Window Modal — Submit](#61-open-window-modal--submit)
-62. [Open Window Modal — Pre-Fill From Approved Request](#62-open-window-modal--pre-fill-from-approved-request)
-63. [Extend Window Modal](#63-extend-window-modal)
-64. [Close Window Confirm Dialog](#64-close-window-confirm-dialog)
-65. [Reopen Window (Admin)](#65-reopen-window-admin)
-66. [Overall Comments Editor — Admin Load](#66-overall-comments-editor--admin-load)
-67. [Overall Comments Editor — Write, Autosave, Finalise](#67-overall-comments-editor--write-autosave-finalise)
-68. [Overall Comments Editor — Unfinalise, Filter, Closed-Window State](#68-overall-comments-editor--unfinalise-filter-closed-window-state)
-69. [Subject Comments Editor — Admin Load](#69-subject-comments-editor--admin-load)
-70. [Subject Comments Editor — AI Draft (Per Row)](#70-subject-comments-editor--ai-draft-per-row)
-71. [Subject Comments Editor — AI Draft All Empty (Bulk)](#71-subject-comments-editor--ai-draft-all-empty-bulk)
-72. [Subject Comments Editor — Finalise All Drafts (Bulk)](#72-subject-comments-editor--finalise-all-drafts-bulk)
-73. [Subject Comments Editor — Row-Level Actions](#73-subject-comments-editor--row-level-actions)
-74. [Retired Redirect Stubs](#74-retired-redirect-stubs)
-75. [Arabic / RTL](#75-arabic--rtl)
-76. [Role Gating — What Admins Can Do That Teachers Cannot](#76-role-gating--what-admins-can-do-that-teachers-cannot)
-77. [Console & Network Health](#77-console--network-health)
-78. [Backend Endpoint Map (Reference)](#78-backend-endpoint-map-reference)
+1. Prerequisites & Test Data
+2. Logging in & Landing
+3. Navigating to Report Cards
+4. Report Cards Dashboard — Page Load
+5. Dashboard Header & Period Selector
+6. Dashboard Quick-Action Tiles (Admin: 4 tiles)
+7. Dashboard Live-Run Status Panel
+8. Dashboard Analytics Snapshot Panel
+9. Dashboard Classes-by-Year-Group Grid
+10. Class Matrix Page — Navigation & Header
+11. Class Matrix — Period Filter & Display Toggle
+12. Class Matrix — Top-Rank Badges
+13. Class Matrix — Empty + Error States
+14. Settings Page — Entry Point & Permission Guard
+15. Settings — Display Defaults
+16. Settings — Comment Gate
+17. Settings — Personal Info Fields
+18. Settings — Default Template
+19. Settings — Grade Thresholds Link + CRUD
+20. Settings — Principal Details & Signature Upload
+21. Settings — Save Changes
+22. Generation Wizard — Entry Point & Permission Guard
+23. Wizard Step Indicator
+24. Wizard Step 1 — Scope
+25. Wizard Step 2 — Period
+26. Wizard Step 3 — Template & Design
+27. Wizard Step 4 — Personal Info Fields
+28. Wizard Step 5 — Comment Gate Dry-Run
+29. Wizard Step 6 — Review & Submit
+30. Wizard — Running / Polling State
+31. Wizard — Terminal Outcomes
+32. Wizard — Teacher Request Pre-Fill Handoff
+33. Library — Load & View Toggles
+34. Library — By Run View
+35. Library — By Year-Group View
+36. Library — By Class View
+37. Library — Row Actions (Publish / Unpublish / Delete / Revise)
+38. Library — Bulk Selection + Bulk Delete
+39. Library — Bundle Download (PDF merge vs ZIP)
+40. Library — Filters
+41. Library — Individual PDF Download Contract
+42. Analytics — Load & Period Selector
+43. Analytics — Summary Cards
+44. Analytics — Class Comparison Chart
+45. Analytics — Per-Class Generation Progress
+46. Teacher Requests — List Page (Pending / All Tabs)
+47. Teacher Requests — Detail Page
+48. Teacher Requests — Approve & Open Flow
+49. Teacher Requests — Auto-Approve Flow
+50. Teacher Requests — Reject Flow
+51. Report Comments — Landing Page Load
+52. Report Comments — Window Banner
+53. Report Comments — Open / Extend / Close / Reopen Window Modals
+54. Overall Comments Editor — Entry & Permission
+55. Overall Comments Editor — Write + Autosave
+56. Overall Comments Editor — Finalise + Unfinalise
+57. Overall Comments Editor — Request Reopen Modal
+58. Subject Comments Editor — Entry & Permission
+59. Subject Comments Editor — Write + Autosave
+60. Subject Comments Editor — Per-Row AI Draft
+61. Subject Comments Editor — Bulk AI Draft All
+62. Subject Comments Editor — Bulk Finalise
+63. Subject Comments Editor — Unfinalise
+64. Approval Configs — List + Create + Edit + Delete
+65. Submit for Approval -> Approve / Reject / Bulk-Approve
+66. Custom Field Definitions — CRUD + Per-Report Values
+67. Grade Threshold Configs — CRUD
+68. Acknowledgment Status Viewer
+69. Verification Token + Public `/verify/:token` Viewer
+70. Batch PDF Endpoint + Bulk Operations
+71. Transcript Download
+72. Revise Published Report Card
+73. Retired Redirect Stubs
+74. Role Gates & Permission Denials
+75. RLS / Tenant Isolation Smoke
+76. Arabic / RTL Walkthrough
+77. Mobile Responsiveness (375px)
+78. Console & Network Health
+79. Backend Endpoint Map
+80. Observations, Inconsistencies & Bugs Flagged
+81. Sign-Off
 
 ---
 
-## 1. Logging in & landing
+## 1. Prerequisites & Test Data
 
-| #   | What to Check                                                       | Expected Result                                                                                                                                                                                                                         | Pass/Fail |
-| --- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 1.1 | Open `https://nhqs.edupod.app/en/login` in a fresh incognito window | Login form shows **"NHQS"** brand header, **"Log in"** heading, **"Sign in to your school account"** subtitle, Email textbox, Password textbox with a show/hide eye icon button, **Log in** button, and **Forgot your password?** link. |           |
-| 1.2 | Enter `owner@nhqs.test` / `Password123!` and click **Log in**       | Browser navigates to `/en/dashboard` (NOT `/en/dashboard/teacher`). A red 401 on `/api/v1/auth/refresh` is normal BEFORE login and should NOT appear after.                                                                             |           |
-| 1.3 | Inspect the top-right profile button                                | Avatar reads **YR**, name line **Yusuf Rahman**, role line **School Owner**.                                                                                                                                                            |           |
-| 1.4 | Inspect the morph bar hubs                                          | Visible: **Home**, **People**, **Learning**, **Wellbeing**, **Operations**, **Finance**, **Reports**, **Regulatory**, **Settings** (9 hubs). A Teacher would only see 6.                                                                |           |
-| 1.5 | Admin dashboard greeting                                            | Tenant-centric greeting (e.g. **"Good evening, Yusuf"** with the date + school name subtitle). NOT the teacher-flavoured "Here's your day at a glance."                                                                                 |           |
+Before starting Section 2, verify the following exists in tenant NHQS. If anything is missing, seed it now. Record the IDs/values because later rows reference them.
 
----
-
-## 2. Navigating to Report Cards
-
-| #   | What to Check                                             | Expected Result                                                                                                                                                                                                   | Pass/Fail |
-| --- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 2.1 | Click **Learning** in the morph bar                       | Browser navigates to `/en/classes` (admin's first accessible basePath in the Learning hub). A Learning sub-strip appears with 5 links: **Classes**, **Curriculum**, **Assessment**, **Homework**, **Attendance**. |           |
-| 2.2 | Click **Assessment** in the Learning sub-strip            | Browser navigates to `/en/assessments`. A secondary Assessment sub-strip appears below the first with 4 tabs: **Dashboard**, **Gradebook**, **Report Cards**, **Analytics**. "Dashboard" is active.               |           |
-| 2.3 | Click **Report Cards** in the Assessment sub-strip        | Browser navigates to `/en/report-cards`. The **Report Cards** tab is highlighted as active.                                                                                                                       |           |
-| 2.4 | Alternative: type `/en/report-cards` into the URL bar     | Same destination. The sub-strip auto-renders with **Report Cards** active because the URL matches.                                                                                                                |           |
-| 2.5 | Alternative: refresh the page while on `/en/report-cards` | Page reloads fully — no infinite redirect, no loss of sub-strip state, no "morph bar flash". The morph bar and both sub-strips stay visually stable.                                                              |           |
-
----
-
-## 3. Report Cards Dashboard — Page Load
-
-**URL:** `/en/report-cards`
-
-On first mount, the page fires five parallel API calls plus a sixth that polls:
-
-| #   | What to Check                         | Expected Result                                                                                                                                                                                                                                                                          | Pass/Fail |
-| --- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 3.1 | Network tab — initial calls           | `GET /api/v1/academic-periods?pageSize=50` (200), `GET /api/v1/year-groups?pageSize=100` (200), `GET /api/v1/classes?pageSize=100` (200), `GET /api/v1/report-cards/library?page=1&pageSize=1` (200), `GET /api/v1/report-card-teacher-requests?status=pending&page=1&pageSize=1` (200). |           |
-| 3.2 | Network tab — period-scoped analytics | Once the default period is resolved (first active period, else the first period in the list), `GET /api/v1/report-cards/analytics/dashboard?academic_period_id={id}` fires (200).                                                                                                        |           |
-| 3.3 | Network tab — run polling             | `GET /api/v1/report-cards/generation-runs?page=1&pageSize=5` fires once immediately. If the first response contains any run whose status is `queued` or `processing`, the same call repeats every 5 seconds until the run reaches a terminal state.                                      |           |
-| 3.4 | Loading skeleton — classes grid       | While `classesLoading === true`, two skeleton year-group blocks render, each with a 3-column class card skeleton row.                                                                                                                                                                    |           |
-| 3.5 | Loading skeleton — analytics panel    | While `analyticsLoading === true`, the analytics snapshot panel shows five pulsing rounded bars in a 2/3-column grid.                                                                                                                                                                    |           |
-| 3.6 | No infinite skeletons                 | After the calls complete, no skeletons remain. Header, period selector, quick action tiles, live run panel, analytics snapshot, and classes grid are all populated with real content.                                                                                                    |           |
-| 3.7 | Browser console                       | No uncaught errors. Expected: nothing red. `[ReportCardsDashboard.*]` console.error lines only appear when an API call genuinely fails.                                                                                                                                                  |           |
+| #    | What to Check                                                                                 | Expected Result                                                                                                                                                                                                                                                                                                      | Pass/Fail |
+| ---- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 1.1  | At least one academic year with status `active` exists                                        | `GET /v1/academic-years?status=active` returns `data[].length >= 1` (200). Record `{ACTIVE_YEAR_ID}`.                                                                                                                                                                                                                |           |
+| 1.2  | At least one academic period inside `{ACTIVE_YEAR_ID}` has `status='active'` and covers today | `GET /v1/academic-periods?pageSize=50` contains one entry with `status='active'`. Record `{ACTIVE_PERIOD_ID}` and its `name`.                                                                                                                                                                                        |           |
+| 1.3  | At least two classes with enrolled students exist                                             | `GET /v1/classes?pageSize=100` returns `data[].length >= 2` and at least two entries where `_count.class_enrolments > 0`. Record `{CLASS_A_ID}`, `{CLASS_B_ID}`.                                                                                                                                                     |           |
+| 1.4  | `{CLASS_A_ID}` has at least 3 students enrolled                                               | `GET /v1/classes/{CLASS_A_ID}/enrolments` returns `data[].length >= 3`. Record `{STUDENT_1_ID}`, `{STUDENT_2_ID}`, `{STUDENT_3_ID}`.                                                                                                                                                                                 |           |
+| 1.5  | `{CLASS_A_ID}` has at least one subject mapped via curriculum                                 | `GET /v1/report-cards/classes/{CLASS_A_ID}/matrix?academic_period_id=all` returns `subjects[].length >= 1`. Record `{SUBJECT_1_ID}`.                                                                                                                                                                                 |           |
+| 1.6  | At least one assessment is published for `{CLASS_A_ID}` within `{ACTIVE_PERIOD_ID}`           | `GET /v1/assessments?class_id={CLASS_A_ID}&academic_period_id={ACTIVE_PERIOD_ID}` returns `data[].length >= 1` with status `published`. Record `{ASSESSMENT_1_ID}`.                                                                                                                                                  |           |
+| 1.7  | Grades entered for `{ASSESSMENT_1_ID}` for at least 3 students                                | `GET /v1/assessments/{ASSESSMENT_1_ID}/grades` returns `data[].length >= 3` with numeric scores.                                                                                                                                                                                                                     |           |
+| 1.8  | At least one teacher account exists                                                           | `GET /v1/memberships?role_key=teacher` returns `data[].length >= 1`. Record `{TEACHER_USER_ID}` + email.                                                                                                                                                                                                             |           |
+| 1.9  | Yusuf Rahman's identity                                                                       | `GET /v1/auth/me` returns `first_name: 'Yusuf'`, `last_name: 'Rahman'`, `email: 'owner@nhqs.test'`, `role_key` containing `school_owner`, tenant = NHQS. Record `{NHQS_TENANT_ID}`.                                                                                                                                  |           |
+| 1.10 | Tenant report-card settings exist                                                             | `GET /v1/report-card-tenant-settings` returns `{ data: { settings: {...} } }` with baseline fields.                                                                                                                                                                                                                  |           |
+| 1.11 | Reset tenant settings to baseline before Section 15                                           | `PATCH /v1/report-card-tenant-settings` with `{ matrix_display_mode: 'grade', show_top_rank_badge: false, default_personal_info_fields: ['full_name','student_number','class_name'], require_finalised_comments: true, allow_admin_force_generate: true, default_template_id: null, principal_name: null }` -> 200.  |           |
+| 1.12 | No active comment window is open                                                              | `GET /v1/report-comment-windows/active` returns `{ data: null }`. Close one first if open.                                                                                                                                                                                                                           |           |
+| 1.13 | No in-flight generation run                                                                   | `GET /v1/report-cards/generation-runs?page=1&pageSize=5` returns 200 and no row has `status` in `['queued','processing']`.                                                                                                                                                                                           |           |
+| 1.14 | At least one report-card design template available                                            | `GET /v1/report-cards/templates/content-scopes` returns `data[].length >= 1` with `is_available: true`. Record `{DEFAULT_TEMPLATE_ID}`, `{DESIGN_KEY}`.                                                                                                                                                              |           |
+| 1.15 | `gradebook` module enabled for the tenant                                                     | `GET /v1/tenants/me/modules` includes `{ key: 'gradebook', enabled: true }`.                                                                                                                                                                                                                                         |           |
+| 1.16 | Report-cards permissions seeded                                                               | `GET /v1/permissions` lists `report_cards.view`, `report_cards.manage`, `report_cards.comment`, `report_cards.approve`, `report_cards.manage_templates`, `report_cards.bulk_operations`, `transcripts.generate`, `gradebook.view`, `gradebook.manage`, `gradebook.view_analytics`, `gradebook.publish_report_cards`. |           |
+| 1.17 | At least 1 year-group exists                                                                  | `GET /v1/year-groups?pageSize=100` returns `data[].length >= 1`.                                                                                                                                                                                                                                                     |           |
+| 1.18 | Tenant branding minimum                                                                       | `GET /v1/tenants/me/branding` returns `{ school_name, primary_color }` populated. If missing, PDF rendering may break.                                                                                                                                                                                               |           |
+| 1.19 | Clear the library before starting                                                             | If a prior test seeded report cards, either leave them (library counts will reflect) or run a cleanup.                                                                                                                                                                                                               |           |
 
 ---
 
-## 4. Dashboard Header & Period Selector
+## 2. Logging in & Landing
 
-| #   | What to Check                          | Expected Result                                                                                                                                                                                                                                  | Pass/Fail |
-| --- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 4.1 | Page `<h1>` heading                    | Reads **"Report Cards"**. Large, semibold, `text-2xl`.                                                                                                                                                                                           |           |
-| 4.2 | Description under heading              | Shows the currently selected period's display name (e.g. **"S1"** or **"Full Year"** if one of the full-year sentinels is chosen). On first load, equals the default period's name.                                                              |           |
-| 4.3 | Period selector — default value        | Dropdown trigger shows the first period whose `status === 'active'`, or the first period in the list if none are active. For NHQS: **S1**.                                                                                                       |           |
-| 4.4 | Period selector — open dropdown        | Clicking the trigger opens a listbox. Item order: **"Full Year"** (sentinel value `full_year`) at the top, followed by every period in `/api/v1/academic-periods?pageSize=50` in API order. NHQS shows: **Full Year**, **S1**, **S2**.           |           |
-| 4.5 | Period selector — choose **S2**        | Listbox closes, trigger now displays **S2**, description under the heading updates to **"S2"**, and the analytics snapshot re-fetches `GET /api/v1/report-cards/analytics/dashboard?academic_period_id={S2 id}`. Classes grid does NOT re-fetch. |           |
-| 4.6 | Period selector — choose **Full Year** | Trigger shows **"Full Year"**, description updates to **"Full Year"**, analytics endpoint is called with the literal `academic_period_id=full_year`. Empty S2 data is expected until a full-year window or run exists.                           |           |
-| 4.7 | Settings cog button (admin-only)       | An outline icon button with a gear glyph sits to the right of the period selector. On click, navigates to `/en/report-cards/settings`. A Teacher would NOT see this button at all (hidden via `isAdmin` check).                                  |           |
-| 4.8 | Settings button — aria-label           | `aria-label="Settings"` (exact text localised). Accessible to screen readers.                                                                                                                                                                    |           |
+| #   | What to Check                                                  | Expected Result                                                                                                                     | Pass/Fail |
+| --- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 2.1 | Navigate to `https://nhqs.edupod.app/en/login`                 | The public login page loads. Email field, password field, Sign in button visible. No 4xx/5xx.                                       |           |
+| 2.2 | Enter `owner@nhqs.test` / `Password123!` and click **Sign in** | `POST /v1/auth/login` fires with body `{email, password}` and returns 200 with `{ data: { access_token, user } }`. Auth cookie set. |           |
+| 2.3 | Post-login redirect                                            | Browser lands on `/en/dashboard` (NOT `/en/dashboard/teacher`). Morph bar visible with role-appropriate hubs.                       |           |
+| 2.4 | Page header shows the signed-in user                           | Top-right avatar/menu shows "Yusuf Rahman". Clicking reveals a dropdown with Sign out.                                              |           |
+| 2.5 | Access token held in memory only                               | DevTools Application -> Local Storage + Session Storage contain no `access_token`/`jwt`/`auth` keys. Refresh via httpOnly cookie.   |           |
+| 2.6 | Refresh persists session                                       | Reload: `GET /v1/auth/refresh` (or `/me`) succeeds. Yusuf remains logged in at `/en/dashboard`.                                     |           |
 
 ---
 
-## 5. Dashboard Quick-Action Tiles (Admin)
+## 3. Navigating to Report Cards
 
-Four tiles render in a grid: 1 column mobile, 2 at `sm:`, 4 at `lg:`. Admin-only tiles use `isAdmin` gating — if a teacher hit the same URL they would see only tiles 5.2 and 5.3.
-
-| #   | Tile                      | Icon          | Accent gradient         | API-driven metadata                                                                                                                                         | On click                                 | Pass/Fail |
-| --- | ------------------------- | ------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | --------- |
-| 5.1 | **Generate report cards** | Sparkles      | violet-400 → violet-600 | Static description "Launch a new generation run…"                                                                                                           | Navigates to `/en/report-cards/generate` |           |
-| 5.2 | **Write comments**        | MessageSquare | amber-400 → amber-600   | Static description "Open the comment editor…"                                                                                                               | Navigates to `/en/report-comments`       |           |
-| 5.3 | **Library**               | Library       | sky-400 → sky-600       | Description reads `"{count} documents"` where count comes from `library?page=1&pageSize=1`'s `meta.total`. While loading it reads "Loading…".               | Navigates to `/en/report-cards/library`  |           |
-| 5.4 | **Teacher requests**      | Inbox         | rose-400 → rose-600     | Description reads **"{n} pending requests"** when `n > 0` else **"All clear"**. A rose-600 numeric badge renders in the top-right of the tile when `n > 0`. | Navigates to `/en/report-cards/requests` |           |
-
-### 5.5 Tile affordances
-
-| #     | What to Check           | Expected Result                                                                                                                                     | Pass/Fail |
-| ----- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 5.5.1 | Hover state on any tile | Border shifts to primary-300, shadow grows, tile lifts by 2px (`hover:-translate-y-0.5`). Cursor becomes a pointer.                                 |           |
-| 5.5.2 | Focus state             | Keyboard Tab to a tile: a primary-500 focus ring appears (`focus-visible:ring-2`).                                                                  |           |
-| 5.5.3 | Activation keybindings  | Pressing Enter OR Space on a focused tile triggers the same `onClick` as a mouse click.                                                             |           |
-| 5.5.4 | Accent stripe           | A 1px gradient bar sits across the top of the tile — violet / amber / sky / rose depending on the tile.                                             |           |
-| 5.5.5 | Icon bubble             | Each tile has a 40×40px rounded square icon bubble in the corresponding tone (e.g. `bg-violet-100 text-violet-700` for Generate).                   |           |
-| 5.5.6 | Action label            | Bottom of the tile shows a small primary-600 link-looking label with an arrow (`Start wizard`, `Open editor`, `Browse library`, `Review requests`). |           |
+| #   | What to Check                                      | Expected Result                                                                                                                                                                                                                                                                                           | Pass/Fail |
+| --- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 3.1 | Click **Learning** in the top morph bar            | Sub-strip expands and shows tabs including **Curriculum**, **Lessons**, **Assessment**, **Behaviour**. URL becomes `/en/learning` or highlights Learning.                                                                                                                                                 |           |
+| 3.2 | Click **Assessment** on the Learning sub-strip     | Assessment sub-strip appears showing **Gradebook**, **Assessments**, **Rubrics**, **Report Cards** (permission-filtered).                                                                                                                                                                                 |           |
+| 3.3 | Click **Report Cards** on the Assessment sub-strip | URL -> `/en/report-cards` (no redirect loop). `GET /v1/academic-periods?pageSize=50`, `GET /v1/year-groups?pageSize=100`, `GET /v1/classes?pageSize=100`, `GET /v1/report-cards/library?page=1&pageSize=1`, and `GET /v1/report-card-teacher-requests?status=pending&page=1&pageSize=1` fire in parallel. |           |
+| 3.4 | Direct URL navigation                              | Go to `/en/report-cards` directly. Page renders identically to the sub-strip entry path.                                                                                                                                                                                                                  |           |
+| 3.5 | Morph bar stability                                | The morph bar does not flicker or remount during the Learning -> Assessment -> Report Cards chain. No layout jump.                                                                                                                                                                                        |           |
+| 3.6 | Back button                                        | Browser back returns to the previously highlighted sub-strip state, not to the platform landing.                                                                                                                                                                                                          |           |
 
 ---
 
-## 6. Dashboard Live Run Status Panel
+## 4. Report Cards Dashboard — Page Load
 
-Left side of a two-column split (admin-only). Polls every 5 seconds while a `queued` or `processing` run exists.
-
-### 6.1 Empty state (no active run)
-
-| #     | What to Check | Expected Result                                                                                | Pass/Fail |
-| ----- | ------------- | ---------------------------------------------------------------------------------------------- | --------- |
-| 6.1.1 | Panel frame   | Dashed border, `border-border` tinted, `bg-surface-secondary/40` background, min height 11rem. |           |
-| 6.1.2 | Heading       | **"Live generation run"**.                                                                     |           |
-| 6.1.3 | Empty text    | **"No runs in progress. Kick off a new one when you're ready."**                               |           |
-| 6.1.4 | CTA button    | Ghost button **"Start a new run →"** — on click, navigates to `/en/report-cards/generate`.     |           |
-
-### 6.2 Populated state (active run)
-
-| #     | What to Check     | Expected Result                                                                                                                                                                                                                                     | Pass/Fail |
-| ----- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 6.2.1 | Panel frame       | Solid border, `bg-surface`, min height 11rem, shadow-sm.                                                                                                                                                                                            |           |
-| 6.2.2 | Header row        | Left: **"Live generation run"** heading. Right: secondary Badge showing the localised status (one of `queued`, `processing`, `completed`, `failed`, `cancelled`).                                                                                   |           |
-| 6.2.3 | Progress line     | Below the heading: **"{done} of {total} students complete"**.                                                                                                                                                                                       |           |
-| 6.2.4 | Progress bar      | Primary-400 → primary-600 gradient filling `pct = round(done/total * 100)`. Height 2px, rounded-full, animated `transition-all`.                                                                                                                    |           |
-| 6.2.5 | Percentage + link | Below the bar: a bold `{pct}%` on the left and a primary-coloured link **"View library →"** on the right that navigates to `/en/report-cards/library`.                                                                                              |           |
-| 6.2.6 | Polling behaviour | Every 5 seconds, the panel re-fetches `/api/v1/report-cards/generation-runs?page=1&pageSize=5` and updates the snapshot. When status moves to a terminal value (completed/failed/cancelled), polling stops and the panel reflects the final counts. |           |
+| #    | What to Check                                        | Expected Result                                                                                                                                       | Pass/Fail |
+| ---- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 4.1  | Page title and header                                | `<h1>` "Report Cards" (from `reportCards.title`).                                                                                                     |           |
+| 4.2  | Header description slot                              | Below the title shows the selected period name (e.g. "Term 2") pulled from `periods[].find(status='active').name`.                                    |           |
+| 4.3  | Initial skeleton                                     | Before data resolves: two skeleton blocks appear in the classes section (animated `bg-surface-secondary`).                                            |           |
+| 4.4  | Parallel fetches on mount                            | Network shows 5 GET requests in parallel as listed in 3.3, all 200.                                                                                   |           |
+| 4.5  | `silent: true` on library + pending teacher requests | Failures on `/api/v1/report-cards/library?...` or `/api/v1/report-card-teacher-requests?status=pending` do not pop a toast. They still console-error. |           |
+| 4.6  | Dashboard does NOT render teacher shell              | URL is `/en/report-cards` (NOT `/en/dashboard/teacher`). Sub-strip is the admin variant.                                                              |           |
+| 4.7  | No console errors                                    | DevTools Console shows no red errors on mount.                                                                                                        |           |
+| 4.8  | `isAdmin` computed true                              | The `useRoleCheck` hook returns `isAdmin=true` since Yusuf has `school_owner`. Admin-only affordances visible.                                        |           |
+| 4.9  | Effect cleanup                                       | Navigate away then back quickly — no duplicate calls, no "setState after unmount" warning.                                                            |           |
+| 4.10 | Auth context present                                 | `useAuth().user` resolves before rendering admin affordances; no flicker between teacher/admin layout.                                                |           |
+| 4.11 | Redirect on `/en/dashboard/teacher` if admin         | Navigating to the teacher dashboard as admin either renders the teacher view or redirects. Document.                                                  |           |
 
 ---
 
-## 7. Dashboard Analytics Snapshot Panel
+## 5. Dashboard Header & Period Selector
 
-Right side of the same two-column split (admin-only). Reads from `/api/v1/report-cards/analytics/dashboard`.
-
-### 7.1 Header
-
-| #     | What to Check                 | Expected Result                                                                                                                                                                                                         | Pass/Fail |
-| ----- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 7.1.1 | Heading                       | **"Analytics snapshot"**.                                                                                                                                                                                               |           |
-| 7.1.2 | **See full analytics →** link | Primary-coloured text link on the right of the header. On click, navigates to `/en/report-cards/analytics?academic_period_id={current period}` (or `?academic_period_id=full_year` when the dashboard is on Full Year). |           |
-
-### 7.2 Card grid
-
-Five tone-coded cards in a 2-column (mobile) / 3-column (sm+) grid. Loading shows 5 pulse skeletons.
-
-| #     | Card label           | Value format                                                                                                        | Pass/Fail |
-| ----- | -------------------- | ------------------------------------------------------------------------------------------------------------------- | --------- |
-| 7.2.1 | **Total**            | Integer count of report cards in the selected period scope (`data.total`). Falls back to `0`.                       |           |
-| 7.2.2 | **Published**        | Integer count of published report cards.                                                                            |           |
-| 7.2.3 | **Completion**       | Percentage with one decimal, e.g. **"0.5%"**, from `data.completion_rate`.                                          |           |
-| 7.2.4 | **Overall comments** | Fraction string **"{finalised} / {total}"** from `data.overall_comments_finalised` + `data.overall_comments_total`. |           |
-| 7.2.5 | **Subject comments** | Fraction string **"{finalised} / {total}"** from `data.subject_comments_finalised` + `data.subject_comments_total`. |           |
-
-### 7.3 Empty state
-
-| #     | What to Check                                    | Expected Result                                                                                                 | Pass/Fail |
-| ----- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | --------- |
-| 7.3.1 | Analytics endpoint returns null / fails silently | The card grid is replaced with a single centred line: **"No analytics available"** (tone `text-text-tertiary`). |           |
+| #    | What to Check                               | Expected Result                                                                                                                                                 | Pass/Fail |
+| ---- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 5.1  | Period selector renders                     | The `<Select>` trigger next to the Settings button displays the currently selected period name.                                                                 |           |
+| 5.2  | Default selection                           | On first load the selector value equals the first period with `status === 'active'` (fallback: first period in the list).                                       |           |
+| 5.3  | Period options include "Full Year" sentinel | Opening the dropdown shows `dashboard.fullYearLabel` = "Full Year" as the first item, followed by every period.                                                 |           |
+| 5.4  | Select Full Year                            | Choosing it sets `selectedPeriodId='full_year'` and re-fires `GET /v1/report-cards/analytics/dashboard` with the `full_year` sentinel (confirm the client URL). |           |
+| 5.5  | Select a specific period                    | Choosing `{ACTIVE_PERIOD_ID}` re-fires `GET /v1/report-cards/analytics/dashboard?academic_period_id={ACTIVE_PERIOD_ID}` -> 200. Analytics Snapshot refreshes.   |           |
+| 5.6  | Settings gear button (admin-only)           | Rendered with `aria-label` = `dashboard.settingsAria`. Clicking navigates to `/en/report-cards/settings`. Hidden for `teacher` role.                            |           |
+| 5.7  | Header description reflects selection       | Changing the selector updates the header description to the chosen period's name ("Full Year" if sentinel).                                                     |           |
+| 5.8  | No persistence across reloads               | Reloading the page re-derives the default (active period). Sentinel choice does NOT persist.                                                                    |           |
+| 5.9  | Select renders ≥ 50 periods                 | Historical tenants with 50+ periods: dropdown is virtualised or paginated. Flag if laggy.                                                                       |           |
+| 5.10 | Keyboard navigation                         | Tab into selector + arrow keys navigate options. Enter selects. Esc closes dropdown.                                                                            |           |
 
 ---
 
-## 8. Dashboard Classes-by-Year-Group Grid
+## 6. Dashboard Quick-Action Tiles (Admin: 4 tiles)
 
-Below the two-column split, a full-width section titled **"Classes by year group"** with the helper text **"Pick a class to open its report card matrix."**.
-
-### 8.1 Section structure
-
-| #     | What to Check                              | Expected Result                                                                                                                                                                                                                                                                                                                                           | Pass/Fail |
-| ----- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 8.1.1 | Heading row                                | Left: **"Classes by year group"** (h2, `text-lg font-semibold`). Right: small grey hint **"Pick a class to open its report card matrix."**.                                                                                                                                                                                                               |           |
-| 8.1.2 | Year group sections                        | One `<section>` per year group that contains at least one class with `_count.class_enrolments > 0`. For NHQS expect **Kindergarten** (1 class: K1A), **1st class** (1A, 1B), **2nd class** (2A, 2B), **3rd Class** (3A, 3B), **4th Class** (4A, 4B), **5th Class** (5A, 5B), **6th Class** (6A, 6B). J1A / K1B / SF1A have 0 enrolments and are excluded. |           |
-| 8.1.3 | Section header                             | Each year-group section has a primary-50 circular icon bubble (40×40) with a GraduationCap glyph, the year-group name as an h3, and a subtitle **"{n} classes"** or **"{n} class"** (singular).                                                                                                                                                           |           |
-| 8.1.4 | Sort order of sections                     | Ascending by `year_group.display_order`, then by name. Sections without a year group fall to the bottom with the localised "Unassigned" label.                                                                                                                                                                                                            |           |
-| 8.1.5 | Sort order of class cards within a section | Alphabetical by `class.name` (case-insensitive).                                                                                                                                                                                                                                                                                                          |           |
-
-### 8.2 Class cards
-
-| #     | What to Check      | Expected Result                                                                                                                                                                                                | Pass/Fail |
-| ----- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 8.2.1 | Card layout        | Rounded-2xl, `border-border`, `bg-surface`, padding 5, min height 8rem. Top stripe: 1px primary-400 → primary-600 gradient.                                                                                    |           |
-| 8.2.2 | Card content       | Row 1: large class name (e.g. **"2A"**, h4, `text-2xl font-bold`) + a FileText icon in the top-right tinted `text-primary-500/70`. Row 2: enrolment count **"25 students"** (singular "1 student" at count 1). |           |
-| 8.2.3 | Hover affordance   | Border lifts to primary-300, shadow grows, icon darkens to primary-600.                                                                                                                                        |           |
-| 8.2.4 | Click a class card | Navigates to `/en/report-cards/{classId}` where `classId` is the full UUID of the clicked class.                                                                                                               |           |
-| 8.2.5 | Keyboard nav       | Tab focuses each card in visual order. Enter / Space triggers the same navigation.                                                                                                                             |           |
-
-### 8.3 Empty / error states
-
-| #     | What to Check            | Expected Result                                                                                                                                          | Pass/Fail |
-| ----- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 8.3.1 | No classes in the tenant | An `<EmptyState>` card renders with the `FileText` icon and the localised `noClasses` title. No sections render.                                         |           |
-| 8.3.2 | Initial fetch fails      | `[ReportCardsDashboard.loadInitial]` logs the error; the grid falls back to empty (no sections). A skeleton flashes first, then the empty state appears. |           |
+| #    | What to Check                        | Expected Result                                                                                                                                          | Pass/Fail |
+| ---- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 6.1  | Four tiles render on `lg` breakpoint | Grid `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`. Tiles in order: **Generate**, **Write comments**, **Library**, **Teacher requests**.                   |           |
+| 6.2  | Generate tile — icon + accent        | Sparkles icon in a `bg-violet-100 text-violet-700` chip. Clicking navigates to `/en/report-cards/generate`.                                              |           |
+| 6.3  | Write comments tile                  | MessageSquare icon with amber accent. Clicking navigates to `/en/report-comments`.                                                                       |           |
+| 6.4  | Library tile shows live count        | Library icon with sky accent. Description reads "{n} report cards saved" (`dashboard.tileLibraryDescription`). While loading shows `tileLibraryLoading`. |           |
+| 6.5  | Library count source                 | After mount, `libraryCount = meta.total` from `GET /v1/report-cards/library?page=1&pageSize=1`.                                                          |           |
+| 6.6  | Teacher requests tile — all clear    | When `pendingRequestCount === 0`, description reads `dashboard.tileRequestsAllClear`. No red badge.                                                      |           |
+| 6.7  | Teacher requests tile — pending      | When `pendingRequestCount > 0`, description reads `dashboard.tileRequestsPending` with `{count}`, and a red badge with the number appears.               |           |
+| 6.8  | Tile hover affordance                | Each tile darkens/shadows on hover. Focus ring on keyboard tab.                                                                                          |           |
+| 6.9  | Tile touch target                    | On mobile (375px) tiles stack `grid-cols-1` and each tile is tappable at >= 44x44px.                                                                     |           |
+| 6.10 | Tiles hidden for teacher role        | (Teacher-parity check) For teacher, only Write comments + Library render, grid collapses to `lg:grid-cols-2`.                                            |           |
+| 6.11 | Keyboard activation                  | Tabbing onto a tile and pressing Enter/Space triggers navigation.                                                                                        |           |
+| 6.12 | Tile description copy                | Localised in EN and AR. No hardcoded English in AR locale.                                                                                               |           |
+| 6.13 | Tile state across reload             | Library count + pending count refresh on every page mount.                                                                                               |           |
+| 6.14 | Accessible icon                      | Each icon has `aria-hidden='true'` because the text label carries meaning.                                                                               |           |
 
 ---
 
-## 9. Class Matrix Page — Navigation & Header
+## 7. Dashboard Live-Run Status Panel (polling)
 
-**URL:** `/en/report-cards/{classId}` — example `/en/report-cards/76ce55f7-d722-4927-8038-fa304c9c4e05` for 2A.
-
-| #   | What to Check                                           | Expected Result                                                                                                                                                                                                                                     | Pass/Fail |
-| --- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 9.1 | Navigate from the dashboard by clicking the **2A** card | Browser URL becomes `/en/report-cards/{2A id}`. Network tab: `GET /api/v1/academic-periods?pageSize=50` fires once for period options, and `GET /api/v1/report-cards/classes/{classId}/matrix?academic_period_id=all` fires for the matrix payload. |           |
-| 9.2 | Page `<h1>`                                             | After load, displays the class name (e.g. **"2A"**). Before load, shows the translated fallback **"Report Cards"**.                                                                                                                                 |           |
-| 9.3 | Subtitle under the heading                              | Year group name from the matrix response (e.g. **"2nd class"**). Empty until loaded.                                                                                                                                                                |           |
-| 9.4 | **Back to Report Cards** button (ghost, ArrowLeft icon) | Located in the header actions. On click, navigates back to `/en/report-cards`. Does NOT rely on browser history — it is an explicit push.                                                                                                           |           |
-| 9.5 | **Library** outline button (Library icon)               | Located next to the Back button. On click, navigates to `/en/report-cards/library`.                                                                                                                                                                 |           |
-
----
-
-## 10. Class Matrix — Period Filter & Display Toggle
-
-A toolbar sits below the header: period selector on the left, Grade/Score tab toggle on the right.
-
-### 10.1 Period selector
-
-| #      | What to Check                | Expected Result                                                                                                                                                       | Pass/Fail |
-| ------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 10.1.1 | Default value                | **"All periods"** (the literal sentinel `all`). The matrix endpoint receives `academic_period_id=all` and returns cross-period aggregates.                            |           |
-| 10.1.2 | Open the dropdown            | First item: **"All periods"**. Remaining items: every period from `/api/v1/academic-periods?pageSize=50` in API order. NHQS shows **All periods**, **S1**, **S2**.    |           |
-| 10.1.3 | Select **S1**                | Trigger updates to **"S1"**. Network: `GET /api/v1/report-cards/classes/{classId}/matrix?academic_period_id={S1 id}` fires. Matrix cells re-render with S1-only data. |           |
-| 10.1.4 | Select **All periods** again | Cells re-render with cross-period aggregates.                                                                                                                         |           |
-
-### 10.2 Display toggle (Grade vs Score)
-
-| #      | What to Check         | Expected Result                                                                                                                                                                           | Pass/Fail |
-| ------ | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 10.2.1 | Initial mode          | **Grade** tab is active; every cell shows the letter grade (e.g. `A`, `B`, `C`, `D`, `F`) or an em-dash when no grade is available.                                                       |           |
-| 10.2.2 | Click **Score**       | Mode switches to Score. Every cell re-formats as a percentage with 1 decimal (e.g. **"72.0%"**). Cells without a score show **"—"**. The Overall column formats identically.              |           |
-| 10.2.3 | Click **Grade** again | Mode switches back. No API call fires — the toggle is purely client-side formatting over the same cached matrix payload.                                                                  |           |
-| 10.2.4 | Visual affordance     | The active tab has `bg-primary-600 text-white`; the inactive tab is `text-text-secondary` hover `text-text-primary`. `role="tab"` + `aria-selected` are set correctly for screen readers. |           |
+| #    | What to Check                       | Expected Result                                                                                                                   | Pass/Fail |
+| ---- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 7.1  | Panel visibility when no active run | `LiveRunStatusPanel` renders a neutral empty state ("No generation run in progress" or equivalent).                               |           |
+| 7.2  | Initial poll on mount               | `GET /v1/report-cards/generation-runs?page=1&pageSize=5` fires once. Response 200.                                                |           |
+| 7.3  | Active run detected                 | After starting a run in Section 29, the first row returns `status` = `queued`/`processing`. Panel shows the run label + progress. |           |
+| 7.4  | Polling cadence while active        | Polls every **5000 ms** (`POLL_INTERVAL_MS` constant). Confirm via Network timing.                                                |           |
+| 7.5  | Polling stops at terminal status    | When status is `completed`/`partial_success`/`failed`/`cancelled`, polling stops. Panel shows terminal snapshot.                  |           |
+| 7.6  | View library CTA                    | Panel shows a "View library" button -> navigates to `/en/report-cards/library`.                                                   |           |
+| 7.7  | Silent poll failure                 | `silent: true` suppresses toast. Poll failures console-error only.                                                                |           |
+| 7.8  | Panel hidden for teacher role       | (Teacher-parity check) Not rendered outside admin block.                                                                          |           |
+| 7.9  | Polling across navigation           | Navigating away stops the interval (effect cleanup). Returning restarts it.                                                       |           |
+| 7.10 | Multiple active runs                | If >1 run is active, only the first is shown (per `.find` logic). Flag if enhancement needed.                                     |           |
+| 7.11 | Panel responsive                    | At 375px, panel stacks full width above analytics.                                                                                |           |
 
 ---
 
-## 11. Class Matrix — Matrix Table Structure
+## 8. Dashboard Analytics Snapshot Panel
 
-| #      | What to Check        | Expected Result                                                                                                                                                                                                     | Pass/Fail |
-| ------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 11.1.1 | Header row           | First column sticky-start with `bg-primary-900` and reads **"Student"**. Middle columns (one per subject): `bg-primary-700`, white text, centred subject names. Last column: `bg-primary-800`, reads **"Overall"**. |           |
-| 11.1.2 | Student column width | Fixed 180px. Long names truncate with ellipsis; the full name shows as a `title` tooltip on hover.                                                                                                                  |           |
-| 11.1.3 | Subject column width | Fixed 110px each. Horizontal scroll appears when the total width exceeds the viewport.                                                                                                                              |           |
-| 11.1.4 | Row striping         | Even rows: `bg-surface`. Odd rows: `bg-surface-secondary`. Hover: `bg-primary-50`.                                                                                                                                  |           |
-| 11.1.5 | Student cell         | Left-aligned, sticky-start, 180px. Shows **"{first_name} {last_name}"** in medium weight, truncated.                                                                                                                |           |
-| 11.1.6 | Grade cells          | Centre-aligned, forced `dir="ltr"`. Each value is wrapped in a small rounded `bg-surface-secondary` pill. Empty cells show **"—"**.                                                                                 |           |
-| 11.1.7 | Overall column cells | Left border `border-s-2 border-s-primary-100`, background `bg-primary-50/30`, value pill `bg-primary-100 text-primary-900 font-bold`.                                                                               |           |
-| 11.1.8 | Row count            | Exactly `students.length` rows. For 2A (25 active enrolments): **25** rows.                                                                                                                                         |           |
-| 11.1.9 | Subject count        | Exactly `subjects.length` columns between Student and Overall. Order as returned by the backend (alphabetised by the `ReportCardsQueriesService.getClassMatrix` query).                                             |           |
+| #   | What to Check                       | Expected Result                                                                                                | Pass/Fail |
+| --- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------- |
+| 8.1 | Panel renders in admin view         | `AnalyticsSnapshotPanel` appears in a `lg:grid-cols-2` row with LiveRunStatusPanel.                            |           |
+| 8.2 | Initial analytics fetch             | `GET /v1/report-cards/analytics/dashboard?academic_period_id={ACTIVE_PERIOD_ID}` fires on mount (silent, 200). |           |
+| 8.3 | Summary KPIs                        | Shows Total, Published, Draft, Completion rate at minimum. Values match `res.data`.                            |           |
+| 8.4 | Loading state                       | While `analyticsLoading`, panel shows skeleton or "Loading…" placeholder.                                      |           |
+| 8.5 | Period change re-fetches            | Changing the header period selector triggers a re-fetch with the new `academic_period_id`.                     |           |
+| 8.6 | Empty / null analytics              | If endpoint returns null/throws, panel shows a friendly empty state. No crash.                                 |           |
+| 8.7 | View full analytics CTA             | A link/button to `/en/report-cards/analytics?academic_period_id={selectedPeriodId}` preserving the sentinel.   |           |
+| 8.8 | No 404 badge for unfinalised period | Panel does not imply data is missing just because `published=0`.                                               |           |
+| 8.9 | Click-through to details            | Each KPI card is clickable to drill down where applicable (e.g., Published -> Library filtered).               |           |
+
+---
+
+## 9. Dashboard Classes-by-Year-Group Grid
+
+| #    | What to Check                                  | Expected Result                                                                                                     | Pass/Fail |
+| ---- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------- |
+| 9.1  | Heading                                        | Section heading "Classes" (`dashboard.classesHeading`) renders above the year-group grid.                           |           |
+| 9.2  | Year-group sections ordered                    | Each year group appears in ascending `display_order`. Unassigned classes group under "Unassigned" last.             |           |
+| 9.3  | Year-group row header                          | Each group shows a GraduationCap chip, year group name, and "{n} classes" (`classesCount`).                         |           |
+| 9.4  | Class card shows name + student count          | Each card: class name (large bold) and "{n} students" (`studentsCount`).                                            |           |
+| 9.5  | Classes with zero students hidden              | Cards filtered where `_count.class_enrolments === 0`.                                                               |           |
+| 9.6  | Class cards sorted alphabetically within group | Sorted via `localeCompare`.                                                                                         |           |
+| 9.7  | Click a class card                             | Navigates to `/en/report-cards/{CLASS_A_ID}`.                                                                       |           |
+| 9.8  | Empty-state fallback                           | No classes with enrolled students -> `EmptyState` with FileText icon and `reportCards.noClasses`.                   |           |
+| 9.9  | Grid responsiveness                            | Grid is `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`. At 375px cards stack to one column.             |           |
+| 9.10 | Focus ring                                     | Tabbing through cards shows `focus-visible:ring-2 ring-primary-500`.                                                |           |
+| 9.11 | Gradient top-bar accent                        | Each card has a `h-1 bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600` at the top.                  |           |
+| 9.12 | Classes without year group                     | Unassigned group renders under its own header with `year_group_order = 999`.                                        |           |
+| 9.13 | Card `shadow-sm` baseline                      | Cards render with a soft shadow and transition to `shadow-md` on hover.                                             |           |
+| 9.14 | Card `hover:border-primary-300`                | Hover changes the border colour without changing the card height. No layout shift.                                  |           |
+| 9.15 | Card without year group                        | Classes where `year_group=null` render under "Unassigned" with `year_group_order=999`.                              |           |
+| 9.16 | Card text truncation                           | Class name that exceeds one line truncates with `text-ellipsis`. Full name revealed via `title` attribute on hover. |           |
+| 9.17 | Card icon hover colour                         | The FileText icon shifts from `text-primary-500/70` to `text-primary-600` on hover.                                 |           |
+| 9.18 | Card count accurate                            | "{n} students" reflects `_count.class_enrolments`, not a cached snapshot.                                           |           |
+| 9.19 | Gradient bar LTR/RTL                           | The `bg-gradient-to-r` gradient direction reads naturally in both locales (or flips in RTL — document).             |           |
+| 9.20 | Card alignment in RTL                          | In Arabic, content is right-aligned; the FileText icon sits at the end (left).                                      |           |
+| 9.21 | Card tabindex                                  | Each card is focusable via Tab; focus order follows visual order.                                                   |           |
+
+---
+
+## 10. Class Matrix Page — Navigation & Header
+
+| #     | What to Check                      | Expected Result                                                                                                                      | Pass/Fail |
+| ----- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 10.1  | Entry from dashboard               | Clicking `{CLASS_A_ID}` in Section 9 navigates to `/en/report-cards/{CLASS_A_ID}`.                                                   |           |
+| 10.2  | Initial API calls                  | `GET /v1/academic-periods?pageSize=50` and `GET /v1/report-cards/classes/{CLASS_A_ID}/matrix?academic_period_id=all` fire. Both 200. |           |
+| 10.3  | Header title + description         | Title = `matrix.class.name`. Description = year group name.                                                                          |           |
+| 10.4  | Back to Report Cards button        | "Back to Report Cards" ghost button navigates to `/en/report-cards`.                                                                 |           |
+| 10.5  | Library button                     | Outlined "Library" button navigates to `/en/report-cards/library`.                                                                   |           |
+| 10.6  | Loading skeleton                   | Before data: six animated rows `h-10 rounded-lg bg-surface-secondary` render.                                                        |           |
+| 10.7  | Matrix container                   | Wrapped in `inline-block max-w-full rounded-xl border border-border bg-surface` with `overflow-x-auto`.                              |           |
+| 10.8  | Sticky first column                | Student column (`sticky start-0 z-10`) stays visible while horizontally scrolling.                                                   |           |
+| 10.9  | Column widths consistent           | Subject columns are 110px each; student column is 180px. Overall column is 110px.                                                    |           |
+| 10.10 | Header row styling                 | Student header `bg-primary-900`. Subject headers `bg-primary-700`. Overall `bg-primary-800`.                                         |           |
+| 10.11 | Header contrast                    | All header colours pass WCAG AA contrast for their `text-white` content.                                                             |           |
+| 10.12 | Back to dashboard preserves period | Returning to dashboard preserves the previously selected period.                                                                     |           |
+
+---
+
+## 11. Class Matrix — Period Filter & Display Toggle
+
+| #     | What to Check                             | Expected Result                                                                                                                                          | Pass/Fail |
+| ----- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 11.1  | Period `<Select>` renders                 | Shows "All periods" (value `all`) by default with every period listed below.                                                                             |           |
+| 11.2  | Select a specific period                  | Choosing `{ACTIVE_PERIOD_ID}` re-fires `GET /v1/report-cards/classes/{CLASS_A_ID}/matrix?academic_period_id={ACTIVE_PERIOD_ID}` -> 200. Cells re-render. |           |
+| 11.3  | Select "All periods"                      | Re-fires with `academic_period_id=all`. Backend aggregates across all periods.                                                                           |           |
+| 11.4  | Display toggle has two tabs               | Inline group with role `tablist`; tabs **Grade** and **Score**. Default = `grade`.                                                                       |           |
+| 11.5  | Switch to Score                           | Clicking **Score** flips `aria-selected`, cells render `cell.score.toFixed(1)%`. No network refetch.                                                     |           |
+| 11.6  | Switch back to Grade                      | Cells render `cell.grade` (letter/symbol).                                                                                                               |           |
+| 11.7  | Toggle minimum touch target               | Each toggle button is `min-h-11`.                                                                                                                        |           |
+| 11.8  | Null cell rendering                       | Where `cell` is undefined OR `cell.score` is null, shows `—`.                                                                                            |           |
+| 11.9  | Cells render LTR in AR                    | Each score/grade cell has `dir="ltr"` so numerals stay LTR in RTL.                                                                                       |           |
+| 11.10 | Overall column reads `overall_by_student` | Rightmost column shows `weighted_average%` or `overall_grade`.                                                                                           |           |
+| 11.11 | Display toggle state resets on nav        | Navigating away and back resets to the default (`grade`).                                                                                                |           |
+| 11.12 | Period filter in URL                      | Period filter is NOT persisted in URL (client state only).                                                                                               |           |
+| 11.13 | Zero cells performance                    | Class with 30 students × 20 subjects (600 cells) renders in < 2s.                                                                                        |           |
+| 11.14 | Scroll performance                        | Horizontal scrolling with 20 subjects does not drop frames.                                                                                              |           |
 
 ---
 
 ## 12. Class Matrix — Top-Rank Badges
 
-| #    | What to Check                                                        | Expected Result                                                                                                                                                                                                                                                                                                 | Pass/Fail |
-| ---- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 12.1 | Students ranked 1, 2, or 3 by `overall.rank_position`                | An amber pill renders beside the student name inside the student cell. It contains a Medal icon and the localised **"Top {rank}"** label (e.g. **"Top 1"**). Pill styling: `rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-800 ring-1 ring-amber-300`.                                            |           |
-| 12.2 | Students ranked 4+ or without a rank                                 | No badge. No amber pill.                                                                                                                                                                                                                                                                                        |           |
-| 12.3 | `aria-label` on the badge                                            | Reads **"Top {rank}"** (localised).                                                                                                                                                                                                                                                                             |           |
-| 12.4 | Badge visibility respects the tenant's `show_top_rank_badge` setting | This is a display toggle on the settings page. When disabled, the backend still returns `rank_position` but the matrix must not render the pill. (Implementation note: the current class-matrix page renders the badge unconditionally — flag as a regression if the setting is OFF and the badge still shows.) |           |
+| #    | What to Check                              | Expected Result                                                                                                                                          | Pass/Fail |
+| ---- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 12.1 | Top-3 students show a gold badge           | Where `overall.rank_position` is in `[1,2,3]`, a pill with Medal icon renders next to the name. `aria-label` = `classMatrix.topRankBadge` with `{rank}`. |           |
+| 12.2 | Rank 4+ shows no badge                     | Students ranked 4th or lower show no Medal pill.                                                                                                         |           |
+| 12.3 | Null rank shows no badge                   | Students without `overall` data show no badge.                                                                                                           |           |
+| 12.4 | Badge visibility depends on tenant setting | When `show_top_rank_badge=false`, check whether badges still appear or are suppressed. Flag any discrepancy in Section 80.                               |           |
+| 12.5 | Badge colour tokens                        | Pill uses `bg-amber-100 text-amber-800 ring-amber-300`. No hardcoded hex.                                                                                |           |
+| 12.6 | Badge i18n                                 | `classMatrix.topRankBadge` renders with `{rank}` interpolation.                                                                                          |           |
+| 12.7 | Badge after rank change                    | If an admin edits grades upstream and ranks shift, re-fetching the matrix updates the badges accordingly.                                                |           |
+| 12.8 | Tie-breaking                               | Students with identical `weighted_average` may share a rank OR be ordered by name. Document observed behaviour.                                          |           |
+| 12.9 | aria-label localisation                    | The badge `aria-label` uses `classMatrix.topRankBadge` localised key.                                                                                    |           |
 
 ---
 
-## 13. Class Matrix — Error & Empty States
+## 13. Class Matrix — Empty + Error States
 
-| #    | What to Check                                          | Expected Result                                                                                                                                                                               | Pass/Fail |
-| ---- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 13.1 | Navigate to `/en/report-cards/{random-uuid}`           | Matrix call returns 404 with `code: 'CLASS_NOT_FOUND'`. The page shows an EmptyState with an ArrowLeft icon, the **"Class not found"** title, and a **"Back to Report Cards"** action button. |           |
-| 13.2 | Class exists but has 0 students                        | EmptyState with a Medal icon and the **"No students"** title.                                                                                                                                 |           |
-| 13.3 | Class exists with students but 0 subjects              | EmptyState with a Medal icon and the **"No grades yet"** title.                                                                                                                               |           |
-| 13.4 | Generic fetch failure (500, 401 refresh loop, timeout) | EmptyState with ArrowLeft icon and the localised **"Failed to load"** title. No matrix table renders.                                                                                         |           |
-| 13.5 | Loading skeleton                                       | While `isLoading === true`, 6 pulsing 10-height bars render in place of the table.                                                                                                            |           |
+| #     | What to Check              | Expected Result                                                                                                                                                                                              | Pass/Fail |
+| ----- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 13.1  | No students enrolled       | If `matrix.students.length === 0`, `EmptyState` with Medal icon and `classMatrix.noStudents`.                                                                                                                |           |
+| 13.2  | No subjects graded         | If `matrix.subjects.length === 0`, `EmptyState` with `classMatrix.noGradesYet`.                                                                                                                              |           |
+| 13.3  | Class not found            | Navigate to `/en/report-cards/00000000-0000-0000-0000-000000000000`. Backend returns 404 `{ code: 'CLASS_NOT_FOUND' }`. Page shows `EmptyState classMatrix.classNotFound` + a "Back to Report Cards" action. |           |
+| 13.4  | Invalid UUID in path       | `/en/report-cards/not-a-uuid`. API returns 400 (`ParseUUIDPipe`). Page shows the load-failed empty state.                                                                                                    |           |
+| 13.5  | Server error (5xx)         | If matrix endpoint returns 500, `EmptyState classMatrix.loadFailed`. No crash, no toast. Console error logged.                                                                                               |           |
+| 13.6  | Teacher out-of-scope class | (Teacher-parity) Hitting a class they don't teach returns 403 `{ code: 'CLASS_OUT_OF_SCOPE' }`. Admin bypass applies here.                                                                                   |           |
+| 13.7  | Network offline            | With devtools offline, page shows loadFailed state and does not hang.                                                                                                                                        |           |
+| 13.8  | Reload during loading      | Hitting reload while matrix is loading does not double-fire the fetch (effect cleanup cancels stale).                                                                                                        |           |
+| 13.9  | Rapid period switches      | Switching periods rapidly: only the latest response applies to state (cancelled flag).                                                                                                                       |           |
+| 13.10 | Auth expiry during fetch   | 401 mid-session triggers re-auth flow. After refresh, matrix re-fetches successfully.                                                                                                                        |           |
+| 13.11 | Wide subject count         | Class with 20+ subjects renders header with horizontal scroll; last column still accessible.                                                                                                                 |           |
 
 ---
 
-## 14. Settings Page — Entry Point
+## 14. Settings Page — Entry Point & Permission Guard
 
-**URL:** `/en/report-cards/settings`
-
-| #    | What to Check                                    | Expected Result                                                                                                                                                                          | Pass/Fail |
-| ---- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 14.1 | Navigate to `/en/report-cards/settings` directly | Network: `GET /api/v1/report-card-tenant-settings` (200) and `GET /api/v1/report-cards/templates/content-scopes` (200). While loading, 4 pulsing card skeletons render.                  |           |
-| 14.2 | Page heading                                     | **"Report Card Settings"** (localised). Subtitle explains the purpose.                                                                                                                   |           |
-| 14.3 | **Back to Report Cards** button                  | Top-right ghost button. On click, navigates to `/en/report-cards`.                                                                                                                       |           |
-| 14.4 | Permission banner                                | For an admin (`canManage === true`), no banner shows. For a teacher (who has `report_cards.view` but not `manage`), a grey banner renders: **"You're viewing this in read-only mode."**. |           |
-| 14.5 | Form wrapper                                     | Form contains 6 sections stacked vertically: Display defaults, Comment gate, Default personal info fields, Default template, Grade thresholds link, Principal details.                   |           |
+| #     | What to Check                     | Expected Result                                                                                                                                                                 | Pass/Fail        |
+| ----- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | --------------------- | --------------------------------------------------- | --- |
+| 14.1  | Navigate via gear button          | From dashboard click the gear icon. URL -> `/en/report-cards/settings`.                                                                                                         |                  |
+| 14.2  | Initial API calls                 | `GET /v1/report-card-tenant-settings` and `GET /v1/report-cards/templates/content-scopes` fire in parallel. Both 200.                                                           |                  |
+| 14.3  | Header                            | Title "Report card settings" (`settings.title`), description string, and "Back to Report Cards" ghost button navigating to `/en/report-cards`.                                  |                  |
+| 14.4  | Loading state                     | Four animated `rounded-2xl bg-surface-secondary h-28` skeleton cards render while loading.                                                                                      |                  |
+| 14.5  | Read-only notice for non-managers | If user is `canView` but not `canManage` (e.g., teacher), a grey banner reads `settings.readOnlyNotice` and every control is disabled.                                          |                  |
+| 14.6  | Non-view role denied              | A role without `canView` or `canManage` (e.g., parent) loading `/en/report-cards/settings` triggers a toast `settings.permissionDenied` + `router.replace('/en/report-cards')`. |                  |
+| 14.7  | 403 from API on load              | `GET /v1/report-card-tenant-settings` returning 403 -> toast `settings.loadFailed`, no form renders.                                                                            |                  |
+| 14.8  | Admin-only edit                   | Only roles in `school_owner                                                                                                                                                     | school_principal | school_vice_principal | admin`have`canManage=true` and can submit the form. |     |
+| 14.9  | Teacher can view                  | Teacher with `report_cards.view` sees the page but in read-only mode.                                                                                                           |                  |
+| 14.10 | Settings Link back                | Settings gear button and the back button both use the same locale prefix.                                                                                                       |                  |
 
 ---
 
 ## 15. Settings — Display Defaults
 
-| #    | What to Check                       | Expected Result                                                                                                                                                                                          | Pass/Fail |
-| ---- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 15.1 | Section title                       | **"Display defaults"** (h2, semibold).                                                                                                                                                                   |           |
-| 15.2 | **Matrix display mode** radio group | Label **"Matrix display mode"**. Two radio options in horizontal layout: **"Grade letters"** (value `grade`, default) and **"Numeric scores"** (value `score`). Each option is a rounded-xl border pill. |           |
-| 15.3 | Click **Numeric scores**            | Radio selection switches; no API call yet (form changes are batched into Save).                                                                                                                          |           |
-| 15.4 | Click **Grade letters**             | Selection switches back.                                                                                                                                                                                 |           |
-| 15.5 | **Show top-rank badge** toggle row  | Label + hint on the left, Switch on the right. Toggling flips `show_top_rank_badge` locally. When enabled, the class matrix shows the Top 1/2/3 amber pill beside student names.                         |           |
+| #    | What to Check                      | Expected Result                                                                             | Pass/Fail |
+| ---- | ---------------------------------- | ------------------------------------------------------------------------------------------- | --------- |
+| 15.1 | Section heading                    | Title "Display defaults" (`settings.displayDefaults`).                                      |           |
+| 15.2 | Matrix display mode radio group    | Two labelled radio cards: **Grade** and **Score**. Default = `grade`.                       |           |
+| 15.3 | Select Score                       | Click Score radio. Form state `matrix_display_mode: 'score'`. No network call yet.          |           |
+| 15.4 | Show-top-rank-badge toggle         | A `<Switch>` row labelled `settings.showTopRankBadge` with hint. Off by default.            |           |
+| 15.5 | Toggle it on                       | Click switch. Form state `show_top_rank_badge: true`.                                       |           |
+| 15.6 | Form dirty state                   | Clicking Save with no changes is a no-op; reloading discards changes.                       |           |
+| 15.7 | Disabled in read-only              | Radios + switches disabled when `canManage=false`.                                          |           |
+| 15.8 | Default values on fresh tenant     | A brand-new tenant has baseline defaults (grade mode, rank badge off).                      |           |
+| 15.9 | Settings reset button (if present) | If a "Reset to defaults" button exists, clicking it reloads baseline values without saving. |           |
 
 ---
 
-## 16. Settings — Comment Gate
+## 16. Settings — Comment Gate (block_generation / warn_only)
 
-| #    | What to Check                         | Expected Result                                                                                                                                                                                             | Pass/Fail |
-| ---- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 16.1 | Section title                         | **"Comment gate"**.                                                                                                                                                                                         |           |
-| 16.2 | **Require finalised comments** switch | ToggleRow with label + hint. When ON, the generation wizard's Step 5 dry-run blocks submission if any subject or overall comment in scope is missing or unfinalised. When OFF, the gate always passes.      |           |
-| 16.3 | **Allow admin force-generate** switch | When ON, even with a blocked dry-run an admin can tick the Force-generate checkbox in Step 5 and proceed. When OFF, the dry-run's block cannot be overridden and the Next button stays disabled.            |           |
-| 16.4 | Interaction between the two toggles   | If Require finalised is OFF, Allow force-generate is irrelevant because the gate never blocks. If Require finalised is ON and Allow force-generate is OFF, the admin has no way to bypass missing comments. |           |
+| #    | What to Check                                | Expected Result                                                                                                                           | Pass/Fail |
+| ---- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 16.1 | Section heading                              | Title "Comment gate" (`settings.commentGate`).                                                                                            |           |
+| 16.2 | Require finalised comments toggle            | Switch row `settings.requireFinalisedComments` + hint. Default baseline = `true`.                                                         |           |
+| 16.3 | Allow admin force-generate toggle            | Switch row `settings.allowAdminForceGenerate` + hint. Default = `true`.                                                                   |           |
+| 16.4 | Effective mode resolution — block_generation | `require_finalised_comments=true` AND `allow_admin_force_generate=false` -> dry-run `would_block=true` forces abort.                      |           |
+| 16.5 | Warn-only configuration                      | `require_finalised_comments=true` AND `allow_admin_force_generate=true` -> dry-run `would_block=true` is overridable via wizard checkbox. |           |
+| 16.6 | Gate disabled                                | `require_finalised_comments=false` -> dry-run always returns `would_block=false`.                                                         |           |
+| 16.7 | Toggle persists after Save                   | Save -> reload. The switches retain the saved values.                                                                                     |           |
+| 16.8 | Permission                                   | `PATCH /v1/report-card-tenant-settings` from teacher -> 403.                                                                              |           |
+| 16.9 | Help text explains modes                     | The two toggles include hint text that makes clear when both are needed for warn-only.                                                    |           |
 
 ---
 
 ## 17. Settings — Personal Info Fields
 
-This section configures the _default_ personal info fields that pre-populate Step 4 of the generation wizard.
-
-| #    | What to Check                       | Expected Result                                                                                                                                                                                                                       | Pass/Fail |
-| ---- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 17.1 | Section title + hint                | **"Default personal info fields"** (h2) with a hint explaining these are the fields pre-ticked when the generation wizard launches.                                                                                                   |           |
-| 17.2 | Four field sections                 | Sections: **Identity** (full_name, student_number, sex, nationality, national_id), **Dates** (date_of_birth, admission_date), **Academic** (year_group, class_name, homeroom_teacher), **Media** (photo). That's 11 checkboxes total. |           |
-| 17.3 | Default selection on a fresh tenant | By default, `full_name` and `student_number` are ticked. Others are user-configurable.                                                                                                                                                |           |
-| 17.4 | Toggle a checkbox                   | Clicking the label or the checkbox toggles the item in `default_personal_info_fields`. Unsaved changes are not persisted until Save.                                                                                                  |           |
-| 17.5 | Read-only mode (teacher)            | Checkboxes are disabled. Clicking a row has no effect.                                                                                                                                                                                |           |
+| #     | What to Check                 | Expected Result                                                                                            | Pass/Fail |
+| ----- | ----------------------------- | ---------------------------------------------------------------------------------------------------------- | --------- |
+| 17.1  | Four field groups visible     | Labelled groups: **Identity**, **Dates**, **Academic**, **Media**.                                         |           |
+| 17.2  | Identity group fields         | Checkboxes for `full_name`, `student_number`, `sex`, `nationality`, `national_id`.                         |           |
+| 17.3  | Dates group                   | `date_of_birth`, `admission_date`.                                                                         |           |
+| 17.4  | Academic group                | `year_group`, `class_name`, `homeroom_teacher`.                                                            |           |
+| 17.5  | Media group                   | `photo`.                                                                                                   |           |
+| 17.6  | Check a field                 | Click `Checkbox` for `nationality`. Form state array `default_personal_info_fields` gains `'nationality'`. |           |
+| 17.7  | Uncheck a field               | Uncheck `full_name`. Form array removes `'full_name'`.                                                     |           |
+| 17.8  | Disabled for non-manager      | Every checkbox is disabled when `canManage=false`.                                                         |           |
+| 17.9  | Empty array allowed           | Submitting `[]` must not block save (schema permits).                                                      |           |
+| 17.10 | Defaults seed the wizard      | After Save, opening the Generation Wizard Step 4 shows the newly selected defaults.                        |           |
+| 17.11 | Custom ordering not supported | The fixed section order (Identity, Dates, Academic, Media) is not user-configurable.                       |           |
 
 ---
 
 ## 18. Settings — Default Template
 
-| #    | What to Check        | Expected Result                                                                                                                                                                                                                                                                                                                                                           | Pass/Fail                                                                                                                       |
-| ---- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --- |
-| 18.1 | Section title + hint | **"Default template"** with a one-liner hint.                                                                                                                                                                                                                                                                                                                             |                                                                                                                                 |
-| 18.2 | Dropdown open        | First item: **"None"** (sentinel `none`). Remaining items: every `(design, locale)` pair from `/api/v1/report-cards/templates/content-scopes` across the available (non-coming-soon) scopes. Labels follow the format **"{design.name} ({locale.upper})"** — e.g. `Editorial Academic (EN)`, `Editorial Academic (AR)`, `Modern Editorial (EN)`, `Modern Editorial (AR)`. |                                                                                                                                 |
-| 18.3 | No duplicates        | Dedup is enforced by a React-side `Set` keyed on `{design_key}                                                                                                                                                                                                                                                                                                            | {locale}`. Even if the backend returns a design twice (e.g. during a migration), the dropdown shows exactly one entry per pair. |     |
-| 18.4 | Selecting a template | Dropdown closes; the value is stored as the template_id UUID locally. Saved on the next form submit.                                                                                                                                                                                                                                                                      |                                                                                                                                 |
-| 18.5 | Selecting **None**   | Stores `null`. When saved, the API receives `default_template_id: null`.                                                                                                                                                                                                                                                                                                  |                                                                                                                                 |
+| #    | What to Check                         | Expected Result                                                                                                        | Pass/Fail |
+| ---- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------- |
+| 18.1 | Section heading                       | Title "Default template" with hint.                                                                                    |           |
+| 18.2 | Select trigger shows current value    | Default "No default template" (sentinel `'none'`).                                                                     |           |
+| 18.3 | Options populated from content-scopes | Dropdown shows every `design.name (LOCALE)` pair where `scope.is_available === true`. Dedup by `(design_key, locale)`. |           |
+| 18.4 | Select a template                     | Choose "Editorial Academic (EN)". Form state `default_template_id` = `{DEFAULT_TEMPLATE_ID}`.                          |           |
+| 18.5 | Select "No default template"          | Value `'none'` -> form state `default_template_id: null`.                                                              |           |
+| 18.6 | No duplicate rows                     | Dropdown shows each `(design_key, locale)` once even when the backend has duplicates.                                  |           |
+| 18.7 | Empty catalogue                       | If `content-scopes` returns `[]`, dropdown shows only the "No default template" option.                                |           |
+| 18.8 | Dropdown localised                    | In AR locale, the "No default template" label is translated.                                                           |           |
+| 18.9 | Template locale inferred              | Choosing a template with locale `ar` seeds the wizard locales to `['ar']` on next use. Verify.                         |           |
 
 ---
 
-## 19. Settings — Grade Thresholds Link
+## 19. Settings — Grade Thresholds Link + CRUD
 
-| #    | What to Check   | Expected Result                                                                                                                                                                                                                        | Pass/Fail |
-| ---- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 19.1 | Section content | A short section titled **"Grade thresholds are managed on a dedicated page."** containing a single primary-coloured link **"Manage grade thresholds →"** that navigates to `/en/settings/grade-thresholds`.                            |           |
-| 19.2 | Link behaviour  | Opens in the SAME tab (no `target="_blank"`). Pressing browser Back returns to the Report Card Settings page with the form state preserved in the React tree (but React state is lost on navigation, so any unsaved changes ARE lost). |           |
+| #     | What to Check             | Expected Result                                                                                                                                                                          | Pass/Fail |
+| ----- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 19.1  | Link rendered             | Section "Grade thresholds" shows "Manage grade thresholds →" linking to `/en/settings/grade-thresholds`.                                                                                 |           |
+| 19.2  | Click link                | Navigate to the grade-thresholds page.                                                                                                                                                   |           |
+| 19.3  | List existing configs     | `GET /v1/report-cards/grade-thresholds` -> 200 `{ data: [...] }`.                                                                                                                        |           |
+| 19.4  | Create a threshold config | `POST /v1/report-cards/grade-thresholds` with `{ name: 'Standard A-F', thresholds: [{grade:'A', min:90, max:100}, {grade:'B', min:80, max:89.99}, …] }` -> 201. Record `{THRESHOLD_ID}`. |           |
+| 19.5  | Get by id                 | `GET /v1/report-cards/grade-thresholds/{THRESHOLD_ID}` -> 200 returns the created payload.                                                                                               |           |
+| 19.6  | Update                    | `PATCH /v1/report-cards/grade-thresholds/{THRESHOLD_ID}` with `{ name: 'Renamed' }` -> 200.                                                                                              |           |
+| 19.7  | Delete                    | `DELETE /v1/report-cards/grade-thresholds/{THRESHOLD_ID}` -> 204.                                                                                                                        |           |
+| 19.8  | Teacher read denied       | Teacher without `gradebook.view` on grade-thresholds -> 403.                                                                                                                             |           |
+| 19.9  | Teacher write denied      | Teacher without `gradebook.manage` -> 403.                                                                                                                                               |           |
+| 19.10 | Active threshold usage    | The currently-active threshold config is highlighted in the list.                                                                                                                        |           |
 
 ---
 
 ## 20. Settings — Principal Details & Signature Upload
 
-The final form section captures the signature that PDFs render in their footer.
-
-### 20.1 Principal name
-
-| #      | What to Check                      | Expected Result                                                                                       | Pass/Fail |
-| ------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------- | --------- |
-| 20.1.1 | Label                              | **"Principal name"**.                                                                                 |           |
-| 20.1.2 | Text input                         | Placeholder with a sample name. Trimmed on submit via `setValueAs`; empty/whitespace saves as `null`. |           |
-| 20.1.3 | Typing sends no immediate API call | Form state only — saved on the next form submit.                                                      |           |
-
-### 20.2 Signature upload (`SignatureUpload` component)
-
-| #      | What to Check                               | Expected Result                                                                                                                                                                                                                                                                                                                                   | Pass/Fail |
-| ------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 20.2.1 | Initial state (no signature)                | The preview area shows a dashed border with an Image icon and the text **"No signature"**. Below, a single **Upload signature** outline button (ArrowUpFromLine icon).                                                                                                                                                                            |           |
-| 20.2.2 | Click **Upload signature**                  | A hidden `<input type="file" accept="image/png,image/jpeg,image/webp">` is triggered. The OS file picker opens.                                                                                                                                                                                                                                   |           |
-| 20.2.3 | Pick a PNG ≤ 2 MB                           | The file is read client-side via `FileReader` to render an instant preview, then POSTed as `multipart/form-data` to `/api/v1/report-card-tenant-settings/principal-signature` with the `file` field and (optionally) the `principal_name` field. On 200/201, a success toast **"Signature uploaded"** appears and `hasSignature` flips to `true`. |           |
-| 20.2.4 | Pick a file with disallowed type (e.g. GIF) | The client validates against `ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp']` and shows an error toast **"File type not supported"**. No network call fires.                                                                                                                                                                          |           |
-| 20.2.5 | Pick a file > 2 MB                          | The client validates against `MAX_FILE_SIZE = 2 * 1024 * 1024`. An error toast **"File too large"** renders. No network call fires.                                                                                                                                                                                                               |           |
-| 20.2.6 | Upload fails server-side                    | The toast shows the server's `message` string if present, otherwise **"Signature upload failed"**. The preview reverts to empty.                                                                                                                                                                                                                  |           |
-| 20.2.7 | After successful upload                     | A second button **"Remove signature"** appears alongside **"Replace signature"** (which replaces the Upload button). The preview area shows the newly uploaded image (via the client-side FileReader data URL) or the backend's signed URL if re-fetched.                                                                                         |           |
-| 20.2.8 | Click **Remove signature**                  | `DELETE /api/v1/report-card-tenant-settings/principal-signature` fires. On 200, toast **"Signature removed"**, `hasSignature` flips to `false`, and the preview reverts to the dashed box. On failure, toast **"Signature removal failed"** and state stays unchanged.                                                                            |           |
+| #     | What to Check                           | Expected Result                                                                                                                                                                                 | Pass/Fail |
+| ----- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 20.1  | Section heading                         | "Principal details".                                                                                                                                                                            |           |
+| 20.2  | Principal name field                    | `<Input>` labelled `settings.principalName`. Baseline empty. `setValueAs` converts empty string to `null`.                                                                                      |           |
+| 20.3  | Type a name                             | Enter "Ustadh Mahmoud Ali". Form state `principal_name: 'Ustadh Mahmoud Ali'`.                                                                                                                  |           |
+| 20.4  | Clear the name                          | Delete text -> form state `principal_name: null`.                                                                                                                                               |           |
+| 20.5  | Signature upload placeholder            | When `hasSignature=false`, shows a drop zone / upload button.                                                                                                                                   |           |
+| 20.6  | Upload a PNG                            | Pick a 200KB PNG. `POST /v1/report-card-tenant-settings/principal-signature` fires as `multipart/form-data` with field `file` -> 200. Panel flips to "Signature uploaded". `hasSignature=true`. |           |
+| 20.7  | Upload a JPEG                           | Same flow accepts `image/jpeg` -> 200.                                                                                                                                                          |           |
+| 20.8  | Upload a WEBP                           | Same flow accepts `image/webp` -> 200.                                                                                                                                                          |           |
+| 20.9  | Reject unsupported MIME                 | Upload a PDF or GIF -> 400 (file interceptor rejects). Toast error.                                                                                                                             |           |
+| 20.10 | Reject oversize file                    | Upload a 3MB PNG (limit 2MB) -> 400 (`FILE_TOO_LARGE` or interceptor code).                                                                                                                     |           |
+| 20.11 | Missing file                            | Calling POST with no file -> 400 `{ code: 'FILE_REQUIRED' }`.                                                                                                                                   |           |
+| 20.12 | Delete signature                        | Click "Remove signature". `DELETE /v1/report-card-tenant-settings/principal-signature` -> 200. Panel flips back to empty. `hasSignature=false`.                                                 |           |
+| 20.13 | Multipart carries principal_name        | Uploading with the name field set persists `principal_name` in the same request (body). Re-fetch confirms.                                                                                      |           |
+| 20.14 | Teacher forbidden                       | `POST .../principal-signature` from a teacher -> 403.                                                                                                                                           |           |
+| 20.15 | Preview after upload                    | After upload, the panel displays a thumbnail preview of the uploaded image.                                                                                                                     |           |
+| 20.16 | Preview uses storage URL                | Thumbnail source is the signed URL from `principal_signature_storage_key` resolution.                                                                                                           |           |
+| 20.17 | Replace existing signature              | Uploading with `hasSignature=true` overwrites the previous storage key. Old file is deleted from S3 after success.                                                                              |           |
+| 20.18 | SVG rejected                            | Uploading `image/svg+xml` -> 400 (SVG not in allow-list).                                                                                                                                       |           |
+| 20.19 | Zero-byte file                          | Empty file -> 400 `{ code: 'FILE_REQUIRED' }` or `{ code: 'INVALID_FILE' }`.                                                                                                                    |           |
+| 20.20 | Signature persists across settings tabs | After upload, navigating away and back shows the same preview.                                                                                                                                  |           |
 
 ---
 
-## 21. Settings — Save Changes
+## 21. Settings — Save Changes (PATCH contract + toast + rollback)
 
-| #    | What to Check                  | Expected Result                                                                                                                                                                                   | Pass/Fail |
-| ---- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 21.1 | **Save changes** button        | Primary button at the bottom-right of the form. Only visible to users with `canManage === true`. Label flips to **"Saving…"** while the request is in flight.                                     |           |
-| 21.2 | Successful save                | `PATCH /api/v1/report-card-tenant-settings` with the assembled DTO. Response 200. Toast **"Settings saved"**. Form state is reset to the server's response payload so the dirty indicator clears. |           |
-| 21.3 | Validation failure (Zod)       | Inline error messages appear under affected fields. Save button is NOT disabled pre-submit; the form prevents submission only once validation fails on click.                                     |           |
-| 21.4 | Server-side validation failure | Toast **"Save failed"** with the server's `message` string if provided.                                                                                                                           |           |
-| 21.5 | Teacher read-only mode         | The Save button is not rendered at all. All inputs are `disabled={true}`.                                                                                                                         |           |
+| #     | What to Check                    | Expected Result                                                                                                                                        | Pass/Fail |
+| ----- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 21.1  | Save button state before changes | Disabled while `form.formState.isSubmitting`; label "Save changes" (`settings.saveChanges`).                                                           |           |
+| 21.2  | Save with valid changes          | Click Save after toggling fields. `PATCH /v1/report-card-tenant-settings` fires with body matching the full form state -> 200. Toast `settings.saved`. |           |
+| 21.3  | Save with invalid schema         | Inject an invalid value (`matrix_display_mode: 'banana'` via devtools). PATCH -> 400 Zod validation error. Toast `settings.saveFailed`.                |           |
+| 21.4  | Network failure                  | Offline + click Save. Toast `settings.saveFailed`. Form values remain as typed (no optimistic update).                                                 |           |
+| 21.5  | Reload after save                | `GET /v1/report-card-tenant-settings` returns persisted values. Form re-initialises.                                                                   |           |
+| 21.6  | Submitting state label           | While in flight, button text "Saving…" (`settings.saving`).                                                                                            |           |
+| 21.7  | Permission denied                | Teacher hitting Save -> 403 (but button shouldn't exist for them). Admin path always 200.                                                              |           |
+| 21.8  | Clearable fields                 | Setting `principal_name` to empty string stores as `null` in DB.                                                                                       |           |
+| 21.9  | 304 Not Modified                 | If settings body is identical to current, server may return 200 with unchanged state. Document.                                                        |           |
+| 21.10 | ETag support                     | `GET` response may include `ETag`. Subsequent `If-None-Match` returns 304. Verify.                                                                     |           |
 
 ---
 
 ## 22. Generation Wizard — Entry Point & Permission Guard
 
-**URL:** `/en/report-cards/generate`
-
-| #    | What to Check                                                                                | Expected Result                                                                                                                                                                                                                                       | Pass/Fail |
-| ---- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 22.1 | Click the **Generate report cards** tile OR navigate to `/en/report-cards/generate` directly | URL becomes `/en/report-cards/generate`. Network: `GET /api/v1/report-card-tenant-settings` (200) to pre-fill the default personal info fields.                                                                                                       |           |
-| 22.2 | Page heading                                                                                 | **"Generate Report Cards"** with the subtitle **"Launch a new report card generation run."**.                                                                                                                                                         |           |
-| 22.3 | **Back to Report Cards** button                                                              | Top-right ghost button. On click, navigates to `/en/report-cards`.                                                                                                                                                                                    |           |
-| 22.4 | Non-admin arriving at this URL                                                               | The page detects roleKeys do not intersect `['school_owner', 'school_principal', 'admin', 'school_vice_principal']`, shows an error toast **"Permission denied"**, and `router.replace()`s back to `/en/report-cards`. Never renders the wizard body. |           |
-| 22.5 | Admin user — wizard body                                                                     | Renders the step indicator + step content + footer navigation (Back + Next).                                                                                                                                                                          |           |
-
----
-
-## 23. Generation Wizard — Step Indicator
-
-A horizontal strip of 6 numbered circles with connector lines between them.
-
-| #    | What to Check                                        | Expected Result                                                                                                                 | Pass/Fail |
-| ---- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 23.1 | Six circles numbered **1 2 3 4 5 6**                 | Each circle is 7×7, rounded-full, with the step number inside.                                                                  |           |
-| 23.2 | Active step circle                                   | `bg-primary-500 text-white` for the current step.                                                                               |           |
-| 23.3 | Completed step circles (steps before the active one) | `bg-primary-100 text-primary-700`. The connector lines before them use `bg-primary-200`.                                        |           |
-| 23.4 | Upcoming step circles                                | `bg-surface-secondary text-text-tertiary`. Connectors use `bg-border/60`.                                                       |           |
-| 23.5 | `aria-label` on each circle                          | Reads **"Step {current} of {total}"**, localised.                                                                               |           |
-| 23.6 | Keyboard / click interaction                         | Step circles are NOT clickable — the only way to change steps is via the Back / Next footer buttons. Circles are informational. |           |
+| #    | What to Check                              | Expected Result                                                                                                                              | Pass/Fail |
+| ---- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 22.1 | Navigate via dashboard tile                | Click the Generate tile. URL = `/en/report-cards/generate`.                                                                                  |           |
+| 22.2 | Initial settings fetch                     | `GET /v1/report-card-tenant-settings` fires once on mount to seed `default_personal_info_fields`.                                            |           |
+| 22.3 | Role check                                 | For owner/principal/vice_principal/admin: wizard loads. For teacher: toast `wizard.permissionDenied` + `router.replace('/en/report-cards')`. |           |
+| 22.4 | Header + Back button                       | Title `wizard.title` with description. Ghost "Back to Report Cards" button navigating home.                                                  |           |
+| 22.5 | `defaultsLoaded` gates query-param handoff | Wizard waits for settings to resolve before consuming query params.                                                                          |           |
+| 22.6 | Landing without approved request           | Visiting the wizard URL without query params starts fresh at Step 1.                                                                         |           |
+| 22.7 | Browser back on wizard                     | Browser back while on Step 3 goes to Step 2, not to `/en/report-cards`. (Verify — wizard may use URL steps or in-memory.)                    |           |
 
 ---
 
-## 24. Generation Wizard — Step 1: Scope
+## 23. Wizard Step Indicator
 
-### 24.1 Step header
-
-| #      | What to Check      | Expected Result                                                  | Pass/Fail |
-| ------ | ------------------ | ---------------------------------------------------------------- | --------- |
-| 24.1.1 | Step 1 title       | **"Who are these report cards for?"**.                           |           |
-| 24.1.2 | Step 1 description | **"Pick a scope — year group, class, or individual students."**. |           |
-
-### 24.2 Scope mode cards
-
-Three rounded-2xl cards in a 1-col (mobile) / 3-col (md+) grid. Click a card to select it.
-
-| #      | Card                    | Icon          | Label                 | Description                                                      | Pass/Fail |
-| ------ | ----------------------- | ------------- | --------------------- | ---------------------------------------------------------------- | --------- |
-| 24.2.1 | **Year group**          | GraduationCap | "Year group"          | "Generate for every active student in the selected year groups." |           |
-| 24.2.2 | **Class**               | Layers        | "Class"               | "Generate for every active student in the selected classes."     |           |
-| 24.2.3 | **Individual students** | Users         | "Individual students" | "Hand-pick specific students to generate for."                   |           |
-
-### 24.3 Selected state
-
-| #      | What to Check                 | Expected Result                                                                                                                                                                                                                | Pass/Fail |
-| ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 24.3.1 | Click a mode card             | Border becomes primary-500, background `bg-primary-50/50`, icon bubble flips to `bg-primary-500 text-white`. Top-right corner shows a small primary-500 checkmark circle. The scope ids list is cleared when the mode changes. |           |
-| 24.3.2 | Mode-specific selection panel | Below the mode cards, a dedicated selection panel appears based on the chosen mode.                                                                                                                                            |           |
-
-### 24.4 Mode: Year group
-
-| #      | What to Check            | Expected Result                                                                                                                                                                                                                                         | Pass/Fail |
-| ------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 24.4.1 | Network call             | `GET /api/v1/year-groups?pageSize=100` fires once on mount. Sorted ascending by `display_order`.                                                                                                                                                        |           |
-| 24.4.2 | Panel content            | Label **"Select year groups"** and a 2-column checklist of all year groups in the tenant. For NHQS: **Kindergarten**, **Junior infants**, **Senior infants**, **1st class**, **2nd class**, **3rd Class**, **4th Class**, **5th Class**, **6th Class**. |           |
-| 24.4.3 | Empty year-groups tenant | If the tenant has no year groups, shows **"No year groups yet"** text instead of the list.                                                                                                                                                              |           |
-| 24.4.4 | Click a checkbox         | Toggles the year-group id in `state.scope.ids`.                                                                                                                                                                                                         |           |
-| 24.4.5 | Selection counter        | Below the list, a primary-tinted banner reads **"{n} year group(s) selected"**.                                                                                                                                                                         |           |
-
-### 24.5 Mode: Class
-
-| #      | What to Check        | Expected Result                                                                                                                                                                                         | Pass/Fail |
-| ------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 24.5.1 | Network call         | `GET /api/v1/classes?pageSize=200` fires once on mount.                                                                                                                                                 |           |
-| 24.5.2 | Panel content        | Label **"Select classes"** and a 2-column checklist of every class in the tenant. Each row shows the class name in medium weight plus a small `· {year_group_name}` suffix (e.g. **"1A · 1st class"**). |           |
-| 24.5.3 | Empty classes tenant | If the tenant has no classes, shows **"No classes yet"**.                                                                                                                                               |           |
-| 24.5.4 | Click a checkbox     | Toggles the class id in `state.scope.ids`.                                                                                                                                                              |           |
-| 24.5.5 | Selection counter    | Banner **"{n} class(es) selected"**.                                                                                                                                                                    |           |
-
-### 24.6 Mode: Individual students
-
-| #      | What to Check               | Expected Result                                                                                                                                                                                      | Pass/Fail |
-| ------ | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 24.6.1 | Panel content               | Label **"Search students"** and a text Input. Below, a results dropdown + a chip list of selected students.                                                                                          |           |
-| 24.6.2 | Type less than 2 characters | Nothing happens — the search is debounced at 300ms and requires `trimmed.length >= 2`.                                                                                                               |           |
-| 24.6.3 | Type "ali"                  | After 300ms, `GET /api/v1/students?pageSize=20&search=ali&status=active` fires. Results list renders up to 20 student rows: `{first_name} {last_name}` on the left, `{student_number}` on the right. |           |
-| 24.6.4 | Click a student result      | The student is added to `state.scope.ids` and to the local `selectedStudents` chip list. Clicking the same student again is a no-op — the button shows `disabled` with 50% opacity.                  |           |
-| 24.6.5 | Remove a student chip       | Each chip is a pill button labelled **"{first_name} {last_name} ×"**. Click removes the student from both `state.scope.ids` and the chip list.                                                       |           |
-| 24.6.6 | Empty results               | When the query is ≥2 chars, not searching, and results are empty: **"No students match your search"** text below the input.                                                                          |           |
-| 24.6.7 | Loading indicator           | While a search is in flight: small **"..."** text (implementation placeholder for a localised "Searching…").                                                                                         |           |
-| 24.6.8 | Selection counter           | Banner **"{n} student(s) selected"**.                                                                                                                                                                |           |
-
-### 24.7 Step 1 gating
-
-| #      | What to Check                                                 | Expected Result                                                                         | Pass/Fail |
-| ------ | ------------------------------------------------------------- | --------------------------------------------------------------------------------------- | --------- |
-| 24.7.1 | **Next** button when no mode is selected                      | Disabled (grey).                                                                        |           |
-| 24.7.2 | **Next** button when a mode is selected but no ids are picked | Disabled (grey). The rule is `state.scope.mode !== null && state.scope.ids.length > 0`. |           |
-| 24.7.3 | **Next** button when a mode + at least one id is picked       | Enabled (primary).                                                                      |           |
-| 24.7.4 | Click **Next**                                                | Advances to Step 2 without any API call.                                                |           |
-| 24.7.5 | Click **Back** on Step 1                                      | Disabled — step 1 is the first step.                                                    |           |
+| #    | What to Check             | Expected Result                                                                                     | Pass/Fail |
+| ---- | ------------------------- | --------------------------------------------------------------------------------------------------- | --------- |
+| 23.1 | Six circular step markers | Numbered 1–6 with connecting lines between them.                                                    |           |
+| 23.2 | Active step styling       | `bg-primary-500 text-white`.                                                                        |           |
+| 23.3 | Completed step styling    | Steps before `current` have `bg-primary-100 text-primary-700` and a filled connector trailing edge. |           |
+| 23.4 | Upcoming step styling     | Steps after `current` have `bg-surface-secondary text-text-tertiary`.                               |           |
+| 23.5 | aria-label per marker     | "Step {current} of {total}" via `wizard.stepLabel`.                                                 |           |
+| 23.6 | Mobile horizontal scroll  | At 375px, indicator uses `overflow-x-auto` so all six markers reachable.                            |           |
+| 23.7 | Connectors                | Connector lines respect `bg-primary-200` for done, `bg-border/60` for upcoming.                     |           |
+| 23.8 | Indicator in AR           | Steps 1-6 stay Latin numerals in AR. Arrow direction mirrors.                                       |           |
 
 ---
 
-## 25. Generation Wizard — Step 2: Period
+## 24. Wizard Step 1 — Scope
 
-### 25.1 Step header
-
-| #      | What to Check      | Expected Result                                                  | Pass/Fail |
-| ------ | ------------------ | ---------------------------------------------------------------- | --------- |
-| 25.1.1 | Step 2 title       | **"Which period?"**.                                             |           |
-| 25.1.2 | Step 2 description | **"Select the academic period the report cards should cover."**. |           |
-
-### 25.2 Network calls
-
-| #      | What to Check | Expected Result                                                                                                                                    | Pass/Fail |
-| ------ | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 25.2.1 | On mount      | Parallel: `GET /api/v1/academic-periods?pageSize=50` and `GET /api/v1/academic-years?pageSize=20`. While loading, 3 pulsing 14-height bars render. |           |
-| 25.2.2 | Empty tenant  | If both lists return empty, the step shows **"No periods yet"** text and Next stays disabled.                                                      |           |
-
-### 25.3 Full-year options
-
-| #      | What to Check                                     | Expected Result                                                                                                                                                                                      | Pass/Fail |
-| ------ | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 25.3.1 | Years list is sorted                              | Active year first, then the rest in reverse name order. For NHQS: **"2025-2026"** (active) appears before older years.                                                                               |           |
-| 25.3.2 | Each year renders as a rounded-xl full-width card | Card content: Sparkles icon in a circular primary-50 bubble, **"Full year — {year.name}"** title, **"Aggregate every period in this academic year into one report card."** subtitle.                 |           |
-| 25.3.3 | Click a full-year card                            | Dispatches `SET_FULL_YEAR` which sets `academicYearId = year.id` and clears `academicPeriodId`. Card border becomes primary-500 with a primary-50/50 background and a check circle in the top-right. |           |
-
-### 25.4 Per-period options
-
-| #      | What to Check       | Expected Result                                                                                                                                             | Pass/Fail |
-| ------ | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 25.4.1 | Period list         | One card per period from the API. For NHQS: **S1** (2025-2026), **S2** (2025-2026).                                                                         |           |
-| 25.4.2 | Card content        | Calendar icon in a `bg-surface-secondary` bubble, **"{period.name}"** as title, academic year name as subtitle.                                             |           |
-| 25.4.3 | Click a period card | Dispatches `SET_PERIOD` which sets `academicPeriodId = period.id` and clears `academicYearId`. Visual selection state matches the full-year card behaviour. |           |
-| 25.4.4 | Mutual exclusion    | Only one period OR one full-year card can be selected at a time. Selecting a different card clears the previous selection.                                  |           |
-
-### 25.5 Step 2 gating
-
-| #      | What to Check | Expected Result                                                                                                        | Pass/Fail |
-| ------ | ------------- | ---------------------------------------------------------------------------------------------------------------------- | --------- |
-| 25.5.1 | Next button   | Disabled until EITHER `academicPeriodId !== null` OR `academicYearId !== null`. Once one is set, Next becomes enabled. |           |
-| 25.5.2 | Back button   | Enabled — returns to Step 1 with all state preserved.                                                                  |           |
+| #     | What to Check                   | Expected Result                                                                        | Pass/Fail |
+| ----- | ------------------------------- | -------------------------------------------------------------------------------------- | --------- |
+| 24.1  | Step title + description        | `wizard.step1Title`, `wizard.step1Description`.                                        |           |
+| 24.2  | Three scope modes visible       | Radio cards: **Year group**, **Class**, **Individual students**.                       |           |
+| 24.3  | Select "Class"                  | `state.scope.mode = 'class'`. A class picker renders below.                            |           |
+| 24.4  | Class picker populated          | `GET /v1/classes?pageSize=100` if not cached. Options with year group beside the name. |           |
+| 24.5  | Pick `{CLASS_A_ID}`             | `state.scope.ids = [{CLASS_A_ID}]`. Next button enables.                               |           |
+| 24.6  | Next with empty scope           | Next is disabled.                                                                      |           |
+| 24.7  | Switch to "Individual students" | Mode flips. Student picker shows. Multi-select supported.                              |           |
+| 24.8  | Switch to "Year group"          | Year-group list loads. Selection adds year_group ids.                                  |           |
+| 24.9  | Empty-array edge case           | `canGoNext` returns false when `state.scope.ids.length === 0`.                         |           |
+| 24.10 | Arabic RTL                      | Labels and spacing mirror when `locale='ar'`.                                          |           |
+| 24.11 | Keyboard navigation             | Tab/Shift+Tab cycles through radios and pickers.                                       |           |
+| 24.12 | Search inside picker            | Picker has a text search filter for long lists (classes/students).                     |           |
+| 24.13 | Deselect all                    | "Clear selection" control removes all ids. Next disables.                              |           |
+| 24.14 | Max selection cap               | Selecting > N (e.g. 500) students shows a warning about run duration. Does not block.  |           |
+| 24.15 | Archived classes hidden         | Classes with `status='archived'` do not appear in the picker.                          |           |
+| 24.16 | Students without enrolment      | Students not currently enrolled do not appear in the Individual mode picker.           |           |
 
 ---
 
-## 26. Generation Wizard — Step 3: Template & Design
+## 25. Wizard Step 2 — Period
 
-### 26.1 Step header
-
-| #      | What to Check      | Expected Result                                                                   | Pass/Fail |
-| ------ | ------------------ | --------------------------------------------------------------------------------- | --------- |
-| 26.1.1 | Step 3 title       | **"Which template?"**.                                                            |           |
-| 26.1.2 | Step 3 description | **"Only grades-only is available in v1. Other content scopes are coming soon."**. |           |
-
-### 26.2 Network & loading
-
-| #      | What to Check                | Expected Result                                                                                                                                            | Pass/Fail |
-| ------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 26.2.1 | On mount                     | `GET /api/v1/report-cards/templates/content-scopes` fires once. While loading, 2 pulsing 28-height cards render.                                           |           |
-| 26.2.2 | Auto-selection on first load | If wizard state has no content scope yet and the `grades_only` scope is available, the step picks the default design and dispatches `SET_TEMPLATE_DESIGN`. |           |
-
-### 26.3 Grades Only section
-
-| #      | What to Check                             | Expected Result                                                                                                                                                                                                                                              | Pass/Fail |
-| ------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 26.3.1 | Section header                            | Subtitle **"Grades Only"** with a hint line **"Pick the layout you want for this run. Preview each design before you commit."**.                                                                                                                             |           |
-| 26.3.2 | Design cards                              | One card per design in the `grades_only` bucket. For NHQS: **Editorial Academic** (default, EN+AR), **Modern Editorial** (AR+EN).                                                                                                                            |           |
-| 26.3.3 | Design card layout                        | FileText icon bubble on the left, design name + "Default" badge (if `is_default`), description paragraph, languages footer **"Languages · EN · AR"**.                                                                                                        |           |
-| 26.3.4 | **View sample** link on the right         | Small rounded pill with an ExternalLink icon. Clicking opens `design.preview_pdf_url` in a new tab (`target="_blank"`, `rel="noopener noreferrer"`). The click event is stopped from propagating to the card body so it does NOT change the selected design. |           |
-| 26.3.5 | Click the card body (not the sample link) | Dispatches `SET_TEMPLATE_DESIGN` with the design's design_key and the full list of locales. Card border becomes primary-500 with a primary check circle on the right.                                                                                        |           |
-
-### 26.4 Coming-soon scopes
-
-| #      | What to Check               | Expected Result                                                                                                                                                                                                                      | Pass/Fail |
-| ------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 26.4.1 | Section heading             | **"More templates on the way"** (only renders when at least one scope has `is_available === false`).                                                                                                                                 |           |
-| 26.4.2 | Expected coming-soon scopes | **Grades + Homework**, **Grades + Attendance**, **Grades + Homework + Attendance**, **Full Master Report**. Each card shows a FileText icon, the scope name, and an amber **"Coming soon"** pill. Cards are rendered at 60% opacity. |           |
-| 26.4.3 | Click a coming-soon card    | No-op. The card has no click handler.                                                                                                                                                                                                |           |
-
-### 26.5 Step 3 gating
-
-| #      | What to Check | Expected Result                                                                          | Pass/Fail |
-| ------ | ------------- | ---------------------------------------------------------------------------------------- | --------- |
-| 26.5.1 | Next button   | Enabled once `state.contentScope !== null` (the auto-select handles this on first load). |           |
+| #     | What to Check                   | Expected Result                                                                                                        | Pass/Fail |
+| ----- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------- |
+| 25.1  | Period radio list               | Lists every period from `GET /v1/academic-periods?pageSize=50` plus a "Full year" option (maps to `academic_year_id`). |           |
+| 25.2  | Pick a per-period               | Selecting `{ACTIVE_PERIOD_ID}` sets `state.academicPeriodId`, clears `state.academicYearId`.                           |           |
+| 25.3  | Pick Full year                  | Sets `state.academicYearId = {ACTIVE_YEAR_ID}`, clears `state.academicPeriodId`.                                       |           |
+| 25.4  | Next gate                       | `canGoNext` returns true when either field is set.                                                                     |           |
+| 25.5  | Historical periods              | Periods with `status='completed'` may still appear and be selectable (historical generation).                          |           |
+| 25.6  | Empty academic years            | If no periods exist, step 2 shows an empty state and Next stays disabled.                                              |           |
+| 25.7  | Period label format             | Each option shows the period name (and optionally `(YYYY-YYYY)` year suffix).                                          |           |
+| 25.8  | Period starts in future         | A period with `start_date > today` is selectable but may trigger a warning.                                            |           |
+| 25.9  | Active period default           | If no URL param, the active period is highlighted. Not auto-selected (user still has to choose).                       |           |
+| 25.10 | Full-year with multiple periods | Selecting Full year aggregates every period under `{ACTIVE_YEAR_ID}`.                                                  |           |
 
 ---
 
-## 27. Generation Wizard — Step 4: Personal Info Fields
+## 26. Wizard Step 3 — Template & Design
 
-### 27.1 Step header
-
-| #      | What to Check      | Expected Result                                                             | Pass/Fail |
-| ------ | ------------------ | --------------------------------------------------------------------------- | --------- |
-| 27.1.1 | Step 4 title       | **"Which personal info to include?"**.                                      |           |
-| 27.1.2 | Step 4 description | **"Pre-filled from your tenant defaults. You can override for this run."**. |           |
-
-### 27.2 Field sections
-
-A left 2-column grid of checkboxes + a right-side live preview card (side-by-side on lg+, stacked on small).
-
-| #      | Section  | Fields                                                   | Pass/Fail |
-| ------ | -------- | -------------------------------------------------------- | --------- |
-| 27.2.1 | Identity | full_name, student_number, sex, nationality, national_id |           |
-| 27.2.2 | Dates    | date_of_birth, admission_date                            |           |
-| 27.2.3 | Academic | year_group, class_name, homeroom_teacher                 |           |
-| 27.2.4 | Media    | photo                                                    |           |
-
-### 27.3 Checkbox interaction
-
-| #      | What to Check           | Expected Result                                                                                                                                              | Pass/Fail |
-| ------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 27.3.1 | Initial state           | The list matches the tenant's `default_personal_info_fields` from the settings endpoint. For a fresh NHQS tenant: `full_name` + `student_number` pre-ticked. |           |
-| 27.3.2 | Click a checkbox        | Dispatches `TOGGLE_FIELD` which toggles the field in `state.personalInfoFields`.                                                                             |           |
-| 27.3.3 | Selected fields preview | Right panel lists the currently selected fields as bullets with primary-500 dots. If none selected, shows **"—"**.                                           |           |
-
-### 27.4 Step 4 gating
-
-| #      | What to Check                              | Expected Result                                              | Pass/Fail |
-| ------ | ------------------------------------------ | ------------------------------------------------------------ | --------- |
-| 27.4.1 | Next button with 0 fields selected         | Disabled. The rule is `state.personalInfoFields.length > 0`. |           |
-| 27.4.2 | Next button with at least 1 field selected | Enabled.                                                     |           |
+| #     | What to Check                      | Expected Result                                                                                            | Pass/Fail |
+| ----- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------- |
+| 26.1  | Content scope list                 | Shows every available `content_scope` from `GET /v1/report-cards/templates/content-scopes`.                |           |
+| 26.2  | Locked scope                       | `is_available=false` cards render disabled with a hint.                                                    |           |
+| 26.3  | Pick "Grades only"                 | `state.contentScope = 'grades_only'`. Locale selector appears.                                             |           |
+| 26.4  | Design picker                      | Designs render as chips. Clicking a design sets `state.designKey = {DESIGN_KEY}`.                          |           |
+| 26.5  | Locale selector                    | Two checkboxes `en`, `ar`. Default: both selected. `state.locales = ['en','ar']`.                          |           |
+| 26.6  | Next gate                          | Enabled once `contentScope !== null`. `designKey` optional (server falls back to `is_default=true`).       |           |
+| 26.7  | Preview PDF link                   | Each design card has "Preview" -> opens `design.preview_pdf_url` in a new tab.                             |           |
+| 26.8  | Scope w/ comments selection        | Switching to a scope that includes subject comments triggers a warning if comments are not yet finalised.  |           |
+| 26.9  | Duplicate design skipped           | Duplicate `(design_key, locale)` rows are deduped (same as Settings dropdown).                             |           |
+| 26.10 | Preview PDF access control         | Preview URLs are signed; expired URLs return 403 from S3. Re-fetching the scope list regenerates them.     |           |
+| 26.11 | Locale disabled if not provided    | A design that only has EN locale shows `ar` checkbox disabled with tooltip "Not available in this design". |           |
+| 26.12 | Design with no `is_default`        | If no default design exists for the scope, the first available design renders selected.                    |           |
+| 26.13 | Scope w/ comments warns about gate | Picking `grades_and_comments` shows a hint about Step 5 gate.                                              |           |
 
 ---
 
-## 28. Generation Wizard — Step 5: Comment Gate Dry-Run
+## 27. Wizard Step 4 — Personal Info Fields
 
-### 28.1 Step header
-
-| #      | What to Check      | Expected Result                                                           | Pass/Fail |
-| ------ | ------------------ | ------------------------------------------------------------------------- | --------- |
-| 28.1.1 | Step 5 title       | **"Comment check"**.                                                      |           |
-| 28.1.2 | Step 5 description | **"We'll check for missing or unfinalised comments before generation."**. |           |
-
-### 28.2 Auto-run on step entry
-
-| #      | What to Check                     | Expected Result                                                                                                                                                                                                                              | Pass/Fail |
-| ------ | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 28.2.1 | Entering Step 5 fires the dry-run | `POST /api/v1/report-cards/generation-runs/dry-run` with the current scope, period (or year for full-year), and content_scope. The step dispatches `DRY_RUN_START` first, then `DRY_RUN_SUCCESS` or `DRY_RUN_FAILURE` based on the response. |           |
-| 28.2.2 | While the dry-run is in flight    | A bordered dashed card shows a spinning Loader2 icon and the text **"Checking comments…"**.                                                                                                                                                  |           |
-| 28.2.3 | Dry-run failure                   | A red error card shows the server's error message and an outline **"Retry"** button that re-fires the dry-run.                                                                                                                               |           |
-
-### 28.3 Summary cards
-
-Two rounded-xl cards in a 2-column grid display the high-level counts.
-
-| #      | Card                  | Content                                                                                                                                                         | Pass/Fail |
-| ------ | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 28.3.1 | **Students in scope** | Upper-case hint label + bold total count (`result.students_total`).                                                                                             |           |
-| 28.3.2 | **Languages preview** | Upper-case hint label with a readable summary, then a secondary line **"EN {n} · AR {m}"** where the numbers come from `result.languages_preview.en` and `.ar`. |           |
-
-### 28.4 Pass state
-
-| #      | What to Check                  | Expected Result                                                                                                                                              | Pass/Fail |
-| ------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 28.4.1 | `result.would_block === false` | Below the summary cards, a success banner: CheckCircle2 icon + **"All comments are in order — you're good to generate."** (localised), success colour tones. |           |
-| 28.4.2 | Next button                    | Enabled — Step 5 gate is considered satisfied.                                                                                                               |           |
-
-### 28.5 Blocked state
-
-| #      | What to Check                                 | Expected Result                                                                                                                                                                                                                      | Pass/Fail |
-| ------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 28.5.1 | `result.would_block === true`                 | Below the summary cards, a warning banner renders with an AlertTriangle icon and the heading **"Generation is blocked — your tenant requires all comments to be finalised first."**.                                                 |           |
-| 28.5.2 | `result.allow_admin_force_generate === true`  | A sub-card below the warning contains a Checkbox labelled **"Force-generate anyway"** and a descriptive paragraph **"Force-generating will produce report cards with blank comment blocks. This bypasses the finalisation check."**. |           |
-| 28.5.3 | Tick the Force-generate checkbox              | Dispatches `SET_OVERRIDE` with `value: true`. Next button becomes enabled.                                                                                                                                                           |           |
-| 28.5.4 | Untick                                        | Next button becomes disabled again.                                                                                                                                                                                                  |           |
-| 28.5.5 | `result.allow_admin_force_generate === false` | No checkbox is rendered. Instead, a paragraph: **"Contact your administrator to finalise the pending comments — this tenant does not allow force-generation."**. Next button stays disabled permanently on this step.                |           |
-
-### 28.6 Drill-in details
-
-| #      | What to Check                                                                                                     | Expected Result                                                                                                                                                                                     | Pass/Fail |
-| ------ | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 28.6.1 | If any of the four lists has entries (missing subject, unfinalised subject, missing overall, unfinalised overall) | A collapsible card with the label **"Show details"**. Clicking flips to **"Hide details"** and reveals four subsections, each rendering up to 20 items with a "and {n} more" footer when truncated. |           |
-| 28.6.2 | Subject comment items                                                                                             | Each bullet reads **"{student_name} — {subject_name}"**.                                                                                                                                            |           |
-| 28.6.3 | Overall comment items                                                                                             | Each bullet reads **"{student_name}"**.                                                                                                                                                             |           |
-
-### 28.7 Step 5 gating
-
-| #      | What to Check                 | Expected Result                                                                                                 | Pass/Fail |
-| ------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------- | --------- | ---------------------------- | --- |
-| 28.7.1 | Next button                   | Enabled only when: `!state.dryRun.loading && !state.dryRun.error && state.dryRun.result && (!result.would_block |           | state.overrideCommentGate)`. |     |
-| 28.7.2 | Next click advances to Step 6 | No additional API call fires.                                                                                   |           |
+| #    | What to Check       | Expected Result                                                                       | Pass/Fail |
+| ---- | ------------------- | ------------------------------------------------------------------------------------- | --------- |
+| 27.1 | Pre-filled defaults | Checkboxes seeded from `default_personal_info_fields` fetched in 22.2.                |           |
+| 27.2 | Toggle fields       | Check/uncheck. State `state.personalInfoFields` reflects selection.                   |           |
+| 27.3 | Next gate           | `canGoNext` requires `personalInfoFields.length > 0`. Disabling all -> Next disabled. |           |
+| 27.4 | Previous navigation | Back returns to Step 3 preserving selection.                                          |           |
+| 27.5 | Section grouping    | Same four groups (Identity, Dates, Academic, Media) as Settings page.                 |           |
+| 27.6 | Edit after seed     | Changing on Step 4 does NOT persist back to tenant defaults.                          |           |
 
 ---
 
-## 29. Generation Wizard — Step 6: Review & Submit
+## 28. Wizard Step 5 — Comment Gate Dry-Run
 
-### 29.1 Review rows
-
-Five rounded-xl summary rows each showing a label + value.
-
-| #      | Row                      | Value source                                                                                                                                                                                                   | Pass/Fail |
-| ------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 29.1.1 | **Scope**                | `{mode label} ({n})` — e.g. **"Class (1)"**, **"Year group (3)"**, **"Individual students (12)"**. "—" if no mode selected (should never happen on Step 6).                                                    |           |
-| 29.1.2 | **Period**               | If `academicPeriodId` set, displays the period UUID (known limitation — no name lookup on Step 6). If `academicYearId` set, displays the localised **"Full year"** label.                                      |           |
-| 29.1.3 | **Template**             | Displays the `content_scope` key (e.g. `grades_only`). A future enhancement can resolve this to a friendly label.                                                                                              |           |
-| 29.1.4 | **Personal info fields** | Comma-joined list of the selected field labels (e.g. **"Full name, Student number"**). "—" if none.                                                                                                            |           |
-| 29.1.5 | **Comment check**        | **"Passed"** (localised) if the dry-run passed; **"Force-generate enabled"** if the gate was blocked and the admin ticked the override; **"Blocked"** if still blocked (Next should be disabled in that case). |           |
-
-### 29.2 Footer buttons
-
-| #      | What to Check                | Expected Result                                                                                                                                                                                                                                                       | Pass/Fail |
-| ------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 29.2.1 | **Back** button              | Enabled — returns to Step 5.                                                                                                                                                                                                                                          |           |
-| 29.2.2 | **Generate** primary button  | Replaces the Next button on Step 6. Enabled whenever Step 6 was reached.                                                                                                                                                                                              |           |
-| 29.2.3 | Click **Generate**           | `POST /api/v1/report-cards/generation-runs` with payload `{scope, academic_period_id, academic_year_id?, content_scope, design_key?, personal_info_fields, override_comment_gate}`. Response contains a `batch_job_id`. Dispatches `SUBMIT_START` → `SUBMIT_SUCCESS`. |           |
-| 29.2.4 | Submit failure               | Toast **"Generation failed"** with the server's message. The form remains on Step 6 and `state.submit.error` is set for display.                                                                                                                                      |           |
-| 29.2.5 | Button label while in flight | Reads **"Submitting…"** and the button is disabled to prevent double-clicks.                                                                                                                                                                                          |           |
+| #     | What to Check                  | Expected Result                                                                                                                                                                          | Pass/Fail |
+| ----- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 28.1  | Auto dry-run on entry          | On entering Step 5, `POST /v1/report-cards/generation-runs/dry-run` fires with `{ scope, academic_period_id, academic_year_id }` -> 200 `{ would_block, blocked_student_ids, reasons }`. |           |
+| 28.2  | Loading state                  | While `dryRun.loading`, spinner + "Checking gate…". Next disabled.                                                                                                                       |           |
+| 28.3  | Success with pass              | `would_block: false` -> green panel "All students eligible". Next enabled.                                                                                                               |           |
+| 28.4  | Success with block             | `would_block: true` -> warning panel shows blocked count + reasons. Override checkbox "I understand and want to proceed" appears IF `allow_admin_force_generate=true`.                   |           |
+| 28.5  | Override required to proceed   | When blocked, `canGoNext` returns true only if override checkbox is checked AND `allow_admin_force_generate=true`.                                                                       |           |
+| 28.6  | block_generation policy        | With `allow_admin_force_generate=false`, override checkbox is hidden and Next stays disabled. Page shows "Blocked — see comment gate setting".                                           |           |
+| 28.7  | Dry-run error                  | 500 -> panel shows `dryRun.error` + "Retry" button re-fires. Next disabled.                                                                                                              |           |
+| 28.8  | Navigation back re-runs        | Going back to Step 4 and forward re-fires the dry-run.                                                                                                                                   |           |
+| 28.9  | Blocked students list          | A collapsible list shows blocked student names. Click to expand.                                                                                                                         |           |
+| 28.10 | Reason hint                    | Each blocked reason is localised (`dryRun.reason.missingOverallComment`, `missingSubjectComment`, etc.).                                                                                 |           |
+| 28.11 | Dry-run preserved across nav   | Leaving Step 5 then returning does NOT reset `dryRun.result`. (Verify — may re-run per effect.)                                                                                          |           |
+| 28.12 | Override logged                | When `override_comment_gate=true` is submitted, the audit log records the override with user id + reason.                                                                                |           |
+| 28.13 | Mixed scope with partial block | Scope that includes some complete + some incomplete students: `would_block=true` lists only the incomplete ones.                                                                         |           |
 
 ---
 
-## 30. Generation Wizard — Running / Polling State
+## 29. Wizard Step 6 — Review & Submit
 
-Once `state.submit.runId !== null`, the wizard swaps the step UI for the `<PollingStatus>` component.
-
-### 30.1 Polling frequency and endpoint
-
-| #      | What to Check            | Expected Result                                                                                                                                     | Pass/Fail |
-| ------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 30.1.1 | Immediately after submit | `GET /api/v1/report-cards/generation-runs/{batch_job_id}` fires once, then on a `setInterval(3000)` until the status reaches a terminal value.      |           |
-| 30.1.2 | beforeunload guard       | While the run is in progress, closing the tab or navigating away triggers the browser's native "Are you sure?" dialog via a `beforeunload` handler. |           |
-
-### 30.2 In-flight UI
-
-| #      | What to Check         | Expected Result                                                                                                                                   | Pass/Fail |
-| ------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 30.2.1 | Card frame            | Rounded-2xl border, `bg-surface`, padding 6.                                                                                                      |           |
-| 30.2.2 | Heading               | Spinning Loader2 icon in primary-500 + **"Generating report cards…"** heading.                                                                    |           |
-| 30.2.3 | Progress text         | When `total > 0`: **"{done} of {total} students complete"**. When total is still 0: **"Waiting for the worker to pick up the run…"** (localised). |           |
-| 30.2.4 | Progress bar          | Primary-500 gradient fill, `round(done/total * 100)%` width. 2px height. Not rendered until `total > 0`.                                          |           |
-| 30.2.5 | No navigation buttons | During in-flight state, Back / Generate / Start another are all hidden to prevent double-submits.                                                 |           |
+| #     | What to Check                                      | Expected Result                                                                                                                                                                                                                                                                 | Pass/Fail |
+| ----- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 29.1  | Summary lists every choice                         | Scope mode + id count, period/year, content scope, design key, locales, personal info fields count, override flag.                                                                                                                                                              |           |
+| 29.2  | Submit button label                                | "Submit" (`wizard.submit`). Becomes "Submitting…" (`wizard.submitting`) while in flight.                                                                                                                                                                                        |           |
+| 29.3  | Click Submit                                       | `POST /v1/report-cards/generation-runs` with payload `{ scope: {...}, academic_period_id, academic_year_id?, content_scope, design_key?, personal_info_fields, override_comment_gate }` -> 201 `{ data: { batch_job_id: '{GENERATED_RUN_ID}' } }`. Record `{GENERATED_RUN_ID}`. |           |
+| 29.4  | Payload shape                                      | `scope` is the output of `buildScopePayload`: `{ mode: 'class', class_ids: [...] }` OR `{ mode: 'year_group', year_group_ids: [...] }` OR `{ mode: 'individual', student_ids: [...] }`.                                                                                         |           |
+| 29.5  | `design_key` omitted when not chosen               | POST body has no `design_key` field (server falls back to default).                                                                                                                                                                                                             |           |
+| 29.6  | Server 400 — validation                            | Invalid payload -> 400 with `{ code, message }`. Toast `wizard.submitFailed`.                                                                                                                                                                                                   |           |
+| 29.7  | Server 403 — permission                            | Caller lacking `report_cards.manage` -> 403. Toast.                                                                                                                                                                                                                             |           |
+| 29.8  | Immediate UI state change                          | After 201 the polling view takes over; step indicator hides.                                                                                                                                                                                                                    |           |
+| 29.9  | Double-submit guard                                | Button disabled while `state.submit.submitting` to prevent duplicates.                                                                                                                                                                                                          |           |
+| 29.10 | Network offline during submit                      | Submit fails with network error. Toast `wizard.submitFailed`. Wizard returns to Step 6 state (not reset).                                                                                                                                                                       |           |
+| 29.11 | Submit without personal info fields                | `personal_info_fields: []` -> 400 Zod validation.                                                                                                                                                                                                                               |           |
+| 29.12 | `override_comment_gate=true` required when blocked | With `would_block=true` but `override_comment_gate=false`, backend -> 409 `{ code: 'COMMENT_GATE_BLOCKED' }`.                                                                                                                                                                   |           |
+| 29.13 | Large scope                                        | Submitting a year_group with 500+ students: 201 returns immediately; progress via polling.                                                                                                                                                                                      |           |
+| 29.14 | Submitting while another run in progress           | Permitted — runs queue independently. Verify.                                                                                                                                                                                                                                   |           |
 
 ---
 
-## 31. Generation Wizard — Terminal Outcomes (Completed / Partial / Failed)
+## 30. Wizard — Running / Polling State
 
-### 31.1 Completed
-
-| #      | What to Check                                         | Expected Result                                                                                                                                          | Pass/Fail |
-| ------ | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 31.1.1 | Run snapshot reaches `completed` with `blocked === 0` | Card frame uses success tones (`border-success/40 bg-success/5`), CheckCircle2 icon, heading **"Generation complete — {count} report cards produced."**. |           |
-| 31.1.2 | **View library** primary button                       | On click, navigates to `/en/report-cards/library`. The freshly generated run appears as the newest card.                                                 |           |
-| 31.1.3 | **Start another** outline button                      | Dispatches `RESET`, which clears all wizard state and returns to Step 1.                                                                                 |           |
-
-### 31.2 Partial success
-
-| #      | What to Check                                                 | Expected Result                                                                                                      | Pass/Fail |
-| ------ | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------- |
-| 31.2.1 | Status is `partial_success` OR `completed` with `blocked > 0` | Card uses warning tones (amber), AlertTriangle icon, heading **"{done} generated, {blocked} blocked"**.              |           |
-| 31.2.2 | Error details                                                 | A collapsible `<details>` block titled **"Run errors"** lists every `errors[]` entry as `"{student_id}: {message}"`. |           |
-| 31.2.3 | Same View library / Start another buttons                     | Identical behaviour to the completed case.                                                                           |           |
-
-### 31.3 Failed
-
-| #      | What to Check      | Expected Result                                                                                                                                                                                                                | Pass/Fail |
-| ------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 31.3.1 | Status is `failed` | Card uses error tones (`border-error/40 bg-error/5`), XCircle icon, heading **"Run failed"**. Error details collapsible block renders if errors exist. A single outline **"Start another"** button is shown (no View library). |           |
+| #     | What to Check                | Expected Result                                                                                              | Pass/Fail |
+| ----- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ | --------- |
+| 30.1  | Initial poll                 | `GET /v1/report-cards/generation-runs/{GENERATED_RUN_ID}` fires once immediately after submit -> 200.        |           |
+| 30.2  | Polling cadence              | Every 3000 ms (wizard uses 3s tick; dashboard uses 5s). Confirm via Network timing.                          |           |
+| 30.3  | Stop on terminal             | Polling halts when `status` ∈ `['completed','partial_success','failed']`.                                    |           |
+| 30.4  | beforeunload guard           | Attempting to close tab while running triggers native confirm using `wizard.leaveWarning`.                   |           |
+| 30.5  | Progress counters            | `snapshot.students_generated_count / total_count` updates each tick. Percent bar reflects ratio.             |           |
+| 30.6  | Blocked count display        | `students_blocked_count` shown separately.                                                                   |           |
+| 30.7  | Error list                   | `errors: [{student_id, message}]` renders as a collapsible list.                                             |           |
+| 30.8  | Poll failure silent          | Poll errors console-log only. No toast spam.                                                                 |           |
+| 30.9  | Status normalisation         | Non-recognised statuses fall back to `'running'` via `normaliseStatus`.                                      |           |
+| 30.10 | Polling on 404               | If run id is deleted mid-poll, 404 stops polling and shows error panel.                                      |           |
+| 30.11 | Stale snapshot               | `snapshot` state reflects the latest response; older in-flight responses are discarded via `cancelled` flag. |           |
+| 30.12 | Terminal snapshot sticks     | Once terminal, the last snapshot remains visible even after navigating away and back.                        |           |
+| 30.13 | Progress over 100% edge case | If `students_generated_count + students_blocked_count > total_count`, UI caps the bar at 100%.               |           |
 
 ---
 
-## 32. Generation Wizard — Teacher Request Pre-Fill Handoff
+## 31. Wizard — Terminal Outcomes
 
-When an admin clicks **Approve & open** on a regenerate teacher request, the detail page routes here with query params. The wizard consumes them and jumps to Step 6 with everything pre-filled.
-
-| #    | What to Check                                                                                | Expected Result                                                                                                                                                                                                                                                                                                  | Pass/Fail |
-| ---- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 32.1 | Navigate to `/en/report-cards/generate?scope_mode=class&scope_ids=<id1>,<id2>&period_id=<p>` | The wizard parses the query params after the default settings load, dispatches `SET_SCOPE_MODE('class')`, `SET_SCOPE_IDS([...])`, `SET_PERIOD(<p>)`, and `SET_CONTENT_SCOPE('grades_only', ['en', 'ar'])`, then dispatches `SET_STEP(6)`. The user lands directly on the Review step with everything pre-filled. |           |
-| 32.2 | The query params are cleared from the URL after consumption                                  | The `prefilledRef.current = true` guard ensures this only happens once per page load.                                                                                                                                                                                                                            |           |
-| 32.3 | Clicking **Back** from the pre-filled Step 6                                                 | Returns to Step 5 and re-runs the dry-run. The admin can still adjust any step if needed before committing.                                                                                                                                                                                                      |           |
+| #    | What to Check             | Expected Result                                                                                                                    | Pass/Fail |
+| ---- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 31.1 | Completed — success       | Green panel "Completed successfully". CTAs: **View library** -> `/en/report-cards/library`, **Start another** -> dispatch `RESET`. |           |
+| 31.2 | Partial success           | Amber panel "Partial success — {X} generated, {Y} blocked" with error list. Both CTAs.                                             |           |
+| 31.3 | Failed                    | Red panel "Generation failed" with reason. "Start another" CTA. "View library" still linked.                                       |           |
+| 31.4 | Cancelled                 | If backend supports cancellation, shows "Cancelled" panel. Flag in Section 80 if cancel is unimplemented but referenced.           |           |
+| 31.5 | Polling stops at terminal | No further `GET /v1/report-cards/generation-runs/{GENERATED_RUN_ID}` after terminal.                                               |           |
+| 31.6 | RESET                     | "Start another" resets state to Step 1 with defaults re-seeded. Polling stops.                                                     |           |
+| 31.7 | Library reflects output   | Navigating to Library shows the new run with `total_report_cards = total_count`.                                                   |           |
 
 ---
 
-## 33. Library Page — Load & View Toggles
+## 32. Wizard — Teacher Request Pre-Fill Handoff
 
-**URL:** `/en/report-cards/library`
+| #    | What to Check                    | Expected Result                                                                                                                                                                                  | Pass/Fail |
+| ---- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 32.1 | Approve-and-open deep link       | From Section 48, click "Approve & Open" on a `regenerate_reports` request. Router navigates to `/en/report-cards/generate?scope_mode=class&scope_ids={CLASS_A_ID}&period_id={ACTIVE_PERIOD_ID}`. |           |
+| 32.2 | Wizard reads query params        | After settings load, the effect consumes the params: dispatches `SET_SCOPE_MODE`, `SET_SCOPE_IDS`, `SET_PERIOD`, `SET_CONTENT_SCOPE: grades_only`, `locales: ['en','ar']`, then jumps to Step 6. |           |
+| 32.3 | prefilled ref guards re-applying | `prefilledRef.current` flag prevents re-applying on re-render. Manually changing a field then navigating back+forward does not reset it.                                                         |           |
+| 32.4 | Full-year handoff                | If request has no period, handoff routes to `/en/report-cards/requests` instead of the wizard (per detail-page logic).                                                                           |           |
+| 32.5 | Unknown scope_mode               | Garbage `scope_mode=banana` param is ignored; wizard starts at Step 1.                                                                                                                           |           |
+| 32.6 | Scope-mode translation           | `student` -> wizard mode `individual` (per detail-page mapping). Verify.                                                                                                                         |           |
 
-| #    | What to Check                   | Expected Result                                                                                                                                            | Pass/Fail |
-| ---- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 33.1 | Navigate to the library         | Network: `GET /api/v1/report-cards/library/grouped` fires once. While loading, 3 pulsing 20-height skeleton bars render.                                   |           |
-| 33.2 | Page heading                    | **"Report Cards Library"** (localised).                                                                                                                    |           |
-| 33.3 | **Back to Report Cards** button | Ghost button in the header. Navigates to `/en/report-cards`.                                                                                               |           |
-| 33.4 | View-mode segmented control     | A 3-button segmented control below the header: **"By run"** (default), **"By year group"**, **"By class"**. Active button has `bg-primary-500 text-white`. |           |
-| 33.5 | Empty library                   | If `allRows.length === 0`, a centred card shows a FileText icon and the text **"No documents yet"**.                                                       |           |
-| 33.6 | Load failure                    | On error, a card with a FileText icon and **"Failed to load library"**.                                                                                    |           |
+---
+
+## 33. Library — Load & View Toggles
+
+| #    | What to Check               | Expected Result                                                                     | Pass/Fail |
+| ---- | --------------------------- | ----------------------------------------------------------------------------------- | --------- |
+| 33.1 | Navigate to library         | From Library tile, URL = `/en/report-cards/library`.                                |           |
+| 33.2 | Initial fetch               | `GET /v1/report-cards/library/grouped` -> 200 with `{ data: [GroupedRunNode, …] }`. |           |
+| 33.3 | Three view toggles          | Inline tabs: **By run**, **By year group**, **By class**. Default = `by_run`.       |           |
+| 33.4 | Loading skeleton            | Animated rows `h-10 rounded-lg bg-surface-secondary` while loading.                 |           |
+| 33.5 | Load failure                | If endpoint returns 500, `loadFailed=true` and error empty state renders.           |           |
+| 33.6 | Empty library               | If `data=[]`, `EmptyState` "No report cards yet" renders.                           |           |
+| 33.7 | View toggle client-side     | Switching views triggers no new API calls. Data re-groups client-side.              |           |
+| 33.8 | Refetch on explicit refresh | Calling `fetchLibrary` (e.g., after publish) hits the endpoint again.               |           |
 
 ---
 
 ## 34. Library — By Run View
 
-Default view. Each run from the grouped endpoint becomes a collapsible card.
-
-### 34.1 Run card structure
-
-| #      | What to Check                          | Expected Result                                                                                                                                                                                                                                                      | Pass/Fail |
-| ------ | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 34.1.1 | Run card frame                         | Rounded-xl, `border-border`, `bg-surface`, shadow-sm.                                                                                                                                                                                                                |           |
-| 34.1.2 | Header row                             | Expand/Collapse chevron button, "Select all in this run" checkbox, run label, action buttons on the right.                                                                                                                                                           |           |
-| 34.1.3 | Expand button `aria-label`             | **"Expand"** when collapsed, **"Collapse"** when expanded.                                                                                                                                                                                                           |           |
-| 34.1.4 | Run label                              | Row 1: date-time formatted via `Intl.DateTimeFormat({dateStyle: 'medium', timeStyle: 'short', calendar: 'gregory', numberingSystem: 'latn'})` (e.g. **"Apr 10, 2026, 6:31 PM"**) + **"· {period_label}"**. Row 2: **"{n} class · {m} documents · {template_name}"**. |           |
-| 34.1.5 | **Bundle · one file per class** button | Outline button with Package icon. On click, fires `GET /api/v1/report-cards/library/bundle-pdf?class_ids=...&merge_mode=per_class&locale=en`. Response streams a zip; the browser triggers a download with the filename from `Content-Disposition`.                  |           |
-| 34.1.6 | **Bundle · one PDF** button            | Same as above but `merge_mode=single` produces a single merged PDF.                                                                                                                                                                                                  |           |
-| 34.1.7 | **Delete entire run** button           | Trash icon in rose. On click, opens the ConfirmAction modal with `kind='delete'` and all row ids in the run as the target.                                                                                                                                           |           |
-
-### 34.2 Selection via header checkbox
-
-| #      | What to Check                               | Expected Result                                                                                        | Pass/Fail |
-| ------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------ | --------- |
-| 34.2.1 | Click the "Select all in this run" checkbox | Every row in the run is added to the selection set. The sticky bottom action bar appears (section 38). |           |
-| 34.2.2 | All rows already selected                   | The header checkbox shows as checked. Unchecking removes all run rows from the selection.              |           |
-
-### 34.3 Expand/collapse
-
-| #      | What to Check              | Expected Result                                                                                                                                                    | Pass/Fail |
-| ------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 34.3.1 | Click the chevron          | Expands the run to show its class nodes. Chevron icon flips from ChevronRight to ChevronDown. The child panel has a top border and `bg-surface-secondary/30` tint. |           |
-| 34.3.2 | Each child is a class node | See section 37 for the class-node/row layout.                                                                                                                      |           |
+| #     | What to Check                      | Expected Result                                                                                                                                     | Pass/Fail |
+| ----- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 34.1  | Run row header                     | Each run shows period label, template name, design key, total count, and run-status chip.                                                           |           |
+| 34.2  | Run row expand                     | Clicking a run toggles `expanded`; nested classes render.                                                                                           |           |
+| 34.3  | Class node                         | Under each run, classes show class name, year group, student count, report card count.                                                              |           |
+| 34.4  | Student row                        | Each row shows full name, student number, status badge (`draft`/`published`/`revised`/`superseded`), locale, template name, generated-at timestamp. |           |
+| 34.5  | Legacy run chip                    | Runs with `run_status === 'legacy'` show a neutral grey chip with no action.                                                                        |           |
+| 34.6  | Delete run (bulk)                  | "Delete run" enqueues `POST /v1/report-cards/bulk-delete` with every id under the run.                                                              |           |
+| 34.7  | Run dates format                   | `run_started_at` uses `Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', calendar: 'gregory', numberingSystem: 'latn' })`.     |           |
+| 34.8  | Queued/processing run              | A currently-running run shows its status chip + progress if returned.                                                                               |           |
+| 34.9  | Run with zero classes              | Empty run (all students failed) shows a placeholder row inside.                                                                                     |           |
+| 34.10 | Design-key unknown fallback        | `design_key` not in the catalogue renders as the raw string.                                                                                        |           |
+| 34.11 | Run-level "Download bundle" button | Per run, a single action triggers `bundle-pdf` with every `report_card_id` under it.                                                                |           |
+| 34.12 | Collapse-all / expand-all          | Global control toggles all `expanded` entries.                                                                                                      |           |
 
 ---
 
-## 35. Library — By Year Group View
+## 35. Library — By Year-Group View
 
-| #    | What to Check                      | Expected Result                                                                                                                                                                                                    | Pass/Fail |
-| ---- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 35.1 | Click **By year group**            | The view re-renders. Classes from every run are re-grouped by year group (`cls.year_group.id`). Year groups sorted alphabetically by name. Classes without a year group fall into a localised "Unassigned" bucket. |           |
-| 35.2 | Year group header                  | Icon bubble with GraduationCap glyph, year group name as h3, right side `border-t` filler.                                                                                                                         |           |
-| 35.3 | Class nodes within each year group | Same class-node rendering as section 37. Classes sorted alphabetically by `class_name` within a bucket.                                                                                                            |           |
-| 35.4 | Expand / select behaviour          | Identical to the by-run view but keyed with `{yearGroupId}::{classId}`.                                                                                                                                            |           |
+| #    | What to Check                       | Expected Result                                                                                       | Pass/Fail |
+| ---- | ----------------------------------- | ----------------------------------------------------------------------------------------------------- | --------- |
+| 35.1 | Groups per year group               | `year_group` names derived from `cls.year_group?.name` or "Unassigned".                               |           |
+| 35.2 | Class nodes                         | Classes render in alpha order.                                                                        |           |
+| 35.3 | Count totals                        | Year-group heading shows "{n} classes · {m} report cards".                                            |           |
+| 35.4 | Student rows identical              | Same delete/download/publish row actions as Section 37.                                               |           |
+| 35.5 | Empty year group                    | A year group with only empty classes (no cards) is hidden.                                            |           |
+| 35.6 | Class count reflects enrolment      | Counts match `_count.class_enrolments` from the current dataset, not the snapshot at generation time. |           |
+| 35.7 | Year-group heading sticky on scroll | (If implemented) heading becomes sticky at the top of its group while scrolling.                      |           |
 
 ---
 
 ## 36. Library — By Class View
 
-| #    | What to Check            | Expected Result                                                                                                                                                                           | Pass/Fail |
-| ---- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 36.1 | Click **By class**       | Every class node from every run is flattened and sorted alphabetically by class name. No run grouping.                                                                                    |           |
-| 36.2 | Each card                | Standard class-node layout (section 37). Same expand / select / action behaviour.                                                                                                         |           |
-| 36.3 | Duplicate class handling | If two runs produced cards for the same class, each becomes its OWN class node with a unique composite key (`flat-{class_id}-{first_row_id}`). They are NOT merged — each stays distinct. |           |
+| #    | What to Check           | Expected Result                                                                                                                                 | Pass/Fail |
+| ---- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 36.1 | Flat class list         | Every class appears once at the top regardless of run.                                                                                          |           |
+| 36.2 | Sort order              | Classes sorted alphabetically.                                                                                                                  |           |
+| 36.3 | Student rows span runs  | Within a class node, student rows show every card across runs, with run label as a secondary line.                                              |           |
+| 36.4 | Click a student name    | Opens the student's individual report card preview (navigate to `/en/report-cards/{id}` or opens PDF in new tab — verify the implemented path). |           |
+| 36.5 | Multi-run student       | A student with multiple published cards across terms shows each card as its own row.                                                            |           |
+| 36.6 | No duplicate class rows | Each class appears exactly once in By-class view even with multiple runs.                                                                       |           |
 
 ---
 
-## 37. Library — Row-Level Actions (Download / Publish / Unpublish / Delete)
+## 37. Library — Row Actions (Publish / Unpublish / Delete / Revise)
 
-Inside every class node, an expand chevron reveals a table of report card rows.
-
-### 37.1 Class node header
-
-| #      | What to Check                       | Expected Result                                                                                                                                                           | Pass/Fail |
-| ------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 37.1.1 | Expand/Collapse chevron             | `aria-label` "Expand" / "Collapse". Clicking toggles `expanded[classKey]`.                                                                                                |           |
-| 37.1.2 | Select-all-in-class checkbox        | Toggles all row ids in this class in the selection.                                                                                                                       |           |
-| 37.1.3 | Header text                         | Row 1: class name + optional `· {year_group_name}`. Row 2: `"{n} students · {m} documents"`.                                                                              |           |
-| 37.1.4 | **Bundle as one PDF** button        | Outline + Package icon. Fires `GET /api/v1/report-cards/library/bundle-pdf?class_ids={classId}&merge_mode=single&locale=en`, streams the merged PDF, triggers a download. |           |
-| 37.1.5 | **Delete all in this class** button | Trash icon in rose. Opens the ConfirmAction modal with `kind='delete'` and every row in the class.                                                                        |           |
-
-### 37.2 Row table structure (after expanding)
-
-| #      | Column       | Content                                                                                                                                                                                         | Pass/Fail |
-| ------ | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 37.2.1 | Checkbox     | Per-row checkbox. Tied to `selected.has(row.id)`. `aria-label` reads "Select report card for {first_name} {last_name}".                                                                         |           |
-| 37.2.2 | Student      | Student name in medium weight + optional student_number in LTR mono below.                                                                                                                      |           |
-| 37.2.3 | Status       | Pill badge. Variants: `draft` → `bg-primary-50 text-primary-700`, `published` → `bg-success-50 text-success-700`, `revised` → `bg-amber-50 text-amber-700`. Text is the localised status label. |           |
-| 37.2.4 | Locale       | Uppercase ISO language code, LTR dir.                                                                                                                                                           |           |
-| 37.2.5 | Generated    | Date-time formatted via `Intl.DateTimeFormat` with Gregorian calendar + Latin numbers.                                                                                                          |           |
-| 37.2.6 | Actions cell | Three buttons depending on status (see 37.3).                                                                                                                                                   |           |
-
-### 37.3 Row action buttons
-
-| #      | Status       | Buttons rendered                                                                                                                                             | Pass/Fail |
-| ------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 37.3.1 | `draft`      | **Download** (Download icon; disabled if no pdf_download_url), **Publish** (Send icon), **Delete** (Trash2 rose).                                            |           |
-| 37.3.2 | `published`  | **Download** enabled, **Unpublish** (Undo2 amber), **Delete** DISABLED with a `title` tooltip explaining published cards can't be deleted until unpublished. |           |
-| 37.3.3 | `revised`    | Revised is the post-unpublish state — only **Download** + **Delete** render. No publish / unpublish on revised rows.                                         |           |
-| 37.3.4 | `superseded` | No action buttons beyond Download.                                                                                                                           |           |
-
-### 37.4 Download behaviour
-
-| #      | What to Check                                            | Expected Result                                                                                                                                                                                                                      | Pass/Fail |
-| ------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 37.4.1 | Click Download on a row with `pdf_download_url`          | `window.open(row.pdf_download_url, '_blank', 'noopener,noreferrer')` opens the signed S3 URL in a new tab. The URL's Content-Disposition forces a download with the filename "{last} {first} - Report Card - {period} ({LANG}).pdf". |           |
-| 37.4.2 | Click Download on a row with `pdf_download_url === null` | Button is disabled; title tooltip reads the localised "Download unavailable". No click effect.                                                                                                                                       |           |
-
-### 37.5 Publish (single row)
-
-| #      | What to Check                    | Expected Result                                                                                                                                                                                                     | Pass/Fail |
-| ------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 37.5.1 | Click **Publish** on a draft row | `POST /api/v1/report-cards/{id}/publish`. While in flight, the row id is in `busyIds` — all its buttons are disabled. On success, toast **"Published"**, library re-fetches, the row's status flips to `published`. |           |
-| 37.5.2 | Publish failure                  | Toast **"Publish failed"**. Row stays in `draft` state.                                                                                                                                                             |           |
-
-### 37.6 Unpublish (single row)
-
-| #      | What to Check                          | Expected Result                                                                                                                                                               | Pass/Fail |
-| ------ | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 37.6.1 | Click **Unpublish** on a published row | Opens the ConfirmAction modal with `kind='unpublish'` and a single row id (see section 41).                                                                                   |           |
-| 37.6.2 | Confirm the unpublish                  | `POST /api/v1/report-cards/{id}/revise`. The row's status flips to `revised` (a new draft is created in its place). Toast **"Unpublished successfully"**. Library re-fetches. |           |
-
-### 37.7 Delete (single row)
-
-| #      | What to Check                   | Expected Result                                                                                  | Pass/Fail |
-| ------ | ------------------------------- | ------------------------------------------------------------------------------------------------ | --------- |
-| 37.7.1 | Click **Delete** on a draft row | Opens the ConfirmAction modal with `kind='delete'` and a single row id.                          |           |
-| 37.7.2 | Confirm the delete              | `DELETE /api/v1/report-cards/{id}`. Row disappears from the library. Toast **"Deleted 1 card"**. |           |
-| 37.7.3 | Delete on a published row       | Button is disabled with a tooltip. If clicked anyway (e.g. via keyboard), nothing happens.       |           |
+| #     | What to Check                    | Expected Result                                                                                                                                                                                                                   | Pass/Fail |
+| ----- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 37.1  | Download row                     | Click Download icon. Opens `row.pdf_download_url` in a new tab. If URL null -> toast `library.downloadUnavailable`.                                                                                                               |           |
+| 37.2  | Publish a draft row              | Click Publish (Send icon). `POST /v1/report-cards/{id}/publish` -> 200. Toast `library.publishSuccess`. Row flips to `published`.                                                                                                 |           |
+| 37.3  | Publish permission               | Caller needs `gradebook.publish_report_cards`. Denied -> 403, toast `library.publishFailed`.                                                                                                                                      |           |
+| 37.4  | Row busy state                   | Publish button disables and spinner shows while mid-flight. `busyIds` tracks it.                                                                                                                                                  |           |
+| 37.5  | Unpublish (revise) published row | Click Unpublish (Undo2 icon). Confirm dialog (kind=`unpublish`). Confirm -> `POST /v1/report-cards/{id}/revise` -> 201 creates a new draft revision. Original -> `superseded`. Toast `library.unpublishBulkSuccess` with count=1. |           |
+| 37.6  | Revise creates chain             | After 37.5, `GET /v1/report-cards?include_revisions=true` shows new draft with `revision_of_report_card_id` pointing to the original.                                                                                             |           |
+| 37.7  | Delete a row                     | Click Trash2 (Delete). Confirm dialog (kind=`delete`). Confirm -> `DELETE /v1/report-cards/{id}` -> 200. Row removed. Toast `library.deleteSuccess` count=1.                                                                      |           |
+| 37.8  | Delete audit                     | After delete, `GET /v1/report-cards/{id}` -> 404 `{ code: 'REPORT_CARD_NOT_FOUND' }`.                                                                                                                                             |           |
+| 37.9  | Confirm dialog cancel            | Close dismisses without calling the API.                                                                                                                                                                                          |           |
+| 37.10 | Unpublish failure                | If revise returns 409 (already revised), counts go into the failure bucket. Toast `library.unpublishBulkFailed`.                                                                                                                  |           |
+| 37.11 | Delete failure                   | 500 -> toast with the server message. `confirmAction` closes.                                                                                                                                                                     |           |
+| 37.12 | Download for superseded row      | Download still opens the PDF URL even if `status='superseded'`.                                                                                                                                                                   |           |
+| 37.13 | Revise of already-revised row    | `POST .../revise` on a superseded row -> 409 `{ code: 'REPORT_NOT_PUBLISHED' }`.                                                                                                                                                  |           |
+| 37.14 | Confirm dialog title localised   | Dialog title + description use `library.confirmDeleteTitle/Description` etc.                                                                                                                                                      |           |
+| 37.15 | busyIds cleaned after error      | After a failed publish, `busyIds` set removes the id. Button re-enables.                                                                                                                                                          |           |
+| 37.16 | Optimistic UI not used           | Row action does NOT optimistically flip UI — waits for server confirmation before updating.                                                                                                                                       |           |
 
 ---
 
-## 38. Library — Selection & Sticky Action Bar
+## 38. Library — Bulk Selection + Bulk Delete
 
-When `selected.size > 0`, a sticky bar renders at the bottom of the viewport (bottom-4, `max-w-3xl`, `bg-surface shadow-xl ring-1 ring-primary-500/20`).
-
-| #    | What to Check                                       | Expected Result                                                                                                                                                                                                                                            | Pass/Fail |
-| ---- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 38.1 | Left side of the bar                                | Primary-100 circular badge with the selection count + the localised **"{n} selected"** text.                                                                                                                                                               |           |
-| 38.2 | **Bundle selection** button                         | Outline + Package icon. Fires `GET /api/v1/report-cards/library/bundle-pdf?report_card_ids=...&merge_mode=single&locale=en` — merges just the selected rows into one PDF download.                                                                         |           |
-| 38.3 | **Publish selection** button                        | On click, loops through selected ids calling `POST /api/v1/report-cards/{id}/publish` sequentially. Tracks `ok` and `fail` counts. Toast **"Published {n} cards"** on success, **"Failed to publish {n} cards"** on failure. Clears selection, re-fetches. |           |
-| 38.4 | **Unpublish selection** button                      | Filters selected ids to only those in `published` status (drafts and revised rows are silently skipped). If none of the selection is published, shows an error toast and does nothing. Otherwise opens the unpublish ConfirmAction modal.                  |           |
-| 38.5 | **Delete selection** button                         | Trash icon in rose. Opens the delete ConfirmAction modal with all selected ids.                                                                                                                                                                            |           |
-| 38.6 | **Clear selection** ghost button                    | Empties the selection set; the sticky bar vanishes.                                                                                                                                                                                                        |           |
-| 38.7 | Sticky bar never covers the table when no selection | When `selected.size === 0`, the bar is not rendered at all. The table's bottom padding (`pb-24`) leaves room for the bar when it does appear.                                                                                                              |           |
-
----
-
-## 39. Library — Bundle Downloads
-
-The bundle endpoint streams binary data so it bypasses `apiClient` (which JSON-parses). Instead, `downloadBundle()` uses raw `fetch()` with the Authorization header from `getAccessToken()`.
-
-| #    | What to Check                    | Expected Result                                                                                                                                                                                                                   | Pass/Fail |
-| ---- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 39.1 | Bundle by run — per class        | Request: `GET /api/v1/report-cards/library/bundle-pdf?class_ids=...&class_ids=...&merge_mode=per_class&locale=en`. Response: a ZIP (`application/zip`) named from `Content-Disposition`, default fallback **"report-cards.zip"**. |           |
-| 39.2 | Bundle by run — single PDF       | Same request but `merge_mode=single`. Response: a merged PDF. Default filename **"report-cards.pdf"**.                                                                                                                            |           |
-| 39.3 | Bundle by class (per-class node) | `class_ids` contains a single id; `merge_mode=single`; downloads a merged PDF for that class only.                                                                                                                                |           |
-| 39.4 | Bundle selection                 | `report_card_ids` contains the selected row ids; `merge_mode=single`.                                                                                                                                                             |           |
-| 39.5 | Bundle failure                   | Response not OK: the catch block raises with the response text (or `HTTP {status}`). Toast **"Bundle failed"** with the server's message where possible.                                                                          |           |
-| 39.6 | Authorization header             | The raw fetch attaches `Authorization: Bearer {access_token}` from `getAccessToken()` and includes credentials.                                                                                                                   |           |
-| 39.7 | `__unassigned` class filtering   | Bundle calls for runs filter out the sentinel `class_id === '__unassigned'` so the backend doesn't receive a bogus class id.                                                                                                      |           |
+| #     | What to Check                                 | Expected Result                                                                                                                                                                    | Pass/Fail |
+| ----- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 38.1  | Row checkbox toggles selected                 | Click checkbox adds/removes the id from `selected`.                                                                                                                                |           |
+| 38.2  | Select-all per class                          | Class-level checkbox toggles every row id under it.                                                                                                                                |           |
+| 38.3  | Bulk action bar                               | When `selected.size > 0`, a sticky bar shows "{n} selected" + **Publish all**, **Unpublish all**, **Delete all**, **Download bundle**.                                             |           |
+| 38.4  | Bulk publish                                  | Click "Publish all". Loops `POST /v1/report-cards/{id}/publish` per id. Counts ok/fail. Toast `library.publishBulkSuccess/Failed` with counts.                                     |           |
+| 38.5  | Bulk delete                                   | Confirm dialog -> `POST /v1/report-cards/bulk-delete` with `{ report_card_ids: [...] }` -> 200 `{ data: { count: n, deleted_ids } }`. Rows removed. Toast `library.deleteSuccess`. |           |
+| 38.6  | Bulk unpublish skip non-published             | Unpublish runs only on rows with `status='published'`. If none selected are published -> toast `library.unpublishNoneSelected`, no calls.                                          |           |
+| 38.7  | Clear selection after action                  | `selected` resets to empty after any bulk action.                                                                                                                                  |           |
+| 38.8  | Selection persists across view switches       | Switching view tabs preserves `selected` if ids exist in the derived structure.                                                                                                    |           |
+| 38.9  | Mixed selection                               | Selecting some drafts + some published: bulk Delete deletes all; bulk Publish publishes drafts only; bulk Unpublish processes published only.                                      |           |
+| 38.10 | Confirm dialog shows count                    | Dialog description includes "Delete {count} report cards" using `library.selectionCount`.                                                                                          |           |
+| 38.11 | Bulk publish partial fail                     | Mixed success/fail returns both toasts (`library.publishBulkSuccess` + `Failed` with counts).                                                                                      |           |
+| 38.12 | Download bundle from bulk bar                 | Clicking "Download bundle" uses current `selected` ids in `report_card_ids` param.                                                                                                 |           |
+| 38.13 | Selection persists across reload-blocking nav | Refreshing the page clears `selected` (it's in-memory only).                                                                                                                       |           |
 
 ---
 
-## 40. Library — Delete Confirmation Modal
+## 39. Library — Bundle Download (PDF merge vs ZIP)
 
-| #    | What to Check                   | Expected Result                                                                                                                                                                                                                                                                | Pass/Fail |
-| ---- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 40.1 | Modal backdrop                  | Full-screen `fixed inset-0 z-40 bg-black/50` overlay with a centred rounded-2xl card (`max-w-md`).                                                                                                                                                                             |           |
-| 40.2 | Modal title                     | **"Delete report cards?"** (kind=delete).                                                                                                                                                                                                                                      |           |
-| 40.3 | Modal body                      | Reads **"You're about to delete {label} ({count} card/cards). This cannot be undone."** where label is student name, class label, or run label depending on the ask helper used.                                                                                               |           |
-| 40.4 | **Cancel** ghost button         | Closes the modal. No API call.                                                                                                                                                                                                                                                 |           |
-| 40.5 | **Delete** rose-outlined button | On click, calls `executeDelete()`: `DELETE /api/v1/report-cards/{id}` for single, or `POST /api/v1/report-cards/bulk-delete` with `{report_card_ids: [...]}` for multiple. Toast **"Deleted {count} card(s)"** on success. Modal closes, selection clears, library re-fetches. |           |
-| 40.6 | Delete failure                  | Toast with the server's message or the fallback **"Delete failed"**. Modal stays open until the user cancels or retries.                                                                                                                                                       |           |
-| 40.7 | Outside-click / Escape          | Clicking the backdrop or pressing Escape closes the modal. No API call.                                                                                                                                                                                                        |           |
-
----
-
-## 41. Library — Unpublish Confirmation Modal
-
-Same modal component, different `kind`.
-
-| #    | What to Check                       | Expected Result                                                                                                                                                                                                                                                              | Pass/Fail |
-| ---- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 41.1 | Modal title                         | **"Unpublish report cards?"** (kind=unpublish).                                                                                                                                                                                                                              |           |
-| 41.2 | Modal body                          | Reads **"You're about to unpublish {label} ({count} card). The original will be marked as revised and a new draft will appear in the library so you can edit and republish it."**.                                                                                           |           |
-| 41.3 | **Cancel** ghost button             | Closes the modal, no API call.                                                                                                                                                                                                                                               |           |
-| 41.4 | **Unpublish** amber-outlined button | On click, calls `executeUnpublish()`: loops through the ids sequentially calling `POST /api/v1/report-cards/{id}/revise`. Tracks `ok` and `fail` counts. Toast **"Unpublished {n} card(s)"** or **"Failed to unpublish {n} card(s)"**. Selection clears, library re-fetches. |           |
-| 41.5 | Sequential requests                 | Loop uses `await` inside `for...of` — no parallel stampede. Comment in the code explains this is intentional for the small row counts the library shows.                                                                                                                     |           |
+| #     | What to Check                 | Expected Result                                                                                                                                                                                                                                                 | Pass/Fail |
+| ----- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 39.1  | Class-level "Download bundle" | `GET /v1/report-cards/library/bundle-pdf?class_ids={CLASS_A_ID}&merge_mode=merge&locale=en&academic_period_id={ACTIVE_PERIOD_ID}` -> 200 streams `application/pdf` with `Content-Disposition: attachment; filename="..."`. Browser downloads single merged PDF. |           |
+| 39.2  | Merge_mode=zip                | Same endpoint with `merge_mode=zip` -> 200 streams `application/zip` with per-class PDFs.                                                                                                                                                                       |           |
+| 39.3  | Run-level bundle              | Bundle on a run row uses `report_card_ids=[...]` or `class_ids=[...]` per implementation. 200 streams.                                                                                                                                                          |           |
+| 39.4  | Full-year bundle              | `academic_period_id=full_year` -> server maps to `IS NULL`. 200.                                                                                                                                                                                                |           |
+| 39.5  | Academic year bundle          | `academic_year_id={ACTIVE_YEAR_ID}` scopes to that year's rows.                                                                                                                                                                                                 |           |
+| 39.6  | Filename format               | Content-Disposition filename descriptive (e.g., `"report-cards-term-2.pdf"` / `"report-cards-{ts}.zip"`).                                                                                                                                                       |           |
+| 39.7  | Empty scope 400               | Request without any id/filter -> 400 Zod validation error.                                                                                                                                                                                                      |           |
+| 39.8  | Permission                    | Caller needs `report_cards.manage`. Teacher -> 403.                                                                                                                                                                                                             |           |
+| 39.9  | Large bundle                  | 100+ cards: response completes within 30s or the server streams progressively. Flag slow responses in Section 80.                                                                                                                                               |           |
+| 39.10 | Locale mismatch               | Request with `locale=fr` (unsupported) -> 400 Zod validation.                                                                                                                                                                                                   |           |
+| 39.11 | Mime for ZIP                  | `Content-Type: application/zip`. `filename="...-{ts}.zip"`.                                                                                                                                                                                                     |           |
+| 39.12 | Bundle with superseded rows   | `include_revisions=true` includes revisions in the bundle order.                                                                                                                                                                                                |           |
+| 39.13 | Bundle empty result           | If filter yields zero cards -> 404 `{ code: 'NO_REPORT_CARDS_MATCH' }` or empty PDF. Document behaviour.                                                                                                                                                        |           |
 
 ---
 
-## 42. Library — PDF Presigned URL Contract
+## 40. Library — Filters
 
-Each row's `pdf_download_url` is a short-lived (5 min) presigned S3 URL generated server-side.
-
-| #    | What to Check                | Expected Result                                                                                                                                                                                                                                                                                                               | Pass/Fail |
-| ---- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 42.1 | URL shape                    | `https://edupod-assets.hel1.your-objectstorage.com/edupod-assets/{tenant_id}/report-cards/{student_id}/{period_id}/{rc_id}/{locale}.pdf?X-Amz-Algorithm=...&X-Amz-Expires=300&...&response-content-disposition=attachment%3B%20filename%3D%22{last}%20{first}%20-%20Report%20Card%20-%20{period}%20(%7B{LANG}%7D).pdf%22&...` |           |
-| 42.2 | Expiry                       | The signature is valid for `X-Amz-Expires=300` seconds. After that, GET returns 403 with `<Error><Code>SignatureDoesNotMatch</Code></Error>` (XML). The UI must re-fetch the library grouped response to get a fresh URL if the user idles too long.                                                                          |           |
-| 42.3 | Content-Disposition filename | Encodes the student's last + first name + period + locale. For Arabic locale: `{LANG}` = AR. For English: EN.                                                                                                                                                                                                                 |           |
-| 42.4 | Response body                | Valid PDF v1.4 document. Opens in any standard reader. Typical size 200–250 KB per student.                                                                                                                                                                                                                                   |           |
-| 42.5 | HEAD request                 | Hetzner/Ceph S3 doesn't expose HEAD for signed URLs — returns 403. Don't rely on HEAD for pre-fetch. GET works fine.                                                                                                                                                                                                          |           |
-
----
-
-## 43. Analytics Page — Load & Period Selector
-
-**URL:** `/en/report-cards/analytics` (optionally with `?academic_period_id={id or 'full_year'}`)
-
-| #    | What to Check                                                      | Expected Result                                                                                                                                                                                                                                    | Pass/Fail |
-| ---- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 43.1 | Navigate to `/en/report-cards/analytics`                           | Network: `GET /api/v1/academic-periods?pageSize=50` (200) and `GET /api/v1/report-cards/analytics/dashboard` (200). No class-comparison call fires because the default period is `'all'`.                                                          |           |
-| 43.2 | Navigate to `/en/report-cards/analytics?academic_period_id={uuid}` | The initial period is parsed from the URL. `GET /api/v1/report-cards/analytics/dashboard?academic_period_id={uuid}` AND `GET /api/v1/report-cards/analytics/class-comparison?academic_period_id={uuid}` fire in parallel via `Promise.allSettled`. |           |
-| 43.3 | Page heading                                                       | **"Report Card Analytics"**.                                                                                                                                                                                                                       |           |
-| 43.4 | **Back to Report Cards** button                                    | Top-right ghost button.                                                                                                                                                                                                                            |           |
-| 43.5 | Period selector                                                    | Right-aligned Select trigger. Options: **"All periods"** (sentinel `all`, default), **"Full Year"** (sentinel `full_year`), every period from the API in order.                                                                                    |           |
-| 43.6 | Select **All periods**                                             | Dashboard call fires WITHOUT query param. Class comparison call does NOT fire (because it throws 500 with no period id). The class comparison chart and per-class progress section are hidden.                                                     |           |
-| 43.7 | Select **S1**                                                      | Both dashboard + class-comparison calls fire. Chart and progress bars render.                                                                                                                                                                      |           |
-| 43.8 | Select **Full Year**                                               | Both calls fire with `academic_period_id=full_year` which the backend scopes to NULL-period rows.                                                                                                                                                  |           |
-| 43.9 | Loading skeleton                                                   | 5 summary-card skeletons in a row + two 64-height chart skeletons.                                                                                                                                                                                 |           |
+| #     | What to Check               | Expected Result                                                                            | Pass/Fail |
+| ----- | --------------------------- | ------------------------------------------------------------------------------------------ | --------- |
+| 40.1  | Filter by class_ids         | `GET /v1/report-cards/library?class_ids={CLASS_A_ID},{CLASS_B_ID}` -> 200. Rows scoped.    |           |
+| 40.2  | Filter by run_ids           | `GET /v1/report-cards/library?run_ids={GENERATED_RUN_ID}` -> 200. Only rows from that run. |           |
+| 40.3  | `include_revisions=true`    | Default `false`; revised rows hidden unless flag set. With `true` all revisions appear.    |           |
+| 40.4  | Academic period filter      | `?academic_period_id={ACTIVE_PERIOD_ID}` returns that period's rows.                       |           |
+| 40.5  | Full-year sentinel          | `academic_period_id=full_year` maps to IS NULL.                                            |           |
+| 40.6  | Pagination                  | `?page=1&pageSize=20` response meta `{ page, pageSize, total }`.                           |           |
+| 40.7  | Invalid filter shape        | `class_ids=not-a-uuid` -> 400 Zod.                                                         |           |
+| 40.8  | Multi-filter combo          | `class_ids=...&run_ids=...&include_revisions=true` all compose correctly.                  |           |
+| 40.9  | pageSize max                | `?pageSize=200` clamped to 100 by schema; returns 100 or 400.                              |           |
+| 40.10 | Filter combo with full-year | `academic_period_id=full_year&class_ids={id}` returns only full-year rows for that class.  |           |
+| 40.11 | Ordering                    | Default sort: newest first by `generated_at` within class nodes.                           |           |
 
 ---
 
-## 44. Analytics — Summary Cards
+## 41. Library — Individual PDF Download Contract
 
-Six cards in a responsive grid (2 columns mobile, 3 at sm+, 6 at lg+).
-
-| #    | Card                 | Value                                                                     | Variant (colour)    | Pass/Fail |
-| ---- | -------------------- | ------------------------------------------------------------------------- | ------------------- | --------- |
-| 44.1 | **Total**            | `summary.total` — integer count of report cards in scope                  | neutral             |           |
-| 44.2 | **Published**        | `summary.published`                                                       | success (green)     |           |
-| 44.3 | **Draft**            | `summary.draft`                                                           | info (primary blue) |           |
-| 44.4 | **Completion Rate**  | `(summary.completion_rate ?? 0).toFixed(1) + '%'`                         | info                |           |
-| 44.5 | **Overall comments** | `{summary.overall_comments_finalised} / {summary.overall_comments_total}` | info                |           |
-| 44.6 | **Subject comments** | `{summary.subject_comments_finalised} / {summary.subject_comments_total}` | info                |           |
-
-| #    | What to Check                                   | Expected Result                                                                                                     | Pass/Fail |
-| ---- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------- |
-| 44.7 | Analytics call fails                            | The whole `analytics` state is null. Section renders **"No results"** line.                                         |           |
-| 44.8 | Deprecated `comment_fill_rate` is NOT displayed | The legacy metric is still in the response shape but the UI never renders it. Confirm no card reads "Comment fill". |           |
+| #     | What to Check           | Expected Result                                                                                  | Pass/Fail |
+| ----- | ----------------------- | ------------------------------------------------------------------------------------------------ | --------- |
+| 41.1  | Endpoint                | `GET /v1/report-cards/{id}/pdf` with valid token -> 200.                                         |           |
+| 41.2  | Content-Type            | Response header `Content-Type: application/pdf`.                                                 |           |
+| 41.3  | Content-Disposition     | Header `inline; filename="report-card.pdf"`.                                                     |           |
+| 41.4  | Body is valid PDF       | First 4 bytes = `%PDF`.                                                                          |           |
+| 41.5  | 404 on missing card     | Nonexistent id -> 404 `{ code: 'REPORT_CARD_NOT_FOUND' }`.                                       |           |
+| 41.6  | Permission              | Requires `gradebook.view`. Anonymous -> 401.                                                     |           |
+| 41.7  | RLS isolation           | Cross-tenant request -> 404 (not 403).                                                           |           |
+| 41.8  | Branding injected       | PDF renders tenant school name, logo, primary colour, report-card title from `branding` payload. |           |
+| 41.9  | Locale-matched template | If `row.template_locale === 'ar'`, PDF renders in Arabic with correct fonts.                     |           |
+| 41.10 | Buffer size header      | `Content-Length` is set to `buffer.length`.                                                      |           |
+| 41.11 | Render failure          | If PDF renderer throws, response is 500 with `{ code: 'PDF_RENDER_FAILED' }`.                    |           |
 
 ---
 
-## 45. Analytics — Class Comparison Chart
+## 42. Analytics — Load & Period Selector
 
-Only renders when `analytics.class_comparison.length > 0`.
-
-| #    | What to Check            | Expected Result                                                                                                        | Pass/Fail |
-| ---- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------- | --------- |
-| 45.1 | Section heading          | **"Class comparison"**.                                                                                                |           |
-| 45.2 | Chart type               | Recharts `<BarChart>` in a 64-height ResponsiveContainer. X axis: `class_name`. Y axis: 0-100 domain. Two bar series.  |           |
-| 45.3 | Bar 1 — **Avg score**    | `dataKey="average_grade"`, fill primary-500, radius `[4, 4, 0, 0]`.                                                    |           |
-| 45.4 | Bar 2 — **Published**    | `dataKey="published_count"`, fill success-500, radius `[4, 4, 0, 0]`.                                                  |           |
-| 45.5 | Cartesian grid + tooltip | Grid uses `stroke="var(--color-border)"`. Tooltip contentStyle sets surface background, border, 8px radius, 12px font. |           |
-| 45.6 | Legend                   | Renders below the chart at 12px font.                                                                                  |           |
-
----
-
-## 46. Analytics — Per-Class Generation Progress
-
-Only renders when `analytics.class_comparison.length > 0`.
-
-| #    | What to Check      | Expected Result                                                                                                                                                                     | Pass/Fail |
-| ---- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 46.1 | Section heading    | **"Generation progress by class"**.                                                                                                                                                 |           |
-| 46.2 | One row per class  | Each row has the class name on the left and a right-aligned counter **"{published_count} / {student_count} · {pct}%"** where `pct = min(100, round(completion_rate))`.              |           |
-| 46.3 | Progress bar       | Below the counter line, a 2-height rounded bar with a primary-400 → primary-600 gradient fill. `role="progressbar"`, `aria-valuenow={pct}`, `aria-valuemin=0`, `aria-valuemax=100`. |           |
-| 46.4 | Bar fill animation | Uses `transition-all` so width changes animate smoothly when period filters change.                                                                                                 |           |
+| #    | What to Check              | Expected Result                                                                                                                                           | Pass/Fail |
+| ---- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 42.1 | Navigate via snapshot CTA  | From dashboard Analytics panel, click "View full analytics". URL = `/en/report-cards/analytics?academic_period_id={id}`.                                  |           |
+| 42.2 | Initial fetches            | `GET /v1/report-cards/analytics/dashboard` and `GET /v1/report-cards/analytics/class-comparison` fire. Optionally `GET /v1/academic-periods?pageSize=50`. |           |
+| 42.3 | Query-param hydration      | Page reads `searchParams.academic_period_id` — supports UUID, `'full_year'`, and `'all'` sentinel.                                                        |           |
+| 42.4 | "All periods" selector     | `all` re-fires both endpoints WITHOUT `academic_period_id` query param.                                                                                   |           |
+| 42.5 | Back button                | Ghost "Back to Report Cards" -> `/en/report-cards`.                                                                                                       |           |
+| 42.6 | Empty dataset              | If the dashboard returns all zeros, KPI cards show 0 with `—` fallback for percentages.                                                                   |           |
+| 42.7 | Period selector responsive | On mobile, selector is full-width.                                                                                                                        |           |
+| 42.8 | Loading state              | While fetching, KPI cards show skeletons.                                                                                                                 |           |
+| 42.9 | Failed fetch               | 500 shows an error empty state; no toast loops.                                                                                                           |           |
 
 ---
 
-## 47. Analytics — Term-Over-Term Trends (Planned)
+## 43. Analytics — Summary Cards
 
-| #    | What to Check     | Expected Result                                                                                                                                                          | Pass/Fail |
-| ---- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 47.1 | Current behaviour | Backend does NOT expose a trends endpoint yet. The UI hard-codes `trends: []` and the trend chart section never renders.                                                 |           |
-| 47.2 | Future behaviour  | When the trends endpoint ships, a Recharts LineChart with two lines (Avg score, Completion rate) will render below the per-class progress section. For now, mark as N/A. |           |
-
----
-
-## 48. Teacher Requests — List Page (Admin)
-
-**URL:** `/en/report-cards/requests`
-
-| #    | What to Check                           | Expected Result                                                                                                                                                                                                            | Pass/Fail |
-| ---- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 48.1 | Navigate to `/en/report-cards/requests` | Network: `GET /api/v1/report-card-teacher-requests?status=pending&pageSize=100` (200) on initial load (Pending tab active). After rows load, `GET /api/v1/academic-periods?pageSize=100` fetches period names for display. |           |
-| 48.2 | Page heading                            | **"Report Card Requests"** with subtitle **"Teachers can ask the principal to reopen a comment window or regenerate report cards."**.                                                                                      |           |
-| 48.3 | **Back to Report Cards** button         | Ghost button in the header.                                                                                                                                                                                                |           |
-| 48.4 | **New request** button                  | Teacher-only. NOT rendered for admins. Admins don't file their own requests.                                                                                                                                               |           |
-| 48.5 | Tab row                                 | For admins, two pill tabs: **"Pending review"** (default active, shows a primary-100 count badge when > 0) and **"All"**. Teachers see no tabs.                                                                            |           |
+| #     | What to Check                  | Expected Result                                                                                                        | Pass/Fail |
+| ----- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | --------- |
+| 43.1  | Total                          | Large number, label "Total".                                                                                           |           |
+| 43.2  | Published / Draft / Revised    | Three cards with counts.                                                                                               |           |
+| 43.3  | Pending approval               | Card showing `pending_approval`.                                                                                       |           |
+| 43.4  | Completion rate                | Percentage derived from `published / total`. Tabular numerals.                                                         |           |
+| 43.5  | Overall comments finalised     | `{finalised}/{total}` ratio.                                                                                           |           |
+| 43.6  | Subject comments finalised     | `{finalised}/{total}` ratio.                                                                                           |           |
+| 43.7  | `comment_fill_rate` deprecated | Marked deprecated in the type — should NOT render. If present, flag Section 80.                                        |           |
+| 43.8  | Card order                     | Total, Published, Draft, Revised, Pending, Completion, Overall comments, Subject comments (or the canonical UX order). |           |
+| 43.9  | Completion rate `—`            | When `total=0`, completion rate shows `—` not `NaN%`.                                                                  |           |
+| 43.10 | Delta indicator                | If prior-period data is available, a small up/down arrow reflects the delta. (Flag if not implemented.)                |           |
 
 ---
 
-## 49. Teacher Requests — Pending Tab
+## 44. Analytics — Class Comparison Chart
 
-| #     | What to Check                              | Expected Result                                                                                                                                                                                | Pass/Fail |
-| ----- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 49.1  | Tab label                                  | **"Pending review"**. When the list contains rows, an inline primary-100 badge shows the count.                                                                                                |           |
-| 49.2  | Empty state                                | `EmptyState` with MessageSquare icon and the localised **"No pending requests"** title.                                                                                                        |           |
-| 49.3  | Row table columns (admin)                  | **Requester**, **Type**, **Period**, **Scope**, **Reason**, **Status**, **Requested**, **Actions**. All headers uppercase `text-[10px]`.                                                       |           |
-| 49.4  | **Requester** cell                         | Shows `{first_name} {last_name}` (from the hydrated `row.requester`) + a secondary line with the email. Falls back to the user id prefix `#{id.slice(0,8)}` if the name and email are missing. |           |
-| 49.5  | **Type** cell                              | Localised label: **"Window reopen"** for `open_comment_window` or **"Regenerate reports"** for `regenerate_reports`.                                                                           |           |
-| 49.6  | **Period** cell                            | Friendly period name from the map (e.g. "S1"). Em-dash when `academic_period_id` is null (full-year request).                                                                                  |           |
-| 49.7  | **Scope** cell                             | For `open_comment_window`: em-dash. For `regenerate_reports`: **"{Year group/Class/Student}: {n} ids"** based on `target_scope_json`.                                                          |           |
-| 49.8  | **Reason** cell                            | Truncated with `max-w-xs truncate`; hover shows the full text via the `title` attribute.                                                                                                       |           |
-| 49.9  | **Status** cell                            | `<Badge>` with variant `warning` for `pending`, `info` for `approved`, `success` for `completed`, `danger` for `rejected`, `secondary` for `cancelled`.                                        |           |
-| 49.10 | **Requested** cell                         | Date-time via `formatDateTime()` helper — Gregorian, Latin numbers.                                                                                                                            |           |
-| 49.11 | **Review** button (admin on a pending row) | Navigates to `/en/report-cards/requests/{id}`.                                                                                                                                                 |           |
-
----
-
-## 50. Teacher Requests — All Tab
-
-| #    | What to Check  | Expected Result                                                                                                                                                           | Pass/Fail |
-| ---- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 50.1 | Click **All**  | Active tab highlights. Network: `GET /api/v1/report-card-teacher-requests?pageSize=100` (no status filter). Rows populate with every tenant request regardless of status. |           |
-| 50.2 | Empty state    | EmptyState with **"No requests yet"** title.                                                                                                                              |           |
-| 50.3 | Row actions    | Every row shows a ghost **"Review"** button that navigates to the detail page. Pending rows also show the outline **"Review"** pill (same as Pending tab).                |           |
-| 50.4 | Row sort order | Defaults to the backend ordering (newest first by `created_at`).                                                                                                          |           |
+| #     | What to Check            | Expected Result                                                                                      | Pass/Fail |
+| ----- | ------------------------ | ---------------------------------------------------------------------------------------------------- | --------- |
+| 44.1  | Bar chart renders        | Recharts `<BarChart>` with axes labelled class name and average grade.                               |           |
+| 44.2  | Tooltip on hover         | Shows class name, average grade, published count, completion rate.                                   |           |
+| 44.3  | X-axis labels readable   | Long names rotate or truncate.                                                                       |           |
+| 44.4  | Empty dataset            | If `class_comparison=[]`, shows "No data" empty state.                                               |           |
+| 44.5  | Period filter propagates | Changing selector re-fetches both endpoints with new period.                                         |           |
+| 44.6  | Chart responsive         | At 375px `<ResponsiveContainer>` squeezes to full width without horizontal scroll.                   |           |
+| 44.7  | Legend                   | Legend shows series name ("Average grade").                                                          |           |
+| 44.8  | Colour tokens            | Bars use primary tokens, no hardcoded hex.                                                           |           |
+| 44.9  | Click a bar              | Clicking a bar navigates to `/en/report-cards/{classId}` or filters the analytics. Verify behaviour. |           |
+| 44.10 | Bar order                | Sorted by `class_name` or by `average_grade` descending — document and confirm.                      |           |
 
 ---
 
-## 51. Teacher Request Detail — Load
+## 45. Analytics — Per-Class Generation Progress
 
-**URL:** `/en/report-cards/requests/{id}`
-
-| #     | What to Check                        | Expected Result                                                                                                                                                                                                                    | Pass/Fail |
-| ----- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 51.1  | Navigate to the detail page          | Network: `GET /api/v1/report-card-teacher-requests/{id}` (200). Response is wrapped via `Envelope<T>`. If the request has a `academic_period_id`, a secondary `GET /api/v1/academic-periods?pageSize=100` fetches the period name. |           |
-| 51.2  | **Back to requests** button          | Ghost button above the header. Navigates to `/en/report-cards/requests`.                                                                                                                                                           |           |
-| 51.3  | Page heading                         | **"Request details"**.                                                                                                                                                                                                             |           |
-| 51.4  | Status badge + type                  | Top of the detail card: status Badge + the type label in secondary text.                                                                                                                                                           |           |
-| 51.5  | Description list                     | 2-column grid (on sm+) showing: **Requester** (name + email), **Period** (friendly name or em-dash), **Scope** (readable summary), **Requested at** (localised date-time).                                                         |           |
-| 51.6  | **Reason** block                     | Full reason text in `whitespace-pre-wrap` so line breaks render.                                                                                                                                                                   |           |
-| 51.7  | **Review note** block (after review) | Only rendered when `row.review_note !== null`. Shows the note + a footer line **"Reviewed by: {reviewer name} — {datetime}"**.                                                                                                     |           |
-| 51.8  | Loading skeleton                     | 4 pulsing 12-height bars.                                                                                                                                                                                                          |           |
-| 51.9  | Load failure                         | EmptyState with AlertCircle icon + localised "Failed to load" title.                                                                                                                                                               |           |
-| 51.10 | Missing request                      | EmptyState with AlertCircle icon + localised "Not found" title.                                                                                                                                                                    |           |
+| #     | What to Check             | Expected Result                                                                                  | Pass/Fail |
+| ----- | ------------------------- | ------------------------------------------------------------------------------------------------ | --------- |
+| 45.1  | Progress list             | Per-class table or line chart showing `published_count / student_count` ratios.                  |           |
+| 45.2  | Colour coding             | >80% green, 40–80% amber, <40% red (via tokens).                                                 |           |
+| 45.3  | Click-through             | Clicking a class row/line navigates to `/en/report-cards/{classId}`.                             |           |
+| 45.4  | Trends line chart         | If `trends[]` returned, a `<LineChart>` plots `avg_score` + `completion_pct` over `period_name`. |           |
+| 45.5  | Empty trends              | If no trends returned, the chart section is hidden entirely.                                     |           |
+| 45.6  | Trend chart locale        | `period_name` labels render localised where translated.                                          |           |
+| 45.7  | Trend lines colour        | Separate colours for `avg_score` and `completion_pct` via design tokens.                         |           |
+| 45.8  | Per-class drill-down link | Each class row has a "View class" link to `/en/report-cards/{classId}`.                          |           |
+| 45.9  | Accessibility labels      | Chart has `role='img'` and `aria-label` summarising the data.                                    |           |
+| 45.10 | Print-friendly            | Ctrl+P produces a clean, monochrome-compatible chart (no dark backgrounds).                      |           |
 
 ---
 
-## 52. Teacher Request Detail — Approve & Open
+## 46. Teacher Requests — List Page (Pending / All Tabs)
 
-| #    | What to Check                                                        | Expected Result                                                                                                                                                                                      | Pass/Fail |
-| ---- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 52.1 | **Approve & open** primary button (admin, status=pending)            | Check icon, primary colour. Only rendered when `isAdmin && row.status === 'pending'`.                                                                                                                |           |
-| 52.2 | Click Approve & open                                                 | `PATCH /api/v1/report-card-teacher-requests/{id}/approve` with `{auto_execute: false}`. Toast **"Approved"**. Based on the request type and fields, the user is routed to a pre-filled wizard/modal. |           |
-| 52.3 | Routing for `open_comment_window` with `academic_period_id` set      | Navigates to `/en/report-comments?open_window_period={period_id}`. The Report Comments landing page detects the query param and auto-opens the Open Window modal with the period pre-filled.         |           |
-| 52.4 | Routing for `open_comment_window` WITHOUT period (full-year request) | Navigates to `/en/report-cards/requests` (the list). Admin can re-open the window manually. Future enhancement: handle full-year via the RequestReopenModal's sentinel.                              |           |
-| 52.5 | Routing for `regenerate_reports`                                     | Navigates to `/en/report-cards/generate?scope_mode={mode}&scope_ids={comma list}&period_id={period}`. The wizard hands off to Step 6 via the pre-fill effect in section 32.                          |           |
-| 52.6 | Approve failure                                                      | Toast **"Approval failed"**. Page stays on the detail view with status unchanged.                                                                                                                    |           |
-
----
-
-## 53. Teacher Request Detail — Auto-Approve & Execute
-
-| #    | What to Check                             | Expected Result                                                                                                                                                                                                                                      | Pass/Fail |
-| ---- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 53.1 | **Auto-approve & execute** outline button | Play icon. Clicking opens a `ConfirmDialog` (default variant, NOT destructive) titled **"Auto-approve & execute"** with the body **"Auto-approve and execute this request immediately?"** and confirm label **"Auto-approve & execute"**.            |           |
-| 53.2 | Confirm                                   | `PATCH /api/v1/report-card-teacher-requests/{id}/approve` with `{auto_execute: true}`. Toast **"Approved"**.                                                                                                                                         |           |
-| 53.3 | Behaviour for `open_comment_window`       | The backend's auto-execute path creates a fresh comment window inheriting the homeroom assignments from the most recent prior window for the same period (B14 fix). The detail page refetches and shows status `approved` + a `resulting_window_id`. |           |
-| 53.4 | Behaviour for `regenerate_reports`        | The backend triggers a generation run via the generation service and returns a `resulting_run_id`. The detail page refetches.                                                                                                                        |           |
-| 53.5 | Cancel on the ConfirmDialog               | Dialog closes, no API call, no status change.                                                                                                                                                                                                        |           |
-| 53.6 | Failure                                   | Toast **"Approval failed"**. Request stays pending.                                                                                                                                                                                                  |           |
-
----
-
-## 54. Teacher Request Detail — Reject Flow
-
-| #    | What to Check                                         | Expected Result                                                                                                                                                                                                              | Pass/Fail |
-| ---- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 54.1 | **Reject** destructive button (admin, status=pending) | X icon, destructive variant (red). Opens the `<RejectModal>`.                                                                                                                                                                |           |
-| 54.2 | RejectModal layout                                    | Dialog with title **"Reject request"** and description. Single field: a Textarea labelled **"Rejection note"**. Required (min 1 character after trim). Footer: **Cancel** + **Reject** (destructive) buttons.                |           |
-| 54.3 | Submit with empty note                                | Zod validation from `rejectTeacherRequestSchema` fails. Red **"Please provide a reason"** error below the textarea. No API call.                                                                                             |           |
-| 54.4 | Submit with valid note                                | `PATCH /api/v1/report-card-teacher-requests/{id}/reject` with `{review_note}`. Toast **"Rejected"**. Modal closes. Detail page refetches; status flips to `rejected` and the review note appears in the "Review note" block. |           |
-| 54.5 | Cancel                                                | Closes modal without an API call.                                                                                                                                                                                            |           |
-| 54.6 | Rejection failure                                     | Toast **"Rejection failed"**. Modal stays open.                                                                                                                                                                              |           |
+| #     | What to Check                     | Expected Result                                                                                                                                  | Pass/Fail |
+| ----- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 46.1  | Navigate via tile                 | From dashboard Requests tile -> `/en/report-cards/requests`.                                                                                     |           |
+| 46.2  | Initial fetch                     | `GET /v1/report-card-teacher-requests?status=pending&pageSize=100` (pending tab). Plus `GET /v1/academic-periods?pageSize=100` for period names. |           |
+| 46.3  | Two admin tabs                    | **Pending** (default), **All**. Teachers see only implicit "mine".                                                                               |           |
+| 46.4  | Pending tab badge                 | When `pendingCount > 0`, badge shows count.                                                                                                      |           |
+| 46.5  | Switch to All                     | Click **All**. Fetches `?pageSize=100` without status filter.                                                                                    |           |
+| 46.6  | Loading skeleton                  | Three `h-16` animated rows.                                                                                                                      |           |
+| 46.7  | Empty pending                     | `EmptyState` MessageSquare + `requests.emptyPending`.                                                                                            |           |
+| 46.8  | Empty all                         | `requests.empty`.                                                                                                                                |           |
+| 46.9  | Load failure                      | 500 -> `EmptyState` AlertCircle + `requests.loadFailed`.                                                                                         |           |
+| 46.10 | Admin columns                     | Requester, Type, Period, Scope, Reason, Status, Requested at, Actions.                                                                           |           |
+| 46.11 | Status badge mapping              | Pending=warning, Approved=info, Completed=success, Rejected=danger, Cancelled=secondary.                                                         |           |
+| 46.12 | Row Review action                 | Click **Review** -> `/en/report-cards/requests/{id}`.                                                                                            |           |
+| 46.13 | "+ New request" hidden for admins | Admins review but do not file requests.                                                                                                          |           |
+| 46.14 | Period name fallback              | If period id not in `periodMap`, renders the raw UUID.                                                                                           |           |
+| 46.15 | Scope summary                     | `target_scope_json.scope` + `ids.length` rendered as "Class: 3 items" etc.                                                                       |           |
+| 46.16 | Requester name hydration          | Row shows `requester.full_name` or fallback from email or id slice.                                                                              |           |
+| 46.17 | Status filter URL param           | Tab state does not currently appear in URL (client state). Flag if deep-linking is expected.                                                     |           |
+| 46.18 | Request with full-year scope      | Requests without `academic_period_id` show "Full year" in the Period column.                                                                     |           |
+| 46.19 | Very long reason truncated        | Reasons > ~120 chars truncate in the table cell; full text shown in `title` attribute.                                                           |           |
+| 46.20 | Date format                       | `created_at` uses `formatDateTime` helper (locale-aware, Gregorian, Latin numerals).                                                             |           |
 
 ---
 
-## 55. Report Comments Landing — Admin Load
+## 47. Teacher Requests — Detail Page
 
-**URL:** `/en/report-comments`
-
-An admin on this page sees the **full curriculum matrix** — every `(class, subject)` pair in `class_subject_grade_configs`, every homeroom class — because the backend's `getLandingScopeForActor()` returns `is_admin: true` with the complete list.
-
-| #    | What to Check                     | Expected Result                                                                                                                                                                                                                                                                                                                            | Pass/Fail |
-| ---- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 55.1 | Navigate to `/en/report-comments` | Network calls in parallel: `GET /api/v1/report-comment-windows/active`, `GET /api/v1/report-comment-windows/landing`, `GET /api/v1/year-groups?pageSize=100`, `GET /api/v1/classes?pageSize=200&homeroom_only=false`, `GET /api/v1/classes?pageSize=200`, `GET /api/v1/subjects?pageSize=100`, `GET /api/v1/academic-periods?pageSize=50`. |           |
-| 55.2 | Landing scope response            | `{is_admin: true, overall_class_ids: [], subject_assignments: [{class_id, subject_id}, ...], active_window_id: '...' or null}`. For an admin, `overall_class_ids` is always `[]` (a sentinel meaning "no filter — show all homerooms").                                                                                                    |           |
-| 55.3 | Page heading                      | **"Report Comments"** with subtitle **"Write and finalise subject and overall comments for student report cards."**.                                                                                                                                                                                                                       |           |
-| 55.4 | **Back to Report Cards** button   | Ghost button in the header.                                                                                                                                                                                                                                                                                                                |           |
-| 55.5 | Loading skeleton                  | Two year-group block skeletons, each with 3 pulsing card skeletons in a responsive grid.                                                                                                                                                                                                                                                   |           |
-| 55.6 | Counts are skipped for admins     | To avoid the 100-req/60s rate limit blowout on a large curriculum matrix (B10 fix), admins get `finalised: 0, total: 0` placeholders for every card. The card bodies show **"No comments yet"** instead of a percentage. Per-pair count fetches do NOT fire at all when `scope.is_admin === true`.                                         |           |
-
----
-
-## 56. Report Comments — Window Banner (Admin)
-
-Rendered above the cards. Admins see different buttons depending on whether a window is open.
-
-### 56.1 Window is open
-
-| #      | What to Check                                  | Expected Result                                                                                                                                                                               | Pass/Fail |
-| ------ | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 56.1.1 | Banner frame                                   | `rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4`. `aria-live="polite"`.                                                                                                           |           |
-| 56.1.2 | Icon + heading                                 | CheckCircle2 icon in a circular emerald bubble. Heading **"Comment window open"**.                                                                                                            |           |
-| 56.1.3 | Body text                                      | **"Comment window open for {period} — closes {closesAt}."** where closesAt is formatted via `Intl.DateTimeFormat({day, month: 'short', year, hour, minute})` with Gregorian + Latin numerals. |           |
-| 56.1.4 | Instructions line                              | When `window.instructions !== null`, a smaller paragraph **"Principal's note: {instructions}"** renders below the body text.                                                                  |           |
-| 56.1.5 | **Extend** button (admin only, window open)    | Outline button with Timer icon. Opens the Extend Window modal (section 63).                                                                                                                   |           |
-| 56.1.6 | **Close now** button (admin only, window open) | Outline button with X icon. Opens the Close Window ConfirmDialog (section 64). While closing, label flips to **"Closing…"**.                                                                  |           |
-
-### 56.2 Window is closed OR no window ever opened
-
-| #      | What to Check                                                     | Expected Result                                                                                                                                                                                  | Pass/Fail |
-| ------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 56.2.1 | Banner frame                                                      | `rounded-2xl border border-border bg-surface-secondary p-4`.                                                                                                                                     |           |
-| 56.2.2 | Icon + heading                                                    | Lock icon in a tertiary bubble. Heading **"Comment window closed"**.                                                                                                                             |           |
-| 56.2.3 | Body text                                                         | **"No comments can be written right now."** when a prior window exists, or **"No comment activity yet. A principal will open a window when the period closes."** when there's no history at all. |           |
-| 56.2.4 | **Open window** primary button (admin)                            | Plus icon. Opens the Open Window modal (section 57-61). While opening, label flips to **"Opening…"**.                                                                                            |           |
-| 56.2.5 | **Reopen** outline button (admin, only when `window` is non-null) | RotateCcw icon. Fires `PATCH /api/v1/report-comment-windows/{id}/reopen`. Page refetches.                                                                                                        |           |
+| #    | What to Check                      | Expected Result                                                                                                                                             | Pass/Fail |
+| ---- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | -------- | ----------- | --- |
+| 47.1 | Navigate to detail                 | From list, click Review. URL = `/en/report-cards/requests/{id}`.                                                                                            |           |
+| 47.2 | Initial fetch                      | `GET /v1/report-card-teacher-requests/{id}` -> 200 `{ data: {...} }`. Period-specific requests also fetch `GET /v1/academic-periods?pageSize=100` silently. |           |
+| 47.3 | Header                             | "Teacher request" title. Back button -> `/en/report-cards/requests`.                                                                                        |           |
+| 47.4 | Loading + error + not-found states | Skeleton while loading; `EmptyState` for load-failed and 404.                                                                                               |           |
+| 47.5 | Request detail card                | Shows status badge, type label, requester (name + email), period, scope, requested at, reason (`whitespace-pre-wrap`).                                      |           |
+| 47.6 | Review note (if reviewed)          | Grey panel shows review note + reviewer name + reviewed at timestamp.                                                                                       |           |
+| 47.7 | Actions for admin + pending        | **Approve & Open**, **Auto-approve**, **Reject** buttons.                                                                                                   |           |
+| 47.8 | Actions hidden for non-pending     | Action buttons hidden if status ∈ `approved                                                                                                                 | completed | rejected | cancelled`. |     |
+| 47.9 | UUID param parsing                 | `params.id` resolves to a string (first element if array). Invalid UUID -> server 400 on load.                                                              |           |
 
 ---
 
-## 57. Open Window Modal — Academic Period
+## 48. Teacher Requests — Approve & Open Flow
 
-**Dialog open:** click the Open window button on a closed-window banner, or arrive via `?open_window_period={id}` query param.
-
-| #    | What to Check                  | Expected Result                                                                                                                                                                        | Pass/Fail |
-| ---- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 57.1 | Dialog title                   | **"Open comment window"** with description **"Opening a window allows teachers to write and finalise comments for the selected period."**.                                             |           |
-| 57.2 | Network calls on mount         | `GET /api/v1/academic-periods?pageSize=100`, `GET /api/v1/classes?pageSize=200&status=active&homeroom_only=false`, `GET /api/v1/staff-profiles?pageSize=100&employment_status=active`. |           |
-| 57.3 | **Academic period** select     | Required. Dropdown lists every period from the first call. Placeholder **"Select a period"**.                                                                                          |           |
-| 57.4 | Select a period                | Trigger updates. On submit, the period id is sent as `academic_period_id`.                                                                                                             |           |
-| 57.5 | Submit with no period selected | Zod refine rejects with `periodRequired`. Red error text **"Please select a period"** renders below the select. No API call.                                                           |           |
-
----
-
-## 58. Open Window Modal — Opens At / Closes At
-
-| #    | What to Check                        | Expected Result                                                                                                                                          | Pass/Fail |
-| ---- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 58.1 | **Opens at** field                   | `<input type="datetime-local">`. Default value pre-filled with **now** (local time, via `nowLocalInput()`). Min height 11 (44px for touch targets).      |           |
-| 58.2 | **Closes at** field                  | `<input type="datetime-local">`. No default. Required.                                                                                                   |           |
-| 58.3 | Zod validation: closes_at > opens_at | If `closes_at` is not strictly after `opens_at`, the form refine throws `validationClosesAfterOpens` and shows red error text below the closes_at field. |           |
-| 58.4 | Zod validation: closes_at required   | Empty field → `closesAtRequired` error message.                                                                                                          |           |
+| #     | What to Check                            | Expected Result                                                                                                                                                                 | Pass/Fail |
+| ----- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 48.1  | Click "Approve & Open"                   | `PATCH /v1/report-card-teacher-requests/{id}/approve` with `{ auto_execute: false }` -> 200. Toast `detail.approveSuccess`.                                                     |           |
+| 48.2  | Route — comment window                   | For `request_type='open_comment_window'` with a period: -> `/en/report-comments?open_window_period={period_id}`.                                                                |           |
+| 48.3  | Route — regenerate                       | For `regenerate_reports` with scope + period: -> `/en/report-cards/generate?scope_mode={mode}&scope_ids={ids.join(',')}&period_id={period_id}`. `student` maps to `individual`. |           |
+| 48.4  | Full-year reopen fallback                | Request with no `academic_period_id` -> fallback nav `/en/report-cards/requests`.                                                                                               |           |
+| 48.5  | 403 not admin                            | Teacher approving -> 403 `{ code: 'NOT_AUTHORISED' }`. Toast.                                                                                                                   |           |
+| 48.6  | Already-approved 409                     | Approving non-pending -> 409 `{ code: 'REQUEST_NOT_PENDING' }`.                                                                                                                 |           |
+| 48.7  | Approve audit                            | Reload detail: `reviewed_by_user_id = Yusuf's id`, `reviewed_at = now`, `status='approved'`, `resulting_window_id`/`resulting_run_id` populated where applicable.               |           |
+| 48.8  | Handoff query param consumed             | On the landing/generate page, the query param is consumed once via a ref guard and stripped via `history.replaceState`.                                                         |           |
+| 48.9  | Comment-window handoff consumed once     | Landing page `openWindowHandoffRef` prevents re-opening the modal on re-render.                                                                                                 |           |
+| 48.10 | Handoff param sanitised                  | The `open_window_period` param must be a valid UUID; malformed values are ignored.                                                                                              |           |
+| 48.11 | Regenerate handoff — ids comma-separated | URL-encoded `scope_ids` with commas; wizard splits on comma and filters empties.                                                                                                |           |
+| 48.12 | Navigation preserves locale              | Approve-and-open respects the current locale prefix (`/ar/...` if on Arabic).                                                                                                   |           |
 
 ---
 
-## 59. Open Window Modal — Instructions
+## 49. Teacher Requests — Auto-Approve Flow
 
-| #    | What to Check      | Expected Result                                                      | Pass/Fail |
-| ---- | ------------------ | -------------------------------------------------------------------- | --------- |
-| 59.1 | Field              | `<Textarea rows={3}>` with a placeholder. Optional (max 2000 chars). |           |
-| 59.2 | On submit, sent as | `instructions: {trimmed} \|\| null`. Empty string submits as `null`. |           |
-
----
-
-## 60. Open Window Modal — Homeroom Teacher Picker
-
-This is the B4-new feature: one row per active homeroom class with a per-class teacher selector.
-
-| #     | What to Check                                 | Expected Result                                                                                                                                                                                                  | Pass/Fail |
-| ----- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 60.1  | Section frame                                 | Bordered `bg-surface-secondary/40 p-3`. Label **"Homeroom teacher per class"** with a helper paragraph about picking a teacher per class.                                                                        |           |
-| 60.2  | Assigned counter                              | Right side of the section header: **"{assigned} of {total} assigned"** (e.g. **"3 of 16 assigned"**). Updates live as the admin picks teachers.                                                                  |           |
-| 60.3  | Class rows                                    | One row per active class returned by the classes API. Layout: class name (medium weight) + year group name (small tertiary) on the left; a Select dropdown on the right.                                         |           |
-| 60.4  | Class sort order                              | Ascending by `year_group.name`, then by `class.name`. Classes without a year group sink to the bottom.                                                                                                           |           |
-| 60.5  | Teacher select — options                      | First option: **"— No homeroom teacher —"** (sentinel `__none__`). Remaining: every staff profile with a `teacher` role entry, sorted alphabetically by last name. Each option shows full name + email subtitle. |           |
-| 60.6  | Teacher select — default                      | Unselected (placeholder **"Select a teacher"**) for every class.                                                                                                                                                 |           |
-| 60.7  | Pick a teacher                                | The class id ↔ staff id pair is stored in `homeroom_picks`. The assigned counter increments.                                                                                                                     |           |
-| 60.8  | Pick the **"— No homeroom teacher —"** option | Removes any existing pick for that class. Counter decrements.                                                                                                                                                    |           |
-| 60.9  | Loading state                                 | While the staff/classes calls are in flight, the section shows 4 pulsing row skeletons.                                                                                                                          |           |
-| 60.10 | Empty classes tenant                          | A centred **"No active classes for this tenant."** message in place of the rows.                                                                                                                                 |           |
-| 60.11 | Staff-profiles pageSize = 100                 | The request uses `pageSize=100` (NOT 200). The backend schema rejects `pageSize > 100` with a 400 error, which would blow up the whole Promise.all. The cap of 100 is deliberate (B-hotfix).                     |           |
+| #    | What to Check                | Expected Result                                                                                                                                                       | Pass/Fail |
+| ---- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 49.1 | Click "Auto-approve"         | Opens `ConfirmDialog` with title "Auto-approve" and description `detail.autoApproveConfirm`.                                                                          |           |
+| 49.2 | Confirm                      | `PATCH /v1/report-card-teacher-requests/{id}/approve` with `{ auto_execute: true }` -> 200. Toast `detail.approveSuccess`. Dialog closes. Row refreshes (bump token). |           |
+| 49.3 | Side effect — comment window | Backend opens the window immediately; next `GET /v1/report-comment-windows/active` returns a new row.                                                                 |           |
+| 49.4 | Side effect — regenerate     | Backend enqueues a new run; `GET /v1/report-cards/generation-runs?page=1&pageSize=5` shows a fresh `queued` row.                                                      |           |
+| 49.5 | Cancel the dialog            | Closes without calling API.                                                                                                                                           |           |
+| 49.6 | Error handling               | 500 -> toast `detail.approveFailure`, dialog stays open.                                                                                                              |           |
+| 49.7 | No double-submit             | While `actionInFlight=true`, Confirm button disabled.                                                                                                                 |           |
 
 ---
 
-## 61. Open Window Modal — Submit
+## 50. Teacher Requests — Reject Flow
 
-| #    | What to Check               | Expected Result                                                                                                                                                                                                                                                                                            | Pass/Fail |
-| ---- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 61.1 | Footer buttons              | **Cancel** (outline, closes the modal without saving) + **Open window** (primary, submits the form). **Open window** label flips to **"Submitting…"** while in flight.                                                                                                                                     |           |
-| 61.2 | Successful submit           | `POST /api/v1/report-comment-windows` with payload `{academic_period_id, opens_at: ISO, closes_at: ISO, instructions, homeroom_assignments: [{class_id, homeroom_teacher_staff_id}]}`. Response 201. Toast **"Window opened"**. Modal closes. Landing page refetches and shows the new open-window banner. |           |
-| 61.3 | Backend validation failures | **HOMEROOM_CLASS_NOT_FOUND** / **HOMEROOM_STAFF_NOT_FOUND** / **HOMEROOM_CLASS_WRONG_YEAR** / **COMMENT_WINDOW_ALREADY_OPEN** → toast **"Failed to open window"** with the server's message. Modal stays open.                                                                                             |           |
-| 61.4 | Empty homeroom picks        | Valid — the window opens with zero homeroom assignments. Overall-comment cards just don't render for any class on the landing page.                                                                                                                                                                        |           |
-
----
-
-## 62. Open Window Modal — Pre-Fill From Approved Request
-
-| #    | What to Check                                                         | Expected Result                                                                                                                                                                                                      | Pass/Fail |
-| ---- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 62.1 | Land on `/en/report-comments?open_window_period={period_id}` as admin | The page's `openWindowHandoffRef` effect detects the param, stores it in `prefilledPeriodId`, opens the modal (`setOpenWindowModalOpen(true)`), and removes the query param from the URL via `history.replaceState`. |           |
-| 62.2 | Modal's Academic period select                                        | Pre-populated with the period from the query param (via `defaultPeriodId` prop).                                                                                                                                     |           |
-| 62.3 | Closing the modal                                                     | Clears `prefilledPeriodId` in the parent so a fresh open re-initialises clean.                                                                                                                                       |           |
+| #    | What to Check       | Expected Result                                                                                                                                                                             | Pass/Fail |
+| ---- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 50.1 | Click "Reject"      | Opens `RejectModal`. Textarea "Reason for rejection" (required) + Reject + Cancel.                                                                                                          |           |
+| 50.2 | Empty reason        | Submitting empty shows field-level validation error; no API call.                                                                                                                           |           |
+| 50.3 | Valid reject        | Enter "Please resubmit with updated scope". Click Reject. `PATCH /v1/report-card-teacher-requests/{id}/reject` with `{ reason: '...' }` -> 200. Toast success. Modal closes. Row refreshes. |           |
+| 50.4 | Reviewer audit      | Detail page re-renders with `review_note`, `reviewed_by_user_id`, `reviewed_at`.                                                                                                            |           |
+| 50.5 | Cannot re-reject    | Second reject on same request -> 409 `{ code: 'REQUEST_NOT_PENDING' }`.                                                                                                                     |           |
+| 50.6 | Modal a11y          | Focus trap + Esc closes + focus returns to trigger.                                                                                                                                         |           |
+| 50.7 | Reason max length   | Reason > 500 chars -> 400 Zod.                                                                                                                                                              |           |
+| 50.8 | Reject audit record | `GET /v1/audit-logs?entity_id={id}` includes a `request.rejected` event with the full reason body.                                                                                          |           |
 
 ---
 
-## 63. Extend Window Modal
+## 51. Report Comments — Landing Page Load
 
-| #    | What to Check                                | Expected Result                                                                                                                                                                             | Pass/Fail |
-| ---- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 63.1 | Dialog open                                  | Title **"Extend comment window"** with description **"Push the close time out to give teachers more time."**.                                                                               |           |
-| 63.2 | **New close date** field                     | `<input type="datetime-local">`, pre-filled with the current `window.closes_at` converted to local time via `toLocalInput()`. Min height 11.                                                |           |
-| 63.3 | **Cancel** button                            | Closes the modal, no API call.                                                                                                                                                              |           |
-| 63.4 | **Extend** primary button                    | Disabled when `isSubmitting`, no windowId, or empty closesAt. Otherwise enabled. Label flips to **"Submitting…"** while in flight.                                                          |           |
-| 63.5 | Successful submit                            | `PATCH /api/v1/report-comment-windows/{id}/extend` with `{closes_at: ISO}`. Toast **"Window extended"**. Modal closes. Landing page refetches — the banner now shows the updated closes_at. |           |
-| 63.6 | Server validation: new closes_at <= opens_at | Backend rejects with INVALID_WINDOW_EXTEND. Toast **"Failed to extend"**. Modal stays open.                                                                                                 |           |
-| 63.7 | Server validation: status not open/scheduled | Backend rejects with INVALID_WINDOW_EXTEND. Toast shows the server message.                                                                                                                 |           |
-
----
-
-## 64. Close Window Confirm Dialog
-
-| #    | What to Check                                      | Expected Result                                                                                                                                     | Pass/Fail |
-| ---- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 64.1 | ConfirmDialog title                                | **"Close comment window?"**.                                                                                                                        |           |
-| 64.2 | Description                                        | **"Closing the window locks all comment edits immediately. Teachers will need to submit a request to make further changes."**.                      |           |
-| 64.3 | Variant                                            | `warning` (amber accent).                                                                                                                           |           |
-| 64.4 | **Close window** confirm button                    | Amber tone. On click, fires `PATCH /api/v1/report-comment-windows/{id}/close`. Toast **"Window closed"**. Landing refetches with the closed banner. |           |
-| 64.5 | **Cancel** button                                  | Closes the dialog. No API call.                                                                                                                     |           |
-| 64.6 | Busy state                                         | `closingInFlight` flag disables both buttons while the PATCH is in flight. The Close now button on the banner also reads **"Closing…"**.            |           |
-| 64.7 | Dialog doesn't dismiss on outside click while busy | Verify the modal stays mounted until the API call resolves.                                                                                         |           |
+| #     | What to Check                   | Expected Result                                                                                                                                                                                         | Pass/Fail |
+| ----- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 51.1  | Navigate via tile               | Write comments tile -> `/en/report-comments`.                                                                                                                                                           |           |
+| 51.2  | Initial fetches                 | `GET /v1/report-comment-windows/active`, `GET /v1/report-comment-windows/landing`, `GET /v1/year-groups?pageSize=100`, `GET /v1/classes?pageSize=100`, `GET /v1/subjects?pageSize=200` (or equivalent). |           |
+| 51.3  | Header                          | Title `reportComments.title`. Back button -> `/en/report-cards`.                                                                                                                                        |           |
+| 51.4  | Query-param handoff             | Arriving with `?open_window_period={id}` auto-opens the Open Window modal pre-filled. Query param stripped via `history.replaceState`.                                                                  |           |
+| 51.5  | Admin buttons                   | "Open window" and "Extend / Close / Reopen" visible to admins only.                                                                                                                                     |           |
+| 51.6  | Homeroom cards                  | Admin lists every class with a homeroom teacher assigned for the open window. Each card shows finalised/total overall comment counts.                                                                   |           |
+| 51.7  | Subject assignment cards        | Every `(class, subject)` pair in the curriculum matrix renders; admin sees all, teacher sees only their competencies.                                                                                   |           |
+| 51.8  | No-open-window state            | When no active window AND no scheduled, page shows "No open window" + Open window CTA.                                                                                                                  |           |
+| 51.9  | Handoff-ref guards              | `openWindowHandoffRef.current` prevents re-triggering on re-render.                                                                                                                                     |           |
+| 51.10 | Subject cards render sparklines | Per-subject card shows a small trend of finalised comment count.                                                                                                                                        |           |
+| 51.11 | Empty curriculum                | If no `(class, subject)` pair exists, subject-cards section renders an empty state.                                                                                                                     |           |
+| 51.12 | Sort by year group              | Cards grouped by year group with year-group header.                                                                                                                                                     |           |
 
 ---
 
-## 65. Reopen Window (Admin)
+## 52. Report Comments — Window Banner (scheduled / open / closed)
 
-| #    | What to Check                                   | Expected Result                                                                                                                     | Pass/Fail |
-| ---- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 65.1 | **Reopen** button on the closed-window banner   | Only visible when `window` is non-null (a closed window exists). Rotate icon.                                                       |           |
-| 65.2 | Click Reopen                                    | `PATCH /api/v1/report-comment-windows/{id}/reopen`. Toast **"Window reopened"**. Landing refetches. Banner flips to the open state. |           |
-| 65.3 | Reopen failure (another window is already open) | Backend responds with COMMENT_WINDOW_ALREADY_OPEN (409). Toast **"Another comment window is already open"**. Banner stays closed.   |           |
-
----
-
-## 66. Overall Comments Editor — Admin Load
-
-**URL:** `/en/report-comments/overall/{classId}`
-
-Enter by clicking a homeroom card on `/en/report-comments`, or by navigating directly.
-
-| #    | What to Check                         | Expected Result                                                                                                                                                                                                                                                | Pass/Fail |
-| ---- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 66.1 | Navigate to the overall editor for 2A | Network in parallel: `GET /api/v1/report-comment-windows/active`, `GET /api/v1/report-cards/classes/{classId}/matrix?academic_period_id={periodId}`, `GET /api/v1/report-card-overall-comments?class_id={classId}&academic_period_id={periodId}&pageSize=200`. |           |
-| 66.2 | If no active window exists            | The editor still loads — it falls back to `GET /api/v1/academic-periods?pageSize=1` and uses the first period id to fetch the matrix + comments so admins can read the historical content.                                                                     |           |
-| 66.3 | Page heading                          | **"Overall comments — {class_name}"** (e.g. **"Overall comments — 2A"**). Subtitle shows **"Period: {period_name}"**.                                                                                                                                          |           |
-| 66.4 | **Back to Report Comments** button    | Ghost button in the header. Navigates to `/en/report-comments`.                                                                                                                                                                                                |           |
-| 66.5 | Window banner                         | Reuses the same `<WindowBanner>` component. For admins on this page, the only interactive control surfaced is `onRequestReopen={undefined}` — admins manage windows from the landing page itself.                                                              |           |
-| 66.6 | Filter dropdown                       | On the toolbar: a Select with options **"All"** (default), **"Unfinalised"**, **"Finalised"**. Filters the visible rows without re-fetching.                                                                                                                   |           |
-| 66.7 | Loading skeleton                      | 6 pulsing 20-height bars.                                                                                                                                                                                                                                      |           |
-| 66.8 | Load failure                          | EmptyState with ArrowLeft icon + localised "Failed to load" title.                                                                                                                                                                                             |           |
-| 66.9 | No students                           | EmptyState with ArrowLeft icon + "No students enrolled".                                                                                                                                                                                                       |           |
+| #    | What to Check                       | Expected Result                                                                                      | Pass/Fail |
+| ---- | ----------------------------------- | ---------------------------------------------------------------------------------------------------- | --------- |
+| 52.1 | No active window                    | Banner hidden.                                                                                       |           |
+| 52.2 | Scheduled (opens in future)         | Blue banner "Window opens {date}" with countdown. Admin has Edit button.                             |           |
+| 52.3 | Open now                            | Green banner "Window is open — closes {date}" with countdown. Admin sees **Extend** + **Close now**. |           |
+| 52.4 | Window instructions                 | If `instructions_md` is set, rendered below banner with Markdown support.                            |           |
+| 52.5 | Closed state                        | Red/grey banner "Window closed on {date}". Admin sees **Reopen window**.                             |           |
+| 52.6 | Countdown refresh                   | Countdown to `opens_at`/`closes_at` re-renders at least every minute without a hard refresh.         |           |
+| 52.7 | Locale date format                  | Dates use Gregorian calendar, Latin numerals, locale-aware formatting.                               |           |
+| 52.8 | Countdown rollover                  | When countdown hits 0, banner flips from "opens in" to "is open" without reload.                     |           |
+| 52.9 | Closed banner includes close reason | If close was auto (cron), banner indicates "Auto-closed at {time}".                                  |           |
 
 ---
 
-## 67. Overall Comments Editor — Write, Autosave, Finalise
+## 53. Report Comments — Open / Extend / Close / Reopen Modals
 
-### 67.1 Table structure
-
-| #      | What to Check      | Expected Result                                                                                                                                                  | Pass/Fail |
-| ------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 67.1.1 | Column headers     | Sticky primary-900 **Student** column (200px wide), primary-700 **Overall grade** column (140px wide), primary-800 **Comment** column (flex, min 320px).         |           |
-| 67.1.2 | Row count          | One row per student in `matrix.students`, filtered by the active filter dropdown.                                                                                |           |
-| 67.1.3 | Student cell       | Sticky, first + last name in medium weight. Optional student number in a mono LTR subtitle.                                                                      |           |
-| 67.1.4 | Overall grade cell | Primary-100 pill with the student's `weighted_average` formatted as `%`, or falls back to `overall_grade` letter, or shows the localised "No grade" placeholder. |           |
-| 67.1.5 | Comment cell       | Contains badges (Finalised/Saving/Saved/Error), a Textarea, and the Finalise/Unfinalise button.                                                                  |           |
-
-### 67.2 Write & autosave
-
-| #      | What to Check                   | Expected Result                                                                                                                                                                                                                      | Pass/Fail |
-| ------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 67.2.1 | Textarea                        | 4 rows, placeholder from `reportComments.editor.placeholder`. Read-only when window is not open or row is already finalised.                                                                                                         |           |
-| 67.2.2 | Type in a textarea              | Each keystroke updates the row's `text` locally. 500ms after the last keystroke, autosave fires `POST /api/v1/report-card-overall-comments` with `{student_id, class_id, academic_period_id, comment_text}`.                         |           |
-| 67.2.3 | Status transitions              | `idle → saving → saved → idle` (after a 1.2s delay). Saving shows tertiary **"Saving…"**. Saved shows emerald **"Saved"**. Error shows red **"Failed to save"**.                                                                     |           |
-| 67.2.4 | Type then navigate away quickly | The `cancelledRef.current = true` in the useEffect cleanup plus `clearTimeout()` on each pending save timer prevents stale saves from firing after unmount.                                                                          |           |
-| 67.2.5 | Save with empty/whitespace text | No API call. Status resets to `idle`. The backend receives no request — empty comments stay unpersisted.                                                                                                                             |           |
-| 67.2.6 | Server error on save            | Status flips to `error` with a red message. Toast **"Failed to save"**.                                                                                                                                                              |           |
-| 67.2.7 | Fake student_id edge case       | If the scope (student, class) pair doesn't match an enrolment, the backend throws `404 STUDENT_NOT_ENROLLED_IN_CLASS` (B13 fix). Status flips to error. This should never happen from the UI since the matrix returns real students. |           |
-
-### 67.3 Finalise
-
-| #      | What to Check               | Expected Result                                                                                                                                                                           | Pass/Fail |
-| ------ | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 67.3.1 | **Finalise** primary button | Check icon. Disabled when: window is closed, row has no comment_id yet (i.e. text was never autosaved), or text is empty. Otherwise enabled.                                              |           |
-| 67.3.2 | Click Finalise              | `PATCH /api/v1/report-card-overall-comments/{comment_id}/finalise`. Row's `finalised_at` timestamp is set from the response. Toast **"Finalised"**. The row's Textarea becomes read-only. |           |
-| 67.3.3 | Finalise failure            | Toast **"Failed to finalise"**. Row stays in draft state.                                                                                                                                 |           |
+| #     | What to Check                          | Expected Result                                                                                                                                                                 | Pass/Fail |
+| ----- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 53.1  | Click "Open window"                    | `OpenWindowModal` opens. Fields: period select, opens_at (datetime-local, defaults to now), closes_at (datetime-local, defaults to +7 days), instructions (textarea, optional). |           |
+| 53.2  | Submit Open Window                     | `POST /v1/report-comment-windows` with `{ academic_period_id, opens_at, closes_at, instructions_md? }` -> 201. Toast success. Modal closes. Page reloads landing scope.         |           |
+| 53.3  | Overlap validation                     | Overlapping window -> 409 `{ code: 'WINDOW_OVERLAP' }`. Toast.                                                                                                                  |           |
+| 53.4  | Validation — closes_at before opens_at | 400 Zod error. Modal stays open with field-level error.                                                                                                                         |           |
+| 53.5  | Extend modal                           | Click "Extend". `ExtendWindowModal` opens with datetime input. Submit -> `PATCH /v1/report-comment-windows/{id}/extend` with `{ closes_at: iso }` -> 200.                       |           |
+| 53.6  | Close now                              | Click "Close now" -> `ConfirmDialog` -> Confirm -> `PATCH /v1/report-comment-windows/{id}/close` -> 200. Banner flips to closed.                                                |           |
+| 53.7  | Reopen                                 | From closed, click "Reopen". `PATCH /v1/report-comment-windows/{id}/reopen` -> 200. Banner flips to open.                                                                       |           |
+| 53.8  | Modal a11y                             | Trap focus, Esc closes, focus returns to trigger.                                                                                                                               |           |
+| 53.9  | Scheduled-window edit                  | Editing a scheduled window uses `PATCH /v1/report-comment-windows/{id}` (instructions/schedule update).                                                                         |           |
+| 53.10 | Extend beyond year end                 | Extending `closes_at` beyond the academic year's `end_date` -> 400 `{ code: 'WINDOW_BEYOND_YEAR' }`.                                                                            |           |
+| 53.11 | Close before open                      | Submitting `close` on a scheduled (not yet open) window -> 409 `{ code: 'WINDOW_NOT_OPEN' }`.                                                                                   |           |
+| 53.12 | Reopen after final close               | Reopening a window that's been reopened+closed multiple times -> 200 (no limit).                                                                                                |           |
+| 53.13 | Instructions Markdown sanitisation     | `<script>` tags in instructions are stripped or escaped.                                                                                                                        |           |
 
 ---
 
-## 68. Overall Comments Editor — Unfinalise, Filter, Closed-Window State
+## 54. Overall Comments Editor — Entry & Permission
 
-### 68.1 Unfinalise
-
-| #      | What to Check                 | Expected Result                                                                                                                               | Pass/Fail |
-| ------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 68.1.1 | **Unfinalise** outline button | RotateCw icon. Replaces the Finalise button when the row is finalised. Disabled when window is closed.                                        |           |
-| 68.1.2 | Click Unfinalise              | `PATCH /api/v1/report-card-overall-comments/{comment_id}/unfinalise`. Row's `finalised_at` clears to `null`. Textarea becomes editable again. |           |
-| 68.1.3 | Unfinalise failure            | Toast **"Failed to finalise"** (error text is shared between finalise / unfinalise).                                                          |           |
-
-### 68.2 Filter
-
-| #      | What to Check           | Expected Result                                              | Pass/Fail |
-| ------ | ----------------------- | ------------------------------------------------------------ | --------- |
-| 68.2.1 | Filter: **All**         | Default. Every row visible.                                  |           |
-| 68.2.2 | Filter: **Finalised**   | Only rows with `finalised_at !== null`. Applied client-side. |           |
-| 68.2.3 | Filter: **Unfinalised** | Only rows with `finalised_at === null`.                      |           |
-
-### 68.3 Closed-window banner
-
-| #      | What to Check                             | Expected Result                                                                                                               | Pass/Fail |
-| ------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 68.3.1 | When `activeWindow.status !== 'open'`     | Below the table, a bordered secondary banner reads **"The comment window is closed — you're viewing a read-only snapshot."**. |           |
-| 68.3.2 | Finalise / Unfinalise buttons when closed | Disabled. Textareas are read-only. The editor remains navigable for historical review.                                        |           |
+| #    | What to Check               | Expected Result                                                                                                                 | Pass/Fail |
+| ---- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 54.1 | Navigate from landing       | Click a homeroom card. URL = `/en/report-comments/overall/{CLASS_A_ID}`.                                                        |           |
+| 54.2 | Initial fetch               | `GET /v1/report-card-overall-comments?class_id={CLASS_A_ID}&academic_period_id={ACTIVE_PERIOD_ID}` -> 200. One row per student. |           |
+| 54.3 | Header                      | Class name + year group + active window badge. Back button -> `/en/report-comments`.                                            |           |
+| 54.4 | Student rows                | Each row shows full name, student number, comment textarea, character count, finalised switch.                                  |           |
+| 54.5 | Admin bypass                | Admin can edit comments for any class. `isAdmin` is resolved server-side.                                                       |           |
+| 54.6 | Teacher not homeroom -> 403 | (Teacher parity) Non-homeroom teacher gets 403 `{ code: 'NOT_HOMEROOM_TEACHER' }` on upsert.                                    |           |
+| 54.7 | Closed window load          | If the window is closed, rows still display but inputs are disabled.                                                            |           |
 
 ---
 
-## 69. Subject Comments Editor — Admin Load
+## 55. Overall Comments Editor — Write + Autosave
 
-**URL:** `/en/report-comments/subject/{classId}/{subjectId}`
-
-| #    | What to Check                                                   | Expected Result                                                                                                                                                                                                                                                           | Pass/Fail |
-| ---- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 69.1 | Navigate to `/en/report-comments/subject/{classId}/{subjectId}` | Network: `GET /api/v1/report-comment-windows/active`, `GET /api/v1/report-cards/classes/{classId}/matrix?academic_period_id={periodId}`, `GET /api/v1/report-card-subject-comments?class_id={classId}&subject_id={subjectId}&academic_period_id={periodId}&pageSize=200`. |           |
-| 69.2 | Page heading                                                    | **"{Subject name} — {class_name}"** (e.g. **"English — 2A"**). Subtitle: **"Period: {period_name}"**.                                                                                                                                                                     |           |
-| 69.3 | **Back to Report Comments** button                              | Ghost button in the header.                                                                                                                                                                                                                                               |           |
-| 69.4 | Window banner                                                   | Same as overall editor. No admin-only controls (admin manages the window from the landing page).                                                                                                                                                                          |           |
-| 69.5 | Filter dropdown                                                 | **"All"**, **"Unfinalised"**, **"Finalised"**.                                                                                                                                                                                                                            |           |
-| 69.6 | Row count                                                       | One row per student in the class matrix.                                                                                                                                                                                                                                  |           |
-| 69.7 | Loading skeleton                                                | 6 pulsing bars.                                                                                                                                                                                                                                                           |           |
-| 69.8 | Defensive guards                                                | The code defends against partial matrix responses via `matrixData.students ?? []`, `matrixData.cells ?? {}`, `matrixData.overall_by_student ?? {}`. A broken response must not crash the page.                                                                            |           |
-
-### 69.9 Row structure (via `<SubjectCommentRow>`)
-
-| #      | Column      | Content                                                                                                                                                                                                                       | Pass/Fail |
-| ------ | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 69.9.1 | **Student** | Sticky primary-900 column. First + last name, optional student number.                                                                                                                                                        |           |
-| 69.9.2 | **Score**   | 160px wide column. Shows the student's subject cell score as `{score.toFixed(1)}%` (or grade letter fallback). Includes a Sparkline glyph hinting at trend. The sparkline uses `[score, weighted_average]` as its data array. |           |
-| 69.9.3 | **Comment** | Flex column with badges (AI draft purple, Finalised emerald, Saving/Saved/Error/Drafting), Textarea (3 rows), and action buttons (AI draft / Finalise or Unfinalise).                                                         |           |
+| #     | What to Check               | Expected Result                                                                                                                               | Pass/Fail |
+| ----- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 55.1  | Type in a textarea          | Text appears immediately in client state.                                                                                                     |           |
+| 55.2  | Autosave debounce           | After ~1.5s idle, `POST /v1/report-card-overall-comments` fires with `{ student_id, class_id, academic_period_id, body_md }` -> 200 (upsert). |           |
+| 55.3  | Saving indicator            | Small spinner next to the student row.                                                                                                        |           |
+| 55.4  | Save success                | Spinner replaced with "Saved" + timestamp.                                                                                                    |           |
+| 55.5  | Save failure                | 500 -> toast `overall.saveFailed`, row marked "Unsaved". Retry on next keystroke.                                                             |           |
+| 55.6  | Max length                  | Body exceeding schema max -> 400 validation error. Field shows error state.                                                                   |           |
+| 55.7  | Concurrent edits            | Another admin saving same row: next fetch reconciles via `updated_at`. Flag stale-overwrite risk in Section 80.                               |           |
+| 55.8  | Window closed               | Post-close, saves return 403 `{ code: 'WINDOW_CLOSED' }`. Toast.                                                                              |           |
+| 55.9  | Character count             | Character count updates in real time as the user types.                                                                                       |           |
+| 55.10 | Empty save allowed          | Saving empty body as a draft is allowed (finalise step enforces non-empty).                                                                   |           |
+| 55.11 | Autosave before unmount     | Navigating away with pending save triggers a final flush via `beforeunload` or effect cleanup.                                                |           |
+| 55.12 | Autosave race with finalise | Finalising a row while an autosave is in flight: the finalise waits or rejects until save settles.                                            |           |
+| 55.13 | Paste a large block         | Pasting a 10KB text: autosave still fires without blocking the UI.                                                                            |           |
+| 55.14 | Emoji + special chars       | UTF-8 safe. Saved body preserves emoji and RTL-mark characters.                                                                               |           |
+| 55.15 | Arabic input                | Typing Arabic in the textarea saves correctly with `dir="auto"` on the paragraph.                                                             |           |
 
 ---
 
-## 70. Subject Comments Editor — AI Draft (Per Row)
+## 56. Overall Comments Editor — Finalise + Unfinalise
 
-| #    | What to Check               | Expected Result                                                                                                                                                                                                                                              | Pass/Fail |
-| ---- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 70.1 | **AI draft** outline button | Sparkles icon. Disabled when: window closed, row is `drafting` already, or row is already finalised.                                                                                                                                                         |           |
-| 70.2 | Click AI draft              | Row status flips to `drafting` with a purple helper line **"Drafting…"**. Fires `POST /api/v1/report-card-subject-comments/ai-draft` with `{student_id, subject_id, class_id, academic_period_id}`. Response populates `comment_text` + `is_ai_draft: true`. |           |
-| 70.3 | Successful draft            | The Textarea is updated with the AI-generated text, a purple **"AI draft"** Badge renders above the textarea, status briefly flips to `saved` then back to `idle` after 1.2s. Toast **"AI draft generated"**.                                                |           |
-| 70.4 | Failure                     | Toast **"AI draft failed"**. Status flips to `error`.                                                                                                                                                                                                        |           |
-| 70.5 | Editing after AI draft      | As soon as the teacher/admin edits the text, `is_ai_draft` flips to `false` locally and the purple badge disappears. The next autosave writes `is_ai_draft: false` to the backend.                                                                           |           |
-
----
-
-## 71. Subject Comments Editor — AI Draft All Empty (Bulk)
-
-| #    | What to Check                                       | Expected Result                                                                                                                                                          | Pass/Fail |
-| ---- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 71.1 | **AI-draft all empty** outline button (top toolbar) | Sparkles icon. Disabled when window closed OR `bulkInFlight !== 'none'`. Label flips to **"Drafting…"** while running.                                                   |           |
-| 71.2 | Click                                               | Iterates every row whose `text.trim().length === 0`, calling `handleAiDraft()` sequentially for each. `for ... of` + `await` — no parallel stampede.                     |           |
-| 71.3 | No empty rows                                       | Toast **"No empty rows to draft"**. No API calls.                                                                                                                        |           |
-| 71.4 | Progress visibility                                 | Each target row independently flips to `drafting` as it's processed, then to `saved` → `idle` on completion. The toolbar button stays disabled until all targets finish. |           |
+| #    | What to Check               | Expected Result                                                                                                        | Pass/Fail |
+| ---- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------- |
+| 56.1 | Finalise switch             | Flipping for a student fires `PATCH /v1/report-card-overall-comments/{id}/finalise` -> 200. Row gets "Finalised" pill. |           |
+| 56.2 | Finalise empty              | `body_md` empty -> may 409 `{ code: 'COMMENT_EMPTY' }`. Toast.                                                         |           |
+| 56.3 | Finalised row locked        | Textarea disables when finalised. Unfinalise to edit.                                                                  |           |
+| 56.4 | Unfinalise                  | `PATCH /v1/report-card-overall-comments/{id}/unfinalise` -> 200. Textarea re-enables.                                  |           |
+| 56.5 | Landing count reflects      | Finalising increments `finalised_count` on the homeroom card.                                                          |           |
+| 56.6 | Non-author unfinalise       | Admin can unfinalise a teacher-authored comment. Verify audit log.                                                     |           |
+| 56.7 | Finalise after window close | Once the window is closed, finalise attempts -> 403 (verify behaviour).                                                |           |
+| 56.8 | Audit record on finalise    | An audit log records `overall_comment.finalised` with actor id.                                                        |           |
+| 56.9 | Audit record on unfinalise  | An audit log records `overall_comment.unfinalised`.                                                                    |           |
 
 ---
 
-## 72. Subject Comments Editor — Finalise All Drafts (Bulk)
+## 57. Overall Comments Editor — Request Reopen Modal
 
-| #    | What to Check                          | Expected Result                                                                                                                                                                                                                                                                           | Pass/Fail |
-| ---- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 72.1 | **Finalise all drafts** outline button | Check icon. Disabled when window closed OR any bulk in flight. Label flips to **"Finalising…"**.                                                                                                                                                                                          |           |
-| 72.2 | Click                                  | Filter to rows with `comment_id`, not yet finalised, and non-empty text. If zero matches, toast **"No comments to finalise"**. Otherwise fire `POST /api/v1/report-card-subject-comments/bulk-finalise` with `{class_id, subject_id, academic_period_id}`. Response returns `{count: n}`. |           |
-| 72.3 | Optimistic update                      | After the API responds, the frontend patches every matching row with `finalised_at = new Date().toISOString()` locally so the UI updates without a refetch. Toast **"Finalised {n} drafts"**.                                                                                             |           |
-| 72.4 | Failure                                | Toast **"Failed to finalise"**.                                                                                                                                                                                                                                                           |           |
-
----
-
-## 73. Subject Comments Editor — Row-Level Actions
-
-| #    | What to Check                         | Expected Result                                                                                                                                                                                                | Pass/Fail |
-| ---- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 73.1 | **Finalise** primary button (per row) | Check icon. Disabled when text is empty or no comment_id yet. On click, `PATCH /api/v1/report-card-subject-comments/{id}/finalise`. Response updates `finalised_at` and `is_ai_draft: false`.                  |           |
-| 73.2 | **Unfinalise** outline button         | Replaces Finalise when row is finalised. Click fires `PATCH /api/v1/report-card-subject-comments/{id}/unfinalise`. Clears `finalised_at`. Reverts Textarea to editable.                                        |           |
-| 73.3 | Autosave debounce                     | 500ms debounce between keystrokes and the POST. Typing rapidly coalesces into one save.                                                                                                                        |           |
-| 73.4 | Badges                                | **AI draft** (purple, visible only when `is_ai_draft && !finalised_at`). **Finalised** (emerald, visible when `finalised_at !== null`). **Saving/Saved/Error/Drafting** helpers render inline with the badges. |           |
+| #    | What to Check                             | Expected Result                                                                                                                                                                          | Pass/Fail |
+| ---- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 57.1 | Click "Request reopen" on a closed window | Opens `RequestReopenModal`. Teachers use this to file an `open_comment_window` request.                                                                                                  |           |
+| 57.2 | Fill and submit                           | Textarea "Why do you need this reopened?" -> submit -> `POST /v1/report-card-teacher-requests` with `{ request_type: 'open_comment_window', academic_period_id, reason }` -> 201. Toast. |           |
+| 57.3 | Admin alternative                         | Admins see "Reopen now" instead (direct reopen — Section 53.7).                                                                                                                          |           |
+| 57.4 | Empty reason blocked                      | Submitting empty shows validation error.                                                                                                                                                 |           |
 
 ---
 
-## 74. Retired Redirect Stubs
+## 58. Subject Comments Editor — Entry & Permission
 
-| #    | What to Check                            | Expected Result                                                                                                                                                            | Pass/Fail |
-| ---- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 74.1 | Navigate to `/en/report-cards/approvals` | The page immediately calls `router.replace('/{locale}/report-cards/requests')`. The URL bar updates to `/en/report-cards/requests` without a history entry (replaceState). |           |
-| 74.2 | Navigate to `/en/report-cards/bulk`      | Immediately redirects to `/en/report-cards`.                                                                                                                               |           |
-| 74.3 | Browser Back                             | Pressing Back from either redirect destination does NOT bring the user back to the retired URL — it skips past it to whatever was on the stack before.                     |           |
-
----
-
-## 75. Arabic / RTL
-
-Switch the locale by changing `/en/` to `/ar/` in the URL bar.
-
-| #    | What to Check                  | Expected Result                                                                                                                                                                                                  | Pass/Fail |
-| ---- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 75.1 | `/ar/report-cards`             | Page direction is `rtl`. All labels translated to Arabic. The settings cog button, quick-action tiles, period selector, analytics snapshot, and classes grid all mirror correctly (`ms-`/`me-` logical spacing). |           |
-| 75.2 | Grade cell content             | Inside the class matrix (and the overall/subject editors), numeric cells are wrapped in `dir="ltr"` so grade letters and percentages render left-to-right even inside an RTL layout.                             |           |
-| 75.3 | Student numbers + locale codes | Rendered with `dir="ltr"` to keep the `STU-000144` / `EN` formatting stable.                                                                                                                                     |           |
-| 75.4 | Date formatting                | Uses `Intl.DateTimeFormat('ar-u-ca-gregory-nu-latn')` — Gregorian calendar, Latin numerals, Arabic text. No Hijri dates.                                                                                         |           |
-| 75.5 | Generation wizard              | Step indicator chevrons + Back/Next buttons mirror: Back is on the right, Next on the left (RTL).                                                                                                                |           |
-| 75.6 | Open Window modal              | Header, Select triggers, buttons all mirror. Homeroom picker grid uses `grid-cols-[1fr_minmax(0,1.4fr)]` which still works under RTL.                                                                            |           |
-| 75.7 | Checkbox in the library table  | Aligned to the start of the row (left in LTR, right in RTL) via `ps-` logical padding on the header cell.                                                                                                        |           |
+| #    | What to Check               | Expected Result                                                                                                                          | Pass/Fail               |
+| ---- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | --- |
+| 58.1 | Navigate from landing       | Click a subject card. URL = `/en/report-comments/subject/{CLASS_A_ID}/{SUBJECT_1_ID}`.                                                   |                         |
+| 58.2 | Initial fetch               | `GET /v1/report-card-subject-comments?class_id={CLASS_A_ID}&subject_id={SUBJECT_1_ID}&academic_period_id={ACTIVE_PERIOD_ID}` -> 200.     |                         |
+| 58.3 | Count endpoint              | Optional: `GET /v1/report-card-subject-comments/count?class_id=...&subject_id=...&academic_period_id=...` -> 200 `{ finalised, total }`. |                         |
+| 58.4 | Header                      | Class + subject name. Back link -> `/en/report-comments`.                                                                                |                         |
+| 58.5 | Admin bypass                | Admin sees every row regardless of teacher competency.                                                                                   |                         |
+| 58.6 | Invalid classId / subjectId | Invalid UUIDs -> 400. Nonexistent ids -> 404 `{ code: 'CLASS_NOT_FOUND'                                                                  | 'SUBJECT_NOT_FOUND' }`. |     |
+| 58.7 | Subject not taught in class | `(class, subject)` pair not in curriculum matrix -> 404 `{ code: 'SUBJECT_NOT_IN_CLASS' }`.                                              |                         |
 
 ---
 
-## 76. Role Gating — What Admins Can Do That Teachers Cannot
+## 59. Subject Comments Editor — Write + Autosave
 
-This section is the negative assertion half — every row describes something a teacher would NOT be able to do. Verify each one works for the admin AND blocks on the teacher (use `sarah.daly@nhqs.test` in a second browser session to double-check).
-
-| #     | Admin-only action                                                                                                | Verification                                                                                                                                                                                                                                                                                   | Pass/Fail |
-| ----- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 76.1  | Generate report cards (wizard)                                                                                   | Admin navigates to `/en/report-cards/generate`. Teacher hits the same URL → toast **"Permission denied"** + `router.replace('/en/report-cards')`.                                                                                                                                              |           |
-| 76.2  | Edit settings                                                                                                    | Admin's PATCH works. Teacher's PATCH gets 403 `report_cards.manage` required. The settings page still loads (read-only mode) because `report_cards.view` is granted.                                                                                                                           |           |
-| 76.3  | Delete a report card                                                                                             | Admin's DELETE works. Teacher gets 403 on `DELETE /api/v1/report-cards/{id}` and `POST /api/v1/report-cards/bulk-delete`.                                                                                                                                                                      |           |
-| 76.4  | Publish / Unpublish a report card                                                                                | Admin's POST works. Teacher's POST gets 403.                                                                                                                                                                                                                                                   |           |
-| 76.5  | Open a comment window                                                                                            | Admin's POST to `/v1/report-comment-windows` succeeds. Teacher's POST returns 403.                                                                                                                                                                                                             |           |
-| 76.6  | Close / Extend / Reopen a window                                                                                 | Same — admin-only.                                                                                                                                                                                                                                                                             |           |
-| 76.7  | Approve / Reject a teacher request                                                                               | Admin's PATCH works. Teacher's PATCH returns 403. The detail page also hides the Approve / Auto-approve / Reject buttons for non-admins.                                                                                                                                                       |           |
-| 76.8  | See teacher requests list                                                                                        | Admin sees every tenant request. Teacher sees only their own (scoped server-side).                                                                                                                                                                                                             |           |
-| 76.9  | Read any class's report cards list + matrix                                                                      | Admin can read any class via `/api/v1/report-cards?class_id=...` or `/matrix`. Teacher is scoped to their own classes via the B12 fix (401/403 on out-of-scope requests with error code `CLASS_OUT_OF_SCOPE`).                                                                                 |           |
-| 76.10 | Write an overall comment for any class                                                                           | Admin can write anywhere (if they are listed as a homeroom teacher on the window). Teacher can only write where `getHomeroomTeacherForClass()` matches their staff_profile_id — otherwise `403 INVALID_AUTHOR` "No homeroom teacher is assigned for this class on the current comment window." |           |
-| 76.11 | Write a subject comment                                                                                          | Both admins and teachers can write subject comments via the teacher_competencies × curriculum matrix join. Admin has no extra privilege here — they see all pairs but must still be part of the competencies list to write.                                                                    |           |
-| 76.12 | See the Live run panel, Analytics snapshot, Settings button, Generate tile, Teacher requests tile on the landing | All gated by the `isAdmin` React-side check. Teachers see a 2-tile landing (Write comments + Library) via B11.                                                                                                                                                                                 |           |
+| #    | What to Check                    | Expected Result                                                                                                          | Pass/Fail |
+| ---- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 59.1 | Per-student row                  | Shows student name, grade sparkline, comment textarea, char count, AI draft button, finalise switch.                     |           |
+| 59.2 | Autosave debounce                | `POST /v1/report-card-subject-comments` with `{ student_id, class_id, subject_id, academic_period_id, body_md }` -> 200. |           |
+| 59.3 | Server validation                | Empty body allowed as draft; finalise enforces non-empty.                                                                |           |
+| 59.4 | Window closed                    | Post-close saves -> 403 `{ code: 'WINDOW_CLOSED' }`.                                                                     |           |
+| 59.5 | Concurrent editor                | `author_user_id` diff renders "Edited by {other} at {time}".                                                             |           |
+| 59.6 | Sparkline renders                | Shows the student's grade series across prior assessments. Empty if no grades.                                           |           |
+| 59.7 | Student without any grades       | Sparkline renders a flat line or empty state; no crash.                                                                  |           |
+| 59.8 | Long comments scroll inside cell | Textarea grows to a max-height and scrolls internally.                                                                   |           |
 
 ---
 
-## 77. Console & Network Health
+## 60. Subject Comments Editor — Per-Row AI Draft
 
-Throughout the whole walkthrough, keep DevTools' Console and Network panels open.
-
-| #    | What to Check         | Expected Result                                                                                                                                                         | Pass/Fail |
-| ---- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 77.1 | Console errors        | Zero uncaught errors. `console.error('[ReportCardsDashboard.*]', err)` lines only appear when an API call genuinely fails.                                              |           |
-| 77.2 | Network — 4xx/5xx     | Ignore the normal `401 /api/v1/auth/refresh` at the login page. Everything else should be 200/201/204. 403s are OK for deliberate permission tests.                     |           |
-| 77.3 | Rate limit (429)      | No 429 errors should appear on the Report Comments landing page. The B10 fix skips per-pair count fetches for admins, keeping fan-out under the 100 req/60 s throttler. |           |
-| 77.4 | Repeated calls        | The dashboard polls `/v1/report-cards/generation-runs` every 5 seconds only when an active run exists. When no run is running, the poll stops.                          |           |
-| 77.5 | Memory leaks          | Leave the dashboard open for 5 minutes. Memory usage should stay flat. If it grows, the setInterval cleanup may be missing somewhere.                                   |           |
-| 77.6 | WebSocket connections | No websockets — the module uses polling only.                                                                                                                           |           |
-
----
-
-## 78. Backend Endpoint Map (Reference)
-
-Quick reference of every report-cards endpoint this spec touches. Verify each endpoint at least once during the walkthrough.
-
-| Method | Path                                                                                                   | Used by                                                                                | Required permission                             |
-| ------ | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| GET    | `/api/v1/report-cards`                                                                                 | Library list (section 37)                                                              | `gradebook.view`                                |
-| GET    | `/api/v1/report-cards/classes/:classId/matrix?academic_period_id=...`                                  | Class matrix page (sections 9-13), Overall editor (66), Subject editor (69)            | `report_cards.view`                             |
-| POST   | `/api/v1/report-cards/generation-runs`                                                                 | Wizard submit (29)                                                                     | `report_cards.manage`                           |
-| POST   | `/api/v1/report-cards/generation-runs/dry-run`                                                         | Wizard step 5 (28)                                                                     | `report_cards.manage`                           |
-| GET    | `/api/v1/report-cards/generation-runs/:id`                                                             | Wizard polling (30)                                                                    | `report_cards.manage`                           |
-| GET    | `/api/v1/report-cards/generation-runs?page=...`                                                        | Dashboard live run poll (6)                                                            | `report_cards.manage`                           |
-| GET    | `/api/v1/report-cards/library?page=1&pageSize=1`                                                       | Dashboard library count (5.3)                                                          | `report_cards.view`                             |
-| GET    | `/api/v1/report-cards/library/grouped`                                                                 | Library page (33)                                                                      | `report_cards.view`                             |
-| GET    | `/api/v1/report-cards/library/bundle-pdf?class_ids=...&merge_mode=...`                                 | Bundle downloads (39)                                                                  | `report_cards.view`                             |
-| POST   | `/api/v1/report-cards/:id/publish`                                                                     | Publish row / bulk (37, 38)                                                            | `gradebook.publish_report_cards`                |
-| POST   | `/api/v1/report-cards/:id/revise`                                                                      | Unpublish row / bulk (37, 41)                                                          | `gradebook.manage`                              |
-| DELETE | `/api/v1/report-cards/:id`                                                                             | Delete row (37)                                                                        | `gradebook.manage`                              |
-| POST   | `/api/v1/report-cards/bulk-delete`                                                                     | Delete selection (38)                                                                  | `gradebook.manage`                              |
-| GET    | `/api/v1/report-cards/:id/pdf`                                                                         | Reserved for inline-HTML rendering (rarely used; library downloads use presigned URLs) | `report_cards.view`                             |
-| GET    | `/api/v1/report-cards/analytics/dashboard?academic_period_id=...`                                      | Dashboard snapshot (7), Analytics page (43)                                            | `report_cards.view`                             |
-| GET    | `/api/v1/report-cards/analytics/class-comparison?academic_period_id=...`                               | Analytics page (45, 46)                                                                | `report_cards.view`                             |
-| GET    | `/api/v1/report-cards/templates/content-scopes`                                                        | Wizard step 3 (26), Settings default template (18)                                     | `report_cards.view`                             |
-| GET    | `/api/v1/report-card-tenant-settings`                                                                  | Settings load (14), Wizard settings prefill (22)                                       | `report_cards.view`                             |
-| PATCH  | `/api/v1/report-card-tenant-settings`                                                                  | Settings save (21)                                                                     | `report_cards.manage`                           |
-| POST   | `/api/v1/report-card-tenant-settings/principal-signature`                                              | Signature upload (20.2)                                                                | `report_cards.manage`                           |
-| DELETE | `/api/v1/report-card-tenant-settings/principal-signature`                                              | Signature remove (20.2)                                                                | `report_cards.manage`                           |
-| GET    | `/api/v1/report-card-teacher-requests?status=pending&page=1&pageSize=1`                                | Dashboard pending count (5.4)                                                          | `report_cards.comment` or `report_cards.manage` |
-| GET    | `/api/v1/report-card-teacher-requests?...`                                                             | Requests list (48-50)                                                                  | `report_cards.comment` or `report_cards.manage` |
-| GET    | `/api/v1/report-card-teacher-requests/:id`                                                             | Request detail (51)                                                                    | `report_cards.comment` or `report_cards.manage` |
-| POST   | `/api/v1/report-card-teacher-requests`                                                                 | Teacher-only new request form (covered in teacher spec)                                | `report_cards.comment`                          |
-| PATCH  | `/api/v1/report-card-teacher-requests/:id/approve`                                                     | Approve / Auto-approve (52, 53)                                                        | `report_cards.manage`                           |
-| PATCH  | `/api/v1/report-card-teacher-requests/:id/reject`                                                      | Reject (54)                                                                            | `report_cards.manage`                           |
-| PATCH  | `/api/v1/report-card-teacher-requests/:id/cancel`                                                      | Cancel own (teacher)                                                                   | `report_cards.comment`                          |
-| GET    | `/api/v1/report-comment-windows/active`                                                                | Landing page (55), Overall editor (66), Subject editor (69)                            | `report_cards.view`                             |
-| GET    | `/api/v1/report-comment-windows/landing`                                                               | Landing scope (55)                                                                     | `report_cards.view`                             |
-| POST   | `/api/v1/report-comment-windows`                                                                       | Open Window modal (57-61)                                                              | `report_cards.manage`                           |
-| PATCH  | `/api/v1/report-comment-windows/:id/close`                                                             | Close Window confirm (64)                                                              | `report_cards.manage`                           |
-| PATCH  | `/api/v1/report-comment-windows/:id/extend`                                                            | Extend Window modal (63)                                                               | `report_cards.manage`                           |
-| PATCH  | `/api/v1/report-comment-windows/:id/reopen`                                                            | Reopen button (65)                                                                     | `report_cards.manage`                           |
-| GET    | `/api/v1/report-card-overall-comments?class_id=...&academic_period_id=...&pageSize=200`                | Overall editor (66)                                                                    | `report_cards.view`                             |
-| POST   | `/api/v1/report-card-overall-comments`                                                                 | Overall autosave (67.2)                                                                | `report_cards.comment`                          |
-| PATCH  | `/api/v1/report-card-overall-comments/:id/finalise`                                                    | Finalise (67.3)                                                                        | `report_cards.comment`                          |
-| PATCH  | `/api/v1/report-card-overall-comments/:id/unfinalise`                                                  | Unfinalise (68.1)                                                                      | `report_cards.comment`                          |
-| GET    | `/api/v1/report-card-subject-comments?class_id=...&subject_id=...&academic_period_id=...&pageSize=200` | Subject editor (69)                                                                    | `report_cards.view`                             |
-| POST   | `/api/v1/report-card-subject-comments`                                                                 | Subject autosave (73.3)                                                                | `report_cards.comment`                          |
-| POST   | `/api/v1/report-card-subject-comments/ai-draft`                                                        | Row AI draft (70), Bulk AI (71)                                                        | `report_cards.comment`                          |
-| POST   | `/api/v1/report-card-subject-comments/bulk-finalise`                                                   | Bulk finalise (72)                                                                     | `report_cards.comment`                          |
-| PATCH  | `/api/v1/report-card-subject-comments/:id/finalise`                                                    | Row finalise (73.1)                                                                    | `report_cards.comment`                          |
-| PATCH  | `/api/v1/report-card-subject-comments/:id/unfinalise`                                                  | Row unfinalise (73.2)                                                                  | `report_cards.comment`                          |
-| GET    | `/api/v1/academic-periods?pageSize=...`                                                                | Many places — period pickers                                                           | any authenticated                               |
-| GET    | `/api/v1/academic-years?pageSize=...`                                                                  | Wizard step 2, Request reopen modal                                                    | any authenticated                               |
-| GET    | `/api/v1/year-groups?pageSize=100`                                                                     | Dashboard grid, Wizard step 1, Landing                                                 | any authenticated                               |
-| GET    | `/api/v1/classes?pageSize=...`                                                                         | Many places                                                                            | any authenticated                               |
-| GET    | `/api/v1/subjects?pageSize=100`                                                                        | Landing page (55)                                                                      | any authenticated                               |
-| GET    | `/api/v1/staff-profiles?pageSize=100&employment_status=active`                                         | Open Window modal homeroom picker (60)                                                 | `staff.view`                                    |
-| GET    | `/api/v1/students?pageSize=20&search=...`                                                              | Wizard step 1 individual mode (24.6)                                                   | `students.view`                                 |
+| #     | What to Check                 | Expected Result                                                                                                                                                   | Pass/Fail |
+| ----- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 60.1  | Click "AI draft"              | Button shows spinner. `POST /v1/report-card-subject-comments/ai-draft` with `{ student_id, subject_id, class_id, academic_period_id }` -> 200 `{ draft: '...' }`. |           |
+| 60.2  | Draft populates textarea      | Textarea replaces content with draft. Autosave fires after debounce.                                                                                              |           |
+| 60.3  | Rate limiting                 | Rapid clicks -> 429 `{ code: 'AI_RATE_LIMIT' }` (if implemented). Toast.                                                                                          |           |
+| 60.4  | AI provider failure           | 502/503 -> toast `ai.draftFailed`. Button re-enables.                                                                                                             |           |
+| 60.5  | Admin bypass                  | Admin can draft for any student regardless of competency.                                                                                                         |           |
+| 60.6  | Insufficient data             | Student with no grades -> 422 `{ code: 'INSUFFICIENT_DATA' }`. Toast.                                                                                             |           |
+| 60.7  | Draft overrides unsaved edits | Warning toast notes overwrite when textarea had dirty content.                                                                                                    |           |
+| 60.8  | AI response localisation      | Draft matches student's preferred language or the window locale.                                                                                                  |           |
+| 60.9  | AI failure feature-flag off   | If AI feature is disabled, button is hidden.                                                                                                                      |           |
+| 60.10 | Streaming vs one-shot         | Depending on impl, draft may stream into the textarea or arrive whole. Verify.                                                                                    |           |
 
 ---
 
-**End of Admin spec.** Sign off below when every row is checked.
+## 61. Subject Comments Editor — Bulk AI Draft All
 
-| Reviewer name | Date | Pass count | Fail count | Overall result |
-| ------------- | ---- | ---------- | ---------- | -------------- |
-|               |      |            |            |                |
+| #     | What to Check                    | Expected Result                                                                              | Pass/Fail |
+| ----- | -------------------------------- | -------------------------------------------------------------------------------------------- | --------- |
+| 61.1  | "Draft all" button               | Top of the subject editor (admin + teacher).                                                 |           |
+| 61.2  | Confirmation modal               | `ConfirmDialog` explaining overwrite of existing drafts.                                     |           |
+| 61.3  | Confirm                          | Loops students firing `POST .../ai-draft` with small delay. Progress counter "3 / 25".       |           |
+| 61.4  | Partial failure                  | Failed rows skipped. Final toast "Drafted {X} / {Y}".                                        |           |
+| 61.5  | Finalised rows skipped           | Rows with `finalised=true` are not overwritten.                                              |           |
+| 61.6  | Cancel mid-run                   | Cancel aborts remaining iterations (flag if missing).                                        |           |
+| 61.7  | Idempotency                      | Re-running produces fresh drafts per call (LLM non-deterministic).                           |           |
+| 61.8  | Rate limit per hour              | Bulk drafts share the same rate bucket as per-row drafts. 30-per-hour limit (flag actual).   |           |
+| 61.9  | Queue vs inline                  | Verify whether bulk draft enqueues a BullMQ job or runs inline. Document.                    |           |
+| 61.10 | LLM empty response               | If the LLM returns an empty string, row skipped in the count.                                |           |
+| 61.11 | Concurrent admin + teacher draft | If both fire bulk drafts simultaneously, the later overwrites. No lock. Flag if problematic. |           |
+
+---
+
+## 62. Subject Comments Editor — Bulk Finalise
+
+| #    | What to Check         | Expected Result                                                                                                                                         | Pass/Fail |
+| ---- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 62.1 | "Finalise all" button | Visible to admin + teacher.                                                                                                                             |           |
+| 62.2 | Click                 | `POST /v1/report-card-subject-comments/bulk-finalise` with `{ class_id, subject_id, academic_period_id }` -> 200 `{ count: n }`. Toast "Finalised {n}". |           |
+| 62.3 | Empty rows blocked    | Rows with empty body are skipped.                                                                                                                       |           |
+| 62.4 | Returns count         | Response `{ count: number }`. UI reflects.                                                                                                              |           |
+| 62.5 | Idempotent            | Second run does not double-count.                                                                                                                       |           |
+| 62.6 | Permission            | Requires `report_cards.comment`.                                                                                                                        |           |
+| 62.7 | Authored-by filter    | Bulk-finalise only finalises rows authored by the caller? Or any? Document and verify.                                                                  |           |
+| 62.8 | Audit log entry       | Each finalised row emits an audit log entry.                                                                                                            |           |
+
+---
+
+## 63. Subject Comments Editor — Unfinalise
+
+| #    | What to Check             | Expected Result                                                                                                   | Pass/Fail |
+| ---- | ------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------- |
+| 63.1 | Unfinalise single row     | `PATCH /v1/report-card-subject-comments/{id}/unfinalise` -> 200. Row re-editable.                                 |           |
+| 63.2 | Admin can unfinalise any  | Even teacher-authored.                                                                                            |           |
+| 63.3 | Window closed restriction | If window closed, unfinalise may be blocked. Verify vs overall comments. Flag inconsistency in Section 80.        |           |
+| 63.4 | Bulk unfinalise           | If a bulk endpoint exists, verify. If not implemented, flag.                                                      |           |
+| 63.5 | Unfinalise by non-author  | Admin unfinalising a teacher's finalised comment succeeds. Teacher unfinalising another teacher's comment -> 403. |           |
+
+---
+
+## 64. Approval Configs — List + Create + Edit + Delete
+
+| #     | What to Check        | Expected Result                                                                                                                                                  | Pass/Fail |
+| ----- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 64.1  | List configs         | `GET /v1/report-cards/approval-configs` -> 200 `{ data: [...] }`.                                                                                                |           |
+| 64.2  | Create config        | `POST /v1/report-cards/approval-configs` with `{ name, role_keys: ['school_principal'], min_approvals: 1, scope: {...} }` -> 201. Record `{APPROVAL_CONFIG_ID}`. |           |
+| 64.3  | Get by id            | `GET /v1/report-cards/approval-configs/{APPROVAL_CONFIG_ID}` -> 200.                                                                                             |           |
+| 64.4  | Update               | `PATCH /v1/report-cards/approval-configs/{APPROVAL_CONFIG_ID}` with `{ min_approvals: 2 }` -> 200.                                                               |           |
+| 64.5  | Delete               | `DELETE /v1/report-cards/approval-configs/{APPROVAL_CONFIG_ID}` -> 204.                                                                                          |           |
+| 64.6  | Duplicate name       | Creating a second config with same name -> 409 `{ code: 'APPROVAL_CONFIG_DUPLICATE' }`.                                                                          |           |
+| 64.7  | Teacher read         | Teacher w/o `gradebook.view` -> 403.                                                                                                                             |           |
+| 64.8  | Teacher write        | Teacher w/o `gradebook.manage` -> 403.                                                                                                                           |           |
+| 64.9  | Invalid role_keys    | Empty `role_keys` array or unknown role -> 400 Zod.                                                                                                              |           |
+| 64.10 | min_approvals bounds | `min_approvals < 1` -> 400.                                                                                                                                      |           |
+
+---
+
+## 65. Submit for Approval -> Approve / Reject / Bulk-Approve
+
+| #     | What to Check                | Expected Result                                                                                                                        | Pass/Fail |
+| ----- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 65.1  | Submit for approval          | `POST /v1/report-cards/{id}/submit-approval` -> 200. Report card `approval_status='pending'`.                                          |           |
+| 65.2  | Pending list for approver    | `GET /v1/report-cards/approvals/pending?role_key=school_principal&page=1&pageSize=20` -> 200.                                          |           |
+| 65.3  | Approve                      | `POST /v1/report-cards/approvals/{approvalId}/approve` -> 200. Status -> `approved`.                                                   |           |
+| 65.4  | Reject                       | `POST /v1/report-cards/approvals/{approvalId}/reject` with `{ reason: '...' }` -> 200. Status -> `rejected`.                           |           |
+| 65.5  | Missing reason on reject     | -> 400 Zod validation.                                                                                                                 |           |
+| 65.6  | Bulk approve                 | `POST /v1/report-cards/approvals/bulk-approve` with `{ approval_ids: [id1, id2, id3] }` -> 200 `{ approved: n, failed: m }`.           |           |
+| 65.7  | Approver w/o permission      | Call from user without `report_cards.approve` -> 403.                                                                                  |           |
+| 65.8  | Already approved             | -> 409 `{ code: 'APPROVAL_NOT_PENDING' }`.                                                                                             |           |
+| 65.9  | Submit unpublished card      | Submitting a draft for approval: verify whether allowed. If blocked -> 409 `{ code: 'REPORT_NOT_SUBMITTABLE' }`.                       |           |
+| 65.10 | Reject with very long reason | Reason > 500 chars -> 400 (schema max length).                                                                                         |           |
+| 65.11 | Approve list pagination      | `?page=2&pageSize=20` returns the next slice with meta.                                                                                |           |
+| 65.12 | Multi-config flow            | With two approval configs (different roles), a card may require parallel approvals (principal + vp). Submitting advances through both. |           |
+| 65.13 | Concurrent approve           | Two approvers clicking simultaneously: only first succeeds, second -> 409.                                                             |           |
+
+---
+
+## 66. Custom Field Definitions — CRUD + Per-Report Values
+
+| #     | What to Check                        | Expected Result                                                                                                   | Pass/Fail                        |
+| ----- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | -------------------------------- | --------- | -------------------------------------------------------- | --- |
+| 66.1  | List defs                            | `GET /v1/report-cards/custom-fields` -> 200 `{ data: [...] }`.                                                    |                                  |
+| 66.2  | Create def                           | `POST /v1/report-cards/custom-fields` with `{ key, label, type: 'text'                                            | 'number'                         | 'boolean' | 'date', is_required }`-> 201. Record`{CUSTOM_FIELD_ID}`. |     |
+| 66.3  | Update def                           | `PATCH /v1/report-cards/custom-fields/{CUSTOM_FIELD_ID}` with `{ label: 'Updated' }` -> 200.                      |                                  |
+| 66.4  | Delete def                           | `DELETE /v1/report-cards/custom-fields/{CUSTOM_FIELD_ID}` -> 204.                                                 |                                  |
+| 66.5  | Duplicate key                        | Re-creating with same `key` -> 409 `{ code: 'CUSTOM_FIELD_DUPLICATE' }`.                                          |                                  |
+| 66.6  | Save per-report values               | `PUT /v1/report-cards/{id}/custom-field-values` with `{ values: [{field_id, value}] }` -> 200.                    |                                  |
+| 66.7  | Get per-report values                | `GET /v1/report-cards/{id}/custom-field-values` -> 200 `{ data: [{field_id, value, ...}] }`.                      |                                  |
+| 66.8  | Required value missing               | -> 400 `{ code: 'CUSTOM_FIELD_REQUIRED' }`.                                                                       |                                  |
+| 66.9  | Permission                           | Write requires `gradebook.manage`, read `gradebook.view`.                                                         |                                  |
+| 66.10 | Type coercion                        | Saving a `number` field with a string value -> 400 type error.                                                    |                                  |
+| 66.11 | Date field                           | Date type values require ISO `YYYY-MM-DD`.                                                                        |                                  |
+| 66.12 | Boolean field                        | Type `boolean` accepts `true                                                                                      | false`; strings "true" rejected. |           |
+| 66.13 | Reorder fields                       | `display_order` field on CRUD allows reordering. Drag-and-drop UI updates order.                                  |                                  |
+| 66.14 | Delete def with existing values      | Deleting a def cascades to values (or blocks). Verify and document.                                               |                                  |
+| 66.15 | Required toggled to true on existing | Making an optional field required retroactively does NOT invalidate existing cards but new saves must include it. |                                  |
+| 66.16 | Help text                            | Field defs may include help text that renders as a tooltip in the report card editor.                             |                                  |
+
+---
+
+## 67. Grade Threshold Configs — CRUD
+
+| #     | What to Check             | Expected Result                                                                                                                     | Pass/Fail |
+| ----- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 67.1  | List                      | `GET /v1/report-cards/grade-thresholds` -> 200.                                                                                     |           |
+| 67.2  | Create                    | `POST /v1/report-cards/grade-thresholds` with `{ name, thresholds: [{grade, min, max}] }` -> 201.                                   |           |
+| 67.3  | Overlapping ranges        | Overlapping min/max -> 400 `{ code: 'GRADE_THRESHOLD_OVERLAP' }`.                                                                   |           |
+| 67.4  | Gapped ranges             | Gaps (e.g., 70–80 and 90–100 with 80–90 missing) -> 400 `{ code: 'GRADE_THRESHOLD_GAP' }` (if enforced).                            |           |
+| 67.5  | Update                    | `PATCH /v1/report-cards/grade-thresholds/{id}` -> 200.                                                                              |           |
+| 67.6  | Delete                    | `DELETE /v1/report-cards/grade-thresholds/{id}` -> 204.                                                                             |           |
+| 67.7  | Permission                | `gradebook.manage` write / `gradebook.view` read.                                                                                   |           |
+| 67.8  | Grade mapping used by PDF | Published report card PDFs use the matching threshold's grade letter for each score. Flag if still using a legacy hard-coded scale. |           |
+| 67.9  | Multiple configs active   | If multiple threshold configs exist, one is flagged `is_default=true`.                                                              |           |
+| 67.10 | Set default               | Admin can toggle which config is default. Previous default auto-unflags.                                                            |           |
+| 67.11 | Apply to all report cards | Running "Recompute all" re-applies the threshold mapping to every published card. Admin-only.                                       |           |
+| 67.12 | Import/export CSV         | (If supported) admin can import thresholds from CSV.                                                                                |           |
+
+---
+
+## 68. Acknowledgment Status Viewer
+
+| #    | What to Check           | Expected Result                                                                                                                              | Pass/Fail |
+| ---- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 68.1 | Get ack status          | `GET /v1/report-cards/{id}/acknowledgment-status` -> 200 `{ acknowledged: bool, acknowledged_by: [...], acknowledged_at: iso, ip_address }`. |           |
+| 68.2 | Parent acknowledges     | `POST /v1/report-cards/{id}/acknowledge` with `{ parent_id }` from parent context -> 200. Status flips.                                      |           |
+| 68.3 | Duplicate ack           | Second ack by same parent -> 409 `{ code: 'ALREADY_ACKNOWLEDGED' }`.                                                                         |           |
+| 68.4 | IP recorded             | Server records `req.headers['x-forwarded-for']` or socket IP.                                                                                |           |
+| 68.5 | Admin view              | Read-only view of the ack records.                                                                                                           |           |
+| 68.6 | Unpublished report card | Ack on unpublished -> 409 `{ code: 'REPORT_NOT_PUBLISHED' }`.                                                                                |           |
+| 68.7 | Unknown parent id       | `parent_id` not related to the student -> 403 `{ code: 'PARENT_NOT_LINKED' }`.                                                               |           |
+| 68.8 | Ack-required setting    | If `require_parent_acknowledgment=true` in tenant settings, unpaid acknowledgment shows a banner on the parent view.                         |           |
+| 68.9 | Resend email            | Admin can trigger a resend of the ack email.                                                                                                 |           |
+
+---
+
+## 69. Verification Token + Public `/verify/:token` Viewer
+
+| #     | What to Check                      | Expected Result                                                                                                                      | Pass/Fail |
+| ----- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 69.1  | Generate token                     | `POST /v1/report-cards/{id}/verification-token` -> 201 `{ data: { token, expires_at, public_url } }`. Record `{VERIFY_TOKEN}`.       |           |
+| 69.2  | Token properties                   | Token >= 32 chars random. Generating twice for same id returns a new token OR reuses an existing unexpired one (document behaviour). |           |
+| 69.3  | Public viewer                      | `GET /v1/verify/{VERIFY_TOKEN}` with NO auth header -> 200 `{ data: { report_card: {...}, student: {...}, tenant: {...} } }`.        |           |
+| 69.4  | Expired token                      | `expires_at < now` -> 410 `{ code: 'TOKEN_EXPIRED' }`.                                                                               |           |
+| 69.5  | Invalid token                      | Junk token -> 404 `{ code: 'TOKEN_NOT_FOUND' }`.                                                                                     |           |
+| 69.6  | No tenant bleed                    | Payload exposes only non-sensitive fields (name, period, grades, school). No email/phone/SSN.                                        |           |
+| 69.7  | Permission to generate             | Requires `gradebook.manage`. Teacher -> 403.                                                                                         |           |
+| 69.8  | Public controller has no AuthGuard | Confirm `ReportCardVerificationController` decorator stack has no `@UseGuards(AuthGuard)`.                                           |           |
+| 69.9  | QR code embedding                  | Published PDF includes a QR code encoding `public_url`. Scan the QR on the PDF and confirm it resolves.                              |           |
+| 69.10 | Token format                       | Token appears URL-safe (base64url). No `+/=` chars that require encoding.                                                            |           |
+| 69.11 | public_url stable                  | Same token always resolves to the same public URL; not re-signed per request.                                                        |           |
+| 69.12 | Rate limiting on verify            | 50 hits on `/v1/verify/{token}` in 10s: service either allows all or rate-limits at 429.                                             |           |
+| 69.13 | Regeneration                       | Generating a new token via `POST .../verification-token` invalidates the previous one? Or coexists? Verify and document.             |           |
+
+---
+
+## 70. Batch PDF Endpoint + Bulk Operations
+
+| #     | What to Check              | Expected Result                                                                                                                                                                    | Pass/Fail |
+| ----- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 70.1  | Enqueue batch PDF          | `POST /v1/report-cards/batch-pdf` with `{ class_id, academic_period_id, template_id? }` -> 202 `{ message: 'Batch PDF generation queued', status: 'queued' }`.                     |           |
+| 70.2  | BullMQ job payload         | Queue `gradebook` receives `gradebook:batch-pdf` with `{ tenant_id, class_id, academic_period_id, template_id, requested_by_user_id }`. Verify via worker logs or queue inspector. |           |
+| 70.3  | Permission                 | Requires `report_cards.bulk_operations`. Teacher -> 403.                                                                                                                           |           |
+| 70.4  | Bulk generate drafts       | `POST /v1/report-cards/bulk/generate` with `{ class_id, academic_period_id }` -> 201. Returns generation summary.                                                                  |           |
+| 70.5  | Bulk publish               | `POST /v1/report-cards/bulk/publish` with `{ report_card_ids: [...] }` -> 200 `{ published: n }`.                                                                                  |           |
+| 70.6  | Bulk deliver               | `POST /v1/report-cards/bulk/deliver` with `{ report_card_ids: [...] }` -> 200. Each card enters delivery pipeline.                                                                 |           |
+| 70.7  | Bulk empty array           | `POST bulk/publish` with `{ report_card_ids: [] }` -> 400 Zod.                                                                                                                     |           |
+| 70.8  | RLS isolation              | Cross-tenant ids silently skip (zero match) and response reports accurate count.                                                                                                   |           |
+| 70.9  | BullMQ job has `tenant_id` | Without `tenant_id`, job is rejected at enqueue (TenantAwareJob invariant).                                                                                                        |           |
+| 70.10 | Batch PDF delivery email   | After the worker finishes, `requested_by_user_id` receives a notification with the download link.                                                                                  |           |
+| 70.11 | Batch PDF retries          | Worker retries failed batch 3x with backoff before dead-letter.                                                                                                                    |           |
+
+---
+
+## 71. Transcript Download (per-student GPA transcript)
+
+| #     | What to Check                   | Expected Result                                                                                 | Pass/Fail |
+| ----- | ------------------------------- | ----------------------------------------------------------------------------------------------- | --------- |
+| 71.1  | Admin request                   | `GET /v1/report-cards/students/{STUDENT_1_ID}/transcript` -> 200 with `application/pdf` stream. |           |
+| 71.2  | Permission                      | Requires `transcripts.generate`. Teacher w/o permission -> 403.                                 |           |
+| 71.3  | Content                         | Transcript aggregates every published report card across periods, computes GPA, styled PDF.     |           |
+| 71.4  | Unknown student                 | Bogus UUID -> 404 `{ code: 'STUDENT_NOT_FOUND' }`.                                              |           |
+| 71.5  | Student with no published cards | -> 409 `{ code: 'NO_PUBLISHED_CARDS' }` OR empty transcript (verify expected behaviour).        |           |
+| 71.6  | Cross-tenant                    | Student id belonging to another tenant -> 404.                                                  |           |
+| 71.7  | Filename                        | `Content-Disposition` filename includes student name + "transcript" + date.                     |           |
+| 71.8  | Branding                        | Transcript PDF uses tenant branding from `loadBranding`.                                        |           |
+| 71.9  | GPA formula                     | Transcript GPA uses the tenant's active grade threshold config. Flag if hard-coded.             |           |
+| 71.10 | Year-by-year breakdown          | Transcript groups report cards by academic year with subtotals.                                 |           |
+
+---
+
+## 72. Revise Published Report Card
+
+| #     | What to Check                | Expected Result                                                                                                                   | Pass/Fail |
+| ----- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 72.1  | Revise a published card      | `POST /v1/report-cards/{id}/revise` -> 201 `{ data: { id: {NEW_DRAFT_ID}, revision_of_report_card_id: {id}, status: 'draft' } }`. |           |
+| 72.2  | Original flips to superseded | `GET /v1/report-cards/{id}` now shows `status='superseded'`.                                                                      |           |
+| 72.3  | Revision chain traversal     | `GET /v1/report-cards?include_revisions=true&student_id=...` lists original + new draft.                                          |           |
+| 72.4  | Only published revisable     | Revising a draft -> 409 `{ code: 'REPORT_NOT_PUBLISHED' }`.                                                                       |           |
+| 72.5  | Permission                   | Requires `gradebook.manage`.                                                                                                      |           |
+| 72.6  | Audit trail                  | Audit entry for the revision event.                                                                                               |           |
+| 72.7  | Publishing the revision      | Publishing the new draft -> 200; replaces original in active views.                                                               |           |
+| 72.8  | Grade re-snapshot            | New draft re-runs grade snapshot computation (fresh data, not copy of old snapshot).                                              |           |
+| 72.9  | Revision tracks parent       | `revision_of_report_card_id` points back to the original; not a chain of chains (always points to root). Verify.                  |           |
+| 72.10 | Delete a revision            | Deleting the revision does NOT restore the original from `superseded` (verify: may stay superseded until manual fix).             |           |
+
+---
+
+## 73. Retired Redirect Stubs
+
+| #    | What to Check                | Expected Result                                                                                                   | Pass/Fail |
+| ---- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------- |
+| 73.1 | `/en/report-cards/approvals` | `<RetiredApprovalsRedirect>` mounts; `router.replace('/en/report-cards/requests')`. URL flips quickly.            |           |
+| 73.2 | `/en/report-cards/bulk`      | `<RetiredBulkRedirect>` mounts; `router.replace('/en/report-cards')`. URL flips.                                  |           |
+| 73.3 | No 404 flash                 | Neither stub renders the "Failed to load the matrix" fallback from the `[classId]` dynamic segment.               |           |
+| 73.4 | No API calls from stubs      | Both stubs render `null` — no component-level fetches.                                                            |           |
+| 73.5 | Deep link survival           | Bookmarking `/en/report-cards/approvals` + opening in a new tab still redirects correctly without bypassing auth. |           |
+| 73.6 | Locale preservation          | Hitting `/ar/report-cards/approvals` replaces to `/ar/report-cards/requests`. Locale preserved.                   |           |
+| 73.7 | No server-side redirect      | Both stubs redirect client-side. Server still serves the route 200 with empty body.                               |           |
+
+---
+
+## 74. Role Gates & Permission Denials
+
+| #     | What to Check                              | Expected Result                                                                                                                             | Pass/Fail |
+| ----- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---------------- | --- |
+| 74.1  | `school_owner` bypass                      | Every endpoint in Section 79 returns 200/201 for Yusuf. `PermissionGuard` short-circuits via `isOwner()`.                                   |           |
+| 74.2  | Parent on `/en/report-cards`               | Sign in as parent. Dashboard redirects or renders parent-specific variant. No admin tiles.                                                  |           |
+| 74.3  | Parent -> Generate                         | `POST /v1/report-cards/generation-runs` -> 403 `{ code: 'PERMISSION_DENIED', message: 'Missing permission: report_cards.manage' }`.         |           |
+| 74.4  | Teacher -> Settings                        | Toast + redirect (Section 14.6).                                                                                                            |           |
+| 74.5  | Teacher -> Generation wizard               | Toast + redirect (Section 22.3).                                                                                                            |           |
+| 74.6  | Teacher -> Bundle PDF                      | `GET /v1/report-cards/library/bundle-pdf?...` -> 403.                                                                                       |           |
+| 74.7  | Teacher -> Bulk operations                 | `bulk/generate                                                                                                                              | publish   | deliver` -> 403. |     |
+| 74.8  | Teacher -> Approvals                       | Approve/reject/bulk-approve -> 403.                                                                                                         |           |
+| 74.9  | Teacher -> Delete report card              | `DELETE /v1/report-cards/{id}` -> 403.                                                                                                      |           |
+| 74.10 | Teacher -> Comments for non-homeroom class | Upsert -> 403 `{ code: 'NOT_HOMEROOM_TEACHER' }`.                                                                                           |           |
+| 74.11 | Unauthenticated request                    | Any `/v1/report-cards/*` without bearer -> 401.                                                                                             |           |
+| 74.12 | Expired JWT                                | -> 401 `{ code: 'TOKEN_EXPIRED' }`.                                                                                                         |           |
+| 74.13 | Teacher -> generation-runs list            | `GET /v1/report-cards/generation-runs` -> 403 (missing `report_cards.manage`).                                                              |           |
+| 74.14 | Teacher -> transcripts                     | `GET /v1/report-cards/students/{id}/transcript` -> 403 (missing `transcripts.generate`).                                                    |           |
+| 74.15 | Teacher -> verification token generate     | `POST /v1/report-cards/{id}/verification-token` -> 403.                                                                                     |           |
+| 74.16 | Teacher -> custom-fields write             | `POST /v1/report-cards/custom-fields` -> 403.                                                                                               |           |
+| 74.17 | Teacher -> approval configs                | `POST /v1/report-cards/approval-configs` -> 403 (missing `gradebook.manage`).                                                               |           |
+| 74.18 | Teacher -> comment window open/close       | `POST/PATCH /v1/report-comment-windows/...` -> 403.                                                                                         |           |
+| 74.19 | Principal vs Owner delta                   | `school_principal` holds `gradebook.publish_report_cards` but NOT necessarily `report_cards.approve` — verify matrix matches the role seed. |           |
+| 74.20 | Viewer without any role                    | User with only `parent` membership fetching `/v1/report-cards/library` -> 403 `{ code: 'PERMISSION_DENIED' }`.                              |           |
+| 74.21 | Anonymous verify succeeds                  | `/v1/verify/{token}` without auth header returns 200 (public route).                                                                        |           |
+| 74.22 | 200 instead of 403                         | No endpoint must return 200 for a user missing the required permission. Spot-check one from each controller.                                |           |
+| 74.23 | Permission cache invalidation              | After an admin revokes `report_cards.manage` from a user, the next request from that user returns 403 within 60s.                           |           |
+| 74.24 | Role change requires re-login?             | If role is changed mid-session, verify whether existing token remains valid until expiry or is revoked. Document.                           |           |
+| 74.25 | OWNER bypass tested on `/verify/:token`    | Owner auth does NOT interfere with the public route (it still accepts anonymous).                                                           |           |
+| 74.26 | `/v1/verify/:token` from authed user       | Authenticated user hitting the verify route still gets 200 (auth is irrelevant to this route).                                              |           |
+
+---
+
+## 75. RLS / Tenant Isolation Smoke
+
+| #     | What to Check                | Expected Result                                                                                                                     | Pass/Fail |
+| ----- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 75.1  | Create a report card as NHQS | Post-Section 29 record `{GENERATED_RC_ID}` (any student card in `{GENERATED_RUN_ID}`).                                              |           |
+| 75.2  | Fetch from second tenant     | Switch to Iqra Academy login (if seeded). `GET /v1/report-cards/{GENERATED_RC_ID}` -> 404 (NOT 403, to prevent existence leak).     |           |
+| 75.3  | List from second tenant      | `GET /v1/report-cards` returns Iqra's data only. `{GENERATED_RC_ID}` absent.                                                        |           |
+| 75.4  | Bulk-delete cross-tenant     | `POST /v1/report-cards/bulk-delete` with `{ report_card_ids: [{GENERATED_RC_ID}] }` from Iqra -> 200 `count=0`. NHQS row unchanged. |           |
+| 75.5  | Library cross-tenant         | Iqra's `GET /v1/report-cards/library` never returns NHQS rows.                                                                      |           |
+| 75.6  | Verify token cross-tenant    | Public endpoint returns ONLY the one card keyed to the token; no cross-tenant data leak.                                            |           |
+| 75.7  | Generation-run isolation     | `GET /v1/report-cards/generation-runs/{GENERATED_RUN_ID}` from Iqra -> 404.                                                         |           |
+| 75.8  | Teacher request isolation    | `GET /v1/report-card-teacher-requests/{id}` from Iqra for an NHQS request -> 404.                                                   |           |
+| 75.9  | Tenant settings isolation    | `GET /v1/report-card-tenant-settings` from Iqra returns Iqra's settings; NHQS values never appear.                                  |           |
+| 75.10 | Raw SQL isolation            | Spot-check server logs: every query carries `SET LOCAL app.current_tenant_id`. No raw `$executeRawUnsafe` calls.                    |           |
+| 75.11 | Worker job tenant            | Worker processing `gradebook:batch-pdf` sets RLS via `TenantAwareJob` before any DB call.                                           |           |
+| 75.12 | Analytics cross-tenant       | `GET /v1/report-cards/analytics/dashboard` from Iqra never returns NHQS aggregates.                                                 |           |
+| 75.13 | RLS on overall comments      | Iqra's `GET /v1/report-card-overall-comments` returns only Iqra's rows.                                                             |           |
+| 75.14 | RLS on subject comments      | Iqra's `GET /v1/report-card-subject-comments` returns only Iqra's rows.                                                             |           |
+| 75.15 | RLS on comment windows       | Iqra's `GET /v1/report-comment-windows` returns only Iqra's windows.                                                                |           |
+| 75.16 | RLS on templates             | `GET /v1/report-cards/templates` from Iqra returns Iqra's templates + the platform-shared catalogue.                                |           |
+| 75.17 | RLS on approvals             | `GET /v1/report-cards/approvals/pending` from Iqra returns only Iqra's pending approvals.                                           |           |
+| 75.18 | RLS on acknowledgments       | `GET /v1/report-cards/{id}/acknowledgment-status` for NHQS id from Iqra -> 404.                                                     |           |
+
+---
+
+## 76. Arabic / RTL Walkthrough
+
+| #     | What to Check              | Expected Result                                                                                                                  | Pass/Fail |
+| ----- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 76.1  | Switch locale              | Navigate to `/ar/report-cards`. `<html lang="ar" dir="rtl">`.                                                                    |           |
+| 76.2  | Dashboard heading          | `reportCards.title` resolves to Arabic. No English leakage.                                                                      |           |
+| 76.3  | Period selector            | Options render in AR where translated. Dates Gregorian, numerals Latin 0–9.                                                      |           |
+| 76.4  | Quick-action tiles         | All four tile titles + descriptions in Arabic.                                                                                   |           |
+| 76.5  | Classes grid RTL alignment | Card text `text-start` (right-aligned in RTL). Layout mirrors correctly.                                                         |           |
+| 76.6  | Class matrix RTL           | Subjects flow right-to-left. Sticky student column is on the right (`sticky start-0`).                                           |           |
+| 76.7  | Grade cells stay LTR       | Cells have `dir="ltr"` so numerals read correctly.                                                                               |           |
+| 76.8  | Wizard steps in AR         | Step titles + descriptions translated. No hardcoded English.                                                                     |           |
+| 76.9  | Settings page in AR        | All section headers + hints translated.                                                                                          |           |
+| 76.10 | Library actions in AR      | Publish/Unpublish/Delete labels translated. Icons unchanged.                                                                     |           |
+| 76.11 | Analytics in AR            | X-axis class names render in Arabic where applicable. Legend translated.                                                         |           |
+| 76.12 | Teacher requests in AR     | Tab labels, column headers, status labels all translated.                                                                        |           |
+| 76.13 | Comments editor in AR      | Textareas accept Arabic input. Use `dir="auto"` for mixed content blocks.                                                        |           |
+| 76.14 | Toasts in AR               | Success/failure toasts in Arabic.                                                                                                |           |
+| 76.15 | Translation debt           | Any untranslated string (raw English in AR locale) flagged in Section 80 as translation-debt with row number.                    |           |
+| 76.16 | Arabic search in filters   | If any search input exists, accepts Arabic queries and filters correctly.                                                        |           |
+| 76.17 | Confirm dialog in AR       | All `ConfirmDialog` usages show Arabic titles, descriptions, and button labels.                                                  |           |
+| 76.18 | Window banner date format  | Gregorian calendar, Latin numerals, formatted via `Intl.DateTimeFormat('ar', { calendar: 'gregory', numberingSystem: 'latn' })`. |           |
+| 76.19 | Morph bar in RTL           | Hub logos and hamburger position mirror correctly.                                                                               |           |
+| 76.20 | Select dropdown arrow      | Dropdown arrow appears on the correct side in RTL.                                                                               |           |
+| 76.21 | Chart RTL                  | X-axis labels render RTL where applicable; bar order mirrors.                                                                    |           |
+| 76.22 | Radio card icons           | Icons in radio cards use logical margins (`me-`/`ms-`).                                                                          |           |
+| 76.23 | Wizard Next/Back arrows    | ArrowLeft/ArrowRight visual direction mirrors in RTL (start/end).                                                                |           |
+
+---
+
+## 77. Mobile Responsiveness (375px — iPhone SE)
+
+| #     | What to Check                       | Expected Result                                                                                                  | Pass/Fail |
+| ----- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------- |
+| 77.1  | Resize devtools to 375×667          | Layout re-flows to mobile. No horizontal scrollbar at document level.                                            |           |
+| 77.2  | Morph bar on mobile                 | Compact top row + hamburger trigger. Tapping opens a hub nav overlay.                                            |           |
+| 77.3  | Sub-strip horizontal scroll         | Learning -> Assessment -> Report Cards sub-strip scrolls horizontally.                                           |           |
+| 77.4  | Dashboard tiles stack               | `grid-cols-1`. Each tile tappable at 44x44.                                                                      |           |
+| 77.5  | Classes grid stacks                 | `grid-cols-1`. No overflow.                                                                                      |           |
+| 77.6  | Class matrix scrolls                | Sticky student column remains visible while horizontally scrolling.                                              |           |
+| 77.7  | Settings form                       | Inputs + switches stack vertically. No fixed widths. `text-base` on inputs (no iOS zoom).                        |           |
+| 77.8  | Signature upload                    | Fits 375px. Error toast fits viewport.                                                                           |           |
+| 77.9  | Wizard steps                        | Indicator scrolls horizontally. Content readable without zoom. Next/Back stack at `sm:` breakpoint.              |           |
+| 77.10 | Library view toggles                | Tabs scroll horizontally if > 4.                                                                                 |           |
+| 77.11 | Library rows                        | Row-level actions collapse to kebab menu (three-dot) on mobile.                                                  |           |
+| 77.12 | Modals                              | Open Window, Extend, Reject, Confirm — all fit 375px width, content scrollable if overflow. Close buttons 44x44. |           |
+| 77.13 | Comments editor                     | Textarea full width. Finalise switch reachable. AI draft button not clipped.                                     |           |
+| 77.14 | Analytics chart                     | `<ResponsiveContainer>` sizes chart to viewport.                                                                 |           |
+| 77.15 | PDF preview                         | Opening an individual PDF opens native mobile PDF viewer.                                                        |           |
+| 77.16 | Hamburger overlay                   | Hub nav overlay dismisses on backdrop tap and does not trap focus permanently.                                   |           |
+| 77.17 | Teacher requests table              | Table wraps in `overflow-x-auto`. Horizontal scroll with sticky first column.                                    |           |
+| 77.18 | Min-touch targets everywhere        | Every button/link in the module is >= 44x44px on mobile. Check: buttons have `min-h-11` class.                   |           |
+| 77.19 | Landscape orientation               | Rotating the phone to landscape (667×375) re-flows correctly; no overflow.                                       |           |
+| 77.20 | Pinch zoom disabled where necessary | Input fields use `text-base` (16px) to prevent iOS Safari auto-zoom on focus.                                    |           |
+| 77.21 | Home-screen icon (PWA)              | If the app has a PWA manifest, adding to home screen uses the correct icon + theme colour.                       |           |
+| 77.22 | Safe-area insets                    | On devices with notches (iPhone X+), content respects `env(safe-area-inset-bottom)` where relevant.              |           |
+| 77.23 | Soft keyboard overlap               | When the soft keyboard is open, autosave indicator and save button remain visible.                               |           |
+
+---
+
+## 78. Console & Network Health
+
+| #     | What to Check                  | Expected Result                                                                                                                                                          | Pass/Fail |
+| ----- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 78.1  | No console errors on dashboard | Zero red errors during Section 4–9 walk.                                                                                                                                 |           |
+| 78.2  | No console errors on library   | Zero errors during Section 33–41.                                                                                                                                        |           |
+| 78.3  | No 4xx/5xx on golden path      | Network tab shows no unexpected 4xx/5xx during end-to-end generate -> publish -> library flow (expected 403/409 during permission tests are fine in their own sections). |           |
+| 78.4  | No retry storms                | Failing endpoint does not retry in a tight loop. Backoff or manual retry only.                                                                                           |           |
+| 78.5  | Polling stops on tab hidden    | Page Visibility API: polling SHOULD pause when hidden (flag if it doesn't).                                                                                              |           |
+| 78.6  | Request IDs propagate          | Each response includes `x-request-id`. Client logs it on error.                                                                                                          |           |
+| 78.7  | Bundle size                    | Dashboard initial JS payload < 500KB gzip. Flag regressions.                                                                                                             |           |
+| 78.8  | Source maps                    | Sources panel shows `.tsx` files in production build with sourcemaps.                                                                                                    |           |
+| 78.9  | React warnings                 | No "setState after unmount" / "key prop missing" / "hydration mismatch" warnings.                                                                                        |           |
+| 78.10 | Memory profile                 | Leaving dashboard open for 15 min with polling does not grow the heap monotonically.                                                                                     |           |
+| 78.11 | CSP violations                 | Browser Console shows no `Refused to apply inline style because it violates CSP` warnings.                                                                               |           |
+| 78.12 | 3rd-party cookies              | No cross-site cookies set by the app; only first-party session cookie.                                                                                                   |           |
+| 78.13 | Referrer policy                | Outgoing requests use `strict-origin-when-cross-origin` or similar.                                                                                                      |           |
+| 78.14 | Accessibility tree             | Run axe DevTools on each page: no serious/critical violations.                                                                                                           |           |
+| 78.15 | Keyboard-only navigation       | Full walk through the module using only keyboard; every interactive element reachable.                                                                                   |           |
+| 78.16 | Screen reader walkthrough      | Use VoiceOver/NVDA to navigate the dashboard; all major regions have landmarks (`<main>`, `<section>` with `aria-label`).                                                |           |
+| 78.17 | Colour contrast                | AA contrast ratio for text vs background across all main surfaces. Check with devtools a11y panel.                                                                       |           |
+| 78.18 | Focus outline visibility       | Default browser focus outline replaced with `focus-visible:ring-2` — visible on all interactive elements.                                                                |           |
+
+---
+
+## 79. Backend Endpoint Map
+
+All routes are `/v1/*` behind `AuthGuard + PermissionGuard` unless noted. Body/query shapes are defined in `@school/shared` Zod schemas. This table is the ground truth — cross-check every row above by the `(method, path)` pair.
+
+### 79.1 Core report-cards controller (`ReportCardsController`)
+
+| Method | Path                                       | Permission                       | Body / Query                                                                     | Success                                             | Notes                                                  |
+| ------ | ------------------------------------------ | -------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------ |
+| POST   | `/v1/report-cards/generate`                | `gradebook.manage`               | `{ student_ids[], academic_period_id }`                                          | 201                                                 | Legacy one-shot generate (used by older callers)       |
+| GET    | `/v1/report-cards`                         | `gradebook.view`                 | `?page, pageSize, academic_period_id?, status?, student_id?, include_revisions?` | 200 `{ data, meta }`                                | Teachers scoped to their classes; admins unscoped      |
+| POST   | `/v1/report-cards/generation-runs/dry-run` | `report_cards.manage`            | `dryRunGenerationCommentGateSchema`                                              | 200 `{ would_block, blocked_student_ids, reasons }` | Step-5 gate check                                      |
+| POST   | `/v1/report-cards/generation-runs`         | `report_cards.manage`            | `startGenerationRunSchema`                                                       | 201 `{ batch_job_id }`                              | Enqueues BullMQ job                                    |
+| GET    | `/v1/report-cards/generation-runs`         | `report_cards.manage`            | `listGenerationRunsQuerySchema`                                                  | 200 `{ data, meta }`                                | Dashboard polls every 5s                               |
+| GET    | `/v1/report-cards/generation-runs/:id`     | `report_cards.manage`            | —                                                                                | 200                                                 | Wizard polls every 3s                                  |
+| GET    | `/v1/report-cards/library`                 | `report_cards.view`              | `listReportCardLibraryQuerySchema`                                               | 200                                                 | Admin unscoped; teacher scoped                         |
+| GET    | `/v1/report-cards/library/grouped`         | `report_cards.view`              | —                                                                                | 200 `{ data: GroupedRunNode[] }`                    | Default library view source                            |
+| GET    | `/v1/report-cards/library/bundle-pdf`      | `report_cards.manage`            | `reportCardBundlePdfQuerySchema`                                                 | 200 stream                                          | `application/pdf` or `application/zip` by `merge_mode` |
+| GET    | `/v1/report-cards/classes/:classId/matrix` | `report_cards.view`              | `classMatrixQuerySchema`                                                         | 200 `ClassMatrixResponse`                           | Asserts class read scope                               |
+| GET    | `/v1/report-cards/:id`                     | `gradebook.view`                 | —                                                                                | 200                                                 |                                                        |
+| PATCH  | `/v1/report-cards/:id`                     | `gradebook.manage`               | `updateReportCardSchema`                                                         | 200                                                 |                                                        |
+| POST   | `/v1/report-cards/:id/publish`             | `gradebook.publish_report_cards` | —                                                                                | 200                                                 |                                                        |
+| POST   | `/v1/report-cards/:id/revise`              | `gradebook.manage`               | —                                                                                | 201                                                 | Creates draft revision; marks original superseded      |
+| POST   | `/v1/report-cards/bulk-delete`             | `report_cards.manage`            | `bulkDeleteReportCardsSchema`                                                    | 200 `{ data: { count, deleted_ids } }`              |                                                        |
+| DELETE | `/v1/report-cards/:id`                     | `report_cards.manage`            | —                                                                                | 200                                                 |                                                        |
+| GET    | `/v1/report-cards/:id/pdf`                 | `gradebook.view`                 | —                                                                                | 200 `application/pdf`                               | Inline disposition                                     |
+
+### 79.2 Enhanced controller (`ReportCardsEnhancedController`)
+
+| Method | Path                                              | Permission                       | Notes                                   |
+| ------ | ------------------------------------------------- | -------------------------------- | --------------------------------------- |
+| POST   | `/v1/report-cards/templates`                      | `report_cards.manage_templates`  | 201                                     |
+| GET    | `/v1/report-cards/templates`                      | `gradebook.view`                 | paginated                               |
+| GET    | `/v1/report-cards/templates/content-scopes`       | `report_cards.view`              | 200 `{ data: ContentScopeSummary[] }`   |
+| GET    | `/v1/report-cards/templates/:id`                  | `gradebook.view`                 |                                         |
+| PATCH  | `/v1/report-cards/templates/:id`                  | `report_cards.manage_templates`  |                                         |
+| DELETE | `/v1/report-cards/templates/:id`                  | `report_cards.manage_templates`  | 204                                     |
+| POST   | `/v1/report-cards/templates/convert-from-image`   | `report_cards.manage_templates`  | Raw binary body; 201                    |
+| POST   | `/v1/report-cards/approval-configs`               | `gradebook.manage`               | 201                                     |
+| GET    | `/v1/report-cards/approval-configs`               | `gradebook.view`                 |                                         |
+| GET    | `/v1/report-cards/approval-configs/:id`           | `gradebook.view`                 |                                         |
+| PATCH  | `/v1/report-cards/approval-configs/:id`           | `gradebook.manage`               |                                         |
+| DELETE | `/v1/report-cards/approval-configs/:id`           | `gradebook.manage`               | 204                                     |
+| POST   | `/v1/report-cards/:id/submit-approval`            | `gradebook.manage`               |                                         |
+| POST   | `/v1/report-cards/approvals/:id/approve`          | `report_cards.approve`           |                                         |
+| POST   | `/v1/report-cards/approvals/:id/reject`           | `report_cards.approve`           | `{ reason }`                            |
+| GET    | `/v1/report-cards/approvals/pending`              | `report_cards.approve`           | `?role_key?, page, pageSize`            |
+| POST   | `/v1/report-cards/approvals/bulk-approve`         | `report_cards.approve`           | `{ approval_ids[] }`                    |
+| POST   | `/v1/report-cards/:id/deliver`                    | `gradebook.publish_report_cards` |                                         |
+| GET    | `/v1/report-cards/:id/delivery-status`            | `gradebook.view`                 |                                         |
+| POST   | `/v1/report-cards/custom-fields`                  | `gradebook.manage`               | 201                                     |
+| GET    | `/v1/report-cards/custom-fields`                  | `gradebook.view`                 |                                         |
+| GET    | `/v1/report-cards/custom-fields/:id`              | `gradebook.view`                 |                                         |
+| PATCH  | `/v1/report-cards/custom-fields/:id`              | `gradebook.manage`               |                                         |
+| DELETE | `/v1/report-cards/custom-fields/:id`              | `gradebook.manage`               | 204                                     |
+| PUT    | `/v1/report-cards/:id/custom-field-values`        | `gradebook.manage`               | `{ values[] }`                          |
+| GET    | `/v1/report-cards/:id/custom-field-values`        | `gradebook.view`                 |                                         |
+| POST   | `/v1/report-cards/grade-thresholds`               | `gradebook.manage`               | 201                                     |
+| GET    | `/v1/report-cards/grade-thresholds`               | `gradebook.view`                 |                                         |
+| GET    | `/v1/report-cards/grade-thresholds/:id`           | `gradebook.view`                 |                                         |
+| PATCH  | `/v1/report-cards/grade-thresholds/:id`           | `gradebook.manage`               |                                         |
+| DELETE | `/v1/report-cards/grade-thresholds/:id`           | `gradebook.manage`               | 204                                     |
+| POST   | `/v1/report-cards/:id/acknowledge`                | `gradebook.view`                 | `{ parent_id }`                         |
+| GET    | `/v1/report-cards/:id/acknowledgment-status`      | `gradebook.view`                 |                                         |
+| GET    | `/v1/report-cards/analytics/dashboard`            | `gradebook.view_analytics`       | `?academic_period_id?`                  |
+| GET    | `/v1/report-cards/analytics/class-comparison`     | `gradebook.view_analytics`       | `?academic_period_id?`                  |
+| POST   | `/v1/report-cards/bulk/generate`                  | `report_cards.bulk_operations`   | 201 `{ class_id, academic_period_id }`  |
+| POST   | `/v1/report-cards/bulk/publish`                   | `report_cards.bulk_operations`   | `{ report_card_ids[] }`                 |
+| POST   | `/v1/report-cards/bulk/deliver`                   | `report_cards.bulk_operations`   | `{ report_card_ids[] }`                 |
+| GET    | `/v1/report-cards/students/:studentId/transcript` | `transcripts.generate`           | 200 PDF stream                          |
+| POST   | `/v1/report-cards/:id/verification-token`         | `gradebook.manage`               | 201 `{ token, public_url, expires_at }` |
+| POST   | `/v1/report-cards/batch-pdf`                      | `report_cards.bulk_operations`   | 202 queued                              |
+| GET    | `/v1/verify/:token`                               | **public (no auth)**             | Public verification viewer              |
+
+### 79.3 Tenant settings controller (`ReportCardTenantSettingsController`)
+
+| Method | Path                                                  | Permission            | Notes                                     |
+| ------ | ----------------------------------------------------- | --------------------- | ----------------------------------------- |
+| GET    | `/v1/report-card-tenant-settings`                     | `report_cards.view`   |                                           |
+| PATCH  | `/v1/report-card-tenant-settings`                     | `report_cards.manage` | `updateReportCardTenantSettingsSchema`    |
+| POST   | `/v1/report-card-tenant-settings/principal-signature` | `report_cards.manage` | multipart/form-data, PNG/JPEG/WEBP, <=2MB |
+| DELETE | `/v1/report-card-tenant-settings/principal-signature` | `report_cards.manage` |                                           |
+
+### 79.4 Overall comments controller
+
+| Method | Path                                              | Permission             | Notes                                                 |
+| ------ | ------------------------------------------------- | ---------------------- | ----------------------------------------------------- |
+| GET    | `/v1/report-card-overall-comments`                | `report_cards.view`    | filters: class_id, period, student, author, finalised |
+| GET    | `/v1/report-card-overall-comments/:id`            | `report_cards.view`    |                                                       |
+| POST   | `/v1/report-card-overall-comments`                | `report_cards.comment` | upsert                                                |
+| PATCH  | `/v1/report-card-overall-comments/:id/finalise`   | `report_cards.comment` |                                                       |
+| PATCH  | `/v1/report-card-overall-comments/:id/unfinalise` | `report_cards.comment` |                                                       |
+
+### 79.5 Subject comments controller
+
+| Method | Path                                              | Permission             | Notes                                                              |
+| ------ | ------------------------------------------------- | ---------------------- | ------------------------------------------------------------------ |
+| GET    | `/v1/report-card-subject-comments`                | `report_cards.view`    | filters: class, subject, period, author, student, finalised        |
+| GET    | `/v1/report-card-subject-comments/count`          | `report_cards.view`    | `?class_id&subject_id&academic_period_id`                          |
+| GET    | `/v1/report-card-subject-comments/:id`            | `report_cards.view`    |                                                                    |
+| POST   | `/v1/report-card-subject-comments`                | `report_cards.comment` | upsert                                                             |
+| PATCH  | `/v1/report-card-subject-comments/:id/finalise`   | `report_cards.comment` |                                                                    |
+| PATCH  | `/v1/report-card-subject-comments/:id/unfinalise` | `report_cards.comment` |                                                                    |
+| POST   | `/v1/report-card-subject-comments/ai-draft`       | `report_cards.comment` | per-row AI draft                                                   |
+| POST   | `/v1/report-card-subject-comments/bulk-finalise`  | `report_cards.comment` | `{ class_id, subject_id, academic_period_id }` returns `{ count }` |
+
+### 79.6 Teacher requests controller
+
+| Method | Path                                            | Permission             | Notes                            |
+| ------ | ----------------------------------------------- | ---------------------- | -------------------------------- |
+| GET    | `/v1/report-card-teacher-requests`              | `report_cards.comment` | teachers see own; admins see all |
+| GET    | `/v1/report-card-teacher-requests/pending`      | `report_cards.manage`  | pending queue for reviewers      |
+| GET    | `/v1/report-card-teacher-requests/:id`          | `report_cards.comment` |                                  |
+| POST   | `/v1/report-card-teacher-requests`              | `report_cards.comment` | 201 (teacher submits)            |
+| PATCH  | `/v1/report-card-teacher-requests/:id/cancel`   | `report_cards.comment` | teacher cancels own              |
+| PATCH  | `/v1/report-card-teacher-requests/:id/approve`  | `report_cards.manage`  | `{ auto_execute }`               |
+| PATCH  | `/v1/report-card-teacher-requests/:id/reject`   | `report_cards.manage`  | `{ reason }`                     |
+| PATCH  | `/v1/report-card-teacher-requests/:id/complete` | `report_cards.manage`  | finalise lifecycle               |
+
+### 79.7 Comment windows controller
+
+| Method | Path                                    | Permission            | Notes                                           |
+| ------ | --------------------------------------- | --------------------- | ----------------------------------------------- |
+| GET    | `/v1/report-comment-windows`            | `report_cards.view`   | `?status?, academic_period_id?, page, pageSize` |
+| GET    | `/v1/report-comment-windows/active`     | `report_cards.view`   | currently-open window or null                   |
+| GET    | `/v1/report-comment-windows/landing`    | `report_cards.view`   | scope for the comments landing page             |
+| GET    | `/v1/report-comment-windows/:id`        | `report_cards.view`   |                                                 |
+| POST   | `/v1/report-comment-windows`            | `report_cards.manage` | 201 — open                                      |
+| PATCH  | `/v1/report-comment-windows/:id/close`  | `report_cards.manage` | close now                                       |
+| PATCH  | `/v1/report-comment-windows/:id/extend` | `report_cards.manage` | `{ closes_at }`                                 |
+| PATCH  | `/v1/report-comment-windows/:id/reopen` | `report_cards.manage` |                                                 |
+| PATCH  | `/v1/report-comment-windows/:id`        | `report_cards.manage` | update instructions/schedule                    |
+
+### 79.8 Common error shape
+
+All endpoints emit structured errors via NestJS exceptions:
+
+```
+{ "error": { "code": "UPPER_SNAKE_CASE", "message": "Human readable", "details": { ... } } }
+```
+
+Common codes surfaced in this spec: `CLASS_NOT_FOUND`, `CLASS_OUT_OF_SCOPE`, `REPORT_CARD_NOT_FOUND`, `REPORT_NOT_PUBLISHED`, `WINDOW_CLOSED`, `WINDOW_OVERLAP`, `NOT_HOMEROOM_TEACHER`, `REQUEST_NOT_PENDING`, `APPROVAL_NOT_PENDING`, `APPROVAL_CONFIG_DUPLICATE`, `CUSTOM_FIELD_DUPLICATE`, `CUSTOM_FIELD_REQUIRED`, `GRADE_THRESHOLD_OVERLAP`, `GRADE_THRESHOLD_GAP`, `TOKEN_EXPIRED`, `TOKEN_NOT_FOUND`, `ALREADY_ACKNOWLEDGED`, `FILE_REQUIRED`, `INVALID_MIME`, `FILE_TOO_LARGE`, `PERMISSION_DENIED`, `NO_PUBLISHED_CARDS`, `PARENT_NOT_LINKED`, `AI_RATE_LIMIT`, `INSUFFICIENT_DATA`, `STUDENT_NOT_FOUND`.
+
+### 79.9 Route registration order notes
+
+Some literal segments MUST be declared before dynamic `:id` routes so NestJS matches them first. Verified order:
+
+- `generation-runs/dry-run` before `generation-runs/:id`
+- `generation-runs` (list) before `:id` on the core controller
+- `library`, `library/grouped`, `library/bundle-pdf` before `:id`
+- `bulk-delete` before `DELETE /:id`
+- `templates/content-scopes` before `templates/:id`
+- `comment-windows/active`, `comment-windows/landing` before `:id`
+- `teacher-requests/pending` before `:id`
+
+Breaking this order will cause `"failed to load"` / `"invalid UUID"` errors because the dynamic segment matches the literal text.
+
+### 79.10 Permission roll-up
+
+- `school_owner`: bypasses all permission checks (`PermissionCacheService.isOwner()`).
+- `school_principal`: typically holds `gradebook.*`, `report_cards.*`, `transcripts.generate`, `report_cards.approve`. Verify against role seed.
+- `school_vice_principal`: usually mirrors principal minus some approve-scoped perms.
+- `admin`: a general admin role that holds `gradebook.manage` and `report_cards.manage`. Does NOT hold `report_cards.approve` unless explicitly granted.
+- `teacher`: `report_cards.view` (limited by class-scope), `report_cards.comment`, `gradebook.view` (limited).
+- `parent`: `report_cards.view` on own children only (delivered via parent-specific endpoints — not scoped here).
+
+---
+
+## 80. Observations, Inconsistencies & Bugs Flagged
+
+Use this section to record anything that deviated from expectations during the walkthrough. For each entry include the section + row number that surfaced it, a severity tag, and a one-line summary. Do NOT fix bugs here — just flag them.
+
+### 80.1 Translation debt (EN / AR)
+
+| #   | Section / Row | Severity | Summary | Owner | Status |
+| --- | ------------- | -------- | ------- | ----- | ------ |
+|     |               |          |         |       |        |
+|     |               |          |         |       |        |
+|     |               |          |         |       |        |
+|     |               |          |         |       |        |
+|     |               |          |         |       |        |
+
+### 80.2 Functional issues
+
+| #   | Section / Row | Severity (P1/P2/P3) | Summary | Steps to reproduce | Expected vs Actual |
+| --- | ------------- | ------------------- | ------- | ------------------ | ------------------ |
+|     |               |                     |         |                    |                    |
+|     |               |                     |         |                    |                    |
+|     |               |                     |         |                    |                    |
+|     |               |                     |         |                    |                    |
+|     |               |                     |         |                    |                    |
+
+### 80.3 Documentation / contract mismatches
+
+| #   | Section / Row | Summary | Source of truth | Needs update in |
+| --- | ------------- | ------- | --------------- | --------------- |
+|     |               |         |                 |                 |
+|     |               |         |                 |                 |
+|     |               |         |                 |                 |
+
+### 80.4 Non-obvious behaviour worth documenting elsewhere
+
+| #   | Section / Row | Summary | Suggested home |
+| --- | ------------- | ------- | -------------- |
+|     |               |         |                |
+|     |               |         |                |
+|     |               |         |                |
+
+### 80.5 Performance or stability concerns
+
+| #   | Section / Row | Summary | Measurement |
+| --- | ------------- | ------- | ----------- |
+|     |               |         |             |
+|     |               |         |             |
+
+---
+
+## 81. Sign-Off
+
+| Field                            | Value                                 |
+| -------------------------------- | ------------------------------------- |
+| QC engineer                      |                                       |
+| Tenant                           | Nurul Huda School (`nhqs.edupod.app`) |
+| Tester account                   | `owner@nhqs.test` (Yusuf Rahman)      |
+| Test start date                  |                                       |
+| Test end date                    |                                       |
+| Browser / viewport               |                                       |
+| Build / git SHA                  |                                       |
+| Total rows passed                |                                       |
+| Total rows failed                |                                       |
+| P1 bugs found                    |                                       |
+| P2 bugs found                    |                                       |
+| P3 bugs found                    |                                       |
+| Blocker-count preventing release |                                       |
+| Notes                            |                                       |
+
+**Sign-off criteria.** All P1 rows must pass. Any P1 failure blocks release. All documented endpoints must respond with the expected status codes. All RLS tests (Section 75) must pass without exception. No console errors on the golden path. No regressions against the previous spec run.
+
+**Attach artefacts.** Browser console log export, Network HAR export for golden path, screenshot of any failed row's state. Store under `E2E/3_learning/ReportCards/admin_view/runs/{YYYY-MM-DD}/`.
+
+— End of spec —
