@@ -1,6 +1,7 @@
 'use client';
 
 import { Check, LayoutGrid, X } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -121,10 +122,28 @@ function formatShortDate(iso: string | null): string {
 export default function ApprovalQueuePage() {
   const t = useTranslations('teacherAssessments');
   const tc = useTranslations('common');
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // ── Tab state ──────────────────────────────────────────────────────────────
+  // ── Tab state (synced with URL ?tab=config|unlocks) ─────────────────────
 
-  const [activeTab, setActiveTab] = React.useState<TabKey>('config');
+  const initialTab = (searchParams.get('tab') === 'unlocks' ? 'unlocks' : 'config') as TabKey;
+  const [activeTab, setActiveTab] = React.useState<TabKey>(initialTab);
+
+  const handleTabChange = React.useCallback(
+    (tab: TabKey) => {
+      setActiveTab(tab);
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === 'config') {
+        params.delete('tab');
+      } else {
+        params.set('tab', tab);
+      }
+      const qs = params.toString();
+      router.replace(`?${qs}`, { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   // ── Config approvals state ─────────────────────────────────────────────────
 
@@ -306,7 +325,11 @@ export default function ApprovalQueuePage() {
 
       {/* Tabs */}
       <div className="flex border-b border-border overflow-x-auto">
-        <button type="button" className={tabClass('config')} onClick={() => setActiveTab('config')}>
+        <button
+          type="button"
+          className={tabClass('config')}
+          onClick={() => handleTabChange('config')}
+        >
           {t('approvalsConfigTab')}
           {configItems.length > 0 && (
             <span className="ms-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-warning-bg px-1.5 text-xs font-semibold text-warning-text">
@@ -317,7 +340,7 @@ export default function ApprovalQueuePage() {
         <button
           type="button"
           className={tabClass('unlocks')}
-          onClick={() => setActiveTab('unlocks')}
+          onClick={() => handleTabChange('unlocks')}
         >
           {t('approvalsUnlocksTab')}
           {unlockRequests.length > 0 && (
