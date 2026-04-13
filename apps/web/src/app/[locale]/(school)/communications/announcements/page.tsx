@@ -1,7 +1,7 @@
 'use client';
 
 import { Megaphone, Plus, Users } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -45,6 +45,7 @@ export default function CommunicationsPage() {
   const router = useRouter();
   const locale = useLocale();
   const isAdmin = useIsAdmin();
+  const searchParams = useSearchParams();
 
   React.useEffect(() => {
     if (isAdmin === false) {
@@ -52,12 +53,30 @@ export default function CommunicationsPage() {
     }
   }, [isAdmin, router, locale]);
 
+  const statusParam = searchParams?.get('status') ?? 'all';
+  const activeTab = (STATUS_TAB_KEYS as readonly string[]).includes(statusParam)
+    ? statusParam
+    : 'all';
+
   const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [page, setPage] = React.useState(1);
   const [total, setTotal] = React.useState(0);
-  const [activeTab, setActiveTab] = React.useState('all');
   const pageSize = 20;
+
+  const setActiveTab = React.useCallback(
+    (tabKey: string) => {
+      const qp = new URLSearchParams(searchParams?.toString() ?? '');
+      if (tabKey === 'all') {
+        qp.delete('status');
+      } else {
+        qp.set('status', tabKey);
+      }
+      const next = qp.toString();
+      router.replace(`/${locale}/communications/announcements${next ? `?${next}` : ''}`);
+    },
+    [locale, router, searchParams],
+  );
 
   const fetchAnnouncements = React.useCallback(async () => {
     setIsLoading(true);
@@ -170,6 +189,8 @@ export default function CommunicationsPage() {
         }
       />
 
+      {toolbar}
+
       {!isLoading && announcements.length === 0 && activeTab === 'all' ? (
         <EmptyState
           icon={Megaphone}
@@ -184,7 +205,6 @@ export default function CommunicationsPage() {
         <DataTable
           columns={columns}
           data={announcements}
-          toolbar={toolbar}
           page={page}
           pageSize={pageSize}
           total={total}
