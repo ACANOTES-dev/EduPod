@@ -225,17 +225,39 @@ export class ApplicationsController {
   async regeneratePaymentLink(
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
     @Body(new ZodValidationPipe(regenerateAdmissionsPaymentLinkSchema))
     dto: RegenerateAdmissionsPaymentLinkDto,
   ) {
     const defaults = this.buildDefaultCheckoutUrls(tenant.tenant_id, id);
     const successUrl = dto?.success_url ?? defaults.success_url;
     const cancelUrl = dto?.cancel_url ?? defaults.cancel_url;
-    return this.stripeService.createAdmissionsCheckoutSession(
+    const session = await this.stripeService.createAdmissionsCheckoutSession(
       tenant.tenant_id,
       id,
       successUrl,
       cancelUrl,
     );
+
+    // ADM-011: write an internal audit note so spammed regenerates leave a
+    // trail of who did it and which session was issued. Suffix only — full
+    // session id has no PII but is unnecessary in the audit body.
+    const sessionId = (session as { stripe_checkout_session_id?: string })
+      .stripe_checkout_session_id;
+    const sessionSuffix = sessionId ? sessionId.slice(-8) : 'unknown';
+    try {
+      await this.applicationNotesService.create(tenant.tenant_id, id, user.sub, {
+        note: `Regenerated payment link. New checkout session …${sessionSuffix}.`,
+        is_internal: true,
+      });
+    } catch (err) {
+      // Audit-trail failure should not block the regenerate response — log
+      // and continue. The note write is a best-effort companion to the
+      // primary side effect (a new Stripe session).
+      // eslint-disable-next-line no-console
+      console.error('[ApplicationsController.regeneratePaymentLink audit]', err);
+    }
+
+    return session;
   }
 }

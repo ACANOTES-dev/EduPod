@@ -15,3 +15,4 @@ entry includes the bug ID, date, decision, and one-line reason.
 - ADM-008 (2026-04-13): Capacity check (Option A) over document-only (Option B). Reuses ADM-006's advisory lock + extends the formula to subtract `ready_to_admit_count`. Manual promote can no longer over-queue. — Claude Opus 4.6
 - ADM-009 (2026-04-13): Blocked — needs explicit user approval to run the new enum + column Prisma migration on prod. — Claude Opus 4.6
 - ADM-010 (2026-04-13): Trimmed per-application shape only (drop student_first_name, student_last_name, target_year_group_id). Kept the wrapper since sibling-batch confirmations need `submission_batch_id` + `household_number`. — Claude Opus 4.6
+- ADM-011 (2026-04-13): Audit note written from the controller (where `user.sub` is available), wrapped in best-effort `try/catch` so an audit-trail failure cannot break the regenerate response. — Claude Opus 4.6

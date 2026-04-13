@@ -353,7 +353,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Verification:**
   - Regenerate on staging → Timeline tab shows new entry.
 - **Release-gate:** Should ship before launch (pairs with ADM-009 action-enum work).
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Wrote the audit note from the controller (rather than from `StripeService.createAdmissionsCheckoutSession`) because the actor `user.sub` is only available at the HTTP boundary. The note write is wrapped in a best-effort `try/catch` so an audit-trail failure never breaks the regenerate response — a regenerated session that has no note is still better than a regenerate that 500s. Note text uses an 8-char session suffix only (no PII; full session id was unnecessary in the audit body).
+
+### Verification notes
+
+- 2026-04-13: 22/22 controller tests pass, including two new ones: (a) audit note IS created with the session suffix, (b) audit note failure does NOT block the response. API rebuilt and restarted on prod.
 
 ### ADM-012 [C] — Parent existing-household lookup enumeration leak
 

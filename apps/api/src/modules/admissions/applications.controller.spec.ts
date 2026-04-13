@@ -293,7 +293,7 @@ describe('ApplicationsController', () => {
         expires_at: new Date('2026-05-01T00:00:00Z'),
       });
 
-      const result = await controller.regeneratePaymentLink(TENANT, APP_ID, {});
+      const result = await controller.regeneratePaymentLink(TENANT, APP_ID, USER, {});
 
       expect(result.session_id).toBe('cs_admissions_regen');
       expect(mockStripeService.createAdmissionsCheckoutSession).toHaveBeenCalledWith(
@@ -313,7 +313,7 @@ describe('ApplicationsController', () => {
         expires_at: new Date('2026-05-01T00:00:00Z'),
       });
 
-      await controller.regeneratePaymentLink(TENANT, APP_ID, {
+      await controller.regeneratePaymentLink(TENANT, APP_ID, USER, {
         success_url: 'https://custom.example/ok',
         cancel_url: 'https://custom.example/cancel',
       });
@@ -332,6 +332,40 @@ describe('ApplicationsController', () => {
         ApplicationsController.prototype.regeneratePaymentLink,
       );
       expect(permission).toBe('admissions.manage');
+    });
+
+    it('writes an internal audit note recording the new session suffix', async () => {
+      mockStripeService.createAdmissionsCheckoutSession.mockResolvedValue({
+        session_id: 'cs_admissions_regen',
+        stripe_checkout_session_id: 'cs_test_abcd1234efgh5678',
+        checkout_url: 'https://checkout.stripe.com/regen',
+        amount_cents: 700_000,
+        currency_code: 'EUR',
+        expires_at: new Date('2026-05-01T00:00:00Z'),
+      });
+      mockApplicationNotesService.create.mockResolvedValue({ id: 'note-id' });
+
+      await controller.regeneratePaymentLink(TENANT, APP_ID, USER, {});
+
+      expect(mockApplicationNotesService.create).toHaveBeenCalledWith(TENANT_ID, APP_ID, USER_ID, {
+        note: expect.stringContaining('efgh5678'),
+        is_internal: true,
+      });
+    });
+
+    it('returns the session even if the audit note write fails', async () => {
+      mockStripeService.createAdmissionsCheckoutSession.mockResolvedValue({
+        session_id: 'cs_admissions_regen',
+        stripe_checkout_session_id: 'cs_test_abcd1234efgh5678',
+        checkout_url: 'https://checkout.stripe.com/regen',
+        amount_cents: 700_000,
+        currency_code: 'EUR',
+        expires_at: new Date('2026-05-01T00:00:00Z'),
+      });
+      mockApplicationNotesService.create.mockRejectedValue(new Error('db unavailable'));
+
+      const result = await controller.regeneratePaymentLink(TENANT, APP_ID, USER, {});
+      expect(result.session_id).toBe('cs_admissions_regen');
     });
   });
 });
