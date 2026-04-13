@@ -172,6 +172,52 @@ export default function ApplicationDetailPage() {
     void fetchApplication();
   }, [fetchApplication]);
 
+  // ─── Resolve labels for the two server-resolved comboboxes ────────────────
+  // `target_academic_year_id` and `target_year_group_id` are `single_select`
+  // fields whose options are normally fetched at form-render time. In the
+  // read-only detail view we don't refetch the option lists, so the
+  // comboboxes render empty unless we inject the saved value's label as a
+  // single-option list. Joined data already lives on the application.
+  const augmentedFormFields = React.useMemo(() => {
+    const fields = application?.form_definition?.fields ?? [];
+    const yearGroup = application?.target_year_group;
+    const academicYear = application?.target_academic_year;
+    return fields.map((field) => {
+      if (field.field_key === 'target_academic_year_id' && academicYear) {
+        return { ...field, options_json: [{ value: academicYear.id, label: academicYear.name }] };
+      }
+      if (field.field_key === 'target_year_group_id' && yearGroup) {
+        return { ...field, options_json: [{ value: yearGroup.id, label: yearGroup.name }] };
+      }
+      return field;
+    });
+  }, [
+    application?.form_definition?.fields,
+    application?.target_academic_year,
+    application?.target_year_group,
+  ]);
+
+  // The submit-time payload may store labels rather than ids for these two
+  // fields (the public form posts the name picked from the combobox). The
+  // detail page needs the id for the dropdown to match the augmented option,
+  // so prefer the joined-row id when present.
+  const augmentedPayloadValues = React.useMemo(() => {
+    const base = (application?.payload_json as Record<string, unknown> | undefined) ?? {};
+    return {
+      ...base,
+      ...(application?.target_academic_year
+        ? { target_academic_year_id: application.target_academic_year.id }
+        : {}),
+      ...(application?.target_year_group
+        ? { target_year_group_id: application.target_year_group.id }
+        : {}),
+    };
+  }, [
+    application?.payload_json,
+    application?.target_academic_year,
+    application?.target_year_group,
+  ]);
+
   const handleApprove = async () => {
     if (!application) return;
     setActionLoading(true);
@@ -404,8 +450,8 @@ export default function ApplicationDetailPage() {
       content: (
         <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           <DynamicFormRenderer
-            fields={application.form_definition?.fields ?? []}
-            values={(application.payload_json as Record<string, unknown>) ?? {}}
+            fields={augmentedFormFields}
+            values={augmentedPayloadValues}
             onChange={() => undefined}
             readOnly
           />

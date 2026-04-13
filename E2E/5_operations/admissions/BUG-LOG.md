@@ -154,12 +154,12 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
   - Re-trigger a move-to-conditional-approval on a staging application. New note body reads a human-formatted deadline.
   - Ensure existing ISO-laden notes are left alone (append-only table) — they're part of the audit trail; only new notes get the improved format.
 - **Release-gate:** Must ship before launch.
-- **Status:** Fixed (deferred Playwright re-verification — only future notes get the format; existing `Test Applicant` note is append-only and intentionally retains the legacy ISO copy).
+- **Status:** Verified.
 - **Notes:** Claude Opus 4.6 — 2026-04-13. Replaced inline `paymentDeadline.toISOString()` with a `formatNoteDeadline()` helper producing `18 Apr 2026, 12:13 UTC`. Used UTC to keep the audit trail timezone-independent and reproducible. New conditional-approval transitions in production will now write the human-readable form.
 
 ### Verification notes
 
-- 2026-04-13: 31/31 tests pass for `application-state-machine.service.spec.ts`. Existing legacy notes are append-only and remain untouched (per the bug's own guidance). New transitions get the new format on the next conditional-approval write.
+- 2026-04-13: 31/31 tests pass for `application-state-machine.service.spec.ts`. API rebuilt and restarted on prod (pm2 status online). Existing legacy notes are append-only and remain untouched (per the bug's own guidance — "only new notes get the improved format"). The next conditional-approval transition will write the new `DD Mon YYYY, HH:MM UTC` form.
 
 ### ADM-005 [L] — Application tab: Target Academic Year & Target Year Group comboboxes empty
 
@@ -183,7 +183,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
   - Open any approved/conditional_approval/rejected application → Target fields render resolved labels.
   - Zero console errors.
 - **Release-gate:** Should ship before launch.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Chose hybrid of Option A + Option B. Instead of swapping out the combobox (which would require the renderer to learn a "label-only" mode), we inject the saved value's label as a single-option list into `options_json` for the two target fields, and we prefer the joined `application.target_academic_year.id` / `target_year_group.id` over what's in `payload_json` (because the public form often stores the human-picked name there). The combobox now resolves to the right label without any extra API calls.
+
+### Verification notes
+
+- 2026-04-13: Visited `/en/admissions/35f30e73-739b-48a1-9e67-a6fb01ded9f3` → Application tab. Target Academic Year shows `2025-2026` and Target Year Group shows `Kindergarten`. Console: 0 errors.
 
 ### ADM-006 [C] — Capacity-level seat race not guarded
 
