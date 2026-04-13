@@ -26,20 +26,20 @@ docs/architecture/
 
 All non-code documentation lives under `docs/`. Use this index to find what you need:
 
-| I need...                          | Look in                         |
-| ---------------------------------- | ------------------------------- |
-| Architecture, RLS, auth context    | `docs/plans/context.md`         |
-| Active UI/component design language| `docs/plans/ux-redesign-final-spec.md` |
-| Blast radius, danger zones         | `docs/architecture/`            |
-| Feature specs (behaviour, GDPR...) | `docs/features/`                |
-| Health governance, backlog, KPIs   | `docs/governance/`              |
-| Runbooks, deployment, operations   | `docs/operations/`              |
-| Audit reports (Claude, GPT)        | `docs/audits/`                  |
-| Roadmap phases, expansion plans    | `docs/roadmap/`                 |
-| Release targets (9.5 gate)         | `docs/targets/`                 |
-| Code review reports, QA framework  | `docs/reviews/`                 |
-| Archived/superseded specs          | `docs/archive/`                 |
-| Getting started, conventions       | `docs/`                         |
+| I need...                           | Look in                                |
+| ----------------------------------- | -------------------------------------- |
+| Architecture, RLS, auth context     | `docs/plans/context.md`                |
+| Active UI/component design language | `docs/plans/ux-redesign-final-spec.md` |
+| Blast radius, danger zones          | `docs/architecture/`                   |
+| Feature specs (behaviour, GDPR...)  | `docs/features/`                       |
+| Health governance, backlog, KPIs    | `docs/governance/`                     |
+| Runbooks, deployment, operations    | `docs/operations/`                     |
+| Audit reports (Claude, GPT)         | `docs/audits/`                         |
+| Roadmap phases, expansion plans     | `docs/roadmap/`                        |
+| Release targets (9.5 gate)          | `docs/targets/`                        |
+| Code review reports, QA framework   | `docs/reviews/`                        |
+| Archived/superseded specs           | `docs/archive/`                        |
+| Getting started, conventions        | `docs/`                                |
 
 ---
 
@@ -92,6 +92,18 @@ The server is a live production environment. Every action carries real consequen
 - **Operational deletions are permitted** — removing corrupted files, reverting a bad commit, cleaning up a failed deployment. These are maintenance, not destruction.
 - **Never change credentials** (passwords, SSH keys, API keys, secrets) without explicit approval.
 - **Never upgrade packages on the server** — versions are controlled from the codebase, not ad-hoc on the server.
+- **NEVER overwrite the production `.env` file.** The `.env` on the server contains production secrets (Hetzner Object Storage, Resend, Sentry, database roles) that differ from the local dev template. When rsyncing to the server, `.env` and `.env.local` MUST always be excluded. Failing to do so will break email, file uploads, error monitoring, and application URLs.
+
+## Deployment — Hard Rules
+
+Deploy via rsync + SSH, never `git push`. The rsync command **MUST** include these excludes:
+
+```
+--exclude='.git' --exclude='node_modules' --exclude='.next' --exclude='dist'
+--exclude='.env' --exclude='.env.local' --exclude='.turbo' --exclude='*.tsbuildinfo'
+```
+
+After rsync: `chown -R edupod:edupod /opt/edupod/app/` and verify `.env` symlinks at `apps/api/.env` and `apps/worker/.env` still point to `../../.env`.
 
 ---
 
