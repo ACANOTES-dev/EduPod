@@ -1938,6 +1938,7 @@
     "auditLog": "Audit Log",
     "compliance": "Compliance",
     "imports": "Imports",
+    "sen": "SEN",
     "defaultPresent": "Default Present Mode",
     "defaultPresentDescription": "Pre-mark all students as present when a session is created. Teachers only mark exceptions.",
     "notifyParentOnAbsence": "Notify Parents on Absence",
