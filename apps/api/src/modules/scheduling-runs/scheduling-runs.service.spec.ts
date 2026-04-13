@@ -1,4 +1,5 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
+import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -8,6 +9,8 @@ const mockTx = {
     update: jest.fn(),
   },
 };
+
+const mockSchedulingQueue = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
@@ -60,6 +63,7 @@ describe('SchedulingRunsService', () => {
 
     mockTx.schedulingRun.create.mockReset();
     mockTx.schedulingRun.update.mockReset();
+    mockSchedulingQueue.add.mockReset().mockResolvedValue({ id: 'job-1' });
     mockAcademicReadFacade.findYearByIdOrThrow.mockResolvedValue(AY_ID);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -69,6 +73,7 @@ describe('SchedulingRunsService', () => {
         SchedulingRunsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SchedulingPrerequisitesService, useValue: mockPrerequisites },
+        { provide: getQueueToken('scheduling'), useValue: mockSchedulingQueue },
       ],
     }).compile();
 

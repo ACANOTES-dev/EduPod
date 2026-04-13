@@ -200,7 +200,6 @@ describe('TeacherCompetenciesService', () => {
       subject_id: SUBJECT_ID,
       year_group_id: YG_ID,
       academic_year_id: AY_ID,
-      is_primary: true,
     };
 
     it('should create a competency when all relations are valid', async () => {
@@ -240,7 +239,7 @@ describe('TeacherCompetenciesService', () => {
     const dto = {
       staff_profile_id: STAFF_ID,
       academic_year_id: AY_ID,
-      competencies: [{ subject_id: SUBJECT_ID, year_group_id: YG_ID, is_primary: true }],
+      competencies: [{ subject_id: SUBJECT_ID, year_group_id: YG_ID }],
     };
 
     it('should bulk create competencies', async () => {
@@ -266,21 +265,21 @@ describe('TeacherCompetenciesService', () => {
   // ─── update ──────────────────────────────────────────────────────────────────
 
   describe('update', () => {
-    it('should update a competency', async () => {
+    // is_primary was the only mutable field and it was dropped in Stage 1 of the
+    // scheduler rebuild. The endpoint now just resolves the row by id; Stage 3
+    // rebuilds the API around class_id.
+    it('should return the existing competency by id', async () => {
       mockPrisma.teacherCompetency.findFirst.mockResolvedValue({ id: COMP_ID });
-      mockPrisma.teacherCompetency.update.mockResolvedValue({ id: COMP_ID, is_primary: false });
 
-      const result = await service.update(TENANT_ID, COMP_ID, { is_primary: false });
+      const result = await service.update(TENANT_ID, COMP_ID);
 
-      expect(result).toEqual(expect.objectContaining({ id: COMP_ID, is_primary: false }));
+      expect(result).toEqual(expect.objectContaining({ id: COMP_ID }));
     });
 
     it('should throw NotFoundException when competency does not exist', async () => {
       mockPrisma.teacherCompetency.findFirst.mockResolvedValue(null);
 
-      await expect(service.update(TENANT_ID, 'nonexistent', { is_primary: true })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.update(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -335,7 +334,6 @@ describe('TeacherCompetenciesService', () => {
           staff_profile_id: STAFF_ID,
           subject_id: SUBJECT_ID,
           year_group_id: YG_ID,
-          is_primary: true,
         },
       ]);
       mockTx.teacherCompetency.create.mockResolvedValue({ id: 'new-comp' });
@@ -396,7 +394,6 @@ describe('TeacherCompetenciesService', () => {
           staff_profile_id: STAFF_ID,
           subject_id: SUBJECT_ID,
           year_group_id: 'source-yg',
-          is_primary: true,
         },
       ]);
       mockTx.teacherCompetency.create.mockResolvedValue({});
@@ -448,7 +445,6 @@ describe('TeacherCompetenciesService', () => {
           staff_profile_id: STAFF_ID,
           subject_id: SUBJECT_ID,
           year_group_id: 'source-yg',
-          is_primary: true,
         },
       ]);
 

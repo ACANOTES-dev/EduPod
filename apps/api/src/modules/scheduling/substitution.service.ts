@@ -94,7 +94,10 @@ export class SubstitutionService {
     date: string,
   ): Promise<{ data: SubstituteCandidate[] }> {
     // Load the schedule to understand context
-    const schedule = await this.schedulesReadFacade.findByIdWithSubstitutionContext(tenantId, scheduleId);
+    const schedule = await this.schedulesReadFacade.findByIdWithSubstitutionContext(
+      tenantId,
+      scheduleId,
+    );
     if (!schedule) {
       throw new NotFoundException({
         error: { code: 'SCHEDULE_NOT_FOUND', message: 'Schedule not found' },
@@ -118,7 +121,10 @@ export class SubstitutionService {
     // All staff
     const allStaff = await this.staffProfileReadFacade.findActiveStaff(tenantId);
 
-    // Competencies
+    // Competencies. The is_primary ranking signal was dropped in Stage 1 of
+    // the scheduler rebuild; Stage 7 will rewire this against the new
+    // substitute_teacher_competencies table. Until then every competent
+    // candidate ranks equally on the subject-competency axis.
     const competencies =
       subjectId || yearGroupId
         ? await this.prisma.teacherCompetency.findMany({
@@ -128,17 +134,11 @@ export class SubstitutionService {
               ...(subjectId ? { subject_id: subjectId } : {}),
               ...(yearGroupId ? { year_group_id: yearGroupId } : {}),
             },
-            select: { staff_profile_id: true, is_primary: true },
+            select: { staff_profile_id: true },
           })
         : [];
 
-    const competencyMap = new Map<string, { is_primary: boolean }>();
-    for (const comp of competencies) {
-      const existing = competencyMap.get(comp.staff_profile_id);
-      if (!existing || comp.is_primary) {
-        competencyMap.set(comp.staff_profile_id, { is_primary: comp.is_primary });
-      }
-    }
+    const competentStaffIds = new Set(competencies.map((c) => c.staff_profile_id));
 
     // Cover counts (substitution_records from last 30 days for fairness)
     const thirtyDaysAgo = new Date();
@@ -165,21 +165,18 @@ export class SubstitutionService {
       if (staff.id === schedule.teacher_staff_id) continue;
 
       const name = `${staff.user.first_name} ${staff.user.last_name}`.trim();
-      const competency = competencyMap.get(staff.id);
-      const isCompetent = subjectId ? competency !== undefined : true;
-      const isPrimary = competency?.is_primary ?? false;
+      const isCompetent = subjectId ? competentStaffIds.has(staff.id) : true;
       const coverCount = coverCountMap.get(staff.id) ?? 0;
 
       let rankScore = 0;
       if (isCompetent) rankScore += 20;
-      if (isPrimary) rankScore += 10;
       rankScore -= coverCount * 2; // Penalise frequent cover teachers for fairness
 
       results.push({
         staff_profile_id: staff.id,
         name,
         is_competent: isCompetent,
-        is_primary: isPrimary,
+        is_primary: false, // Stage 1: primary ranking dropped; Stage 7 rewires.
         is_available: true, // Availability already filtered by busy check
         cover_count: coverCount,
         rank_score: rankScore,

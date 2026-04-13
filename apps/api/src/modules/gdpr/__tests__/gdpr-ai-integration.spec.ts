@@ -315,9 +315,7 @@ describe('AI Substitution GDPR Integration', () => {
             findBusyTeacherIds: jest.fn().mockImplementation(async () => {
               const schedules = await mockPrisma.schedule.findMany();
               return new Set(
-                (schedules as Array<{ teacher_staff_id: string }>).map(
-                  (s) => s.teacher_staff_id,
-                ),
+                (schedules as Array<{ teacher_staff_id: string }>).map((s) => s.teacher_staff_id),
               );
             }),
           },
@@ -406,7 +404,6 @@ describe('AI Substitution GDPR Integration', () => {
     mockPrisma.teacherCompetency.findMany.mockResolvedValue([
       {
         staff_profile_id: STAFF_A_ID,
-        is_primary: true,
       },
     ]);
 

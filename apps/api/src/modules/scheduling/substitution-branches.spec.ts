@@ -352,35 +352,8 @@ describe('SubstitutionService — branch coverage', () => {
     });
   });
 
-  // ─── findEligibleSubstitutes — competency map with only non-primary ───────
-
-  describe('SubstitutionService — findEligibleSubstitutes competency map edge', () => {
-    it('edge: should not overwrite primary=true with primary=false for same teacher', async () => {
-      const schedFacade = module.get(SchedulesReadFacade);
-      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue({
-        id: SCHEDULE_ID,
-        teacher_staff_id: STAFF_ID,
-        weekday: 1,
-        start_time: new Date('1970-01-01T09:00:00Z'),
-        end_time: new Date('1970-01-01T10:00:00Z'),
-        academic_year_id: 'ay-1',
-        class_entity: { year_group_id: 'yg-1', subject_id: 'sub-1', academic_year_id: 'ay-1' },
-      });
-      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
-      const staffFacade = module.get(StaffProfileReadFacade);
-      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
-        { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
-      ]);
-      // Primary first, then non-primary — primary should NOT be overwritten
-      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
-        { staff_profile_id: 'staff-2', is_primary: true },
-        { staff_profile_id: 'staff-2', is_primary: false },
-      ]);
-      mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
-
-      const result = await service.findEligibleSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-20');
-
-      expect(result.data[0]!.is_primary).toBe(true);
-    });
-  });
+  // The "primary not overwritten" branch was removed in Stage 1 of the
+  // scheduler rebuild: is_primary was dropped from teacher_competencies. The
+  // substitute ranking signal returns in Stage 7 against the new
+  // substitute_teacher_competencies table.
 });

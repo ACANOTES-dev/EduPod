@@ -31,16 +31,13 @@ import {
   toast,
 } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { CoverTeacherDialog } from './_components/cover-teacher-dialog';
 import { HealthScore, type ValidationResult } from './_components/health-score';
 import { ScheduleGrid, type PeriodSlot, type ScheduleEntry } from './_components/schedule-grid';
 import { ValidateResults } from './_components/validate-results';
 import { WorkloadSidebar } from './_components/workload-sidebar';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -92,10 +89,9 @@ export default function RunDetailPage() {
   const [discardOpen, setDiscardOpen] = React.useState(false);
   const [actioning, setActioning] = React.useState(false);
 
-  // Cover teacher dialog
-  const [coverDialogOpen, setCoverDialogOpen] = React.useState(false);
-  const [coverSlotDetails, setCoverSlotDetails] =
-    React.useState<Parameters<typeof CoverTeacherDialog>[0]['slotDetails']>(null);
+  // Per-slot cover teacher suggestion dialog removed with the cover-teacher module.
+  // Manual substitute assignment continues via /scheduling/substitutions; auto-
+  // suggestion returns in Stage 7 against the substitute_teacher_competencies table.
 
   // ─── Data Loading ─────────────────────────────────────────────────────────
 
@@ -205,36 +201,12 @@ export default function RunDetailPage() {
     toast.info(t('runs.addEntryHint'));
   }
 
-  function handleEntryContextMenu(entry: ScheduleEntry, _event: React.MouseEvent) {
-    // Find the period slot for this entry
-    const periodGrid = data?.period_grids[entry.year_group_id] ?? [];
-    const period = periodGrid.find((p) => p.period_order === entry.period_order);
-    const yearGroup = data?.year_groups.find((yg) => yg.year_group_id === entry.year_group_id);
-
-    setCoverSlotDetails({
-      weekday: entry.weekday,
-      periodOrder: entry.period_order,
-      periodName: period?.name ?? `P${entry.period_order}`,
-      startTime: period?.start_time ?? '',
-      endTime: period?.end_time ?? '',
-      subjectName: entry.subject_name,
-      yearGroupName: yearGroup?.name ?? '',
-      yearGroupId: entry.year_group_id,
-    });
-    setCoverDialogOpen(true);
-  }
-
   function handleSave() {
     void handleApply();
   }
 
   function handleAcknowledgeAndSave() {
     void handleApply();
-  }
-
-  function handleCoverAssigned() {
-    void fetchData();
-    setValidationResult(null);
   }
 
   function handleExport(type: 'year_group' | 'teacher' | 'full', targetId?: string) {
@@ -432,7 +404,7 @@ export default function RunDetailPage() {
             violations={validationResult?.cell_violations}
             onEntryMove={!readOnly ? handleEntryMove : undefined}
             onEntryAdd={!readOnly ? handleEntryAdd : undefined}
-            onEntryContextMenu={!readOnly ? handleEntryContextMenu : undefined}
+            onEntryContextMenu={undefined}
             highlightTeacherId={highlightTeacherId}
             readOnly={readOnly}
           />
@@ -510,15 +482,6 @@ export default function RunDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Cover Teacher Dialog */}
-      <CoverTeacherDialog
-        open={coverDialogOpen}
-        onOpenChange={setCoverDialogOpen}
-        runId={id}
-        slotDetails={coverSlotDetails}
-        onAssign={handleCoverAssigned}
-      />
     </div>
   );
 }

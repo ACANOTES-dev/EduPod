@@ -272,9 +272,7 @@ describe('SubstitutionService', () => {
         { id: 'staff-3', user: { first_name: 'Bob', last_name: 'Jones' } },
       ]);
       // staff-2 is competent, staff-3 is not
-      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
-        { staff_profile_id: 'staff-2', is_primary: false },
-      ]);
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([{ staff_profile_id: 'staff-2' }]);
       mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
 
       const result = await service.findEligibleSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-20');
@@ -726,31 +724,10 @@ describe('SubstitutionService', () => {
       expect(result.data[0]!.is_competent).toBe(true);
     });
 
-    it('edge: should assign primary competency correctly when both primary and non-primary exist', async () => {
-      const schedWithSubject = {
-        ...mockSchedule,
-        class_entity: { year_group_id: 'yg-1', subject_id: 'sub-1', academic_year_id: 'ay-1' },
-      };
-      const schedFacade = module.get(SchedulesReadFacade);
-      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(
-        schedWithSubject,
-      );
-      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
-      const staffFacade = module.get(StaffProfileReadFacade);
-      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
-        { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
-      ]);
-      // Two competency records for same teacher: non-primary then primary
-      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
-        { staff_profile_id: 'staff-2', is_primary: false },
-        { staff_profile_id: 'staff-2', is_primary: true },
-      ]);
-      mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
-
-      const result = await service.findEligibleSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-20');
-
-      expect(result.data[0]!.is_primary).toBe(true);
-    });
+    // The "primary competency" test was removed in Stage 1 of the scheduler
+    // rebuild: is_primary was dropped from teacher_competencies. Substitutes
+    // will be ranked from the new substitute_teacher_competencies table in
+    // Stage 7.
 
     it('edge: should use schedule academic_year_id when class_entity has none', async () => {
       const schedNoClassYear = {

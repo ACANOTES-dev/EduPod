@@ -142,7 +142,6 @@ describe('TeacherCompetenciesController', () => {
       staff_profile_id: STAFF_ID,
       subject_id: 'sub-uuid',
       year_group_id: 'yg-uuid',
-      is_primary: false,
     };
     const created = { id: COMP_ID, ...dto };
     mockService.create.mockResolvedValue(created);

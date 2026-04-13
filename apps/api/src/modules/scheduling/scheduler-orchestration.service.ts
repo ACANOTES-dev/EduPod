@@ -341,7 +341,9 @@ export class SchedulerOrchestrationService {
           .map((tc) => ({
             subject_id: tc.subject_id,
             year_group_id: tc.year_group_id,
-            is_primary: tc.is_primary,
+            // Always false after Stage 1 of the scheduler rebuild — the column
+            // was dropped. Stage 2 removes is_primary from the solver input type.
+            is_primary: false,
           })),
         availability: staffAvailabilities
           .filter((sa) => sa.staff_profile_id === teacherId)

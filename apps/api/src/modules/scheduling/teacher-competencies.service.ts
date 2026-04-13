@@ -47,18 +47,19 @@ export class TeacherCompetenciesService {
 
   // ─── Update ───────────────────────────────────────────────────────────────
 
-  async update(tenantId: string, id: string, dto: { is_primary?: boolean }) {
+  // The only mutable field on this row used to be is_primary, which was dropped
+  // in Stage 1 of the scheduler rebuild. The endpoint remains so that existing
+  // frontend code can still resolve a competency by id; it is effectively a
+  // no-op read until Stage 3 reshapes this service around class_id.
+  async update(tenantId: string, id: string) {
     const existing = await this.prisma.teacherCompetency.findFirst({
       where: { id, tenant_id: tenantId },
+      include: INCLUDE_RELATIONS,
     });
     if (!existing) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'Teacher competency not found' });
     }
-    return this.prisma.teacherCompetency.update({
-      where: { id },
-      data: { is_primary: dto.is_primary },
-      include: INCLUDE_RELATIONS,
-    });
+    return existing;
   }
 
   // ─── List by Teacher ───────────────────────────────────────────────────────
@@ -93,7 +94,7 @@ export class TeacherCompetenciesService {
         year_group_id: yearGroupId,
       },
       include: INCLUDE_RELATIONS,
-      orderBy: { is_primary: 'desc' },
+      orderBy: { created_at: 'asc' },
     });
 
     return { data };
@@ -121,7 +122,6 @@ export class TeacherCompetenciesService {
           staff_profile_id: dto.staff_profile_id,
           subject_id: dto.subject_id,
           year_group_id: dto.year_group_id,
-          is_primary: dto.is_primary,
         },
         include: INCLUDE_RELATIONS,
       });
@@ -150,7 +150,6 @@ export class TeacherCompetenciesService {
             staff_profile_id: dto.staff_profile_id,
             subject_id: comp.subject_id,
             year_group_id: comp.year_group_id,
-            is_primary: comp.is_primary,
           },
           include: INCLUDE_RELATIONS,
         });
@@ -238,7 +237,6 @@ export class TeacherCompetenciesService {
             staff_profile_id: src.staff_profile_id,
             subject_id: src.subject_id,
             year_group_id: src.year_group_id,
-            is_primary: src.is_primary,
           },
         });
         created.push(record);
@@ -306,7 +304,6 @@ export class TeacherCompetenciesService {
                 staff_profile_id: src.staff_profile_id,
                 subject_id: src.subject_id,
                 year_group_id: target.year_group_id,
-                is_primary: src.is_primary,
               },
             });
             copied++;
@@ -327,7 +324,10 @@ export class TeacherCompetenciesService {
     const yearGroups = await this.academicReadFacade.findAllYearGroups(tenantId);
 
     // 2. Get all active classes grouped by year group
-    const classSummaries = await this.classesReadFacade.findByAcademicYear(tenantId, academicYearId);
+    const classSummaries = await this.classesReadFacade.findByAcademicYear(
+      tenantId,
+      academicYearId,
+    );
     const classes = classSummaries
       .filter((c) => c.status === 'active')
       .map((c) => ({ id: c.id, year_group_id: c.year_group_id }));

@@ -74,7 +74,10 @@ export class AiSubstitutionService {
     }
 
     // Load schedule context
-    const schedule = await this.schedulesReadFacade.findByIdWithSubstitutionContext(tenantId, scheduleId);
+    const schedule = await this.schedulesReadFacade.findByIdWithSubstitutionContext(
+      tenantId,
+      scheduleId,
+    );
     if (!schedule) {
       return { data: [] };
     }
@@ -104,7 +107,9 @@ export class AiSubstitutionService {
       return { data: [] };
     }
 
-    // Load competencies
+    // Load competencies. is_primary was dropped in Stage 1 of the scheduler
+    // rebuild; Stage 7 will rewire AI ranking against the new
+    // substitute_teacher_competencies table.
     const competencies =
       subjectId || yearGroupId
         ? await this.prisma.teacherCompetency.findMany({
@@ -114,17 +119,11 @@ export class AiSubstitutionService {
               ...(subjectId ? { subject_id: subjectId } : {}),
               ...(yearGroupId ? { year_group_id: yearGroupId } : {}),
             },
-            select: { staff_profile_id: true, is_primary: true },
+            select: { staff_profile_id: true },
           })
         : [];
 
-    const competencyMap = new Map<string, { is_primary: boolean }>();
-    for (const comp of competencies) {
-      const existing = competencyMap.get(comp.staff_profile_id);
-      if (!existing || comp.is_primary) {
-        competencyMap.set(comp.staff_profile_id, { is_primary: comp.is_primary });
-      }
-    }
+    const competentStaffIds = new Set(competencies.map((c) => c.staff_profile_id));
 
     // Load cover counts (last 30 days)
     const thirtyDaysAgo = new Date();
@@ -162,17 +161,16 @@ export class AiSubstitutionService {
       tokenisedNameMap.set(entity.id, entity.fields.full_name ?? '');
     }
 
-    // Build context for AI
-    const staffContext = availableStaff.map((s) => {
-      const comp = competencyMap.get(s.id);
-      return {
-        staff_profile_id: s.id,
-        name: tokenisedNameMap.get(s.id) ?? `${s.user.first_name} ${s.user.last_name}`.trim(),
-        is_competent: subjectId ? comp !== undefined : true,
-        is_primary: comp?.is_primary ?? false,
-        cover_count_last_30_days: coverCountMap.get(s.id) ?? 0,
-      };
-    });
+    // Build context for AI. is_primary always false post-Stage-1; the
+    // Stage 7 rewire will reinstate a real primary-vs-secondary signal from
+    // the substitute_teacher_competencies table.
+    const staffContext = availableStaff.map((s) => ({
+      staff_profile_id: s.id,
+      name: tokenisedNameMap.get(s.id) ?? `${s.user.first_name} ${s.user.last_name}`.trim(),
+      is_competent: subjectId ? competentStaffIds.has(s.id) : true,
+      is_primary: false,
+      cover_count_last_30_days: coverCountMap.get(s.id) ?? 0,
+    }));
 
     const prompt = `You are helping a school assign a substitute teacher.
 
@@ -187,7 +185,7 @@ Available teachers (JSON):
 ${JSON.stringify(staffContext, null, 2)}
 
 Rank these teachers as substitutes. Consider:
-1. Subject competency (is_competent=true preferred, is_primary=true strongly preferred)
+1. Subject competency (is_competent=true preferred)
 2. Fairness (lower cover_count_last_30_days preferred)
 3. Return only the top 5 ranked teachers
 

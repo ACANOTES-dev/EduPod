@@ -2461,6 +2461,9 @@ model Class {
   subject_period_weights SubjectPeriodWeight[] @relation("SubjectPeriodWeightClass")
   period_year_weights    PeriodYearWeight[]    @relation("PeriodYearWeightClass")
 
+  // Scheduler Rebuild Relations
+  teacher_competencies TeacherCompetency[]
+
   @@unique([tenant_id, name, academic_year_id], name: "idx_classes_tenant_name_year")
   @@index([tenant_id, academic_year_id], name: "idx_classes_tenant_year")
   @@index([tenant_id, status], name: "idx_classes_tenant_status")
@@ -3036,7 +3039,9 @@ model TeacherCompetency {
   staff_profile_id String   @db.Uuid
   subject_id       String   @db.Uuid
   year_group_id    String   @db.Uuid
-  is_primary       Boolean  @default(false)
+  // class_id = NULL → pool entry (solver picks the section);
+  // class_id = <uuid> → pin (solver must honour this assignment).
+  class_id         String?  @db.Uuid
   created_at       DateTime @default(now()) @db.Timestamptz()
   updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz()
 
@@ -3046,10 +3051,12 @@ model TeacherCompetency {
   staff_profile StaffProfile @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
   subject       Subject      @relation(fields: [subject_id], references: [id], onDelete: Cascade)
   year_group    YearGroup    @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+  class         Class?       @relation(fields: [class_id], references: [id], onDelete: Cascade)
 
-  @@unique([tenant_id, academic_year_id, staff_profile_id, subject_id, year_group_id], name: "idx_teacher_competency_unique")
+  @@unique([tenant_id, academic_year_id, staff_profile_id, subject_id, year_group_id, class_id], name: "idx_teacher_competency_unique")
   @@index([tenant_id, academic_year_id, staff_profile_id], name: "idx_teacher_competency_staff")
   @@index([tenant_id, academic_year_id, subject_id, year_group_id], name: "idx_teacher_competency_subject_year")
+  @@index([tenant_id, class_id], name: "idx_teacher_competencies_tenant_class")
   @@map("teacher_competencies")
 }
 

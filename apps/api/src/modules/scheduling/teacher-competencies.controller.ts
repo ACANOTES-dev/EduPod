@@ -130,9 +130,11 @@ export class TeacherCompetenciesController {
   async update(
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { is_primary?: boolean },
   ) {
-    return this.service.update(tenant.tenant_id, id, dto);
+    // is_primary was the only mutable field; Stage 1 of the scheduler rebuild
+    // dropped it. The route stays so the frontend keeps resolving by id until
+    // Stage 3 reshapes the API around class_id.
+    return this.service.update(tenant.tenant_id, id);
   }
 
   @Delete(':id')

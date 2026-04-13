@@ -15,8 +15,6 @@ import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { AiSubstitutionService } from './ai-substitution.service';
 import { BreakGroupsController } from './break-groups.controller';
 import { BreakGroupsService } from './break-groups.service';
-import { CoverTeacherController } from './cover-teacher.controller';
-import { CoverTeacherService } from './cover-teacher.service';
 import { CoverTrackingService } from './cover-tracking.service';
 import { CurriculumRequirementsController } from './curriculum-requirements.controller';
 import { CurriculumRequirementsService } from './curriculum-requirements.service';
@@ -63,7 +61,6 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     TeacherSchedulingConfigController,
     SchedulerOrchestrationController,
     SchedulerValidationController,
-    CoverTeacherController,
     SchedulingEnhancedController,
     SchedulingPublicController,
   ],
@@ -75,7 +72,6 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     TeacherSchedulingConfigService,
     SchedulerOrchestrationService,
     SchedulerValidationService,
-    CoverTeacherService,
     SubstitutionService,
     AiSubstitutionService,
     CoverTrackingService,

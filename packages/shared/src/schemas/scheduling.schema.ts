@@ -9,21 +9,9 @@ export const createCurriculumRequirementSchema = z
     subject_id: z.string().uuid(),
     min_periods_per_week: z.number().int().min(1).max(35),
     max_periods_per_day: z.number().int().min(1).max(10).default(1),
-    preferred_periods_per_week: z
-      .number()
-      .int()
-      .min(1)
-      .max(35)
-      .nullable()
-      .optional(),
+    preferred_periods_per_week: z.number().int().min(1).max(35).nullable().optional(),
     requires_double_period: z.boolean().default(false),
-    double_period_count: z
-      .number()
-      .int()
-      .min(1)
-      .max(10)
-      .nullable()
-      .optional(),
+    double_period_count: z.number().int().min(1).max(10).nullable().optional(),
     period_duration: z.number().int().min(10).max(180).nullable().optional(),
   })
   .refine(
@@ -42,34 +30,23 @@ export const createCurriculumRequirementSchema = z
         data.double_period_count !== undefined &&
         data.double_period_count >= 1),
     {
-      message:
-        'double_period_count is required when requires_double_period is true',
+      message: 'double_period_count is required when requires_double_period is true',
       path: ['double_period_count'],
     },
   );
 
-export type CreateCurriculumRequirementDto = z.infer<
-  typeof createCurriculumRequirementSchema
->;
+export type CreateCurriculumRequirementDto = z.infer<typeof createCurriculumRequirementSchema>;
 
 export const updateCurriculumRequirementSchema = z.object({
   min_periods_per_week: z.number().int().min(1).max(35).optional(),
   max_periods_per_day: z.number().int().min(1).max(10).optional(),
-  preferred_periods_per_week: z
-    .number()
-    .int()
-    .min(1)
-    .max(35)
-    .nullable()
-    .optional(),
+  preferred_periods_per_week: z.number().int().min(1).max(35).nullable().optional(),
   requires_double_period: z.boolean().optional(),
   double_period_count: z.number().int().min(1).max(10).nullable().optional(),
   period_duration: z.number().int().min(10).max(180).nullable().optional(),
 });
 
-export type UpdateCurriculumRequirementDto = z.infer<
-  typeof updateCurriculumRequirementSchema
->;
+export type UpdateCurriculumRequirementDto = z.infer<typeof updateCurriculumRequirementSchema>;
 
 // ─── Teacher Competencies ───────────────────────────────────────────────────
 
@@ -78,12 +55,12 @@ export const createTeacherCompetencySchema = z.object({
   staff_profile_id: z.string().uuid(),
   subject_id: z.string().uuid(),
   year_group_id: z.string().uuid(),
-  is_primary: z.boolean().default(false),
+  // class_id is introduced by Stage 3 of the scheduler rebuild; Stage 1 only
+  // drops is_primary. The pool-vs-pin distinction will land once the solver
+  // and UI can emit the right value.
 });
 
-export type CreateTeacherCompetencyDto = z.infer<
-  typeof createTeacherCompetencySchema
->;
+export type CreateTeacherCompetencyDto = z.infer<typeof createTeacherCompetencySchema>;
 
 export const bulkCreateTeacherCompetenciesSchema = z.object({
   academic_year_id: z.string().uuid(),
@@ -93,16 +70,13 @@ export const bulkCreateTeacherCompetenciesSchema = z.object({
       z.object({
         subject_id: z.string().uuid(),
         year_group_id: z.string().uuid(),
-        is_primary: z.boolean().default(false),
       }),
     )
     .min(1)
     .max(500),
 });
 
-export type BulkCreateTeacherCompetenciesDto = z.infer<
-  typeof bulkCreateTeacherCompetenciesSchema
->;
+export type BulkCreateTeacherCompetenciesDto = z.infer<typeof bulkCreateTeacherCompetenciesSchema>;
 
 export const copyCompetenciesToYearsSchema = z.object({
   academic_year_id: z.string().uuid(),
@@ -118,9 +92,7 @@ export const copyCompetenciesToYearsSchema = z.object({
     .max(50),
 });
 
-export type CopyCompetenciesToYearsDto = z.infer<
-  typeof copyCompetenciesToYearsSchema
->;
+export type CopyCompetenciesToYearsDto = z.infer<typeof copyCompetenciesToYearsSchema>;
 
 // ─── Break Groups ───────────────────────────────────────────────────────────
 
@@ -168,18 +140,10 @@ export const upsertTeacherSchedulingConfigSchema = z.object({
   staff_profile_id: z.string().uuid(),
   max_periods_per_week: z.number().int().min(1).max(50).nullable().optional(),
   max_periods_per_day: z.number().int().min(1).max(15).nullable().optional(),
-  max_supervision_duties_per_week: z
-    .number()
-    .int()
-    .min(1)
-    .max(20)
-    .nullable()
-    .optional(),
+  max_supervision_duties_per_week: z.number().int().min(1).max(20).nullable().optional(),
 });
 
-export type UpsertTeacherSchedulingConfigDto = z.infer<
-  typeof upsertTeacherSchedulingConfigSchema
->;
+export type UpsertTeacherSchedulingConfigDto = z.infer<typeof upsertTeacherSchedulingConfigSchema>;
 
 // ─── Period Grid (Modified for year group scope) ────────────────────────────
 
@@ -209,29 +173,19 @@ export const createPeriodTemplateV2Schema = z
     message: 'end_time must be after start_time',
     path: ['end_time'],
   })
-  .refine(
-    (data) => data.supervision_mode !== 'yard' || data.break_group_id,
-    {
-      message: 'break_group_id is required for yard supervision mode',
-      path: ['break_group_id'],
-    },
-  );
+  .refine((data) => data.supervision_mode !== 'yard' || data.break_group_id, {
+    message: 'break_group_id is required for yard supervision mode',
+    path: ['break_group_id'],
+  });
 
-export type CreatePeriodTemplateV2Dto = z.infer<
-  typeof createPeriodTemplateV2Schema
->;
+export type CreatePeriodTemplateV2Dto = z.infer<typeof createPeriodTemplateV2Schema>;
 
 // ─── Solver Execution ───────────────────────────────────────────────────────
 
 export const triggerSolverRunSchema = z.object({
   academic_year_id: z.string().uuid(),
   solver_seed: z.number().int().nullable().optional(),
-  max_solver_duration_seconds: z
-    .number()
-    .int()
-    .min(10)
-    .max(600)
-    .default(120),
+  max_solver_duration_seconds: z.number().int().min(10).max(600).default(120),
 });
 
 export type TriggerSolverRunDto = z.infer<typeof triggerSolverRunSchema>;
@@ -241,20 +195,6 @@ export type TriggerSolverRunDto = z.infer<typeof triggerSolverRunSchema>;
 export const validateScheduleSchema = z.object({
   // No body needed — validates the current draft state of the run
 });
-
-// ─── Cover Teacher ──────────────────────────────────────────────────────────
-
-export const findCoverTeacherQuerySchema = z.object({
-  academic_year_id: z.string().uuid(),
-  weekday: z.coerce.number().int().min(0).max(6),
-  period_order: z.coerce.number().int().min(0).max(20),
-  subject_id: z.string().uuid().optional(),
-  year_group_id: z.string().uuid().optional(),
-});
-
-export type FindCoverTeacherQuery = z.infer<
-  typeof findCoverTeacherQuerySchema
->;
 
 // ─── Export ─────────────────────────────────────────────────────────────────
 

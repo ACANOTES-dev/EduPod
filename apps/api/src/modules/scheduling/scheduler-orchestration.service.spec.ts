@@ -1014,7 +1014,7 @@ describe('SchedulerOrchestrationService', () => {
         },
       ]);
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([
-        { staff_profile_id: 'staff-1', subject_id: 's1', year_group_id: 'yg-1', is_primary: true },
+        { staff_profile_id: 'staff-1', subject_id: 's1', year_group_id: 'yg-1' },
       ]);
       mockPrisma.teacherSchedulingConfig.findMany.mockResolvedValue([
         {
@@ -1261,7 +1261,7 @@ describe('SchedulerOrchestrationService', () => {
       ]);
 
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([
-        { staff_profile_id: 'staff-1', subject_id: 's1', year_group_id: 'yg-1', is_primary: true },
+        { staff_profile_id: 'staff-1', subject_id: 's1', year_group_id: 'yg-1' },
       ]);
 
       mockPrisma.teacherSchedulingConfig.findMany.mockResolvedValue([
@@ -1388,7 +1388,9 @@ describe('SchedulerOrchestrationService', () => {
       expect(teacher.staff_profile_id).toBe('staff-1');
       expect(teacher.name).toBe('Alice Brown');
       expect(teacher.competencies).toHaveLength(1);
-      expect(teacher.competencies[0]!.is_primary).toBe(true);
+      // is_primary is always false post-Stage-1 of the scheduler rebuild; the
+      // signal is removed from the solver input type entirely in Stage 2.
+      expect(teacher.competencies[0]!.is_primary).toBe(false);
       expect(teacher.availability).toHaveLength(1);
       expect(teacher.availability[0]!.from).toBe('08:00');
       expect(teacher.preferences).toHaveLength(1);

@@ -10,11 +10,7 @@ import {
   getTier,
   FEES_BY_YEAR,
 } from './types';
-import {
-  pickMaleName,
-  pickFemaleName,
-  pickFamilyName,
-} from './names';
+import { pickMaleName, pickFemaleName, pickFamilyName } from './names';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -37,13 +33,13 @@ function chunk<T>(arr: T[], n: number): T[][] {
 
 /** Deterministic pseudo-random day offset within a range */
 function pseudoDay(seed: number, maxDays: number): number {
-  return ((seed * 17 + 31) % maxDays);
+  return (seed * 17 + 31) % maxDays;
 }
 
 // ─── Period Template Arabic Names ───────────────────────────────────────────
 
 const PERIOD_NAME_AR: Record<string, string> = {
-  'Registration': 'التسجيل',
+  Registration: 'التسجيل',
   'Period 1': 'الحصة 1',
   'Period 2': 'الحصة 2',
   'Period 3': 'الحصة 3',
@@ -51,8 +47,8 @@ const PERIOD_NAME_AR: Record<string, string> = {
   'Period 5': 'الحصة 5',
   'Period 6': 'الحصة 6',
   'Morning Break': 'استراحة الصباح',
-  'Lunch': 'الغداء',
-  'Assembly': 'الطابور',
+  Lunch: 'الغداء',
+  Assembly: 'الطابور',
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -72,13 +68,25 @@ export async function seedSchedule(
 
   // ─── A) Period Templates (45 total) ────────────────────────────────────
 
-  type SlotDef = { name: string; start: [string, string]; end: [string, string]; type: string; order: number };
+  type SlotDef = {
+    name: string;
+    start: [string, string];
+    end: [string, string];
+    type: string;
+    order: number;
+  };
 
   const monThuSlots: SlotDef[] = [
     { name: 'Registration', start: ['08', '30'], end: ['08', '45'], type: 'assembly', order: 0 },
     { name: 'Period 1', start: ['08', '45'], end: ['09', '45'], type: 'teaching', order: 1 },
     { name: 'Period 2', start: ['09', '45'], end: ['10', '45'], type: 'teaching', order: 2 },
-    { name: 'Morning Break', start: ['10', '45'], end: ['11', '10'], type: 'break_supervision', order: 3 },
+    {
+      name: 'Morning Break',
+      start: ['10', '45'],
+      end: ['11', '10'],
+      type: 'break_supervision',
+      order: 3,
+    },
     { name: 'Period 3', start: ['11', '10'], end: ['12', '10'], type: 'teaching', order: 4 },
     { name: 'Period 4', start: ['12', '10'], end: ['13', '10'], type: 'teaching', order: 5 },
     { name: 'Lunch', start: ['13', '10'], end: ['14', '00'], type: 'lunch_duty', order: 6 },
@@ -90,7 +98,13 @@ export async function seedSchedule(
     { name: 'Assembly', start: ['08', '30'], end: ['09', '00'], type: 'assembly', order: 0 },
     { name: 'Period 1', start: ['09', '00'], end: ['10', '00'], type: 'teaching', order: 1 },
     { name: 'Period 2', start: ['10', '00'], end: ['11', '00'], type: 'teaching', order: 2 },
-    { name: 'Morning Break', start: ['11', '00'], end: ['11', '25'], type: 'break_supervision', order: 3 },
+    {
+      name: 'Morning Break',
+      start: ['11', '00'],
+      end: ['11', '25'],
+      type: 'break_supervision',
+      order: 3,
+    },
     { name: 'Period 3', start: ['11', '25'], end: ['12', '25'], type: 'teaching', order: 4 },
     { name: 'Period 4', start: ['12', '25'], end: ['13', '25'], type: 'teaching', order: 5 },
     { name: 'Lunch', start: ['13', '25'], end: ['14', '15'], type: 'lunch_duty', order: 6 },
@@ -202,7 +216,6 @@ export async function seedSchedule(
           staff_profile_id: staff.staffProfileId,
           subject_id: subjectId,
           year_group_id: foundation.yearGroupIds[yi]!,
-          is_primary: true,
         });
       }
     }
@@ -352,9 +365,9 @@ export async function seedGrading(
   const catDefs = [
     { name: 'Homework', weight: 0.15 },
     { name: 'Classwork', weight: 0.15 },
-    { name: 'Quizzes', weight: 0.20 },
-    { name: 'Mid-Term Exam', weight: 0.20 },
-    { name: 'Final Exam', weight: 0.30 },
+    { name: 'Quizzes', weight: 0.2 },
+    { name: 'Mid-Term Exam', weight: 0.2 },
+    { name: 'Final Exam', weight: 0.3 },
   ];
 
   const categoryIds: string[] = [];
@@ -377,7 +390,9 @@ export async function seedGrading(
 
   // Category lookup by name for later use
   const catByName: Record<string, string> = {};
-  catDefs.forEach((cat, i) => { catByName[cat.name] = categoryIds[i]!; });
+  catDefs.forEach((cat, i) => {
+    catByName[cat.name] = categoryIds[i]!;
+  });
 
   // ─── C) ClassSubjectGradeConfig (first 50 subject classes) ─────────────
 
@@ -411,7 +426,9 @@ export async function seedGrading(
 
   // Pick 30 representative subject classes for assessments
   const assessmentClasses = classes.subjectClasses.slice(0, 30);
-  const assessmentRecords: Array<Record<string, unknown> & { _classInfo: ClassInfo; _catName: string }> = [];
+  const assessmentRecords: Array<
+    Record<string, unknown> & { _classInfo: ClassInfo; _catName: string }
+  > = [];
   const allAssessmentIds: string[] = [];
 
   for (let ci = 0; ci < assessmentClasses.length; ci++) {
@@ -448,7 +465,11 @@ export async function seedGrading(
     // Term 2: 2 assessments (quiz, classwork) — open or draft
     const t2Assessments = [
       { title: `${sc.name} - Quiz 2`, catName: 'Quizzes', status: ci % 2 === 0 ? 'open' : 'draft' },
-      { title: `${sc.name} - Classwork 1`, catName: 'Classwork', status: ci % 3 === 0 ? 'open' : 'draft' },
+      {
+        title: `${sc.name} - Classwork 1`,
+        catName: 'Classwork',
+        status: ci % 3 === 0 ? 'open' : 'draft',
+      },
     ];
 
     for (const a of t2Assessments) {
@@ -506,13 +527,11 @@ export async function seedGrading(
 
     for (let si = 0; si < gradedStudents.length; si++) {
       const studentId = gradedStudents[si]!;
-      const rawScore = (si * 7 + ai * 13 + 42) % 56 + 45;
+      const rawScore = ((si * 7 + ai * 13 + 42) % 56) + 45;
       const isMissing = (si * 11 + ai * 17) % 100 < 3; // ~3%
 
       // Deterministic date within term
-      const baseDate = isTerm1
-        ? new Date('2025-10-15')
-        : new Date('2026-02-15');
+      const baseDate = isTerm1 ? new Date('2025-10-15') : new Date('2026-02-15');
       const dayOffset = pseudoDay(si + ai * 100, 30);
       const enteredAt = new Date(baseDate.getTime() + dayOffset * 86400000);
 
@@ -674,13 +693,13 @@ export async function seedFinance(
     // Determine if has sibling discount
     const fa = feeAssignments[si]!;
     const hasDiscount = fa.discount_id !== null;
-    const discountAmount = hasDiscount ? Math.round(termAmount * 0.10 * 100) / 100 : 0;
+    const discountAmount = hasDiscount ? Math.round(termAmount * 0.1 * 100) / 100 : 0;
     const total = Math.round((termAmount - discountAmount) * 100) / 100;
 
     // Status distribution: ~80% paid, ~10% partially_paid, ~5% overdue, ~5% issued
     const count = people.students.length;
-    const paidThreshold = Math.floor(count * 0.80);
-    const partialThreshold = Math.floor(count * 0.90);
+    const paidThreshold = Math.floor(count * 0.8);
+    const partialThreshold = Math.floor(count * 0.9);
     const overdueThreshold = Math.floor(count * 0.95);
     let status: string;
     let balance: number;
@@ -689,7 +708,7 @@ export async function seedFinance(
       balance = 0;
     } else if (si < partialThreshold) {
       status = 'partially_paid';
-      balance = Math.round(total * 0.40 * 100) / 100; // 40% remaining
+      balance = Math.round(total * 0.4 * 100) / 100; // 40% remaining
     } else if (si < overdueThreshold) {
       status = 'overdue';
       balance = total;
@@ -771,9 +790,7 @@ export async function seedFinance(
     if (inv.status !== 'paid' && inv.status !== 'partially_paid') continue;
 
     const paymentId = crypto.randomUUID();
-    const payAmount = inv.status === 'paid'
-      ? inv.total
-      : Math.round(inv.total * 0.60 * 100) / 100;
+    const payAmount = inv.status === 'paid' ? inv.total : Math.round(inv.total * 0.6 * 100) / 100;
 
     // Payment method distribution
     let method: string;
@@ -964,7 +981,9 @@ export async function seedPayroll(
       headcount: staffCount,
       created_by_user_id: ownerUserId,
       finalised_by_user_id: isFinalised ? ownerUserId : null,
-      finalised_at: isFinalised ? new Date(`${m.year}-${String(m.month).padStart(2, '0')}-28T10:00:00.000Z`) : null,
+      finalised_at: isFinalised
+        ? new Date(`${m.year}-${String(m.month).padStart(2, '0')}-28T10:00:00.000Z`)
+        : null,
     });
   }
 
@@ -1102,7 +1121,8 @@ export async function seedAttendance(
     const d = new Date(start);
     while (dates.length < count) {
       const dow = d.getDay(); // 0=Sun, 6=Sat
-      if (dow >= 1 && dow <= 5) { // Mon-Fri
+      if (dow >= 1 && dow <= 5) {
+        // Mon-Fri
         dates.push(new Date(d));
       }
       d.setDate(d.getDate() + 1);
@@ -1207,7 +1227,9 @@ export async function seedAttendance(
       skipDuplicates: true,
     });
   }
-  console.log(`    Created ${sessionRecords.length} sessions, ${attendanceRecords.length} attendance records`);
+  console.log(
+    `    Created ${sessionRecords.length} sessions, ${attendanceRecords.length} attendance records`,
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1355,14 +1377,26 @@ export async function seedExtras(
     { key: 'student_first_name', label: 'Student First Name', type: 'short_text', required: true },
     { key: 'student_last_name', label: 'Student Last Name', type: 'short_text', required: true },
     { key: 'date_of_birth', label: 'Date of Birth', type: 'date', required: true },
-    { key: 'gender', label: 'Gender', type: 'single_select', required: true, options: ['Male', 'Female'] },
+    {
+      key: 'gender',
+      label: 'Gender',
+      type: 'single_select',
+      required: true,
+      options: ['Male', 'Female'],
+    },
     { key: 'previous_school', label: 'Previous School', type: 'short_text', required: false },
     { key: 'parent_name', label: 'Parent/Guardian Name', type: 'short_text', required: true },
     { key: 'parent_email', label: 'Parent Email', type: 'email', required: true },
     { key: 'parent_phone', label: 'Parent Phone', type: 'phone', required: true },
     { key: 'medical_conditions', label: 'Medical Conditions', type: 'long_text', required: false },
     { key: 'allergies', label: 'Any Allergies?', type: 'yes_no', required: false },
-    { key: 'preferred_year_group', label: 'Preferred Year Group', type: 'single_select', required: false, options: ['Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5', 'Year 6'] },
+    {
+      key: 'preferred_year_group',
+      label: 'Preferred Year Group',
+      type: 'single_select',
+      required: false,
+      options: ['Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5', 'Year 6'],
+    },
     { key: 'additional_notes', label: 'Additional Notes', type: 'long_text', required: false },
   ];
 
@@ -1417,10 +1451,14 @@ export async function seedExtras(
         submitted_by_parent_id: null,
         student_first_name: firstName,
         student_last_name: lastName,
-        date_of_birth: date(`${2019 - (appSeq % 6)}-${String((appSeq % 12) + 1).padStart(2, '0')}-15`),
+        date_of_birth: date(
+          `${2019 - (appSeq % 6)}-${String((appSeq % 12) + 1).padStart(2, '0')}-15`,
+        ),
         status: status as never,
         submitted_at: status !== 'draft' ? new Date('2025-08-15T10:00:00.000Z') : null,
-        reviewed_at: ['accepted', 'rejected'].includes(status) ? new Date('2025-09-10T10:00:00.000Z') : null,
+        reviewed_at: ['accepted', 'rejected'].includes(status)
+          ? new Date('2025-09-10T10:00:00.000Z')
+          : null,
         reviewed_by_user_id: ['accepted', 'rejected'].includes(status) ? ownerUserId : null,
         payload_json: {
           student_first_name: firstName,
@@ -1452,7 +1490,8 @@ export async function seedExtras(
         id: crypto.randomUUID(),
         tenant_id: tenantId,
         title: 'Welcome Back to the 2025-2026 Academic Year',
-        body_html: '<p>Dear parents and students, welcome back to MDAD Academy for the 2025-2026 academic year. We look forward to an excellent year of learning and growth.</p>',
+        body_html:
+          '<p>Dear parents and students, welcome back to MDAD Academy for the 2025-2026 academic year. We look forward to an excellent year of learning and growth.</p>',
         status: 'published' as never,
         scope: 'school' as never,
         target_payload: {},
@@ -1463,7 +1502,8 @@ export async function seedExtras(
         id: crypto.randomUUID(),
         tenant_id: tenantId,
         title: 'Term 2 Schedule Update',
-        body_html: '<p>Please note the updated schedule for Term 2 beginning January 6, 2026. All students are expected to arrive by 8:15am.</p>',
+        body_html:
+          '<p>Please note the updated schedule for Term 2 beginning January 6, 2026. All students are expected to arrive by 8:15am.</p>',
         status: 'published' as never,
         scope: 'school' as never,
         target_payload: {},
@@ -1474,7 +1514,8 @@ export async function seedExtras(
         id: crypto.randomUUID(),
         tenant_id: tenantId,
         title: 'Year 6 Exam Preparation Information',
-        body_html: '<p>Year 6 students: your final exams begin March 15. Revision materials are available in the school portal. Study groups will be held after school Tuesdays and Thursdays.</p>',
+        body_html:
+          '<p>Year 6 students: your final exams begin March 15. Revision materials are available in the school portal. Study groups will be held after school Tuesdays and Thursdays.</p>',
         status: 'published' as never,
         scope: 'year_group' as never,
         target_payload: { year_group_id: y6Id },
@@ -1485,7 +1526,8 @@ export async function seedExtras(
         id: crypto.randomUUID(),
         tenant_id: tenantId,
         title: 'Annual Sports Day',
-        body_html: '<p>Join us for MDAD Academy Annual Sports Day on April 15, 2026. All students will participate in inter-house competitions.</p>',
+        body_html:
+          '<p>Join us for MDAD Academy Annual Sports Day on April 15, 2026. All students will participate in inter-house competitions.</p>',
         status: 'scheduled' as never,
         scope: 'school' as never,
         target_payload: {},
@@ -1496,7 +1538,8 @@ export async function seedExtras(
         id: crypto.randomUUID(),
         tenant_id: tenantId,
         title: 'Parent-Teacher Evening Invitation',
-        body_html: '<p>We are pleased to invite all parents to our Parent-Teacher Evening. More details to follow regarding scheduling.</p>',
+        body_html:
+          '<p>We are pleased to invite all parents to our Parent-Teacher Evening. More details to follow regarding scheduling.</p>',
         status: 'draft' as never,
         scope: 'school' as never,
         target_payload: {},
@@ -1531,7 +1574,18 @@ export async function seedExtras(
       'After-school club question',
       'Report card clarification',
     ];
-    const inquiryStatuses = ['open', 'open', 'open', 'open', 'in_progress', 'in_progress', 'in_progress', 'closed', 'closed', 'closed'];
+    const inquiryStatuses = [
+      'open',
+      'open',
+      'open',
+      'open',
+      'in_progress',
+      'in_progress',
+      'in_progress',
+      'closed',
+      'closed',
+      'closed',
+    ];
 
     const inquiryRecords: Array<Record<string, unknown>> = [];
     const messageRecords: Array<Record<string, unknown>> = [];
@@ -1574,7 +1628,9 @@ export async function seedExtras(
       data: messageRecords as never,
       skipDuplicates: true,
     });
-    console.log(`    Created ${inquiryRecords.length} inquiries with ${messageRecords.length} messages`);
+    console.log(
+      `    Created ${inquiryRecords.length} inquiries with ${messageRecords.length} messages`,
+    );
   } else {
     console.log('    No parents found, skipping inquiries');
   }
@@ -1593,7 +1649,8 @@ export async function seedExtras(
         title: 'Welcome to MDAD Academy',
         meta_title: 'MDAD Academy - Excellence in Education',
         meta_description: 'MDAD Academy provides world-class education for students in the UAE.',
-        body_html: '<h1>Welcome to MDAD Academy</h1><p>Nurturing minds, building futures. MDAD Academy is dedicated to providing an outstanding education in a supportive bilingual environment.</p>',
+        body_html:
+          '<h1>Welcome to MDAD Academy</h1><p>Nurturing minds, building futures. MDAD Academy is dedicated to providing an outstanding education in a supportive bilingual environment.</p>',
         status: 'published' as never,
         show_in_nav: true,
         nav_order: 1,
@@ -1609,7 +1666,8 @@ export async function seedExtras(
         title: 'About MDAD Academy',
         meta_title: 'About Us - MDAD Academy',
         meta_description: 'Learn about MDAD Academy, our mission, vision and values.',
-        body_html: '<h1>About Us</h1><p>MDAD Academy was established with a vision to provide excellent education that combines modern pedagogical approaches with traditional values.</p>',
+        body_html:
+          '<h1>About Us</h1><p>MDAD Academy was established with a vision to provide excellent education that combines modern pedagogical approaches with traditional values.</p>',
         status: 'published' as never,
         show_in_nav: true,
         nav_order: 2,
@@ -1624,8 +1682,10 @@ export async function seedExtras(
         slug: '/admissions',
         title: 'Admissions',
         meta_title: 'Admissions - MDAD Academy',
-        meta_description: 'Apply to MDAD Academy. Learn about our admissions process and requirements.',
-        body_html: '<h1>Admissions</h1><p>We welcome applications for all year groups. Our admissions process is designed to be straightforward and transparent.</p>',
+        meta_description:
+          'Apply to MDAD Academy. Learn about our admissions process and requirements.',
+        body_html:
+          '<h1>Admissions</h1><p>We welcome applications for all year groups. Our admissions process is designed to be straightforward and transparent.</p>',
         status: 'published' as never,
         show_in_nav: true,
         nav_order: 3,
@@ -1641,7 +1701,8 @@ export async function seedExtras(
         title: 'Contact Us',
         meta_title: 'Contact - MDAD Academy',
         meta_description: 'Get in touch with MDAD Academy.',
-        body_html: '<h1>Contact Us</h1><p>We are happy to hear from you. Reach out via phone, email, or visit us in person.</p><p>Email: info@mdad.academy</p><p>Phone: +971-4-123-4567</p>',
+        body_html:
+          '<h1>Contact Us</h1><p>We are happy to hear from you. Reach out via phone, email, or visit us in person.</p><p>Email: info@mdad.academy</p><p>Phone: +971-4-123-4567</p>',
         status: 'published' as never,
         show_in_nav: true,
         nav_order: 4,
@@ -1658,11 +1719,32 @@ export async function seedExtras(
   console.log('  [extras] Creating contact form submissions...');
   const contactStatuses = ['new_submission', 'new_submission', 'reviewed', 'reviewed', 'closed'];
   const contactSubmissions = [
-    { name: 'Fatima Al-Rashid', email: 'fatima.rashid@example.com', message: 'I would like to inquire about enrolment for Year 3. What are the admission requirements?' },
-    { name: 'Omar Khalil', email: 'omar.khalil@example.com', message: 'Could you provide information about the school transportation services?' },
-    { name: 'Sara Al-Mansour', email: 'sara.mansour@example.com', message: 'I am interested in visiting the school. Can I schedule a campus tour?' },
-    { name: 'Ahmed Ibrahim', email: 'ahmed.ibrahim@example.com', message: 'Do you offer scholarship programmes for outstanding students?' },
-    { name: 'Layla Al-Hamdan', email: 'layla.hamdan@example.com', message: 'What extracurricular activities are available for Year 5 students?' },
+    {
+      name: 'Fatima Al-Rashid',
+      email: 'fatima.rashid@example.com',
+      message:
+        'I would like to inquire about enrolment for Year 3. What are the admission requirements?',
+    },
+    {
+      name: 'Omar Khalil',
+      email: 'omar.khalil@example.com',
+      message: 'Could you provide information about the school transportation services?',
+    },
+    {
+      name: 'Sara Al-Mansour',
+      email: 'sara.mansour@example.com',
+      message: 'I am interested in visiting the school. Can I schedule a campus tour?',
+    },
+    {
+      name: 'Ahmed Ibrahim',
+      email: 'ahmed.ibrahim@example.com',
+      message: 'Do you offer scholarship programmes for outstanding students?',
+    },
+    {
+      name: 'Layla Al-Hamdan',
+      email: 'layla.hamdan@example.com',
+      message: 'What extracurricular activities are available for Year 5 students?',
+    },
   ];
 
   await prisma.contactFormSubmission.createMany({

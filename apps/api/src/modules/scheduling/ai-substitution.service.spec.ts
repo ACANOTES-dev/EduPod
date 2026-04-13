@@ -500,52 +500,10 @@ describe('AiSubstitutionService', () => {
       expect(mockPrisma.teacherCompetency.findMany).not.toHaveBeenCalled();
     });
 
-    it('should prefer is_primary when merging competencies for same teacher', async () => {
-      // Two competency records for same teacher: first non-primary, second primary
-      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
-        { staff_profile_id: 'staff-2', is_primary: false },
-        { staff_profile_id: 'staff-2', is_primary: true },
-      ]);
-
-      mockMessagesCreate.mockResolvedValue({
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify([
-              { staff_profile_id: 'staff-2', confidence: 'high', score: 90, reasoning: 'Primary' },
-            ]),
-          },
-        ],
-      });
-
-      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
-
-      expect(result.data).toHaveLength(1);
-      // The staffContext sent to AI should have is_primary: true
-    });
-
-    it('should not upgrade existing is_primary when subsequent record is non-primary', async () => {
-      // First record IS primary, second record is NOT — should keep primary
-      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
-        { staff_profile_id: 'staff-2', is_primary: true },
-        { staff_profile_id: 'staff-2', is_primary: false },
-      ]);
-
-      mockMessagesCreate.mockResolvedValue({
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify([
-              { staff_profile_id: 'staff-2', confidence: 'high', score: 85, reasoning: 'Expert' },
-            ]),
-          },
-        ],
-      });
-
-      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
-
-      expect(result.data).toHaveLength(1);
-    });
+    // Two tests about merging is_primary across duplicate competency rows were
+    // removed in Stage 1 of the scheduler rebuild — the column was dropped.
+    // Stage 7 will reinstate a primary-vs-secondary signal against the new
+    // substitute_teacher_competencies table, and those tests will return then.
 
     it('should use schedule.academic_year_id when class_entity has no academic_year_id', async () => {
       const schedNoAy = {
