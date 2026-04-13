@@ -485,7 +485,7 @@ export default function RoomsPage() {
               </div>
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('totalCapacity')}
+                  {t('classroomCapacity')}
                 </p>
                 <p className="text-2xl font-bold text-text-primary">{stats.total_capacity}</p>
               </div>

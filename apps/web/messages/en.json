@@ -4666,6 +4666,7 @@
     "activeRooms": "Active Rooms",
     "inactiveRooms": "Inactive Rooms",
     "totalCapacity": "Total Capacity",
+    "classroomCapacity": "Classroom Capacity",
     "roomTypeBreakdown": "Room Types",
     "bulkDelete": "Delete Selected",
     "bulkDeleteConfirm": "Delete {count} selected room(s)? This action cannot be undone.",

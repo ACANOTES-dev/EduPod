@@ -47,7 +47,7 @@ export class RoomsService {
         orderBy: { _count: { id: 'desc' } },
       }),
       this.prisma.room.aggregate({
-        where: { tenant_id: tenantId, active: true },
+        where: { tenant_id: tenantId, active: true, room_type: 'classroom' },
         _sum: { capacity: true },
       }),
     ]);

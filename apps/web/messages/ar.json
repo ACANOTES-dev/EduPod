@@ -4658,6 +4658,7 @@
     "activeRooms": "الغرف النشطة",
     "inactiveRooms": "الغرف غير النشطة",
     "totalCapacity": "السعة الإجمالية",
+    "classroomCapacity": "سعة الفصول الدراسية",
     "roomTypeBreakdown": "أنواع الغرف",
     "bulkDelete": "حذف المحدد",
     "bulkDeleteConfirm": "حذف {count} غرفة محددة؟ لا يمكن التراجع عن هذا الإجراء.",

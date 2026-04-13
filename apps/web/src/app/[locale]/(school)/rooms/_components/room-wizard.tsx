@@ -198,9 +198,47 @@ export function RoomWizard({ open, onOpenChange, onComplete }: RoomWizardProps) 
 
   // ─── Generate rooms ───────────────────────────────────────────────────────
 
+  /**
+   * Find the highest existing number suffix for a given room type prefix.
+   * e.g. if "Classroom 01" through "Classroom 15" exist, returns 15.
+   */
+  const findHighestExistingNumber = (existingNames: string[], prefix: string): number => {
+    let max = 0;
+    const prefixLower = prefix.toLowerCase();
+    for (const name of existingNames) {
+      const nameLower = name.toLowerCase();
+      if (nameLower.startsWith(prefixLower)) {
+        const suffix = name.slice(prefix.length).trim();
+        const num = parseInt(suffix, 10);
+        if (!isNaN(num) && num > max) max = num;
+      }
+    }
+    return max;
+  };
+
   const handleGenerate = async () => {
     setSaving(true);
     try {
+      // Fetch all existing rooms to determine numbering offsets
+      const existingRes = await apiClient<{
+        data: Array<{ name: string; room_type: string }>;
+        meta: { total: number };
+      }>('/api/v1/rooms?page=1&pageSize=100');
+      let allExisting = existingRes.data;
+
+      // If there are more than 100 rooms, fetch remaining pages
+      if (existingRes.meta.total > 100) {
+        const totalPages = Math.ceil(existingRes.meta.total / 100);
+        for (let p = 2; p <= totalPages; p++) {
+          const pageRes = await apiClient<{
+            data: Array<{ name: string; room_type: string }>;
+          }>(`/api/v1/rooms?page=${p}&pageSize=100`);
+          allExisting = [...allExisting, ...pageRes.data];
+        }
+      }
+
+      const existingNames = allExisting.map((r) => r.name);
+
       // Build the flat rooms array
       const rooms: Array<{
         name: string;
@@ -211,11 +249,12 @@ export function RoomWizard({ open, onOpenChange, onComplete }: RoomWizardProps) 
 
       for (const entry of entries) {
         const prefix = getRoomPrefix(entry.roomType, t);
-        const padLen = entry.quantity >= 100 ? 3 : 2;
-        let roomIndex = 1;
+        const highestExisting = findHighestExistingNumber(existingNames, prefix);
+        const totalNeeded = highestExisting + entry.quantity;
+        const padLen = totalNeeded >= 100 ? 3 : 2;
+        let roomIndex = highestExisting + 1;
 
         if (entry.capacitySplits.length > 0) {
-          // Generate rooms using capacity splits
           for (const split of entry.capacitySplits) {
             for (let i = 0; i < split.count; i++) {
               rooms.push({
@@ -228,7 +267,6 @@ export function RoomWizard({ open, onOpenChange, onComplete }: RoomWizardProps) 
             }
           }
         } else {
-          // All rooms with no specific capacity
           for (let i = 0; i < entry.quantity; i++) {
             rooms.push({
               name: `${prefix} ${padNumber(roomIndex, padLen)}`,
@@ -285,30 +323,31 @@ export function RoomWizard({ open, onOpenChange, onComplete }: RoomWizardProps) 
                 </button>
               )}
 
-              {/* Row 1: Room type + quantity + exclusive */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_100px_auto]">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">{t('roomType')}</Label>
-                  <Select
-                    value={entry.roomType}
-                    onValueChange={(v) => updateEntry(entry.id, { roomType: v })}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ROOM_TYPES.map((rt) => (
-                        <SelectItem key={rt} value={rt}>
-                          {t(`roomTypeLabels.${rt}`)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Row 1: Room type */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('roomType')}</Label>
+                <Select
+                  value={entry.roomType}
+                  onValueChange={(v) => updateEntry(entry.id, { roomType: v })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROOM_TYPES.map((rt) => (
+                      <SelectItem key={rt} value={rt}>
+                        {t(`roomTypeLabels.${rt}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
+              {/* Row 2: Quantity + exclusive */}
+              <div className="mt-3 flex flex-wrap items-end gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs">{t('quantity')}</Label>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     <Button
                       type="button"
                       variant="outline"
@@ -332,7 +371,7 @@ export function RoomWizard({ open, onOpenChange, onComplete }: RoomWizardProps) 
                           updateEntry(entry.id, { quantity: val });
                         }
                       }}
-                      className="h-9 w-full text-center text-base sm:w-14"
+                      className="h-9 w-20 text-center text-base"
                     />
                     <Button
                       type="button"
@@ -349,17 +388,15 @@ export function RoomWizard({ open, onOpenChange, onComplete }: RoomWizardProps) 
                   </div>
                 </div>
 
-                <div className="flex items-end gap-2 pb-0.5">
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      id={`exclusive-${entry.id}`}
-                      checked={entry.isExclusive}
-                      onCheckedChange={(v) => updateEntry(entry.id, { isExclusive: v })}
-                    />
-                    <Label htmlFor={`exclusive-${entry.id}`} className="text-xs whitespace-nowrap">
-                      {t('exclusive')}
-                    </Label>
-                  </div>
+                <div className="flex items-center gap-2 pb-1">
+                  <Switch
+                    id={`exclusive-${entry.id}`}
+                    checked={entry.isExclusive}
+                    onCheckedChange={(v) => updateEntry(entry.id, { isExclusive: v })}
+                  />
+                  <Label htmlFor={`exclusive-${entry.id}`} className="text-xs whitespace-nowrap">
+                    {t('exclusive')}
+                  </Label>
                 </div>
               </div>
 
