@@ -292,6 +292,7 @@ export class AdmissionsPaymentExpiryProcessor extends WorkerHost {
               application_id: applicationId,
               author_user_id: current.reviewed_by_user_id,
               note: 'Reverted to waiting list (reason: payment_expired). Seat released.',
+              action: 'reverted_by_expiry',
               is_internal: true,
             },
           });
@@ -388,6 +389,7 @@ export class AdmissionsPaymentExpiryProcessor extends WorkerHost {
               application_id: candidate.id,
               author_user_id: attributionUserId,
               note: 'Auto-promoted to Ready to Admit (seat freed by payment window expiry).',
+              action: 'auto_promoted',
               is_internal: true,
             },
           });
@@ -420,6 +422,8 @@ export class AdmissionsPaymentExpiryProcessor extends WorkerHost {
         {
           attempts: 3,
           backoff: { type: 'exponential', delay: 30_000 },
+          // ADM-027: admissions notifications jump bulk siblings
+          priority: 5,
         },
       );
     } catch (err) {

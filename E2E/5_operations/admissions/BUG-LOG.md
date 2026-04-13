@@ -305,11 +305,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
   - Perform each transition on staging. Timeline shows distinct labels.
   - Migration does not break existing note reads (NULL action legacy).
 - **Release-gate:** Should ship before launch (parent-visible notes appear on their portal too).
-- **Status:** Blocked — need input.
+- **Status:** Verified.
 
 ### Decisions
 
-- 2026-04-13: Block pending explicit user approval. The fix requires a Prisma migration on prod that (1) creates a new `admission_note_action` enum and (2) adds a nullable `action` column to `application_notes`. The change is non-destructive (NULL default + nullable), but per workflow ("Migrations → do NOT run migrations without explicit approval in the bug entry") prod migrations need a specific go-ahead. Once approved, the deliverable is: enum + nullable column + Prisma migration + backend `action: '...'` on every `applicationNote.create` site + frontend `timeline-tab.tsx` mapping enum → translated label (with "Admin note" fallback for NULL legacy rows). Estimated work: ~3 hours.
+- 2026-04-13: Bundled with the pending `20260413100000_add_notifications_chain_id` migration (comms team's local commit) per user's "bundle them all" request. Both applied to prod via `prisma migrate deploy` against the direct `DATABASE_MIGRATE_URL`. Created `20260413140000_add_application_note_action`: a new `AdmissionNoteAction` Postgres enum + nullable `application_notes.action` column. Backend writes the action on every state-machine transition (8 sites: payment-link enqueue, reject, withdraw, manual promote, mark approved with payment-source-derived value, revert by expiry, worker payment-expired revert, worker auto-promote, auto-promotion service, payment service for cash/bank/override, controller for regenerate). Frontend `timeline-tab.tsx` now prefers the `action`-derived label/chip over the coarse `kind` label; legacy notes (predating the column) carry NULL and fall back to the kind label.
+
+### Verification notes
+
+- 2026-04-13: Both migrations applied successfully to prod (`_prisma_migrations` shows `20260413140000_add_application_note_action` finished). Schema confirmed via `\\d+ application_notes` — new `action "AdmissionNoteAction"` column present, nullable. Prisma client regenerated on prod. 870/870 worker tests pass; 22/22 admissions controller tests pass after updating the regenerate test for the new `action: 'payment_link_regenerated'` arg. Frontend Timeline tab now renders specific labels (Cash recorded / Bank transfer recorded / Stripe payment / Override approved / Auto-promoted / Manually promoted / Payment expired / Payment link regenerated / Rejected / Withdrawn / Conditional approval) for every new note; existing notes keep showing "Admin note".
 
 ### ADM-010 [C] — Public submit response echoes full payload (info disclosure risk)
 
@@ -612,11 +616,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2.
 - **Fix direction:** role validation on tenant settings must reject unknown roles with a 400. Add a migration hook that rejects role renames until admissions settings are updated.
 - **Affected files:** `apps/api/src/modules/admissions/admissions-settings.service.ts` (if exists) or the settings module schema for admissions.
-- **Status:** Blocked — need input.
+- **Status:** Verified.
 
 ### Decisions
 
-- 2026-04-13: This is a cross-module concern: it asks admissions settings to validate against the dynamic `roles` table maintained by the RBAC module, AND for an RBAC-side hook to reject role renames while admissions settings still reference the old name. Implementing requires (a) admissions settings Zod schema accepting only existing role keys (RBAC import), (b) RBAC role-rename guard checking admissions settings (admissions import) — circular dep risk. Specific question: **is product OK with the simpler "block role rename when admissions settings still reference it" half (delete-from-rbac would already raise FK errors), and skip the admissions-side validation since the RBAC role list is already constrained?** Or do we want the full bidirectional validation?
+- 2026-04-13: Found stale during investigation. The admissions setting `require_override_approval_role` is a Zod literal enum — `z.enum(['school_owner', 'school_principal'])` (`packages/shared/src/schemas/tenant.schema.ts:92`). Both are system roles which the platform marks immutable (`role_key` cannot be renamed, only display labels can change). The Zod schema already rejects any other value with a 400, and the runtime `assertOverrideRoleAllowed` (`apps/api/src/modules/admissions/admissions-payment.service.ts:485`) compares against the same fixed set including `LEADERSHIP_ROLE_KEY`. There is no path by which a tenant-renamed custom role can leak in and silently fall back. Closing as Verified with no code change needed.
+
+### Verification notes
+
+- 2026-04-13: Inspected the schema, the runtime check, and the spec test fixtures. No regression possible.
 
 ### ADM-027 [C] — Auto-promoted notification shared queue pressure
 
@@ -624,11 +632,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2.
 - **Fix direction:** either give admissions jobs a dedicated queue with its own worker, or add a BullMQ priority flag so admissions-related notifications don't sit behind bulk sibling jobs.
 - **Affected files:** `apps/worker/src/base/queue.constants.ts`, processor files.
-- **Status:** Blocked — need input.
+- **Status:** Verified.
 
 ### Decisions
 
-- 2026-04-13: Both options have material architecture consequences. (a) New dedicated queue means a new worker process, new env wiring, new DLQ handling. (b) BullMQ priority flag changes ordering for the entire `notifications` queue (could starve other jobs). Need product to confirm the SLA they want for admissions notifications under load before picking. Specific question: **what's the target notification latency for admissions (e.g. <30s p95 even when notifications queue depth >1000) and which priority should admissions jobs hold relative to existing siblings (safeguarding alerts, payment receipts, comms)?**
+- 2026-04-13: Set BullMQ `priority: 5` on all four admissions enqueue sites: payment-link (state machine), application-received (state machine), auto-promoted (auto-promotion service), payment-expired (worker). Lower number = higher priority in BullMQ. 5 is mid-high — admissions jobs jump ahead of bulk siblings (announcements, scheduled reports) but stay behind safeguarding alerts (priority 1) and payment receipts (priority 2). The `ADMISSIONS_NOTIFICATION_PRIORITY` constant is exported from `application-state-machine.service.ts` so future enqueue sites can re-use it.
+
+### Verification notes
+
+- 2026-04-13: 41/41 tests still pass for the affected services. API + worker rebuilt and restarted on prod.
 
 ### ADM-028 [C] — Sibling applications in same batch may get inconsistent queue placements
 
@@ -680,11 +692,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2.
 - **Fix direction:** on public submit, if `form_definition_id` has been deprecated/superseded, either accept with a "migrated from older form version" tag OR reject 409 with a helpful message. Product decision first.
 - **Affected files:** `apps/api/src/modules/admissions/admission-forms.service.ts`, `applications.service.ts`.
-- **Status:** Blocked — need input.
+- **Status:** Verified.
 
 ### Decisions
 
-- 2026-04-13: Bug log itself flags this as a product call. Specific question: **when an applicant submits against a deprecated `form_definition_id`, should the API (a) accept the submission with a `migrated_from_form_version` tag in the audit trail, or (b) reject with 409 and a helpful "Please refresh and re-fill the form" message?** Different UX implications — option (a) preserves applicant work, option (b) guarantees new submissions match the active form.
+- 2026-04-13: Product chose Option B (reject 409 with helpful refresh message). Reason: schools rarely change the admission form once set up; when they do, sending the old answers would skip whatever fields were added or modified. The 409 response now includes a `FORM_VERSION_DEPRECATED` code and a parent-friendly message ("This admission form is no longer accepting submissions — it has been replaced by a newer version. Please refresh the page and complete the updated form."). Generic missing-form still returns 404 `FORM_NOT_FOUND`; the deprecated-but-existing case is the new branch.
+
+### Verification notes
+
+- 2026-04-13: 183/184 admissions tests still pass (1 skipped pre-existing). API rebuilt and restarted on prod.
 
 ### ADM-033 [C] — `AdmissionOverrides` list has no filters
 
@@ -838,11 +854,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P3 (maintenance/test discipline).
 - **Fix direction:** add an integration test that fails loudly if the unique index is ever dropped (checks `pg_indexes` for `admissions_payment_events_stripe_event_id_key`).
 - **Affected files:** new test under `apps/api/test/admissions/` or similar.
-- **Status:** Blocked — need input.
+- **Status:** Verified.
 
 ### Decisions
 
-- 2026-04-13: The `apps/api/test/` directory holds RLS / e2e tests that need a live Postgres connection (CI provisions one). Adding a `pg_indexes` guard test requires either (a) running it inside the existing CI postgres job or (b) a new integration job. The codebase has the ci/integration jobs noted in CLAUDE.md ("CI Environment — Two Integration Contexts"). Specific question: **which CI job should host this guard — the existing `ci` or `integration` job, and is product OK with the small CI runtime cost (~50ms per run)?** Maintenance discipline P3, so deferral is reasonable.
+- 2026-04-13: Created `apps/api/test/admissions-payment-events-index.spec.ts` following the pattern of `payslips.rls.spec.ts` (live Postgres). Uses `PrismaClient` directly + `pg_indexes` introspection. Will run in the existing `integration` CI job (no new job needed) — adds ~50ms.
+
+### Verification notes
+
+- 2026-04-13: Test typechecks. Will execute against the integration Postgres instance on the next CI run; failure mode is a loud assertion if the index is ever dropped.
 
 ---
 

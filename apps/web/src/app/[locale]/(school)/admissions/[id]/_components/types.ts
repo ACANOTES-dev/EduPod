@@ -29,9 +29,29 @@ export type TimelineKind =
   | 'payment_event'
   | 'override_granted';
 
+// ADM-009: structured action emitted by the state machine on every
+// transition. Frontend uses it to render distinct labels in the
+// Timeline tab; null is treated as a legacy admin note.
+export type TimelineAction =
+  | 'submitted'
+  | 'auto_routed'
+  | 'moved_to_conditional_approval'
+  | 'cash_recorded'
+  | 'bank_recorded'
+  | 'stripe_completed'
+  | 'override_approved'
+  | 'rejected'
+  | 'withdrawn'
+  | 'auto_promoted'
+  | 'manually_promoted'
+  | 'reverted_by_expiry'
+  | 'payment_link_regenerated'
+  | 'admin_note';
+
 export interface TimelineEvent {
   id: string;
   kind: TimelineKind;
+  action: TimelineAction | null;
   at: string;
   message: string;
   actor: { id: string; first_name: string; last_name: string } | null;

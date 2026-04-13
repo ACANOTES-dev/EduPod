@@ -250,6 +250,7 @@ export class AdmissionsPaymentService {
             `Expected ${(expectedCents / 100).toFixed(2)} ${locked.currency_code ?? ''}, ` +
             `collected ${(params.actualAmountCollectedCents / 100).toFixed(2)}. ` +
             `Justification: ${justification}`,
+          action: 'override_approved',
           is_internal: true,
         },
       });
@@ -398,6 +399,8 @@ export class AdmissionsPaymentService {
           application_id: applicationId,
           author_user_id: context.actingUserId,
           note: context.noteBody,
+          // ADM-009: cash / bank shared payment flow; record the channel.
+          action: context.paymentSource === 'cash' ? 'cash_recorded' : 'bank_recorded',
           is_internal: true,
         },
       });

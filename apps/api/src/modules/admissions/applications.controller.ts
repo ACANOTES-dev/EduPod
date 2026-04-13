@@ -269,6 +269,7 @@ export class ApplicationsController {
       await this.applicationNotesService.create(tenant.tenant_id, id, user.sub, {
         note: `Regenerated payment link. New checkout session …${sessionSuffix}.`,
         is_internal: true,
+        action: 'payment_link_regenerated',
       });
     } catch (err) {
       // Audit-trail failure should not block the regenerate response — log

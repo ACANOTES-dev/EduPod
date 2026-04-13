@@ -364,6 +364,29 @@ enum AdmissionOverrideType {
   deferred_payment
 }
 
+// ADM-009: machine-parseable action enum on application_notes so the
+// Timeline tab can render distinct labels per event (instead of every
+// row reading "Admin note") AND so audit-by-action filtering and
+// structured exports become possible. Legacy notes (created before
+// the action column was added) carry NULL and the frontend falls
+// back to the inferred-from-status-transition label.
+enum AdmissionNoteAction {
+  submitted
+  auto_routed
+  moved_to_conditional_approval
+  cash_recorded
+  bank_recorded
+  stripe_completed
+  override_approved
+  rejected
+  withdrawn
+  auto_promoted
+  manually_promoted
+  reverted_by_expiry
+  payment_link_regenerated
+  admin_note
+}
+
 enum AdmissionsPaymentEventStatus {
   succeeded
   failed
@@ -2634,13 +2657,16 @@ model AdmissionsPaymentEvent {
 
 /// Append-only, no updated_at
 model ApplicationNote {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id      String   @db.Uuid
-  application_id String   @db.Uuid
-  author_user_id String   @db.Uuid
-  note           String   @db.Text
-  is_internal    Boolean  @default(true)
-  created_at     DateTime @default(now()) @db.Timestamptz()
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String               @db.Uuid
+  application_id String               @db.Uuid
+  author_user_id String               @db.Uuid
+  note           String               @db.Text
+  is_internal    Boolean              @default(true)
+  // ADM-009: nullable so legacy rows (predating the column) keep working.
+  // Every new state-machine transition writes a non-null action.
+  action         AdmissionNoteAction?
+  created_at     DateTime             @default(now()) @db.Timestamptz()
 
   // Relations
   tenant      Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)

@@ -350,6 +350,7 @@ describe('ApplicationsController', () => {
       expect(mockApplicationNotesService.create).toHaveBeenCalledWith(TENANT_ID, APP_ID, USER_ID, {
         note: expect.stringContaining('efgh5678'),
         is_internal: true,
+        action: 'payment_link_regenerated',
       });
     });
 

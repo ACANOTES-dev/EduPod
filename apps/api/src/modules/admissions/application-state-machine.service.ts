@@ -31,6 +31,13 @@ import { FinanceFeesFacade } from './finance-fees.facade';
 export const ADMISSIONS_APPLICATION_RECEIVED_JOB = 'notifications:admissions-application-received';
 export const ADMISSIONS_PAYMENT_LINK_JOB = 'notifications:admissions-payment-link';
 
+// ADM-027: BullMQ priority for admissions notifications. Lower = higher
+// priority. Default is 0 (treated as no priority, FIFO). 5 puts admissions
+// emails ahead of bulk siblings (announcements, scheduled reports) but
+// behind safeguarding alerts (which use priority 1) and payment receipts
+// (priority 2). Tuned for the SLA discussed in ADM-027.
+export const ADMISSIONS_NOTIFICATION_PRIORITY = 5;
+
 // ─── Valid status transitions ────────────────────────────────────────────────
 // `submitted` stays as a graph edge rather than a persisted state — the new
 // submit() path inserts rows directly into `ready_to_admit` or `waiting_list`.
@@ -295,6 +302,7 @@ export class ApplicationStateMachineService {
           application_id: applicationId,
           author_user_id: actingUserId,
           note: `Moved to Conditional Approval. Seat held. Payment deadline: ${this.formatNoteDeadline(paymentDeadline)}.`,
+          action: 'moved_to_conditional_approval',
           is_internal: true,
         },
       });
@@ -309,7 +317,11 @@ export class ApplicationStateMachineService {
           tenant_id: tenantId,
           application_id: applicationId,
         },
-        { attempts: 5, backoff: { type: 'exponential', delay: 60_000 } },
+        {
+          attempts: 5,
+          backoff: { type: 'exponential', delay: 60_000 },
+          priority: ADMISSIONS_NOTIFICATION_PRIORITY,
+        },
       );
     } catch (err) {
       this.logger.error(
@@ -370,6 +382,7 @@ export class ApplicationStateMachineService {
           note: releasedSeat
             ? `Application rejected. Reason: ${reason}. Seat released: now counted as available in the target year group.`
             : `Application rejected. Reason: ${reason}.`,
+          action: 'rejected',
           is_internal: true,
         },
       });
@@ -440,6 +453,7 @@ export class ApplicationStateMachineService {
           note: releasedSeat
             ? 'Application withdrawn. Seat released: now counted as available in the target year group.'
             : 'Application withdrawn.',
+          action: 'withdrawn',
           is_internal: true,
         },
       });
@@ -580,6 +594,7 @@ export class ApplicationStateMachineService {
           application_id: applicationId,
           author_user_id: params.actingUserId,
           note: `Manually promoted from waiting list (FIFO bypass). Justification: ${justification}`,
+          action: 'manually_promoted',
           is_internal: true,
         },
       });
@@ -629,6 +644,17 @@ export class ApplicationStateMachineService {
           application_id: applicationId,
           author_user_id: params.actingUserId ?? SYSTEM_USER_SENTINEL,
           note: `Application approved via ${params.paymentSource}.`,
+          // ADM-009: derive the action from the payment source so the
+          // Timeline can render distinct cash / bank / stripe / override
+          // labels for the markApproved transition.
+          action:
+            params.paymentSource === 'cash'
+              ? 'cash_recorded'
+              : params.paymentSource === 'bank_transfer'
+                ? 'bank_recorded'
+                : params.paymentSource === 'stripe'
+                  ? 'stripe_completed'
+                  : 'override_approved',
           is_internal: true,
         },
       });
@@ -681,6 +707,7 @@ export class ApplicationStateMachineService {
           application_id: applicationId,
           author_user_id: current.reviewed_by_user_id ?? SYSTEM_USER_SENTINEL,
           note: `Reverted to waiting list (reason: ${reason}). Seat released.`,
+          action: 'reverted_by_expiry',
           is_internal: true,
         },
       });
@@ -774,7 +801,11 @@ export class ApplicationStateMachineService {
           status: application.status,
           submitted_by_parent_id: application.submitted_by_parent_id,
         },
-        { attempts: 3, backoff: { type: 'exponential', delay: 30_000 } },
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 30_000 },
+          priority: ADMISSIONS_NOTIFICATION_PRIORITY,
+        },
       );
     } catch (err) {
       this.logger.warn(

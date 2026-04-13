@@ -43,6 +43,10 @@ export class ApplicationNotesService {
           author_user_id: userId,
           note: dto.note,
           is_internal: dto.is_internal,
+          // ADM-009: persist the structured action when the caller provides
+          // one (e.g. payment-link regenerate). Manual notes leave it null
+          // and the Timeline falls back to "Admin note".
+          ...(dto.action ? { action: dto.action } : {}),
         },
         include: {
           author: {

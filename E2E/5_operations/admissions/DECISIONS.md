@@ -47,3 +47,60 @@ entry includes the bug ID, date, decision, and one-line reason.
 - ADM-038 (2026-04-13): Dynamic-imported all 7 Recharts components on the analytics page via `next/dynamic({ ssr: false })`. — Claude Opus 4.6
 - ADM-039 (2026-04-13): Blocked — needs perf budget / latency target before instrumenting. — Claude Opus 4.6
 - ADM-042 (2026-04-13): Blocked — needs CI-job placement decision before adding the pg_indexes guard test. — Claude Opus 4.6
+
+ROUND 2 (user unblocked all):
+
+- ADM-021 (2026-04-13): Updated redesign spec + frontend rule to declare both sub-strip and dashboard-tile patterns first-class. Existing pages stay as-is. — Claude Opus 4.6
+- ADM-040 (2026-04-13): Documented per-tenant parent isolation policy in `docs/plans/context.md` §2.6. No code changes. — Claude Opus 4.6
+- ADM-026 (2026-04-13): Closed as stale — Zod literal enum already constrains the field to immutable system role keys. No code change. — Claude Opus 4.6
+- ADM-027 (2026-04-13): BullMQ priority: 5 on all four admissions enqueue sites. Constant exported for future re-use. — Claude Opus 4.6
+- ADM-032 (2026-04-13): 409 FORM_VERSION_DEPRECATED with parent-friendly refresh message; FORM_NOT_FOUND reserved for missing-id case. — Claude Opus 4.6
+- ADM-042 (2026-04-13): pg_indexes guard test under `apps/api/test/admissions-payment-events-index.spec.ts`, runs in existing integration job. — Claude Opus 4.6
+- ADM-009 (2026-04-13): Bundled with comms `add_notifications_chain_id` migration; both applied to prod via `prisma migrate deploy`. Backend writes structured action on every state-machine transition; frontend Timeline renders per-action label. Legacy notes fall back to kind-derived label. — Claude Opus 4.6
+
+---
+
+## RESUME-AFTER-REBOOT — 2026-04-13
+
+The local workstation hit a memory-pressure cliff (swap at 91%, 5+ orphan
+eslint processes in macOS UE / uninterruptible-exit state from earlier
+killed pre-commit hooks, ~22GB+ swap usage). New `git commit` calls
+queued behind the orphans and timed out before completing. User
+explicitly approved a one-time `--no-verify` bypass to land the
+remaining ADM-009 + ADM-026/027/032/042 work, then a reboot to clear
+the UE zombies before continuing.
+
+### What was deployed but not yet committed locally
+
+All of the following are LIVE on prod (api + worker + web rebuilt and
+restarted on 46.62.244.139, both Prisma migrations applied):
+
+- `20260413100000_add_notifications_chain_id` migration (comms team's
+  pending local commit, bundled per user request)
+- `20260413140000_add_application_note_action` migration + new enum
+- ADM-009 backend (action written on 10 state-machine transition
+  sites + worker payment-expiry processor)
+- ADM-009 frontend (Timeline tab renders per-action label/chip with
+  fallback for legacy NULL-action notes)
+- ADM-026/027/032/042 (API: priority flag, FORM_VERSION_DEPRECATED 409,
+  pg_indexes guard test, etc.)
+
+### Bugs still OPEN after this resume
+
+ADM-020 (queue grouping by year), ADM-023 (column-level encryption —
+biggest), ADM-028 (sibling email per-student template), ADM-033
+(override list filters), ADM-034 (i18n for invoice line descriptions
+via tenant primary locale), ADM-039 (perf instrumentation — budget
+≤10 queries / p95 <300ms), ADM-041 (withdraw confirmation email
+template).
+
+### First thing to do in the next session
+
+1. Verify the UE zombies are gone: `pgrep -fl "eslint.*--fix"` should
+   return empty.
+2. Apply the lint-staged + husky preventive changes discussed with
+   user (NODE_OPTIONS memory cap, `concurrent: false`, 90s `timeout`
+   wrapper around `pnpm lint-staged`, `killnodes` shell function).
+3. Confirm no further --no-verify usage is needed.
+4. Resume the bug-log execution in plan order: ADM-020, ADM-033,
+   ADM-039, ADM-028, ADM-041, ADM-034, then ADM-023.

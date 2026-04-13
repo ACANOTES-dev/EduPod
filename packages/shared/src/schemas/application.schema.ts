@@ -102,6 +102,27 @@ export const listApplicationsSchema = paginationQuerySchema.extend({
 export const createApplicationNoteSchema = z.object({
   note: z.string().min(1).max(5000),
   is_internal: z.boolean().default(true),
+  // ADM-009: optional structured action label so the Timeline can render
+  // distinct icons / labels per event. Manually-composed admin notes
+  // omit it (frontend will show "Admin note").
+  action: z
+    .enum([
+      'submitted',
+      'auto_routed',
+      'moved_to_conditional_approval',
+      'cash_recorded',
+      'bank_recorded',
+      'stripe_completed',
+      'override_approved',
+      'rejected',
+      'withdrawn',
+      'auto_promoted',
+      'manually_promoted',
+      'reverted_by_expiry',
+      'payment_link_regenerated',
+      'admin_note',
+    ])
+    .optional(),
 });
 
 // Admissions analytics query

@@ -188,6 +188,7 @@ export class AdmissionsAutoPromotionService {
           application_id: application.id,
           author_user_id: SYSTEM_USER_SENTINEL,
           note: `Auto-promoted from waiting list: a seat opened in the target year group.`,
+          action: 'auto_promoted',
           is_internal: true,
         },
       });
@@ -220,7 +221,12 @@ export class AdmissionsAutoPromotionService {
             application_number: application.application_number,
             submitted_by_parent_id: application.submitted_by_parent_id,
           },
-          { attempts: 5, backoff: { type: 'exponential', delay: 60_000 } },
+          {
+            attempts: 5,
+            backoff: { type: 'exponential', delay: 60_000 },
+            // ADM-027: admissions notifications jump bulk siblings
+            priority: 5,
+          },
         );
       } catch (err) {
         this.logger.error(

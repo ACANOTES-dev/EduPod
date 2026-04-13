@@ -1,6 +1,12 @@
 import { randomUUID } from 'crypto';
 
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { ApplicationStatus } from '@prisma/client';
 
@@ -143,9 +149,30 @@ export type ApplicationTimelineEventKind =
   | 'payment_event'
   | 'override_granted';
 
+// ADM-009: structured action label written by the state machine on every
+// transition. Frontend uses this to render distinct event labels in the
+// Timeline tab. Legacy notes (predating the column) carry null and the
+// frontend falls back to the kind-derived label.
+export type ApplicationTimelineEventAction =
+  | 'submitted'
+  | 'auto_routed'
+  | 'moved_to_conditional_approval'
+  | 'cash_recorded'
+  | 'bank_recorded'
+  | 'stripe_completed'
+  | 'override_approved'
+  | 'rejected'
+  | 'withdrawn'
+  | 'auto_promoted'
+  | 'manually_promoted'
+  | 'reverted_by_expiry'
+  | 'payment_link_regenerated'
+  | 'admin_note';
+
 export interface ApplicationTimelineEvent {
   id: string;
   kind: ApplicationTimelineEventKind;
+  action: ApplicationTimelineEventAction | null;
   at: Date;
   message: string;
   actor: { id: string; first_name: string; last_name: string } | null;
@@ -299,16 +326,20 @@ export class ApplicationsService {
     const result = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      // Validate form is published
-      const form = await db.admissionFormDefinition.findFirst({
+      // ADM-032: distinguish "form never existed" from "form has been
+      // superseded by a new version". A submission against a deprecated
+      // form_definition_id reaches a 409 with a helpful refresh message,
+      // not a generic 404. The school sets the form up early and rarely
+      // changes it, but when they do (e.g. add/remove fields) we want
+      // any in-flight tab to refresh and re-fill the new form rather than
+      // ship through the old field set.
+      const formAnyStatus = await db.admissionFormDefinition.findFirst({
         where: {
           id: dto.form_definition_id,
           tenant_id: tenantId,
-          status: 'published',
         },
       });
-
-      if (!form) {
+      if (!formAnyStatus) {
         throw new NotFoundException({
           error: {
             code: 'FORM_NOT_FOUND',
@@ -316,6 +347,16 @@ export class ApplicationsService {
           },
         });
       }
+      if (formAnyStatus.status !== 'published') {
+        throw new ConflictException({
+          error: {
+            code: 'FORM_VERSION_DEPRECATED',
+            message:
+              'This admission form is no longer accepting submissions — it has been replaced by a newer version. Please refresh the page and complete the updated form. Your school has changed the questions; sending the old answers would skip whatever was added or modified.',
+          },
+        });
+      }
+      const form = formAnyStatus;
 
       // Resolve household context
       let householdIdForApps: string | null = null;
@@ -1491,6 +1532,7 @@ interface TimelineInputs {
   notes: Array<{
     id: string;
     note: string;
+    action: ApplicationTimelineEventAction | null;
     created_at: Date;
     author_user_id: string;
     author: { id: string; first_name: string; last_name: string };
@@ -1520,6 +1562,7 @@ function buildApplicationTimeline(inputs: TimelineInputs): ApplicationTimelineEv
     events.push({
       id: `submitted:${inputs.submittedAt.toISOString()}`,
       kind: 'submitted',
+      action: 'submitted',
       at: inputs.submittedAt,
       message: 'Application submitted.',
       actor: null,
@@ -1528,6 +1571,7 @@ function buildApplicationTimeline(inputs: TimelineInputs): ApplicationTimelineEv
     events.push({
       id: `submitted:${inputs.applyDate.toISOString()}`,
       kind: 'submitted',
+      action: 'submitted',
       at: inputs.applyDate,
       message: 'Application received.',
       actor: null,
@@ -1539,6 +1583,7 @@ function buildApplicationTimeline(inputs: TimelineInputs): ApplicationTimelineEv
     events.push({
       id: `note:${note.id}`,
       kind: isSystem ? 'system_event' : 'admin_note',
+      action: note.action,
       at: note.created_at,
       message: note.note,
       actor: isSystem ? null : note.author,
@@ -1549,6 +1594,7 @@ function buildApplicationTimeline(inputs: TimelineInputs): ApplicationTimelineEv
     events.push({
       id: `payment:${event.id}`,
       kind: 'payment_event',
+      action: 'stripe_completed',
       at: event.created_at,
       message: `Payment event (${event.status}): ${formatCents(event.amount_cents)}.`,
       actor: null,
@@ -1560,6 +1606,7 @@ function buildApplicationTimeline(inputs: TimelineInputs): ApplicationTimelineEv
     events.push({
       id: `override:${inputs.overrideRecord.id}`,
       kind: 'override_granted',
+      action: 'override_approved',
       at: inputs.overrideRecord.created_at,
       message: `Admin override (${inputs.overrideRecord.override_type}). Expected ${formatCents(
         inputs.overrideRecord.expected_amount_cents,
