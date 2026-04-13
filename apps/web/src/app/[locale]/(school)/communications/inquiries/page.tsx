@@ -1,8 +1,8 @@
 'use client';
 
 import { MessageCircle } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { EmptyState, StatusBadge } from '@school/ui';
@@ -47,13 +47,31 @@ const STATUS_VARIANT: Record<InquiryStatus, 'success' | 'warning' | 'neutral'> =
 export default function CommunicationsInquiriesPage() {
   const t = useTranslations('communications');
   const router = useRouter();
+  const locale = useLocale();
+  const searchParams = useSearchParams();
+
+  const statusParam = searchParams?.get('status') ?? 'all';
+  const activeTab = STATUS_TABS.some((tab) => tab.key === statusParam) ? statusParam : 'all';
 
   const [inquiries, setInquiries] = React.useState<Inquiry[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [page, setPage] = React.useState(1);
   const [total, setTotal] = React.useState(0);
-  const [activeTab, setActiveTab] = React.useState('all');
   const pageSize = 20;
+
+  const setActiveTab = React.useCallback(
+    (tabKey: string) => {
+      const qp = new URLSearchParams(searchParams?.toString() ?? '');
+      if (tabKey === 'all') {
+        qp.delete('status');
+      } else {
+        qp.set('status', tabKey);
+      }
+      const next = qp.toString();
+      router.replace(`/${locale}/communications/inquiries${next ? `?${next}` : ''}`);
+    },
+    [locale, router, searchParams],
+  );
 
   const fetchInquiries = React.useCallback(async () => {
     setIsLoading(true);
@@ -163,6 +181,8 @@ export default function CommunicationsInquiriesPage() {
     <div className="space-y-6">
       <PageHeader title={t('inquiry.title')} description="Parent inquiries and support requests" />
 
+      {toolbar}
+
       {!isLoading && inquiries.length === 0 && activeTab === 'all' ? (
         <EmptyState
           icon={MessageCircle}
@@ -173,7 +193,6 @@ export default function CommunicationsInquiriesPage() {
         <DataTable
           columns={columns}
           data={inquiries}
-          toolbar={toolbar}
           page={page}
           pageSize={pageSize}
           total={total}
