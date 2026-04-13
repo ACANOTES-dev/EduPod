@@ -223,6 +223,13 @@ export class AssessmentCategoriesService {
       });
     }
 
+    if (category.created_by_user_id && category.created_by_user_id === reviewerUserId) {
+      throw new ForbiddenException({
+        code: 'SELF_APPROVAL_NOT_ALLOWED',
+        message: 'You cannot review a config item you submitted',
+      });
+    }
+
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const result = await prismaWithRls.$transaction(async (tx) => {

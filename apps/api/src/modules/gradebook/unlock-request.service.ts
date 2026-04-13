@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -156,7 +161,7 @@ export class UnlockRequestService {
     // 1. Find the unlock request
     const unlockRequest = await this.prisma.assessmentUnlockRequest.findFirst({
       where: { id: requestId, tenant_id: tenantId },
-      select: { id: true, status: true, assessment_id: true },
+      select: { id: true, status: true, assessment_id: true, requested_by_user_id: true },
     });
 
     if (!unlockRequest) {
@@ -171,6 +176,14 @@ export class UnlockRequestService {
       throw new BadRequestException({
         code: 'REQUEST_NOT_PENDING',
         message: 'Only pending unlock requests can be reviewed',
+      });
+    }
+
+    // 2b. Self-approval guard
+    if (unlockRequest.requested_by_user_id === reviewerUserId) {
+      throw new ForbiddenException({
+        code: 'SELF_APPROVAL_NOT_ALLOWED',
+        message: 'You cannot review an unlock request you submitted',
       });
     }
 

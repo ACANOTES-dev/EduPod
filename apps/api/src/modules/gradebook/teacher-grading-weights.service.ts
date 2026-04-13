@@ -323,6 +323,13 @@ export class TeacherGradingWeightsService {
       });
     }
 
+    if (existing.created_by_user_id && existing.created_by_user_id === reviewerUserId) {
+      throw new ForbiddenException({
+        code: 'SELF_APPROVAL_NOT_ALLOWED',
+        message: 'You cannot review a config item you submitted',
+      });
+    }
+
     const targetStatus = dto.status;
     const allowedTransitions = VALID_TRANSITIONS[existing.status];
     if (!allowedTransitions?.includes(targetStatus)) {
