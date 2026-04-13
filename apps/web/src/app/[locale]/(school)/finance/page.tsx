@@ -48,6 +48,7 @@ function KpiCard({
   href,
   accent,
   gradient,
+  glow,
   subtitle,
 }: {
   label: string;
@@ -56,6 +57,7 @@ function KpiCard({
   href: string;
   accent: string;
   gradient: string;
+  glow: string;
   subtitle?: string;
 }) {
   const locale = useLocale();
@@ -66,9 +68,13 @@ function KpiCard({
     >
       {/* Top accent bar */}
       <div
-        className={`pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${gradient}`}
+        className={`pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${gradient}`}
       />
-      <div className="flex items-start justify-between">
+      {/* Hover glow */}
+      <div
+        className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${glow} to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100`}
+      />
+      <div className="relative flex items-start justify-between">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
             {label}
@@ -182,8 +188,8 @@ function HouseholdDebtBreakdown({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-danger-400 via-danger-500 to-danger-600" />
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5 ring-1 ring-inset ring-danger-200/50">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-danger-400 via-danger-500 to-danger-600" />
       {/* Header */}
       <div className="mb-5 flex items-center justify-between">
         <div>
@@ -313,8 +319,8 @@ function RecentPayments({ payments }: { payments: FinanceDashboardData['recent_p
 
   return (
     <>
-      <div className="relative rounded-2xl border border-border bg-surface overflow-hidden">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-600" />
+      <div className="relative rounded-2xl border border-border bg-surface overflow-hidden ring-1 ring-inset ring-emerald-200/50">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-600" />
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <div className="flex items-center gap-2.5">
             <div className="rounded-lg bg-emerald-100 p-1.5">
@@ -519,6 +525,7 @@ export default function FinanceDashboardPage() {
           href="/finance/overview"
           accent="bg-primary/10 text-primary"
           gradient="from-primary/60 to-primary"
+          glow="from-primary/5"
           subtitle={`${(data.invoice_status_counts.issued ?? 0) + (data.invoice_status_counts.partially_paid ?? 0)} ${t('activeInvoices')}`}
         />
         <KpiCard
@@ -534,6 +541,7 @@ export default function FinanceDashboardPage() {
           href="/finance/overview"
           accent="bg-success-100 text-success-700"
           gradient="from-emerald-400 to-emerald-600"
+          glow="from-emerald-50/80"
         />
         <KpiCard
           label={t('outstandingAmount')}
@@ -550,6 +558,7 @@ export default function FinanceDashboardPage() {
           }
           accent="bg-danger-100 text-danger-700"
           gradient="from-danger-400 to-danger-600"
+          glow="from-danger-50/80"
           subtitle={
             data.overdue_invoices.length > 0
               ? `${data.overdue_invoices.length} ${t('overdueInvoicesCount')}`
@@ -559,7 +568,7 @@ export default function FinanceDashboardPage() {
         {/* Split card: Outstanding % + Financial Reports */}
         <div className="flex flex-col gap-2">
           <div className="relative flex-1 overflow-hidden rounded-2xl border border-border bg-surface p-4">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-slate-400 to-slate-600" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-slate-400 to-slate-600" />
             <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
               {t('outstandingPct')}
             </p>

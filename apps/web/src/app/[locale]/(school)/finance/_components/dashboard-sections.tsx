@@ -90,8 +90,8 @@ export function InvoicePipeline({ counts }: { counts: Record<string, number> }) 
   const totalActive = PIPELINE_STAGES.reduce((s, stage) => s + (counts[stage.status] ?? 0), 0);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-info-400 via-info-500 to-info-600" />
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5 ring-1 ring-inset ring-info-200/50">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-info-400 via-info-500 to-info-600" />
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="rounded-lg bg-info-100 p-1.5">
@@ -166,8 +166,8 @@ export function AgingOverview({ aging }: { aging: FinanceDashboardData['aging_su
   const totalAmount = aging.reduce((s, b) => s + b.total, 0);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-warning-400 via-warning-500 to-warning-600" />
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5 ring-1 ring-inset ring-warning-200/50">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-warning-400 via-warning-500 to-warning-600" />
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="rounded-lg bg-warning-100 p-1.5">
@@ -523,7 +523,7 @@ function FinanceNavigateSectionCard({ section }: { section: NavSection }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5">
       <div
-        className={`pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${section.accent}`}
+        className={`pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${section.accent}`}
       />
       <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">
         {t(section.titleKey)}
