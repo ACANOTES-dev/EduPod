@@ -305,7 +305,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
   - Perform each transition on staging. Timeline shows distinct labels.
   - Migration does not break existing note reads (NULL action legacy).
 - **Release-gate:** Should ship before launch (parent-visible notes appear on their portal too).
-- **Status:** Open.
+- **Status:** Blocked — need input.
+
+### Decisions
+
+- 2026-04-13: Block pending explicit user approval. The fix requires a Prisma migration on prod that (1) creates a new `admission_note_action` enum and (2) adds a nullable `action` column to `application_notes`. The change is non-destructive (NULL default + nullable), but per workflow ("Migrations → do NOT run migrations without explicit approval in the bug entry") prod migrations need a specific go-ahead. Once approved, the deliverable is: enum + nullable column + Prisma migration + backend `action: '...'` on every `applicationNote.create` site + frontend `timeline-tab.tsx` mapping enum → translated label (with "Admin note" fallback for NULL legacy rows). Estimated work: ~3 hours.
 
 ### ADM-010 [C] — Public submit response echoes full payload (info disclosure risk)
 
@@ -324,7 +328,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
   - Submit a public application in staging → response body excludes household_payload, consents, students[].date_of_birth, etc.
   - Confirmation page still renders student names (server would fetch them from the id if needed).
 - **Release-gate:** Should ship before launch.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Trimmed per-application shape to `{id, application_number, status}` (matching bug "Expected"). Kept `submission_batch_id` and `household_number` at the top level since the parent confirmation flow needs them. Did NOT remove the wrapper itself — that would break sibling-batch confirmations.
+
+### Verification notes
+
+- 2026-04-13: 180/181 admissions service tests pass (1 skipped pre-existing). API rebuilt and restarted on prod (pm2 status online). The response no longer echoes `student_first_name`, `student_last_name`, or `target_year_group_id` per application.
 
 ### ADM-011 [C] — `regenerate payment link` has no audit event
 

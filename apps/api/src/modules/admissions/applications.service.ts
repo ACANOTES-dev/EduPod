@@ -155,6 +155,12 @@ export interface ApplicationTimelineEvent {
 
 // ─── Multi-student response shape ────────────────────────────────────────────
 
+/**
+ * Public submit response shape — minimal by design (ADM-010): only the
+ * fields the confirmation page strictly needs are returned, so the public
+ * endpoint cannot be used to fingerprint server-side transforms or
+ * enumerate validation behaviour by inspecting the echoed payload.
+ */
 export interface CreatePublicResult {
   mode: 'new_household' | 'existing_household';
   submission_batch_id: string;
@@ -163,9 +169,6 @@ export interface CreatePublicResult {
     id: string;
     application_number: string;
     status: ApplicationStatus;
-    student_first_name: string;
-    student_last_name: string;
-    target_year_group_id: string;
   }>;
 }
 
@@ -338,14 +341,12 @@ export class ApplicationsService {
       }
       // For new_household: householdIdForApps stays null, isSibling stays false
 
-      // Create one Application per student, gate each independently
+      // Create one Application per student, gate each independently.
+      // Trimmed shape — see CreatePublicResult (ADM-010 info-disclosure fix).
       const applications: Array<{
         id: string;
         application_number: string;
         status: ApplicationStatus;
-        student_first_name: string;
-        student_last_name: string;
-        target_year_group_id: string;
       }> = [];
 
       for (const student of dto.students) {
@@ -401,9 +402,6 @@ export class ApplicationsService {
           id: routed.id,
           application_number: routed.application_number,
           status: routed.status as ApplicationStatus,
-          student_first_name: routed.student_first_name,
-          student_last_name: routed.student_last_name,
-          target_year_group_id: student.target_year_group_id,
         });
       }
 
