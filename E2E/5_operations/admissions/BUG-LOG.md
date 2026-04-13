@@ -214,7 +214,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
   - Integration test §8.2 (5 concurrent approvals on year_group with capacity=1) → exactly one succeeds.
   - Existing admin spec §18.3 and §30.12 data-invariant queries must still pass.
 - **Release-gate:** Must ship before onboarding a tenant with large cohorts (the NHQS test tenant is small enough to survive in practice, but compliance/trust argument warrants the fix).
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Chose Option A (`pg_advisory_xact_lock` keyed on `'admissions_capacity:' + tenant_id + ':' + year_group_id`). Reasons: idiomatic Postgres, automatic release on commit/rollback, no schema migration, no isolation-level changes, no controller-layer retry logic. Lock is acquired AFTER the row lock so we have the year_group_id without a separate query.
+
+### Verification notes
+
+- 2026-04-13: 31/31 unit tests still pass for `application-state-machine.service.spec.ts`. Live concurrency repro deferred (NHQS tenant has only one approved application; the lock is provably correct from the SQL but a 5-way race needs a seeded staging tenant). API rebuilt and restarted on prod (pm2 status online).
 
 ### ADM-007 [C] — `payment-expiry` cron lockDuration insufficient at scale
 

@@ -214,6 +214,7 @@ export class ApplicationStateMachineService {
 
       const rawTx = tx as unknown as {
         $queryRaw: (sql: Prisma.Sql) => Promise<RowLockResult[]>;
+        $queryRawUnsafe: (query: string, ...values: unknown[]) => Promise<unknown>;
       };
       // eslint-disable-next-line school/no-raw-sql-outside-rls -- row-level lock for state-machine concurrency guard, inside RLS transaction
       const locked = await rawTx.$queryRaw(Prisma.sql`
@@ -240,6 +241,17 @@ export class ApplicationStateMachineService {
           message: 'Application is missing target academic year or target year group',
         });
       }
+
+      // ─── Year-group capacity advisory lock ──────────────────────────────
+      // Serialise all conditional-approval transitions in the same
+      // (tenant, year_group) so two concurrent approvals cannot both pass
+      // a capacity check for the last seat. Released automatically on
+      // transaction commit or rollback.
+      const lockKey = `admissions_capacity:${tenantId}:${current.target_year_group_id}`;
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- advisory lock for capacity concurrency guard, inside RLS transaction
+      await rawTx.$queryRaw(Prisma.sql`
+        SELECT pg_advisory_xact_lock(hashtext(${lockKey}))
+      `);
 
       const capacity = await this.capacityService.getAvailableSeats(db, {
         tenantId,
