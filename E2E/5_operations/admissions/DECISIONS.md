@@ -21,3 +21,6 @@ entry includes the bug ID, date, decision, and one-line reason.
 - ADM-014 (2026-04-13): Used existing `formatDate()` (`DD-MM-YYYY`) helper for the detail page rather than switching every callsite to `11 Apr 2026`. Detail and queue pages now render the same format. — Claude Opus 4.6
 - ADM-016 + ADM-043 (2026-04-13): Fixed at both layers — frontend defensive read (`?.meta?.total ?? 0`) + backend controller-level `{ data, meta }` wrapper. Did not touch the underlying `findByParent` service method, which is also used by an ownership check that expects a flat array. — Claude Opus 4.6
 - ADM-015 (2026-04-13): ICU plural in `messages/{en,ar}.json` for all six hub card descriptions. Arabic uses the full CLDR plural rule set. — Claude Opus 4.6
+- ADM-017 (2026-04-13): Code already correct (translated label "Conditional Approval" with space). Verified live after analytics rebuild. — Claude Opus 4.6
+- ADM-018 (2026-04-13): Added the 4th KPI per spec recommendation. Fetches `meta.total` from the waiting-list queue endpoint. — Claude Opus 4.6
+- ADM-019 (2026-04-13): Set `minHeight={300}` on Recharts ResponsiveContainer + parent `min-h-[300px]`. Belt-and-braces. — Claude Opus 4.6

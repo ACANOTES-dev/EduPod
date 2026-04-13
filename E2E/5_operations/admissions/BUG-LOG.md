@@ -473,7 +473,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Reproduction:** `/en/admissions/analytics` → funnel chart x-axis labels: "Submitted, Ready to Admit, ConditionalApproval, Approved".
 - **Fix direction:** in the analytics page, map status enums to display strings using a translation key (`admissions.status.conditional_approval`).
 - **Affected files:** `apps/web/src/app/[locale]/(school)/admissions/analytics/page.tsx`.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: The page already maps each stage to `t('conditionalApproval')` etc., and the EN translation is "Conditional Approval" (with space). The bug screenshot must have been captured before the translation key was added, OR the chart's tick formatter stripped spaces. After the analytics rebuild for ADM-018/ADM-019, verified the rendered label reads "Conditional Approval" with the space.
+
+### Verification notes
+
+- 2026-04-13: Visited `/en/admissions/analytics` post-deploy. Funnel x-axis labels render as "Submitted", "Ready to Admit", "Conditional Approval", "Approved".
 
 ### ADM-018 [L] — Analytics missing "Currently in waiting list" KPI
 
@@ -482,7 +490,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Reproduction:** `/en/admissions/analytics` → only 3 KPI cards render.
 - **Fix direction:** either add the KPI (counter from `GET /v1/applications?status=waiting_list&page=1&pageSize=1` → meta.total), or remove it from the spec. Recommend adding it.
 - **Affected files:** `apps/web/src/app/[locale]/(school)/admissions/analytics/page.tsx`.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Added the KPI per spec recommendation. Fetches `meta.total` from the waiting-list queue endpoint in parallel with the analytics request. Layout shifted from `sm:grid-cols-3` to `sm:grid-cols-2 lg:grid-cols-4` so the four cards stack 2-2 on tablets and 4-wide on desktop.
+
+### Verification notes
+
+- 2026-04-13: Visited `/en/admissions/analytics`. Four KPI cards render: Total Applications, Conversion Rate, Avg Days to Decision, Waiting List.
 
 ### ADM-019 [L] — Recharts `width(-1) height(-1)` warning on analytics
 
@@ -491,7 +507,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Reproduction:** analytics page on first paint shows a console warning from Recharts about the container's initial dimensions.
 - **Fix direction:** wrap the chart in a `ResponsiveContainer` that has an explicit `min-height` (e.g. `200px`) on the parent so the initial measurement isn't -1.
 - **Affected files:** `apps/web/src/app/[locale]/(school)/admissions/analytics/page.tsx`.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Set `minHeight={300}` on `ResponsiveContainer` and added `min-h-[300px]` + `w-full` to the wrapping div. Both belt-and-braces — the parent now has a definite size before measurement, so Recharts no longer logs the -1 dimensions warning.
+
+### Verification notes
+
+- 2026-04-13: Console clean on first paint of `/en/admissions/analytics`.
 
 ### ADM-020 [L] — Queue header lacks per-year-group grouping
 

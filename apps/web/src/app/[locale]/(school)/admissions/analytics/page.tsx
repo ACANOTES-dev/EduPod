@@ -20,6 +20,10 @@ interface AnalyticsResponse {
   avg_days_to_decision: number | null;
 }
 
+interface WaitingListMeta {
+  meta: { total: number };
+}
+
 // ─── Funnel Chart ─────────────────────────────────────────────────────────────
 
 function FunnelChart({
@@ -32,8 +36,8 @@ function FunnelChart({
   return (
     <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
       <h3 className="mb-4 text-base font-semibold text-text-primary">{title}</h3>
-      <div className="h-[300px]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="h-[300px] min-h-[300px] w-full">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
           <BarChart
             data={data}
             layout="vertical"
@@ -62,14 +66,25 @@ export default function AdmissionsAnalyticsPage() {
   const router = useRouter();
 
   const [analytics, setAnalytics] = React.useState<AnalyticsResponse | null>(null);
+  const [waitingListCount, setWaitingListCount] = React.useState<number | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    apiClient<{ data: AnalyticsResponse }>('/api/v1/applications/analytics')
-      .then((res) => setAnalytics(res.data))
+    Promise.all([
+      apiClient<{ data: AnalyticsResponse }>('/api/v1/applications/analytics'),
+      apiClient<WaitingListMeta>(
+        '/api/v1/applications?status=waiting_list&page=1&pageSize=1',
+      ).catch((err) => {
+        console.error('[AdmissionsAnalyticsPage.waitingList]', err);
+        return null;
+      }),
+    ])
+      .then(([analyticsRes, waitingRes]) => {
+        setAnalytics(analyticsRes.data);
+        setWaitingListCount(waitingRes?.meta?.total ?? 0);
+      })
       .catch((err) => {
         console.error('[AdmissionsAnalyticsPage]', err);
-        // ignore
       })
       .finally(() => setLoading(false));
   }, []);
@@ -78,7 +93,8 @@ export default function AdmissionsAnalyticsPage() {
     return (
       <div className="space-y-4">
         <div className="h-8 w-48 animate-pulse rounded-lg bg-surface-secondary" />
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="h-24 animate-pulse rounded-xl bg-surface-secondary" />
           <div className="h-24 animate-pulse rounded-xl bg-surface-secondary" />
           <div className="h-24 animate-pulse rounded-xl bg-surface-secondary" />
           <div className="h-24 animate-pulse rounded-xl bg-surface-secondary" />
@@ -102,7 +118,7 @@ export default function AdmissionsAnalyticsPage() {
 
       {/* Summary cards */}
       {analytics && (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label={t('totalApplications')} value={analytics.total} />
           <StatCard
             label={t('conversionRate')}
@@ -116,6 +132,7 @@ export default function AdmissionsAnalyticsPage() {
                 : '—'
             }
           />
+          <StatCard label={t('waitingList')} value={waitingListCount ?? '—'} />
         </div>
       )}
 
