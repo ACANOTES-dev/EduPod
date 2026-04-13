@@ -271,7 +271,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
   - If Option A chosen: integration test reproducing the race fails before, passes after.
   - If Option B chosen: spec update + UI tooltip on the manual-promote dialog explaining the behaviour.
 - **Release-gate:** Decide before launch; either fix or document.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Chose Option A (capacity check). Two changes to `manuallyPromoteToReadyToAdmit`: (1) acquire the same `pg_advisory_xact_lock` keyed on `(tenant, year_group)` as ADM-006 to serialise concurrent promotes; (2) extend the capacity formula to `available_seats - ready_to_admit_count > 0`, so the queue can never grow beyond capacity. Did not pursue Option B (document-only) — the seat-line discipline is more legible than a tooltip explaining why ready_to_admit can exceed capacity.
+
+### Verification notes
+
+- 2026-04-13: 31/31 unit tests pass for `application-state-machine.service.spec.ts` after extending the prisma mock to include `application.count`. API rebuilt and restarted on prod (pm2 status online).
 
 ### ADM-009 [C] — Timeline events all labelled "Admin note"; no machine-parseable event type
 

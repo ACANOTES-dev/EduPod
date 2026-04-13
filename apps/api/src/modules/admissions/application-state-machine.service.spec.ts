@@ -56,6 +56,7 @@ interface MockTx {
     findFirst: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    count: jest.Mock;
   };
   applicationNote: { create: jest.Mock };
   parent: { findFirst: jest.Mock };
@@ -68,6 +69,7 @@ function buildMockTx(): MockTx {
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
     },
     applicationNote: { create: jest.fn() },
     parent: { findFirst: jest.fn() },

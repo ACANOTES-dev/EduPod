@@ -531,13 +531,37 @@ export class ApplicationStateMachineService {
         });
       }
 
+      // ─── Year-group capacity advisory lock ──────────────────────────────
+      // Serialise concurrent manual promotes in the same (tenant, year_group)
+      // so two parallel callers cannot both pass the capacity check and
+      // over-queue ready_to_admit rows beyond capacity. Mirrors ADM-006.
+      const lockKey = `admissions_capacity:${tenantId}:${current.target_year_group_id}`;
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- advisory lock for capacity concurrency guard, inside RLS transaction
+      await rawTx.$queryRaw(Prisma.sql`
+        SELECT pg_advisory_xact_lock(hashtext(${lockKey}))
+      `);
+
       const capacity = await this.capacityService.getAvailableSeats(db, {
         tenantId,
         academicYearId: current.target_academic_year_id,
         yearGroupId: current.target_year_group_id,
       });
 
-      if (capacity.available_seats === 0) {
+      // `getAvailableSeats` only subtracts enrolled + conditional. For manual
+      // promotion we additionally cap the size of the ready_to_admit queue at
+      // `available_seats`, otherwise the queue can grow beyond capacity and
+      // future approvals will block one-by-one as space frees up. Counts the
+      // existing ready_to_admit rows for the same (academic_year, year_group).
+      const readyToAdmitCount = await db.application.count({
+        where: {
+          tenant_id: tenantId,
+          target_academic_year_id: current.target_academic_year_id,
+          target_year_group_id: current.target_year_group_id,
+          status: 'ready_to_admit',
+        },
+      });
+
+      if (capacity.available_seats - readyToAdmitCount <= 0) {
         throw new ConflictException({
           code: 'CAPACITY_EXHAUSTED',
           message:
