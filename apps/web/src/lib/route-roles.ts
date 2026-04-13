@@ -102,6 +102,14 @@ export const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
   { prefix: '/curriculum-matrix', roles: ADMIN_ROLES },
   { prefix: '/promotion', roles: ADMIN_ROLES },
   {
+    prefix: '/assessments',
+    roles: [...ADMIN_ROLES, 'teacher'],
+  },
+  {
+    prefix: '/analytics',
+    roles: [...ADMIN_ROLES, 'teacher'],
+  },
+  {
     prefix: '/attendance',
     roles: [...ADMIN_ROLES, 'teacher'],
   },
