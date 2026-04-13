@@ -1,10 +1,13 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import type { Queue } from 'bullmq';
 
 import type {
   AddAdjustmentDto,
@@ -28,11 +31,14 @@ interface PaginationParams {
 
 @Injectable()
 export class SchedulingRunsService {
+  private readonly logger = new Logger(SchedulingRunsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly prerequisites: SchedulingPrerequisitesService,
     private readonly academicReadFacade: AcademicReadFacade,
     private readonly schedulesReadFacade: SchedulesReadFacade,
+    @InjectQueue('scheduling') private readonly schedulingQueue: Queue,
   ) {}
 
   // ─── Create a new scheduling run ──────────────────────────────────────────
@@ -69,7 +75,10 @@ export class SchedulingRunsService {
     }
 
     // Auto-detect mode: if there are any pinned entries, it's hybrid
-    const pinnedCount = await this.schedulesReadFacade.countPinnedEntries(tenantId, dto.academic_year_id);
+    const pinnedCount = await this.schedulesReadFacade.countPinnedEntries(
+      tenantId,
+      dto.academic_year_id,
+    );
     const mode: 'auto' | 'hybrid' = pinnedCount > 0 ? 'hybrid' : 'auto';
 
     // Build config snapshot
@@ -102,9 +111,28 @@ export class SchedulingRunsService {
       });
     });
 
-    // Solver dispatch from the API remains tracked in
-    // Manuals/PRE-LAUNCH-CHECKLIST.md (Part 5, item 6). Until that item lands,
-    // the worker polls queued runs directly.
+    try {
+      await this.schedulingQueue.add(
+        'scheduling:solve-v2',
+        { tenant_id: tenantId, run_id: run.id },
+        { removeOnComplete: 100, removeOnFail: 200 },
+      );
+    } catch (err) {
+      this.logger.error(
+        `[SchedulingRunsService.create] failed to enqueue solve-v2 for run ${run.id}`,
+        err,
+      );
+      // Mark the run as failed so the UI doesn't show a ghost "queued" run
+      const rollbackClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+      await rollbackClient.$transaction(async (tx) => {
+        const db = tx as unknown as PrismaService;
+        await db.schedulingRun.update({
+          where: { id: run.id },
+          data: { status: 'failed', failure_reason: 'Failed to enqueue solver job' },
+        });
+      });
+      throw err;
+    }
 
     return this.formatRun(run as unknown as Record<string, unknown>);
   }

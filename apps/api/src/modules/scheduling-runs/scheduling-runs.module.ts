@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
 import { AcademicsModule } from '../academics/academics.module';
@@ -21,6 +22,7 @@ import { SchedulingRunsService } from './scheduling-runs.service';
   imports: [
     AcademicsModule,
     AuthModule,
+    BullModule.registerQueue({ name: 'scheduling' }),
     ClassesModule,
     PeriodGridModule,
     RoomsModule,
