@@ -223,6 +223,10 @@ enum RoomType {
   art_room
   music_room
   outdoor
+  science_lab
+  wood_workshop
+  outdoor_yard
+  indoor_yard
   other
 }
 

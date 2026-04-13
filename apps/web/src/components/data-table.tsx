@@ -8,7 +8,7 @@ import { Button, TableWrapper } from '@school/ui';
 
 interface Column<T> {
   key: string;
-  header: string;
+  header: React.ReactNode;
   render: (row: T) => React.ReactNode;
   className?: string;
 }
@@ -104,7 +104,9 @@ export function DataTable<T>({
               <td
                 colSpan={columns.length}
                 className="px-4 py-12 text-center text-sm text-text-tertiary"
-              >{t('noResults')}</td>
+              >
+                {t('noResults')}
+              </td>
             </tr>
           ) : (
             data.map((row) => (

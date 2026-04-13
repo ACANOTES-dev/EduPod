@@ -38,7 +38,22 @@ interface RoomFormProps {
   isEdit?: boolean;
 }
 
-const ROOM_TYPES = ['classroom', 'lab', 'library', 'hall', 'gym', 'office', 'other'];
+const ROOM_TYPES = [
+  'classroom',
+  'lab',
+  'science_lab',
+  'computer_lab',
+  'art_room',
+  'music_room',
+  'library',
+  'gym',
+  'auditorium',
+  'wood_workshop',
+  'outdoor_yard',
+  'indoor_yard',
+  'outdoor',
+  'other',
+];
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -101,7 +116,7 @@ export function RoomForm({ open, onOpenChange, onSubmit, initialData, isEdit }: 
               <SelectContent>
                 {ROOM_TYPES.map((type) => (
                   <SelectItem key={type} value={type}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                    {t(`roomTypeLabels.${type}`)}
                   </SelectItem>
                 ))}
               </SelectContent>

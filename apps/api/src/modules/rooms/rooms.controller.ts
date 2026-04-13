@@ -14,7 +14,12 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 
-import { createRoomSchema, updateRoomSchema } from '@school/shared';
+import {
+  bulkCreateRoomsSchema,
+  bulkDeleteRoomsSchema,
+  createRoomSchema,
+  updateRoomSchema,
+} from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -22,7 +27,12 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
-import type { CreateRoomDto, UpdateRoomDto } from './dto/room.dto';
+import type {
+  BulkCreateRoomsDto,
+  BulkDeleteRoomsDto,
+  CreateRoomDto,
+  UpdateRoomDto,
+} from './dto/room.dto';
 import { RoomsService } from './rooms.service';
 
 const listRoomsQuerySchema = z.object({
@@ -37,6 +47,35 @@ const listRoomsQuerySchema = z.object({
 export class RoomsController {
   constructor(private readonly roomsService: RoomsService) {}
 
+  // POST /v1/rooms/bulk — must be before :id routes
+  @Post('bulk')
+  @RequiresPermission('schedule.manage')
+  @HttpCode(HttpStatus.CREATED)
+  async bulkCreate(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(bulkCreateRoomsSchema)) dto: BulkCreateRoomsDto,
+  ) {
+    return this.roomsService.bulkCreate(tenant.tenant_id, dto);
+  }
+
+  // POST /v1/rooms/bulk-delete
+  @Post('bulk-delete')
+  @RequiresPermission('schedule.manage')
+  async bulkDelete(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(bulkDeleteRoomsSchema)) dto: BulkDeleteRoomsDto,
+  ) {
+    return this.roomsService.bulkDelete(tenant.tenant_id, dto);
+  }
+
+  // GET /v1/rooms/stats
+  @Get('stats')
+  @RequiresPermission('schedule.manage')
+  async getStats(@CurrentTenant() tenant: { tenant_id: string }) {
+    return this.roomsService.getStats(tenant.tenant_id);
+  }
+
+  // POST /v1/rooms
   @Post()
   @RequiresPermission('schedule.manage')
   @HttpCode(HttpStatus.CREATED)
@@ -47,6 +86,7 @@ export class RoomsController {
     return this.roomsService.create(tenant.tenant_id, dto);
   }
 
+  // GET /v1/rooms
   @Get()
   @RequiresPermission('schedule.manage')
   async findAll(
@@ -62,6 +102,7 @@ export class RoomsController {
     });
   }
 
+  // GET /v1/rooms/:id
   @Get(':id')
   @RequiresPermission('schedule.manage')
   async findOne(
@@ -71,6 +112,7 @@ export class RoomsController {
     return this.roomsService.findOne(tenant.tenant_id, id);
   }
 
+  // PATCH /v1/rooms/:id
   @Patch(':id')
   @RequiresPermission('schedule.manage')
   async update(
@@ -81,6 +123,7 @@ export class RoomsController {
     return this.roomsService.update(tenant.tenant_id, id, dto);
   }
 
+  // DELETE /v1/rooms/:id
   @Delete(':id')
   @RequiresPermission('schedule.manage')
   @HttpCode(HttpStatus.NO_CONTENT)

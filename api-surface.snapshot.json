@@ -484,6 +484,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/applications/queues/approved",
+    "controller": "ApplicationsController",
+    "module": "admissions",
+    "permission": "admissions.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/applications/queues/conditional-approval",
     "controller": "ApplicationsController",
     "module": "admissions",
@@ -2139,7 +2146,7 @@
     "path": "/v1/branding",
     "controller": "BrandingController",
     "module": "configuration",
-    "permission": "branding.manage"
+    "permission": null
   },
   {
     "method": "PATCH",
@@ -3109,6 +3116,34 @@
   },
   {
     "method": "GET",
+    "path": "/v1/finance/dashboard/currency",
+    "controller": "FinanceDashboardController",
+    "module": "finance",
+    "permission": "finance.view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/finance/dashboard/currency",
+    "controller": "FinanceDashboardController",
+    "module": "finance",
+    "permission": "finance.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/finance/dashboard/debt-breakdown",
+    "controller": "FinanceDashboardController",
+    "module": "finance",
+    "permission": "finance.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/finance/dashboard/household-overview",
+    "controller": "FinanceDashboardController",
+    "module": "finance",
+    "permission": "finance.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/finance/discounts",
     "controller": "DiscountsController",
     "module": "finance",
@@ -3223,6 +3258,41 @@
     "method": "PATCH",
     "path": "/v1/finance/fee-structures/:id",
     "controller": "FeeStructuresController",
+    "module": "finance",
+    "permission": "finance.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/finance/fee-types",
+    "controller": "FeeTypesController",
+    "module": "finance",
+    "permission": "finance.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/finance/fee-types",
+    "controller": "FeeTypesController",
+    "module": "finance",
+    "permission": "finance.view"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/finance/fee-types/:id",
+    "controller": "FeeTypesController",
+    "module": "finance",
+    "permission": "finance.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/finance/fee-types/:id",
+    "controller": "FeeTypesController",
+    "module": "finance",
+    "permission": "finance.view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/finance/fee-types/:id",
+    "controller": "FeeTypesController",
     "module": "finance",
     "permission": "finance.manage"
   },
@@ -3360,7 +3430,7 @@
     "permission": "finance.view"
   },
   {
-    "method": "PUT",
+    "method": "PATCH",
     "path": "/v1/finance/late-fee-configs/:id",
     "controller": "FinanceEnhancedController",
     "module": "finance",
@@ -3378,7 +3448,7 @@
     "path": "/v1/finance/payment-plans/:id",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "POST",
@@ -3386,6 +3456,13 @@
     "controller": "FinanceEnhancedController",
     "module": "finance",
     "permission": "finance.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/finance/payment-plans/:id/cancel",
+    "controller": "FinanceEnhancedController",
+    "module": "finance",
+    "permission": "finance.manage"
   },
   {
     "method": "POST",
@@ -3400,6 +3477,13 @@
     "controller": "FinanceEnhancedController",
     "module": "finance",
     "permission": "finance.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/finance/payment-plans/admin-create",
+    "controller": "FinanceEnhancedController",
+    "module": "finance",
+    "permission": "finance.view"
   },
   {
     "method": "GET",
@@ -3420,7 +3504,7 @@
     "path": "/v1/finance/payments/:id",
     "controller": "PaymentsController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "POST",
@@ -3430,7 +3514,7 @@
     "permission": "finance.manage"
   },
   {
-    "method": "POST",
+    "method": "GET",
     "path": "/v1/finance/payments/:id/allocations/suggest",
     "controller": "PaymentsController",
     "module": "finance",
@@ -3479,7 +3563,7 @@
     "permission": "finance.view"
   },
   {
-    "method": "PUT",
+    "method": "PATCH",
     "path": "/v1/finance/recurring-configs/:id",
     "controller": "FinanceEnhancedController",
     "module": "finance",
@@ -3558,6 +3642,13 @@
   {
     "method": "GET",
     "path": "/v1/finance/reports/collection-by-year-group",
+    "controller": "FinanceEnhancedController",
+    "module": "finance",
+    "permission": "finance.view_reports"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/finance/reports/custom",
     "controller": "FinanceEnhancedController",
     "module": "finance",
     "permission": "finance.view_reports"
@@ -5595,6 +5686,13 @@
   {
     "method": "POST",
     "path": "/v1/parent/payment-plans/:id/accept",
+    "controller": "ParentFinanceController",
+    "module": "finance",
+    "permission": "parent.view_finances"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/parent/payments/:id/receipt/pdf",
     "controller": "ParentFinanceController",
     "module": "finance",
     "permission": "parent.view_finances"
@@ -9039,6 +9137,27 @@
   {
     "method": "PATCH",
     "path": "/v1/rooms/:id",
+    "controller": "RoomsController",
+    "module": "rooms",
+    "permission": "schedule.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/rooms/bulk",
+    "controller": "RoomsController",
+    "module": "rooms",
+    "permission": "schedule.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/rooms/bulk-delete",
+    "controller": "RoomsController",
+    "module": "rooms",
+    "permission": "schedule.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/rooms/stats",
     "controller": "RoomsController",
     "module": "rooms",
     "permission": "schedule.manage"
