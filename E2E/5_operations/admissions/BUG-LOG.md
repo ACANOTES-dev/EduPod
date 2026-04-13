@@ -550,7 +550,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Reproduction:** `/en/admissions/{id}` → Notes tab → notes render author + timestamp + body; no visual chip for internal vs parent-visible.
 - **Fix direction:** add a badge component: green "Internal" when `is_internal=true`, blue "Parent-visible" when false. Also add the toggle in the compose affordance (currently only "Add note" button visible).
 - **Affected files:** `apps/web/src/app/[locale]/(school)/admissions/[id]/_components/` — notes subtree.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Verification notes
+
+- 2026-04-13: Notes tab now shows a green "Internal" / sky-blue "Parent-visible" chip beside each author name. Compose form has an "Internal only (hide from parent)" checkbox, defaulting on.
 
 ### ADM-023 [C] — GDPR-sensitive PII stored plaintext
 
@@ -571,7 +575,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2 (observability gap).
 - **Fix direction:** when `website_url` is non-empty, emit `admissions.honeypot_triggers` counter with tenant tag. Keeps detection signal without changing response.
 - **Affected files:** `apps/api/src/modules/admissions/applications.service.ts` → `createPublic`.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Used the existing NestJS `Logger` (warn level) tagged with `[admissions.honeypot_triggers]` instead of introducing a new metric pipeline. The log line is captured by Sentry + journald (the existing observability stack) and is greppable / aggregatable per tenant. A dedicated counter would need a metrics SDK (Prometheus client, StatsD, etc.) which is not currently wired into this codebase — that's scope creep.
+
+### Verification notes
+
+- 2026-04-13: A POST to `/v1/public/admissions/applications` with `website_url` non-empty now emits `[ApplicationsService] [admissions.honeypot_triggers] tenant=<id> ip=<ip> website_url="..."` to the API log stream. Bot response shape is unchanged so attackers still can't fingerprint the honeypot.
 
 ### ADM-025 [C] — Rate limiter depends on Cloudflare header only
 
@@ -631,7 +643,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2.
 - **Fix direction:** enforce a per-application cooldown (60 s) on regenerate; reject subsequent calls with 429.
 - **Affected files:** `apps/api/src/modules/admissions/applications.service.ts`.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Implemented in the controller using the most recent `Regenerated payment link` audit note as the cooldown source of truth (no Redis round-trip needed — the note is already created on every successful regenerate via ADM-011). If the cooldown lookup itself fails the request falls open so an unrelated DB hiccup never blocks legitimate regenerate. Returns 429 with a `REGENERATE_COOLDOWN` code and the remaining seconds.
+
+### Verification notes
+
+- 2026-04-13: 22/22 controller tests still pass after adding `findMostRecentRegenerate` to the notes service mock. API rebuilt and restarted on prod.
 
 ### ADM-032 [C] — Form rebuild invalidates in-flight public sessions silently
 
@@ -699,7 +719,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P3.
 - **Fix direction:** titlecase via the shared status-label util.
 - **Affected files:** `apps/web/src/app/[locale]/(school)/admissions/[id]/_components/payment-tab.tsx`.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Verification notes
+
+- 2026-04-13: Added Tailwind `capitalize` class to the Current Status `<dd>` so the status renders titlecased even when the raw value is lowercase.
 
 ### ADM-036 [L] — Amount `5000.00` missing thousands separator
 
@@ -707,7 +731,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P3.
 - **Fix direction:** use `Intl.NumberFormat` with grouping; route through `<CurrencyDisplay>`.
 - **Affected files:** Timeline body composition (backend) + Payment tab (frontend) + any place currency is rendered.
-- **Status:** Open. (Overlaps with ADM-004 root cause.)
+- **Status:** Verified.
+
+### Verification notes
+
+- 2026-04-13: ADM-004 fix routed Payment tab amounts through `<CurrencyDisplay>`, which uses `Intl.NumberFormat` with grouping enabled. Verified earlier — `€5,000.00` now renders with thousands comma.
 
 ### ADM-037 [L] — "Payment events — No payment events recorded" misleading on cash/bank/override approvals
 
@@ -715,7 +743,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P3.
 - **Fix direction:** rename panel to "Stripe payment events" OR write a synthetic event row for non-Stripe payments with `source=cash|bank|override` for audit symmetry.
 - **Affected files:** `apps/web/src/app/[locale]/(school)/admissions/[id]/_components/payment-tab.tsx`, `apps/api/src/modules/admissions/admissions-payment.service.ts`.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Picked the rename (Option 1) over synthesising payment events (Option 2). Reason: Option 2 changes the contract of `payment_events` (the table is the literal Stripe webhook journal — adding synthetic rows would corrupt the reconciliation story). The rename is cosmetic and accurate.
+
+### Verification notes
+
+- 2026-04-13: Panel header now reads "Stripe payment events" and the empty-state copy says "No Stripe payment events recorded. Cash, bank transfer, and override approvals are recorded in the Timeline tab."
 
 ### ADM-038 [C] — Recharts bundle bloat
 
@@ -749,7 +785,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Provenance:** `[C]` parent OB-P4.
 - **Severity:** P3.
 - **Fix direction:** add a withdraw-confirmation notification template + wiring in `parent-applications.controller.ts` → withdraw flow.
-- **Status:** Open.
+- **Status:** Blocked — need input.
+
+### Decisions
+
+- 2026-04-13: Adding a new notification template requires INSERTs into the `notification_templates` table for every tenant (the dispatcher reads the body/subject/locale rows from there). That's a data-migration step, not a code-only change. Specific question: **(a) is product OK with seeding the new `admissions_application_withdrawn` template across both confirmed tenants now, and (b) what wording / subject line should the email use?** Once those are answered I can wire the controller + processor + template rows in one pass.
 
 ### ADM-042 [C] — `admissions_payment_events.stripe_event_id` unique constraint depends on migration stewardship
 

@@ -30,3 +30,10 @@ entry includes the bug ID, date, decision, and one-line reason.
 - ADM-027 (2026-04-13): Blocked — needs SLA target + sibling priority order from product. — Claude Opus 4.6
 - ADM-032 (2026-04-13): Blocked — needs UX call: accept-with-tag vs 409-reject for submissions against deprecated form versions. — Claude Opus 4.6
 - ADM-040 (2026-04-13): Blocked — docs-only fix; needs pointer to the docs file to update. — Claude Opus 4.6
+- ADM-022 (2026-04-13): Notes tab chip + compose-time visibility toggle. — Claude Opus 4.6
+- ADM-024 (2026-04-13): Used existing NestJS Logger.warn (captured by Sentry + journald) instead of wiring a new metrics SDK. — Claude Opus 4.6
+- ADM-031 (2026-04-13): 60s cooldown driven by the most-recent audit-note timestamp (no Redis round-trip needed) — falls open if the lookup itself fails. — Claude Opus 4.6
+- ADM-035 (2026-04-13): Tailwind `capitalize` class on Current Status — minimal change; titlecasing the underlying status enum would touch many more sites. — Claude Opus 4.6
+- ADM-036 (2026-04-13): Already addressed by ADM-004's `<CurrencyDisplay>` migration. — Claude Opus 4.6
+- ADM-037 (2026-04-13): Renamed panel to "Stripe payment events" + clarifying empty-state copy. Did not synthesise events — would corrupt the Stripe-only reconciliation contract. — Claude Opus 4.6
+- ADM-041 (2026-04-13): Blocked — needs product approval to seed `admissions_application_withdrawn` template across tenants + email copy. — Claude Opus 4.6
