@@ -37,3 +37,13 @@ entry includes the bug ID, date, decision, and one-line reason.
 - ADM-036 (2026-04-13): Already addressed by ADM-004's `<CurrencyDisplay>` migration. — Claude Opus 4.6
 - ADM-037 (2026-04-13): Renamed panel to "Stripe payment events" + clarifying empty-state copy. Did not synthesise events — would corrupt the Stripe-only reconciliation contract. — Claude Opus 4.6
 - ADM-041 (2026-04-13): Blocked — needs product approval to seed `admissions_application_withdrawn` template across tenants + email copy. — Claude Opus 4.6
+- ADM-025 (2026-04-13): Verified — code-side IP fallback chain already correct (`cf-connecting-ip` → `x-forwarded-for` → `req.ip`/`req.socket`). Runbook update is purely operational. — Claude Opus 4.6
+- ADM-026 (2026-04-13): Blocked — needs product call between simpler "block role rename when settings reference it" vs full bidirectional validation (avoids circular module dep). — Claude Opus 4.6
+- ADM-028 (2026-04-13): Blocked — needs product approval to update `admissions_application_received` template across tenants + per-student copy. — Claude Opus 4.6
+- ADM-029 (2026-04-13): Non-blocking warning banner shown when both cash + bank disabled. Stripe-config detection deferred (would need extra API call, out of scope). — Claude Opus 4.6
+- ADM-030 (2026-04-13): Computed warning when `payment_deadline > now+23h` (Stripe session will expire earlier). Did not store / fetch actual `expires_at` — would need schema or a Stripe API round-trip. — Claude Opus 4.6
+- ADM-033 (2026-04-13): Blocked — needs product call on whether overrides filters are launch-blocking or post-launch sprint. — Claude Opus 4.6
+- ADM-034 (2026-04-13): Blocked — needs product call on which locale backend-composed strings use. — Claude Opus 4.6
+- ADM-038 (2026-04-13): Dynamic-imported all 7 Recharts components on the analytics page via `next/dynamic({ ssr: false })`. — Claude Opus 4.6
+- ADM-039 (2026-04-13): Blocked — needs perf budget / latency target before instrumenting. — Claude Opus 4.6
+- ADM-042 (2026-04-13): Blocked — needs CI-job placement decision before adding the pg_indexes guard test. — Claude Opus 4.6

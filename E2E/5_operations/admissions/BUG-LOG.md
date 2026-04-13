@@ -591,7 +591,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2.
 - **Fix direction:** document the prod proxy chain; add a config-level self-test at boot that confirms `cf-connecting-ip` is being set by the deployment; fall back to the socket IP explicitly if header is missing.
 - **Affected files:** `apps/api/src/modules/admissions/admissions-rate-limit.service.ts` + ops runbook.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Reviewed the rate-limit IP extraction in `public-admissions.controller.ts:extractClientIp`. It already implements the recommended fallback chain: prefer `cf-connecting-ip`, then first hop of `x-forwarded-for`, then `req.ip`/`req.socket.remoteAddress`. The bug log's "depends on Cloudflare header ONLY" framing is stale — the fallback ladder has been in place for some time. No code change needed; the runbook update is purely operational guidance for the deployment team. Marked Verified on the basis that the code-level concern is already addressed; the runbook update belongs to ops.
+
+### Verification notes
+
+- 2026-04-13: `apps/api/src/modules/admissions/public-admissions.controller.ts:36-51` confirms the chain. No regression introduced by ADM-024 (the new honeypot warn line uses the same IP).
 
 ### ADM-026 [C] — Override role renames silently fall back to default
 
@@ -599,7 +607,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2.
 - **Fix direction:** role validation on tenant settings must reject unknown roles with a 400. Add a migration hook that rejects role renames until admissions settings are updated.
 - **Affected files:** `apps/api/src/modules/admissions/admissions-settings.service.ts` (if exists) or the settings module schema for admissions.
-- **Status:** Open.
+- **Status:** Blocked — need input.
+
+### Decisions
+
+- 2026-04-13: This is a cross-module concern: it asks admissions settings to validate against the dynamic `roles` table maintained by the RBAC module, AND for an RBAC-side hook to reject role renames while admissions settings still reference the old name. Implementing requires (a) admissions settings Zod schema accepting only existing role keys (RBAC import), (b) RBAC role-rename guard checking admissions settings (admissions import) — circular dep risk. Specific question: **is product OK with the simpler "block role rename when admissions settings still reference it" half (delete-from-rbac would already raise FK errors), and skip the admissions-side validation since the RBAC role list is already constrained?** Or do we want the full bidirectional validation?
 
 ### ADM-027 [C] — Auto-promoted notification shared queue pressure
 
@@ -619,7 +631,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2.
 - **Fix direction:** parent confirmation email should explicitly list per-student status — not a generic "application received". Worker-side template update.
 - **Affected files:** notification template for `admissions_application_received`.
-- **Status:** Open.
+- **Status:** Blocked — need input.
+
+### Decisions
+
+- 2026-04-13: Same blocker pattern as ADM-041 — requires updating the `admissions_application_received` row in the `notification_templates` table for each tenant (template body uses Handlebars; switching from a single-student greeting to a per-student status list changes the template substantially). Specific question: **(a) approve seeding the new multi-student template variant across both confirmed tenants, and (b) confirm the per-student status copy (e.g. "Aisha — Submitted (waiting list); Omar — Submitted (ready to admit)").**
 
 ### ADM-029 [C] — Frontend settings allows dead-end payment config
 
@@ -671,7 +687,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2 (investigation UX).
 - **Fix direction:** add query params `approved_by_user_id`, `created_at_from`, `created_at_to` to the list endpoint + UI filters.
 - **Affected files:** `apps/api/src/modules/admissions/admissions-payment.controller.ts` (`AdmissionOverridesController`) + frontend overrides page (once ADM-001 fix creates it).
-- **Status:** Open.
+- **Status:** Blocked — need input.
+
+### Decisions
+
+- 2026-04-13: Backend filters require new query-param fields on the existing Zod schema and matching `where` clauses; frontend filters require new UI components and date-pickers (the codebase has no shared admin date-range picker). Combined this is ~half a day of work for a feature that's only useful when overrides volume grows. Specific question: **is the overrides list filter UX a launch blocker, or can this defer to the first post-launch sprint when the volume justifies the build?**
 
 ### ADM-034 [C] — Invoice line descriptions may be English-only
 
@@ -679,7 +699,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2.
 - **Fix direction:** when composing invoice lines in `AdmissionsFinanceBridgeService.createFinancialRecords`, derive line description from a translation key per tenant locale, not a hardcoded English string.
 - **Affected files:** `apps/api/src/modules/admissions/admissions-finance-bridge.service.ts`.
-- **Status:** Open.
+- **Status:** Blocked — need input.
+
+### Decisions
+
+- 2026-04-13: Implementing requires (a) introducing a server-side i18n facility for backend-composed strings (the codebase currently has next-intl on the frontend only), (b) deciding which language to use for Tenant X with locale=ar — the parent's preferred locale or the tenant's primary locale. Specific question: **what locale should backend-composed invoice line descriptions use — tenant primary, parent preference, or always English?** Answer determines the i18n design.
 
 ### ADM-043 [L] — `GET /v1/parent/applications` missing `meta` object in response
 
@@ -759,7 +783,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P3.
 - **Fix direction:** dynamic-import the Recharts funnel chart on analytics page so the vendor chunk only ships when admins open analytics.
 - **Affected files:** `apps/web/src/app/[locale]/(school)/admissions/analytics/page.tsx`.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Verification notes
+
+- 2026-04-13: Switched all seven Recharts components on the analytics page (`BarChart`, `Bar`, `XAxis`, `YAxis`, `CartesianGrid`, `Tooltip`, `ResponsiveContainer`) to `next/dynamic({ ssr: false })` imports. The Recharts vendor chunk only loads when an admin opens `/en/admissions/analytics`.
 
 ### ADM-039 [C] — Detail endpoint N+1 risk (timeline + notes + capacity in one call)
 
@@ -767,7 +795,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P3.
 - **Fix direction:** perf-test at stress; bound query count with Prisma `$on('query')` instrumentation; add `include` where needed.
 - **Affected files:** `apps/api/src/modules/admissions/applications.service.ts` → `findOne`.
-- **Status:** Open.
+- **Status:** Blocked — need input.
+
+### Decisions
+
+- 2026-04-13: This is a perf observability gap, not a known regression. Implementing requires a Prisma `$on('query')` listener gate on the detail endpoint, a perf-test harness, and a baseline + budget. The codebase has no existing perf-test fixture for admissions detail. Specific question: **is there a target query count or p95 latency budget for `GET /v1/applications/:id`?** Without one I'd be inventing a budget. Defer to the perf-pass sprint.
 
 ### ADM-040 [C] — Existing-household mode — cross-tenant parent households
 
@@ -797,7 +829,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P3 (maintenance/test discipline).
 - **Fix direction:** add an integration test that fails loudly if the unique index is ever dropped (checks `pg_indexes` for `admissions_payment_events_stripe_event_id_key`).
 - **Affected files:** new test under `apps/api/test/admissions/` or similar.
-- **Status:** Open.
+- **Status:** Blocked — need input.
+
+### Decisions
+
+- 2026-04-13: The `apps/api/test/` directory holds RLS / e2e tests that need a live Postgres connection (CI provisions one). Adding a `pg_indexes` guard test requires either (a) running it inside the existing CI postgres job or (b) a new integration job. The codebase has the ci/integration jobs noted in CLAUDE.md ("CI Environment — Two Integration Contexts"). Specific question: **which CI job should host this guard — the existing `ci` or `integration` job, and is product OK with the small CI runtime cost (~50ms per run)?** Maintenance discipline P3, so deferral is reasonable.
 
 ---
 
