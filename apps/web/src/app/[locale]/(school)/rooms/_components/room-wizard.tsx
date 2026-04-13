@@ -241,12 +241,12 @@ export function RoomWizard({ open, onOpenChange, onComplete }: RoomWizardProps) 
         }
       }
 
-      const res = await apiClient<{ created: number }>('/api/v1/rooms/bulk', {
+      const res = await apiClient<{ data: { created: number } }>('/api/v1/rooms/bulk', {
         method: 'POST',
         body: JSON.stringify({ rooms }),
       });
 
-      toast.success(t('roomsGenerated', { count: res.created }));
+      toast.success(t('roomsGenerated', { count: res.data.created }));
       onOpenChange(false);
       onComplete();
     } catch (err) {

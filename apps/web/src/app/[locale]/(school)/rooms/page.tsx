@@ -138,8 +138,8 @@ export default function RoomsPage() {
 
   const fetchStats = React.useCallback(async () => {
     try {
-      const res = await apiClient<RoomStats>('/api/v1/rooms/stats', { silent: true });
-      setStats(res);
+      const res = await apiClient<{ data: RoomStats }>('/api/v1/rooms/stats', { silent: true });
+      setStats(res.data);
     } catch (err) {
       console.error('[RoomsPage.stats]', err);
     }
@@ -211,19 +211,21 @@ export default function RoomsPage() {
     setBulkDeleting(true);
     try {
       const res = await apiClient<{
-        deleted: number;
-        skipped_in_use: number;
+        data: {
+          deleted: number;
+          skipped_in_use: number;
+        };
       }>('/api/v1/rooms/bulk-delete', {
         method: 'POST',
         body: JSON.stringify({ ids: Array.from(selectedIds) }),
       });
 
-      if (res.skipped_in_use > 0) {
+      if (res.data.skipped_in_use > 0) {
         toast.success(
-          t('bulkDeletePartial', { deleted: res.deleted, skipped: res.skipped_in_use }),
+          t('bulkDeletePartial', { deleted: res.data.deleted, skipped: res.data.skipped_in_use }),
         );
       } else {
-        toast.success(t('bulkDeleteSuccess', { count: res.deleted }));
+        toast.success(t('bulkDeleteSuccess', { count: res.data.deleted }));
       }
       refreshAll();
     } catch (err) {
