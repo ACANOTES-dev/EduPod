@@ -178,6 +178,8 @@ Resolved tenant context is propagated to: Prisma RLS, permission guards, cache k
 
 **Fallback domains**: Each tenant gets a platform subdomain (`{slug}.edupod.app`) automatically. Custom domains are added via platform admin and verified through Cloudflare.
 
+**Per-tenant parent isolation (intentional)**: A parent who has children at two different tenants must hold a separate login per tenant — there is no consolidated cross-tenant parent dashboard. The tenant boundary is the source of truth for everything (RLS, permissions, data, cache, search). Parents may reuse the same email and password across tenants if they choose, but each tenant still resolves them via its own subdomain (e.g. `nhqs.edupod.app` vs `mdad.edupod.app`) — the URL determines which tenant's account is loaded. The bare apex domain `edupod.app` is **not** a valid login surface for a tenanted parent because it cannot resolve which tenant's session to mint; tenants are expected to use their own subdomain or verified custom domain. This is a deliberate design choice to keep RLS isolation absolute and avoid the additional complexity of cross-tenant parent UX (consolidated invoices, merged calendars, multi-tenant impersonation surfaces, etc.). See bug log entry ADM-040.
+
 ### 2.7 Authentication and Session Model
 
 | Component                  | Detail                                                                             |

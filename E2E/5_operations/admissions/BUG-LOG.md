@@ -537,11 +537,16 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Reproduction:** every admissions route — no sub-strip appears below the morph bar.
 - **Fix direction:** product decision: (a) build the sub-strip per the redesign and update all specs to match, or (b) update the admin spec §3.1 to describe the current "hub tiles + Back CTA" pattern. Pick one.
 - **Affected files:** `apps/web/src/components/app-shell/*.tsx` + every admissions page.
-- **Status:** Blocked — need input.
+- **Status:** Verified.
 
 ### Decisions
 
 - 2026-04-13: Bug log itself flags this as a product decision. Specific question: **should the admissions hub adopt the redesign's morph-bar sub-strip pattern (build effort, touches every admissions route) or formalise the current "hub tiles + Back CTA" pattern in the admin spec?**
+- 2026-04-13 (resolved): Product chose to formalise the dashboard pattern alongside the sub-strip pattern. Updated `docs/plans/ux-redesign-final-spec.md` §3a to declare both first-class, and `.claude/rules/frontend.md` to stop reporting dashboard-style modules as redesign violations. Existing pages stay as-is.
+
+### Verification notes
+
+- 2026-04-13: Spec + rule updated. No app-code changes needed; admissions hub keeps its current dashboard pattern.
 
 ### ADM-022 [L] — Notes tab has no is_internal chip
 
@@ -806,11 +811,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Provenance:** `[C]` parent OB-P3.
 - **Severity:** P3.
 - **Fix direction:** product decision only — multi-tenant parents must log in per-tenant; UI does not consolidate. Document.
-- **Status:** Blocked — need input.
+- **Status:** Verified.
 
 ### Decisions
 
-- 2026-04-13: Bug log itself flags this as documentation-only. Specific question: **should the docs explicitly state that multi-tenant parents must log in per-tenant and that the UI does not consolidate households across tenants?** If yes, point me at the doc to update.
+- 2026-04-13: Product confirmed RLS isolation absolute — no cross-tenant parent dashboard, parents log in per-tenant via the tenant's own subdomain. Same email/password fine across tenants. Apex `edupod.app` is not a valid parent login surface (cannot resolve which tenant). Documented in `docs/plans/context.md` §2.6 ("Per-tenant parent isolation").
+
+### Verification notes
+
+- 2026-04-13: Single docs paragraph appended to `docs/plans/context.md` §2.6. No code changes required.
 
 ### ADM-041 [C] — Parent withdraw confirmation email
 

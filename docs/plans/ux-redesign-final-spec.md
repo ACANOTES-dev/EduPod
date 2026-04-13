@@ -182,6 +182,23 @@ A dark bar pinned to the top of every page. It has two modes: collapsed (on Home
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
+**Dashboard-style modules without a sub-strip (also acceptable):**
+
+Some modules — most notably Admissions and other "hub-tile" landing pages —
+present their navigation as a grid of cards on a dashboard rather than as
+horizontal sub-strip tabs. This pattern is fully supported and should NOT
+be reported as a redesign violation; it is a deliberate alternative to the
+sub-strip and is preferred when a module's children are heterogeneous or
+look better as feature tiles than as tabs (e.g. Admissions Hub: Ready to
+Admit, Conditional Approval, Waiting List, Approved, Rejected, Form
+Preview, Overrides Log, Settings).
+
+The morph bar itself is unchanged — only the 44px sub-strip below it is
+absent, and its place is taken by the dashboard's hub tiles. Both patterns
+are first-class members of the morphing-shell family. A module page may
+be marked-up with EITHER pattern; the choice is per-module and should be
+recorded in the module's own spec, not policed at the shell level.
+
 **Bar specs:**
 
 - Background: `var(--bar-bg)` — `#1C1917` light / `#12100E` dark
@@ -549,13 +566,13 @@ User logs in → Home (feed + context panel, morph bar collapsed)
 
 ## 13. Files to Reference
 
-| File                            | Purpose                                                   |
-| ------------------------------- | --------------------------------------------------------- |
-| `Plans/ux-redesign-vision.md`   | The emotional vision — why we're doing this               |
-| `Plans/ux-redesign-option-a.md` | Option A spec (rejected — kept for reference)             |
-| `Plans/ux-redesign-option-b.md` | Option B spec (rejected — kept for reference)             |
-| `Plans/ux-redesign-option-c.md` | Option C spec (approved — base for this document)         |
-| `.superpowers/brainstorm/`      | All visual mockups from the brainstorming session         |
+| File                            | Purpose                                           |
+| ------------------------------- | ------------------------------------------------- |
+| `Plans/ux-redesign-vision.md`   | The emotional vision — why we're doing this       |
+| `Plans/ux-redesign-option-a.md` | Option A spec (rejected — kept for reference)     |
+| `Plans/ux-redesign-option-b.md` | Option B spec (rejected — kept for reference)     |
+| `Plans/ux-redesign-option-c.md` | Option C spec (approved — base for this document) |
+| `.superpowers/brainstorm/`      | All visual mockups from the brainstorming session |
 
 ---
 
