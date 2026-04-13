@@ -41,11 +41,11 @@ function FunnelChart({
           <BarChart
             data={data}
             layout="vertical"
-            margin={{ top: 0, right: 20, bottom: 0, left: 140 }}
+            margin={{ top: 0, right: 20, bottom: 0, left: 170 }}
           >
             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
             <XAxis type="number" allowDecimals={false} />
-            <YAxis type="category" dataKey="stage" width={130} tick={{ fontSize: 12 }} />
+            <YAxis type="category" dataKey="stage" width={160} tick={{ fontSize: 12 }} />
             <Tooltip />
             <Bar dataKey="count" fill="#059669" radius={[0, 4, 4, 0]} />
           </BarChart>
