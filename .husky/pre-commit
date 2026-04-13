@@ -1,1 +1,5 @@
-pnpm lint-staged
+export NODE_OPTIONS="--max-old-space-size=2048"
+
+# 90-second SIGALRM timeout via perl (stock macOS has no coreutils `timeout`)
+# After exec, the alarm fires SIGALRM whose default action terminates the process.
+perl -e 'alarm(90); exec @ARGV or die "exec failed: $!"' -- pnpm lint-staged --concurrent false
