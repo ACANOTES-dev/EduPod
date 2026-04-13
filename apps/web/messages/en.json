@@ -12320,6 +12320,28 @@
     "paymentCancelledBody": "Your application is still on hold — you can try the payment link again.",
     "paymentCancelledFollowup": "Use the link in the email we sent you to retry the payment within the hold window."
   },
+  "admissionsOverrides": {
+    "title": "Overrides Log",
+    "description": "Audit trail of admin overrides — fee waivers, partial waivers, and deferred payments granted to admit applications outside the standard payment flow.",
+    "countLabel": "overrides",
+    "emptyTitle": "No overrides recorded",
+    "emptyDescription": "Overrides granted by leadership during admissions appear here for audit review.",
+    "col": {
+      "applicationNumber": "Application",
+      "student": "Student",
+      "type": "Type",
+      "expected": "Expected",
+      "actual": "Actual",
+      "approver": "Approved by",
+      "justification": "Justification",
+      "createdAt": "Created"
+    },
+    "type": {
+      "full_waiver": "Full waiver",
+      "partial_waiver": "Partial waiver",
+      "deferred_payment": "Deferred payment"
+    }
+  },
   "admissionsSettings": {
     "title": "Admissions Settings",
     "subtitle": "Configure how applications, payments, and approvals work for your school.",

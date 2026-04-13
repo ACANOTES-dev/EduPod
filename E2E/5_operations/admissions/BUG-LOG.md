@@ -2,7 +2,7 @@
 
 **Module:** Admissions (`/5_operations/admissions`)
 **Log opened:** 2026-04-12
-**Last updated:** 2026-04-12
+**Last updated:** 2026-04-13 (Session 3 re-attempt via API curl probes — ADM-043 added, ADM-016 repro verified)
 **Sources merged:**
 
 - `PLAYWRIGHT-WALKTHROUGH-RESULTS.md` (live-verified, `[L]` provenance)
@@ -65,8 +65,12 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
   - `GET /api/v1/admission-overrides` returns 200 in Network tab.
   - Zero console errors.
 - **Release-gate:** Must ship before tenant launch. Even if no active overrides, the broken CTA erodes admin trust.
-- **Status:** Open.
-- **Notes:**
+- **Status:** In Progress.
+- **Notes:** Claude Opus 4.6 — 2026-04-13. Building dedicated overrides page (Option A).
+
+### Decisions
+
+- 2026-04-13: Chose Option A (build dedicated overrides page that calls `GET /v1/admission-overrides`). The endpoint already exists and returns the right shape; building the missing page is lower-risk than re-routing the hub tile, and it preserves the dedicated audit surface.
 
 ### ADM-004 [L] — Timeline & parent dashboard show `€` for an AED tenant
 
@@ -351,12 +355,13 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Provenance:** `[L]`.
 - **Severity:** P2.
 - **Reproduction:** login as parent → `/en/applications` → UI renders empty state but console shows `[ApplicationsPage] TypeError: Cannot read properties of undefined (reading 'total')`.
+- **Root cause verified 2026-04-13** via direct curl probe: `GET /api/v1/parent/applications` returns raw body `{"data":[]}` — **no `meta` object** for zero-row results. Confirmed for both student and teacher tokens (which reach the endpoint but get ownership-filtered to zero rows). Likely also affects parents with zero applications. The frontend's `const { total } = res.meta;` crashes on undefined.
 - **Fix direction:** in `apps/web/src/app/[locale]/(school)/applications/page.tsx`, defensively read `res?.meta?.total ?? 0`. Ensure backend always returns the shape `{ data: [], meta: { total: 0, page, pageSize } }` for empty lists.
 - **Affected files:**
   - Frontend: `apps/web/src/app/[locale]/(school)/applications/page.tsx`.
   - Backend: `apps/api/src/modules/admissions/parent-applications.controller.ts` + service's list method — ensure meta is returned even when data is empty.
-- **Verification:** parent with zero applications → page renders empty state with zero console errors.
-- **Status:** Open.
+- **Verification:** parent with zero applications → page renders empty state with zero console errors. `curl -H 'Authorization: Bearer <parent_jwt>' /api/v1/parent/applications | jq .meta` returns `{ total: 0, page: 1, pageSize: 20 }`.
+- **Status:** Open. (Repro now fully deterministic and curl-reproducible as of 2026-04-13.)
 
 ### ADM-017 [L] — Analytics "ConditionalApproval" chart label missing space
 
@@ -509,6 +514,26 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Affected files:** `apps/api/src/modules/admissions/admissions-finance-bridge.service.ts`.
 - **Status:** Open.
 
+### ADM-043 [L] — `GET /v1/parent/applications` missing `meta` object in response
+
+- **Provenance:** `[L]` — curl probe on 2026-04-13 (Session 3.2 of the walkthrough).
+- **Summary:** Backend returns `{"data":[]}` with **no `meta` object** for zero-row results. The integration spec §3.2.1 and spec §5 expect the canonical `{ data, meta: { total, page, pageSize } }` shape across every paginated endpoint. The missing `meta` is the direct cause of the frontend crash documented in ADM-016.
+- **Severity:** P2 (backend contract bug; surfaces as the frontend symptom in ADM-016).
+- **Reproduction:**
+  1. `curl -X POST https://nhqs.edupod.app/api/v1/auth/login -H 'Content-Type: application/json' -d '{"email":"adam.moore@nhqs.test","password":"Password123!"}'`
+  2. Extract `access_token`.
+  3. `curl -H "Authorization: Bearer $TOKEN" https://nhqs.edupod.app/api/v1/parent/applications`
+  4. Response body: `{"data":[]}` — no `meta`.
+- **Expected:** `{"data":[],"meta":{"total":0,"page":1,"pageSize":20}}`.
+- **Affected files:**
+  - `apps/api/src/modules/admissions/parent-applications.controller.ts`
+  - `apps/api/src/modules/admissions/applications.service.ts` → `findParentApplications` (or equivalent service method)
+- **Fix direction:** ensure the service always returns `{ data, meta: { total, page, pageSize } }`, including when `data.length === 0`. Align with the admin queue endpoints' already-correct shape.
+- **Verification:** re-run the curl probe; `meta.total === 0` present.
+- **Release-gate:** Should ship before launch (pairs with ADM-016 frontend fix so the fix lands at both layers).
+- **Status:** Open.
+- **Notes:** Surfaced during the Session 3 re-attempt on 2026-04-13.
+
 ---
 
 ## P3 — polish / perf / consistency
@@ -615,6 +640,7 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 | ADM-032 | P2  | [C]  | Open   | form versioning        | Public submit against deprecated form_definition_id silently succeeds/fails inconsistently             |
 | ADM-033 | P2  | [C]  | Open   | overrides UX           | Overrides list has no filters (once ADM-001 page exists)                                               |
 | ADM-034 | P2  | [C]  | Open   | i18n                   | Invoice line descriptions may be English-only                                                          |
+| ADM-043 | P2  | [L]  | Open   | parent portal API      | `GET /v1/parent/applications` returns `{data:[]}` with no `meta` object — surfaces ADM-016 at frontend |
 | ADM-035 | P3  | [L]  | Open   | polish                 | Payment tab shows lowercase "approved" status                                                          |
 | ADM-036 | P3  | [L]  | Open   | number format          | `5000.00` missing thousands separator (overlaps ADM-004)                                               |
 | ADM-037 | P3  | [L]  | Open   | copy                   | "No payment events" misleading for cash/bank/override approvals                                        |
@@ -632,11 +658,11 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 | --------- | ------ |
 | P0        | 2      |
 | P1        | 11     |
-| P2        | 21     |
+| P2        | 22     |
 | P3        | 8      |
-| **Total** | **42** |
+| **Total** | **43** |
 
-Provenance breakdown: `[L]` live-verified: 15 · `[C]` code-review: 27.
+Provenance breakdown: `[L]` live-verified: 16 · `[C]` code-review: 27.
 
 Release-gate guidance: every **P0** and every **P1** bug must reach status `Verified` before the module is allowed to ship to a new tenant. P2 rows can be triaged into the first post-launch sprint. P3 rows backlog unless a related fix opens the file.
 
