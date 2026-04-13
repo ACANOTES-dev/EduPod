@@ -11,6 +11,7 @@ import { AdmissionsAutoPromotionService } from './admissions-auto-promotion.serv
 import { AdmissionsCapacityService } from './admissions-capacity.service';
 import {
   ADMISSIONS_APPLICATION_RECEIVED_JOB,
+  ADMISSIONS_APPLICATION_WITHDRAWN_JOB,
   ADMISSIONS_PAYMENT_LINK_JOB,
   ApplicationStateMachineService,
 } from './application-state-machine.service';
@@ -255,7 +256,12 @@ describe('ApplicationStateMachineService', () => {
       );
       expect(harness.notificationsQueue.add).toHaveBeenCalledWith(
         ADMISSIONS_APPLICATION_RECEIVED_JOB,
-        expect.objectContaining({ tenant_id: TENANT_ID, application_id: APPLICATION_ID }),
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          students: expect.arrayContaining([
+            expect.objectContaining({ application_id: APPLICATION_ID }),
+          ]),
+        }),
         expect.anything(),
       );
     });
@@ -637,6 +643,32 @@ describe('ApplicationStateMachineService', () => {
           academicYearId: ACADEMIC_YEAR_ID,
           yearGroupId: YEAR_GROUP_ID,
         },
+      );
+    });
+
+    it('enqueues a withdrawal confirmation notification (ADM-041)', async () => {
+      const harness = buildService();
+      tx.application.findFirst.mockResolvedValue(
+        sampleApplication({ status: 'ready_to_admit', submitted_by_parent_id: PARENT_ID }),
+      );
+      tx.parent.findFirst.mockResolvedValue({ id: PARENT_ID });
+      tx.application.update.mockResolvedValue(
+        sampleApplication({ status: 'withdrawn', submitted_by_parent_id: PARENT_ID }),
+      );
+
+      await harness.service.withdraw(TENANT_ID, APPLICATION_ID, {
+        actingUserId: PARENT_USER_ID,
+        isParent: true,
+      });
+
+      expect(harness.notificationsQueue.add).toHaveBeenCalledWith(
+        ADMISSIONS_APPLICATION_WITHDRAWN_JOB,
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          application_id: APPLICATION_ID,
+          submitted_by_parent_id: PARENT_ID,
+        }),
+        expect.anything(),
       );
     });
   });

@@ -155,6 +155,10 @@ function buildService() {
 
   const prisma = {} as unknown as PrismaService;
 
+  const notificationsQueue = {
+    add: jest.fn().mockResolvedValue(undefined),
+  };
+
   const service = new ApplicationsService(
     prisma,
     rateLimitService,
@@ -162,6 +166,7 @@ function buildService() {
     capacityService,
     sequenceService,
     searchIndexService,
+    notificationsQueue as never,
   );
 
   return {
@@ -172,6 +177,7 @@ function buildService() {
     stateMachineService,
     sequenceService,
     searchIndexService,
+    notificationsQueue,
   };
 }
 

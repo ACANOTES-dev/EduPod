@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   ConflictException,
@@ -9,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { ApplicationStatus } from '@prisma/client';
+import type { Queue } from 'bullmq';
 
 import type {
   AdmissionsAnalyticsQuery,
@@ -29,7 +31,11 @@ import { SequenceService } from '../sequence/sequence.service';
 import type { AvailableSeatsResult } from './admissions-capacity.service';
 import { AdmissionsCapacityService } from './admissions-capacity.service';
 import { AdmissionsRateLimitService } from './admissions-rate-limit.service';
-import { ApplicationStateMachineService } from './application-state-machine.service';
+import {
+  ADMISSIONS_APPLICATION_RECEIVED_JOB,
+  ADMISSIONS_NOTIFICATION_PRIORITY,
+  ApplicationStateMachineService,
+} from './application-state-machine.service';
 
 // ─── Prisma result shapes ─────────────────────────────────────────────────────
 
@@ -227,6 +233,7 @@ export class ApplicationsService {
     private readonly capacityService: AdmissionsCapacityService,
     private readonly sequenceService: SequenceService,
     private readonly searchIndexService: SearchIndexService,
+    @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
 
   // ─── Delegated: State Machine ─────────────────────────────────────────────
@@ -514,6 +521,34 @@ export class ApplicationsService {
           `[createPublic] side effects failed for ${app.id}: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
+    }
+
+    // ADM-028: enqueue a single batch notification with per-student status.
+    // For public submissions submitted_by_parent_id is null — the worker
+    // processor handles that gracefully (logs a warning, skips email).
+    try {
+      await this.notificationsQueue.add(
+        ADMISSIONS_APPLICATION_RECEIVED_JOB,
+        {
+          tenant_id: tenantId,
+          submitted_by_parent_id: null,
+          students: result.applicationsForSideEffects.map((app) => ({
+            application_id: app.id,
+            application_number: app.application_number,
+            name: `${app.student_first_name} ${app.student_last_name}`,
+            status: app.status,
+          })),
+        },
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 30_000 },
+          priority: ADMISSIONS_NOTIFICATION_PRIORITY,
+        },
+      );
+    } catch (err) {
+      this.logger.warn(
+        `[createPublic] failed to enqueue batch application-received notification: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     return {

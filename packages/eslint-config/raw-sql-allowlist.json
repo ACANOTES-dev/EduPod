@@ -266,6 +266,12 @@
       "reason": "Platform-level notification_template seeding — RLS policy evaluates ::uuid cast unconditionally so the init must set a sentinel tenant context before querying"
     },
     {
+      "file": "apps/worker/src/processors/admissions/admissions-templates.init.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "Admissions notification_template seeding — sets sentinel tenant context via set_config() before findFirst/create on notification_templates (same pattern as inbox-fallback-templates.init.ts)"
+    },
+    {
       "file": "apps/worker/src/processors/scheduling-stale-reaper.processor.ts",
       "methods": ["$executeRaw"],
       "category": "rls-infrastructure",

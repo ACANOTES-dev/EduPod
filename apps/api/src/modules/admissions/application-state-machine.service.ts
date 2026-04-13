@@ -29,6 +29,8 @@ import { FinanceFeesFacade } from './finance-fees.facade';
 // ─── Job constants ───────────────────────────────────────────────────────────
 
 export const ADMISSIONS_APPLICATION_RECEIVED_JOB = 'notifications:admissions-application-received';
+export const ADMISSIONS_APPLICATION_WITHDRAWN_JOB =
+  'notifications:admissions-application-withdrawn';
 export const ADMISSIONS_PAYMENT_LINK_JOB = 'notifications:admissions-payment-link';
 
 // ADM-027: BullMQ priority for admissions notifications. Lower = higher
@@ -407,7 +409,7 @@ export class ApplicationStateMachineService {
     params: { actingUserId: string; isParent: boolean },
   ): Promise<Application> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
-    return (await rlsClient.$transaction(async (tx) => {
+    const withdrawn = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const current = await db.application.findFirst({
@@ -468,6 +470,10 @@ export class ApplicationStateMachineService {
 
       return updated;
     })) as Application;
+
+    await this.fireWithdrawalSideEffects(tenantId, withdrawn);
+
+    return withdrawn;
   }
 
   // ─── Manual Promote (FIFO bypass) ────────────────────────────────────────
@@ -796,10 +802,15 @@ export class ApplicationStateMachineService {
         ADMISSIONS_APPLICATION_RECEIVED_JOB,
         {
           tenant_id: tenantId,
-          application_id: application.id,
-          application_number: application.application_number,
-          status: application.status,
           submitted_by_parent_id: application.submitted_by_parent_id,
+          students: [
+            {
+              application_id: application.id,
+              application_number: application.application_number,
+              name: `${application.student_first_name} ${application.student_last_name}`,
+              status: application.status,
+            },
+          ],
         },
         {
           attempts: 3,
@@ -810,6 +821,34 @@ export class ApplicationStateMachineService {
     } catch (err) {
       this.logger.warn(
         `Failed to enqueue application-received notification for ${application.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  private async fireWithdrawalSideEffects(
+    tenantId: string,
+    application: Application,
+  ): Promise<void> {
+    try {
+      await this.notificationsQueue.add(
+        ADMISSIONS_APPLICATION_WITHDRAWN_JOB,
+        {
+          tenant_id: tenantId,
+          application_id: application.id,
+          application_number: application.application_number,
+          student_first_name: application.student_first_name,
+          student_last_name: application.student_last_name,
+          submitted_by_parent_id: application.submitted_by_parent_id,
+        },
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 30_000 },
+          priority: ADMISSIONS_NOTIFICATION_PRIORITY,
+        },
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Failed to enqueue application-withdrawn notification for ${application.id}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
