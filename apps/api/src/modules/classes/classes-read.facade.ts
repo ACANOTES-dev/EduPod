@@ -410,6 +410,26 @@ export class ClassesReadFacade {
   }
 
   /**
+   * Find all active academic classes for an academic year, with the year_group_id
+   * needed to look up pool competencies. Used by scheduling prerequisites to
+   * verify every `(class, subject)` has a pinned or pool teacher.
+   */
+  async findActiveAcademicClassesWithYearGroup(
+    tenantId: string,
+    academicYearId: string,
+  ): Promise<Array<{ id: string; name: string; year_group_id: string | null }>> {
+    return this.prisma.class.findMany({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: academicYearId,
+        status: 'active',
+        subject: { subject_type: 'academic' },
+      },
+      select: { id: true, name: true, year_group_id: true },
+    });
+  }
+
+  /**
    * Return class IDs for a student's active enrolments.
    * Used by timetables to build a student's schedule.
    */

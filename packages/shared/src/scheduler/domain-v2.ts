@@ -87,9 +87,7 @@ function generateSupervisionVariables(
   }
 
   for (const [, slotInfo] of yardBreakSlots) {
-    const breakGroup = input.break_groups.find(
-      (bg) => bg.break_group_id === slotInfo.breakGroupId,
-    );
+    const breakGroup = input.break_groups.find((bg) => bg.break_group_id === slotInfo.breakGroupId);
     if (!breakGroup) continue;
 
     // Count how many supervisors are already pinned for this slot
@@ -131,9 +129,7 @@ function generateTeachingVariables(
   const singleVars: CSPVariableV2[] = [];
 
   for (const curriculum of input.curriculum) {
-    const yg = input.year_groups.find(
-      (y) => y.year_group_id === curriculum.year_group_id,
-    );
+    const yg = input.year_groups.find((y) => y.year_group_id === curriculum.year_group_id);
     if (!yg) continue;
 
     for (const section of yg.sections) {
@@ -270,15 +266,9 @@ export function generateInitialDomainsV2(
     const key = variableKeyV2(variable);
 
     if (variable.type === 'supervision') {
-      domains.set(
-        key,
-        generateSupervisionDomain(input, variable, pinnedAssignments),
-      );
+      domains.set(key, generateSupervisionDomain(input, variable, pinnedAssignments));
     } else {
-      domains.set(
-        key,
-        generateTeachingDomain(input, variable, pinnedAssignments),
-      );
+      domains.set(key, generateTeachingDomain(input, variable, pinnedAssignments));
     }
   }
 
@@ -338,9 +328,7 @@ function generateSupervisionDomain(
 
     // Check availability at break time
     if (teacher.availability.length > 0) {
-      const dayAvail = teacher.availability.filter(
-        (a) => a.weekday === weekday,
-      );
+      const dayAvail = teacher.availability.filter((a) => a.weekday === weekday);
       if (dayAvail.length === 0) continue;
 
       const covered = dayAvail.some(
@@ -352,8 +340,7 @@ function generateSupervisionDomain(
     // Check weekly supervision cap (preliminary — not counting current search state)
     if (teacher.max_supervision_duties_per_week !== null) {
       const currentDuties = pinnedAssignments.filter(
-        (a) =>
-          a.teacher_staff_id === teacher.staff_profile_id && a.is_supervision,
+        (a) => a.teacher_staff_id === teacher.staff_profile_id && a.is_supervision,
       ).length;
       if (currentDuties >= teacher.max_supervision_duties_per_week) continue;
     }
@@ -380,15 +367,11 @@ function generateTeachingDomain(
 ): DomainValueV2[] {
   const domain: DomainValueV2[] = [];
 
-  const yg = input.year_groups.find(
-    (y) => y.year_group_id === variable.year_group_id,
-  );
+  const yg = input.year_groups.find((y) => y.year_group_id === variable.year_group_id);
   if (!yg) return domain;
 
   // Get teaching slots from this year group's period grid
-  const teachingSlots = yg.period_grid.filter(
-    (p) => p.period_type === 'teaching',
-  );
+  const teachingSlots = yg.period_grid.filter((p) => p.period_type === 'teaching');
 
   // Build set of pinned slot keys for this class to skip
   const pinnedSlotKeys = new Set(
@@ -397,18 +380,17 @@ function generateTeachingDomain(
       .map((a) => `${a.weekday}:${a.period_order}`),
   );
 
-  // Find eligible teachers (those with competency for this subject+year_group)
+  // Find eligible teachers: pin-first for this class, then pool fallback.
   const eligibleTeachers = getEligibleTeachers(
     input,
     variable.subject_id,
     variable.year_group_id,
+    variable.class_id,
   );
 
   // Find eligible rooms
   const curriculum = input.curriculum.find(
-    (c) =>
-      c.year_group_id === variable.year_group_id &&
-      c.subject_id === variable.subject_id,
+    (c) => c.year_group_id === variable.year_group_id && c.subject_id === variable.subject_id,
   );
   const requiredRoomType = curriculum?.required_room_type ?? null;
   const roomCandidates = getRoomCandidates(requiredRoomType, input);
@@ -418,11 +400,7 @@ function generateTeachingDomain(
     if (pinnedSlotKeys.has(`${slot.weekday}:${slot.period_order}`)) continue;
 
     // Determine effective availability window (including adjacent classroom breaks)
-    const adjacentBreaks = findAdjacentBreaks(
-      yg.period_grid,
-      slot.weekday,
-      slot.period_order,
-    );
+    const adjacentBreaks = findAdjacentBreaks(yg.period_grid, slot.weekday, slot.period_order);
     let effectiveStart = slot.start_time;
     let effectiveEnd = slot.end_time;
     for (const ab of adjacentBreaks) {
@@ -437,14 +415,10 @@ function generateTeachingDomain(
     for (const teacher of eligibleTeachers) {
       // Check teacher availability for the effective time range
       if (teacher.availability.length > 0) {
-        const dayAvail = teacher.availability.filter(
-          (a) => a.weekday === slot.weekday,
-        );
+        const dayAvail = teacher.availability.filter((a) => a.weekday === slot.weekday);
         if (dayAvail.length === 0) continue;
 
-        const covered = dayAvail.some(
-          (a) => a.from <= effectiveStart && a.to >= effectiveEnd,
-        );
+        const covered = dayAvail.some((a) => a.from <= effectiveStart && a.to >= effectiveEnd);
         if (!covered) continue;
       }
 
@@ -476,18 +450,116 @@ function generateTeachingDomain(
 }
 
 /**
- * Get teachers who have a competency entry for the given subject+year_group.
+ * Outcome of resolving candidate teachers for a `(class, subject)` variable.
+ *
+ * - `pinned` — exactly one teacher is pinned to this class for this subject.
+ *   The solver fixes teacher and only searches for time + room.
+ * - `pool` — no pin exists; the pool of year-group-level candidates is used.
+ * - `missing` — neither a pin nor any pool entry covers this `(class, subject)`.
+ *   The prerequisite check should reject generation; in-solver this yields
+ *   an empty domain and surfaces as unassigned.
+ */
+export type TeacherAssignmentResolution =
+  | { mode: 'pinned'; teacher_id: string }
+  | { mode: 'pool'; teacher_ids: string[] }
+  | { mode: 'missing' };
+
+/**
+ * Resolve the teacher candidates for a `(class, subject)` curriculum variable.
+ *
+ * Two-step lookup:
+ *   1. Look for a pin — a competency whose `class_id` matches the target class.
+ *      If one exists, that teacher is fixed.
+ *   2. Otherwise, look for pool entries — competencies with `class_id === null`
+ *      for the same `(year_group, subject)`. Every matching teacher is a candidate.
+ *   3. If neither, return `missing`.
+ *
+ * If multiple pins somehow exist for the same `(class, subject)` (shouldn't
+ * happen given the unique index, but defend anyway), the first match wins and
+ * the others are ignored.
+ */
+export function resolveTeacherCandidates(
+  teachers: TeacherInputV2[],
+  classId: string,
+  yearGroupId: string,
+  subjectId: string,
+): TeacherAssignmentResolution {
+  for (const t of teachers) {
+    const pin = t.competencies.find(
+      (c) =>
+        c.class_id === classId && c.subject_id === subjectId && c.year_group_id === yearGroupId,
+    );
+    if (pin) {
+      return { mode: 'pinned', teacher_id: t.staff_profile_id };
+    }
+  }
+
+  const poolIds: string[] = [];
+  for (const t of teachers) {
+    const poolEntry = t.competencies.find(
+      (c) => c.class_id === null && c.subject_id === subjectId && c.year_group_id === yearGroupId,
+    );
+    if (poolEntry) poolIds.push(t.staff_profile_id);
+  }
+
+  if (poolIds.length > 0) {
+    return { mode: 'pool', teacher_ids: poolIds };
+  }
+
+  return { mode: 'missing' };
+}
+
+/**
+ * Lightweight wrapper around `resolveTeacherCandidates` that just reports the
+ * assignment mode. Useful for prerequisite checks and diagnostics that don't
+ * need the teacher IDs.
+ */
+export function getTeacherAssignmentMode(
+  teachers: TeacherInputV2[],
+  classId: string,
+  yearGroupId: string,
+  subjectId: string,
+): TeacherAssignmentResolution['mode'] {
+  return resolveTeacherCandidates(teachers, classId, yearGroupId, subjectId).mode;
+}
+
+/**
+ * Get teachers eligible to teach a variable's `(class, subject)`.
+ *
+ * Applies the pin-first, pool-fallback resolution from
+ * `resolveTeacherCandidates` and returns the matching teacher records. For
+ * supervision variables (no subject), all teachers are returned — competency
+ * is not required for yard supervision.
+ *
+ * For teaching variables without a class_id (should not happen in v2), the
+ * caller gets the union of pool candidates across all matching year-group
+ * entries — safe fallback behaviour.
  */
 function getEligibleTeachers(
   input: SolverInputV2,
   subjectId: string | null,
   yearGroupId: string,
+  classId: string | null,
 ): TeacherInputV2[] {
   if (subjectId === null) return input.teachers;
 
+  if (classId !== null) {
+    const resolution = resolveTeacherCandidates(input.teachers, classId, yearGroupId, subjectId);
+    if (resolution.mode === 'pinned') {
+      const pinned = input.teachers.find((t) => t.staff_profile_id === resolution.teacher_id);
+      return pinned ? [pinned] : [];
+    }
+    if (resolution.mode === 'pool') {
+      const ids = new Set(resolution.teacher_ids);
+      return input.teachers.filter((t) => ids.has(t.staff_profile_id));
+    }
+    return [];
+  }
+
+  // Defensive fallback: no class_id on the variable — treat as pool-only match.
   return input.teachers.filter((t) =>
     t.competencies.some(
-      (c) => c.subject_id === subjectId && c.year_group_id === yearGroupId,
+      (c) => c.class_id === null && c.subject_id === subjectId && c.year_group_id === yearGroupId,
     ),
   );
 }
@@ -497,26 +569,17 @@ function getEligibleTeachers(
  * If no room type required, returns all rooms.
  * Also filters out rooms with active closures.
  */
-function getRoomCandidates(
-  requiredRoomType: string | null,
-  input: SolverInputV2,
-): string[] {
+function getRoomCandidates(requiredRoomType: string | null, input: SolverInputV2): string[] {
   // Filter out rooms with closures
-  const closedRoomIds = new Set(
-    input.room_closures.map((rc) => rc.room_id),
-  );
+  const closedRoomIds = new Set(input.room_closures.map((rc) => rc.room_id));
 
-  const availableRooms = input.rooms.filter(
-    (r) => !closedRoomIds.has(r.room_id),
-  );
+  const availableRooms = input.rooms.filter((r) => !closedRoomIds.has(r.room_id));
 
   if (requiredRoomType === null) {
     return availableRooms.map((r) => r.room_id);
   }
 
-  return availableRooms
-    .filter((r) => r.room_type === requiredRoomType)
-    .map((r) => r.room_id);
+  return availableRooms.filter((r) => r.room_type === requiredRoomType).map((r) => r.room_id);
 }
 
 // ─── Forward Checking ───────────────────────────────────────────────────────
@@ -537,9 +600,7 @@ export function forwardCheckV2(
     if (!domain) continue;
 
     const filtered = domain.filter(
-      (value) =>
-        checkHardConstraintsV2(input, currentAssignments, variable, value) ===
-        null,
+      (value) => checkHardConstraintsV2(input, currentAssignments, variable, value) === null,
     );
 
     domains.set(key, filtered);

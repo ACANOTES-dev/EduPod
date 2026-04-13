@@ -20,11 +20,14 @@ describe('SchedulingPrerequisitesService', () => {
   const mockSchedulingReadFacade = {
     countTeachingPeriods: jest.fn().mockResolvedValue(0),
     countClassRequirements: jest.fn().mockResolvedValue(0),
+    findCurriculumForCoverageCheck: jest.fn().mockResolvedValue([]),
+    findCompetencyPinsAndPool: jest.fn().mockResolvedValue([]),
   };
 
   const mockClassesReadFacade = {
     countByAcademicYear: jest.fn().mockResolvedValue(0),
     findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
+    findActiveAcademicClassesWithYearGroup: jest.fn().mockResolvedValue([]),
   };
 
   const mockSchedulesReadFacade = {
@@ -55,8 +58,11 @@ describe('SchedulingPrerequisitesService', () => {
     jest.clearAllMocks();
     mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(0);
     mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(0);
+    mockSchedulingReadFacade.findCurriculumForCoverageCheck.mockResolvedValue([]);
+    mockSchedulingReadFacade.findCompetencyPinsAndPool.mockResolvedValue([]);
     mockClassesReadFacade.countByAcademicYear.mockResolvedValue(0);
     mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+    mockClassesReadFacade.findActiveAcademicClassesWithYearGroup.mockResolvedValue([]);
     mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
     mockStaffAvailabilityReadFacade.findByStaffIds.mockResolvedValue([]);
   });
@@ -80,7 +86,7 @@ describe('SchedulingPrerequisitesService', () => {
       const result = await service.check(TENANT_ID, AY_ID);
 
       expect(result.ready).toBe(true);
-      expect(result.checks).toHaveLength(5);
+      expect(result.checks).toHaveLength(6);
       expect(result.checks.every((c) => c.passed)).toBe(true);
     });
   });
@@ -143,6 +149,72 @@ describe('SchedulingPrerequisitesService', () => {
       const configCheck = result.checks.find((c) => c.key === 'all_classes_configured');
       expect(configCheck?.passed).toBe(false);
       expect(configCheck?.message).toContain('2 of 5');
+    });
+  });
+
+  // ─── Per-class, per-subject teacher coverage ─────────────────────────────
+
+  describe('check (every_class_subject_has_teacher)', () => {
+    it('pool covers Year 2 English → both 2A and 2B pass', async () => {
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
+
+      mockSchedulingReadFacade.findCurriculumForCoverageCheck.mockResolvedValue([
+        { subject_id: 'sub-eng', year_group_id: 'yg-2', subject_name: 'English' },
+      ]);
+      mockClassesReadFacade.findActiveAcademicClassesWithYearGroup.mockResolvedValue([
+        { id: 'cls-2a', name: '2A', year_group_id: 'yg-2' },
+        { id: 'cls-2b', name: '2B', year_group_id: 'yg-2' },
+      ]);
+      mockSchedulingReadFacade.findCompetencyPinsAndPool.mockResolvedValue([
+        { subject_id: 'sub-eng', year_group_id: 'yg-2', class_id: null },
+      ]);
+
+      const result = await service.check(TENANT_ID, AY_ID);
+
+      const coverageCheck = result.checks.find((c) => c.key === 'every_class_subject_has_teacher');
+      expect(coverageCheck?.passed).toBe(true);
+      expect(coverageCheck?.message).toContain('at least one pinned or pool teacher');
+    });
+
+    it('class-level competency on 2A but neither pin nor pool on 2B → fails with 2B in details', async () => {
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
+
+      mockSchedulingReadFacade.findCurriculumForCoverageCheck.mockResolvedValue([
+        { subject_id: 'sub-eng', year_group_id: 'yg-2', subject_name: 'English' },
+      ]);
+      mockClassesReadFacade.findActiveAcademicClassesWithYearGroup.mockResolvedValue([
+        { id: 'cls-2a', name: '2A', year_group_id: 'yg-2' },
+        { id: 'cls-2b', name: '2B', year_group_id: 'yg-2' },
+      ]);
+      // Only 2A has a pin; no pool entry exists — 2B is uncovered.
+      mockSchedulingReadFacade.findCompetencyPinsAndPool.mockResolvedValue([
+        { subject_id: 'sub-eng', year_group_id: 'yg-2', class_id: 'cls-2a' },
+      ]);
+
+      const result = await service.check(TENANT_ID, AY_ID);
+
+      expect(result.ready).toBe(false);
+      const coverageCheck = result.checks.find((c) => c.key === 'every_class_subject_has_teacher');
+      expect(coverageCheck?.passed).toBe(false);
+      expect(coverageCheck?.message).toContain('1 class/subject');
+      expect(coverageCheck?.details).toEqual({
+        uncovered: [
+          {
+            class_id: 'cls-2b',
+            class_name: '2B',
+            subject_id: 'sub-eng',
+            subject_name: 'English',
+          },
+        ],
+      });
     });
   });
 
@@ -289,7 +361,7 @@ describe('SchedulingPrerequisitesService', () => {
   // ─── Result structure ─────────────────────────────────────────────────────
 
   describe('check (result structure)', () => {
-    it('should always return 5 checks', async () => {
+    it('should always return 6 checks', async () => {
       mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
       mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
       mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
@@ -298,11 +370,12 @@ describe('SchedulingPrerequisitesService', () => {
 
       const result = await service.check(TENANT_ID, AY_ID);
 
-      expect(result.checks).toHaveLength(5);
+      expect(result.checks).toHaveLength(6);
       const keys = result.checks.map((c) => c.key);
       expect(keys).toContain('period_grid_exists');
       expect(keys).toContain('all_classes_configured');
       expect(keys).toContain('all_classes_have_teachers');
+      expect(keys).toContain('every_class_subject_has_teacher');
       expect(keys).toContain('no_pinned_conflicts');
       expect(keys).toContain('no_pinned_availability_violations');
     });

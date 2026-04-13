@@ -25,8 +25,8 @@
 | #   | Stage                                    | Status     | Owner (session/date) | Notes                                      |
 | --- | ---------------------------------------- | ---------- | -------------------- | ------------------------------------------ |
 | 1   | Schema migration + cover-teacher removal | `complete` | Claude / 2026-04-13  | Migration live on prod; commit `3893bec7`. |
-| 2   | Solver core updates                      | `pending`  | —                    | Unblocked by Stage 1.                      |
-| 3   | API surface updates                      | `pending`  | —                    | Blocked by Stage 2                         |
+| 2   | Solver core updates                      | `complete` | Claude / 2026-04-14  | Pin/pool model live in solver on prod.     |
+| 3   | API surface updates                      | `pending`  | —                    | Unblocked by Stage 2                       |
 | 4   | Competencies page UI rebuild             | `pending`  | —                    | Blocked by Stage 3                         |
 | 5   | Seed NHQS data                           | `pending`  | —                    | Blocked by Stage 4                         |
 | 6   | Generate end-to-end on NHQS              | `pending`  | —                    | Blocked by Stage 5                         |
@@ -135,7 +135,67 @@ Each stage appends its own entry here when finished. Use this template exactly:
 
 ### Stage 2 — Solver core updates
 
-_Pending — will be populated when Stage 2 completes._
+**Completed:** 2026-04-14
+**Local commit(s):** (see commit immediately preceding this log entry) `refactor(scheduling): teach solver pin/pool and rewire prereqs`
+**Deployed to production:** yes — 2026-04-14. Shared scheduler sources, `apps/api/src/modules/scheduling-runs/**`, the scheduler-orchestration service, the scheduling-read facade, and the classes-read facade rsynced to `/opt/edupod/app/`. `@school/api` and `@school/worker` rebuilt under the `edupod` user; `pm2 restart api worker` left both processes online and printing `Nest application successfully started`.
+
+**What was delivered:**
+
+- `TeacherCompetencyEntry` on the solver-input type now carries `class_id: string | null` in place of the dropped `is_primary: boolean`. `class_id === null` is a pool entry; `class_id !== null` is a pin.
+- New `resolveTeacherCandidates(teachers, classId, yearGroupId, subjectId)` helper in `domain-v2.ts` implements the pin-first, pool-fallback lookup and returns a discriminated union `{ mode: 'pinned' | 'pool' | 'missing' }`. A thin `getTeacherAssignmentMode` wrapper returns just the mode. Both are re-exported from `packages/shared/src/scheduler/index.ts` alongside the `TeacherAssignmentResolution` type.
+- `getEligibleTeachers` in `domain-v2.ts` now takes a `classId` argument and routes through `resolveTeacherCandidates`: pins produce a singleton domain (teacher fixed, solver picks only time + room), pool entries produce the pool domain, missing cases produce an empty domain that surfaces as unassigned.
+- `scoreValueV2` in `solver-v2.ts` had its `+50 primary bonus / –15 backup penalty` block deleted — the pin/pool grain makes the signal obsolete. A replacement comment documents why.
+- `diagnoseUnassigned` in `solver-v2.ts` now uses `resolveTeacherCandidates` to emit a specific `No pinned or pool teacher for class=… subject=… year_group=…` message for the missing case.
+- Scheduling-prerequisites: new `every_class_subject_has_teacher` check (key `3b`). For every `(class, subject)` in the curriculum it asserts a pin OR pool competency exists, and returns the uncovered set in `details.uncovered` for the UI.
+- Orchestration: `scheduler-orchestration.service.ts` now maps `class_id` from each `teacherCompetency` row into the solver input, dropping the hardcoded `is_primary: false`.
+- `scheduling-read.facade.ts` gains two prereq-oriented methods (`findCurriculumForCoverageCheck`, `findCompetencyPinsAndPool`); `classes-read.facade.ts` gains `findActiveAcademicClassesWithYearGroup`. The cross-module `prisma.class` query was moved off `SchedulingReadFacade` to honour the `no-cross-module-prisma-access` lint rule.
+
+**Files changed (high level):**
+
+- `packages/shared/src/scheduler/types-v2.ts` — `is_primary` → `class_id`.
+- `packages/shared/src/scheduler/domain-v2.ts` — new `resolveTeacherCandidates` + `getTeacherAssignmentMode`, `getEligibleTeachers` rewired.
+- `packages/shared/src/scheduler/solver-v2.ts` — scoring + diagnosis updated.
+- `packages/shared/src/scheduler/index.ts` — new exports.
+- `packages/shared/src/scheduler/__tests__/fixtures/multi-year-school.ts` + `stress-test.test.ts` — fixtures flipped from `is_primary` to `class_id: null` (pool).
+- `packages/shared/src/scheduler/__tests__/pin-pool-resolution.test.ts` (new) — 10 tests covering the pin-only, pool-only, mixed, missing, helper, and preference-max cases.
+- `apps/api/src/modules/scheduling-runs/scheduling-prerequisites.service.{ts,spec.ts}` — new per-class coverage check + tests.
+- `apps/api/src/modules/scheduling/scheduler-orchestration.service.{ts,spec.ts}` — `class_id` threaded through; spec assertion updated to expect `class_id: null` on the pool fixture.
+- `apps/api/src/modules/scheduling/scheduling-read.facade.ts` — new `findCurriculumForCoverageCheck` + `findCompetencyPinsAndPool`.
+- `apps/api/src/modules/classes/classes-read.facade.ts` — new `findActiveAcademicClassesWithYearGroup`.
+
+**Migrations / schema changes:**
+
+- None. Stage 1 delivered the underlying `class_id` column; Stage 2 only reshapes code around it.
+
+**Tests added / updated:**
+
+- unit (shared scheduler): 10 new tests in `pin-pool-resolution.test.ts`; 2 fixture files updated for shape. All 901 shared tests green.
+- unit (api scheduling): `scheduling-prerequisites.service.spec.ts` gains 2 new tests (pool-covers success, pin-only-2A failure) + header-count bump to 6 checks; `scheduler-orchestration.service.spec.ts` assertion updated. All 677 API scheduling tests green across 34 suites.
+- integration: none added (stage is server-only per the stage doc).
+- Playwright: **skipped**, explicitly allowed by the stage doc — no user-visible change yet. The competencies UI still reads the pre-Stage-3 shape.
+- coverage delta: not measured; thresholds untouched.
+
+**Verification evidence:**
+
+- `pnpm --filter @school/shared type-check` clean; worker type-check clean; api type-check clean in every scheduling file (`grep -E "scheduling|scheduler"` over tsc output returned zero hits — the remaining pre-existing errors are in admissions, communications, and report-cards files that were already dirty on `main`).
+- `pnpm --filter @school/api lint` → 0 errors, 897 pre-existing warnings.
+- DI smoke test (CLAUDE.md snippet) → `DI OK`.
+- Post-deploy: `sudo -u edupod pm2 logs api --lines 200 --nostream` prints every scheduling route mapping (`/api/v1/scheduling-runs/prerequisites GET`, etc.) followed by `Nest application successfully started` with zero DI failures. Worker equivalent log shows `Registered repeatable cron: …` for every BullMQ cron and then `Nest application successfully started`.
+- `curl https://nhqs.edupod.app/api/v1/scheduling-runs/prerequisites?academic_year_id=…` returns HTTP 401 with `{"error":{"code":"UNAUTHORIZED","message":"Missing authentication token"}}` — the auth guard fires before the handler, confirming the route is wired and the module composed cleanly.
+
+**Surprises / decisions / deviations from the plan:**
+
+- The stage doc placed the per-class coverage check in `scheduling-prerequisites.service.ts`, but the existing "every curriculum entry has at least one eligible teacher" check actually lived in `scheduler-orchestration.service.ts#checkPrerequisites` (year-group-grained, `subject_id:year_group_id` key-set). The stage-2 change landed the per-class check in the prereq service as directed; the older orchestration check is left untouched so Stage 3 can retire it when it reshapes the API surface. Flagged so Stage 3 doesn't forget to remove the redundancy.
+- First attempt to put the new helper on `SchedulingReadFacade` tripped the repo's `no-cross-module-prisma-access` lint rule (the facade can't reach into the `classes`-owned `Class` model). Refactored into: curriculum + competency queries on `SchedulingReadFacade`, classes query on a new `ClassesReadFacade.findActiveAcademicClassesWithYearGroup` method, and the join/diff computed in `SchedulingPrerequisitesService`.
+- Rsync first pass picked up `scheduling-runs.service.ts` and `scheduling-runs.module.ts` as "changed" because of mtime drift; content hashes were equal. No functional effect, but noted so Stage 3 knows not to be surprised.
+- Worker rebuild failed once with `EACCES: permission denied, rmdir '/opt/edupod/app/apps/worker/dist/apps'`. Root-owned leftover dist from an earlier root-run build. Fixed with `chown -R edupod:edupod /opt/edupod/app/apps/worker` and rebuilt cleanly. Future stages that touch the worker should run chown proactively.
+- SSH setup: my session's ssh-agent was empty. Unblocked with `ssh-add --apple-use-keychain ~/.ssh/id_ed25519` — the key's passphrase lives in the macOS Keychain under the identity `edupod-hetzner`. Worth documenting for future stages.
+
+**Known follow-ups / debt created:**
+
+- Stage 3 should delete `scheduler-orchestration.service.ts#checkPrerequisites`'s per-year-group competency check (now redundant with the new per-class check in `SchedulingPrerequisitesService`). The rest of `checkPrerequisites` (yearGroupsWithClasses, period grid, curriculum, pinned-entry conflicts) can stay or move as Stage 3 prefers.
+- `scheduling-read.facade.ts#findTeacherCompetencies` still returns a hardcoded `is_primary: false` on each row for legacy consumers (substitution, ai-substitution, teaching-allocations). Stage 3 owns the API surface rework; Stage 7 handles substitution; Stage 8 handles teaching-allocations. The `TeacherCompetencyRow.is_primary` field should be removed from this interface in whichever of those stages finishes last.
+- Stress-test fixture helper `competenciesForYears` kept its `_primaryYears` parameter (prefixed with underscore) to avoid a 100-line call-site diff. Stage 3 or 4 should prune the argument along with other competency-DTO reshaping.
 
 ### Stage 3 — API surface updates
 
@@ -169,3 +229,4 @@ Keep a short chronological record of significant orchestration events (not per-s
 
 - **Orchestration package created** — 2026-04-13. Eight-stage plan written. All stages `pending`. Context: following a wiring-bug fix (commit `f878053f`) that made `POST /v1/scheduling-runs` enqueue `scheduling:solve-v2`; that fix is already live on prod and is a prerequisite for the rest of this work but is **not** itself one of the eight stages.
 - **Stage 1 completed** — 2026-04-13. Schema migration + cover-teacher removal live on prod (commit `3893bec7`). Stage 2 (solver core) is now unblocked.
+- **Stage 2 completed** — 2026-04-14. Solver + prereq service now understand the pin/pool model; `is_primary` scoring removed from the solver. Deployed to prod; api and worker restarted clean. Stage 3 (API surface updates) is now unblocked.

@@ -83,6 +83,69 @@ export class SchedulingPrerequisitesService {
           : undefined,
     });
 
+    // ── 3b. Every (class, subject) in curriculum has a pin or pool teacher ──
+    //
+    // Post-Stage-2 of the scheduler rebuild the solver expects per-class
+    // coverage: each class section must have either a pinned competency
+    // (class_id === class.id) or at least one pool entry (class_id IS NULL)
+    // for every subject in its year group's curriculum. This surfaces the
+    // exact (class, subject) gap so the UI can direct the user.
+
+    const [curriculumForCoverage, academicClasses, pinPoolCompetencies] = await Promise.all([
+      this.schedulingReadFacade.findCurriculumForCoverageCheck(tenantId, academicYearId),
+      this.classesReadFacade.findActiveAcademicClassesWithYearGroup(tenantId, academicYearId),
+      this.schedulingReadFacade.findCompetencyPinsAndPool(tenantId, academicYearId),
+    ]);
+
+    const uncoveredClassSubjects: Array<{
+      class_id: string;
+      class_name: string;
+      subject_id: string;
+      subject_name: string;
+    }> = [];
+
+    for (const cls of academicClasses) {
+      if (!cls.year_group_id) continue;
+      const ygCurriculum = curriculumForCoverage.filter(
+        (c) => c.year_group_id === cls.year_group_id,
+      );
+      for (const curr of ygCurriculum) {
+        const hasPin = pinPoolCompetencies.some(
+          (pc) =>
+            pc.class_id === cls.id &&
+            pc.subject_id === curr.subject_id &&
+            pc.year_group_id === curr.year_group_id,
+        );
+        if (hasPin) continue;
+
+        const hasPool = pinPoolCompetencies.some(
+          (pc) =>
+            pc.class_id === null &&
+            pc.subject_id === curr.subject_id &&
+            pc.year_group_id === curr.year_group_id,
+        );
+        if (!hasPool) {
+          uncoveredClassSubjects.push({
+            class_id: cls.id,
+            class_name: cls.name,
+            subject_id: curr.subject_id,
+            subject_name: curr.subject_name,
+          });
+        }
+      }
+    }
+
+    checks.push({
+      key: 'every_class_subject_has_teacher',
+      passed: uncoveredClassSubjects.length === 0,
+      message:
+        uncoveredClassSubjects.length === 0
+          ? 'Every class and subject combination has at least one pinned or pool teacher'
+          : `${uncoveredClassSubjects.length} class/subject combinations have no pinned or pool teacher`,
+      details:
+        uncoveredClassSubjects.length > 0 ? { uncovered: uncoveredClassSubjects } : undefined,
+    });
+
     // ── 4. No pinned entry conflicts (teacher/room double-booking) ───────────
 
     const pinnedRows = await this.schedulesReadFacade.findPinnedEntries(tenantId, academicYearId);

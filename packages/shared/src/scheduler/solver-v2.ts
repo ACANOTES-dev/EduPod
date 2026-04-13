@@ -5,6 +5,7 @@ import {
   forwardCheckV2,
   variableKeyV2,
   cloneDomainsV2,
+  resolveTeacherCandidates,
 } from './domain-v2';
 import type {
   SolverInputV2,
@@ -45,9 +46,7 @@ function mulberry32(seed: number): () => number {
 /**
  * Convert pinned entries to SolverAssignmentV2 objects.
  */
-function pinnedEntriesToAssignments(
-  input: SolverInputV2,
-): SolverAssignmentV2[] {
+function pinnedEntriesToAssignments(input: SolverInputV2): SolverAssignmentV2[] {
   const assignments: SolverAssignmentV2[] = [];
 
   for (const pinned of input.pinned_entries) {
@@ -58,14 +57,11 @@ function pinnedEntriesToAssignments(
     // Find the slot details from the year group's period grid
     const yg = input.year_groups.find((y) => y.year_group_id === yearGroupId);
     const slot = yg?.period_grid.find(
-      (p) =>
-        p.weekday === pinned.weekday &&
-        p.period_order === pinned.period_order,
+      (p) => p.weekday === pinned.weekday && p.period_order === pinned.period_order,
     );
 
     const isSupervision =
-      slot?.period_type === 'break_supervision' ||
-      slot?.period_type === 'lunch_duty';
+      slot?.period_type === 'break_supervision' || slot?.period_type === 'lunch_duty';
 
     assignments.push({
       class_id: pinned.class_id,
@@ -90,10 +86,7 @@ function pinnedEntriesToAssignments(
 /**
  * Find the year group ID for a class based on the year group sections.
  */
-function findYearGroupForClass(
-  input: SolverInputV2,
-  classId: string,
-): string | null {
+function findYearGroupForClass(input: SolverInputV2, classId: string): string | null {
   for (const yg of input.year_groups) {
     for (const section of yg.sections) {
       if (section.class_id === classId) {
@@ -114,13 +107,9 @@ function buildAssignment(
   value: DomainValueV2,
   input: SolverInputV2,
 ): SolverAssignmentV2 {
-  const yg = input.year_groups.find(
-    (y) => y.year_group_id === variable.year_group_id,
-  );
+  const yg = input.year_groups.find((y) => y.year_group_id === variable.year_group_id);
   const slot = yg?.period_grid.find(
-    (p) =>
-      p.weekday === value.weekday &&
-      p.period_order === value.period_order,
+    (p) => p.weekday === value.weekday && p.period_order === value.period_order,
   );
 
   return {
@@ -221,26 +210,14 @@ function scoreValueV2(
   assignments: SolverAssignmentV2[],
 ): number {
   let score = 0;
-  const teacher = input.teachers.find(
-    (t) => t.staff_profile_id === value.teacher_staff_id,
-  );
+  const teacher = input.teachers.find((t) => t.staff_profile_id === value.teacher_staff_id);
   if (!teacher) return score;
 
-  // ── Primary teacher bonus (strong) ──
-  if (variable.subject_id !== null) {
-    const isPrimary = teacher.competencies.some(
-      (c) =>
-        c.subject_id === variable.subject_id &&
-        c.year_group_id === variable.year_group_id &&
-        c.is_primary,
-    );
-    if (isPrimary) {
-      score += 50; // Strong preference for primary teacher
-    } else {
-      // Penalty for using backup teachers — prefer primary where possible
-      score -= 15;
-    }
-  }
+  // Primary/backup tiering was removed in Stage 2 of the scheduler rebuild.
+  // The pin/pool model makes every competency a real assignment: a pin
+  // pre-selects the teacher (so only a single value lands in the domain),
+  // and a pool entry leaves section selection to the solver. There is no
+  // "preferred teacher among equals" signal left to score.
 
   // ── Load balancing: strongly penalize overloaded teachers ──
   const existingTeachingCount = assignments.filter(
@@ -259,7 +236,10 @@ function scoreValueV2(
 
   // Day load penalty: prefer teachers with fewer assignments on this day
   const dayTeachingCount = assignments.filter(
-    (a) => a.teacher_staff_id === value.teacher_staff_id && a.weekday === value.weekday && !a.is_supervision,
+    (a) =>
+      a.teacher_staff_id === value.teacher_staff_id &&
+      a.weekday === value.weekday &&
+      !a.is_supervision,
   ).length;
   score -= dayTeachingCount * 3;
 
@@ -271,9 +251,7 @@ function scoreValueV2(
   // ── Preferred room bonus ──
   if (value.room_id !== null && variable.subject_id !== null) {
     const curriculum = input.curriculum.find(
-      (c) =>
-        c.year_group_id === variable.year_group_id &&
-        c.subject_id === variable.subject_id,
+      (c) => c.year_group_id === variable.year_group_id && c.subject_id === variable.subject_id,
     );
     if (curriculum?.preferred_room_id === value.room_id) {
       score += 10;
@@ -290,15 +268,12 @@ function scoreValueV2(
       preferred?: boolean;
     };
 
-    const matchesWeekday =
-      payload.weekday === undefined || payload.weekday === value.weekday;
+    const matchesWeekday = payload.weekday === undefined || payload.weekday === value.weekday;
     const matchesPeriod =
-      payload.period_order === undefined ||
-      payload.period_order === value.period_order;
+      payload.period_order === undefined || payload.period_order === value.period_order;
 
     if (matchesWeekday && matchesPeriod) {
-      const weight =
-        pref.priority === 'high' ? 8 : pref.priority === 'medium' ? 4 : 2;
+      const weight = pref.priority === 'high' ? 8 : pref.priority === 'medium' ? 4 : 2;
       const wantsSlot = payload.preferred !== false;
       score += wantsSlot ? weight : -weight;
     }
@@ -317,27 +292,17 @@ function scoreValueV2(
 
   // ── Minimise teacher gaps ──
   const teacherDayAssignments = assignments
-    .filter(
-      (a) =>
-        a.teacher_staff_id === value.teacher_staff_id &&
-        a.weekday === value.weekday,
-    )
+    .filter((a) => a.teacher_staff_id === value.teacher_staff_id && a.weekday === value.weekday)
     .map((a) => a.period_order);
 
   if (teacherDayAssignments.length > 0) {
     const minOrder = Math.min(...teacherDayAssignments);
     const maxOrder = Math.max(...teacherDayAssignments);
 
-    if (
-      value.period_order > minOrder &&
-      value.period_order < maxOrder
-    ) {
+    if (value.period_order > minOrder && value.period_order < maxOrder) {
       const isGap = !teacherDayAssignments.includes(value.period_order);
       if (isGap) score += 3; // Filling a gap is good
-    } else if (
-      value.period_order === minOrder - 1 ||
-      value.period_order === maxOrder + 1
-    ) {
+    } else if (value.period_order === minOrder - 1 || value.period_order === maxOrder + 1) {
       score += 2; // Adjacent — no gap
     }
   }
@@ -473,9 +438,7 @@ function evaluateClassPreference(
   teacherAssignments: SolverAssignmentV2[],
 ): boolean {
   if (!payload.class_id) return false;
-  const isAssigned = teacherAssignments.some(
-    (a) => a.class_id === payload.class_id,
-  );
+  const isAssigned = teacherAssignments.some((a) => a.class_id === payload.class_id);
   const wantsAssignment = payload.preferred !== false;
   return wantsAssignment ? isAssigned : !isAssigned;
 }
@@ -493,10 +456,7 @@ function evaluateTimeSlotPreference(
     if (payload.weekday !== undefined && a.weekday !== payload.weekday) {
       return false;
     }
-    if (
-      payload.period_order !== undefined &&
-      a.period_order !== payload.period_order
-    ) {
+    if (payload.period_order !== undefined && a.period_order !== payload.period_order) {
       return false;
     }
     return true;
@@ -510,24 +470,17 @@ function evaluateTimeSlotPreference(
  * Score even spread of subjects across weekdays.
  * Returns [0, 1]: 1 = perfectly spread.
  */
-function scoreEvenSpreadV2(
-  input: SolverInputV2,
-  assignments: SolverAssignmentV2[],
-): number {
+function scoreEvenSpreadV2(input: SolverInputV2, assignments: SolverAssignmentV2[]): number {
   let totalScore = 0;
   let count = 0;
 
   for (const curriculum of input.curriculum) {
-    const yg = input.year_groups.find(
-      (y) => y.year_group_id === curriculum.year_group_id,
-    );
+    const yg = input.year_groups.find((y) => y.year_group_id === curriculum.year_group_id);
     if (!yg) continue;
 
     for (const section of yg.sections) {
       const sectionAssignments = assignments.filter(
-        (a) =>
-          a.class_id === section.class_id &&
-          a.subject_id === curriculum.subject_id,
+        (a) => a.class_id === section.class_id && a.subject_id === curriculum.subject_id,
       );
       if (sectionAssignments.length === 0) continue;
 
@@ -553,8 +506,7 @@ function computeSpreadScore(assignments: SolverAssignmentV2[]): number {
   const k = counts.length;
 
   const mean = n / k;
-  const variance =
-    counts.reduce((sum, c) => sum + Math.pow(c - mean, 2), 0) / k;
+  const variance = counts.reduce((sum, c) => sum + Math.pow(c - mean, 2), 0) / k;
 
   const maxVariance = Math.pow(n, 2);
   if (maxVariance === 0) return 1;
@@ -565,10 +517,7 @@ function computeSpreadScore(assignments: SolverAssignmentV2[]): number {
 /**
  * Score minimising teacher gaps. Returns [0, 1]: 1 = no gaps.
  */
-function scoreMinimiseGapsV2(
-  input: SolverInputV2,
-  assignments: SolverAssignmentV2[],
-): number {
+function scoreMinimiseGapsV2(input: SolverInputV2, assignments: SolverAssignmentV2[]): number {
   if (input.teachers.length === 0 || assignments.length === 0) return 1;
 
   let totalGaps = 0;
@@ -606,26 +555,19 @@ function scoreMinimiseGapsV2(
  * Score room consistency: reward using preferred room.
  * Returns [0, 1].
  */
-function scoreRoomConsistencyV2(
-  input: SolverInputV2,
-  assignments: SolverAssignmentV2[],
-): number {
+function scoreRoomConsistencyV2(input: SolverInputV2, assignments: SolverAssignmentV2[]): number {
   let total = 0;
   let satisfied = 0;
 
   for (const curriculum of input.curriculum) {
     if (curriculum.preferred_room_id === null) continue;
 
-    const yg = input.year_groups.find(
-      (y) => y.year_group_id === curriculum.year_group_id,
-    );
+    const yg = input.year_groups.find((y) => y.year_group_id === curriculum.year_group_id);
     if (!yg) continue;
 
     for (const section of yg.sections) {
       const sectionAssignments = assignments.filter(
-        (a) =>
-          a.class_id === section.class_id &&
-          a.subject_id === curriculum.subject_id,
+        (a) => a.class_id === section.class_id && a.subject_id === curriculum.subject_id,
       );
       if (sectionAssignments.length === 0) continue;
 
@@ -644,24 +586,19 @@ function scoreRoomConsistencyV2(
  * Score workload balance across teachers.
  * Returns [0, 1]: 1 = perfectly balanced.
  */
-function scoreWorkloadBalanceV2(
-  input: SolverInputV2,
-  assignments: SolverAssignmentV2[],
-): number {
+function scoreWorkloadBalanceV2(input: SolverInputV2, assignments: SolverAssignmentV2[]): number {
   if (input.teachers.length <= 1) return 1;
 
   const counts = input.teachers.map(
     (t) =>
-      assignments.filter(
-        (a) => a.teacher_staff_id === t.staff_profile_id && !a.is_supervision,
-      ).length,
+      assignments.filter((a) => a.teacher_staff_id === t.staff_profile_id && !a.is_supervision)
+        .length,
   );
 
   const mean = counts.reduce((s, c) => s + c, 0) / counts.length;
   if (mean === 0) return 1;
 
-  const variance =
-    counts.reduce((s, c) => s + Math.pow(c - mean, 2), 0) / counts.length;
+  const variance = counts.reduce((s, c) => s + Math.pow(c - mean, 2), 0) / counts.length;
   const stdDev = Math.sqrt(variance);
   const cv = stdDev / mean;
 
@@ -672,10 +609,7 @@ function scoreWorkloadBalanceV2(
  * Score break duty balance across teachers.
  * Returns [0, 1]: 1 = perfectly balanced.
  */
-function scoreBreakDutyBalanceV2(
-  input: SolverInputV2,
-  assignments: SolverAssignmentV2[],
-): number {
+function scoreBreakDutyBalanceV2(input: SolverInputV2, assignments: SolverAssignmentV2[]): number {
   const supervisionAssignments = assignments.filter((a) => a.is_supervision);
   if (supervisionAssignments.length === 0) return 1;
 
@@ -683,10 +617,7 @@ function scoreBreakDutyBalanceV2(
   const dutyCounts = new Map<string, number>();
   for (const a of supervisionAssignments) {
     if (a.teacher_staff_id) {
-      dutyCounts.set(
-        a.teacher_staff_id,
-        (dutyCounts.get(a.teacher_staff_id) ?? 0) + 1,
-      );
+      dutyCounts.set(a.teacher_staff_id, (dutyCounts.get(a.teacher_staff_id) ?? 0) + 1);
     }
   }
 
@@ -696,8 +627,7 @@ function scoreBreakDutyBalanceV2(
   const mean = counts.reduce((s, c) => s + c, 0) / counts.length;
   if (mean === 0) return 1;
 
-  const variance =
-    counts.reduce((s, c) => s + Math.pow(c - mean, 2), 0) / counts.length;
+  const variance = counts.reduce((s, c) => s + Math.pow(c - mean, 2), 0) / counts.length;
   const stdDev = Math.sqrt(variance);
   const cv = stdDev / mean;
 
@@ -718,28 +648,37 @@ function diagnoseUnassigned(
     return 'Insufficient teachers available for supervision at this time';
   }
 
-  // Check if any teacher is eligible
-  const eligibleTeachers = input.teachers.filter((t) =>
-    t.competencies.some(
-      (c) =>
-        c.subject_id === variable.subject_id &&
-        c.year_group_id === variable.year_group_id,
-    ),
-  );
+  // Check if any teacher is eligible under the pin-or-pool model.
+  // A pinned class has exactly one candidate; a pool class has the year-group
+  // pool; a class with neither signals a prerequisite failure that slipped
+  // through to the solver.
+  let eligibleTeachers: typeof input.teachers = [];
+  if (variable.subject_id !== null && variable.class_id !== null) {
+    const resolution = resolveTeacherCandidates(
+      input.teachers,
+      variable.class_id,
+      variable.year_group_id,
+      variable.subject_id,
+    );
+    if (resolution.mode === 'missing') {
+      return `No pinned or pool teacher for class=${variable.class_id} subject=${variable.subject_id} year_group=${variable.year_group_id}`;
+    }
+    const candidateIds =
+      resolution.mode === 'pinned'
+        ? new Set([resolution.teacher_id])
+        : new Set(resolution.teacher_ids);
+    eligibleTeachers = input.teachers.filter((t) => candidateIds.has(t.staff_profile_id));
+  }
 
   if (eligibleTeachers.length === 0) {
     return `No eligible teachers for subject=${variable.subject_id} in year_group=${variable.year_group_id}`;
   }
 
   // Check teaching slots available
-  const yg = input.year_groups.find(
-    (y) => y.year_group_id === variable.year_group_id,
-  );
+  const yg = input.year_groups.find((y) => y.year_group_id === variable.year_group_id);
   if (!yg) return 'Year group not found in input';
 
-  const teachingSlots = yg.period_grid.filter(
-    (p) => p.period_type === 'teaching',
-  );
+  const teachingSlots = yg.period_grid.filter((p) => p.period_type === 'teaching');
   if (teachingSlots.length === 0) {
     return 'No teaching slots available in period grid';
   }
@@ -752,13 +691,9 @@ function diagnoseUnassigned(
         allUnavailable = false;
         break;
       }
-      const dayAvail = teacher.availability.filter(
-        (a) => a.weekday === slot.weekday,
-      );
+      const dayAvail = teacher.availability.filter((a) => a.weekday === slot.weekday);
       if (dayAvail.length === 0) continue;
-      const covered = dayAvail.some(
-        (a) => a.from <= slot.start_time && a.to >= slot.end_time,
-      );
+      const covered = dayAvail.some((a) => a.from <= slot.start_time && a.to >= slot.end_time);
       if (covered) {
         allUnavailable = false;
         break;
@@ -810,10 +745,7 @@ function buildConstraintSummary(
  * For small inputs (< BACKTRACK_THRESHOLD variables), the original full
  * backtracking + forward-checking search is used for optimality.
  */
-export function solveV2(
-  input: SolverInputV2,
-  options: SolverOptionsV2 = {},
-): SolverOutputV2 {
+export function solveV2(input: SolverInputV2, options: SolverOptionsV2 = {}): SolverOutputV2 {
   const startTime = Date.now();
   const maxDuration = input.settings.max_solver_duration_seconds * 1000;
   const { onProgress, shouldCancel } = options;
@@ -857,11 +789,7 @@ export function solveV2(
   }
 
   // 5. Generate initial domains
-  const initialDomains = generateInitialDomainsV2(
-    input,
-    variables,
-    pinnedAssignments,
-  );
+  const initialDomains = generateInitialDomainsV2(input, variables, pinnedAssignments);
 
   // ── Decide strategy ──
   // For small inputs, use full backtracking for optimal results.
@@ -903,29 +831,17 @@ export function solveV2(
   }
 
   // Build unassigned list
-  const unassigned = buildUnassignedList(
-    input,
-    variables,
-    finalAssignments,
-    fullyAssigned,
-  );
+  const unassigned = buildUnassignedList(input, variables, finalAssignments, fullyAssigned);
 
   // Score the final solution
   const prefScore = scorePreferencesV2(input, finalAssignments);
 
   // Attach preference satisfaction per entry
-  const entries = attachPreferenceSatisfaction(
-    finalAssignments,
-    prefScore.per_entry_satisfaction,
-  );
+  const entries = attachPreferenceSatisfaction(finalAssignments, prefScore.per_entry_satisfaction);
 
   // Final progress callback
   if (onProgress) {
-    onProgress(
-      finalAssignments.filter((a) => !a.is_pinned).length,
-      variables.length,
-      'complete',
-    );
+    onProgress(finalAssignments.filter((a) => !a.is_pinned).length, variables.length, 'complete');
   }
 
   return {
@@ -1243,37 +1159,21 @@ function solveBacktracking(
     const key = variableKeyV2(variable);
     const domain = domains.get(key) ?? [];
 
-    const orderedValues = orderValuesV2(
-      variable,
-      domain,
-      input,
-      assignments,
-      rng,
-    );
+    const orderedValues = orderValuesV2(variable, domain, input, assignments, rng);
 
     const newRemaining = remaining.filter((v) => v.id !== variable.id);
 
     for (const value of orderedValues) {
       if (timedOut || cancelled) return null;
 
-      const violation = checkHardConstraintsV2(
-        input,
-        assignments,
-        variable,
-        value,
-      );
+      const violation = checkHardConstraintsV2(input, assignments, variable, value);
       if (violation !== null) continue;
 
       const newAssignment = buildAssignment(variable, value, input);
       const newDomains = cloneDomainsV2(domains);
       newDomains.delete(key);
 
-      const fcOk = forwardCheckV2(
-        input,
-        [...assignments, newAssignment],
-        newDomains,
-        newRemaining,
-      );
+      const fcOk = forwardCheckV2(input, [...assignments, newAssignment], newDomains, newRemaining);
 
       if (!fcOk) continue;
 
@@ -1286,11 +1186,7 @@ function solveBacktracking(
         );
       }
 
-      const result = backtrack(
-        [...assignments, newAssignment],
-        newDomains,
-        newRemaining,
-      );
+      const result = backtrack([...assignments, newAssignment], newDomains, newRemaining);
 
       if (result !== null) return result;
       assignmentCount--;
@@ -1299,11 +1195,7 @@ function solveBacktracking(
     return null;
   }
 
-  const solution = backtrack(
-    [...pinnedAssignments],
-    initialDomains,
-    variables,
-  );
+  const solution = backtrack([...pinnedAssignments], initialDomains, variables);
 
   return {
     assignments: solution ?? bestPartialAssignments,
@@ -1331,9 +1223,7 @@ function buildUnassignedList(
 
   for (const v of variables) {
     const groupKey =
-      v.type === 'supervision'
-        ? `sup:${v.break_group_id}`
-        : `teach:${v.class_id}:${v.subject_id}`;
+      v.type === 'supervision' ? `sup:${v.break_group_id}` : `teach:${v.class_id}:${v.subject_id}`;
 
     const existing = varGroups.get(groupKey) ?? [];
     existing.push(v);
@@ -1347,10 +1237,7 @@ function buildUnassignedList(
     let assignedCount: number;
     if (firstVar.type === 'supervision') {
       assignedCount = assignments.filter(
-        (a) =>
-          a.is_supervision &&
-          a.break_group_id === firstVar.break_group_id &&
-          !a.is_pinned,
+        (a) => a.is_supervision && a.break_group_id === firstVar.break_group_id && !a.is_pinned,
       ).length;
     } else {
       assignedCount = assignments.filter(
@@ -1392,8 +1279,6 @@ function attachPreferenceSatisfaction(
     ...a,
     preference_satisfaction: a.is_pinned
       ? []
-      : (perEntrySatisfaction || []).filter(
-          (sat) => sat.teacher_staff_id === a.teacher_staff_id,
-        ),
+      : (perEntrySatisfaction || []).filter((sat) => sat.teacher_staff_id === a.teacher_staff_id),
   }));
 }

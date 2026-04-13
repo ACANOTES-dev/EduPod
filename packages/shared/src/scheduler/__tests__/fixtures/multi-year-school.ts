@@ -23,12 +23,12 @@ const DAY_SLOTS: Array<{
   type: PeriodSlotV2['period_type'];
   supervisionMode: PeriodSlotV2['supervision_mode'];
 }> = [
-  { start: '08:00', end: '08:45', type: 'teaching',          supervisionMode: 'none' },           // P1 order=0
-  { start: '08:50', end: '09:35', type: 'teaching',          supervisionMode: 'none' },           // P2 order=1
+  { start: '08:00', end: '08:45', type: 'teaching', supervisionMode: 'none' }, // P1 order=0
+  { start: '08:50', end: '09:35', type: 'teaching', supervisionMode: 'none' }, // P2 order=1
   { start: '09:35', end: '09:50', type: 'break_supervision', supervisionMode: 'classroom_next' }, // Short break order=2
-  { start: '09:50', end: '10:35', type: 'teaching',          supervisionMode: 'none' },           // P3 order=3
-  { start: '10:40', end: '11:25', type: 'teaching',          supervisionMode: 'none' },           // P4 order=4
-  { start: '11:25', end: '12:05', type: 'lunch_duty',        supervisionMode: 'yard' },           // Lunch order=5
+  { start: '09:50', end: '10:35', type: 'teaching', supervisionMode: 'none' }, // P3 order=3
+  { start: '10:40', end: '11:25', type: 'teaching', supervisionMode: 'none' }, // P4 order=4
+  { start: '11:25', end: '12:05', type: 'lunch_duty', supervisionMode: 'yard' }, // Lunch order=5
 ];
 
 /**
@@ -40,19 +40,16 @@ const SHORT_FRIDAY_SLOTS: Array<{
   type: PeriodSlotV2['period_type'];
   supervisionMode: PeriodSlotV2['supervision_mode'];
 }> = [
-  { start: '08:00', end: '08:45', type: 'teaching',          supervisionMode: 'none' },
-  { start: '08:50', end: '09:35', type: 'teaching',          supervisionMode: 'none' },
+  { start: '08:00', end: '08:45', type: 'teaching', supervisionMode: 'none' },
+  { start: '08:50', end: '09:35', type: 'teaching', supervisionMode: 'none' },
   { start: '09:35', end: '09:50', type: 'break_supervision', supervisionMode: 'classroom_next' },
-  { start: '09:50', end: '10:35', type: 'teaching',          supervisionMode: 'none' },
-  { start: '10:35', end: '11:15', type: 'lunch_duty',        supervisionMode: 'yard' },
+  { start: '09:50', end: '10:35', type: 'teaching', supervisionMode: 'none' },
+  { start: '10:35', end: '11:15', type: 'lunch_duty', supervisionMode: 'yard' },
 ];
 
 // ─── Period Grid Builders ────────────────────────────────────────────────────
 
-function buildWeekGrid(
-  lunchBreakGroupId: string,
-  numDays: number,
-): PeriodSlotV2[] {
+function buildWeekGrid(lunchBreakGroupId: string, numDays: number): PeriodSlotV2[] {
   const grid: PeriodSlotV2[] = [];
   for (let weekday = 0; weekday < numDays; weekday++) {
     for (let i = 0; i < DAY_SLOTS.length; i++) {
@@ -64,8 +61,7 @@ function buildWeekGrid(
         end_time: slot.end,
         period_type: slot.type,
         supervision_mode: slot.supervisionMode,
-        break_group_id:
-          slot.type === 'lunch_duty' ? lunchBreakGroupId : null,
+        break_group_id: slot.type === 'lunch_duty' ? lunchBreakGroupId : null,
       });
     }
   }
@@ -85,8 +81,7 @@ function buildYear3Grid(lunchBreakGroupId: string): PeriodSlotV2[] {
         end_time: slot.end,
         period_type: slot.type,
         supervision_mode: slot.supervisionMode,
-        break_group_id:
-          slot.type === 'lunch_duty' ? lunchBreakGroupId : null,
+        break_group_id: slot.type === 'lunch_duty' ? lunchBreakGroupId : null,
       });
     }
   }
@@ -100,8 +95,7 @@ function buildYear3Grid(lunchBreakGroupId: string): PeriodSlotV2[] {
       end_time: slot.end,
       period_type: slot.type,
       supervision_mode: slot.supervisionMode,
-      break_group_id:
-        slot.type === 'lunch_duty' ? lunchBreakGroupId : null,
+      break_group_id: slot.type === 'lunch_duty' ? lunchBreakGroupId : null,
     });
   }
   return grid;
@@ -114,9 +108,7 @@ export function buildYearGroups(): YearGroupInput[] {
     {
       year_group_id: 'yg-1',
       year_group_name: 'Year 1',
-      sections: [
-        { class_id: 'class-y1', class_name: 'Year 1', student_count: 25 },
-      ],
+      sections: [{ class_id: 'class-y1', class_name: 'Year 1', student_count: 25 }],
       period_grid: buildWeekGrid('bg-junior', 5),
     },
     {
@@ -131,9 +123,7 @@ export function buildYearGroups(): YearGroupInput[] {
     {
       year_group_id: 'yg-3',
       year_group_name: 'Year 3',
-      sections: [
-        { class_id: 'class-y3', class_name: 'Year 3', student_count: 22 },
-      ],
+      sections: [{ class_id: 'class-y3', class_name: 'Year 3', student_count: 22 }],
       period_grid: buildYear3Grid('bg-senior'),
     },
   ];
@@ -142,10 +132,10 @@ export function buildYearGroups(): YearGroupInput[] {
 // ─── Subjects ────────────────────────────────────────────────────────────────
 
 const SUBJECTS = {
-  maths:   'subj-maths',
+  maths: 'subj-maths',
   english: 'subj-english',
   science: 'subj-science',
-  arabic:  'subj-arabic',
+  arabic: 'subj-arabic',
 } as const;
 
 // ─── Curriculum ──────────────────────────────────────────────────────────────
@@ -158,18 +148,106 @@ const SUBJECTS = {
 export function buildCurriculum(): CurriculumEntry[] {
   return [
     // ── Year 1: 8 periods ──
-    { year_group_id: 'yg-1', subject_id: SUBJECTS.maths,   subject_name: 'Maths',   min_periods_per_week: 3, max_periods_per_day: 1, preferred_periods_per_week: null, requires_double_period: false, double_period_count: null, required_room_type: null, preferred_room_id: null },
-    { year_group_id: 'yg-1', subject_id: SUBJECTS.english, subject_name: 'English',  min_periods_per_week: 3, max_periods_per_day: 1, preferred_periods_per_week: null, requires_double_period: false, double_period_count: null, required_room_type: null, preferred_room_id: null },
-    { year_group_id: 'yg-1', subject_id: SUBJECTS.science, subject_name: 'Science',  min_periods_per_week: 2, max_periods_per_day: 2, preferred_periods_per_week: null, requires_double_period: false, double_period_count: null, required_room_type: null, preferred_room_id: null },
+    {
+      year_group_id: 'yg-1',
+      subject_id: SUBJECTS.maths,
+      subject_name: 'Maths',
+      min_periods_per_week: 3,
+      max_periods_per_day: 1,
+      preferred_periods_per_week: null,
+      requires_double_period: false,
+      double_period_count: null,
+      required_room_type: null,
+      preferred_room_id: null,
+    },
+    {
+      year_group_id: 'yg-1',
+      subject_id: SUBJECTS.english,
+      subject_name: 'English',
+      min_periods_per_week: 3,
+      max_periods_per_day: 1,
+      preferred_periods_per_week: null,
+      requires_double_period: false,
+      double_period_count: null,
+      required_room_type: null,
+      preferred_room_id: null,
+    },
+    {
+      year_group_id: 'yg-1',
+      subject_id: SUBJECTS.science,
+      subject_name: 'Science',
+      min_periods_per_week: 2,
+      max_periods_per_day: 2,
+      preferred_periods_per_week: null,
+      requires_double_period: false,
+      double_period_count: null,
+      required_room_type: null,
+      preferred_room_id: null,
+    },
 
     // ── Year 2: 4 periods per section ──
-    { year_group_id: 'yg-2', subject_id: SUBJECTS.maths,   subject_name: 'Maths',   min_periods_per_week: 2, max_periods_per_day: 1, preferred_periods_per_week: null, requires_double_period: false, double_period_count: null, required_room_type: null, preferred_room_id: null },
-    { year_group_id: 'yg-2', subject_id: SUBJECTS.english, subject_name: 'English',  min_periods_per_week: 2, max_periods_per_day: 1, preferred_periods_per_week: null, requires_double_period: false, double_period_count: null, required_room_type: null, preferred_room_id: null },
+    {
+      year_group_id: 'yg-2',
+      subject_id: SUBJECTS.maths,
+      subject_name: 'Maths',
+      min_periods_per_week: 2,
+      max_periods_per_day: 1,
+      preferred_periods_per_week: null,
+      requires_double_period: false,
+      double_period_count: null,
+      required_room_type: null,
+      preferred_room_id: null,
+    },
+    {
+      year_group_id: 'yg-2',
+      subject_id: SUBJECTS.english,
+      subject_name: 'English',
+      min_periods_per_week: 2,
+      max_periods_per_day: 1,
+      preferred_periods_per_week: null,
+      requires_double_period: false,
+      double_period_count: null,
+      required_room_type: null,
+      preferred_room_id: null,
+    },
 
     // ── Year 3: 6 periods ──
-    { year_group_id: 'yg-3', subject_id: SUBJECTS.maths,   subject_name: 'Maths',   min_periods_per_week: 2, max_periods_per_day: 2, preferred_periods_per_week: null, requires_double_period: false, double_period_count: null, required_room_type: null, preferred_room_id: null },
-    { year_group_id: 'yg-3', subject_id: SUBJECTS.english, subject_name: 'English',  min_periods_per_week: 2, max_periods_per_day: 1, preferred_periods_per_week: null, requires_double_period: false, double_period_count: null, required_room_type: null, preferred_room_id: null },
-    { year_group_id: 'yg-3', subject_id: SUBJECTS.arabic,  subject_name: 'Arabic',   min_periods_per_week: 2, max_periods_per_day: 1, preferred_periods_per_week: null, requires_double_period: false, double_period_count: null, required_room_type: null, preferred_room_id: null },
+    {
+      year_group_id: 'yg-3',
+      subject_id: SUBJECTS.maths,
+      subject_name: 'Maths',
+      min_periods_per_week: 2,
+      max_periods_per_day: 2,
+      preferred_periods_per_week: null,
+      requires_double_period: false,
+      double_period_count: null,
+      required_room_type: null,
+      preferred_room_id: null,
+    },
+    {
+      year_group_id: 'yg-3',
+      subject_id: SUBJECTS.english,
+      subject_name: 'English',
+      min_periods_per_week: 2,
+      max_periods_per_day: 1,
+      preferred_periods_per_week: null,
+      requires_double_period: false,
+      double_period_count: null,
+      required_room_type: null,
+      preferred_room_id: null,
+    },
+    {
+      year_group_id: 'yg-3',
+      subject_id: SUBJECTS.arabic,
+      subject_name: 'Arabic',
+      min_periods_per_week: 2,
+      max_periods_per_day: 1,
+      preferred_periods_per_week: null,
+      requires_double_period: false,
+      double_period_count: null,
+      required_room_type: null,
+      preferred_room_id: null,
+    },
   ];
 }
 
@@ -186,9 +264,7 @@ export function buildTeachersV2(): TeacherInputV2[] {
     {
       staff_profile_id: 'teacher-1',
       name: 'Mr Adams',
-      competencies: [
-        { subject_id: SUBJECTS.maths, year_group_id: 'yg-1', is_primary: true },
-      ],
+      competencies: [{ subject_id: SUBJECTS.maths, year_group_id: 'yg-1', class_id: null }],
       availability: [],
       preferences: [],
       max_periods_per_week: null,
@@ -199,9 +275,7 @@ export function buildTeachersV2(): TeacherInputV2[] {
     {
       staff_profile_id: 'teacher-2',
       name: 'Ms Baker',
-      competencies: [
-        { subject_id: SUBJECTS.maths, year_group_id: 'yg-2', is_primary: true },
-      ],
+      competencies: [{ subject_id: SUBJECTS.maths, year_group_id: 'yg-2', class_id: null }],
       availability: [],
       preferences: [],
       max_periods_per_week: null,
@@ -213,8 +287,8 @@ export function buildTeachersV2(): TeacherInputV2[] {
       staff_profile_id: 'teacher-3',
       name: 'Mrs Clarke',
       competencies: [
-        { subject_id: SUBJECTS.english, year_group_id: 'yg-1', is_primary: true },
-        { subject_id: SUBJECTS.english, year_group_id: 'yg-2', is_primary: true },
+        { subject_id: SUBJECTS.english, year_group_id: 'yg-1', class_id: null },
+        { subject_id: SUBJECTS.english, year_group_id: 'yg-2', class_id: null },
       ],
       availability: [
         { weekday: 0, from: '07:00', to: '17:00' },
@@ -232,9 +306,7 @@ export function buildTeachersV2(): TeacherInputV2[] {
     {
       staff_profile_id: 'teacher-4',
       name: 'Dr Davis',
-      competencies: [
-        { subject_id: SUBJECTS.science, year_group_id: 'yg-1', is_primary: true },
-      ],
+      competencies: [{ subject_id: SUBJECTS.science, year_group_id: 'yg-1', class_id: null }],
       availability: [],
       preferences: [],
       max_periods_per_week: 15,
@@ -246,8 +318,8 @@ export function buildTeachersV2(): TeacherInputV2[] {
       staff_profile_id: 'teacher-5',
       name: 'Ms Farah',
       competencies: [
-        { subject_id: SUBJECTS.english, year_group_id: 'yg-3', is_primary: true },
-        { subject_id: SUBJECTS.arabic,  year_group_id: 'yg-3', is_primary: true },
+        { subject_id: SUBJECTS.english, year_group_id: 'yg-3', class_id: null },
+        { subject_id: SUBJECTS.arabic, year_group_id: 'yg-3', class_id: null },
       ],
       availability: [],
       preferences: [],
@@ -259,9 +331,7 @@ export function buildTeachersV2(): TeacherInputV2[] {
     {
       staff_profile_id: 'teacher-7',
       name: 'Mr Green',
-      competencies: [
-        { subject_id: SUBJECTS.maths, year_group_id: 'yg-3', is_primary: true },
-      ],
+      competencies: [{ subject_id: SUBJECTS.maths, year_group_id: 'yg-3', class_id: null }],
       availability: [
         { weekday: 0, from: '08:00', to: '12:00' },
         { weekday: 1, from: '08:00', to: '12:00' },
@@ -362,9 +432,33 @@ export function buildMinimalV2Input(): SolverInputV2 {
   const periodGrid: PeriodSlotV2[] = [];
   for (let weekday = 0; weekday < 3; weekday++) {
     periodGrid.push(
-      { weekday, period_order: 0, start_time: '08:00', end_time: '08:45', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 1, start_time: '08:50', end_time: '09:35', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 2, start_time: '09:40', end_time: '10:25', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
+      {
+        weekday,
+        period_order: 0,
+        start_time: '08:00',
+        end_time: '08:45',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 1,
+        start_time: '08:50',
+        end_time: '09:35',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 2,
+        start_time: '09:40',
+        end_time: '10:25',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
     );
   }
 
@@ -373,9 +467,7 @@ export function buildMinimalV2Input(): SolverInputV2 {
       {
         year_group_id: 'yg-min',
         year_group_name: 'Year Min',
-        sections: [
-          { class_id: 'class-min', class_name: 'Year Min', student_count: 20 },
-        ],
+        sections: [{ class_id: 'class-min', class_name: 'Year Min', student_count: 20 }],
         period_grid: periodGrid,
       },
     ],
@@ -410,8 +502,8 @@ export function buildMinimalV2Input(): SolverInputV2 {
         staff_profile_id: 'teacher-min-1',
         name: 'Teacher 1',
         competencies: [
-          { subject_id: 'subj-a', year_group_id: 'yg-min', is_primary: true },
-          { subject_id: 'subj-b', year_group_id: 'yg-min', is_primary: false },
+          { subject_id: 'subj-a', year_group_id: 'yg-min', class_id: null },
+          { subject_id: 'subj-b', year_group_id: 'yg-min', class_id: null },
         ],
         availability: [],
         preferences: [],
@@ -423,8 +515,8 @@ export function buildMinimalV2Input(): SolverInputV2 {
         staff_profile_id: 'teacher-min-2',
         name: 'Teacher 2',
         competencies: [
-          { subject_id: 'subj-a', year_group_id: 'yg-min', is_primary: false },
-          { subject_id: 'subj-b', year_group_id: 'yg-min', is_primary: true },
+          { subject_id: 'subj-a', year_group_id: 'yg-min', class_id: null },
+          { subject_id: 'subj-b', year_group_id: 'yg-min', class_id: null },
         ],
         availability: [],
         preferences: [],

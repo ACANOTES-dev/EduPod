@@ -30,12 +30,7 @@ export interface PeriodSlotV2 {
   period_order: number;
   start_time: string; // HH:mm
   end_time: string; // HH:mm
-  period_type:
-    | 'teaching'
-    | 'break_supervision'
-    | 'assembly'
-    | 'lunch_duty'
-    | 'free';
+  period_type: 'teaching' | 'break_supervision' | 'assembly' | 'lunch_duty' | 'free';
   supervision_mode: 'none' | 'yard' | 'classroom_previous' | 'classroom_next';
   break_group_id: string | null;
 }
@@ -54,10 +49,20 @@ export interface CurriculumEntry {
   preferred_room_id: string | null;
 }
 
+/**
+ * Teacher competency for a subject + year group.
+ *
+ * `class_id` is the pin/pool discriminator:
+ * - `class_id === null` → **pool** entry. Teacher is qualified for the subject
+ *   at the year-group level; the solver picks which section they teach.
+ * - `class_id !== null` → **pin**. Teacher is fixed to that specific class
+ *   section for the subject; the solver must honour it and only searches for
+ *   time slot + room.
+ */
 export interface TeacherCompetencyEntry {
   subject_id: string;
   year_group_id: string;
-  is_primary: boolean;
+  class_id: string | null;
 }
 
 export interface TeacherInputV2 {
@@ -257,11 +262,7 @@ export interface DomainValueV2 {
 }
 
 /** Progress callback */
-export type ProgressCallbackV2 = (
-  assigned: number,
-  total: number,
-  phase: string,
-) => void;
+export type ProgressCallbackV2 = (assigned: number, total: number, phase: string) => void;
 
 /** Cancel check callback */
 export type CancelCheckV2 = () => boolean;

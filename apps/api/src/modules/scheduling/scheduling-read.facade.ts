@@ -464,6 +464,47 @@ export class SchedulingReadFacade {
     return rows.map((r) => ({ ...r, is_primary: false }));
   }
 
+  /**
+   * Return curriculum `(year_group, subject)` entries for an academic year
+   * in the minimal shape the prerequisite check needs. Complements
+   * `findTeacherCompetencies` below for the `findUncoveredClassSubjects`
+   * helper in `SchedulingPrerequisitesService`.
+   */
+  async findCurriculumForCoverageCheck(
+    tenantId: string,
+    academicYearId: string,
+  ): Promise<Array<{ subject_id: string; year_group_id: string; subject_name: string }>> {
+    const rows = await this.prisma.curriculumRequirement.findMany({
+      where: { tenant_id: tenantId, academic_year_id: academicYearId },
+      select: {
+        subject_id: true,
+        year_group_id: true,
+        subject: { select: { name: true } },
+      },
+    });
+    return rows.map((r) => ({
+      subject_id: r.subject_id,
+      year_group_id: r.year_group_id,
+      subject_name: r.subject.name,
+    }));
+  }
+
+  /**
+   * Return teacher competency rows with the pin/pool discriminator
+   * (`class_id`). The existing `findTeacherCompetencies` hides `class_id`
+   * for backward compatibility with legacy callers; Stage 2 needs the raw
+   * pin/pool shape.
+   */
+  async findCompetencyPinsAndPool(
+    tenantId: string,
+    academicYearId: string,
+  ): Promise<Array<{ subject_id: string; year_group_id: string; class_id: string | null }>> {
+    return this.prisma.teacherCompetency.findMany({
+      where: { tenant_id: tenantId, academic_year_id: academicYearId },
+      select: { subject_id: true, year_group_id: true, class_id: true },
+    });
+  }
+
   // ─── Teacher Scheduling Configs ─────────────────────────────────────────────
 
   /**

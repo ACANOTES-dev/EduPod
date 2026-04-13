@@ -71,7 +71,9 @@ const _PERIOD_TIMES = [
 
 const _BREAK_TIME = { start: '09:05', end: '09:20' }; // order 2
 const _LUNCH_TIME = { start: '11:45', end: '12:30' }; // order 6
-void _PERIOD_TIMES; void _BREAK_TIME; void _LUNCH_TIME;
+void _PERIOD_TIMES;
+void _BREAK_TIME;
+void _LUNCH_TIME;
 
 // Days: Mon=0, Tue=1, Wed=2, Thu=3, Fri=4
 
@@ -90,24 +92,136 @@ function buildJuniorGrid(lunchBreakGroupId: string): PeriodSlotV2[] {
   // Mon-Thu
   for (let weekday = 0; weekday <= 3; weekday++) {
     grid.push(
-      { weekday, period_order: 0, start_time: '07:30', end_time: '08:15', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 1, start_time: '08:20', end_time: '09:05', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 2, start_time: '09:05', end_time: '09:20', period_type: 'break_supervision', supervision_mode: 'classroom_next', break_group_id: null },
-      { weekday, period_order: 3, start_time: '09:20', end_time: '10:05', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 4, start_time: '10:10', end_time: '10:55', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 5, start_time: '11:00', end_time: '11:45', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 6, start_time: '11:45', end_time: '12:30', period_type: 'lunch_duty', supervision_mode: 'yard', break_group_id: lunchBreakGroupId },
-      { weekday, period_order: 7, start_time: '12:30', end_time: '13:15', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
+      {
+        weekday,
+        period_order: 0,
+        start_time: '07:30',
+        end_time: '08:15',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 1,
+        start_time: '08:20',
+        end_time: '09:05',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 2,
+        start_time: '09:05',
+        end_time: '09:20',
+        period_type: 'break_supervision',
+        supervision_mode: 'classroom_next',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 3,
+        start_time: '09:20',
+        end_time: '10:05',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 4,
+        start_time: '10:10',
+        end_time: '10:55',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 5,
+        start_time: '11:00',
+        end_time: '11:45',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 6,
+        start_time: '11:45',
+        end_time: '12:30',
+        period_type: 'lunch_duty',
+        supervision_mode: 'yard',
+        break_group_id: lunchBreakGroupId,
+      },
+      {
+        weekday,
+        period_order: 7,
+        start_time: '12:30',
+        end_time: '13:15',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
     );
   }
   // Fri
   grid.push(
-    { weekday: 4, period_order: 0, start_time: '07:30', end_time: '08:15', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-    { weekday: 4, period_order: 1, start_time: '08:20', end_time: '09:05', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-    { weekday: 4, period_order: 2, start_time: '09:05', end_time: '09:20', period_type: 'break_supervision', supervision_mode: 'classroom_next', break_group_id: null },
-    { weekday: 4, period_order: 3, start_time: '09:20', end_time: '10:05', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-    { weekday: 4, period_order: 4, start_time: '10:10', end_time: '10:55', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-    { weekday: 4, period_order: 5, start_time: '11:00', end_time: '11:45', period_type: 'lunch_duty', supervision_mode: 'yard', break_group_id: lunchBreakGroupId },
+    {
+      weekday: 4,
+      period_order: 0,
+      start_time: '07:30',
+      end_time: '08:15',
+      period_type: 'teaching',
+      supervision_mode: 'none',
+      break_group_id: null,
+    },
+    {
+      weekday: 4,
+      period_order: 1,
+      start_time: '08:20',
+      end_time: '09:05',
+      period_type: 'teaching',
+      supervision_mode: 'none',
+      break_group_id: null,
+    },
+    {
+      weekday: 4,
+      period_order: 2,
+      start_time: '09:05',
+      end_time: '09:20',
+      period_type: 'break_supervision',
+      supervision_mode: 'classroom_next',
+      break_group_id: null,
+    },
+    {
+      weekday: 4,
+      period_order: 3,
+      start_time: '09:20',
+      end_time: '10:05',
+      period_type: 'teaching',
+      supervision_mode: 'none',
+      break_group_id: null,
+    },
+    {
+      weekday: 4,
+      period_order: 4,
+      start_time: '10:10',
+      end_time: '10:55',
+      period_type: 'teaching',
+      supervision_mode: 'none',
+      break_group_id: null,
+    },
+    {
+      weekday: 4,
+      period_order: 5,
+      start_time: '11:00',
+      end_time: '11:45',
+      period_type: 'lunch_duty',
+      supervision_mode: 'yard',
+      break_group_id: lunchBreakGroupId,
+    },
   );
   return grid;
 }
@@ -122,26 +236,154 @@ function buildMiddleGrid(lunchBreakGroupId: string): PeriodSlotV2[] {
   // Mon-Thu
   for (let weekday = 0; weekday <= 3; weekday++) {
     grid.push(
-      { weekday, period_order: 0, start_time: '07:30', end_time: '08:15', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 1, start_time: '08:20', end_time: '09:05', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 2, start_time: '09:05', end_time: '09:20', period_type: 'break_supervision', supervision_mode: 'classroom_next', break_group_id: null },
-      { weekday, period_order: 3, start_time: '09:20', end_time: '10:05', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 4, start_time: '10:10', end_time: '10:55', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 5, start_time: '11:00', end_time: '11:45', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 6, start_time: '11:45', end_time: '12:30', period_type: 'lunch_duty', supervision_mode: 'yard', break_group_id: lunchBreakGroupId },
-      { weekday, period_order: 7, start_time: '12:30', end_time: '13:15', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 8, start_time: '13:20', end_time: '14:05', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
+      {
+        weekday,
+        period_order: 0,
+        start_time: '07:30',
+        end_time: '08:15',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 1,
+        start_time: '08:20',
+        end_time: '09:05',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 2,
+        start_time: '09:05',
+        end_time: '09:20',
+        period_type: 'break_supervision',
+        supervision_mode: 'classroom_next',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 3,
+        start_time: '09:20',
+        end_time: '10:05',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 4,
+        start_time: '10:10',
+        end_time: '10:55',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 5,
+        start_time: '11:00',
+        end_time: '11:45',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 6,
+        start_time: '11:45',
+        end_time: '12:30',
+        period_type: 'lunch_duty',
+        supervision_mode: 'yard',
+        break_group_id: lunchBreakGroupId,
+      },
+      {
+        weekday,
+        period_order: 7,
+        start_time: '12:30',
+        end_time: '13:15',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 8,
+        start_time: '13:20',
+        end_time: '14:05',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
     );
   }
   // Fri
   grid.push(
-    { weekday: 4, period_order: 0, start_time: '07:30', end_time: '08:15', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-    { weekday: 4, period_order: 1, start_time: '08:20', end_time: '09:05', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-    { weekday: 4, period_order: 2, start_time: '09:05', end_time: '09:20', period_type: 'break_supervision', supervision_mode: 'classroom_next', break_group_id: null },
-    { weekday: 4, period_order: 3, start_time: '09:20', end_time: '10:05', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-    { weekday: 4, period_order: 4, start_time: '10:10', end_time: '10:55', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-    { weekday: 4, period_order: 5, start_time: '11:00', end_time: '11:45', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-    { weekday: 4, period_order: 6, start_time: '11:45', end_time: '12:30', period_type: 'lunch_duty', supervision_mode: 'yard', break_group_id: lunchBreakGroupId },
+    {
+      weekday: 4,
+      period_order: 0,
+      start_time: '07:30',
+      end_time: '08:15',
+      period_type: 'teaching',
+      supervision_mode: 'none',
+      break_group_id: null,
+    },
+    {
+      weekday: 4,
+      period_order: 1,
+      start_time: '08:20',
+      end_time: '09:05',
+      period_type: 'teaching',
+      supervision_mode: 'none',
+      break_group_id: null,
+    },
+    {
+      weekday: 4,
+      period_order: 2,
+      start_time: '09:05',
+      end_time: '09:20',
+      period_type: 'break_supervision',
+      supervision_mode: 'classroom_next',
+      break_group_id: null,
+    },
+    {
+      weekday: 4,
+      period_order: 3,
+      start_time: '09:20',
+      end_time: '10:05',
+      period_type: 'teaching',
+      supervision_mode: 'none',
+      break_group_id: null,
+    },
+    {
+      weekday: 4,
+      period_order: 4,
+      start_time: '10:10',
+      end_time: '10:55',
+      period_type: 'teaching',
+      supervision_mode: 'none',
+      break_group_id: null,
+    },
+    {
+      weekday: 4,
+      period_order: 5,
+      start_time: '11:00',
+      end_time: '11:45',
+      period_type: 'teaching',
+      supervision_mode: 'none',
+      break_group_id: null,
+    },
+    {
+      weekday: 4,
+      period_order: 6,
+      start_time: '11:45',
+      end_time: '12:30',
+      period_type: 'lunch_duty',
+      supervision_mode: 'yard',
+      break_group_id: lunchBreakGroupId,
+    },
   );
   return grid;
 }
@@ -154,15 +396,87 @@ function buildSeniorGrid(lunchBreakGroupId: string): PeriodSlotV2[] {
   const grid: PeriodSlotV2[] = [];
   for (let weekday = 0; weekday <= 4; weekday++) {
     grid.push(
-      { weekday, period_order: 0, start_time: '07:30', end_time: '08:15', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 1, start_time: '08:20', end_time: '09:05', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 2, start_time: '09:05', end_time: '09:20', period_type: 'break_supervision', supervision_mode: 'classroom_previous', break_group_id: null },
-      { weekday, period_order: 3, start_time: '09:20', end_time: '10:05', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 4, start_time: '10:10', end_time: '10:55', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 5, start_time: '11:00', end_time: '11:45', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 6, start_time: '11:45', end_time: '12:30', period_type: 'lunch_duty', supervision_mode: 'yard', break_group_id: lunchBreakGroupId },
-      { weekday, period_order: 7, start_time: '12:30', end_time: '13:15', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
-      { weekday, period_order: 8, start_time: '13:20', end_time: '14:05', period_type: 'teaching', supervision_mode: 'none', break_group_id: null },
+      {
+        weekday,
+        period_order: 0,
+        start_time: '07:30',
+        end_time: '08:15',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 1,
+        start_time: '08:20',
+        end_time: '09:05',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 2,
+        start_time: '09:05',
+        end_time: '09:20',
+        period_type: 'break_supervision',
+        supervision_mode: 'classroom_previous',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 3,
+        start_time: '09:20',
+        end_time: '10:05',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 4,
+        start_time: '10:10',
+        end_time: '10:55',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 5,
+        start_time: '11:00',
+        end_time: '11:45',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 6,
+        start_time: '11:45',
+        end_time: '12:30',
+        period_type: 'lunch_duty',
+        supervision_mode: 'yard',
+        break_group_id: lunchBreakGroupId,
+      },
+      {
+        weekday,
+        period_order: 7,
+        start_time: '12:30',
+        end_time: '13:15',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
+      {
+        weekday,
+        period_order: 8,
+        start_time: '13:20',
+        end_time: '14:05',
+        period_type: 'teaching',
+        supervision_mode: 'none',
+        break_group_id: null,
+      },
     );
   }
   return grid;
@@ -268,46 +582,46 @@ function buildCurriculum(): CurriculumEntry[] {
   // Years 1-5: Total 26 periods each
   for (let y = 1; y <= 5; y++) {
     const ygId = `yg-${y}`;
-    add(ygId, SUBJECTS.maths,    5, 2, false, null, null);
-    add(ygId, SUBJECTS.english,  5, 2, false, null, null);
-    add(ygId, SUBJECTS.arabic,   4, 1, false, null, null);
-    add(ygId, SUBJECTS.science,  3, 2, true, 1, 'lab');   // 1 double period
-    add(ygId, SUBJECTS.islamic,  2, 1, false, null, null);
-    add(ygId, SUBJECTS.social,   2, 1, false, null, null);
-    add(ygId, SUBJECTS.pe,       2, 1, false, null, 'gym');
-    add(ygId, SUBJECTS.art,      1, 1, false, null, 'art_room');
-    add(ygId, SUBJECTS.it,       1, 1, false, null, 'computer_lab');
-    add(ygId, SUBJECTS.music,    1, 1, false, null, null);
+    add(ygId, SUBJECTS.maths, 5, 2, false, null, null);
+    add(ygId, SUBJECTS.english, 5, 2, false, null, null);
+    add(ygId, SUBJECTS.arabic, 4, 1, false, null, null);
+    add(ygId, SUBJECTS.science, 3, 2, true, 1, 'lab'); // 1 double period
+    add(ygId, SUBJECTS.islamic, 2, 1, false, null, null);
+    add(ygId, SUBJECTS.social, 2, 1, false, null, null);
+    add(ygId, SUBJECTS.pe, 2, 1, false, null, 'gym');
+    add(ygId, SUBJECTS.art, 1, 1, false, null, 'art_room');
+    add(ygId, SUBJECTS.it, 1, 1, false, null, 'computer_lab');
+    add(ygId, SUBJECTS.music, 1, 1, false, null, null);
   }
 
   // Years 6-8: Total 29 periods each
   for (let y = 6; y <= 8; y++) {
     const ygId = `yg-${y}`;
-    add(ygId, SUBJECTS.maths,    5, 2, false, null, null);
-    add(ygId, SUBJECTS.english,  5, 2, false, null, null);
-    add(ygId, SUBJECTS.arabic,   4, 1, false, null, null);
-    add(ygId, SUBJECTS.science,  4, 2, true, 2, 'lab');   // 2 double periods
-    add(ygId, SUBJECTS.islamic,  2, 1, false, null, null);
-    add(ygId, SUBJECTS.social,   3, 2, false, null, null);
-    add(ygId, SUBJECTS.pe,       2, 1, false, null, 'gym');
-    add(ygId, SUBJECTS.art,      1, 1, false, null, 'art_room');
-    add(ygId, SUBJECTS.it,       2, 1, false, null, 'computer_lab');
-    add(ygId, SUBJECTS.music,    1, 1, false, null, null);
+    add(ygId, SUBJECTS.maths, 5, 2, false, null, null);
+    add(ygId, SUBJECTS.english, 5, 2, false, null, null);
+    add(ygId, SUBJECTS.arabic, 4, 1, false, null, null);
+    add(ygId, SUBJECTS.science, 4, 2, true, 2, 'lab'); // 2 double periods
+    add(ygId, SUBJECTS.islamic, 2, 1, false, null, null);
+    add(ygId, SUBJECTS.social, 3, 2, false, null, null);
+    add(ygId, SUBJECTS.pe, 2, 1, false, null, 'gym');
+    add(ygId, SUBJECTS.art, 1, 1, false, null, 'art_room');
+    add(ygId, SUBJECTS.it, 2, 1, false, null, 'computer_lab');
+    add(ygId, SUBJECTS.music, 1, 1, false, null, null);
   }
 
   // Years 9-11: Total 32 periods each
   for (let y = 9; y <= 11; y++) {
     const ygId = `yg-${y}`;
-    add(ygId, SUBJECTS.maths,    6, 2, false, null, null);
-    add(ygId, SUBJECTS.english,  5, 2, false, null, null);
-    add(ygId, SUBJECTS.arabic,   4, 1, false, null, null);
-    add(ygId, SUBJECTS.science,  5, 2, true, 2, 'lab');   // 2 double periods
-    add(ygId, SUBJECTS.islamic,  2, 1, false, null, null);
-    add(ygId, SUBJECTS.social,   3, 2, false, null, null);
-    add(ygId, SUBJECTS.pe,       2, 1, false, null, 'gym');
-    add(ygId, SUBJECTS.it,       3, 1, false, null, 'computer_lab');
-    add(ygId, SUBJECTS.art,      1, 1, false, null, 'art_room');
-    add(ygId, SUBJECTS.music,    1, 1, false, null, null);
+    add(ygId, SUBJECTS.maths, 6, 2, false, null, null);
+    add(ygId, SUBJECTS.english, 5, 2, false, null, null);
+    add(ygId, SUBJECTS.arabic, 4, 1, false, null, null);
+    add(ygId, SUBJECTS.science, 5, 2, true, 2, 'lab'); // 2 double periods
+    add(ygId, SUBJECTS.islamic, 2, 1, false, null, null);
+    add(ygId, SUBJECTS.social, 3, 2, false, null, null);
+    add(ygId, SUBJECTS.pe, 2, 1, false, null, 'gym');
+    add(ygId, SUBJECTS.it, 3, 1, false, null, 'computer_lab');
+    add(ygId, SUBJECTS.art, 1, 1, false, null, 'art_room');
+    add(ygId, SUBJECTS.music, 1, 1, false, null, null);
   }
 
   return entries;
@@ -337,12 +651,17 @@ function buildTeachers(): TeacherInputV2[] {
       .map((weekday) => ({ weekday, from: '07:00', to: '17:00' }));
   }
 
-  // Helper: competencies for a range of year groups
-  function competenciesForYears(subjectId: string, years: number[], primaryYears: number[]): TeacherInputV2['competencies'] {
+  // Helper: competencies for a range of year groups. Every entry is a pool
+  // row (class_id: null) post-Stage-2 — the solver picks the section.
+  function competenciesForYears(
+    subjectId: string,
+    years: number[],
+    _primaryYears: number[],
+  ): TeacherInputV2['competencies'] {
     return years.map((y) => ({
       subject_id: subjectId,
       year_group_id: `yg-${y}`,
-      is_primary: primaryYears.includes(y),
+      class_id: null,
     }));
   }
 
@@ -498,7 +817,11 @@ function buildTeachers(): TeacherInputV2[] {
   teachers.push({
     staff_profile_id: 'teacher-IS1',
     name: 'Sheikh Ibrahim (Islamic)',
-    competencies: competenciesForYears(SUBJECTS.islamic, [1, 2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6, 7, 8]),
+    competencies: competenciesForYears(
+      SUBJECTS.islamic,
+      [1, 2, 3, 4, 5, 6, 7, 8],
+      [1, 2, 3, 4, 5, 6, 7, 8],
+    ),
     availability: exceptDay(4), // NOT available on Fridays
     preferences: [],
     max_periods_per_week: null,
@@ -520,7 +843,11 @@ function buildTeachers(): TeacherInputV2[] {
   teachers.push({
     staff_profile_id: 'teacher-SS1',
     name: 'Mr Garcia (Social)',
-    competencies: competenciesForYears(SUBJECTS.social, [1, 2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6, 7, 8]),
+    competencies: competenciesForYears(
+      SUBJECTS.social,
+      [1, 2, 3, 4, 5, 6, 7, 8],
+      [1, 2, 3, 4, 5, 6, 7, 8],
+    ),
     availability: fullWeek(),
     preferences: [],
     max_periods_per_week: null,
@@ -529,7 +856,7 @@ function buildTeachers(): TeacherInputV2[] {
   });
   teachers.push({
     staff_profile_id: 'teacher-SS2',
-    name: 'Ms O\'Brien (Social)',
+    name: "Ms O'Brien (Social)",
     competencies: competenciesForYears(SUBJECTS.social, [6, 7, 8, 9, 10, 11], [9, 10, 11]),
     availability: fullWeek(),
     preferences: [],
@@ -542,7 +869,11 @@ function buildTeachers(): TeacherInputV2[] {
   teachers.push({
     staff_profile_id: 'teacher-PE1',
     name: 'Coach Johnson (PE)',
-    competencies: competenciesForYears(SUBJECTS.pe, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], [1, 2, 3, 4]),
+    competencies: competenciesForYears(
+      SUBJECTS.pe,
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      [1, 2, 3, 4],
+    ),
     availability: fullWeek(),
     preferences: [],
     max_periods_per_week: null,
@@ -552,7 +883,11 @@ function buildTeachers(): TeacherInputV2[] {
   teachers.push({
     staff_profile_id: 'teacher-PE2',
     name: 'Coach Martinez (PE)',
-    competencies: competenciesForYears(SUBJECTS.pe, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], [5, 6, 7, 8]),
+    competencies: competenciesForYears(
+      SUBJECTS.pe,
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      [5, 6, 7, 8],
+    ),
     availability: fullWeek(),
     preferences: [],
     max_periods_per_week: null,
@@ -562,7 +897,11 @@ function buildTeachers(): TeacherInputV2[] {
   teachers.push({
     staff_profile_id: 'teacher-PE3',
     name: 'Coach Lee (PE)',
-    competencies: competenciesForYears(SUBJECTS.pe, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], [9, 10, 11]),
+    competencies: competenciesForYears(
+      SUBJECTS.pe,
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      [9, 10, 11],
+    ),
     availability: fullWeek(),
     preferences: [],
     max_periods_per_week: null,
@@ -574,7 +913,11 @@ function buildTeachers(): TeacherInputV2[] {
   teachers.push({
     staff_profile_id: 'teacher-ART1',
     name: 'Ms Yamamoto (Art)',
-    competencies: competenciesForYears(SUBJECTS.art, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], [1, 2, 3, 4, 5, 6]),
+    competencies: competenciesForYears(
+      SUBJECTS.art,
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      [1, 2, 3, 4, 5, 6],
+    ),
     availability: fullWeek(),
     preferences: [],
     max_periods_per_week: null,
@@ -584,7 +927,11 @@ function buildTeachers(): TeacherInputV2[] {
   teachers.push({
     staff_profile_id: 'teacher-ART2',
     name: 'Mr Rossi (Art)',
-    competencies: competenciesForYears(SUBJECTS.art, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], [7, 8, 9, 10, 11]),
+    competencies: competenciesForYears(
+      SUBJECTS.art,
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      [7, 8, 9, 10, 11],
+    ),
     availability: fullWeek(),
     preferences: [],
     max_periods_per_week: null,
@@ -596,7 +943,11 @@ function buildTeachers(): TeacherInputV2[] {
   teachers.push({
     staff_profile_id: 'teacher-IT1',
     name: 'Mr Singh (IT)',
-    competencies: competenciesForYears(SUBJECTS.it, [1, 2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6, 7, 8]),
+    competencies: competenciesForYears(
+      SUBJECTS.it,
+      [1, 2, 3, 4, 5, 6, 7, 8],
+      [1, 2, 3, 4, 5, 6, 7, 8],
+    ),
     availability: fullWeek(),
     preferences: [],
     max_periods_per_week: null,
@@ -618,10 +969,14 @@ function buildTeachers(): TeacherInputV2[] {
   teachers.push({
     staff_profile_id: 'teacher-MU1',
     name: 'Mr Nakamura (Music)',
-    competencies: competenciesForYears(SUBJECTS.music, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+    competencies: competenciesForYears(
+      SUBJECTS.music,
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    ),
     availability: fullWeek(),
     preferences: [],
-    max_periods_per_week: 25,  // Max 25/week, needs 24 — very tight
+    max_periods_per_week: 25, // Max 25/week, needs 24 — very tight
     max_periods_per_day: 6,
     max_supervision_duties_per_week: null,
   });
@@ -950,9 +1305,7 @@ function printSubjectCoverage(input: SolverInputV2, entries: SolverAssignmentV2[
   let totalAssigned = 0;
 
   for (const yg of input.year_groups) {
-    const curriculumForYg = input.curriculum.filter(
-      (c) => c.year_group_id === yg.year_group_id,
-    );
+    const curriculumForYg = input.curriculum.filter((c) => c.year_group_id === yg.year_group_id);
     for (const c of curriculumForYg) {
       const requiredTotal = c.min_periods_per_week * yg.sections.length;
       const assignedTotal = entries.filter(
@@ -971,7 +1324,9 @@ function printSubjectCoverage(input: SolverInputV2, entries: SolverAssignmentV2[
     }
   }
 
-  console.log(`\nTotal: ${totalAssigned}/${totalRequired} (${Math.round((totalAssigned / totalRequired) * 100)}%)`);
+  console.log(
+    `\nTotal: ${totalAssigned}/${totalRequired} (${Math.round((totalAssigned / totalRequired) * 100)}%)`,
+  );
 }
 
 function printTeacherWorkload(input: SolverInputV2, entries: SolverAssignmentV2[]): void {
@@ -1082,7 +1437,9 @@ describe('Al-Noor International Academy Stress Test', () => {
     const supervisionEntries = output.entries.filter((e) => e.is_supervision);
 
     console.log(`\nSolver completed in ${(output.duration_ms / 1000).toFixed(2)}s`);
-    console.log(`Teaching assignments:    ${teachingEntries.length}/${requiredPeriods} (${Math.round((teachingEntries.length / requiredPeriods) * 100)}%)`);
+    console.log(
+      `Teaching assignments:    ${teachingEntries.length}/${requiredPeriods} (${Math.round((teachingEntries.length / requiredPeriods) * 100)}%)`,
+    );
     console.log(`Supervision assignments: ${supervisionEntries.length}`);
     console.log(`Unassigned slots:        ${output.unassigned.length}`);
     console.log(`Score:                   ${output.score}/${output.max_score}`);
@@ -1099,8 +1456,12 @@ describe('Al-Noor International Academy Stress Test', () => {
     if (output.unassigned.length > 0) {
       console.log('\n=== UNASSIGNED SLOTS ===');
       for (const u of output.unassigned) {
-        const subjectName = u.subject_id ? SUBJECT_NAMES[u.subject_id] ?? u.subject_id : 'supervision';
-        console.log(`  ${u.year_group_id} | ${subjectName} | ${u.periods_remaining} remaining | ${u.reason}`);
+        const subjectName = u.subject_id
+          ? (SUBJECT_NAMES[u.subject_id] ?? u.subject_id)
+          : 'supervision';
+        console.log(
+          `  ${u.year_group_id} | ${subjectName} | ${u.periods_remaining} remaining | ${u.reason}`,
+        );
       }
     }
 
@@ -1193,10 +1554,18 @@ describe('Al-Noor International Academy Stress Test', () => {
         const a = gymEntries[i]!;
         const b = gymEntries[j]!;
         if (a.weekday === b.weekday) {
-          const aGrid = input.year_groups.find((yg) => yg.year_group_id === a.year_group_id)?.period_grid;
-          const bGrid = input.year_groups.find((yg) => yg.year_group_id === b.year_group_id)?.period_grid;
-          const aSlot = aGrid?.find((p) => p.weekday === a.weekday && p.period_order === a.period_order);
-          const bSlot = bGrid?.find((p) => p.weekday === b.weekday && p.period_order === b.period_order);
+          const aGrid = input.year_groups.find(
+            (yg) => yg.year_group_id === a.year_group_id,
+          )?.period_grid;
+          const bGrid = input.year_groups.find(
+            (yg) => yg.year_group_id === b.year_group_id,
+          )?.period_grid;
+          const aSlot = aGrid?.find(
+            (p) => p.weekday === a.weekday && p.period_order === a.period_order,
+          );
+          const bSlot = bGrid?.find(
+            (p) => p.weekday === b.weekday && p.period_order === b.period_order,
+          );
           if (aSlot && bSlot) {
             const overlaps = aSlot.start_time < bSlot.end_time && bSlot.start_time < aSlot.end_time;
             expect(overlaps).toBe(false);
