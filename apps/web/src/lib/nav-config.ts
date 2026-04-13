@@ -494,11 +494,5 @@ export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
     { labelKey: 'nav.compliance', href: '/regulatory/compliance', overflow: true },
     { labelKey: 'nav.dataRetention', href: '/regulatory/data-retention', overflow: true },
   ],
-  settings: [
-    { labelKey: 'nav.generalSettings', href: '/settings' },
-    { labelKey: 'nav.behaviourSettings', href: '/behaviour/settings', overflow: true },
-    { labelKey: 'nav.roles', href: '/settings/roles' },
-    { labelKey: 'nav.closures', href: '/closures', overflow: true },
-    { labelKey: 'nav.website', href: '/website', overflow: true },
-  ],
+  settings: [],
 };
