@@ -824,11 +824,11 @@ Click-then-check-UI is blind to silent data corruption. The following SQL querie
 
 ### 27.5 Tenant isolation (cross-tenant hostile checks)
 
-| #      | What to assert                                                                  | Expected query result                                                                                                                                        | Pass/Fail |
-| ------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 27.5.1 | Sarah's people-search never returns `test-b` users                              | `GET /v1/inbox/people-search?q=<test-b_name>` → empty results                                                                                                |           |
-| 27.5.2 | Sarah's inbox listing never returns conversations with `tenant_id = '<test-b>'` | `SELECT DISTINCT tenant_id FROM conversations c JOIN conversation_participants cp ON cp.conversation_id = c.id WHERE cp.user_id = '<sarah>'` → `<nhqs>` only |           |
-| 27.5.3 | Direct URL hit on test-b conversation ID → 404, UI redirects to `/inbox`        | UI + API both 404                                                                                                                                            |           |
+| #      | What to assert                                                                  | Expected query result                                                                                                                                                                               | Pass/Fail |
+| ------ | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 27.5.1 | Sarah's people-search never returns `test-b` users                              | `GET /v1/inbox/people-search?q=<test-b_name>` → empty results                                                                                                                                       |           |
+| 27.5.2 | Sarah's inbox listing never returns conversations with `tenant_id = '<test-b>'` | `GET /v1/inbox/conversations` as Sarah → every row's `id` resolves via `GET /v1/inbox/conversations/:id` to a thread whose participants are all in the nhqs tenant. No direct-DB cross-tenant scan. |           |
+| 27.5.3 | Direct URL hit on test-b conversation ID → 404, UI redirects to `/inbox`        | UI + API both 404                                                                                                                                                                                   |           |
 
 ### 27.6 Relational scope (policy engine)
 
