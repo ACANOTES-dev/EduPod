@@ -427,10 +427,11 @@ export default function SchedulingHubPage() {
       });
   }, []);
 
-  const completionPct =
-    overview && overview.total_classes > 0
-      ? Math.round((overview.scheduled_classes / overview.total_classes) * 100)
-      : 0;
+  const totalClasses = overview?.total_classes ?? 0;
+  const scheduledClasses = overview?.scheduled_classes ?? 0;
+  const configuredClasses = overview?.configured_classes ?? 0;
+  const pinnedEntries = overview?.pinned_entries ?? 0;
+  const completionPct = totalClasses > 0 ? Math.round((scheduledClasses / totalClasses) * 100) : 0;
 
   function statusBadgeVariant(status: string): 'default' | 'secondary' | 'danger' {
     if (status === 'completed' || status === 'applied') return 'default';
@@ -455,14 +456,16 @@ export default function SchedulingHubPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label={t('auto.totalSlots')}
-          value={loading ? '…' : (overview?.total_classes ?? 0)}
+          value={loading ? '…' : totalClasses}
           icon={BookOpen}
           href="/scheduling/curriculum"
           gradient="from-primary/60 to-primary"
           accent="bg-primary/10 text-primary"
           glow="from-primary/5"
           subtitle={
-            overview ? `${overview.configured_classes} ${t('hub.configuredLabel')}` : undefined
+            overview && totalClasses > 0
+              ? `${configuredClasses} ${t('hub.configuredLabel')}`
+              : undefined
           }
         />
         <KpiCard
@@ -474,14 +477,14 @@ export default function SchedulingHubPage() {
           accent="bg-emerald-100 text-emerald-700"
           glow="from-emerald-400/10"
           subtitle={
-            overview
-              ? `${overview.scheduled_classes} / ${overview.total_classes} ${t('hub.slotsLabel')}`
+            overview && totalClasses > 0
+              ? `${scheduledClasses} / ${totalClasses} ${t('hub.slotsLabel')}`
               : undefined
           }
         />
         <KpiCard
           label={t('auto.pinnedSlots')}
-          value={loading ? '…' : (overview?.pinned_entries ?? 0)}
+          value={loading ? '…' : pinnedEntries}
           icon={Pin}
           href="/scheduling/runs"
           gradient="from-amber-400 to-amber-600"
