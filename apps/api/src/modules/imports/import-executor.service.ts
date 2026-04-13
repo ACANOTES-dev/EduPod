@@ -321,6 +321,7 @@ export class ImportExecutorService {
           }
 
           // Create all students in this family group
+          const createdStudentIds: string[] = [];
           for (const entry of familyRows) {
             try {
               const studentId = await this.createStudentFromRow(
@@ -329,6 +330,7 @@ export class ImportExecutorService {
                 entry.row,
                 householdId,
               );
+              createdStudentIds.push(studentId);
               stats.students_created++;
               await this.trackRecord(db, tenantId, jobId, 'student', studentId);
             } catch (err) {
@@ -338,6 +340,28 @@ export class ImportExecutorService {
               stats.skipped_rows.push({
                 row: entry.originalRowNumber,
                 reason: `Error: ${String(err)}`,
+              });
+            }
+          }
+
+          // ── Auto-link created students to all household parents ──────
+          if (createdStudentIds.length > 0) {
+            const householdParents = await db.householdParent.findMany({
+              where: { household_id: householdId, tenant_id: tenantId },
+              select: { parent_id: true, role_label: true },
+            });
+
+            if (householdParents.length > 0) {
+              await db.studentParent.createMany({
+                data: createdStudentIds.flatMap((studentId) =>
+                  householdParents.map((hp) => ({
+                    tenant_id: tenantId,
+                    student_id: studentId,
+                    parent_id: hp.parent_id,
+                    relationship_label: hp.role_label ?? null,
+                  })),
+                ),
+                skipDuplicates: true,
               });
             }
           }

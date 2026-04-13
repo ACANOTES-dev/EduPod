@@ -235,8 +235,9 @@ export class HouseholdsRelationsService {
         });
       }
 
+      let householdParent;
       try {
-        return await db.householdParent.create({
+        householdParent = await db.householdParent.create({
           data: {
             tenant_id: tenantId,
             household_id: householdId,
@@ -258,6 +259,26 @@ export class HouseholdsRelationsService {
         }
         throw err;
       }
+
+      // ── Auto-link parent to all students already in this household ────
+      const studentsInHousehold = await db.student.findMany({
+        where: { household_id: householdId, tenant_id: tenantId },
+        select: { id: true },
+      });
+
+      if (studentsInHousehold.length > 0) {
+        await db.studentParent.createMany({
+          data: studentsInHousehold.map((s) => ({
+            tenant_id: tenantId,
+            student_id: s.id,
+            parent_id: parentId,
+            relationship_label: roleLabel ?? null,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      return householdParent;
     });
   }
 
