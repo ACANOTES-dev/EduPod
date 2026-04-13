@@ -282,7 +282,7 @@ export class ApplicationStateMachineService {
           tenant_id: tenantId,
           application_id: applicationId,
           author_user_id: actingUserId,
-          note: `Moved to Conditional Approval. Seat held. Payment deadline: ${paymentDeadline.toISOString()}.`,
+          note: `Moved to Conditional Approval. Seat held. Payment deadline: ${this.formatNoteDeadline(paymentDeadline)}.`,
           is_internal: true,
         },
       });
@@ -679,6 +679,34 @@ export class ApplicationStateMachineService {
         message: `Cannot transition application from "${from}" to "${to}"`,
       });
     }
+  }
+
+  /**
+   * Format a deadline for embedding in `ApplicationNote` body strings.
+   * Uses UTC so the audit trail is timezone-independent and reproducible.
+   * Example: `18 Apr 2026, 12:13 UTC`.
+   */
+  private formatNoteDeadline(date: Date): string {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = months[date.getUTCMonth()];
+    const year = date.getUTCFullYear();
+    const hh = String(date.getUTCHours()).padStart(2, '0');
+    const mm = String(date.getUTCMinutes()).padStart(2, '0');
+    return `${day} ${month} ${year}, ${hh}:${mm} UTC`;
   }
 
   private async fireSubmissionSideEffects(

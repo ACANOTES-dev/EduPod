@@ -154,8 +154,12 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
   - Re-trigger a move-to-conditional-approval on a staging application. New note body reads a human-formatted deadline.
   - Ensure existing ISO-laden notes are left alone (append-only table) — they're part of the audit trail; only new notes get the improved format.
 - **Release-gate:** Must ship before launch.
-- **Status:** Open.
-- **Notes:** Same root cause as the "€" issue (ADM-004) in that both leak from string-composition at write time instead of letting the UI format structured data.
+- **Status:** Fixed (deferred Playwright re-verification — only future notes get the format; existing `Test Applicant` note is append-only and intentionally retains the legacy ISO copy).
+- **Notes:** Claude Opus 4.6 — 2026-04-13. Replaced inline `paymentDeadline.toISOString()` with a `formatNoteDeadline()` helper producing `18 Apr 2026, 12:13 UTC`. Used UTC to keep the audit trail timezone-independent and reproducible. New conditional-approval transitions in production will now write the human-readable form.
+
+### Verification notes
+
+- 2026-04-13: 31/31 tests pass for `application-state-machine.service.spec.ts`. Existing legacy notes are append-only and remain untouched (per the bug's own guidance). New transitions get the new format on the next conditional-approval write.
 
 ### ADM-005 [L] — Application tab: Target Academic Year & Target Year Group comboboxes empty
 
