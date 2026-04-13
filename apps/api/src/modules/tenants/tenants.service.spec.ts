@@ -81,12 +81,18 @@ const mockPrisma = {
   },
   role: {
     create: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
   },
   rolePermission: {
     create: jest.fn(),
+    upsert: jest.fn().mockResolvedValue({ id: 'rp-1' }),
   },
   permission: {
     findMany: jest.fn().mockResolvedValue([]),
+    upsert: jest.fn().mockImplementation(async ({ where, create }) => ({
+      id: `perm-${where?.permission_key ?? create?.permission_key ?? 'unknown'}`,
+      permission_key: where?.permission_key ?? create?.permission_key ?? 'unknown',
+    })),
   },
   tenantMembership: {
     findMany: jest.fn().mockResolvedValue([]),
@@ -108,6 +114,7 @@ const mockPrisma = {
   safeguardingKeyword: {
     createMany: jest.fn().mockResolvedValue({ count: 31 }),
   },
+  $executeRawUnsafe: jest.fn().mockResolvedValue(0),
   $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
     return fn(mockPrisma);
   }),

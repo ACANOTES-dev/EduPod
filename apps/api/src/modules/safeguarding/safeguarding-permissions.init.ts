@@ -46,55 +46,83 @@ export class SafeguardingPermissionsInit implements OnModuleInit {
   async backfill(): Promise<void> {
     const { permissionId, tenantIds } = await this.prisma.$transaction(async (txClient) => {
       const tx = txClient as unknown as PrismaClient;
-
-      const perm = await tx.permission.upsert({
-        where: { permission_key: SAFEGUARDING_KEYWORDS_WRITE_PERMISSION.permission_key },
-        update: { description: SAFEGUARDING_KEYWORDS_WRITE_PERMISSION.description },
-        create: {
-          permission_key: SAFEGUARDING_KEYWORDS_WRITE_PERMISSION.permission_key,
-          description: SAFEGUARDING_KEYWORDS_WRITE_PERMISSION.description,
-          permission_tier: SAFEGUARDING_KEYWORDS_WRITE_PERMISSION.permission_tier,
-        },
-        select: { id: true },
-      });
-
+      const permId = await upsertSafeguardingPermissionRow(tx);
       const tenants = await tx.tenant.findMany({
         where: { status: 'active' },
         select: { id: true },
       });
-      return { permissionId: perm.id, tenantIds: tenants.map((t) => t.id) };
+      return { permissionId: permId, tenantIds: tenants.map((t) => t.id) };
     });
 
     let adminGrants = 0;
     for (const tenantId of tenantIds) {
-      await runWithRlsContext(this.prisma, { tenant_id: tenantId }, async (tx) => {
-        const adminTierRoles = await tx.role.findMany({
-          where: {
-            tenant_id: tenantId,
-            role_key: { in: [...ADMIN_TIER_ROLE_KEYS] },
-          },
-          select: { id: true, tenant_id: true },
-        });
-
-        for (const role of adminTierRoles) {
-          await tx.rolePermission.upsert({
-            where: {
-              role_id_permission_id: { role_id: role.id, permission_id: permissionId },
-            },
-            update: {},
-            create: {
-              role_id: role.id,
-              permission_id: permissionId,
-              tenant_id: role.tenant_id,
-            },
-          });
-          adminGrants += 1;
-        }
-      });
+      const count = await backfillSafeguardingPermissionsForTenant(
+        this.prisma,
+        tenantId,
+        permissionId,
+      );
+      adminGrants += count;
     }
 
     this.logger.log(
       `Safeguarding permissions ensured — ${tenantIds.length} tenants, ${adminGrants} admin-tier grants.`,
     );
   }
+}
+
+/** Idempotent upsert of the safeguarding.keywords.write permission row. */
+export async function upsertSafeguardingPermissionRow(tx: PrismaClient): Promise<string> {
+  const perm = await tx.permission.upsert({
+    where: { permission_key: SAFEGUARDING_KEYWORDS_WRITE_PERMISSION.permission_key },
+    update: { description: SAFEGUARDING_KEYWORDS_WRITE_PERMISSION.description },
+    create: {
+      permission_key: SAFEGUARDING_KEYWORDS_WRITE_PERMISSION.permission_key,
+      description: SAFEGUARDING_KEYWORDS_WRITE_PERMISSION.description,
+      permission_tier: SAFEGUARDING_KEYWORDS_WRITE_PERMISSION.permission_tier,
+    },
+    select: { id: true },
+  });
+  return perm.id;
+}
+
+/**
+ * Backfill the admin-tier `safeguarding.keywords.write` grant for a single
+ * tenant. Called from the tenant-creation path so new tenants don't have
+ * to wait for the next boot to pick up the permission.
+ */
+export async function backfillSafeguardingPermissionsForTenant(
+  prisma: PrismaService,
+  tenantId: string,
+  permissionId?: string,
+): Promise<number> {
+  const permId =
+    permissionId ??
+    (await prisma.$transaction(async (txClient) =>
+      upsertSafeguardingPermissionRow(txClient as unknown as PrismaClient),
+    ));
+
+  let adminGrants = 0;
+  await runWithRlsContext(prisma, { tenant_id: tenantId }, async (tx) => {
+    const adminTierRoles = await tx.role.findMany({
+      where: { tenant_id: tenantId, role_key: { in: [...ADMIN_TIER_ROLE_KEYS] } },
+      select: { id: true, tenant_id: true },
+    });
+
+    for (const role of adminTierRoles) {
+      await tx.rolePermission.upsert({
+        where: {
+          role_id_permission_id: { role_id: role.id, permission_id: permId },
+        },
+        update: {},
+        create: {
+          role_id: role.id,
+          permission_id: permId,
+          tenant_id: role.tenant_id,
+        },
+      });
+      adminGrants += 1;
+    }
+  });
+
+  return adminGrants;
 }

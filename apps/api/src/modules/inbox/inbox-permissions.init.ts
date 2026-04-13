@@ -133,22 +133,7 @@ export class InboxPermissionsInit implements OnModuleInit {
     // ─── Pass 1: permissions + tenant list (unscoped) ───────────────────────
     const { permIdByKey, tenantIds } = await this.prisma.$transaction(async (txClient) => {
       const tx = txClient as unknown as PrismaClient;
-      const permIds = new Map<string, string>();
-
-      for (const seed of INBOX_PERMISSIONS) {
-        const row = await tx.permission.upsert({
-          where: { permission_key: seed.permission_key },
-          update: { description: seed.description },
-          create: {
-            permission_key: seed.permission_key,
-            description: seed.description,
-            permission_tier: seed.permission_tier,
-          },
-          select: { id: true, permission_key: true },
-        });
-        permIds.set(row.permission_key, row.id);
-      }
-
+      const permIds = await upsertInboxPermissionRows(tx);
       const tenants = await tx.tenant.findMany({
         where: { status: 'active' },
         select: { id: true },
@@ -160,58 +145,96 @@ export class InboxPermissionsInit implements OnModuleInit {
     let adminGrants = 0;
     let sendGrants = 0;
     for (const tenantId of tenantIds) {
-      await runWithRlsContext(this.prisma, { tenant_id: tenantId }, async (tx) => {
-        const adminTierRoles = await tx.role.findMany({
-          where: {
-            tenant_id: tenantId,
-            role_key: { in: [...ADMIN_TIER_ROLE_KEYS] },
-          },
-          select: { id: true, tenant_id: true, role_key: true },
-        });
-        await this.ensureGrants(tx, adminTierRoles, [...ADMIN_TIER_GRANTS], permIdByKey);
-        adminGrants += adminTierRoles.length;
-
-        const sendOnlyRoles = await tx.role.findMany({
-          where: {
-            tenant_id: tenantId,
-            role_key: { in: [...SEND_ONLY_ROLE_KEYS] },
-          },
-          select: { id: true, tenant_id: true, role_key: true },
-        });
-        // Send-only tier gets inbox.send (produce) + inbox.read
-        // (consume) so parents/students can see their threads and reply.
-        await this.ensureGrants(tx, sendOnlyRoles, ['inbox.send', 'inbox.read'], permIdByKey);
-        sendGrants += sendOnlyRoles.length;
-      });
+      const counts = await backfillInboxPermissionsForTenant(this.prisma, tenantId, permIdByKey);
+      adminGrants += counts.adminGrants;
+      sendGrants += counts.sendGrants;
     }
 
     this.logger.log(
       `Inbox permissions ensured — ${tenantIds.length} tenants, ${adminGrants} admin-tier roles, ${sendGrants} send-only roles.`,
     );
   }
+}
 
-  private async ensureGrants(
-    tx: PrismaClient,
-    roles: Array<{ id: string; tenant_id: string | null; role_key: string }>,
-    permissionKeys: string[],
-    permIdByKey: Map<string, string>,
-  ): Promise<void> {
-    for (const role of roles) {
-      for (const permKey of permissionKeys) {
-        const permId = permIdByKey.get(permKey);
-        if (!permId) continue;
-        await tx.rolePermission.upsert({
-          where: {
-            role_id_permission_id: { role_id: role.id, permission_id: permId },
-          },
-          update: {},
-          create: {
-            role_id: role.id,
-            permission_id: permId,
-            tenant_id: role.tenant_id,
-          },
-        });
-      }
+/** Idempotent upsert of the inbox.* permission rows. Returns key→id map. */
+export async function upsertInboxPermissionRows(tx: PrismaClient): Promise<Map<string, string>> {
+  const permIds = new Map<string, string>();
+  for (const seed of INBOX_PERMISSIONS) {
+    const row = await tx.permission.upsert({
+      where: { permission_key: seed.permission_key },
+      update: { description: seed.description },
+      create: {
+        permission_key: seed.permission_key,
+        description: seed.description,
+        permission_tier: seed.permission_tier,
+      },
+      select: { id: true, permission_key: true },
+    });
+    permIds.set(row.permission_key, row.id);
+  }
+  return permIds;
+}
+
+/**
+ * Backfill inbox role_permissions for a single tenant. Callable from
+ * tenant-creation paths so a tenant created after boot does not have to
+ * wait for the next deploy to pick up inbox.* grants. Accepts an optional
+ * pre-resolved permId map so the caller can skip the Pass-1 upsert if
+ * already done.
+ */
+export async function backfillInboxPermissionsForTenant(
+  prisma: PrismaService,
+  tenantId: string,
+  permIdByKey?: Map<string, string>,
+): Promise<{ adminGrants: number; sendGrants: number }> {
+  const permIds =
+    permIdByKey ??
+    (await prisma.$transaction(async (txClient) =>
+      upsertInboxPermissionRows(txClient as unknown as PrismaClient),
+    ));
+
+  let adminGrants = 0;
+  let sendGrants = 0;
+  await runWithRlsContext(prisma, { tenant_id: tenantId }, async (tx) => {
+    const adminTierRoles = await tx.role.findMany({
+      where: { tenant_id: tenantId, role_key: { in: [...ADMIN_TIER_ROLE_KEYS] } },
+      select: { id: true, tenant_id: true, role_key: true },
+    });
+    await ensureGrantsInternal(tx, adminTierRoles, [...ADMIN_TIER_GRANTS], permIds);
+    adminGrants = adminTierRoles.length;
+
+    const sendOnlyRoles = await tx.role.findMany({
+      where: { tenant_id: tenantId, role_key: { in: [...SEND_ONLY_ROLE_KEYS] } },
+      select: { id: true, tenant_id: true, role_key: true },
+    });
+    await ensureGrantsInternal(tx, sendOnlyRoles, ['inbox.send', 'inbox.read'], permIds);
+    sendGrants = sendOnlyRoles.length;
+  });
+
+  return { adminGrants, sendGrants };
+}
+
+async function ensureGrantsInternal(
+  tx: PrismaClient,
+  roles: Array<{ id: string; tenant_id: string | null; role_key: string }>,
+  permissionKeys: string[],
+  permIdByKey: Map<string, string>,
+): Promise<void> {
+  for (const role of roles) {
+    for (const permKey of permissionKeys) {
+      const permId = permIdByKey.get(permKey);
+      if (!permId) continue;
+      await tx.rolePermission.upsert({
+        where: {
+          role_id_permission_id: { role_id: role.id, permission_id: permId },
+        },
+        update: {},
+        create: {
+          role_id: role.id,
+          permission_id: permId,
+          tenant_id: role.tenant_id,
+        },
+      });
     }
   }
 }

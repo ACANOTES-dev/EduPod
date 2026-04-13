@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 
@@ -17,9 +18,11 @@ import {
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { AuthReadFacade } from '../auth/auth-read.facade';
 import { TokenService } from '../auth/auth-token.service';
+import { backfillInboxPermissionsForTenant } from '../inbox/inbox-permissions.init';
 import { PrismaService } from '../prisma/prisma.service';
 import { RbacReadFacade } from '../rbac/rbac-read.facade';
 import { RedisService } from '../redis/redis.service';
+import { backfillSafeguardingPermissionsForTenant } from '../safeguarding/safeguarding-permissions.init';
 
 import type { CreateTenantDto } from './dto/create-tenant.dto';
 import type { UpdateTenantDto } from './dto/update-tenant.dto';
@@ -124,6 +127,8 @@ interface ListTenantsFilter {
 
 @Injectable()
 export class TenantsService {
+  private readonly logger = new Logger(TenantsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
@@ -268,6 +273,27 @@ export class TenantsService {
     // Seed inbox defaults (tenant_settings_inbox row, 81-row messaging policy
     // matrix, starter safeguarding keyword list). Idempotent — safe to re-run.
     await seedInboxDefaultsForTenant(this.prisma, tenant.id);
+
+    // Backfill inbox.* and safeguarding.* permission grants for the new
+    // tenant's admin-tier roles immediately. Without this, a tenant
+    // created after boot would have to wait until the next app restart
+    // for InboxPermissionsInit / SafeguardingPermissionsInit to pick up
+    // the new role rows — see COMMS-019. Errors are non-fatal: the
+    // boot-time init will catch up any tenant that slipped through.
+    try {
+      await backfillInboxPermissionsForTenant(this.prisma, tenant.id);
+    } catch (err) {
+      this.logger.error(
+        `Inbox permissions backfill failed for tenant ${tenant.id}; boot-time init will retry: ${(err as Error).message}`,
+      );
+    }
+    try {
+      await backfillSafeguardingPermissionsForTenant(this.prisma, tenant.id);
+    } catch (err) {
+      this.logger.error(
+        `Safeguarding permissions backfill failed for tenant ${tenant.id}; boot-time init will retry: ${(err as Error).message}`,
+      );
+    }
 
     // Return tenant with related data
     return this.getTenant(tenant.id);
