@@ -68,8 +68,16 @@ interface TenantBatchResult {
  * users and avoids the FK violation the old `admissions-auto-expiry.processor`
  * would have hit in production.
  */
+// Lock renewal cadence — extend the BullMQ lock every 60s so a tenant
+// batch that exceeds `LOCK_DURATION_MS` (e.g. 10k+ expired rows) cannot be
+// re-claimed by a second worker mid-flight. The renewer runs independently
+// of BullMQ's internal renewer to give us deterministic control during long
+// DB phases that block the event loop.
+const LOCK_DURATION_MS = 30 * 60_000;
+const LOCK_RENEW_INTERVAL_MS = 60_000;
+
 @Processor(QUEUE_NAMES.ADMISSIONS, {
-  lockDuration: 5 * 60_000,
+  lockDuration: LOCK_DURATION_MS,
   stalledInterval: 60_000,
   maxStalledCount: 2,
 })
@@ -90,27 +98,47 @@ export class AdmissionsPaymentExpiryProcessor extends WorkerHost {
 
     this.logger.log(`[${ADMISSIONS_PAYMENT_EXPIRY_JOB}] starting scan`);
 
-    const expiredByTenant = await this.findExpiredGroupedByTenant();
+    // Periodic lock renewal so a long batch (10k+ expired rows) can't be
+    // stolen by a second worker. Cleared in the `finally` block below.
+    const renewer = setInterval(() => {
+      const token = job.token;
+      if (!token) return;
+      job.extendLock(token, LOCK_DURATION_MS).catch((err) => {
+        this.logger.warn(
+          `[${ADMISSIONS_PAYMENT_EXPIRY_JOB}] failed to extend lock: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      });
+    }, LOCK_RENEW_INTERVAL_MS);
 
-    if (expiredByTenant.size === 0) {
-      this.logger.log(`[${ADMISSIONS_PAYMENT_EXPIRY_JOB}] no expired conditional approvals found`);
-      return;
+    try {
+      const expiredByTenant = await this.findExpiredGroupedByTenant();
+
+      if (expiredByTenant.size === 0) {
+        this.logger.log(
+          `[${ADMISSIONS_PAYMENT_EXPIRY_JOB}] no expired conditional approvals found`,
+        );
+        return;
+      }
+
+      let totalExpired = 0;
+      let totalPromoted = 0;
+      let totalFailed = 0;
+
+      for (const [tenantId, applications] of expiredByTenant) {
+        const result = await this.processTenantBatch(tenantId, applications);
+        totalExpired += result.expired;
+        totalPromoted += result.promoted;
+        totalFailed += result.failed;
+      }
+
+      this.logger.log(
+        `[${ADMISSIONS_PAYMENT_EXPIRY_JOB}] complete — expired=${totalExpired} promoted=${totalPromoted} failed=${totalFailed} tenants=${expiredByTenant.size}`,
+      );
+    } finally {
+      clearInterval(renewer);
     }
-
-    let totalExpired = 0;
-    let totalPromoted = 0;
-    let totalFailed = 0;
-
-    for (const [tenantId, applications] of expiredByTenant) {
-      const result = await this.processTenantBatch(tenantId, applications);
-      totalExpired += result.expired;
-      totalPromoted += result.promoted;
-      totalFailed += result.failed;
-    }
-
-    this.logger.log(
-      `[${ADMISSIONS_PAYMENT_EXPIRY_JOB}] complete — expired=${totalExpired} promoted=${totalPromoted} failed=${totalFailed} tenants=${expiredByTenant.size}`,
-    );
   }
 
   // ─── Discovery ───────────────────────────────────────────────────────────

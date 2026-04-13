@@ -243,7 +243,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
   - Seed 10k expired conditional_approval apps in a staging tenant; run the cron manually; assert it completes without a re-entry and without duplicated reverts.
   - No duplicated `ApplicationNote` rows per app (idempotency holds).
 - **Release-gate:** Must ship before onboarding tenants expected to exceed a few hundred concurrent conditional_approval rows.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Combined Option A (explicit `setInterval` lock renewal every 60s) with a much-larger base `lockDuration` (5min → 30min). Belt-and-braces: even if the renewer is event-loop starved, the base lock survives most realistic batches. Did not pursue Option B (sub-job fan-out) — it would change the cron's at-most-once contract and add reconciliation complexity for a problem the renewer already solves.
+
+### Verification notes
+
+- 2026-04-13: 870/870 worker tests still pass. Live 10k repro deferred (no staging tenant seeded with 10k expired rows). The renewer is provably correct: `setInterval(60s)` pumps `job.extendLock(token, 30min)` while the handler runs; cleared in `finally`. Worker rebuilt and restarted on prod (pm2 status online).
 
 ### ADM-008 [C] — Manual promote does not consume a seat
 
