@@ -33,8 +33,19 @@ export function RequireRole({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (!isLoading && user && !isAllowed) {
-      const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
-      router.replace(`/${locale}/dashboard`);
+      const segments = (pathname ?? '').split('/').filter(Boolean);
+      const locale = segments[0] ?? 'en';
+      const pathWithoutLocale = '/' + segments.slice(1).join('/');
+      // Communications-surface routes (/communications/*, /inbox/oversight,
+      // /inbox/audiences) land at /inbox for non-admin users per the
+      // admin/teacher/parent specs — everywhere else falls back to
+      // /dashboard.
+      const isCommsSurface =
+        pathWithoutLocale.startsWith('/communications') ||
+        pathWithoutLocale.startsWith('/inbox/oversight') ||
+        pathWithoutLocale.startsWith('/inbox/audiences');
+      const target = isCommsSurface ? `/${locale}/inbox` : `/${locale}/dashboard`;
+      router.replace(target);
     }
   }, [isLoading, user, isAllowed, router, pathname]);
 
