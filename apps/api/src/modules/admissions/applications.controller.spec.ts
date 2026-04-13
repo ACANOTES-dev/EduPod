@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
+import { SENSITIVE_DATA_ACCESS_KEY } from '../../common/decorators/sensitive-data-access.decorator';
 import { StripeService } from '../finance/stripe.service';
 
 import { ApplicationNotesService } from './application-notes.service';
@@ -279,6 +280,73 @@ describe('ApplicationsController', () => {
       ApplicationsController.prototype.createNote,
     );
     expect(permission).toBe('admissions.manage');
+  });
+
+  // ─── PII access audit decorator verification (ADM-023) ─────────────────────
+
+  describe('PII access audit — @SensitiveDataAccess decorator', () => {
+    it('should mark findAll with pii sensitivity', () => {
+      const meta = Reflect.getMetadata(
+        SENSITIVE_DATA_ACCESS_KEY,
+        ApplicationsController.prototype.findAll,
+      );
+      expect(meta).toBeDefined();
+      expect(meta.sensitivity).toBe('pii');
+    });
+
+    it('should mark findOne with pii sensitivity and application entity metadata', () => {
+      const meta = Reflect.getMetadata(
+        SENSITIVE_DATA_ACCESS_KEY,
+        ApplicationsController.prototype.findOne,
+      );
+      expect(meta).toBeDefined();
+      expect(meta.sensitivity).toBe('pii');
+      expect(meta.entityType).toBe('application');
+      expect(meta.entityIdField).toBe('id');
+    });
+
+    it('should mark getReadyToAdmitQueue with pii sensitivity', () => {
+      const meta = Reflect.getMetadata(
+        SENSITIVE_DATA_ACCESS_KEY,
+        ApplicationsController.prototype.getReadyToAdmitQueue,
+      );
+      expect(meta).toBeDefined();
+      expect(meta.sensitivity).toBe('pii');
+    });
+
+    it('should mark getWaitingListQueue with pii sensitivity', () => {
+      const meta = Reflect.getMetadata(
+        SENSITIVE_DATA_ACCESS_KEY,
+        ApplicationsController.prototype.getWaitingListQueue,
+      );
+      expect(meta).toBeDefined();
+      expect(meta.sensitivity).toBe('pii');
+    });
+
+    it('should mark getConditionalApprovalQueue with pii sensitivity', () => {
+      const meta = Reflect.getMetadata(
+        SENSITIVE_DATA_ACCESS_KEY,
+        ApplicationsController.prototype.getConditionalApprovalQueue,
+      );
+      expect(meta).toBeDefined();
+      expect(meta.sensitivity).toBe('pii');
+    });
+
+    it('should NOT mark analytics with pii sensitivity (aggregate data, no PII)', () => {
+      const meta = Reflect.getMetadata(
+        SENSITIVE_DATA_ACCESS_KEY,
+        ApplicationsController.prototype.getAnalytics,
+      );
+      expect(meta).toBeUndefined();
+    });
+
+    it('should NOT mark preview with pii sensitivity (no payload_json or date_of_birth)', () => {
+      const meta = Reflect.getMetadata(
+        SENSITIVE_DATA_ACCESS_KEY,
+        ApplicationsController.prototype.preview,
+      );
+      expect(meta).toBeUndefined();
+    });
   });
 
   // ─── POST /v1/applications/:id/payment-link/regenerate ─────────────────────

@@ -5,6 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
+import { admissionsT } from './admissions-i18n';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface AdmissionsFinanceParams {
@@ -89,7 +91,10 @@ export class AdmissionsFinanceBridgeService {
     // Use the transaction client (db) for RLS-protected tables; fall back to
     // the facade only for platform-level tables that don't have RLS.
 
-    const currencyCode = (await this.tenantReadFacade.findCurrencyCode(tenantId)) ?? 'EUR';
+    const [currencyCode, locale] = await Promise.all([
+      this.tenantReadFacade.findCurrencyCode(tenantId).then((c) => c ?? 'EUR'),
+      this.tenantReadFacade.findDefaultLocale(tenantId),
+    ]);
     const branding = await db.tenantBranding.findUnique({ where: { tenant_id: tenantId } });
     const invoicePrefix = branding?.invoice_prefix ?? 'INV';
 
@@ -167,7 +172,10 @@ export class AdmissionsFinanceBridgeService {
 
       lineData.push({
         tenant_id: tenantId,
-        description: `${fs.name} — ${studentFirstName} ${studentLastName}`,
+        description: admissionsT(locale, 'invoiceLineDescription', {
+          feeName: fs.name,
+          studentName: `${studentFirstName} ${studentLastName}`,
+        }),
         quantity: 1,
         unit_amount: annualAmount,
         line_total: annualAmount,
@@ -241,8 +249,11 @@ export class AdmissionsFinanceBridgeService {
           received_at: new Date(),
           posted_by_user_id: actingUserId,
           reason: externalReference
-            ? `Admissions payment (${paymentSource}) — ref: ${externalReference}`
-            : `Admissions payment (${paymentSource})`,
+            ? admissionsT(locale, 'paymentReasonWithRef', {
+                source: paymentSource,
+                reference: externalReference,
+              })
+            : admissionsT(locale, 'paymentReason', { source: paymentSource }),
         },
       });
 

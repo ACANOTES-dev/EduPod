@@ -41,6 +41,7 @@ import type {
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { SensitiveDataAccess } from '../../common/decorators/sensitive-data-access.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -75,6 +76,7 @@ export class ApplicationsController {
 
   @Get()
   @RequiresPermission('admissions.view')
+  @SensitiveDataAccess('pii')
   async findAll(
     @CurrentTenant() tenant: TenantContext,
     @Query(new ZodValidationPipe(listApplicationsSchema))
@@ -86,6 +88,7 @@ export class ApplicationsController {
   // GET /v1/applications/queues/ready-to-admit
   @Get('queues/ready-to-admit')
   @RequiresPermission('admissions.view')
+  @SensitiveDataAccess('pii')
   async getReadyToAdmitQueue(@CurrentTenant() tenant: TenantContext) {
     return this.applicationsService.getReadyToAdmitQueue(tenant.tenant_id);
   }
@@ -93,6 +96,7 @@ export class ApplicationsController {
   // GET /v1/applications/queues/waiting-list
   @Get('queues/waiting-list')
   @RequiresPermission('admissions.view')
+  @SensitiveDataAccess('pii')
   async getWaitingListQueue(@CurrentTenant() tenant: TenantContext) {
     return this.applicationsService.getWaitingListQueue(tenant.tenant_id);
   }
@@ -100,6 +104,7 @@ export class ApplicationsController {
   // GET /v1/applications/queues/conditional-approval
   @Get('queues/conditional-approval')
   @RequiresPermission('admissions.view')
+  @SensitiveDataAccess('pii')
   async getConditionalApprovalQueue(
     @CurrentTenant() tenant: TenantContext,
     @Query(new ZodValidationPipe(listConditionalApprovalQueueSchema))
@@ -142,6 +147,7 @@ export class ApplicationsController {
 
   @Get(':id')
   @RequiresPermission('admissions.view')
+  @SensitiveDataAccess('pii', { entityType: 'application', entityIdField: 'id' })
   async findOne(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.applicationsService.findOne(tenant.tenant_id, id);
   }

@@ -15,6 +15,7 @@ export const AUDIT_LOG_SENSITIVITIES = [
   'full_export',
   'dsar_response',
   'analytics',
+  'pii',
 ] as const;
 
 export type AuditLogSensitivity = (typeof AUDIT_LOG_SENSITIVITIES)[number];
