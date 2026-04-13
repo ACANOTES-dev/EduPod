@@ -27,6 +27,7 @@ import {
 } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
+import { useIsAdmin } from '@/lib/use-is-admin';
 
 import { AttachmentUploader } from './attachment-uploader';
 import { AudiencePicker, type AudiencePickerValue } from './audience-picker';
@@ -67,6 +68,11 @@ const TABS: Array<{ kind: ConversationKind; labelKey: string; icon: React.Elemen
 export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Props) {
   const router = useRouter();
   const t = useTranslations();
+  const isAdmin = useIsAdmin();
+  const visibleTabs = React.useMemo(
+    () => (isAdmin ? TABS : TABS.filter((t) => t.kind !== 'broadcast')),
+    [isAdmin],
+  );
   const [kind, setKind] = React.useState<ConversationKind>(initialTab);
 
   const [directRecipient, setDirectRecipient] = React.useState<PickedUser | null>(null);
@@ -86,8 +92,15 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
 
   React.useEffect(() => {
     if (!open) return;
-    setKind(initialTab);
-  }, [open, initialTab]);
+    const safeInitial = initialTab === 'broadcast' && !isAdmin ? 'direct' : initialTab;
+    setKind(safeInitial);
+  }, [open, initialTab, isAdmin]);
+
+  React.useEffect(() => {
+    if (kind === 'broadcast' && !isAdmin) {
+      setKind('direct');
+    }
+  }, [kind, isAdmin]);
 
   const reset = React.useCallback(() => {
     setDirectRecipient(null);
@@ -223,7 +236,7 @@ export function ComposeDialog({ open, onOpenChange, initialTab = 'direct' }: Pro
           aria-label={t('inbox.compose.tabs.label')}
           className="flex items-center gap-1 border-b border-border px-4 py-2 md:px-6"
         >
-          {TABS.map((tab) => {
+          {visibleTabs.map((tab) => {
             const Icon = tab.icon;
             const active = kind === tab.kind;
             return (
