@@ -12195,24 +12195,24 @@
     "cards": {
       "readyToAdmit": {
         "title": "Ready to Admit",
-        "description": "{count} applications waiting for your decision",
+        "description": "{count, plural, one {# application} other {# applications}} waiting for your decision",
         "zero": "No applications waiting for review"
       },
       "waitingList": {
         "title": "Waiting List",
-        "description": "{count} applications queued — auto-promoted as seats open",
-        "awaitingYearSetup": "{count} awaiting year group setup",
+        "description": "{count, plural, one {# application} other {# applications}} queued — auto-promoted as seats open",
+        "awaitingYearSetup": "{count, plural, one {# awaiting year group setup} other {# awaiting year group setup}}",
         "zero": "Waiting list is clear"
       },
       "conditionalApproval": {
         "title": "Conditional Approval",
-        "description": "{count} applications awaiting payment",
-        "nearExpiry": "{count} expiring within 2 days",
+        "description": "{count, plural, one {# application} other {# applications}} awaiting payment",
+        "nearExpiry": "{count, plural, one {# expiring within 2 days} other {# expiring within 2 days}}",
         "zero": "No pending payments"
       },
       "rejected": {
         "title": "Rejected",
-        "description": "{count} applications rejected to date",
+        "description": "{count, plural, one {# application} other {# applications}} rejected to date",
         "zero": "No applications rejected"
       },
       "formPreview": {
@@ -12221,7 +12221,7 @@
       },
       "overrides": {
         "title": "Overrides Log",
-        "description": "{count} admin overrides granted",
+        "description": "{count, plural, one {# admin override} other {# admin overrides}} granted",
         "zero": "No overrides recorded"
       },
       "settings": {

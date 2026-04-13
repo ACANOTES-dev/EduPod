@@ -12186,24 +12186,24 @@
     "cards": {
       "readyToAdmit": {
         "title": "جاهز للقبول",
-        "description": "{count} طلبًا بانتظار قرارك",
+        "description": "{count, plural, zero {لا توجد طلبات} one {طلب واحد} two {طلبان} few {# طلبات} many {# طلبًا} other {# طلب}} بانتظار قرارك",
         "zero": "لا توجد طلبات بانتظار المراجعة"
       },
       "waitingList": {
         "title": "قائمة الانتظار",
-        "description": "{count} طلبًا في قائمة الانتظار — تتم الترقية تلقائيًا عند توفر مقاعد",
-        "awaitingYearSetup": "{count} بانتظار إعداد الصف الدراسي",
+        "description": "{count, plural, zero {لا توجد طلبات} one {طلب واحد} two {طلبان} few {# طلبات} many {# طلبًا} other {# طلب}} في قائمة الانتظار — تتم الترقية تلقائيًا عند توفر مقاعد",
+        "awaitingYearSetup": "{count, plural, zero {لا شيء} one {طلب واحد} two {طلبان} few {# طلبات} many {# طلبًا} other {# طلب}} بانتظار إعداد الصف الدراسي",
         "zero": "قائمة الانتظار فارغة"
       },
       "conditionalApproval": {
         "title": "موافقة مشروطة",
-        "description": "{count} طلبًا بانتظار الدفع",
-        "nearExpiry": "{count} تنتهي خلال يومين",
+        "description": "{count, plural, zero {لا توجد طلبات} one {طلب واحد} two {طلبان} few {# طلبات} many {# طلبًا} other {# طلب}} بانتظار الدفع",
+        "nearExpiry": "{count, plural, zero {لا شيء} one {طلب واحد ينتهي} two {طلبان ينتهيان} few {# طلبات تنتهي} many {# طلبًا ينتهي} other {# طلب ينتهي}} خلال يومين",
         "zero": "لا توجد مدفوعات معلقة"
       },
       "rejected": {
         "title": "مرفوض",
-        "description": "{count} طلبًا تم رفضه حتى الآن",
+        "description": "{count, plural, zero {لم يُرفض أي طلب} one {تم رفض طلب واحد} two {تم رفض طلبين} few {تم رفض # طلبات} many {تم رفض # طلبًا} other {تم رفض # طلب}} حتى الآن",
         "zero": "لم يتم رفض أي طلبات"
       },
       "formPreview": {
@@ -12212,7 +12212,7 @@
       },
       "overrides": {
         "title": "سجل التجاوزات",
-        "description": "{count} تجاوزًا إداريًا صادرًا",
+        "description": "{count, plural, zero {لا توجد تجاوزات} one {تجاوز إداري واحد} two {تجاوزان إداريان} few {# تجاوزات إدارية} many {# تجاوزًا إداريًا} other {# تجاوز إداري}} صادرًا",
         "zero": "لا توجد تجاوزات مسجلة"
       },
       "settings": {

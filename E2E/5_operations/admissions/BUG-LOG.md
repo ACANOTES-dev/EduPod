@@ -435,7 +435,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Fix direction:** use ICU plural selector: `t('admissions.hub.rejected', {count, formatParams})` → `{count, plural, one {# application} other {# applications}} rejected to date`.
 - **Affected files:** `apps/web/src/app/[locale]/(school)/admissions/page.tsx` + `apps/web/messages/{en,ar}.json`.
 - **Verification:** counts 0, 1, 2, many all render correct grammar.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Updated all six hub card descriptions (`readyToAdmit`, `waitingList`, `conditionalApproval`, `rejected`, `overrides`, `waitingList.awaitingYearSetup`, `conditionalApproval.nearExpiry`) to ICU plural in both `en.json` and `ar.json`. Arabic uses the full Unicode plural rule set (zero/one/two/few/many/other) per CLDR. No code changes needed — all call sites already pass `count`.
+
+### Verification notes
+
+- 2026-04-13: Hub renders "1 application rejected to date" for the current single rejected application. Web rebuilt and restarted on prod.
 
 ### ADM-016 [L] — Parent applications page: `undefined.total` console error on empty result
 
