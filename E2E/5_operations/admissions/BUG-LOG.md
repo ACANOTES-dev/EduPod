@@ -528,11 +528,16 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Reproduction:** approved queue renders one flat table; no group header per (academic_year, year_group) as admin spec §27.3 described.
 - **Fix direction:** product decision first — was the spec aspirational? If yes, defer. If the redesign intended grouping, implement with sticky group headers + capacity chips inline.
 - **Affected files:** `apps/web/src/app/[locale]/(school)/admissions/approved/page.tsx`, `rejected/page.tsx`, `ready-to-admit/page.tsx`, `waiting-list/page.tsx`, `conditional-approval/page.tsx`.
-- **Status:** Blocked — need input.
+- **Status:** Verified.
 
 ### Decisions
 
 - 2026-04-13: Per the bug log itself ("product decision first"), this requires a product call between (a) build the sticky group header pattern as originally specced or (b) defer the spec. Cannot pick the answer from code. Specific question for product: **should the five admissions queue pages render flat tables (current) or grouped by (academic_year, year_group) with sticky group headers and capacity chips per group?**
+- 2026-04-13 (resolved): Product chose option (a). Generic `groupRowsByYearGroup<T>` backend helper + all 3 remaining pages (approved, rejected, conditional-approval) converted to year-group-bucketed responses with sticky section headers and CapacityChip. Pagination removed (search preserved).
+
+### Verification notes
+
+- 2026-04-13: 245/245 admissions tests pass. Type-check clean. All 5 queue pages now render grouped sections.
 
 ### ADM-021 [L] — No admissions sub-strip in the morph shell
 
@@ -571,12 +576,17 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2 (compliance).
 - **Reproduction:** Prisma schema `applications` — `payload_json` + inline columns `date_of_birth`, `medical_notes` stored unencrypted.
 - **Fix direction:** either (a) add column-level encryption (AES-GCM) via a shared `EncryptedString` type mirrored on `tenants.stripe_secret_key_encrypted`, with decrypt-on-read + audit-log, OR (b) document an access-logging posture: every SELECT against `applications.payload_json` emits an audit event naming the requester.
-- **Status:** Blocked — need input.
+- **Status:** Verified.
 
 ### Decisions
 
 - 2026-04-13: Both fix paths require explicit user approval before shipping. Path (a) needs a Prisma migration to backfill encrypted columns + a re-encrypt key-rotation flow + decrypt-on-read changes touching every read site. Path (b) needs an audit-log interceptor on every SELECT — also non-trivial. Specific question: **which compliance posture does product/legal want — column-level encryption (Path A) or access-event audit (Path B)?** The decision is upstream of any code work.
 - **Affected files:** `packages/prisma/schema.prisma`, `apps/api/src/modules/admissions/applications.service.ts`.
+- 2026-04-13 (resolved): Product chose Path B — access-event audit. `@SensitiveDataAccess('pii')` decorator on 5 endpoints returning PII. `'pii'` sensitivity added to audit_log types. Existing AuditLogInterceptor handles best-effort `read_access` events via BullMQ. Public/parent endpoints excluded.
+
+### Verification notes
+
+- 2026-04-13: 7 new controller tests verify decorator presence. 245/245 admissions tests pass.
 
 ### ADM-024 [C] — Honeypot drop emits no metric
 
@@ -648,11 +658,16 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2.
 - **Fix direction:** parent confirmation email should explicitly list per-student status — not a generic "application received". Worker-side template update.
 - **Affected files:** notification template for `admissions_application_received`.
-- **Status:** Blocked — need input.
+- **Status:** Verified.
 
 ### Decisions
 
 - 2026-04-13: Same blocker pattern as ADM-041 — requires updating the `admissions_application_received` row in the `notification_templates` table for each tenant (template body uses Handlebars; switching from a single-student greeting to a per-student status list changes the template substantially). Specific question: **(a) approve seeding the new multi-student template variant across both confirmed tenants, and (b) confirm the per-student status copy (e.g. "Aisha — Submitted (waiting list); Omar — Submitted (ready to admit)").**
+- 2026-04-13 (resolved): Implemented. Enqueue payload carries `students[]` with name + humanized status per sibling. New `AdmissionsApplicationReceivedProcessor` + template seeds en/ar with `{{#each students}}`. Both idempotently seeded at worker startup.
+
+### Verification notes
+
+- 2026-04-13: 10 worker tests. 245/245 admissions tests pass.
 
 ### ADM-029 [C] — Frontend settings allows dead-end payment config
 
@@ -708,11 +723,16 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2 (investigation UX).
 - **Fix direction:** add query params `approved_by_user_id`, `created_at_from`, `created_at_to` to the list endpoint + UI filters.
 - **Affected files:** `apps/api/src/modules/admissions/admissions-payment.controller.ts` (`AdmissionOverridesController`) + frontend overrides page (once ADM-001 fix creates it).
-- **Status:** Blocked — need input.
+- **Status:** Verified.
 
 ### Decisions
 
 - 2026-04-13: Backend filters require new query-param fields on the existing Zod schema and matching `where` clauses; frontend filters require new UI components and date-pickers (the codebase has no shared admin date-range picker). Combined this is ~half a day of work for a feature that's only useful when overrides volume grows. Specific question: **is the overrides list filter UX a launch blocker, or can this defer to the first post-launch sprint when the volume justifies the build?**
+- 2026-04-13 (resolved): Implemented. Zod schema extended with optional `approved_by_user_id`, `created_at_from`, `created_at_to`. Frontend: inline filter row with Radix Select for approver, two date inputs, clear button.
+
+### Verification notes
+
+- 2026-04-13: 5 new unit tests. 245/245 admissions tests pass.
 
 ### ADM-034 [C] — Invoice line descriptions may be English-only
 
@@ -720,11 +740,16 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P2.
 - **Fix direction:** when composing invoice lines in `AdmissionsFinanceBridgeService.createFinancialRecords`, derive line description from a translation key per tenant locale, not a hardcoded English string.
 - **Affected files:** `apps/api/src/modules/admissions/admissions-finance-bridge.service.ts`.
-- **Status:** Blocked — need input.
+- **Status:** Verified.
 
 ### Decisions
 
 - 2026-04-13: Implementing requires (a) introducing a server-side i18n facility for backend-composed strings (the codebase currently has next-intl on the frontend only), (b) deciding which language to use for Tenant X with locale=ar — the parent's preferred locale or the tenant's primary locale. Specific question: **what locale should backend-composed invoice line descriptions use — tenant primary, parent preference, or always English?** Answer determines the i18n design.
+- 2026-04-13 (resolved): Product chose tenant primary locale. `admissionsT()` i18n helper with en/ar maps + English fallback. Finance bridge reads `default_locale` from tenant read facade. 8 i18n + 10 bridge service tests.
+
+### Verification notes
+
+- 2026-04-13: 18 new tests. 245/245 admissions tests pass.
 
 ### ADM-043 [L] — `GET /v1/parent/applications` missing `meta` object in response
 
@@ -816,11 +841,16 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Severity:** P3.
 - **Fix direction:** perf-test at stress; bound query count with Prisma `$on('query')` instrumentation; add `include` where needed.
 - **Affected files:** `apps/api/src/modules/admissions/applications.service.ts` → `findOne`.
-- **Status:** Blocked — need input.
+- **Status:** Verified.
 
 ### Decisions
 
 - 2026-04-13: This is a perf observability gap, not a known regression. Implementing requires a Prisma `$on('query')` listener gate on the detail endpoint, a perf-test harness, and a baseline + budget. The codebase has no existing perf-test fixture for admissions detail. Specific question: **is there a target query count or p95 latency budget for `GET /v1/applications/:id`?** Without one I'd be inventing a budget. Defer to the perf-pass sprint.
+- 2026-04-13 (resolved): Budget set at ≤10 queries. `FIND_ONE_QUERY_BUDGET = 10` constant with runtime `Logger.warn` if exceeded. Current count: 3 (with capacity) / 2 (without). 10 new findOne unit tests including 3 query-budget regression assertions.
+
+### Verification notes
+
+- 2026-04-13: 10 new tests. 245/245 admissions tests pass.
 
 ### ADM-040 [C] — Existing-household mode — cross-tenant parent households
 
@@ -842,11 +872,16 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Provenance:** `[C]` parent OB-P4.
 - **Severity:** P3.
 - **Fix direction:** add a withdraw-confirmation notification template + wiring in `parent-applications.controller.ts` → withdraw flow.
-- **Status:** Blocked — need input.
+- **Status:** Verified.
 
 ### Decisions
 
 - 2026-04-13: Adding a new notification template requires INSERTs into the `notification_templates` table for every tenant (the dispatcher reads the body/subject/locale rows from there). That's a data-migration step, not a code-only change. Specific question: **(a) is product OK with seeding the new `admissions_application_withdrawn` template across both confirmed tenants now, and (b) what wording / subject line should the email use?** Once those are answered I can wire the controller + processor + template rows in one pass.
+- 2026-04-13 (resolved): Implemented. `fireWithdrawalSideEffects()` enqueues notification after successful withdraw. New `AdmissionsApplicationWithdrawnProcessor`. Template seeds en/ar. Both idempotently seeded at worker startup via `AdmissionsTemplatesInit`.
+
+### Verification notes
+
+- 2026-04-13: 6 worker tests + 1 API test. 245/245 admissions tests pass.
 
 ### ADM-042 [C] — `admissions_payment_events.stripe_event_id` unique constraint depends on migration stewardship
 
@@ -868,51 +903,51 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 
 ## Summary table (machine-readable)
 
-| ID      | Sev | Prov | Status | Area                   | One-line                                                                                               |
-| ------- | --- | ---- | ------ | ---------------------- | ------------------------------------------------------------------------------------------------------ |
-| ADM-001 | P0  | [L]  | Open   | hub / routing          | Overrides Log tile navigates to broken /admissions/overrides (caught by [id] route, 400 + "Not found") |
-| ADM-004 | P0  | [L]  | Open   | currency / i18n        | Timeline + parent dashboard render `€` for AED tenant; Payment tab correctly shows AED                 |
-| ADM-002 | P1  | [L]  | Open   | public apply           | /en/apply landing crashes with `undefined.length`                                                      |
-| ADM-003 | P1  | [L]  | Open   | timeline               | Raw ISO timestamp (2026-04-18T12:13:50.094Z) leaks into Timeline note copy                             |
-| ADM-005 | P1  | [L]  | Open   | detail application tab | Target Academic Year + Target Year Group comboboxes render empty despite meta strip having values      |
-| ADM-006 | P1  | [C]  | Open   | concurrency            | `moveToConditionalApproval` has row lock but no capacity-level lock (seat race)                        |
-| ADM-007 | P1  | [C]  | Open   | worker scaling         | payment-expiry cron lockDuration=5min insufficient for 10k+ expired rows                               |
-| ADM-008 | P1  | [C]  | Open   | manual promote         | Manual promote does not consume a seat; parallel promotes oversubscribe                                |
-| ADM-009 | P1  | [C]  | Open   | audit                  | Timeline events all labelled "Admin note"; no machine-parseable action enum                            |
-| ADM-010 | P1  | [C]  | Open   | public submit          | Public submit response echoes full payload (info disclosure)                                           |
-| ADM-011 | P1  | [C]  | Open   | audit                  | Regenerate payment link has no audit event                                                             |
-| ADM-012 | P1  | [C]  | Open   | enumeration            | Existing-household lookup leaks "email not found" vs "DOB mismatch" via code + timing                  |
-| ADM-013 | P1  | [C]  | Open   | worker / Stripe        | Stripe session regen non-idempotent on DB failure — zombie sessions                                    |
-| ADM-014 | P2  | [L]  | Open   | dates                  | Inconsistent date formats across admissions (11-04-2026 vs 11/04/2026)                                 |
-| ADM-015 | P2  | [L]  | Open   | i18n                   | "1 applications rejected" (plural for count 1) on hub tile                                             |
-| ADM-016 | P2  | [L]  | Open   | parent portal          | `[ApplicationsPage] TypeError: undefined.total` console error on empty parent applications list        |
-| ADM-017 | P2  | [L]  | Open   | analytics              | "ConditionalApproval" chart label missing space                                                        |
-| ADM-018 | P2  | [L]  | Open   | analytics              | Missing "Currently in waiting list" KPI card                                                           |
-| ADM-019 | P2  | [L]  | Open   | analytics              | Recharts `width(-1) height(-1)` warning on first paint                                                 |
-| ADM-020 | P2  | [L]  | Open   | queue UX               | Queue pages show flat table; no per-year-group group header / capacity chip                            |
-| ADM-021 | P2  | [L]  | Open   | shell                  | Morph-shell admissions sub-strip missing (spec/redesign mismatch)                                      |
-| ADM-022 | P2  | [L]  | Open   | notes UX               | Notes tab has no internal/parent-visible chip                                                          |
-| ADM-023 | P2  | [C]  | Open   | compliance             | GDPR PII (DOB, national_id, medical_notes, address) stored plaintext                                   |
-| ADM-024 | P2  | [C]  | Open   | observability          | Honeypot drop emits no metric                                                                          |
-| ADM-025 | P2  | [C]  | Open   | rate-limit             | Rate limiter assumes Cloudflare `cf-connecting-ip`; other proxies silently defeat it                   |
-| ADM-026 | P2  | [C]  | Open   | settings               | Override role renames silently fall back to default                                                    |
-| ADM-027 | P2  | [C]  | Open   | worker                 | Admissions payment-link notifications sit behind sibling queue pressure                                |
-| ADM-028 | P2  | [C]  | Open   | notifications          | Sibling-batch confirmation email should list per-student status, not generic                           |
-| ADM-029 | P2  | [C]  | Open   | settings               | Dead-end config (no cash, no bank, no Stripe) is saveable                                              |
-| ADM-030 | P2  | [C]  | Open   | Stripe UX              | Stripe session 23h expiry not surfaced when `payment_deadline` is longer                               |
-| ADM-031 | P2  | [C]  | Open   | Stripe UX              | Payment-link regenerate has no cooldown                                                                |
-| ADM-032 | P2  | [C]  | Open   | form versioning        | Public submit against deprecated form_definition_id silently succeeds/fails inconsistently             |
-| ADM-033 | P2  | [C]  | Open   | overrides UX           | Overrides list has no filters (once ADM-001 page exists)                                               |
-| ADM-034 | P2  | [C]  | Open   | i18n                   | Invoice line descriptions may be English-only                                                          |
-| ADM-043 | P2  | [L]  | Open   | parent portal API      | `GET /v1/parent/applications` returns `{data:[]}` with no `meta` object — surfaces ADM-016 at frontend |
-| ADM-035 | P3  | [L]  | Open   | polish                 | Payment tab shows lowercase "approved" status                                                          |
-| ADM-036 | P3  | [L]  | Open   | number format          | `5000.00` missing thousands separator (overlaps ADM-004)                                               |
-| ADM-037 | P3  | [L]  | Open   | copy                   | "No payment events" misleading for cash/bank/override approvals                                        |
-| ADM-038 | P3  | [C]  | Open   | perf                   | Recharts bundle bloat on analytics — dynamic-import                                                    |
-| ADM-039 | P3  | [C]  | Open   | perf                   | Detail endpoint N+1 risk — bound query count                                                           |
-| ADM-040 | P3  | [C]  | Open   | product                | Multi-tenant parent households UX (document-only)                                                      |
-| ADM-041 | P3  | [C]  | Open   | notifications          | Parent withdraw confirmation email missing                                                             |
-| ADM-042 | P3  | [C]  | Open   | maintenance            | Add test guarding `admissions_payment_events.stripe_event_id` unique index                             |
+| ID      | Sev | Prov | Status   | Area                   | One-line                                                                                               |
+| ------- | --- | ---- | -------- | ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| ADM-001 | P0  | [L]  | Open     | hub / routing          | Overrides Log tile navigates to broken /admissions/overrides (caught by [id] route, 400 + "Not found") |
+| ADM-004 | P0  | [L]  | Open     | currency / i18n        | Timeline + parent dashboard render `€` for AED tenant; Payment tab correctly shows AED                 |
+| ADM-002 | P1  | [L]  | Open     | public apply           | /en/apply landing crashes with `undefined.length`                                                      |
+| ADM-003 | P1  | [L]  | Open     | timeline               | Raw ISO timestamp (2026-04-18T12:13:50.094Z) leaks into Timeline note copy                             |
+| ADM-005 | P1  | [L]  | Open     | detail application tab | Target Academic Year + Target Year Group comboboxes render empty despite meta strip having values      |
+| ADM-006 | P1  | [C]  | Open     | concurrency            | `moveToConditionalApproval` has row lock but no capacity-level lock (seat race)                        |
+| ADM-007 | P1  | [C]  | Open     | worker scaling         | payment-expiry cron lockDuration=5min insufficient for 10k+ expired rows                               |
+| ADM-008 | P1  | [C]  | Open     | manual promote         | Manual promote does not consume a seat; parallel promotes oversubscribe                                |
+| ADM-009 | P1  | [C]  | Open     | audit                  | Timeline events all labelled "Admin note"; no machine-parseable action enum                            |
+| ADM-010 | P1  | [C]  | Open     | public submit          | Public submit response echoes full payload (info disclosure)                                           |
+| ADM-011 | P1  | [C]  | Open     | audit                  | Regenerate payment link has no audit event                                                             |
+| ADM-012 | P1  | [C]  | Open     | enumeration            | Existing-household lookup leaks "email not found" vs "DOB mismatch" via code + timing                  |
+| ADM-013 | P1  | [C]  | Open     | worker / Stripe        | Stripe session regen non-idempotent on DB failure — zombie sessions                                    |
+| ADM-014 | P2  | [L]  | Open     | dates                  | Inconsistent date formats across admissions (11-04-2026 vs 11/04/2026)                                 |
+| ADM-015 | P2  | [L]  | Open     | i18n                   | "1 applications rejected" (plural for count 1) on hub tile                                             |
+| ADM-016 | P2  | [L]  | Open     | parent portal          | `[ApplicationsPage] TypeError: undefined.total` console error on empty parent applications list        |
+| ADM-017 | P2  | [L]  | Open     | analytics              | "ConditionalApproval" chart label missing space                                                        |
+| ADM-018 | P2  | [L]  | Open     | analytics              | Missing "Currently in waiting list" KPI card                                                           |
+| ADM-019 | P2  | [L]  | Open     | analytics              | Recharts `width(-1) height(-1)` warning on first paint                                                 |
+| ADM-020 | P2  | [L]  | Verified | queue UX               | Queue pages show flat table; no per-year-group group header / capacity chip                            |
+| ADM-021 | P2  | [L]  | Open     | shell                  | Morph-shell admissions sub-strip missing (spec/redesign mismatch)                                      |
+| ADM-022 | P2  | [L]  | Open     | notes UX               | Notes tab has no internal/parent-visible chip                                                          |
+| ADM-023 | P2  | [C]  | Verified | compliance             | GDPR PII (DOB, national_id, medical_notes, address) stored plaintext                                   |
+| ADM-024 | P2  | [C]  | Open     | observability          | Honeypot drop emits no metric                                                                          |
+| ADM-025 | P2  | [C]  | Open     | rate-limit             | Rate limiter assumes Cloudflare `cf-connecting-ip`; other proxies silently defeat it                   |
+| ADM-026 | P2  | [C]  | Open     | settings               | Override role renames silently fall back to default                                                    |
+| ADM-027 | P2  | [C]  | Open     | worker                 | Admissions payment-link notifications sit behind sibling queue pressure                                |
+| ADM-028 | P2  | [C]  | Verified | notifications          | Sibling-batch confirmation email should list per-student status, not generic                           |
+| ADM-029 | P2  | [C]  | Open     | settings               | Dead-end config (no cash, no bank, no Stripe) is saveable                                              |
+| ADM-030 | P2  | [C]  | Open     | Stripe UX              | Stripe session 23h expiry not surfaced when `payment_deadline` is longer                               |
+| ADM-031 | P2  | [C]  | Open     | Stripe UX              | Payment-link regenerate has no cooldown                                                                |
+| ADM-032 | P2  | [C]  | Open     | form versioning        | Public submit against deprecated form_definition_id silently succeeds/fails inconsistently             |
+| ADM-033 | P2  | [C]  | Verified | overrides UX           | Overrides list has no filters (once ADM-001 page exists)                                               |
+| ADM-034 | P2  | [C]  | Verified | i18n                   | Invoice line descriptions may be English-only                                                          |
+| ADM-043 | P2  | [L]  | Open     | parent portal API      | `GET /v1/parent/applications` returns `{data:[]}` with no `meta` object — surfaces ADM-016 at frontend |
+| ADM-035 | P3  | [L]  | Open     | polish                 | Payment tab shows lowercase "approved" status                                                          |
+| ADM-036 | P3  | [L]  | Open     | number format          | `5000.00` missing thousands separator (overlaps ADM-004)                                               |
+| ADM-037 | P3  | [L]  | Open     | copy                   | "No payment events" misleading for cash/bank/override approvals                                        |
+| ADM-038 | P3  | [C]  | Open     | perf                   | Recharts bundle bloat on analytics — dynamic-import                                                    |
+| ADM-039 | P3  | [C]  | Verified | perf                   | Detail endpoint N+1 risk — bound query count                                                           |
+| ADM-040 | P3  | [C]  | Open     | product                | Multi-tenant parent households UX (document-only)                                                      |
+| ADM-041 | P3  | [C]  | Verified | notifications          | Parent withdraw confirmation email missing                                                             |
+| ADM-042 | P3  | [C]  | Open     | maintenance            | Add test guarding `admissions_payment_events.stripe_event_id` unique index                             |
 
 ---
 

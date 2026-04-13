@@ -87,20 +87,22 @@ restarted on 46.62.244.139, both Prisma migrations applied):
 
 ### Bugs still OPEN after this resume
 
-ADM-020 (queue grouping by year), ADM-023 (column-level encryption —
-biggest), ADM-028 (sibling email per-student template), ADM-033
-(override list filters), ADM-034 (i18n for invoice line descriptions
-via tenant primary locale), ADM-039 (perf instrumentation — budget
-≤10 queries / p95 <300ms), ADM-041 (withdraw confirmation email
-template).
+~~ADM-020, ADM-023, ADM-028, ADM-033, ADM-034, ADM-039, ADM-041~~ — ALL CLOSED (see Round 3 below).
 
 ### First thing to do in the next session
 
-1. Verify the UE zombies are gone: `pgrep -fl "eslint.*--fix"` should
-   return empty.
-2. Apply the lint-staged + husky preventive changes discussed with
-   user (NODE_OPTIONS memory cap, `concurrent: false`, 90s `timeout`
-   wrapper around `pnpm lint-staged`, `killnodes` shell function).
-3. Confirm no further --no-verify usage is needed.
-4. Resume the bug-log execution in plan order: ADM-020, ADM-033,
-   ADM-039, ADM-028, ADM-041, ADM-034, then ADM-023.
+~~Completed in Round 3.~~
+
+---
+
+ROUND 3 (post-reboot, 2026-04-13):
+
+Lint-staged hardening applied first (6GB NODE_OPTIONS, 120s SIGALRM timeout, --concurrent false, killnodes zsh function). No further --no-verify needed.
+
+- ADM-020 (2026-04-13): Generic `groupRowsByYearGroup<T>` helper. Approved, rejected, conditional-approval endpoints switch from flat pagination to year-group-bucketed responses. Frontend pages render section-per-bucket with sticky headers + CapacityChip. — Claude Opus 4.6
+- ADM-033 (2026-04-13): Zod schema extended with optional `approved_by_user_id`, `created_at_from`, `created_at_to`. Service builds dynamic where clause. Frontend: inline filter row with approver Select, date range, clear button. 5 new unit tests. — Claude Opus 4.6
+- ADM-039 (2026-04-13): `FIND_ONE_QUERY_BUDGET = 10` constant with runtime Logger.warn. Current count: 3 (with capacity) / 2 (without). 10 new findOne unit tests including 3 query-budget regression assertions. — Claude Opus 4.6
+- ADM-028 (2026-04-13): Enqueue payload carries `students[]` with name + status per sibling. New `AdmissionsApplicationReceivedProcessor` + template seeds en/ar with `{{#each students}}`. 10 worker tests. — Claude Opus 4.6
+- ADM-041 (2026-04-13): `fireWithdrawalSideEffects()` enqueues notification. New `AdmissionsApplicationWithdrawnProcessor` + template seeds en/ar. Both idempotently seeded at worker startup. 6 worker tests. — Claude Opus 4.6
+- ADM-034 (2026-04-13): `admissionsT()` i18n helper with en/ar maps + English fallback. Finance bridge reads tenant `default_locale` for invoice line descriptions. 8 + 10 tests. — Claude Opus 4.6
+- ADM-023 (2026-04-13): Path B — `@SensitiveDataAccess('pii')` decorator on 5 endpoints returning PII. `'pii'` sensitivity added to audit_log types. Existing AuditLogInterceptor handles best-effort `read_access` audit events. 7 controller tests. — Claude Opus 4.6
