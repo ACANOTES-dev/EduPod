@@ -29,6 +29,11 @@ interface ComposeContext {
   universePromise: Promise<string[]> | null;
 }
 
+// Hard cap on walk depth across and/or/not + saved_group nesting.
+// Beyond this a definition is either malformed or pathological — fail
+// fast with AUDIENCE_MAX_DEPTH_EXCEEDED rather than risk stack exhaustion.
+const AUDIENCE_MAX_DEPTH = 8;
+
 /**
  * AudienceComposer — pure-function set algebra over provider outputs.
  *
@@ -68,28 +73,43 @@ export class AudienceComposer {
       visitedSavedIds: new Set(),
       universePromise: null,
     };
-    const set = await this.walk(parsed, ctx);
+    const set = await this.walk(parsed, ctx, 0);
     return { user_ids: [...set] };
   }
 
-  private async walk(definition: AudienceDefinition, ctx: ComposeContext): Promise<Set<string>> {
+  private async walk(
+    definition: AudienceDefinition,
+    ctx: ComposeContext,
+    depth: number,
+  ): Promise<Set<string>> {
+    if (depth > AUDIENCE_MAX_DEPTH) {
+      throw new BadRequestException({
+        code: 'AUDIENCE_MAX_DEPTH_EXCEEDED',
+        message: `Audience definition exceeds the maximum nesting depth of ${AUDIENCE_MAX_DEPTH}`,
+      });
+    }
+
     if (isAudienceLeaf(definition)) {
-      return this.resolveLeaf(definition, ctx);
+      return this.resolveLeaf(definition, ctx, depth);
     }
 
     if (isAudienceAndNode(definition)) {
-      const operandSets = await Promise.all(definition.operands.map((op) => this.walk(op, ctx)));
+      const operandSets = await Promise.all(
+        definition.operands.map((op) => this.walk(op, ctx, depth + 1)),
+      );
       return intersect(operandSets);
     }
 
     if (isAudienceOrNode(definition)) {
-      const operandSets = await Promise.all(definition.operands.map((op) => this.walk(op, ctx)));
+      const operandSets = await Promise.all(
+        definition.operands.map((op) => this.walk(op, ctx, depth + 1)),
+      );
       return union(operandSets);
     }
 
     if (isAudienceNotNode(definition)) {
       const [operandSet, universe] = await Promise.all([
-        this.walk(definition.operand, ctx),
+        this.walk(definition.operand, ctx, depth + 1),
         this.getUniverse(ctx),
       ]);
       return complement(universe, operandSet);
@@ -105,9 +125,10 @@ export class AudienceComposer {
   private async resolveLeaf(
     leaf: { provider: string; params?: Record<string, unknown> },
     ctx: ComposeContext,
+    depth: number,
   ): Promise<Set<string>> {
     if (leaf.provider === 'saved_group') {
-      return this.resolveSavedGroup(leaf.params ?? {}, ctx);
+      return this.resolveSavedGroup(leaf.params ?? {}, ctx, depth);
     }
 
     const provider = this.registry.get(leaf.provider as never);
@@ -126,6 +147,7 @@ export class AudienceComposer {
   private async resolveSavedGroup(
     params: Record<string, unknown>,
     ctx: ComposeContext,
+    depth: number,
   ): Promise<Set<string>> {
     const id = typeof params.saved_audience_id === 'string' ? params.saved_audience_id : null;
     if (!id) {
@@ -145,7 +167,7 @@ export class AudienceComposer {
 
     try {
       const row = await this.savedAudiences.findByIdOrThrow(ctx.tenantId, id);
-      return await this.resolveStoredDefinition(row, ctx);
+      return await this.resolveStoredDefinition(row, ctx, depth + 1);
     } finally {
       ctx.visitedSavedIds.delete(id);
     }
@@ -159,6 +181,7 @@ export class AudienceComposer {
   private async resolveStoredDefinition(
     row: SavedAudienceRow,
     ctx: ComposeContext,
+    depth: number,
   ): Promise<Set<string>> {
     const stored = row.definition_json as {
       user_ids?: string[];
@@ -177,7 +200,7 @@ export class AudienceComposer {
 
     // Dynamic — the stored JSON is a full AudienceDefinition tree.
     const parsed = audienceDefinitionSchema.parse(stored);
-    return this.walk(parsed, ctx);
+    return this.walk(parsed, ctx, depth);
   }
 
   /**
@@ -194,7 +217,7 @@ export class AudienceComposer {
       visitedSavedIds: new Set([row.id]),
       universePromise: null,
     };
-    const set = await this.resolveStoredDefinition(row, ctx);
+    const set = await this.resolveStoredDefinition(row, ctx, 0);
     return { user_ids: [...set] };
   }
 
