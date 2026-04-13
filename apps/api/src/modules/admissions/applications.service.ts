@@ -343,10 +343,20 @@ export class ApplicationsService {
 
       // Create one Application per student, gate each independently.
       // Trimmed shape — see CreatePublicResult (ADM-010 info-disclosure fix).
+      // The full record is also collected for the side-effects loop below
+      // (search index needs student names) without leaking those fields back
+      // to the caller.
       const applications: Array<{
         id: string;
         application_number: string;
         status: ApplicationStatus;
+      }> = [];
+      const applicationsForSideEffects: Array<{
+        id: string;
+        application_number: string;
+        status: ApplicationStatus;
+        student_first_name: string;
+        student_last_name: string;
       }> = [];
 
       for (const student of dto.students) {
@@ -403,6 +413,13 @@ export class ApplicationsService {
           application_number: routed.application_number,
           status: routed.status as ApplicationStatus,
         });
+        applicationsForSideEffects.push({
+          id: routed.id,
+          application_number: routed.application_number,
+          status: routed.status as ApplicationStatus,
+          student_first_name: routed.student_first_name,
+          student_last_name: routed.student_last_name,
+        });
       }
 
       return {
@@ -410,11 +427,22 @@ export class ApplicationsService {
         submission_batch_id: submissionBatchId,
         household_number: householdNumberForResponse,
         applications,
+        applicationsForSideEffects,
       };
-    })) as CreatePublicResult;
+    })) as CreatePublicResult & {
+      applicationsForSideEffects: Array<{
+        id: string;
+        application_number: string;
+        status: ApplicationStatus;
+        student_first_name: string;
+        student_last_name: string;
+      }>;
+    };
 
-    // Fire side effects outside the transaction (non-blocking)
-    for (const app of result.applications) {
+    // Fire side effects outside the transaction (non-blocking) using the
+    // internal full-info array; the returned `result` still has the trimmed
+    // public shape per CreatePublicResult.
+    for (const app of result.applicationsForSideEffects) {
       this.fireApplicationSideEffects(tenantId, app).catch((err) => {
         this.logger.warn(
           `[createPublic] side effects failed for ${app.id}: ${err instanceof Error ? err.message : String(err)}`,
@@ -422,7 +450,12 @@ export class ApplicationsService {
       });
     }
 
-    return result;
+    return {
+      mode: result.mode,
+      submission_batch_id: result.submission_batch_id,
+      household_number: result.household_number,
+      applications: result.applications,
+    };
   }
 
   private async fireApplicationSideEffects(
