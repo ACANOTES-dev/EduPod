@@ -36,14 +36,14 @@ export interface ThreadMessageView {
   edited_at: string | null;
   deleted_at: string | null;
   attachments: ThreadMessageAttachment[];
-  read_state: { read_count: number; total_recipients: number } | null;
+  read_state?: { read_count: number; total_recipients: number } | null;
 }
 
 export interface ThreadParticipant {
   user_id: string;
   role_at_join: MessagingRole;
   joined_at: string;
-  last_read_at: string | null;
+  last_read_at?: string | null;
 }
 
 export interface ThreadDetail {

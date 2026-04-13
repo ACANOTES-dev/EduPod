@@ -256,21 +256,7 @@ export class ConversationsReadFacade {
       const isDeleted = m.deleted_at !== null;
       const viewBody = isDeleted && !requesterIsStaff ? '[message deleted]' : m.body;
 
-      let read_state: ThreadMessageView['read_state'] = null;
-      if (
-        requesterIsStaff &&
-        m.sender_user_id === userId &&
-        !isDeleted &&
-        readCounts &&
-        readCounts.has(m.id)
-      ) {
-        read_state = {
-          read_count: readCounts.get(m.id) ?? 0,
-          total_recipients: totalRecipients,
-        };
-      }
-
-      return {
+      const base: ThreadMessageView = {
         id: m.id,
         sender_user_id: m.sender_user_id,
         body: viewBody,
@@ -278,8 +264,21 @@ export class ConversationsReadFacade {
         edited_at: m.edited_at,
         deleted_at: isDeleted ? m.deleted_at : null,
         attachments: isDeleted && !requesterIsStaff ? [] : m.attachments,
-        read_state,
       };
+
+      if (!requesterIsStaff) {
+        return base;
+      }
+
+      let read_state: ThreadMessageView['read_state'] = null;
+      if (m.sender_user_id === userId && !isDeleted && readCounts && readCounts.has(m.id)) {
+        read_state = {
+          read_count: readCounts.get(m.id) ?? 0,
+          total_recipients: totalRecipients,
+        };
+      }
+
+      return { ...base, read_state };
     });
 
     // Mark the thread as read when it's opened (idempotent).
@@ -320,12 +319,14 @@ export class ConversationsReadFacade {
       freeze_reason: conversation.freeze_reason,
       created_by_user_id: conversation.created_by_user_id,
       created_at: conversation.created_at,
-      participants: conversation.participants.map((p) => ({
-        user_id: p.user_id,
-        role_at_join: p.role_at_join,
-        joined_at: p.joined_at,
-        last_read_at: p.last_read_at,
-      })),
+      participants: conversation.participants.map((p) => {
+        const base = {
+          user_id: p.user_id,
+          role_at_join: p.role_at_join,
+          joined_at: p.joined_at,
+        };
+        return requesterIsStaff ? { ...base, last_read_at: p.last_read_at } : base;
+      }),
       messages: { data: messageViews, meta: { page, pageSize, total } },
     };
   }

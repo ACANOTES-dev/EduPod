@@ -92,10 +92,10 @@ export interface ThreadMessageView {
   }>;
   /**
    * Only populated when the requesting user is a school-staff sender
-   * and this is one of THEIR messages. Parents and students never see
-   * a non-null value regardless of who sent the message.
+   * and this is one of THEIR messages. Omitted entirely from responses
+   * to parent and student roles.
    */
-  read_state: { read_count: number; total_recipients: number } | null;
+  read_state?: { read_count: number; total_recipients: number } | null;
 }
 
 export interface ThreadDetail {
@@ -112,7 +112,12 @@ export interface ThreadDetail {
     user_id: string;
     role_at_join: MessagingRole;
     joined_at: Date;
-    last_read_at: Date | null;
+    /**
+     * Other participants' per-message read timestamps. Only returned
+     * to staff requesters; omitted for parent/student to avoid
+     * leaking who-read-what.
+     */
+    last_read_at?: Date | null;
   }>;
   messages: Paginated<ThreadMessageView>;
 }
