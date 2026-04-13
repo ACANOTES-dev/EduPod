@@ -1,1161 +1,974 @@
 # Admissions Module — Admin E2E Test Specification
 
 **Module:** Admissions (Operations)
-**Perspective:** Admin (school_owner, school_principal, admin, school_vice_principal, front_office)
-**Pages Covered:** 18 unique routes (10 staff-facing + 8 public-facing)
-**Last Updated:** 2026-04-11
+**Perspective:** Admin (school_owner, school_principal, admin, school_vice_principal, front_office — role-specific affordances noted per row)
+**Pages Covered:** 10 authenticated staff routes + 7 detail-page tab/modal surfaces
+**Backend endpoints exercised:** 28 (see §34)
+**Spec version:** 2.0 (2026-04-12) — replaces the pre-redesign draft under the same path
+**Pack companion:** part of `/e2e-full admissions` — sibling specs live alongside under `integration/`, `worker/`, `perf/`, `security/`
 
 ---
 
 ## Table of Contents
 
 1. [Prerequisites & Test Data](#1-prerequisites--test-data)
-2. [Admissions Dashboard / Hub](#2-admissions-dashboard--hub)
-3. [Ready-to-Admit Queue](#3-ready-to-admit-queue)
-4. [Conditional Approval Queue](#4-conditional-approval-queue)
-5. [Waiting List Queue](#5-waiting-list-queue)
-6. [Approved Queue](#6-approved-queue)
-7. [Rejected Archive](#7-rejected-archive)
-8. [Application Detail — General](#8-application-detail--general)
-9. [Application Detail — Application Tab](#9-application-detail--application-tab)
-10. [Application Detail — Timeline Tab](#10-application-detail--timeline-tab)
-11. [Application Detail — Notes Tab](#11-application-detail--notes-tab)
-12. [Application Detail — Payment Tab](#12-application-detail--payment-tab)
-13. [Application Detail — Actions (ready_to_admit)](#13-application-detail--actions-ready_to_admit)
-14. [Application Detail — Actions (conditional_approval)](#14-application-detail--actions-conditional_approval)
-15. [Application Detail — Actions (waiting_list)](#15-application-detail--actions-waiting_list)
-16. [Application Detail — Actions (approved)](#16-application-detail--actions-approved)
-17. [Application Detail — Reject Dialog](#17-application-detail--reject-dialog)
-18. [Application Detail — Force Approve Modal](#18-application-detail--force-approve-modal)
-19. [Application Detail — Record Cash Modal](#19-application-detail--record-cash-modal)
-20. [Application Detail — Record Bank Transfer Modal](#20-application-detail--record-bank-transfer-modal)
-21. [Admissions Analytics](#21-admissions-analytics)
-22. [Form Preview](#22-form-preview)
-23. [Admissions Settings](#23-admissions-settings)
-24. [Public Apply — Generic Form](#24-public-apply--generic-form)
-25. [Public Apply — Tenant-Specific Form (Mode Picker)](#25-public-apply--tenant-specific-form-mode-picker)
-26. [Public Apply — Tenant-Specific Form (New Family)](#26-public-apply--tenant-specific-form-new-family)
-27. [Public Apply — Tenant-Specific Form (Existing Family Lookup)](#27-public-apply--tenant-specific-form-existing-family-lookup)
-28. [Public Apply — Tenant-Specific Form (Existing Family Submit)](#28-public-apply--tenant-specific-form-existing-family-submit)
-29. [Public Apply — Students Section Component](#29-public-apply--students-section-component)
-30. [Public Apply — Submitted Confirmation](#30-public-apply--submitted-confirmation)
-31. [Public Apply — Payment Success (Tenant)](#31-public-apply--payment-success-tenant)
-32. [Public Apply — Payment Cancelled (Tenant)](#32-public-apply--payment-cancelled-tenant)
-33. [Public Apply — Payment Success (Root)](#33-public-apply--payment-success-root)
-34. [Public Apply — Payment Cancelled (Root)](#34-public-apply--payment-cancelled-root)
-35. [Queue Components — ApplicationRow](#35-queue-components--applicationrow)
-36. [Queue Components — CapacityChip](#36-queue-components--capacitychip)
-37. [Queue Components — QueueHeader](#37-queue-components--queueheader)
-38. [Queue Components — PaymentRecordModal](#38-queue-components--paymentrecordmodal)
-39. [Queue Components — ForceApproveModal (Queue)](#39-queue-components--forceapprovemodal-queue)
-40. [Queue Components — RejectDialog (Queue)](#40-queue-components--rejectdialog-queue)
-41. [Queue Components — ManualPromoteDialog](#41-queue-components--manualpromote-dialog)
-42. [State Machine — Full Transition Graph](#42-state-machine--full-transition-graph)
-43. [End-to-End Flow — New Family Application](#43-end-to-end-flow--new-family-application)
-44. [End-to-End Flow — Existing Family Application](#44-end-to-end-flow--existing-family-application)
-45. [End-to-End Flow — Stripe Payment Completion](#45-end-to-end-flow--stripe-payment-completion)
-46. [End-to-End Flow — Cash Payment Approval](#46-end-to-end-flow--cash-payment-approval)
-47. [End-to-End Flow — Force Approve Override](#47-end-to-end-flow--force-approve-override)
-48. [End-to-End Flow — Payment Expiry & Revert](#48-end-to-end-flow--payment-expiry--revert)
-49. [End-to-End Flow — Manual Promotion from Waiting List](#49-end-to-end-flow--manual-promotion-from-waiting-list)
-50. [End-to-End Flow — Application Rejection](#50-end-to-end-flow--application-rejection)
-51. [End-to-End Flow — Application Withdrawal](#51-end-to-end-flow--application-withdrawal)
-52. [Permission & Role Guard Tests](#52-permission--role-guard-tests)
-53. [Arabic / RTL Verification](#53-arabic--rtl-verification)
-54. [Backend Endpoint Map](#54-backend-endpoint-map)
-55. [Console & Network Health](#55-console--network-health)
-56. [Observations & Bugs Found During Walkthrough](#56-observations--bugs-found-during-walkthrough)
-57. [Sign-Off](#57-sign-off)
+2. [Out of Scope (pointers to sibling specs)](#2-out-of-scope)
+3. [Global UI Shell — Morph Bar & Sub-strip](#3-global-ui-shell)
+4. [Admissions Dashboard / Hub — `/admissions`](#4-admissions-dashboard)
+5. [Ready-to-Admit Queue — `/admissions/ready-to-admit`](#5-ready-to-admit-queue)
+6. [Waiting List Queue — `/admissions/waiting-list`](#6-waiting-list-queue)
+7. [Conditional-Approval Queue — `/admissions/conditional-approval`](#7-conditional-approval-queue)
+8. [Approved Archive — `/admissions/approved`](#8-approved-archive)
+9. [Rejected Archive — `/admissions/rejected`](#9-rejected-archive)
+10. [Admissions Analytics — `/admissions/analytics`](#10-admissions-analytics)
+11. [Form Preview — `/admissions/form-preview`](#11-form-preview)
+12. [Admissions Settings — `/admissions/settings`](#12-admissions-settings)
+13. [Application Detail — Header & Meta Strip](#13-detail-header)
+14. [Application Detail — Application Tab](#14-detail-application)
+15. [Application Detail — Timeline Tab](#15-detail-timeline)
+16. [Application Detail — Notes Tab](#16-detail-notes)
+17. [Application Detail — Payment Tab](#17-detail-payment)
+18. [Detail Actions — `ready_to_admit` state](#18-actions-ready-to-admit)
+19. [Detail Actions — `conditional_approval` state](#19-actions-conditional-approval)
+20. [Detail Actions — `waiting_list` state](#20-actions-waiting-list)
+21. [Detail Actions — `approved` / terminal states](#21-actions-terminal)
+22. [Reject Dialog](#22-reject-dialog)
+23. [Force-Approve-with-Override Modal](#23-force-approve-modal)
+24. [Record Cash Payment Modal](#24-record-cash-modal)
+25. [Record Bank-Transfer Modal](#25-record-bank-transfer-modal)
+26. [Manual Promote Dialog (waiting-list)](#26-manual-promote-dialog)
+27. [Queue Components — shared primitives](#27-queue-components)
+28. [State Machine — full transition graph](#28-state-machine)
+29. [End-to-end flows — 8 flows](#29-end-to-end-flows)
+30. [Data Invariants — SQL checks after each flow](#30-data-invariants)
+31. [Arabic / RTL Behaviour](#31-rtl)
+32. [Console & Network Health](#32-console-network)
+33. [Permission Matrix — affordance visibility by role](#33-permission-matrix)
+34. [Backend Endpoint Map](#34-endpoint-map)
+35. [Observations & Findings from the walkthrough](#35-observations)
+36. [Sign-off Table](#36-signoff)
+
+Legend: every row has columns `# | What to Check | Expected Result | Pass/Fail`. API paths are prefixed with `/v1/...` (the `/api` prefix is applied by the gateway). Where a row is a pure negative assertion, the Expected Result column states the HTTP status code **and** what the UI should render instead (empty state, toast, 404 page, etc.).
 
 ---
 
-## 1. Prerequisites & Test Data
+## 1. Prerequisites & Test Data <a id="1-prerequisites--test-data"></a>
 
-Before executing this spec, ensure the following are in place:
+This spec CANNOT be run on a single tenant. Cross-tenant leakage is validated by navigating to Tenant B's resources while authenticated as Tenant A — a single-tenant environment makes every row in section 5 through 27 silently pass.
 
-**Tenant Configuration:**
+### 1.1 Tenants (2 minimum)
 
-- A test tenant with at least one active academic year
-- At least two year groups with classes configured (capacity > 0)
-- At least one year group at full capacity (enrolled = total_capacity) for capacity-exhausted tests
-- Fee structures configured for each year group
-- Stripe test keys configured (pk*test*_, sk*test*_, whsec\_\*) — or, at minimum, "allow_cash" enabled in admissions settings
-- Tenant branding with logo, display_name, support_email, support_phone
-- Tenant slug configured (e.g., "nhqs")
+| Slug       | Currency | Country | Upfront % | Payment window | Allow cash | Allow bank transfer | Override role      | Seeded state                                             |
+| ---------- | -------- | ------- | --------- | -------------- | ---------- | ------------------- | ------------------ | -------------------------------------------------------- |
+| `tenant-a` | EUR      | IE      | 100       | 7 days         | true       | true                | `school_owner`     | 20 applications across all 7 lifecycle states (see §1.4) |
+| `tenant-b` | USD      | US      | 50        | 14 days        | false      | true                | `school_principal` | 50 applications across all 7 lifecycle states (see §1.4) |
 
-**User Accounts:**
+Settings live under `tenants.admissions_settings` JSONB; confirm via `GET /v1/settings/admissions` as an admin of each tenant.
 
-- Admin account (role: admin or school_owner) — full access
-- Front Office account (role: front_office) — restricted access (no settings, rejected, form preview, overrides)
-- School Owner account — for force-approve tests
-- Teacher account — for negative assertion tests (separate teacher spec)
+### 1.2 Users (≥ 4 per tenant)
 
-**Test Applications:**
+For EACH tenant seed at minimum the following accounts (all with password `Password123!`):
 
-- At least 2 applications in each status: submitted, waiting_list, ready_to_admit, conditional_approval, approved, rejected, withdrawn
-- At least 1 application with sibling flag (`is_sibling_application = true`)
-- At least 1 application in conditional_approval with payment deadline in the past (overdue)
-- At least 1 application in conditional_approval with payment deadline within 2 days (near expiry)
-- At least 1 application from an existing household (mode: existing_household)
+| Label           | Role              | Purpose                                                              |
+| --------------- | ----------------- | -------------------------------------------------------------------- |
+| `owner@...`     | school_owner      | Override authority, settings, approvals                              |
+| `principal@...` | school_principal  | Approvals but NOT override in tenant-a (override delegated to owner) |
+| `front@...`     | front_office      | Queue view only (no `admissions.manage`)                             |
+| `parent@...`    | parent (external) | Parent portal view; cross-scope reject attempts                      |
 
-**Browser:**
+Additional accounts for hostile matrix: `teacher@...` (role: teacher, no admissions permissions at all), `student@...` (role: student, same).
 
-- Chrome DevTools open (Console + Network tabs)
-- Clear application storage before starting
+### 1.3 Year-group + capacity seed
 
----
+Each tenant needs at least two (AcademicYear, YearGroup) pairs with non-zero, non-identical capacity:
 
-## 2. Admissions Dashboard / Hub
+- Tenant A: `2026/27` × `Year 1` (capacity 2), `2026/27` × `Year 2` (capacity 5)
+- Tenant B: `2026/27` × `Kindergarten` (capacity 10), `2026/27` × `Grade 5` (capacity 0 — used to exercise zero-capacity routing)
 
-**URL:** `/{locale}/admissions`
-**API:** `GET /api/v1/admissions/dashboard-summary` (Permission: `admissions.view`)
-**Translation Namespace:** `admissionsHub`
+### 1.4 Application state seeding
 
-| #    | What to Check                                      | Expected Result                                                                                                                                                                                                                                                                                                                                        | Pass/Fail |
-| ---- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 2.1  | Navigate to `/{locale}/admissions` as admin        | Page loads. Network tab shows `GET /api/v1/admissions/dashboard-summary` returning 200. Page title reads the translated value of `admissionsHub.title`.                                                                                                                                                                                                |           |
-| 2.2  | KPI strip renders 5 tiles                          | Five tiles visible in a horizontal row: "Ready to Admit", "Waiting List", "Conditional Approval", "Approved This Month", "Rejected This Month". Each shows a numeric count matching the API response fields `counts.ready_to_admit`, `counts.waiting_list`, `counts.conditional_approval`, `counts.approved_this_month`, `counts.rejected_this_month`. |           |
-| 2.3  | KPI tile numbers match API response                | Open Network tab → preview the dashboard-summary response. Compare each tile's displayed number against the corresponding `counts.*` field. All 5 must match exactly.                                                                                                                                                                                  |           |
-| 2.4  | Cards grid renders 8 cards for admin               | Eight navigation cards visible in a grid layout: Ready to Admit (amber), Conditional Approval (violet), Waiting List (sky), Approved (emerald), Rejected (rose), Form Preview (emerald), Overrides (slate), Settings (zinc). Each card shows an icon, title, and description with dynamic count text.                                                  |           |
-| 2.5  | Ready to Admit card — click navigates              | Click the "Ready to Admit" card. Browser navigates to `/{locale}/admissions/ready-to-admit`. Use browser back to return.                                                                                                                                                                                                                               |           |
-| 2.6  | Conditional Approval card — attention badge        | If `counts.conditional_approval_near_expiry > 0`, the Conditional Approval card shows an attention badge (small colored indicator). If 0, no badge shown. Verify against API response.                                                                                                                                                                 |           |
-| 2.7  | Waiting List card — awaiting year setup text       | If `counts.waiting_list_awaiting_year_setup > 0`, the Waiting List card shows secondary text indicating the count. If 0, no secondary text. Verify against API response.                                                                                                                                                                               |           |
-| 2.8  | Approved card — click navigates                    | Click "Approved" card. Navigates to `/{locale}/admissions/approved`.                                                                                                                                                                                                                                                                                   |           |
-| 2.9  | Rejected card — visible only for ADMIN_ROLES       | Log in as admin → card visible. Log in as front_office → card NOT visible. The Rejected card requires `ADMIN_ROLES` (school_owner, school_principal, admin, school_vice_principal).                                                                                                                                                                    |           |
-| 2.10 | Form Preview card — visible only for ADMIN_ROLES   | Same as 2.9 — visible for admin, NOT for front_office.                                                                                                                                                                                                                                                                                                 |           |
-| 2.11 | Overrides card — visible only for ADMIN_ROLES      | Same as 2.9 — visible for admin, NOT for front_office.                                                                                                                                                                                                                                                                                                 |           |
-| 2.12 | Settings card — visible only for ADMIN_ROLES       | Same as 2.9 — visible for admin, NOT for front_office.                                                                                                                                                                                                                                                                                                 |           |
-| 2.13 | Overrides card — click navigates (404 expected)    | Click the "Overrides" card. Navigates to `/{locale}/admissions/overrides`. **Note:** This page does not currently exist — a 404 or blank page is the expected current behavior. See Observations section.                                                                                                                                              |           |
-| 2.14 | Settings card — click navigates                    | Click "Settings" card. Navigates to `/{locale}/admissions/settings`. Settings page loads.                                                                                                                                                                                                                                                              |           |
-| 2.15 | Capacity pressure table — renders when data exists | If `capacity_pressure` array in API response is non-empty, a table appears below the cards showing columns: Year Group Name, Waiting List Count, Capacity (format: "total / enrolled / conditional"). The table is hidden on mobile viewports (`hidden md:block`).                                                                                     |           |
-| 2.16 | Capacity pressure table — data matches API         | For each row in the table, verify year group name and numeric values match the corresponding `capacity_pressure[]` entry from the API response. Capacity column shows `total_capacity / enrolled_count / conditional_count` in monospace font.                                                                                                         |           |
-| 2.17 | Capacity pressure table — hidden when empty        | If `capacity_pressure` array is empty (no waiting list applications), the table section does not render.                                                                                                                                                                                                                                               |           |
-| 2.18 | Auto-refresh every 60 seconds                      | Stay on the page with DevTools Network tab open. After approximately 60 seconds, observe a new `GET /api/v1/admissions/dashboard-summary` request. Counts should update if backend data changed.                                                                                                                                                       |           |
-| 2.19 | Auto-refresh pauses when tab hidden                | Switch to another browser tab. Wait 60+ seconds. Switch back. Verify that requests did NOT fire while tab was hidden (only resumes on tab focus).                                                                                                                                                                                                      |           |
-| 2.20 | Loading state — skeleton cards                     | Hard-refresh the page. During the brief loading period, skeleton placeholder cards should render (animated pulse) before real data appears.                                                                                                                                                                                                            |           |
-| 2.21 | Empty state — all counts zero                      | If all counts are zero (no applications at all), an empty state message with a ClipboardList icon and descriptive text appears instead of the cards grid.                                                                                                                                                                                              |           |
-| 2.22 | Error handling — API failure                       | Simulate network failure (DevTools → Network → Offline). Reload page. Console shows `[AdmissionsHub]` error log. Page shows loading state or empty state — no unhandled crash.                                                                                                                                                                         |           |
-| 2.23 | Front office user sees 4 cards only                | Log in as front_office role. Navigate to admissions. Only 4 cards visible: Ready to Admit, Conditional Approval, Waiting List, Approved. The 4 admin-only cards (Rejected, Form Preview, Overrides, Settings) are NOT rendered.                                                                                                                        |           |
+For each tenant, seed applications in all 7 lifecycle states:
 
----
+| Status                 | Tenant A count | Tenant B count | Notes                                                               |
+| ---------------------- | -------------- | -------------- | ------------------------------------------------------------------- |
+| `submitted`            | 0              | 0              | Transient; never sits (auto-routed at submit)                       |
+| `waiting_list`         | 3              | 8              | 1 per tenant carries `waiting_list_substatus='awaiting_year_setup'` |
+| `ready_to_admit`       | 4              | 10             | With `target_year_group_id` set to the non-zero groups              |
+| `conditional_approval` | 3              | 5              | At least one with `payment_deadline < now()` (for expiry)           |
+| `approved`             | 4              | 15             | Each linked via `materialised_student_id` to a Student              |
+| `rejected`             | 3              | 7              | With populated `rejection_reason`                                   |
+| `withdrawn`            | 3              | 5              | Including at least one withdrawn by parent self-service             |
 
-## 3. Ready-to-Admit Queue
+Record the `application_number` of at least one row of each state per tenant for use in deep-link and cross-tenant tests.
 
-**URL:** `/{locale}/admissions/ready-to-admit`
-**API:** `GET /api/v1/applications/queues/ready-to-admit` (Permission: `admissions.view`)
-**Translation Namespace:** `admissionsQueues`
+### 1.5 Form-definition seed
 
-| #    | What to Check                                 | Expected Result                                                                                                                                                                                                      | Pass/Fail |
-| ---- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 3.1  | Page loads with queue header                  | QueueHeader component renders with title matching `t('readyToAdmit.title')`, description matching `t('readyToAdmit.description')`, and total count badge. Back button links to `/{locale}/admissions`.               |           |
-| 3.2  | API call fires on mount                       | Network tab shows `GET /api/v1/applications/queues/ready-to-admit` returning 200. Response is an array of `QueueYearGroupBucket` objects.                                                                            |           |
-| 3.3  | Applications grouped by year group            | Applications are grouped under year group section headers. Each section shows the year group name and academic year.                                                                                                 |           |
-| 3.4  | Capacity chips per year group                 | Each year group section header includes a CapacityChip showing capacity info: "Year Group · enrolled/total · N conditional · M free". Color: green (3+ free), amber (1-2 free), red (0 free).                        |           |
-| 3.5  | Application rows render correctly             | Each application row shows: application number (monospace), student name, sibling badge (if applicable), age, FIFO position, parent name, parent contact (email/phone), applied date with relative days.             |           |
-| 3.6  | Sibling badge — visible when applicable       | Applications with `is_sibling_application = true` show a sky-colored "Sibling" badge next to the student name.                                                                                                       |           |
-| 3.7  | Approve button — enabled when seats available | For year groups with available seats > 0, the "Move to conditional approval" button is enabled (not greyed out).                                                                                                     |           |
-| 3.8  | Approve button — disabled at capacity         | For year groups where available_seats = 0, the approve button is disabled. A tooltip appears on hover explaining: `t('readyToAdmit.atCapacityTooltip')`.                                                             |           |
-| 3.9  | Approve button — click triggers review        | Click "Move to conditional approval" for an enabled application. Network tab shows `POST /api/v1/applications/{id}/review` with body `{ status: 'conditional_approval', expected_updated_at: <ISO> }` returning 200. |           |
-| 3.10 | Approve success — toast and refresh           | After successful approval, a success toast appears: `t('readyToAdmit.approveSuccess')`. The application disappears from the queue (list refreshes automatically).                                                    |           |
-| 3.11 | Approve button — disabled during submission   | While the POST is in flight, the approve button shows a loading state and is disabled. No double-click possible.                                                                                                     |           |
-| 3.12 | Reject button — opens RejectDialog            | Click the "Reject" button on any application. A dialog opens with title, reason textarea, and Cancel/Reject buttons. (Full dialog testing in Section 40.)                                                            |           |
-| 3.13 | View button — navigates to detail             | Click "View" on any application. Browser navigates to `/{locale}/admissions/{applicationId}`.                                                                                                                        |           |
-| 3.14 | Loading state                                 | Hard-refresh the page. "Loading..." text appears briefly before data loads.                                                                                                                                          |           |
-| 3.15 | Empty state                                   | If no applications are in ready_to_admit status, an EmptyState component renders with Eye icon, title `t('readyToAdmit.emptyTitle')`, and description `t('readyToAdmit.emptyDescription')`.                          |           |
-| 3.16 | Error toast on approve failure                | Simulate a 409 Conflict (capacity exhausted between page load and click). Toast shows `t('readyToAdmit.approveError')`. Application remains in the list.                                                             |           |
-| 3.17 | Optimistic locking — stale updated_at         | If another admin approved the same application simultaneously, the POST returns 409 with `INVALID_STATUS_TRANSITION`. Toast shows error. Page refreshes to reflect current state.                                    |           |
+Each tenant gets exactly ONE `AdmissionFormDefinition` with `status='published'` (system form). Its field set must include at least one row of each `ApplicationFieldType` (short_text, long_text, number, date, boolean, single_select, multi_select, phone, email, country, yes_no) so the Form-Preview and Public-Apply specs can exercise rendering.
+
+### 1.6 Payment fixtures
+
+- Tenant A has ≥ 1 fee structure active on `Year 1` — `FinanceFeesFacade.resolveAnnualNetFeeCents` must return a non-zero amount. The seeded conditional_approval rows must have `payment_amount_cents > 0`.
+- Tenant A also has ≥ 1 year_group with no fee structure at all (for the `NO_FEE_STRUCTURE_CONFIGURED` error path in §19).
+- Stripe test mode keys configured in tenant settings so `/payment-link/regenerate` can create a real checkout session.
+
+### 1.7 Multi-tenant hostile pair
+
+Record at least one `application_id` and one `application_number` from Tenant B. These values are used in §§5.14, 13.9, 17.11 to prove Tenant A cannot see, list, mutate, or deep-link to Tenant B resources.
+
+### 1.8 Test-date assumptions
+
+All manual-time-based tests (payment expiry, apply_date sort) assume the test is run on or after **2026-04-12**. When seeding fixtures, set `apply_date` to at least three distinct values across `waiting_list` rows so FIFO ordering is visibly testable, and `payment_deadline` values both in the past and future.
 
 ---
 
-## 4. Conditional Approval Queue
+## 2. Out of Scope <a id="2-out-of-scope"></a>
 
-**URL:** `/{locale}/admissions/conditional-approval`
-**API:** `GET /api/v1/applications/queues/conditional-approval?page=1&pageSize=50` (Permission: `admissions.view`)
-**Translation Namespace:** `admissionsQueues`
+This spec exercises the UI-visible surface of the Admissions module as a human (or Playwright agent) clicking through the admin shell. It does NOT cover:
 
-| #    | What to Check                                          | Expected Result                                                                                                                                                                                             | Pass/Fail |
-| ---- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 4.1  | Page loads with queue header                           | QueueHeader renders with title, description, and total count. Header shows badges for overdue and near-expiry counts if > 0.                                                                                |           |
-| 4.2  | API call fires on mount                                | Network tab shows `GET /api/v1/applications/queues/conditional-approval?page=1&pageSize=50` returning 200. Response includes `data[]` and `meta` with `near_expiry_count` and `overdue_count`.              |           |
-| 4.3  | Overdue badge — visible when overdue_count > 0         | A red badge shows the overdue count in the header. If `overdue_count = 0`, badge is NOT rendered.                                                                                                           |           |
-| 4.4  | Near-expiry badge — visible when near_expiry_count > 0 | An orange/warning badge shows the near-expiry count. If `near_expiry_count = 0`, badge is NOT rendered.                                                                                                     |           |
-| 4.5  | Row layout — all columns present                       | Each row shows: application number + student name + year group (col 1), parent name + contact (col 2), payment amount + urgency badge + deadline text (col 3), action buttons (col 4).                      |           |
-| 4.6  | Payment amount display                                 | Payment amount is formatted as a currency value (e.g., "€500.00" or "500.00 EUR"). Amount comes from `payment_amount_cents` divided by 100.                                                                 |           |
-| 4.7  | Urgency badge — overdue styling                        | Applications with `urgency = 'overdue'` show a red-tinted badge with `bg-danger-500/10 text-danger-700 border-danger-500/40`.                                                                               |           |
-| 4.8  | Urgency badge — near_expiry styling                    | Applications with `urgency = 'near_expiry'` show an orange-tinted badge with `bg-warning-500/10 text-warning-700 border-warning-500/40`.                                                                    |           |
-| 4.9  | Urgency badge — normal styling                         | Applications with `urgency = 'normal'` show a muted badge with `bg-surface-muted text-text-secondary border-border`.                                                                                        |           |
-| 4.10 | Deadline relative text — future                        | For a deadline 3 days from now, text reads `t('conditionalApproval.inDays', { days: 3 })`.                                                                                                                  |           |
-| 4.11 | Deadline relative text — today                         | For a deadline expiring today, text reads `t('conditionalApproval.deadlineToday')`.                                                                                                                         |           |
-| 4.12 | Deadline relative text — overdue                       | For a deadline 2 days in the past, text reads `t('conditionalApproval.overdueBy', { days: 2 })`.                                                                                                            |           |
-| 4.13 | Deadline relative text — no deadline                   | If `payment_deadline` is null, text reads `t('conditionalApproval.noDeadline')`.                                                                                                                            |           |
-| 4.14 | Copy Payment Link button — click                       | Click "Copy Link" on any row. Network tab shows `POST /api/v1/applications/{id}/payment-link/regenerate` returning 200 with `{ url: "https://checkout.stripe.com/..." }`.                                   |           |
-| 4.15 | Copy Payment Link — clipboard + toast                  | After successful link generation, the URL is copied to clipboard. Toast shows `t('conditionalApproval.linkCopied')`.                                                                                        |           |
-| 4.16 | Copy Payment Link — error toast                        | If the POST fails (e.g., Stripe not configured), toast shows `t('conditionalApproval.linkCopyError')`.                                                                                                      |           |
-| 4.17 | Record Payment button — opens modal                    | Click "Record Payment". PaymentRecordModal opens with tabs for cash/bank/stripe. (Full modal testing in Section 38.)                                                                                        |           |
-| 4.18 | Force Approve button — visible for owners only         | Log in as school_owner → "Force Approve" button visible. Log in as admin (not owner/principal) → button NOT visible. The `canForceApprove` check requires `hasAnyRole('school_owner', 'school_principal')`. |           |
-| 4.19 | Force Approve button — opens modal                     | Click "Force Approve" (as school_owner). ForceApproveModal opens. (Full modal testing in Section 39.)                                                                                                       |           |
-| 4.20 | Reject button — opens dialog                           | Click "Reject". RejectDialog opens. (Full dialog testing in Section 40.)                                                                                                                                    |           |
-| 4.21 | View button — navigates to detail                      | Click "View". Browser navigates to `/{locale}/admissions/{applicationId}`.                                                                                                                                  |           |
-| 4.22 | Pagination — visible when total > 50                   | If `meta.total > 50`, pagination controls appear at the bottom with Previous/Next buttons and page indicator text.                                                                                          |           |
-| 4.23 | Pagination — next page loads                           | Click "Next". Network tab shows `GET ...?page=2&pageSize=50` returning 200. New rows render. Previous button becomes enabled.                                                                               |           |
-| 4.24 | Pagination — previous disabled on page 1               | On page 1, the Previous button is disabled (cannot go below page 1).                                                                                                                                        |           |
-| 4.25 | Loading state                                          | "Loading..." text appears during initial fetch.                                                                                                                                                             |           |
-| 4.26 | Empty state                                            | If no conditional_approval applications exist, EmptyState renders with appropriate icon, title `t('conditionalApproval.emptyTitle')`, and description `t('conditionalApproval.emptyDescription')`.          |           |
+- **RLS leakage / cross-tenant isolation at the DB layer** → `integration/admissions-integration-spec.md` (multi-tenant matrix, direct-API cross-reads, Prisma-level tenant_id enforcement on every mutating call)
+- **Stripe webhook signature + idempotency** → `integration/admissions-integration-spec.md` (raw-body HMAC POST, `stripe_event_id` dedup ledger, `checkout.session.completed` and `payment_intent.payment_failed` event routing)
+- **API contract tests bypassing the UI** → `integration/admissions-integration-spec.md` (every endpoint × every role, every Zod boundary, every state-machine invalid transition with exact error code)
+- **DB-level invariants after each flow** → covered here as §30 in human-readable form AND in `integration/` for the machine-executable version
+- **Concurrency / race conditions** (parallel conditional_approval grabs on last seat, parallel webhook-vs-cash approvals) → `integration/admissions-integration-spec.md`
+- **BullMQ jobs, cron schedulers, async side-effect chains** → `worker/admissions-worker-spec.md` (`notifications:admissions-payment-link` job, `admissions:payment-expiry` cron, `admissions:auto-promoted` notification)
+- **Load / throughput / latency budgets** → `perf/admissions-perf-spec.md` (queue endpoints at 10k+ applications, analytics date-range aggregation, PDF receipt render)
+- **Security hardening** → `security/admissions-security-spec.md` (OWASP Top 10, honeypot efficacy, IP rate-limit precision, payment amount tampering)
+- **Long-lived regressions from modules outside Admissions** that import admissions services — tracked at the coverage-tracker level, not here
+- **PDF content correctness** of generated admission receipts (the E2E spec verifies Content-Type / Content-Disposition; actual bytes go to `integration/`)
+- **Browser / device matrix beyond desktop Chrome and 375px mobile emulation** — deferred to a manual QA cycle on Safari, Firefox, and iPad
+
+A tester who runs ONLY this spec is doing a thorough admin-shell smoke + regression pass. They are NOT doing a full tenant-readiness check. For the latter, use `/e2e-full admissions` which runs all five specs in sequence.
 
 ---
 
-## 5. Waiting List Queue
+## 3. Global UI Shell — Morph Bar & Sub-strip <a id="3-global-ui-shell"></a>
 
-**URL:** `/{locale}/admissions/waiting-list`
-**API:** `GET /api/v1/applications/queues/waiting-list` (Permission: `admissions.view`)
-**Translation Namespace:** `admissionsQueues`
+Apply to every authenticated route under this spec.
 
-| #    | What to Check                                      | Expected Result                                                                                                                                                                                   | Pass/Fail |
-| ---- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 5.1  | Page loads with queue header                       | QueueHeader renders with title `t('waitingList.title')`, description, and total count badge.                                                                                                      |           |
-| 5.2  | API call fires on mount                            | Network tab shows `GET /api/v1/applications/queues/waiting-list` returning 200. Response has `{ waiting: [...], awaiting_year_setup: [...] }`.                                                    |           |
-| 5.3  | Two sections render when both have data            | If both arrays are non-empty, two sections appear: "Waiting" section (normal waiting list) and "Awaiting year setup" section (with reduced opacity).                                              |           |
-| 5.4  | Waiting section — title and applications           | Section title reads `t('waitingList.waitingSectionTitle')`. Applications render as ApplicationRow components grouped by year group.                                                               |           |
-| 5.5  | Awaiting year setup section — styling              | This section has `opacity-80` and a subtitle explaining why these applications are held. Title: `t('waitingList.awaitingYearSetupSectionTitle')`.                                                 |           |
-| 5.6  | Awaiting year setup — note text                    | A note appears: `t('waitingList.awaitingYearSetupNote')` explaining that these applications will auto-promote once classes are created for their year group.                                      |           |
-| 5.7  | Manual Promote button — visible in waiting section | Applications in the "Waiting" section show a "Manual Promote" button (outline variant).                                                                                                           |           |
-| 5.8  | Manual Promote button — NOT in awaiting section    | Applications in the "Awaiting year setup" section do NOT show a Manual Promote button.                                                                                                            |           |
-| 5.9  | Manual Promote button — disabled at capacity       | For year groups where `available_seats = 0`, the Manual Promote button is disabled. Tooltip: `t('waitingList.atCapacityTooltip')`.                                                                |           |
-| 5.10 | Manual Promote button — opens dialog               | Click "Manual Promote" (enabled). ManualPromoteDialog opens with justification textarea. (Full dialog testing in Section 41.)                                                                     |           |
-| 5.11 | Reject button — present on all rows                | Both waiting and awaiting-year-setup applications show a "Reject" button.                                                                                                                         |           |
-| 5.12 | Reject button — opens dialog                       | Click "Reject". RejectDialog opens.                                                                                                                                                               |           |
-| 5.13 | View button — navigates to detail                  | Click "View". Navigates to `/{locale}/admissions/{id}`.                                                                                                                                           |           |
-| 5.14 | Capacity chips per year group                      | Each year group bucket shows a CapacityChip with color-coded availability.                                                                                                                        |           |
-| 5.15 | FIFO ordering                                      | Within each year group, applications are ordered by: sibling priority first (is_sibling_application = true comes first), then by apply_date ascending (earliest first). Verify the order matches. |           |
-| 5.16 | Loading state                                      | "Loading..." text during fetch.                                                                                                                                                                   |           |
-| 5.17 | Empty state                                        | If both arrays empty, EmptyState with Hourglass icon, title `t('waitingList.emptyTitle')`, description `t('waitingList.emptyDescription')`.                                                       |           |
+| #   | What to Check                                                                                        | Expected Result                                                                                                                                                                                                                    | Pass/Fail |
+| --- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 3.1 | Navigate to `/en/admissions` while signed in as Tenant A owner                                       | Morph bar renders at top; Admissions hub button is the active hub. Sub-strip below morph bar shows admission-module tabs (Dashboard, Ready-to-Admit, Waiting List, Conditional Approval, Approved, Rejected, Analytics, Settings). |           |
+| 3.2 | Switch locale to `/ar/admissions`                                                                    | Entire shell flips to RTL (`<html dir="rtl">`). Morph bar logo stays start-aligned; navigation order mirrors. All Arabic strings present, none in English except brand names and numerals (see §31).                               |           |
+| 3.3 | Hard-refresh any admissions page                                                                     | Morph bar + sub-strip do not remount with a visible flash. CLS ≤ 0.05 (measure via Lighthouse). No layout jump larger than 4px on initial paint.                                                                                   |           |
+| 3.4 | Click between two admissions sub-strip tabs rapidly (e.g. Ready-to-Admit → Waiting List)             | Sub-strip active underline animates smoothly; no full-page reload; morph bar stays stable.                                                                                                                                         |           |
+| 3.5 | Resize to 375px width                                                                                | Morph bar collapses to hamburger + admissions module title. Sub-strip becomes horizontally scrollable with overflow affordance (scroll hint on right edge). Every tab reachable by swipe.                                          |           |
+| 3.6 | As `front_office` user (only `admissions.view`), confirm nav visibility                              | Settings tab is HIDDEN from sub-strip (requires `admissions.manage`). Form-Preview stays visible.                                                                                                                                  |           |
+| 3.7 | As `teacher` user (no admissions permissions), navigate to `/en/admissions`                          | Hub is HIDDEN from top-level morph bar; direct URL returns 403 or redirects to `/en/` landing with toast `PERMISSION_DENIED`.                                                                                                      |           |
+| 3.8 | Notifications bell (in morph bar) while a `admissions_payment_link` notification is pending delivery | Unread counter increments by 1 when the worker inserts the notification row; clicking bell shows the notification text localised per `template_key`.                                                                               |           |
 
 ---
 
-## 6. Approved Queue
+## 4. Admissions Dashboard / Hub — `/admissions` <a id="4-admissions-dashboard"></a>
 
-**URL:** `/{locale}/admissions/approved`
-**API:** `GET /api/v1/applications/queues/approved?page=1&pageSize=20` (Permission: `admissions.view`)
-**Translation Namespace:** `admissionsQueues`
+Backend: `GET /v1/admissions/dashboard-summary` (permission `admissions.view`). Renders queue-count cards plus capacity-pressure strip per (AcademicYear, YearGroup).
 
-| #    | What to Check                             | Expected Result                                                                                                                                                                              | Pass/Fail |
-| ---- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 6.1  | Page loads with queue header              | QueueHeader shows title `t('approved.title')`, description `t('approved.description')`, and count label `t('approved.countLabel')` with total count.                                         |           |
-| 6.2  | API call fires on mount                   | Network tab shows `GET /api/v1/applications/queues/approved?page=1&pageSize=20` returning 200 with `{ data: ApprovedRow[], meta: { page, pageSize, total } }`.                               |           |
-| 6.3  | Search form renders                       | A search form appears with a Search icon and input placeholder `t('approved.searchPlaceholder')`. The input has `ps-9` padding for the icon.                                                 |           |
-| 6.4  | Search — submitting filters results       | Type a student name in the search input. Press Enter (form submit). Network tab shows a new GET request with `&search=<term>`. Page resets to page 1. Results update.                        |           |
-| 6.5  | Search — clearing resets                  | Clear the search input and submit. Request fires without `search` param. Full unfiltered list returns.                                                                                       |           |
-| 6.6  | Table columns — all 7 present             | Table header shows 7 columns: Student Number, Student, Household, Class, Admitted By, Admitted On, and an empty column for the View button.                                                  |           |
-| 6.7  | Student Number column                     | Shows `row.student_number` in monospace `font-mono text-xs` styling. If null, shows "—" (em-dash).                                                                                           |           |
-| 6.8  | Student column — linked when materialized | If `row.student_id` exists, student name (`first_name last_name`) renders as a link to `/{locale}/students/{student_id}` with hover color change. If no `student_id`, renders as plain text. |           |
-| 6.9  | Household column — linked when exists     | If `row.household_id` exists, renders as a link to `/{locale}/households/{household_id}` showing household number (monospace) + household name (tertiary text). If no household, shows "—".  |           |
-| 6.10 | Class column                              | Shows `row.class_name`. If null, shows `t('approved.unassigned')` text.                                                                                                                      |           |
-| 6.11 | Admitted By column                        | Shows the reviewer's full name (`reviewed_by.first_name reviewed_by.last_name`). If null, shows "—".                                                                                         |           |
-| 6.12 | Admitted On column                        | Shows `formatDate(row.reviewed_at)` — formatted date string.                                                                                                                                 |           |
-| 6.13 | View button                               | Each row has a "View" button (ghost variant, sm size) linking to `/{locale}/admissions/{row.id}`.                                                                                            |           |
-| 6.14 | Pagination — visible when totalPages > 1  | If total > 20, pagination controls appear: Previous button, page indicator ("Page X of Y"), Next button.                                                                                     |           |
-| 6.15 | Pagination — next page                    | Click "Next". API call fires with `page=2`. New rows render.                                                                                                                                 |           |
-| 6.16 | Pagination — previous disabled on page 1  | On page 1, Previous button is disabled.                                                                                                                                                      |           |
-| 6.17 | Pagination — next disabled on last page   | On the last page, Next button is disabled.                                                                                                                                                   |           |
-| 6.18 | Loading state                             | "Loading..." text during initial fetch.                                                                                                                                                      |           |
-| 6.19 | Empty state                               | If no approved applications, EmptyState with CheckCircle2 icon, title `t('approved.emptyTitle')`, description `t('approved.emptyDescription')`.                                              |           |
+### 4.1 Happy path
 
----
+| #     | What to Check               | Expected Result                                                                                                                                                                                                                    | Pass/Fail |
+| ----- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 4.1.1 | Load page as Tenant A owner | Network panel shows exactly one `GET /v1/admissions/dashboard-summary` returning 200. Response JSON has keys `ready_to_admit`, `waiting_list`, `conditional_approval`, `approved`, `rejected`, `overrides`, `capacity_pressure[]`. |           |
+| 4.1.2 | Queue-count cards           | Four cards visible: "Ready to Admit" (count 4), "Waiting List" (count 3), "Conditional Approval" (count 3), "Approved" (count 4). Each card is a clickable link to its queue.                                                      |           |
+| 4.1.3 | Capacity-pressure strip     | Renders one row per (AcademicYear, YearGroup) with active applications. Each row shows: year group name, academic year, enrolled+conditional / capacity with colour grade (green <70%, amber 70-99%, red ≥100%).                   |           |
+| 4.1.4 | Overrides counter           | Secondary line on hub shows "Overrides this term: N" where N = count of `AdmissionOverride` rows this academic term.                                                                                                               |           |
+| 4.1.5 | Click "Ready to Admit" card | Navigates to `/admissions/ready-to-admit` — verify sub-strip tab becomes active.                                                                                                                                                   |           |
+| 4.1.6 | Refresh dashboard           | Response cached for 0 seconds (no `Cache-Control: public`). Values always reflect current DB.                                                                                                                                      |           |
 
-## 7. Rejected Archive
+### 4.2 Empty + error states
 
-**URL:** `/{locale}/admissions/rejected`
-**API:** `GET /api/v1/applications/queues/rejected?page=1&pageSize=20` (Permission: `admissions.view`)
-**Translation Namespace:** `admissionsQueues`
+| #     | What to Check                                                              | Expected Result                                                                                                                                           | Pass/Fail |
+| ----- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 4.2.1 | Login to a tenant with zero applications (seed a third tenant temporarily) | Queue cards all show "0". Capacity-pressure strip renders heading plus an empty-state placeholder ("No active applications yet").                         |           |
+| 4.2.2 | Throttle the API to return 500 for `dashboard-summary`                     | Cards render with skeleton + inline error "Failed to load dashboard summary"; console logs `[AdmissionsDashboard] Error`; a retry CTA re-issues the call. |           |
+| 4.2.3 | As `front_office` (only `admissions.view`)                                 | Dashboard renders identically. Overrides counter is still shown (it is a view-only count).                                                                |           |
+| 4.2.4 | As `teacher` hitting `/en/admissions` directly via URL                     | Frontend does not render; redirects to 403 page or lands on hub selection. `GET /v1/admissions/dashboard-summary` returns 403 code `PERMISSION_DENIED`.   |           |
 
-| #    | What to Check                              | Expected Result                                                                                                                                                                         | Pass/Fail |
-| ---- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 7.1  | Page loads with queue header               | QueueHeader shows title `t('rejected.title')`, description, count label with total.                                                                                                     |           |
-| 7.2  | API call fires                             | `GET /api/v1/applications/queues/rejected?page=1&pageSize=20` returns 200.                                                                                                              |           |
-| 7.3  | Access restricted to ADMIN_ROLES           | Log in as front_office → navigate to `/admissions/rejected`. Page should NOT render (route guard blocks). Only admin, school_owner, school_principal, school_vice_principal can access. |           |
-| 7.4  | Search form renders                        | Search input with placeholder `t('rejected.searchPlaceholder')` and Search icon.                                                                                                        |           |
-| 7.5  | Search — filters by name                   | Type search term → submit. API re-fires with `&search=<term>`, page resets to 1.                                                                                                        |           |
-| 7.6  | Table columns — all 7 present              | Columns: Application Number, Student, Parent, Reason, Rejected By, Rejected On, View button column.                                                                                     |           |
-| 7.7  | Application Number column                  | Shows `application_number` in monospace `font-mono text-xs`.                                                                                                                            |           |
-| 7.8  | Student column                             | Shows `student_first_name student_last_name` in medium font weight.                                                                                                                     |           |
-| 7.9  | Parent column                              | Shows `parent_first_name parent_last_name` in secondary text color.                                                                                                                     |           |
-| 7.10 | Reason column — truncated                  | Rejection reason truncated to ~80 characters with "…" appended if longer. Full text visible in tooltip on hover.                                                                        |           |
-| 7.11 | Rejected By column                         | Shows reviewer full name or "—" if null.                                                                                                                                                |           |
-| 7.12 | Rejected On column                         | Shows formatted date from `reviewed_at`.                                                                                                                                                |           |
-| 7.13 | View button                                | Each row has "View" button navigating to `/{locale}/admissions/{row.id}`.                                                                                                               |           |
-| 7.14 | Pagination — controls match approved queue | Same pagination behavior as Section 6 (Previous/Next, page indicator, disabled states).                                                                                                 |           |
-| 7.15 | Empty state                                | EmptyState with appropriate icon, title, description when no rejected applications.                                                                                                     |           |
+### 4.3 Cross-tenant probes
+
+| #     | What to Check                                                                                                       | Expected Result                                                                                                                                    | Pass/Fail |
+| ----- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 4.3.1 | Tenant A owner logged in. Devtools → replay `GET /v1/admissions/dashboard-summary` with `Host: tenant-b.edupod.app` | 401 (session does not match host) or 403 if the Host-based routing accepts it — NEVER 200 with Tenant B counts.                                    |           |
+| 4.3.2 | Tenant A owner. Intercept response and swap in Tenant B's JSON (e.g. via browser debugger)                          | Capacity-pressure rows show year-groups that do not exist in Tenant A — tester notes visual mismatch (this is a UI-trust check, not a code check). |           |
 
 ---
 
-## 8. Application Detail — General
+## 5. Ready-to-Admit Queue — `/admissions/ready-to-admit` <a id="5-ready-to-admit-queue"></a>
 
-**URL:** `/{locale}/admissions/{id}`
-**API:** `GET /api/v1/applications/{id}` (Permission: `admissions.view`)
+Backend: `GET /v1/applications/queues/ready-to-admit` (`admissions.view`).
 
-| #    | What to Check                        | Expected Result                                                                                                                                                                                                                                                        | Pass/Fail |
-| ---- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 8.1  | Page loads with application data     | Network tab shows `GET /api/v1/applications/{id}` returning 200. Page renders RecordHub layout with title, reference, status badge, metrics, tabs, and sidebar.                                                                                                        |           |
-| 8.2  | Title — student name                 | Page title shows the student's full name: `student_first_name student_last_name`.                                                                                                                                                                                      |           |
-| 8.3  | Reference — application number       | Reference line shows the application number (e.g., "APP-202604-0001").                                                                                                                                                                                                 |           |
-| 8.4  | Status badge — correct variant       | Status badge shows the current status with correct color variant: submitted→info (blue), waiting_list→neutral (grey), ready_to_admit→warning (amber), conditional_approval→warning (amber), approved→success (green), rejected→danger (red), withdrawn→neutral (grey). |           |
-| 8.5  | Metrics panel — 5 fields             | Metrics panel shows: Submitted date, Apply date, Target year group name, Academic year name, Days in state (with Clock icon + numeric value).                                                                                                                          |           |
-| 8.6  | Capacity panel — sidebar             | Right sidebar shows CapacityPanel with 4 cells: Total capacity, Enrolled count, Conditional holds, Available seats. Available seats cell is color-coded (green if >0, warning/red if at capacity).                                                                     |           |
-| 8.7  | Capacity panel — not configured      | If no classes exist for this year group, panel shows "Not configured" message instead of capacity cells.                                                                                                                                                               |           |
-| 8.8  | Tabs — 3 or 4 tabs visible           | Three tabs always visible: "Application", "Timeline", "Notes". Fourth tab "Payment" appears only when `hasPaymentHistory` is true (application has payment data).                                                                                                      |           |
-| 8.9  | Default tab — Application            | On initial load, the "Application" tab is selected and its content visible.                                                                                                                                                                                            |           |
-| 8.10 | Loading state                        | Skeleton placeholders render during data fetch.                                                                                                                                                                                                                        |           |
-| 8.11 | Not found — invalid UUID             | Navigate to `/{locale}/admissions/{invalid-uuid}`. Page shows "Application not found" message. API returns 404.                                                                                                                                                        |           |
-| 8.12 | Not found — valid UUID, wrong tenant | Navigate to an application ID from a different tenant. API returns 404 (RLS blocks cross-tenant access). Page shows not-found message.                                                                                                                                 |           |
-
----
-
-## 9. Application Detail — Application Tab
-
-| #   | What to Check                      | Expected Result                                                                                                                                                                                                                                                                                                                | Pass/Fail |
-| --- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 9.1 | Application tab shows form fields  | DynamicFormRenderer renders all form fields in read-only mode. Each field shows its label and the submitted value.                                                                                                                                                                                                             |           |
-| 9.2 | All field types render correctly   | Verify each field type renders properly: short_text as text, long_text as multi-line, number as numeric, date as formatted date, boolean as checked/unchecked, single_select as selected option label, multi_select as list of selected options, phone/email with `dir="ltr"`, country as country name, yes_no as Yes/No text. |           |
-| 9.3 | Read-only — no editing possible    | All form inputs are disabled. No input accepts keyboard input. No dropdown opens.                                                                                                                                                                                                                                              |           |
-| 9.4 | Conditional fields — visibility    | If form has conditional visibility rules, only fields whose conditions are met (based on submitted values) are shown. Hidden conditional fields are not rendered.                                                                                                                                                              |           |
-| 9.5 | Required field indicators          | Required fields show a green asterisk (\*) next to their label.                                                                                                                                                                                                                                                                |           |
-| 9.6 | Help text — displayed below fields | Fields with `help_text` show the help text below the input in smaller secondary text.                                                                                                                                                                                                                                          |           |
-| 9.7 | Field ordering                     | Fields render in `display_order` ascending order (lowest first).                                                                                                                                                                                                                                                               |           |
+| #    | What to Check                                                                                                                 | Expected Result                                                                                                                                                                                              | Pass/Fail |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 5.1  | Page load                                                                                                                     | Network panel shows `GET /v1/applications/queues/ready-to-admit` returning 200. Response shape: `{ data: ApplicationRow[], meta: { total, grouped_by_year_group } }`.                                        |           |
+| 5.2  | Queue rows                                                                                                                    | Rows grouped by (AcademicYear, YearGroup) with capacity chip in group header showing `enrolled+conditional / capacity`. Within a group rows ordered by `apply_date` ASC (FIFO).                              |           |
+| 5.3  | ApplicationRow content                                                                                                        | Per row: student full name (LTR even in Arabic), `application_number` (monospace), `apply_date` formatted Gregorian (e.g. `12 Apr 2026`), submitted_by parent name + email, year-group name, a "Review" CTA. |           |
+| 5.4  | Capacity chip: seats available                                                                                                | Chip text reads "`X of Y seats available`". Colour green for ≥50% free, amber 10-49%, red 0-9%, destructive-red on 0 available with "Full — hold promotions".                                                |           |
+| 5.5  | Capacity chip: zero capacity (Grade 5 in Tenant B)                                                                            | Chip reads "No capacity configured" in subdued tone. "Review" CTA on rows still works but §18.2 covers the gate on moving to conditional_approval.                                                           |           |
+| 5.6  | Row click → navigates to `/admissions/{id}`                                                                                   | Morph bar stays; detail page loads; URL updates to `/admissions/:id`.                                                                                                                                        |           |
+| 5.7  | Empty state                                                                                                                   | When zero ready-to-admit rows: full-width placeholder "Queue is empty — submitted applications auto-route here when seats are available".                                                                    |           |
+| 5.8  | Search / filter bar                                                                                                           | Input searches `application_number` or student name (client-side debounce 300ms). Clearing the field restores full list.                                                                                     |           |
+| 5.9  | Refresh (F5)                                                                                                                  | Re-fetches, preserving scroll position. No memory leak on repeated refresh (profile for 30 iterations — RSS growth < 5MB).                                                                                   |           |
+| 5.10 | Role: `front_office` (view only)                                                                                              | Queue renders. Row "Review" CTA renders but `admissions.manage` guarded actions inside the detail page are disabled (see §18).                                                                               |           |
+| 5.11 | Role: `teacher` direct URL                                                                                                    | 403 on network; UI redirects to hub-selector.                                                                                                                                                                |           |
+| 5.12 | Arabic locale `/ar/admissions/ready-to-admit`                                                                                 | Group headers right-aligned; capacity chip remains readable; numbers stay Western (0-9); month abbreviations localised ("ابريل 12" or equivalent per translation file).                                      |           |
+| 5.13 | Tenant isolation — set browser localStorage token for tenant-a user, then navigate to `/admissions/{tenant_b_application_id}` | Returns 404 page "Application not found"; backend returns 404 code `APPLICATION_NOT_FOUND`; NEVER 200 with tenant-b data.                                                                                    |           |
+| 5.14 | Tenant isolation — `GET /v1/applications/queues/ready-to-admit` with `Authorization: Bearer <tenant-b token>`                 | Returns only tenant-b rows — never tenant-a rows in the response. Group headers show tenant-b year-groups exclusively.                                                                                       |           |
+| 5.15 | Network tab: confirm no duplicate calls                                                                                       | Exactly 1 call per mount. On revisits from sub-strip, call is re-issued (no stale cache).                                                                                                                    |           |
 
 ---
 
-## 10. Application Detail — Timeline Tab
+## 6. Waiting List Queue — `/admissions/waiting-list` <a id="6-waiting-list-queue"></a>
 
-| #     | What to Check                        | Expected Result                                                                                                                                                         | Pass/Fail |
-| ----- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 10.1  | Click Timeline tab                   | Tab content switches to show a vertical timeline of events.                                                                                                             |           |
-| 10.2  | Events ordered chronologically       | Events are listed in reverse chronological order (newest first) or chronological order (verify which). Each event shows timestamp, kind badge, message, and actor name. |           |
-| 10.3  | Event kind — submitted               | Events of kind "submitted" show an info-colored badge (`info-surface` background).                                                                                      |           |
-| 10.4  | Event kind — status_changed          | Events of kind "status_changed" show a warning-colored badge (`warning-surface` background).                                                                            |           |
-| 10.5  | Event kind — system_event            | Events of kind "system_event" show a muted badge (`surface-secondary` background).                                                                                      |           |
-| 10.6  | Event kind — admin_note              | Events of kind "admin_note" show a muted badge (`surface-secondary` background).                                                                                        |           |
-| 10.7  | Event kind — payment_event           | Events of kind "payment_event" show a success-colored badge (`success-surface` background).                                                                             |           |
-| 10.8  | Event kind — override_granted        | Events of kind "override_granted" show a danger-colored badge (`danger-surface` background).                                                                            |           |
-| 10.9  | Event message — whitespace preserved | Event message text uses `whitespace-pre-wrap` CSS, preserving line breaks in multi-line messages.                                                                       |           |
-| 10.10 | Actor name                           | Each event shows the actor's name (the admin/system that caused the event). If no actor, field is omitted.                                                              |           |
-| 10.11 | Timestamp — localized                | Timestamps are formatted in the current locale's date/time format.                                                                                                      |           |
-| 10.12 | Empty timeline                       | If no events exist (unlikely for a valid application), shows "No timeline events yet" message.                                                                          |           |
+Backend: `GET /v1/applications/queues/waiting-list` (`admissions.view`).
 
----
-
-## 11. Application Detail — Notes Tab
-
-| #    | What to Check                     | Expected Result                                                                                                                                                                         | Pass/Fail |
-| ---- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 11.1 | Click Notes tab                   | Tab content switches to show notes section with "Add note" input and existing notes list.                                                                                               |           |
-| 11.2 | Add note — textarea renders       | A textarea appears with placeholder text. An "Add note" button appears next to or below it.                                                                                             |           |
-| 11.3 | Add note — submit new note        | Type a note in the textarea. Click "Add note". Network tab shows `POST /api/v1/applications/{applicationId}/notes` with body `{ note: "<text>", is_internal: true }` returning 200/201. |           |
-| 11.4 | Add note — success toast          | After successful submission, toast shows "Note added". The textarea clears. The new note appears in the list.                                                                           |           |
-| 11.5 | Add note — error toast            | If the POST fails, toast shows "Failed to add note". The note text remains in the textarea for retry.                                                                                   |           |
-| 11.6 | Existing notes list               | Each note shows: author name, timestamp (formatted), and note content. Notes are ordered newest-first.                                                                                  |           |
-| 11.7 | Internal notes — visible to staff | All notes have `is_internal: true` when created by staff. These notes include internal-only content.                                                                                    |           |
-| 11.8 | Empty notes                       | If no notes exist, message "No notes yet." appears.                                                                                                                                     |           |
-| 11.9 | GET notes — includes internal     | Network tab: `GET /api/v1/applications/{applicationId}/notes` is called. The `includeInternal` parameter is `true` for staff, so internal notes are included.                           |           |
+| #   | What to Check                                                                              | Expected Result                                                                                                                                                                                                                      | Pass/Fail |
+| --- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 6.1 | Page load                                                                                  | 200 response; rows sorted by `apply_date` ASC; grouped by (AcademicYear, YearGroup) with FIFO position number shown in-row (`Position #3 in queue`).                                                                                 |           |
+| 6.2 | Row with `waiting_list_substatus='awaiting_year_setup'`                                    | Row is rendered with a badge "Awaiting year setup" and is visually separated (indented under a sub-header) OR colour-tinted. Tooltip text: "This year-group has no classes configured yet. Promotion blocked until setup completes." |           |
+| 6.3 | Manual-promote action (row-level kebab → "Promote manually")                               | Opens `ManualPromoteDialog`. Dialog requires justification ≥ 10 chars. See §26 for full dialog spec.                                                                                                                                 |           |
+| 6.4 | Manual-promote when current user lacks `admissions.manage`                                 | Kebab item is HIDDEN. Directly POSTing `/v1/applications/:id/manual-promote` returns 403 `PERMISSION_DENIED`.                                                                                                                        |           |
+| 6.5 | Auto-badge on newly-promoted rows (if admin loads the queue shortly after expiry cron ran) | Recently-promoted applications have moved to §5 (ready-to-admit) — verify that the waiting-list row count decremented.                                                                                                               |           |
+| 6.6 | Row action: "Reject"                                                                       | Opens `RejectDialog` (see §22). Reject is permitted from `waiting_list` per state-machine (see §28).                                                                                                                                 |           |
+| 6.7 | Row action: "Review / View detail"                                                         | Navigates to `/admissions/:id`.                                                                                                                                                                                                      |           |
+| 6.8 | Empty state                                                                                | "No applicants on the waiting list" with subtitle "They will appear here when the ready-to-admit queue is full".                                                                                                                     |           |
+| 6.9 | Pagination                                                                                 | If backend returns `meta.total > pageSize`, pager row appears at bottom with Page N of M.                                                                                                                                            |           |
 
 ---
 
-## 12. Application Detail — Payment Tab
+## 7. Conditional-Approval Queue — `/admissions/conditional-approval` <a id="7-conditional-approval-queue"></a>
 
-| #    | What to Check                                       | Expected Result                                                                                                                                                                     | Pass/Fail |
-| ---- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 12.1 | Payment tab — visible only when payment data exists | The Payment tab only appears in the tab bar when the application has payment history (conditional_approval or later status with payment fields set).                                |           |
-| 12.2 | Expected Payment section                            | Shows: payment amount (formatted as major.minor), payment deadline (date with "expired" label if in the past), Stripe checkout session ID (monospace), current payment status.      |           |
-| 12.3 | Payment deadline — expired label                    | If `payment_deadline` is in the past, a red "expired" label appears next to the date.                                                                                               |           |
-| 12.4 | Stripe session ID — monospace                       | The Stripe session ID (if set) renders in monospace font for easy copy/reference.                                                                                                   |           |
-| 12.5 | Payment Events list                                 | If payment events exist, each shows: Stripe event ID, timestamp, amount, and status. Listed in chronological order.                                                                 |           |
-| 12.6 | Payment Events — empty                              | If no payment events, shows "No payment events recorded yet" or similar message.                                                                                                    |           |
-| 12.7 | Admin Override section — conditional                | If an admin override was recorded, a third section shows: override type, approved by (staff name), expected amount, collected amount, justification (pre-wrap), approved timestamp. |           |
-| 12.8 | Admin Override — not visible without override       | If no override exists, the override section does not render.                                                                                                                        |           |
+Backend: `GET /v1/applications/queues/conditional-approval` (`admissions.view`).
 
----
-
-## 13. Application Detail — Actions (ready_to_admit)
-
-| #    | What to Check                                       | Expected Result                                                                                                                                    | Pass/Fail |
-| ---- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 13.1 | Action bar shows 3 buttons                          | For `status = ready_to_admit`: "Move to conditional approval", "Reject", "Withdraw" buttons visible.                                               |           |
-| 13.2 | Move to conditional approval — click                | Click the button. Network tab shows `POST /api/v1/applications/{id}/review` with `{ status: 'conditional_approval', expected_updated_at: <ISO> }`. |           |
-| 13.3 | Move to conditional approval — disabled at capacity | If no seats available for this year group, button is disabled.                                                                                     |           |
-| 13.4 | Move to conditional approval — success              | Toast: "Moved to conditional approval. Payment link will be emailed." Page refreshes showing the application now in conditional_approval status.   |           |
-| 13.5 | Reject — opens dialog                               | Click "Reject". RejectDialog opens. (Tested in Section 17.)                                                                                        |           |
-| 13.6 | Withdraw — click                                    | Click "Withdraw". Network tab shows `POST /api/v1/applications/{id}/withdraw` returning 200.                                                       |           |
-| 13.7 | Withdraw — success toast                            | Toast: "Application withdrawn". Page refreshes to show withdrawn status.                                                                           |           |
+| #    | What to Check                             | Expected Result                                                                                                                                                                                         | Pass/Fail |
+| ---- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 7.1  | Page load                                 | 200 response; rows sorted by payment `urgency` (computed: `payment_deadline ASC`, with nulls-last).                                                                                                     |           |
+| 7.2  | Urgency badge per row                     | Three tiers by `payment_deadline - now()`: overdue (deadline in past) → red "Overdue", ≤ 48h → amber "Urgent", else default "Pending payment".                                                          |           |
+| 7.3  | Row body: expected amount                 | Shows `payment_amount_cents / 100` formatted in tenant currency (EUR for A, USD for B). Currency symbol before/after per locale (LTR inputs always).                                                    |           |
+| 7.4  | Row body: deadline                        | Human-readable countdown "Due in 3 days" / "Overdue by 2 hours". Gregorian calendar, Western numerals in Arabic locale.                                                                                 |           |
+| 7.5  | Row kebab → "Record cash payment"         | Only visible if tenant setting `allow_cash=true` AND current user has `admissions.manage`. Opens `PaymentRecordModal` (cash variant).                                                                   |           |
+| 7.6  | Row kebab → "Record bank transfer"        | Only visible if `allow_bank_transfer=true` AND `admissions.manage`. Opens `PaymentRecordModal` (bank variant).                                                                                          |           |
+| 7.7  | Row kebab → "Force approve with override" | Only visible if current user has the tenant-configured `require_override_approval_role` role (school_owner for A, school_principal for B) AND `admissions.manage`. Opens `ForceApproveModal` (see §23). |           |
+| 7.8  | Row kebab → "Regenerate payment link"     | Only if `admissions.manage`. Calls `POST /v1/applications/:id/payment-link/regenerate` — toast "Payment link regenerated and emailed".                                                                  |           |
+| 7.9  | Row kebab → "Revert to waiting list"      | Calls internal `POST /v1/applications/:id/review` with `status='waiting_list'`. State machine allows this (see §28). Seat is released; downstream auto-promotion may fire.                              |           |
+| 7.10 | Row kebab → "Reject"                      | Opens RejectDialog. Reject from conditional_approval is valid per state machine.                                                                                                                        |           |
+| 7.11 | Row with past `payment_deadline`          | UI tolerates stale data until the `admissions:payment-expiry` cron fires (every 15 min). Row shows "Overdue" badge. An admin manually reverting via kebab is allowed in the meantime.                   |           |
+| 7.12 | Empty state                               | "No applications are pending payment" with explanatory copy.                                                                                                                                            |           |
 
 ---
 
-## 14. Application Detail — Actions (conditional_approval)
+## 8. Approved Archive — `/admissions/approved` <a id="8-approved-archive"></a>
 
-| #     | What to Check                                    | Expected Result                                                                                                                                                  | Pass/Fail |
-| ----- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 14.1  | Action bar shows 5-6 buttons                     | For `status = conditional_approval`: "Copy payment link", "Record cash", "Record bank transfer", optionally "Force approve" (owners only), "Reject", "Withdraw". |           |
-| 14.2  | Copy payment link — click                        | Click "Copy payment link". Network tab shows `POST /api/v1/applications/{id}/payment-link/regenerate` returning 200 with `{ checkout_url: "https://..." }`.      |           |
-| 14.3  | Copy payment link — clipboard                    | The checkout URL is written to the clipboard. Toast: "Payment link copied to clipboard".                                                                         |           |
-| 14.4  | Copy payment link — fallback                     | If clipboard API unavailable, toast shows the URL directly: "Payment link: {url}".                                                                               |           |
-| 14.5  | Record cash — opens modal                        | Click "Record cash". RecordCashModal opens. (Tested in Section 19.)                                                                                              |           |
-| 14.6  | Record bank transfer — opens modal               | Click "Record bank transfer". RecordBankTransferModal opens. (Tested in Section 20.)                                                                             |           |
-| 14.7  | Force approve — visible for owner/principal only | Log in as school_owner → button visible. Log in as admin (non-owner) → button NOT visible.                                                                       |           |
-| 14.8  | Force approve — opens modal                      | Click "Force approve". ForceApproveModal opens. (Tested in Section 18.)                                                                                          |           |
-| 14.9  | Reject — opens dialog                            | RejectDialog opens.                                                                                                                                              |           |
-| 14.10 | Withdraw — click and confirm                     | "Withdraw" click → POST withdraw → toast "Application withdrawn".                                                                                                |           |
+Backend: `GET /v1/applications/queues/approved` (`admissions.view`). Pagination + search.
 
----
-
-## 15. Application Detail — Actions (waiting_list)
-
-| #    | What to Check              | Expected Result                                                                                      | Pass/Fail |
-| ---- | -------------------------- | ---------------------------------------------------------------------------------------------------- | --------- |
-| 15.1 | Action bar shows 2 buttons | For `status = waiting_list`: "Reject" and "Withdraw" buttons visible. No approve or payment buttons. |           |
-| 15.2 | Reject — opens dialog      | Click "Reject". RejectDialog opens.                                                                  |           |
-| 15.3 | Withdraw — click           | Click "Withdraw". POST fires. Toast: "Application withdrawn".                                        |           |
+| #   | What to Check                                   | Expected Result                                                                                                                                                           | Pass/Fail |
+| --- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 8.1 | Page load (default page 1, pageSize 20)         | 200 response; rows sorted by `reviewed_at DESC`. Columns: application_number, student name, year group, approved on, payment source (stripe/cash/bank_transfer/override). |           |
+| 8.2 | Search by student name                          | Client-side debounce 300ms; `?search=` appended to request. Results filter server-side; pagination resets to 1.                                                           |           |
+| 8.3 | Search with SQL-like characters (`%`, `'`, `;`) | Request proceeds safely; backend treats as literal — no 500, results may be empty. (SQLi hardening is covered in security spec.)                                          |           |
+| 8.4 | Row click → detail page                         | Detail page loads; state-specific actions (§21) show nothing mutating — application is in terminal state.                                                                 |           |
+| 8.5 | Link to materialised student                    | Row shows a chip "→ Student S-1A-042". Clicking navigates to `/students/{student_id}` (Students module — not scope of this spec beyond redirect verification).            |           |
+| 8.6 | Empty state                                     | "No approved applications yet".                                                                                                                                           |           |
+| 8.7 | Permission — role `front_office`                | Queue renders but row-level "Unapprove" type actions do not exist (none are valid per state machine — approved is terminal).                                              |           |
+| 8.8 | Arabic                                          | Right-aligned layout; application_number stays LTR; dates Gregorian; currency amounts LTR inside bidirectional context.                                                   |           |
 
 ---
 
-## 16. Application Detail — Actions (approved)
+## 9. Rejected Archive — `/admissions/rejected` <a id="9-rejected-archive"></a>
 
-| #    | What to Check                               | Expected Result                                                                                                                             | Pass/Fail |
-| ---- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 16.1 | Action bar shows 1 button (if materialized) | For `status = approved` with `materialised_student_id`: a "View student" link button appears, linking to `/{locale}/students/{student_id}`. |           |
-| 16.2 | View student — click navigates              | Click "View student". Browser navigates to the student profile page.                                                                        |           |
-| 16.3 | No actions if terminal and no student       | For approved without materialized student (edge case), no action buttons visible.                                                           |           |
-| 16.4 | Rejected status — no actions                | For `status = rejected`, no action buttons appear (terminal state).                                                                         |           |
-| 16.5 | Withdrawn status — no actions               | For `status = withdrawn`, no action buttons appear (terminal state).                                                                        |           |
+Backend: `GET /v1/applications/queues/rejected` (`admissions.view`). Pagination + search.
 
----
-
-## 17. Application Detail — Reject Dialog
-
-| #    | What to Check                             | Expected Result                                                                                                                                                                                                       | Pass/Fail |
-| ---- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 17.1 | Dialog opens with title                   | Title reads "Reject application" or translated equivalent. Description text explains the action.                                                                                                                      |           |
-| 17.2 | Rejection reason textarea                 | A textarea renders for entering the rejection reason. Rows: 4.                                                                                                                                                        |           |
-| 17.3 | Validation — minimum length               | Submit with fewer than 10 characters. Error appears stating the reason is too short. Button stays enabled. No API call fires.                                                                                         |           |
-| 17.4 | Validation — empty submission blocked     | Submit with empty textarea. Validation error appears.                                                                                                                                                                 |           |
-| 17.5 | Cancel button                             | Click "Cancel". Dialog closes. No API call fires. Application remains unchanged.                                                                                                                                      |           |
-| 17.6 | Reject button — submit                    | Enter valid reason (10+ chars). Click "Reject". Network tab shows `POST /api/v1/applications/{id}/review` with body `{ status: 'rejected', rejection_reason: "<text>", expected_updated_at: "<ISO>" }` returning 200. |           |
-| 17.7 | Reject success — toast + close            | Toast: `t('rejectDialog.success')`. Dialog closes. Page refreshes to show rejected status.                                                                                                                            |           |
-| 17.8 | Reject error — toast                      | If POST fails, toast: `t('rejectDialog.errorGeneric')`. Dialog stays open for retry.                                                                                                                                  |           |
-| 17.9 | Submit button — disabled while submitting | During POST, submit button shows "Working..." text and is disabled. Cancel is also disabled.                                                                                                                          |           |
+| #   | What to Check         | Expected Result                                                                                                                      | Pass/Fail |
+| --- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 9.1 | Page load             | Rows sorted by `reviewed_at DESC`. Each row shows rejection_reason (truncated with "See more" expand).                               |           |
+| 9.2 | Search by reason text | `?search=` matches rejection_reason via case-insensitive ILIKE (or equivalent full-text). Backend-side only; client does not filter. |           |
+| 9.3 | Row click → detail    | Detail page shows reason full text, timeline entry "Rejected by {user} on {date} — Reason: {rejection_reason}".                      |           |
+| 9.4 | Empty state           | "No rejected applications".                                                                                                          |           |
+| 9.5 | Role `front_office`   | Queue renders; no mutating actions available.                                                                                        |           |
 
 ---
 
-## 18. Application Detail — Force Approve Modal
+## 10. Admissions Analytics — `/admissions/analytics` <a id="10-admissions-analytics"></a>
 
-| #     | What to Check                               | Expected Result                                                                                                                                                                                                                                                                           | Pass/Fail |
-| ----- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 18.1  | Modal opens with title and expected amount  | Title: `t('forceApproveModal.title')`. Description shows expected amount from the application's `payment_amount_cents`.                                                                                                                                                                   |           |
-| 18.2  | Override type select                        | Select dropdown with 3 options: "Full waiver", "Partial waiver", "Deferred payment" (translated). Default: first option or empty.                                                                                                                                                         |           |
-| 18.3  | Collected amount input                      | Number input for the actual amount collected. Step: 0.01. Min: 0.                                                                                                                                                                                                                         |           |
-| 18.4  | Justification textarea                      | Textarea with rows=4, maxLength=2000. Placeholder text. Min-length hint visible.                                                                                                                                                                                                          |           |
-| 18.5  | Validation — justification minimum 20 chars | Submit with < 20 characters in justification. Error: `t('forceApproveModal.errorTooShort')`. No API call.                                                                                                                                                                                 |           |
-| 18.6  | Validation — invalid amount                 | Submit with negative or non-numeric amount. Error: `t('forceApproveModal.errorInvalidAmount')`.                                                                                                                                                                                           |           |
-| 18.7  | Cancel button                               | Click "Cancel". Modal closes without API call.                                                                                                                                                                                                                                            |           |
-| 18.8  | Force approve — submit                      | Fill valid data (justification 20+ chars, valid amount, selected type). Click "Force approve". Network tab shows `POST /api/v1/applications/{id}/payment/override` with body `{ override_type: "full_waiver", actual_amount_collected_cents: N, justification: "<text>" }` returning 200. |           |
-| 18.9  | Success — toast + close                     | Toast: `t('forceApproveModal.success')`. Modal closes. Page refreshes showing approved status.                                                                                                                                                                                            |           |
-| 18.10 | Error — toast stays open                    | If POST fails (e.g., role insufficient), toast: `t('forceApproveModal.errorGeneric')`. Modal stays open for retry.                                                                                                                                                                        |           |
+Backend: `GET /v1/applications/analytics` (`admissions.view`). Accepts `form_definition_id?`, `date_from?`, `date_to?`.
 
----
-
-## 19. Application Detail — Record Cash Modal
-
-| #    | What to Check                      | Expected Result                                                                                                                                                                             | Pass/Fail |
-| ---- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 19.1 | Modal opens with amount pre-filled | Modal opens. Amount field pre-filled with `expectedAmountCents / 100`.                                                                                                                      |           |
-| 19.2 | Form fields                        | Three fields: Amount received (required, number), Receipt number (optional, text), Notes (optional, textarea).                                                                              |           |
-| 19.3 | Uses react-hook-form + Zod         | The form uses `useForm` with `zodResolver(recordCashPaymentSchema)`. Validation is schema-driven.                                                                                           |           |
-| 19.4 | Submit — valid data                | Fill amount ≥ expected. Click submit. Network tab shows `POST /api/v1/applications/{id}/payment/cash` with body `{ amount_cents: N, receipt_number?: "...", notes?: "..." }` returning 200. |           |
-| 19.5 | Submit — amount below expected     | Enter amount < expected. The backend returns 400 with `PAYMENT_BELOW_THRESHOLD`. Error toast appears.                                                                                       |           |
-| 19.6 | Success toast                      | Toast: "Cash payment recorded. Application approved." Modal closes. Page refreshes to approved status.                                                                                      |           |
-| 19.7 | Cash disabled — backend rejection  | If tenant has `allow_cash = false` in admissions settings, backend returns 400 with `CASH_PAYMENT_DISABLED`. Toast shows error.                                                             |           |
-| 19.8 | Cancel — closes modal              | Click Cancel. Modal closes. No API call.                                                                                                                                                    |           |
+| #     | What to Check                                                           | Expected Result                                                                                                                                                                   | Pass/Fail |
+| ----- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 10.1  | Page load with no filters                                               | Default date range = last 90 days. Response returns: total submissions, acceptance rate %, avg time-to-approval (days), rejection-reason breakdown, daily submission count array. |           |
+| 10.2  | Date range picker                                                       | Two date inputs with Gregorian calendar. Invalid ranges (`date_from > date_to`) disable Apply button with inline hint "Start date must be before end date".                       |           |
+| 10.3  | Select a specific `form_definition_id` from dropdown                    | Filters all metrics to that form. Dropdown lists only the tenant's forms; cross-tenant form IDs are not returned by backend.                                                      |           |
+| 10.4  | KPI cards                                                               | Cards: Total submissions (N), Acceptance rate (pct), Avg time to approval (days), Currently in waiting list (N). Each card has a tooltip explaining the calculation.              |           |
+| 10.5  | Chart: submissions by day                                               | Recharts LineChart; x-axis Gregorian dates; missing days render as 0 (not gap). RTL-aware axis (right-origin in Arabic).                                                          |           |
+| 10.6  | Chart: rejection reason breakdown                                       | Horizontal bar chart with top-10 reasons. "Other (N)" bar catches remainder. Uses token-based colours, not hardcoded hex.                                                         |           |
+| 10.7  | Export CSV button (if present)                                          | Downloads `admissions-analytics-{date}.csv`. Content-Type `text/csv`. Rows include a header + per-day tallies.                                                                    |           |
+| 10.8  | Role `front_office`                                                     | Page visible.                                                                                                                                                                     |           |
+| 10.9  | Role `teacher`                                                          | Direct URL → 403; UI redirects.                                                                                                                                                   |           |
+| 10.10 | Invalid `date_from` (malformed ISO) inserted via URL query manipulation | Backend returns 400 with Zod error `{ code: 'BAD_REQUEST', message: 'Invalid date' }`; UI shows banner "Invalid filter" and resets to defaults.                                   |           |
 
 ---
 
-## 20. Application Detail — Record Bank Transfer Modal
+## 11. Form Preview — `/admissions/form-preview` <a id="11-form-preview"></a>
 
-| #    | What to Check                 | Expected Result                                                                                                                                                                                                     | Pass/Fail |
-| ---- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 20.1 | Modal opens with fields       | Modal opens. Four fields: Amount received (number, required), Transfer reference (text, required), Transfer date (datetime-local picker, defaults to current date/time), Notes (optional textarea).                 |           |
-| 20.2 | Transfer reference — required | Submit without transfer reference. Validation error appears. No API call.                                                                                                                                           |           |
-| 20.3 | Submit — valid data           | Fill all required fields. Click submit. Network tab shows `POST /api/v1/applications/{id}/payment/bank-transfer` with body `{ amount_cents: N, transfer_reference: "...", transfer_date: "<ISO>", notes?: "..." }`. |           |
-| 20.4 | Success toast                 | Toast: "Bank transfer recorded. Application approved." Modal closes. Page refreshes to approved status.                                                                                                             |           |
-| 20.5 | Bank transfer disabled        | If tenant has `allow_bank_transfer = false`, backend returns 400 with `BANK_TRANSFER_DISABLED`.                                                                                                                     |           |
-| 20.6 | Amount below expected         | Amount < expected → backend 400 `PAYMENT_BELOW_THRESHOLD`.                                                                                                                                                          |           |
-| 20.7 | Cancel — closes modal         | Click Cancel. Modal closes without API call.                                                                                                                                                                        |           |
+Backend: `GET /v1/admission-forms/system` (`admissions.view`).
 
----
-
-## 21. Admissions Analytics
-
-**URL:** `/{locale}/admissions/analytics`
-**API:** `GET /api/v1/applications/analytics` (Permission: `admissions.view`)
-**Translation Namespace:** `admissions`
-
-| #    | What to Check                   | Expected Result                                                                                                                                                                                                                | Pass/Fail |
-| ---- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 21.1 | Page loads                      | Network tab shows `GET /api/v1/applications/analytics` returning 200.                                                                                                                                                          |           |
-| 21.2 | Stat cards — 3 cards            | Three stat cards: "Total Applications" (showing `analytics.total`), "Conversion Rate" (showing `analytics.conversion_rate.toFixed(1)%`), "Average Days to Decision" (showing `analytics.avg_days_to_decision` or "—" if null). |           |
-| 21.3 | Funnel chart — renders          | A horizontal bar chart (Recharts BarChart) renders showing the funnel stages: submitted → ready_to_admit → conditional_approval → approved. Each bar shows the count.                                                          |           |
-| 21.4 | Funnel chart — data matches API | Bar heights/lengths correspond to the `funnel.*` values from the API response.                                                                                                                                                 |           |
-| 21.5 | Funnel chart — green bars       | Bars use the color `#059669` (emerald/green).                                                                                                                                                                                  |           |
-| 21.6 | Back button                     | A back button appears. Click it → navigates to `/{locale}/admissions`.                                                                                                                                                         |           |
-| 21.7 | Loading state                   | Skeleton bars render during data fetch.                                                                                                                                                                                        |           |
-| 21.8 | Empty state                     | If `total = 0`, message `t('noApplicationsYet')` appears instead of the chart.                                                                                                                                                 |           |
+| #    | What to Check                                  | Expected Result                                                                                                                                                                                                                                                                                                                                     | Pass/Fail |
+| ---- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 11.1 | Page load                                      | 200 response with form definition + fields. Preview renders exactly how the public applicant will see it: household section, students section repeater (max 20), consents block.                                                                                                                                                                    |           |
+| 11.2 | Field-type rendering                           | One visible example per `ApplicationFieldType`: short_text → single-line input; long_text → textarea; number → numeric input; date → date picker; boolean / yes_no → radio / switch; single_select → dropdown; multi_select → multi-pick pills; phone → phone input (LTR); email → email input (LTR); country → country selector with 2-char codes. |           |
+| 11.3 | Required fields                                | Marker (red asterisk) next to label. Submitting an empty required field on this preview (it's a preview, so submission disabled) shows field-level hint "This field is required" styled identically to the real public form.                                                                                                                        |           |
+| 11.4 | Conditional visibility                         | Fields with `conditional_visibility_json` honour the rule: e.g. "has_allergies: yes" reveals a follow-up textarea for details. Test by toggling the boolean — the dependent field appears/disappears live.                                                                                                                                          |           |
+| 11.5 | Rebuild form action (only `admissions.manage`) | Button "Rebuild form" calls `POST /v1/admission-forms/system/rebuild`. Response 200 with new form definition. UI reloads preview; toast "Form rebuilt (version {N})".                                                                                                                                                                               |           |
+| 11.6 | Rebuild as `front_office`                      | Button is HIDDEN; direct POST returns 403.                                                                                                                                                                                                                                                                                                          |           |
+| 11.7 | Version bump visible                           | Preview header shows `version_number`; after rebuild the number increments by 1.                                                                                                                                                                                                                                                                    |           |
+| 11.8 | Arabic                                         | Labels and help text render in Arabic if translation keys are set; otherwise falls back to English with no ghost keys visible.                                                                                                                                                                                                                      |           |
+| 11.9 | Preview submission (should be disabled)        | No Submit button rendered; if one appears it should show tooltip "Preview only — submit via the public form".                                                                                                                                                                                                                                       |           |
 
 ---
 
-## 22. Form Preview
+## 12. Admissions Settings — `/admissions/settings` <a id="12-admissions-settings"></a>
 
-**URL:** `/{locale}/admissions/form-preview`
-**API:** `GET /api/v1/admission-forms/system` (Permission: `admissions.view`)
-**Translation Namespace:** (mostly hardcoded labels)
+Backend: `GET /v1/settings/admissions` / `PATCH /v1/settings/admissions` (permission `admissions.manage`). (Lives in settings module — admissions surfaces its subset.)
 
-| #     | What to Check                    | Expected Result                                                                                                                                                                                    | Pass/Fail |
-| ----- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 22.1  | Page loads with form data        | Network tab shows `GET /api/v1/admission-forms/system` returning 200 with published form definition.                                                                                               |           |
-| 22.2  | Public link panel                | Displays the public application URL built from tenant slug and locale. URL is selectable/copyable.                                                                                                 |           |
-| 22.3  | Copy link button                 | Click "Copy link". URL copied to clipboard. Toast: "Link copied to clipboard".                                                                                                                     |           |
-| 22.4  | Copy link — error                | If clipboard API fails, toast: "Could not copy link".                                                                                                                                              |           |
-| 22.5  | QR code — renders                | A QR code (224px) renders from the `QRCodeCanvas` component, encoding the public URL.                                                                                                              |           |
-| 22.6  | Download QR code                 | Click "Download QR code". A PNG file downloads via `file-saver`. The PNG contains the QR code.                                                                                                     |           |
-| 22.7  | Download QR — error toast        | If download fails, toast: "Could not export QR code".                                                                                                                                              |           |
-| 22.8  | Form preview section             | Shows form version number and field count. DynamicFormRenderer renders all fields in read-only mode. A disabled "Submit application" button appears at the bottom (demonstrating the form layout). |           |
-| 22.9  | No form available                | If GET returns null/empty, message: "No form is currently available for this tenant." No QR code or preview shown.                                                                                 |           |
-| 22.10 | Rebuild button — admin only      | If user `canManageForm` (admin roles), a "Rebuild form" button appears. If user is front_office, button is NOT visible.                                                                            |           |
-| 22.11 | Rebuild — click                  | Click "Rebuild form". Confirmation dialog appears.                                                                                                                                                 |           |
-| 22.12 | Rebuild — confirm                | Confirm rebuild. Network tab shows `POST /api/v1/admission-forms/system/rebuild` returning 200. Button shows "Rebuilding…" during request.                                                         |           |
-| 22.13 | Rebuild — success toast          | Toast: "Form rebuilt from the latest wizard field set." Form preview updates with new version.                                                                                                     |           |
-| 22.14 | Rebuild — error                  | If POST fails, toast shows error message from API response.                                                                                                                                        |           |
-| 22.15 | Access restricted to ADMIN_ROLES | Front office user navigating to this page is blocked by route guard (only ADMIN_ROLES can access).                                                                                                 |           |
-| 22.16 | Loading state                    | Skeleton loaders for QR area and form fields during initial fetch.                                                                                                                                 |           |
+| #     | What to Check                                           | Expected Result                                                                                                                                                                                                    | Pass/Fail |
+| ----- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 12.1  | Page load                                               | Form pre-populated with tenant settings: `upfront_percentage` (0-100 integer), `payment_window_days` (1-90 integer), `allow_cash` (bool), `allow_bank_transfer` (bool), `require_override_approval_role` (select). |           |
+| 12.2  | Change `upfront_percentage` to 150                      | Zod schema rejects with inline error "Must be between 0 and 100"; Save button disabled.                                                                                                                            |           |
+| 12.3  | Change `payment_window_days` to 0                       | Inline error "Must be ≥ 1".                                                                                                                                                                                        |           |
+| 12.4  | Change `payment_window_days` to 365                     | Inline error "Must be ≤ 90".                                                                                                                                                                                       |           |
+| 12.5  | Toggle `allow_cash=false`                               | Save → 200. Subsequently, on conditional-approval queue (§7.5) the "Record cash" kebab item must be hidden.                                                                                                        |           |
+| 12.6  | Toggle `allow_bank_transfer=false`                      | Save → 200. "Record bank transfer" item hidden in §7.6.                                                                                                                                                            |           |
+| 12.7  | Both `allow_cash=false` and `allow_bank_transfer=false` | Valid; UI shows warning banner "Only Stripe payments enabled — ensure Stripe keys are configured". Admin-override path still allowed.                                                                              |           |
+| 12.8  | Change `require_override_approval_role` to `teacher`    | Select only offers roles with a role_id that exists. "teacher" is not in the override-eligible list per backend validation — selector doesn't show it.                                                             |           |
+| 12.9  | Role `front_office`                                     | Page is forbidden; direct URL returns 403; UI navigates back to hub with toast.                                                                                                                                    |           |
+| 12.10 | Save success toast                                      | "Admissions settings updated." Plus console.log-level info if instrumented; no error in console.                                                                                                                   |           |
+| 12.11 | Network failure on save                                 | Toast "Failed to save — please retry". Settings form re-enables for edit.                                                                                                                                          |           |
 
 ---
 
-## 23. Admissions Settings
+## 13. Application Detail — Header & Meta Strip <a id="13-detail-header"></a>
 
-**URL:** `/{locale}/admissions/settings`
-**API:** `GET /api/v1/settings/admissions`, `PATCH /api/v1/settings/admissions` (Permission: `settings.manage`)
-**Translation Namespace:** `admissionsSettings`
+Route: `/admissions/:id`. Backend: `GET /v1/applications/:id` (`admissions.view`).
 
-| #     | What to Check                         | Expected Result                                                                                                                                                                                                                                                                                             | Pass/Fail |
-| ----- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 23.1  | Page loads with current settings      | Network tab shows `GET /api/v1/settings/admissions` returning 200. Form fields populated with current values.                                                                                                                                                                                               |           |
-| 23.2  | Payment Settings section              | Section contains: Upfront percentage (number, 0-100), Payment window days (number, min 1), Allow cash toggle (checkbox), Cash deadline days (number, min 1, shown when cash enabled), Allow bank transfer toggle (checkbox), Bank IBAN (text, monospace, shown when bank enabled), Link to Stripe settings. |           |
-| 23.3  | Upfront percentage — range validation | Enter 101 → validation error (max 100). Enter -1 → validation error (min 0). Enter 50 → accepted.                                                                                                                                                                                                           |           |
-| 23.4  | Payment window days — min validation  | Enter 0 → validation error (min 1). Enter 7 → accepted.                                                                                                                                                                                                                                                     |           |
-| 23.5  | Allow cash toggle                     | Toggle on → cash deadline field appears. Toggle off → cash deadline field hides.                                                                                                                                                                                                                            |           |
-| 23.6  | Allow bank transfer toggle            | Toggle on → IBAN field appears. Toggle off → IBAN field hides.                                                                                                                                                                                                                                              |           |
-| 23.7  | IBAN field — monospace styling        | IBAN input uses monospace font for readability.                                                                                                                                                                                                                                                             |           |
-| 23.8  | Stripe settings link                  | A link labeled "Manage Stripe configuration" navigates to `/{locale}/settings/stripe`.                                                                                                                                                                                                                      |           |
-| 23.9  | Application Rules section             | Contains: Max application horizon (number, 0-5 years). Controls how many academic years ahead parents can apply.                                                                                                                                                                                            |           |
-| 23.10 | Approval & Override section           | Contains: Require approval for acceptance toggle (checkbox), Override approval role select dropdown (options: school_owner, school_principal).                                                                                                                                                              |           |
-| 23.11 | Save Changes button                   | "Save Changes" button at the bottom right. Initially enabled.                                                                                                                                                                                                                                               |           |
-| 23.12 | Save — click                          | Click "Save Changes". Network tab shows `PATCH /api/v1/settings/admissions` with the full settings object. Returns 200.                                                                                                                                                                                     |           |
-| 23.13 | Save — success toast                  | Toast: `t('admissionsSettings.saved')` ("Settings saved successfully").                                                                                                                                                                                                                                     |           |
-| 23.14 | Save — error toast                    | If PATCH fails, toast: `t('admissionsSettings.saveError')` ("Failed to save settings").                                                                                                                                                                                                                     |           |
-| 23.15 | Save — button shows saving state      | During PATCH, button text changes to `t('admissionsSettings.saving')` and is disabled.                                                                                                                                                                                                                      |           |
-| 23.16 | Back button                           | Back button navigates to `/{locale}/admissions` (hub).                                                                                                                                                                                                                                                      |           |
-| 23.17 | Loading state                         | Spinner shown while GET is in flight.                                                                                                                                                                                                                                                                       |           |
-| 23.18 | Load error state                      | If GET fails, error message: `t('admissionsSettings.loadError')` ("Failed to load settings").                                                                                                                                                                                                               |           |
-| 23.19 | Access restricted to ADMIN_ROLES      | Front office user cannot access this page (route guard blocks).                                                                                                                                                                                                                                             |           |
-| 23.20 | Stripe section                        | A separate section or card linking to Stripe management.                                                                                                                                                                                                                                                    |           |
+| #     | What to Check                                            | Expected Result                                                                                                                                                                                                                                                       | Pass/Fail |
+| ----- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 13.1  | Header content                                           | Shows student full name (first + middle + last); `application_number` (monospace, LTR); current status badge (coloured per state: submitted=grey, waiting_list=blue, ready_to_admit=teal, conditional_approval=amber, approved=green, rejected=red, withdrawn=slate). |           |
+| 13.2  | Meta strip                                               | Sub-header row with: date of birth (if captured), target academic year + year group, submitted by parent (name + email, email LTR), apply_date, last reviewed_at + reviewed_by user name.                                                                             |           |
+| 13.3  | Capacity panel                                           | Right-hand panel (below meta) shows current seat availability for this year group (same data shape as capacity chip in §5.4). Updates live on action (e.g. after moving to conditional_approval, available drops by 1).                                               |           |
+| 13.4  | Tabs — Application, Timeline, Notes, Payment             | Four tabs. Active tab underlined. Tab labels localised. Payment tab hidden for terminal states that never had payment (rare edge).                                                                                                                                    |           |
+| 13.5  | Status transition buttons                                | Buttons render per state (see §§18–21). Disabled buttons include tooltip explaining WHY ("Cannot approve from submitted — must move to ready_to_admit first").                                                                                                        |           |
+| 13.6  | 404 on unknown id                                        | Page renders "Application not found" with back-to-queue CTA. Backend returns 404 `APPLICATION_NOT_FOUND`.                                                                                                                                                             |           |
+| 13.7  | 404 on malformed id (`/admissions/not-a-uuid`)           | Backend `ParseUUIDPipe` returns 400 `BAD_UUID`. Frontend shows 404 page (same shell).                                                                                                                                                                                 |           |
+| 13.8  | Optimistic-concurrency `expected_updated_at` is captured | On page load the frontend stashes `application.updated_at` in state for later PATCH calls (see §22, §23). Verify via devtools React state inspector or network payload on next mutation.                                                                              |           |
+| 13.9  | Cross-tenant — open Tenant A detail with Tenant B token  | 404 `APPLICATION_NOT_FOUND`. UI shows "Application not found" page. NEVER 200 with Tenant B data.                                                                                                                                                                     |           |
+| 13.10 | Deep-link preservation on refresh                        | Refresh (F5) re-loads the same application. URL remains `/admissions/:id`.                                                                                                                                                                                            |           |
 
 ---
 
-## 24. Public Apply — Generic Form
+## 14. Application Detail — Application Tab <a id="14-detail-application"></a>
 
-**URL:** `/{locale}/apply`
-**API:** `GET /api/v1/public/admissions/form` (No auth), `POST /api/v1/public/admissions/applications` (No auth)
-**Translation Namespace:** `admissions`
+Backend: `GET /v1/applications/:id/preview` feeds this tab (permission `admissions.view`).
 
-| #     | What to Check               | Expected Result                                                                                                                                                                                                                           | Pass/Fail |
-| ----- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 24.1  | Page loads — form available | Network tab shows `GET /api/v1/public/admissions/form` (no auth token) returning 200. Form renders with title from `form.name`.                                                                                                           |           |
-| 24.2  | Page loads — no form        | If no published form exists, message `t('noAdmissionFormIsCurrently')` ("No admission form is currently available") appears. No form fields rendered.                                                                                     |           |
-| 24.3  | Student name fields         | Two inputs: First name (required, marked with _) and Last name (required, marked with _).                                                                                                                                                 |           |
-| 24.4  | Date of birth field         | Date input with `dir="ltr"`. Optional field.                                                                                                                                                                                              |           |
-| 24.5  | Dynamic form fields         | Form fields from the published form definition render via DynamicFormRenderer. All field types supported.                                                                                                                                 |           |
-| 24.6  | Consent section             | Section titled `t('consentTitle')` with description. Checkboxes: Health data, WhatsApp channel. AI features sub-section with 4 checkboxes: AI grading, AI comments, AI risk detection, AI progress summary. Each has a description label. |           |
-| 24.7  | Honeypot field              | A hidden input `website_url` exists at position `absolute -start-[9999px] opacity-0`. It must NOT be visible to real users.                                                                                                               |           |
-| 24.8  | Submit — requires auth      | Click "Submit Application". If not authenticated, a toast appears: `t('loginToSubmit')` ("You must be logged in to submit"). Browser redirects to `/{locale}/login?returnTo=<encoded_current_path>`.                                      |           |
-| 24.9  | Submit — authenticated      | Log in as parent, return to form. Fill required fields. Click "Submit". POST fires: `POST /api/v1/public/admissions/applications` followed by `POST /api/v1/parent/applications/{id}/submit`.                                             |           |
-| 24.10 | Submit — success            | Page transitions to success state: checkmark icon, title `t('applicationSubmitted')`, message `t('yourApplicationHasBeenReceived')`.                                                                                                      |           |
-| 24.11 | Submit — validation failure | Submit with empty student name → toast with validation error. No API call fires.                                                                                                                                                          |           |
-| 24.12 | Honeypot — bot detection    | If `website_url` field is filled (by a bot), form silently returns without making any API call. No error shown.                                                                                                                           |           |
-| 24.13 | Loading state               | Skeleton placeholders during initial form fetch.                                                                                                                                                                                          |           |
+| #    | What to Check                                                         | Expected Result                                                                                                                                                                                                        | Pass/Fail |
+| ---- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 14.1 | Tab content                                                           | Renders the applicant's submitted payload field-by-field in two columns at desktop / single column at 375px. Reused form-field-type renderers from §11.                                                                |           |
+| 14.2 | Consent block                                                         | Shows `consents` JSON interpreted: Health Data (Yes/No), WhatsApp channel (Yes/No), AI Features (grading/comments/risk/progress — each Yes/No). Dates captured at time of submission.                                  |           |
+| 14.3 | Multiple students in same batch                                       | If `submission_batch_id` is set AND other applications share it, panel shows "Sibling applications (N): " with chips linking to each sibling's detail page. Hover tooltip on each chip shows sibling's status.         |           |
+| 14.4 | Fields hidden from staff (`visible_to_staff=false`)                   | NOT rendered. Verify with a seeded field that has `visible_to_staff=false` — it must not appear in the panel even in raw JSON view.                                                                                    |           |
+| 14.5 | Field rendering correctness                                           | Each field type renders read-only: number as formatted number, date in Gregorian LTR format, phone with country code prefix LTR, yes_no as chip, long_text with whitespace preserved, multi_select as comma-separated. |           |
+| 14.6 | XSS payload in a free-text field (seeded `<script>alert(1)</script>`) | Rendered as escaped text; no script execution; console clean. (Deeper XSS / stored-XSS coverage in security spec.)                                                                                                     |           |
+| 14.7 | Print / export (if CTA exists)                                        | CTA "Print" opens browser print dialog with the tab contents laid out paginated. CTA "Export PDF" (if present) calls `GET /v1/applications/:id/preview?format=pdf` — verify Content-Type `application/pdf`.            |           |
+| 14.8 | Loading state                                                         | Skeleton for 4 field rows until preview data arrives.                                                                                                                                                                  |           |
 
 ---
 
-## 25. Public Apply — Tenant-Specific Form (Mode Picker)
+## 15. Application Detail — Timeline Tab <a id="15-detail-timeline"></a>
 
-**URL:** `/{locale}/apply/{tenantSlug}`
-**API:** `GET /api/v1/public/tenants/by-slug/{tenantSlug}`, `GET /api/v1/public/admissions/form`
-**Translation Namespace:** `publicApplyForm`
+Backend: timeline is derived from ApplicationNote + status-transition events stored on the application row.
 
-| #     | What to Check                      | Expected Result                                                                                                                                                                           | Pass/Fail |
-| ----- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 25.1  | Page loads — tenant found          | Network tab shows `GET /api/v1/public/tenants/by-slug/{tenantSlug}` returning 200. Tenant header renders with logo (or initials badge) and display name.                                  |           |
-| 25.2  | Page loads — tenant not found      | For invalid slug, API returns 404. Page shows error: `t('schoolNotFoundTitle')` and `t('schoolNotFoundBody')`.                                                                            |           |
-| 25.3  | Form fetch — success               | After tenant loads, `GET /api/v1/public/admissions/form` fires with `X-Tenant-Slug` header. Form definition loads.                                                                        |           |
-| 25.4  | Form fetch — no form               | If no published form, page shows: `t('formUnavailableTitle')` and `t('formUnavailableBody')`.                                                                                             |           |
-| 25.5  | Tenant header — logo               | If tenant has a logo_url, image renders (presigned S3 URL). If no logo, initials badge shows (14×14px).                                                                                   |           |
-| 25.6  | Tenant header — display name       | Tenant `display_name` shown (or `display_name_ar` if `locale === 'ar'`).                                                                                                                  |           |
-| 25.7  | Eyebrow text                       | Text "Admissions" (or translated) appears above the tenant name.                                                                                                                          |           |
-| 25.8  | Mode picker renders                | Two clickable cards appear: "Apply as new family" and "Add to existing family". Each has title (`t('modePickerOptionNewLabel')` / `t('modePickerOptionExistingLabel')`) and description.  |           |
-| 25.9  | New family card — click            | Click "Apply as new family". Mode switches to `new_family`. Full household form renders (Section 26).                                                                                     |           |
-| 25.10 | Existing family card — click       | Click "Add to existing family". Mode switches to `lookup`. Household lookup form renders (Section 27).                                                                                    |           |
-| 25.11 | Draft persistence — sessionStorage | After selecting a mode, check `sessionStorage.getItem('public-apply-draft-{tenantSlug}')`. It should contain a JSON object with `{ mode, students, householdValues, existingHousehold }`. |           |
-| 25.12 | Draft restoration — reload page    | Select a mode, add student data. Reload the page. The form should restore from the draft: mode, student data, household values.                                                           |           |
-| 25.13 | Support footer                     | If tenant has `support_email` or `support_phone`, a footer section renders with contact info (email link, phone link).                                                                    |           |
-
----
-
-## 26. Public Apply — Tenant-Specific Form (New Family)
-
-**URL:** `/{locale}/apply/{tenantSlug}` (mode: new_family)
-
-| #     | What to Check                        | Expected Result                                                                                                                                                                                                                                   | Pass/Fail |
-| ----- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 26.1  | Back button                          | "Back to mode picker" button visible. Click → returns to mode picker view.                                                                                                                                                                        |           |
-| 26.2  | Parent 1 section                     | Section header "Parent 1" (or translated). Fields: First name (required), Last name (required), Email (required, valid email), Phone (required, min 5 chars), Relationship (required).                                                            |           |
-| 26.3  | Parent 2 section                     | Section header "Parent 2" (or translated). All fields optional: First name, Last name, Email, Phone, Relationship.                                                                                                                                |           |
-| 26.4  | Address section                      | Section header "Address". Fields: Address line 1 (required), Address line 2 (optional), City (required), Country (required, 2-char ISO code select), Postal code (optional).                                                                      |           |
-| 26.5  | Emergency contact section            | Section conditionally rendered (if form definition includes emergency fields). Fields: Name, Phone, Relationship — all optional.                                                                                                                  |           |
-| 26.6  | Students section                     | StudentsSection component renders with at least 1 student block. (Full testing in Section 29.)                                                                                                                                                    |           |
-| 26.7  | Honeypot field                       | Hidden `website_url` input present.                                                                                                                                                                                                               |           |
-| 26.8  | Privacy notice                       | Privacy notice text appears before the submit button.                                                                                                                                                                                             |           |
-| 26.9  | Submit button — singular/plural      | With 1 student: button reads `t('submitButtonSingular')`. With 2+ students: `t('submitButtonPlural')` with count.                                                                                                                                 |           |
-| 26.10 | Submit button — disabled until valid | Button disabled until all required household fields AND all student fields are filled.                                                                                                                                                            |           |
-| 26.11 | Submit — API call                    | Click submit (valid data). Network tab shows `POST /api/v1/public/admissions/applications` with body: `{ mode: 'new_household', form_definition_id: UUID, students: [...], household_payload: {...}, website_url: '' }`. Header: `X-Tenant-Slug`. |           |
-| 26.12 | Submit — success redirect            | On 200 response, browser navigates to `/{locale}/apply/{tenantSlug}/submitted?batch={submission_batch_id}`. Batch results stored in sessionStorage.                                                                                               |           |
-| 26.13 | Submit — rate limit (429)            | If rate limited, toast: `t('rateLimitError')` ("Too many submissions"). No redirect.                                                                                                                                                              |           |
-| 26.14 | Submit — generic error               | On non-429 error, toast shows generic error message. Form stays open for retry.                                                                                                                                                                   |           |
-| 26.15 | Honeypot detection                   | If `website_url` is filled, form silently returns. No API call.                                                                                                                                                                                   |           |
-| 26.16 | Draft cleared on success             | After successful submit, sessionStorage `public-apply-draft-{tenantSlug}` is cleared.                                                                                                                                                             |           |
-| 26.17 | Field sections from form definition  | The sections (Parent 1, Parent 2, Address, Emergency) are driven by the form definition's field groups, not hardcoded. If the form definition omits a section, it doesn't render.                                                                 |           |
+| #     | What to Check                                           | Expected Result                                                                                                                                                                                         | Pass/Fail |
+| ----- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 15.1  | Tab load                                                | Vertical timeline, most-recent-first. Each entry: timestamp (ISO + relative "2 hours ago"), actor name + role, event type label, plus detail body where present (e.g. rejection reason, override type). |           |
+| 15.2  | Submitted event                                         | Entry: "Application submitted by {parent_name}" with apply_date timestamp.                                                                                                                              |           |
+| 15.3  | Auto-route event                                        | Entry: "Auto-routed to {ready_to_admit or waiting_list}" with reason ("capacity available" or "queue full").                                                                                            |           |
+| 15.4  | Moved to conditional_approval event                     | Entry: "Moved to Conditional Approval by {actor}" with payment_amount (formatted currency) and payment_deadline.                                                                                        |           |
+| 15.5  | Payment received (Stripe)                               | Entry: "Stripe payment completed — {amount}" with reference to `AdmissionsPaymentEvent.id`.                                                                                                             |           |
+| 15.6  | Cash payment recorded                                   | Entry: "Cash payment recorded by {actor}: {amount}, receipt #{receipt_number or '—'}".                                                                                                                  |           |
+| 15.7  | Bank transfer recorded                                  | Entry: "Bank transfer recorded by {actor}: {amount}, reference {transfer_reference}, date {transfer_date}".                                                                                             |           |
+| 15.8  | Force approve override                                  | Entry: "Admission override by {actor} — Type: {full_waiver/partial_waiver/deferred_payment}. Justification: {justification}". Actor role must be authorised per tenant settings.                        |           |
+| 15.9  | Auto-promoted from waiting_list                         | Entry: "Promoted to Ready to Admit (seat freed by payment-window expiry of application #{other_app_number})".                                                                                           |           |
+| 15.10 | Manually promoted                                       | Entry: "Manually promoted by {actor}. Justification: {justification}".                                                                                                                                  |           |
+| 15.11 | Rejected                                                | Entry: "Rejected by {actor}. Reason: {rejection_reason}".                                                                                                                                               |           |
+| 15.12 | Withdrawn by parent                                     | Entry: "Withdrawn by parent {parent_name}".                                                                                                                                                             |           |
+| 15.13 | Withdrawn by staff                                      | Entry: "Withdrawn by {actor} (staff)".                                                                                                                                                                  |           |
+| 15.14 | Reverted to waiting_list (payment expiry cron)          | Entry: "Reverted to Waiting List by System (reason: payment_expired). Seat released." Actor attribution: original approver ID.                                                                          |           |
+| 15.15 | Timezone display                                        | All timestamps render in tenant timezone with tz abbreviation, or in the user's browser tz with abbreviation. Stored UTC — consistent with API value.                                                   |           |
+| 15.16 | Timeline pagination / virtualisation for long histories | For > 50 events, either paginated (load more) or virtualised scroll. No performance cliff.                                                                                                              |           |
+| 15.17 | Empty state                                             | Never empty for real applications (at minimum the submission event exists). If timeline blank, flag as data corruption.                                                                                 |           |
 
 ---
 
-## 27. Public Apply — Tenant-Specific Form (Existing Family Lookup)
+## 16. Application Detail — Notes Tab <a id="16-detail-notes"></a>
 
-**URL:** `/{locale}/apply/{tenantSlug}` (mode: lookup)
+Backend: `GET /v1/applications/:applicationId/notes` / `POST /v1/applications/:applicationId/notes` (`admissions.view` / `admissions.manage`).
 
-| #     | What to Check                                | Expected Result                                                                                                                                                                                                                                                       | Pass/Fail |
-| ----- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 27.1  | Lookup form renders                          | Two inputs: Household number (text, max 6 chars, uppercase transform) and Parent email (email input). "Look up household" button.                                                                                                                                     |           |
-| 27.2  | Household number — uppercase                 | Type lowercase characters. Input automatically transforms to uppercase. Max length enforced at 6.                                                                                                                                                                     |           |
-| 27.3  | Back button                                  | "Back to mode picker" returns to mode picker.                                                                                                                                                                                                                         |           |
-| 27.4  | Lookup — click                               | Fill household number (e.g., "SGW109") and parent email. Click "Look up household". Network tab shows `POST /api/v1/public/households/lookup` with body `{ tenant_slug, household_number: "SGW109", parent_email: "parent@example.com" }` and `X-Tenant-Slug` header. |           |
-| 27.5  | Lookup — success                             | On 200 response with matching household, mode transitions to `existing_family`. Matched household banner appears showing household name and active student count. (Section 28.)                                                                                       |           |
-| 27.6  | Lookup — not found (404)                     | If no match (wrong number or wrong email), toast: `t('lookupFailedError')` ("Household not found"). Form stays in lookup mode.                                                                                                                                        |           |
-| 27.7  | Lookup — rate limit (429/403)                | If rate limited, toast: `t('lookupRateLimitError')` ("Too many lookup attempts").                                                                                                                                                                                     |           |
-| 27.8  | Lookup — both fields required                | Button disabled if either field is empty. Both must be filled.                                                                                                                                                                                                        |           |
-| 27.9  | Lookup — loading state                       | During POST, lookup button is disabled and shows "Loading" text.                                                                                                                                                                                                      |           |
-| 27.10 | Privacy invariant — timing attack prevention | Both "not found" (wrong number) and "email mismatch" return identical 404 with `HOUSEHOLD_NOT_FOUND`. No information leaks about which field was wrong. Verify by testing: correct number + wrong email vs wrong number + correct email — both show the same error.   |           |
-
----
-
-## 28. Public Apply — Tenant-Specific Form (Existing Family Submit)
-
-**URL:** `/{locale}/apply/{tenantSlug}` (mode: existing_family)
-
-| #    | What to Check            | Expected Result                                                                                                                                        | Pass/Fail |
-| ---- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 28.1 | Matched household banner | A banner appears showing: `t('matchedBannerTitle')` with household name, `t('matchedBannerCount')` with active student count from the lookup response. |           |
-| 28.2 | No household fields      | Parent 1, Parent 2, Address, and Emergency sections are NOT rendered. Only the Students section appears (household already exists).                    |           |
-| 28.3 | Students section         | StudentsSection renders for adding new students to the existing household.                                                                             |           |
-| 28.4 | Submit — API call        | Click submit. POST body includes `{ mode: 'existing_household', existing_household_id: UUID, students: [...] }`. NO `household_payload` field.         |           |
-| 28.5 | Submit — success         | Same redirect to submitted page. Batch results stored.                                                                                                 |           |
-| 28.6 | Back button              | "Back to mode picker" returns to mode picker (clears existing household state).                                                                        |           |
-| 28.7 | Student subtitle text    | Subtitle text uses `t('studentsExistingSubtitle')` (different from new family subtitle).                                                               |           |
+| #     | What to Check                                           | Expected Result                                                                                                                                                                                           | Pass/Fail |
+| ----- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 16.1  | Tab load                                                | List of notes, newest-first. Each row: author name + role, timestamp (relative + absolute), note body, `is_internal` chip (green "Internal" or blue "Parent-visible").                                    |           |
+| 16.2  | New-note composer                                       | Textarea (10,000 char max — client-side counter). Toggle "Parent can see this note". Save → `POST /v1/applications/:applicationId/notes` payload `{ note, is_internal }`.                                 |           |
+| 16.3  | Save success                                            | Toast "Note added". Composer clears. List pre-pends the new note without full reload.                                                                                                                     |           |
+| 16.4  | Server error on save                                    | Toast "Failed to add note" with console error; composer retains content for retry.                                                                                                                        |           |
+| 16.5  | Empty note submit                                       | Save disabled; Zod schema requires note length ≥ 1.                                                                                                                                                       |           |
+| 16.6  | Role `front_office`                                     | List visible; composer HIDDEN (no `admissions.manage`). Direct POST returns 403.                                                                                                                          |           |
+| 16.7  | Role `front_office` attempting to hit POST via devtools | 403 `PERMISSION_DENIED`. No row inserted (verify via re-GET).                                                                                                                                             |           |
+| 16.8  | System-generated notes                                  | Notes created by the state machine (e.g. "Reverted to waiting list — reason payment_expired") appear in list with author = System (or the responsible admin's user id, per §15.14 rules). Badge "System". |           |
+| 16.9  | Note character limit                                    | 10,000 char max; 10,001 char input blocked at client; server also rejects with 400 if bypassed.                                                                                                           |           |
+| 16.10 | XSS payload in note body                                | Saved as-is in DB. On render, escaped; no script execution. (Exhaustive XSS in security spec.)                                                                                                            |           |
+| 16.11 | Internal note visible only to staff                     | Log in as parent who submitted the application → parent portal (`/applications/:id`) does NOT show `is_internal=true` notes. Verify via network response filtering.                                       |           |
+| 16.12 | Append-only: note cannot be edited or deleted           | No edit/delete affordance in the UI. No `PATCH /v1/applications/:appId/notes/:id` endpoint exists; attempting returns 404.                                                                                |           |
 
 ---
 
-## 29. Public Apply — Students Section Component
+## 17. Application Detail — Payment Tab <a id="17-detail-payment"></a>
 
-| #     | What to Check                        | Expected Result                                                                                                                                                                                                                                                                                                                               | Pass/Fail |
-| ----- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 29.1  | Initial state — 1 student            | One student block renders with heading "Student 1".                                                                                                                                                                                                                                                                                           |           |
-| 29.2  | Student fields — all present         | Each student block has: First name (required _), Middle name (optional), Last name (required _), Date of birth (date input, LTR, required), Gender (select: male/female, required), National ID (text, LTR, required), Academic year (select dropdown, required), Year group (select dropdown, required), Medical notes (textarea, optional). |           |
-| 29.3  | Add student button                   | "Add student" button (Plus icon, outline) at bottom. Click → new student block appears as "Student 2".                                                                                                                                                                                                                                        |           |
-| 29.4  | Max students                         | Up to 20 students can be added (Zod schema `max(20)`). The 21st add should be blocked or button disabled.                                                                                                                                                                                                                                     |           |
-| 29.5  | Remove student button                | Each student block (when >1 exists) shows a remove button (trash icon). Click → that student block is removed.                                                                                                                                                                                                                                |           |
-| 29.6  | Remove button — disabled when only 1 | When only 1 student exists, the remove button is disabled or hidden.                                                                                                                                                                                                                                                                          |           |
-| 29.7  | Student heading — indexed            | Headings update dynamically: "Student 1", "Student 2", etc. After removing student 2 of 3, remaining students re-index to "Student 1" and "Student 2".                                                                                                                                                                                        |           |
-| 29.8  | Academic year dropdown               | Options come from the form definition's academic year list. Each option shows the year name.                                                                                                                                                                                                                                                  |           |
-| 29.9  | Year group dropdown                  | Options come from the form definition's year group list. Each option shows the year group name.                                                                                                                                                                                                                                               |           |
-| 29.10 | Gender select                        | Two options: "Male" and "Female" (translated).                                                                                                                                                                                                                                                                                                |           |
-| 29.11 | Date of birth — LTR                  | Date input always renders with `dir="ltr"` regardless of page direction.                                                                                                                                                                                                                                                                      |           |
-| 29.12 | National ID — LTR                    | National ID input renders with `dir="ltr"`.                                                                                                                                                                                                                                                                                                   |           |
-| 29.13 | Medical notes — optional             | Textarea with rows=2. No required marker.                                                                                                                                                                                                                                                                                                     |           |
+Backend data comes from `application` row + `AdmissionsPaymentEvent` history.
 
----
-
-## 30. Public Apply — Submitted Confirmation
-
-**URL:** `/{locale}/apply/{tenantSlug}/submitted?batch={batchId}`
-**Translation Namespace:** `publicApplyForm`
-
-| #     | What to Check                  | Expected Result                                                                                                                                                                       | Pass/Fail |
-| ----- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 30.1  | Page renders success state     | Success checkmark icon in green circle. Title: `t('submittedTitle')` (singular) or `t('submittedTitlePlural')` (if multiple applications).                                            |           |
-| 30.2  | Subtitle text                  | Body text: `t('submittedBody')`.                                                                                                                                                      |           |
-| 30.3  | Household number — conditional | If submission was for existing_household mode or new household was created, the household number appears in a monospace, LTR, semibold box with label `t('submittedHouseholdLabel')`. |           |
-| 30.4  | Applications list              | Each submitted application shows: student name (first + last), application number (monospace, tertiary), status badge (e.g., "Ready to admit" or "Waiting list").                     |           |
-| 30.5  | Status labels — correct        | Status badges map: ready_to_admit → "Ready to admit", waiting_list → "Waiting list", awaiting_year_setup → "Awaiting year setup", submitted → "Submitted".                            |           |
-| 30.6  | Next steps text                | Text: `t('submittedNextSteps')` explaining what happens next.                                                                                                                         |           |
-| 30.7  | Support footer                 | If tenant has support_email/phone, contact info appears at the bottom.                                                                                                                |           |
-| 30.8  | SessionStorage — batch data    | Page reads from `sessionStorage.getItem('public-apply-draft-{tenantSlug}-batch')`. If `batchId` matches `submission_batch_id`, it displays the stored results.                        |           |
-| 30.9  | Legacy fallback — ref param    | If no batch data found but `?ref=` query param exists, shows a single reference number display instead of the batch list.                                                             |           |
-| 30.10 | Tenant fetch                   | Network tab shows `GET /api/v1/public/tenants/by-slug/{tenantSlug}` for the support footer data.                                                                                      |           |
+| #     | What to Check                                                                                       | Expected Result                                                                                                                                                                                   | Pass/Fail |
+| ----- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 17.1  | Tab load — `conditional_approval` state                                                             | Section: Expected amount (currency + formatted), Payment deadline (absolute + countdown), Payment link (if `stripe_checkout_session_id` is set) with "Copy link" and "Open link" buttons.         |           |
+| 17.2  | Tab load — `approved` state                                                                         | Section: Amount received, source (Stripe/cash/bank transfer/override), received_at timestamp, reference (Stripe event id / receipt_number / transfer_reference / override justification excerpt). |           |
+| 17.3  | Payment-events list                                                                                 | Table of `AdmissionsPaymentEvent` rows per application: stripe_event_id (last 8 chars), amount, status (succeeded / failed / received_out_of_band), created_at. Newest first.                     |           |
+| 17.4  | Regenerate link button (when `conditional_approval`)                                                | Calls `POST /v1/applications/:id/payment-link/regenerate`. On 200, tab re-fetches; `stripe_checkout_session_id` changes. Toast "Payment link regenerated and emailed".                            |           |
+| 17.5  | Regenerate link on `approved` state                                                                 | Button HIDDEN; if POSTed directly, backend returns 400 `INVALID_STATUS` (`application.status` must be `conditional_approval`).                                                                    |           |
+| 17.6  | Regenerate link with no Stripe keys configured                                                      | Backend returns 400/412 with code `STRIPE_NOT_CONFIGURED`. Toast explains and links to settings.                                                                                                  |           |
+| 17.7  | Copy link                                                                                           | Copies full checkout URL to clipboard. Toast "Payment link copied".                                                                                                                               |           |
+| 17.8  | Open link                                                                                           | Opens Stripe Checkout in a new tab. Tab shows the session with correct tenant + amount + currency.                                                                                                |           |
+| 17.9  | Record cash (shortcut from tab)                                                                     | Opens `RecordCashModal` (§24). Upon completion, tab reloads and shows approved-state content.                                                                                                     |           |
+| 17.10 | Record bank transfer (shortcut from tab)                                                            | Opens `RecordBankTransferModal` (§25). Same outcome.                                                                                                                                              |           |
+| 17.11 | Cross-tenant: Tenant A admin attempts `POST /v1/applications/{tenant_b_id}/payment-link/regenerate` | 404 `APPLICATION_NOT_FOUND`. Zero side effect on Tenant B's application (verify via re-GET of B's app — `stripe_checkout_session_id` unchanged).                                                  |           |
+| 17.12 | Out-of-band Stripe event arrived earlier                                                            | If `AdmissionsPaymentEvent.status='received_out_of_band'` exists, event-list row shows a distinct badge "Out of band" and an explanatory tooltip. No duplicate row gets created on replay.        |           |
+| 17.13 | Role `front_office`                                                                                 | Tab visible. All mutating buttons (regenerate, record cash/bank) HIDDEN.                                                                                                                          |           |
 
 ---
 
-## 31. Public Apply — Payment Success (Tenant)
+## 18. Detail Actions — `ready_to_admit` state <a id="18-actions-ready-to-admit"></a>
 
-**URL:** `/{locale}/apply/{tenantSlug}/payment-success`
-**Translation Namespace:** `publicApplyForm`
-
-| #    | What to Check    | Expected Result                                                                                               | Pass/Fail |
-| ---- | ---------------- | ------------------------------------------------------------------------------------------------------------- | --------- |
-| 31.1 | Page renders     | Success checkmark icon in emerald circle. Title: `t('paymentSuccessTitle')`. Body: `t('paymentSuccessBody')`. |           |
-| 31.2 | Followup message | Text: `t('paymentSuccessFollowup')` explaining next steps after payment.                                      |           |
-| 31.3 | Support footer   | If tenant has contact info, it renders.                                                                       |           |
-| 31.4 | Tenant fetch     | `GET /api/v1/public/tenants/by-slug/{tenantSlug}` fires for tenant display info.                              |           |
-| 31.5 | No auth required | Page is public — no authentication needed.                                                                    |           |
-
----
-
-## 32. Public Apply — Payment Cancelled (Tenant)
-
-**URL:** `/{locale}/apply/{tenantSlug}/payment-cancelled`
-**Translation Namespace:** `publicApplyForm`
-
-| #    | What to Check    | Expected Result                                                                                             | Pass/Fail |
-| ---- | ---------------- | ----------------------------------------------------------------------------------------------------------- | --------- |
-| 32.1 | Page renders     | AlertCircle icon in warning circle. Title: `t('paymentCancelledTitle')`. Body: `t('paymentCancelledBody')`. |           |
-| 32.2 | Followup message | Text: `t('paymentCancelledFollowup')` guiding parent on retrying.                                           |           |
-| 32.3 | Support footer   | Tenant contact info if available.                                                                           |           |
-| 32.4 | No auth required | Public page.                                                                                                |           |
+| #    | What to Check                                                                                                        | Expected Result                                                                                                                                                                                                                                                                                                                        | Pass/Fail |
+| ---- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 18.1 | Buttons visible                                                                                                      | "Approve → Conditional Approval", "Reject", "Withdraw".                                                                                                                                                                                                                                                                                |           |
+| 18.2 | Approve with no fee structure on the year group                                                                      | Backend returns 400 `NO_FEE_STRUCTURE_CONFIGURED` — toast "Cannot approve: no fee structure configured for this year group". Application stays in `ready_to_admit`. No seat consumption.                                                                                                                                               |           |
+| 18.3 | Approve while seats are consumed concurrently                                                                        | If between page load and click another app was moved to conditional_approval and no seats remain, backend returns 400 `NO_AVAILABLE_SEATS`. Toast explains. State unchanged.                                                                                                                                                           |           |
+| 18.4 | Approve success path                                                                                                 | `POST /v1/applications/:id/review { status: 'conditional_approval', expected_updated_at }` returns 200 with updated application. UI re-renders: status badge → amber "Conditional Approval". `payment_amount_cents` and `payment_deadline` populated. Timeline adds entry (§15.4). Payment-link worker job enqueued (see worker spec). |           |
+| 18.5 | Approve with stale `expected_updated_at` (simulate by waiting then patching another field first from second session) | 409 `CONCURRENT_MODIFICATION`. Toast "Application was updated by someone else — please refresh". UI re-fetches.                                                                                                                                                                                                                        |           |
+| 18.6 | Reject                                                                                                               | Opens RejectDialog (§22). Valid per state machine: `ready_to_admit → rejected`.                                                                                                                                                                                                                                                        |           |
+| 18.7 | Withdraw (staff)                                                                                                     | Confirm dialog. `POST /v1/applications/:id/withdraw` — 200. Status → `withdrawn` (terminal). Seat released. Auto-promotion may follow.                                                                                                                                                                                                 |           |
+| 18.8 | Permission — `front_office`                                                                                          | All three buttons HIDDEN. Direct `POST /v1/applications/:id/review` returns 403.                                                                                                                                                                                                                                                       |           |
 
 ---
 
-## 33. Public Apply — Payment Success (Root)
+## 19. Detail Actions — `conditional_approval` state <a id="19-actions-conditional-approval"></a>
 
-**URL:** `/{locale}/apply/payment-success?application={id}`
-**Translation Namespace:** `paymentResult`
-
-| #    | What to Check         | Expected Result                                                                                                                                 | Pass/Fail |
-| ---- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 33.1 | Page renders          | CheckCircle2 icon in emerald-100 background. Title: `t('successTitle')`. Body: `t('successBody')`.                                              |           |
-| 33.2 | Application reference | If `?application=` query param present, shows reference box with first 8 characters of the ID (uppercased). Label: `t('applicationReference')`. |           |
-| 33.3 | No application param  | If no query param, reference box is NOT rendered.                                                                                               |           |
-| 33.4 | Next steps            | Text: `t('successNextSteps')`.                                                                                                                  |           |
-| 33.5 | No auth required      | Public page.                                                                                                                                    |           |
-
----
-
-## 34. Public Apply — Payment Cancelled (Root)
-
-**URL:** `/{locale}/apply/payment-cancelled?application={id}`
-**Translation Namespace:** `paymentResult`
-
-| #    | What to Check         | Expected Result                                                                                       | Pass/Fail |
-| ---- | --------------------- | ----------------------------------------------------------------------------------------------------- | --------- |
-| 34.1 | Page renders          | AlertTriangle icon in amber-100 background. Title: `t('cancelledTitle')`. Body: `t('cancelledBody')`. |           |
-| 34.2 | Application reference | If `?application=` param present, shows reference with first 8 chars uppercased.                      |           |
-| 34.3 | Help text             | Text: `t('cancelledHelp')` with guidance.                                                             |           |
-| 34.4 | No auth required      | Public page.                                                                                          |           |
+| #     | What to Check                                         | Expected Result                                                                                                                                                                                                                           | Pass/Fail |
+| ----- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 19.1  | Buttons visible                                       | "Record cash payment" (if `allow_cash`), "Record bank transfer" (if `allow_bank_transfer`), "Force approve with override" (if current user has required role), "Regenerate payment link", "Revert to waiting list", "Reject", "Withdraw". |           |
+| 19.2  | Record cash success                                   | `POST /v1/applications/:id/payment/cash` 200. Status → `approved`. Timeline + payment tab update. Invoice + Payment + Allocation created (finance bridge).                                                                                |           |
+| 19.3  | Record bank transfer success                          | `POST /v1/applications/:id/payment/bank-transfer` 200. Status → `approved`. Finance records created with `payment_source='bank_transfer'`.                                                                                                |           |
+| 19.4  | Force approve success (with authorised role)          | `POST /v1/applications/:id/payment/override` 200. Status → `approved`. AdmissionOverride row created with `override_type`, `actual_amount_collected_cents`, `justification`. Timeline entry (§15.8).                                      |           |
+| 19.5  | Force approve when role is insufficient               | Button HIDDEN; direct POST returns 403 `PERMISSION_DENIED` with message referencing `require_override_approval_role`.                                                                                                                     |           |
+| 19.6  | Revert to waiting_list                                | `POST /v1/applications/:id/review { status: 'waiting_list' }` 200. Status → `waiting_list`. `payment_amount_cents` and `payment_deadline` cleared. Seat released. Auto-promotion may run.                                                 |           |
+| 19.7  | Reject                                                | RejectDialog opens. State machine allows `conditional_approval → rejected`. On success, seat released.                                                                                                                                    |           |
+| 19.8  | Withdraw                                              | State machine allows `conditional_approval → withdrawn`. On success, seat released.                                                                                                                                                       |           |
+| 19.9  | Approve directly to `approved` via `/review` endpoint | 400 `INVALID_STATUS_TRANSITION`. `review` endpoint only reaches `approved` via payment / override paths — skipping payment is deliberately impossible from `review`.                                                                      |           |
+| 19.10 | Record cash when `allow_cash=false`                   | Button HIDDEN; direct POST returns 400 `CASH_PAYMENT_DISABLED`. No status change, no finance writes.                                                                                                                                      |           |
+| 19.11 | Record bank transfer when `allow_bank_transfer=false` | Button HIDDEN; direct POST returns 400 `BANK_TRANSFER_DISABLED`.                                                                                                                                                                          |           |
+| 19.12 | Amount paid ≠ expected (cash)                         | See §24 for modal-level validation. Service enforces `amount_cents >= 1` integer; partial handling depends on tenant policy — default behaviour: must equal `application.payment_amount_cents` otherwise 400 `AMOUNT_MISMATCH`.           |           |
 
 ---
 
-## 35. Queue Components — ApplicationRow
+## 20. Detail Actions — `waiting_list` state <a id="20-actions-waiting-list"></a>
 
-| #    | What to Check                  | Expected Result                                                                                               | Pass/Fail |
-| ---- | ------------------------------ | ------------------------------------------------------------------------------------------------------------- | --------- |
-| 35.1 | Application number — monospace | Application number renders in `font-mono text-xs text-text-secondary`.                                        |           |
-| 35.2 | Student name — bold            | Student name renders in `text-base font-semibold text-text-primary`.                                          |           |
-| 35.3 | Sibling badge                  | If `is_sibling_application = true`, a sky-colored badge with "Sibling" text appears next to the student name. |           |
-| 35.4 | Age display                    | Age calculated from DOB: `computeAge(dob)` shows years. If DOB not available, shows "Unknown".                |           |
-| 35.5 | FIFO position                  | Position number displayed (e.g., "#1", "#2") indicating queue order.                                          |           |
-| 35.6 | Parent name                    | Parent name rendered with `truncate` overflow handling.                                                       |           |
-| 35.7 | Parent contact — LTR           | Email or phone shown in `text-xs text-text-secondary` with `dir="ltr"` (always left-to-right).                |           |
-| 35.8 | Applied date — relative        | Shows applied date + relative days: "today", "1 day ago", "N days ago".                                       |           |
-| 35.9 | Action buttons slot            | Action buttons (passed as `actions` prop) render in the last column.                                          |           |
-
----
-
-## 36. Queue Components — CapacityChip
-
-| #    | What to Check         | Expected Result                                                                                | Pass/Fail |
-| ---- | --------------------- | ---------------------------------------------------------------------------------------------- | --------- |
-| 36.1 | Renders inline badge  | Shows as compact inline badge with capacity info.                                              |           |
-| 36.2 | Content format        | Text: "Year Group · enrolled/total · N conditional · M free".                                  |           |
-| 36.3 | Green — 3+ available  | If available_seats ≥ 3, chip background is green.                                              |           |
-| 36.4 | Amber — 1-2 available | If available_seats is 1 or 2, chip background is amber/yellow.                                 |           |
-| 36.5 | Red — 0 available     | If available_seats = 0, chip background is red.                                                |           |
-| 36.6 | Not configured        | If no classes exist for the year group (`configured = false`), shows "Not configured" message. |           |
+| #    | What to Check                                                   | Expected Result                                                                                                                                  | Pass/Fail |
+| ---- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 20.1 | Buttons visible                                                 | "Manually promote to Ready-to-Admit" (requires `admissions.manage` + justification), "Reject", "Withdraw".                                       |           |
+| 20.2 | Manual promote — seats available                                | Opens ManualPromoteDialog (§26). On confirm, `POST /v1/applications/:id/manual-promote` 200. Status → `ready_to_admit`. Timeline entry §15.10.   |           |
+| 20.3 | Manual promote — seats unavailable                              | Backend 400 `NO_AVAILABLE_SEATS`. Dialog shows error and remains open.                                                                           |           |
+| 20.4 | Manual promote — `waiting_list_substatus='awaiting_year_setup'` | Backend 400 `YEAR_GROUP_NOT_SET_UP`. Toast "Year group has no classes configured yet — configure classes before promoting".                      |           |
+| 20.5 | Reject                                                          | Valid transition. RejectDialog.                                                                                                                  |           |
+| 20.6 | Withdraw                                                        | Valid transition. Status → `withdrawn` (terminal).                                                                                               |           |
+| 20.7 | Promote with justification < 10 chars                           | Backend 400 with Zod error `{ code: 'BAD_REQUEST', message: 'justification must be at least 10 characters' }`. Dialog renders field-level error. |           |
+| 20.8 | Promote with justification > 2000 chars                         | Backend 400. Dialog shows inline char-count warning before submission (client enforces < 2000).                                                  |           |
 
 ---
 
-## 37. Queue Components — QueueHeader
+## 21. Detail Actions — `approved` / terminal states <a id="21-actions-terminal"></a>
 
-| #    | What to Check    | Expected Result                                                                             | Pass/Fail |
-| ---- | ---------------- | ------------------------------------------------------------------------------------------- | --------- |
-| 37.1 | Back button      | "Back" button with left arrow navigates to `/{locale}/admissions`.                          |           |
-| 37.2 | Title            | Queue title renders in heading style.                                                       |           |
-| 37.3 | Count badge      | If `count` prop provided, shows numeric badge next to or below the title with `countLabel`. |           |
-| 37.4 | Description      | If `description` prop provided, renders below the title.                                    |           |
-| 37.5 | Optional badges  | If `badges` prop provided, renders badges row below description.                            |           |
-| 37.6 | Optional actions | If `actions` prop provided, renders action buttons row.                                     |           |
-
----
-
-## 38. Queue Components — PaymentRecordModal
-
-| #     | What to Check                    | Expected Result                                                                                                                                  | Pass/Fail |
-| ----- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 38.1  | Modal opens with title           | Title: `t('paymentModal.title')`. Description includes expected amount: `t('paymentModal.description', { amount })`.                             |           |
-| 38.2  | Three tabs                       | Tab bar with: "Cash", "Bank", "Stripe". Default: Cash tab.                                                                                       |           |
-| 38.3  | Cash tab — fields                | Amount (number, pre-filled with expected), Receipt number (text, optional), Notes (textarea, 2 rows, optional). Submit button.                   |           |
-| 38.4  | Cash tab — submit                | Fill valid amount. Click submit. `POST /api/v1/applications/{id}/payment/cash` with `{ amount_cents, receipt_number?, notes? }`.                 |           |
-| 38.5  | Cash tab — amount below expected | Enter amount < expected. Error toast: `t('paymentModal.errorBelowExpected')`. No API call.                                                       |           |
-| 38.6  | Cash tab — success               | Toast: `t('paymentModal.successCash')`. Modal closes. Queue refreshes.                                                                           |           |
-| 38.7  | Bank tab — fields                | Amount (number), Transfer reference (text, required), Transfer date (date picker, defaults to today), Notes (textarea, optional). Submit button. |           |
-| 38.8  | Bank tab — reference required    | Submit without reference → error: `t('paymentModal.errorReferenceRequired')`.                                                                    |           |
-| 38.9  | Bank tab — submit                | `POST /api/v1/applications/{id}/payment/bank-transfer` with `{ amount_cents, transfer_reference, transfer_date, notes? }`.                       |           |
-| 38.10 | Bank tab — success               | Toast: `t('paymentModal.successBank')`. Modal closes.                                                                                            |           |
-| 38.11 | Stripe tab — read-only           | No input fields. Text: `t('paymentModal.stripeDescription')` ("Payments recorded via Stripe are shown in the Payment tab"). Close button only.   |           |
-| 38.12 | Generic error                    | On API failure, toast: `t('paymentModal.errorGeneric')`. Modal stays open.                                                                       |           |
+| #    | What to Check                                            | Expected Result                                                                                                                 | Pass/Fail |
+| ---- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 21.1 | Approved state buttons                                   | No mutating buttons. Detail page shows "Application is approved — linked to Student {student_number}". Link to Students module. |           |
+| 21.2 | Rejected state buttons                                   | No mutating buttons. Rejection reason displayed. Link to Rejected Archive.                                                      |           |
+| 21.3 | Withdrawn state buttons                                  | No mutating buttons. "Withdrawn by {parent / actor}" shown.                                                                     |           |
+| 21.4 | Any `POST /v1/applications/:id/review` on terminal state | 400 `INVALID_STATUS_TRANSITION`.                                                                                                |           |
+| 21.5 | Any payment POST on terminal state                       | 400 `INVALID_STATUS`. No writes.                                                                                                |           |
+| 21.6 | Any manual-promote POST on terminal state                | 400 `INVALID_STATUS_TRANSITION`.                                                                                                |           |
+| 21.7 | Cross-linking from terminal state (approved → student)   | `materialised_student_id` non-null; link is clickable; navigates to `/students/:id` within same tenant.                         |           |
 
 ---
 
-## 39. Queue Components — ForceApproveModal (Queue)
+## 22. Reject Dialog <a id="22-reject-dialog"></a>
 
-| #    | What to Check                         | Expected Result                                                                                 | Pass/Fail |
-| ---- | ------------------------------------- | ----------------------------------------------------------------------------------------------- | --------- |
-| 39.1 | Modal opens                           | Title: `t('forceApproveModal.title')`. Description with expected amount.                        |           |
-| 39.2 | Override type select                  | 3 options: Full waiver (`t('forceApproveModal.fullWaiver')`), Partial waiver, Deferred payment. |           |
-| 39.3 | Collected amount input                | Number input, step 0.01, min 0.                                                                 |           |
-| 39.4 | Justification textarea                | Rows 4, maxLength 2000, placeholder, min-length hint.                                           |           |
-| 39.5 | Validation — justification < 20 chars | Error: `t('forceApproveModal.errorTooShort')`.                                                  |           |
-| 39.6 | Submit                                | `POST /api/v1/applications/{id}/payment/override` with override data.                           |           |
-| 39.7 | Success                               | Toast: `t('forceApproveModal.success')`. Modal closes. Queue refreshes.                         |           |
+Open path: §18, §19, §20 or queue kebab.
 
----
-
-## 40. Queue Components — RejectDialog (Queue)
-
-| #    | What to Check               | Expected Result                                                                                               | Pass/Fail |
-| ---- | --------------------------- | ------------------------------------------------------------------------------------------------------------- | --------- |
-| 40.1 | Dialog opens                | Title: `t('rejectDialog.title')`. Description text.                                                           |           |
-| 40.2 | Reason textarea             | Rows 4, maxLength 2000, placeholder: `t('rejectDialog.placeholder')`. Min-length hint shown.                  |           |
-| 40.3 | Validation — < 10 chars     | Error: `t('rejectDialog.errorTooShort')`.                                                                     |           |
-| 40.4 | Cancel                      | Dialog closes. No API call.                                                                                   |           |
-| 40.5 | Submit                      | `POST /api/v1/applications/{id}/review` with `{ status: 'rejected', rejection_reason, expected_updated_at }`. |           |
-| 40.6 | Success                     | Toast: `t('rejectDialog.success')`. Dialog closes. Queue refreshes (application removed).                     |           |
-| 40.7 | Error                       | Toast: `t('rejectDialog.errorGeneric')`. Dialog stays open.                                                   |           |
-| 40.8 | Button states during submit | Reject button: "Working..." + disabled. Cancel: disabled.                                                     |           |
+| #    | What to Check                                                      | Expected Result                                                                                                                                                                                          | Pass/Fail |
+| ---- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 22.1 | Dialog content                                                     | Title "Reject application {application_number}", required textarea for reason, Cancel + Reject buttons.                                                                                                  |           |
+| 22.2 | Required reason                                                    | Submit disabled until reason has ≥ 1 char. Max 5,000 chars (counter visible after 4,800).                                                                                                                |           |
+| 22.3 | Submit success                                                     | `POST /v1/applications/:id/review { status: 'rejected', expected_updated_at, rejection_reason }` 200. Dialog closes; page re-fetches. Seat released if state was ready_to_admit or conditional_approval. |           |
+| 22.4 | Reject from invalid state (e.g. `approved`) via URL-forged request | 400 `INVALID_STATUS_TRANSITION`.                                                                                                                                                                         |           |
+| 22.5 | `expected_updated_at` stale                                        | 409 `CONCURRENT_MODIFICATION`. Dialog shows banner "Application was updated by another user". Tester instructed to close and retry.                                                                      |           |
+| 22.6 | Cancel                                                             | Dialog closes; no mutation.                                                                                                                                                                              |           |
+| 22.7 | Permission — `front_office` opening dialog                         | Dialog not openable (trigger hidden). Direct POST returns 403.                                                                                                                                           |           |
+| 22.8 | Reason with XSS payload                                            | Saved; rendered escaped on timeline + rejected archive.                                                                                                                                                  |           |
+| 22.9 | Dialog a11y                                                        | First focusable element (reason textarea) focused on open. Escape closes. Aria-labels present. Trap focus within dialog.                                                                                 |           |
 
 ---
 
-## 41. Queue Components — ManualPromote Dialog
+## 23. Force-Approve-with-Override Modal <a id="23-force-approve-modal"></a>
 
-| #    | What to Check               | Expected Result                                                                                                    | Pass/Fail |
-| ---- | --------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------- |
-| 41.1 | Dialog opens                | Title: `t('manualPromoteDialog.title')`. Description text.                                                         |           |
-| 41.2 | Justification textarea      | Rows 4, maxLength 2000, placeholder: `t('manualPromoteDialog.placeholder')`. Min hint.                             |           |
-| 41.3 | Validation — < 10 chars     | Error: `t('manualPromoteDialog.errorTooShort')`.                                                                   |           |
-| 41.4 | Cancel                      | Dialog closes. No API call.                                                                                        |           |
-| 41.5 | Submit                      | `POST /api/v1/applications/{id}/manual-promote` with `{ justification }`.                                          |           |
-| 41.6 | Success                     | Toast: `t('manualPromoteDialog.success')`. Dialog closes. Application moves to ready_to_admit queue.               |           |
-| 41.7 | Error — capacity exhausted  | If capacity = 0, backend returns 409 with `CAPACITY_EXHAUSTED`. Error toast. Dialog stays open.                    |           |
-| 41.8 | Error — awaiting year setup | If application is in `awaiting_year_setup` substatus, backend returns 400 with `AWAITING_YEAR_SETUP`. Error toast. |           |
+Open path: conditional_approval queue or detail (§19.4). Two variants — detail modal (`[id]/_components/force-approve-modal.tsx`) and queue modal (shared `_components/force-approve-modal.tsx`).
 
----
-
-## 42. State Machine — Full Transition Graph
-
-| #     | What to Check                              | Expected Result                                                                                                              | Pass/Fail |
-| ----- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 42.1  | submitted → ready_to_admit                 | Automatic routing on submission when capacity available. Application appears in ready-to-admit queue.                        |           |
-| 42.2  | submitted → waiting_list                   | Automatic routing when capacity exhausted. Application appears in waiting list.                                              |           |
-| 42.3  | waiting_list → ready_to_admit              | Via manual promote or auto-promotion. Application moves to ready-to-admit.                                                   |           |
-| 42.4  | ready_to_admit → conditional_approval      | Via admin "Move to conditional approval" action. Payment fields set. Payment link job enqueued.                              |           |
-| 42.5  | conditional_approval → approved            | Via Stripe webhook, cash payment, bank transfer, or force-approve override. Student materialized.                            |           |
-| 42.6  | conditional_approval → waiting_list        | Via payment expiry cron (payment deadline passed). Payment fields cleared. Seat released.                                    |           |
-| 42.7  | conditional_approval → rejected            | Via admin reject action. Seat released. Auto-promotion triggered.                                                            |           |
-| 42.8  | conditional_approval → withdrawn           | Via admin or parent withdraw. Seat released. Auto-promotion triggered.                                                       |           |
-| 42.9  | waiting_list → rejected                    | Via admin reject action from waiting list.                                                                                   |           |
-| 42.10 | waiting_list → withdrawn                   | Via admin or parent withdraw from waiting list.                                                                              |           |
-| 42.11 | ready_to_admit → rejected                  | Via admin reject from ready-to-admit queue.                                                                                  |           |
-| 42.12 | ready_to_admit → withdrawn                 | Via admin or parent withdraw.                                                                                                |           |
-| 42.13 | approved → (terminal)                      | No further transitions possible. Only action: view student profile.                                                          |           |
-| 42.14 | rejected → (terminal)                      | No further transitions. Application archived.                                                                                |           |
-| 42.15 | withdrawn → (terminal)                     | No further transitions.                                                                                                      |           |
-| 42.16 | Invalid transition — ready_to_admit target | `POST /review` with `status: 'ready_to_admit'` returns 400 `INVALID_STATUS_TRANSITION` — this state is not admin-actionable. |           |
-| 42.17 | Invalid transition — approved target       | `POST /review` with `status: 'approved'` returns 400 `INVALID_STATUS_TRANSITION` — must go through payment/override path.    |           |
+| #     | What to Check                                           | Expected Result                                                                                                                                                                                                                                                                                                                                      | Pass/Fail |
+| ----- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 23.1  | Dialog content                                          | Title "Force approve with override". Fields: `override_type` radio (full_waiver, partial_waiver, deferred_payment), `actual_amount_collected_cents` number (shown in currency units), `justification` textarea (≥ 20 chars, ≤ 2000 chars). Cancel + Approve buttons. Warning banner "This action is audited. It bypasses normal payment processing." |           |
+| 23.2  | `override_type='full_waiver'`                           | `actual_amount_collected_cents` auto-sets to 0 and becomes read-only. Justification still required.                                                                                                                                                                                                                                                  |           |
+| 23.3  | `override_type='partial_waiver'` with amount > expected | Inline error "Must be ≤ expected amount ({amount})". Submit disabled.                                                                                                                                                                                                                                                                                |           |
+| 23.4  | `override_type='deferred_payment'`                      | `actual_amount_collected_cents` can be 0. Justification must describe the payment plan.                                                                                                                                                                                                                                                              |           |
+| 23.5  | Justification < 20 chars                                | Client + server 400. Message "Justification must be at least 20 characters".                                                                                                                                                                                                                                                                         |           |
+| 23.6  | Submit success                                          | `POST /v1/applications/:id/payment/override` 200. Modal closes. Status → `approved`. AdmissionOverride row created. Finance records created. Timeline entry §15.8.                                                                                                                                                                                   |           |
+| 23.7  | Submit by user without required role                    | Button HIDDEN. Direct POST returns 403 `PERMISSION_DENIED` with code referencing `require_override_approval_role`.                                                                                                                                                                                                                                   |           |
+| 23.8  | Submit twice (double-click)                             | Idempotent: only one `AdmissionOverride` created (guard via optimistic lock and button-disabled-on-submit). Second click either disabled or returns 409 `CONCURRENT_MODIFICATION`.                                                                                                                                                                   |           |
+| 23.9  | XSS payload in justification                            | Saved; rendered escaped on timeline and overrides list.                                                                                                                                                                                                                                                                                              |           |
+| 23.10 | `override_type` out of enum                             | Backend 400 Zod error. UI radio group does not allow invalid values.                                                                                                                                                                                                                                                                                 |           |
+| 23.11 | Application in non-`conditional_approval` state         | Modal-trigger HIDDEN. Direct POST returns 400 `INVALID_STATUS`.                                                                                                                                                                                                                                                                                      |           |
 
 ---
 
-## 43. End-to-End Flow — New Family Application
+## 24. Record Cash Payment Modal <a id="24-record-cash-modal"></a>
 
-| #    | What to Check                 | Expected Result                                                                                                                                                  | Pass/Fail |
-| ---- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 43.1 | Parent opens public form      | Navigate to `/{locale}/apply/{tenantSlug}`. Mode picker loads.                                                                                                   |           |
-| 43.2 | Select "Apply as new family"  | Full household form appears with parent, address, students sections.                                                                                             |           |
-| 43.3 | Fill all required fields      | Parent 1 fields, address, at least 1 student with all required fields.                                                                                           |           |
-| 43.4 | Submit                        | POST fires with `mode: 'new_household'`. Returns 200 with `submission_batch_id` and application list.                                                            |           |
-| 43.5 | Redirect to submitted page    | Browser navigates to `/submitted?batch={id}`. Success confirmation shows with application numbers and statuses.                                                  |           |
-| 43.6 | Admin sees applications       | Log in as admin. Navigate to admissions hub. Counts updated. New applications appear in the appropriate queue (ready-to-admit if capacity, waiting-list if not). |           |
-| 43.7 | Application detail accessible | Navigate to one of the new applications. All form data visible in Application tab. Timeline shows "submitted" event.                                             |           |
-| 43.8 | Household created             | Household number appears in application detail. Household link works.                                                                                            |           |
+Path: conditional_approval queue or detail (§19.2). Component: `[id]/_components/record-cash-modal.tsx` (detail) and `_components/payment-record-modal.tsx` (queue).
 
----
-
-## 44. End-to-End Flow — Existing Family Application
-
-| #    | What to Check                        | Expected Result                                                                                                    | Pass/Fail |
-| ---- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | --------- |
-| 44.1 | Select "Add to existing family"      | Lookup form appears.                                                                                               |           |
-| 44.2 | Enter valid household number + email | E.g., "SGW109" + matching parent email. Click lookup.                                                              |           |
-| 44.3 | Household found                      | Mode transitions to existing_family. Banner shows household name and student count. Only students section visible. |           |
-| 44.4 | Add students and submit              | POST with `mode: 'existing_household'`, `existing_household_id`.                                                   |           |
-| 44.5 | Success + household linked           | Applications created with existing household. Student numbers derive from household number (e.g., SGW109-03).      |           |
-| 44.6 | Admin verification                   | Applications appear in admin queues with household number linked.                                                  |           |
+| #     | What to Check                       | Expected Result                                                                                                                                                                                       | Pass/Fail |
+| ----- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 24.1  | Dialog content                      | Title "Record cash payment". Fields: `amount_cents` (displayed in currency units, integer cents under the hood), `receipt_number` (optional, ≤ 100 chars), `notes` (optional, ≤ 1000). Cancel + Save. |           |
+| 24.2  | Amount pre-filled with expected     | Prefilled with `application.payment_amount_cents` when modal opens.                                                                                                                                   |           |
+| 24.3  | Amount = 0                          | Zod: 400 "Must be > 0". Save disabled.                                                                                                                                                                |           |
+| 24.4  | Amount negative                     | Same.                                                                                                                                                                                                 |           |
+| 24.5  | Amount not integer cents (0.125)    | Zod: 400 "Must be an integer number of cents" — currency-unit input rounds to cents before submit; if raw cents input, non-int rejected.                                                              |           |
+| 24.6  | Receipt number > 100 chars          | Inline error "Max 100 characters".                                                                                                                                                                    |           |
+| 24.7  | Notes > 1000 chars                  | Inline error "Max 1000 characters".                                                                                                                                                                   |           |
+| 24.8  | Save success                        | 200. Status → `approved`. Payment tab reloads. Timeline entry §15.6. Finance records created.                                                                                                         |           |
+| 24.9  | Save when tenant `allow_cash=false` | Trigger was hidden; direct POST returns 400 `CASH_PAYMENT_DISABLED`. No writes.                                                                                                                       |           |
+| 24.10 | Save on non-conditional_approval    | 400 `INVALID_STATUS`.                                                                                                                                                                                 |           |
+| 24.11 | Permission `front_office`           | Trigger HIDDEN. Direct POST 403.                                                                                                                                                                      |           |
 
 ---
 
-## 45. End-to-End Flow — Stripe Payment Completion
+## 25. Record Bank-Transfer Modal <a id="25-record-bank-transfer-modal"></a>
 
-| #    | What to Check                    | Expected Result                                                                                                                       | Pass/Fail |
-| ---- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 45.1 | Admin approves to conditional    | From ready-to-admit, move to conditional approval. Payment amount and deadline set. BullMQ job enqueued for payment link.             |           |
-| 45.2 | Payment link generated           | Copy payment link from conditional approval queue. Stripe checkout URL obtained.                                                      |           |
-| 45.3 | Parent completes Stripe checkout | Open the checkout URL. Complete payment with test card (4242424242424242).                                                            |           |
-| 45.4 | Stripe webhook fires             | `checkout.session.completed` webhook fires. Network: `POST /api/v1/webhooks/stripe` returns 200.                                      |           |
-| 45.5 | Application approved             | Application status transitions to approved. Student materialized. Household fee assignment, invoice, payment, and allocation created. |           |
-| 45.6 | Parent redirected                | Parent lands on payment-success page showing confirmation.                                                                            |           |
-| 45.7 | Admin sees in approved queue     | Refresh approved queue. New entry with student number, household link, class info.                                                    |           |
-| 45.8 | Financial records created        | In finance module: invoice exists with payment allocated. Household balance reflects the payment.                                     |           |
+Path: §19.3. Component: `[id]/_components/record-bank-transfer-modal.tsx`.
 
----
-
-## 46. End-to-End Flow — Cash Payment Approval
-
-| #    | What to Check                | Expected Result                                                                               | Pass/Fail |
-| ---- | ---------------------------- | --------------------------------------------------------------------------------------------- | --------- |
-| 46.1 | Prerequisites                | Application in conditional_approval. Tenant has `allow_cash = true`.                          |           |
-| 46.2 | Record cash from detail page | Open application detail → "Record cash" → fill amount ≥ expected → submit.                    |           |
-| 46.3 | Application approved         | Status changes to approved. Student materialized. Financial records created.                  |           |
-| 46.4 | Toast confirmation           | "Cash payment recorded. Application approved."                                                |           |
-| 46.5 | Audit trail                  | Timeline shows payment_event. Application note records cash details (amount, receipt number). |           |
+| #    | What to Check                                                  | Expected Result                                                                                                                                                                                             | Pass/Fail |
+| ---- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 25.1 | Dialog content                                                 | Title "Record bank transfer". Fields: `amount_cents` (currency display), `transfer_reference` (required, 1-100 chars), `transfer_date` (date picker, required, must be ≤ today), `notes` (optional ≤ 1000). |           |
+| 25.2 | Empty `transfer_reference`                                     | Save disabled; inline "Required".                                                                                                                                                                           |           |
+| 25.3 | `transfer_date` > today                                        | Inline "Cannot be in the future".                                                                                                                                                                           |           |
+| 25.4 | `transfer_date` before a plausible window (e.g. > 90 days old) | Inline warning "More than 90 days ago — please confirm" (soft warn, not block). Save still allowed.                                                                                                         |           |
+| 25.5 | Amount rules                                                   | Same as §24 amount rules.                                                                                                                                                                                   |           |
+| 25.6 | Save success                                                   | 200. Status → `approved`. Timeline §15.7.                                                                                                                                                                   |           |
+| 25.7 | Save when tenant `allow_bank_transfer=false`                   | Trigger hidden; direct POST 400 `BANK_TRANSFER_DISABLED`.                                                                                                                                                   |           |
+| 25.8 | Permission `front_office`                                      | Trigger hidden. Direct POST 403.                                                                                                                                                                            |           |
 
 ---
 
-## 47. End-to-End Flow — Force Approve Override
+## 26. Manual Promote Dialog <a id="26-manual-promote-dialog"></a>
 
-| #    | What to Check            | Expected Result                                                                     | Pass/Fail |
-| ---- | ------------------------ | ----------------------------------------------------------------------------------- | --------- |
-| 47.1 | Prerequisites            | Application in conditional_approval. User is school_owner.                          |           |
-| 47.2 | Open force approve modal | From detail page or queue → "Force Approve".                                        |           |
-| 47.3 | Fill override details    | Select "Full waiver", collected amount = 0, justification (20+ chars). Submit.      |           |
-| 47.4 | Application approved     | Status changes to approved. Student materialized. AdmissionOverride record created. |           |
-| 47.5 | Override in timeline     | Timeline shows override_granted event with details.                                 |           |
-| 47.6 | Override in payment tab  | Payment tab shows the admin override section with all fields.                       |           |
-| 47.7 | Override audit           | Override appears in overrides list (when the overrides page exists).                |           |
+Path: §6.3, §20.2. Component: `_components/manual-promote-dialog.tsx`.
 
----
-
-## 48. End-to-End Flow — Payment Expiry & Revert
-
-| #    | What to Check            | Expected Result                                                                                                    | Pass/Fail |
-| ---- | ------------------------ | ------------------------------------------------------------------------------------------------------------------ | --------- |
-| 48.1 | Prerequisites            | Application in conditional_approval with `payment_deadline` in the past.                                           |           |
-| 48.2 | Cron fires               | The `admissions:payment-expiry` cron runs every 15 minutes. It finds expired applications.                         |           |
-| 48.3 | Application reverted     | Application status reverts from conditional_approval → waiting_list. Payment fields cleared.                       |           |
-| 48.4 | Seat released            | Capacity count shows seat is now free.                                                                             |           |
-| 48.5 | Auto-promotion triggered | If waiting_list applications exist for that year group, the next FIFO application auto-promotes to ready_to_admit. |           |
-| 48.6 | Internal note            | Application note records: "Payment deadline expired — reverted to waiting list." Attributed to original approver.  |           |
-| 48.7 | Notification sent        | `notifications:admissions-payment-expired` job enqueued.                                                           |           |
+| #    | What to Check             | Expected Result                                                                                                                                                      | Pass/Fail |
+| ---- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 26.1 | Dialog content            | Title "Manually promote to Ready-to-Admit". Warning: "This overrides FIFO order. The action is audited." Textarea `justification` (10-2000 chars). Cancel + Confirm. |           |
+| 26.2 | Confirm                   | `POST /v1/applications/:id/manual-promote { justification }` 200. Dialog closes. Status → `ready_to_admit`.                                                          |           |
+| 26.3 | No capacity               | Confirm returns 400 `NO_AVAILABLE_SEATS`. Dialog shows inline error and remains open.                                                                                |           |
+| 26.4 | Awaiting year-setup       | 400 `YEAR_GROUP_NOT_SET_UP`.                                                                                                                                         |           |
+| 26.5 | Justification < 10        | Zod 400. Inline error.                                                                                                                                               |           |
+| 26.6 | Justification > 2000      | Inline error pre-submit.                                                                                                                                             |           |
+| 26.7 | Permission `front_office` | Trigger hidden. Direct POST 403.                                                                                                                                     |           |
+| 26.8 | Justification with XSS    | Saved; rendered escaped on timeline.                                                                                                                                 |           |
 
 ---
 
-## 49. End-to-End Flow — Manual Promotion from Waiting List
+## 27. Queue Components — shared primitives <a id="27-queue-components"></a>
 
-| #    | What to Check                 | Expected Result                                                                                              | Pass/Fail |
-| ---- | ----------------------------- | ------------------------------------------------------------------------------------------------------------ | --------- |
-| 49.1 | Prerequisites                 | Application in waiting_list. Year group has available seats.                                                 |           |
-| 49.2 | Click Manual Promote          | From waiting list queue → "Manual Promote" → enter justification (10+ chars) → submit.                       |           |
-| 49.3 | Application promoted          | Status changes from waiting_list → ready_to_admit. Application appears in ready-to-admit queue.              |           |
-| 49.4 | Audit trail                   | Timeline note: "Manually promoted to ready-to-admit. Justification: <text>."                                 |           |
-| 49.5 | Capacity exhausted — blocked  | If no seats, POST returns 409 `CAPACITY_EXHAUSTED`. Application stays in waiting list.                       |           |
-| 49.6 | Awaiting year setup — blocked | If application has `waiting_list_substatus = 'awaiting_year_setup'`, POST returns 400 `AWAITING_YEAR_SETUP`. |           |
+Co-located at `apps/web/src/app/[locale]/(school)/admissions/_components/`.
 
----
+### 27.1 ApplicationRow
 
-## 50. End-to-End Flow — Application Rejection
+| #      | What to Check | Expected Result                                                                                                               | Pass/Fail |
+| ------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 27.1.1 | Row render    | Student name LTR; application_number monospace; apply_date Gregorian. Row is keyboard-focusable, Enter → navigates to detail. |           |
+| 27.1.2 | Kebab menu    | Keyboard-accessible (open with Enter or Space). Menu items render per state (see §§18-20).                                    |           |
+| 27.1.3 | Hover state   | Row shows background accent; no layout shift.                                                                                 |           |
+| 27.1.4 | 375px layout  | Row collapses to stacked layout with application_number + name on line 1, year group + date on line 2, kebab aligned end.     |           |
 
-| #    | What to Check                   | Expected Result                                                                                       | Pass/Fail |
-| ---- | ------------------------------- | ----------------------------------------------------------------------------------------------------- | --------- |
-| 50.1 | From ready_to_admit             | Reject → enter reason (10+ chars) → submit. Status → rejected.                                        |           |
-| 50.2 | From conditional_approval       | Reject → enter reason → submit. Status → rejected. Seat released. Auto-promotion fires if applicable. |           |
-| 50.3 | From waiting_list               | Reject → enter reason → submit. Status → rejected.                                                    |           |
-| 50.4 | Rejection reason required       | Empty reason → 400 `REJECTION_REASON_REQUIRED`.                                                       |           |
-| 50.5 | Rejected application in archive | Rejected application appears in the rejected archive page with reason displayed.                      |           |
+### 27.2 CapacityChip
 
----
+| #      | What to Check          | Expected Result                                                        | Pass/Fail |
+| ------ | ---------------------- | ---------------------------------------------------------------------- | --------- |
+| 27.2.1 | Green zone             | `available / total` ≥ 50% free → green text + bg-green-subtle.         |           |
+| 27.2.2 | Amber zone             | 10-49% free → amber.                                                   |           |
+| 27.2.3 | Red zone               | 0-9% free → red.                                                       |           |
+| 27.2.4 | Destructive zone       | 0 free → destructive red; text "Full".                                 |           |
+| 27.2.5 | No capacity configured | Grey; text "No capacity configured".                                   |           |
+| 27.2.6 | Tooltip on hover       | "Enrolled: {X}, Holding seat (conditional): {Y}, Total capacity: {Z}". |           |
 
-## 51. End-to-End Flow — Application Withdrawal
+### 27.3 QueueHeader
 
-| #    | What to Check                             | Expected Result                                                 | Pass/Fail |
-| ---- | ----------------------------------------- | --------------------------------------------------------------- | --------- |
-| 51.1 | Admin withdrawal                          | From any active status → "Withdraw" → POST. Status → withdrawn. |           |
-| 51.2 | From conditional_approval — seat released | Withdrawal releases the conditional hold. Auto-promotion fires. |           |
-| 51.3 | Toast                                     | "Application withdrawn" confirmation.                           |           |
-| 51.4 | Withdrawn not in queues                   | Withdrawn applications do not appear in any active queue page.  |           |
+| #      | What to Check                         | Expected Result                                                       | Pass/Fail |
+| ------ | ------------------------------------- | --------------------------------------------------------------------- | --------- |
+| 27.3.1 | Sticky on scroll                      | Queue header + capacity chip sticks to top when scrolling long queue. |           |
+| 27.3.2 | Year-group name, academic year, count | Header text: "{year_group_name} — {academic_year_label} — {count}".   |           |
 
----
+### 27.4 PaymentRecordModal (queue-level, shared dialog)
 
-## 52. Permission & Role Guard Tests
+Same behaviour as §§24, 25 — verify the shared modal is used correctly from queue context and that it passes tenant-level flags (`allow_cash`/`allow_bank_transfer`) correctly.
 
-| #     | What to Check                           | Expected Result                                                                                                                | Pass/Fail |
-| ----- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 52.1  | Admin can access all pages              | All 10 staff-facing pages load successfully for admin role.                                                                    |           |
-| 52.2  | Front office — 4 queue pages accessible | front_office can access: ready-to-admit, conditional-approval, waiting-list, approved.                                         |           |
-| 52.3  | Front office — 4 admin pages blocked    | front_office CANNOT access: rejected, form-preview, overrides, settings. Route guard redirects or blocks.                      |           |
-| 52.4  | Teacher — all admissions blocked        | Teacher role navigating to any `/admissions/*` URL is blocked. Route-roles.ts does not include 'teacher' in admissions prefix. |           |
-| 52.5  | Parent — all admin admissions blocked   | Parent role cannot access any staff-facing admissions page.                                                                    |           |
-| 52.6  | admissions.view permission              | Users without `admissions.view` permission get 403 on all GET queue endpoints.                                                 |           |
-| 52.7  | admissions.manage permission            | Users without `admissions.manage` permission get 403 on POST review/withdraw/notes/promote/payment endpoints.                  |           |
-| 52.8  | Force approve — role check              | Non-owner/non-principal calling `POST /payment/override` gets 403 `OVERRIDE_ROLE_REQUIRED`.                                    |           |
-| 52.9  | settings.manage permission              | Users without `settings.manage` cannot access GET/PATCH settings/admissions.                                                   |           |
-| 52.10 | stripe.manage permission                | Users without `stripe.manage` cannot access GET/PUT stripe-config.                                                             |           |
-| 52.11 | Parent withdrawal — ownership check     | Parent A cannot withdraw Parent B's application. Returns 400 `NOT_APPLICATION_OWNER`.                                          |           |
-| 52.12 | RLS isolation — cross-tenant            | Admin of Tenant A cannot see applications from Tenant B. GET /{id} returns 404 for cross-tenant IDs.                           |           |
-| 52.13 | Public endpoints — no auth              | `/v1/public/admissions/form` and `/v1/public/admissions/applications` work without auth tokens.                                |           |
-| 52.14 | Rate limiting — public submissions      | After 3 submissions from the same IP within 1 hour, 4th submission returns 400 `RATE_LIMIT_EXCEEDED`.                          |           |
+### 27.5 ForceApproveModal (queue-level)
+
+Same as §23 — verify the queue-invocation variant passes the application context correctly (application_id, expected_amount_cents).
+
+### 27.6 RejectDialog (queue-level)
+
+Same as §22 — verify reuse from queue context.
 
 ---
 
-## 53. Arabic / RTL Verification
+## 28. State Machine — full transition graph <a id="28-state-machine"></a>
 
-| #     | What to Check                        | Expected Result                                                                                                                                                                                     | Pass/Fail |
-| ----- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 53.1  | Page direction                       | Switch to Arabic (`/ar/admissions`). Page `dir` attribute is `rtl`. All content flows right-to-left.                                                                                                |           |
-| 53.2  | Dashboard cards — mirrored           | Card grid flows from right to left. Card icons are on the start (right) side.                                                                                                                       |           |
-| 53.3  | Queue tables — text alignment        | Table headers use `text-start` (becomes `text-right` in RTL). Columns align to the right.                                                                                                           |           |
-| 53.4  | Search input — icon position         | Search icon positioned at `start-3` (right side in RTL). Input padding `ps-9` (padding-start = padding-right in RTL).                                                                               |           |
-| 53.5  | Application row — parent contact LTR | Email addresses and phone numbers wrapped in `dir="ltr"` regardless of page direction. They display left-to-right.                                                                                  |           |
-| 53.6  | Date inputs — LTR                    | All date inputs use `dir="ltr"`. Dates display in Gregorian format with Western numerals (0-9).                                                                                                     |           |
-| 53.7  | National ID input — LTR              | National ID field uses `dir="ltr"`.                                                                                                                                                                 |           |
-| 53.8  | Monospace codes — LTR                | Application numbers, student numbers, household numbers in monospace render left-to-right.                                                                                                          |           |
-| 53.9  | Capacity chip — mirrored             | CapacityChip content flows RTL. Numeric values remain Western (0-9).                                                                                                                                |           |
-| 53.10 | Pagination — mirrored                | Previous/Next buttons: Previous on the right, Next on the left in RTL.                                                                                                                              |           |
-| 53.11 | Modal dialogs — mirrored             | Dialog content flows RTL. Cancel on the right, Submit on the left.                                                                                                                                  |           |
-| 53.12 | Translation completeness             | All `t()` translation calls resolve to Arabic text. No English fallbacks visible. Check browser console for missing translation warnings.                                                           |           |
-| 53.13 | Form preview QR code — LTR           | QR code image renders identically in both LTR and RTL.                                                                                                                                              |           |
-| 53.14 | Public apply form — RTL              | Tenant-specific form: mode picker cards flow RTL. Student section fields flow RTL except LTR-forced inputs (date, phone, email, national ID).                                                       |           |
-| 53.15 | Status badges — translated           | All status badges show Arabic text: submitted=مقدم, waiting_list=قائمة الانتظار, ready_to_admit=جاهز للقبول, conditional_approval=قبول مشروط, approved=موافق عليه, rejected=مرفوض, withdrawn=منسحب. |           |
-| 53.16 | Logical CSS properties               | Verify no physical directional classes used: no `ml-`, `mr-`, `pl-`, `pr-`, `left-`, `right-`. All should be `ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`.                                          |           |
-| 53.17 | Back button — arrow direction        | Back buttons use logical direction. Arrow points to the right in RTL (back = towards start).                                                                                                        |           |
-| 53.18 | Numerals — Western                   | All numbers display as Western Arabic numerals (0-9), not Eastern Arabic (٠-٩).                                                                                                                     |           |
-| 53.19 | Calendar — Gregorian                 | Date pickers and displayed dates use the Gregorian calendar in both locales.                                                                                                                        |           |
-| 53.20 | Tenant display name — Arabic         | In Arabic locale, tenant `display_name_ar` is used if available. Falls back to `display_name`.                                                                                                      |           |
+Source: `application-state-machine.service.ts` VALID_TRANSITIONS map.
 
----
+```
+submitted → [ready_to_admit, waiting_list]
+waiting_list → [ready_to_admit, rejected, withdrawn]
+ready_to_admit → [conditional_approval, rejected, withdrawn]
+conditional_approval → [approved, waiting_list, rejected, withdrawn]
+approved → []          (terminal)
+rejected → []          (terminal)
+withdrawn → []         (terminal)
+```
 
-## 54. Backend Endpoint Map
+Each row of this section is a **transition test** — the UI must either allow it successfully or block it with the correct error. This test is UI-driven; integration spec covers the same matrix via direct HTTP.
 
-| #   | Method | Path                                                | Permission        | Exercised In Section(s)          |
-| --- | ------ | --------------------------------------------------- | ----------------- | -------------------------------- |
-| 1   | GET    | `/api/v1/admissions/dashboard-summary`              | admissions.view   | 2                                |
-| 2   | GET    | `/api/v1/applications/queues/ready-to-admit`        | admissions.view   | 3                                |
-| 3   | GET    | `/api/v1/applications/queues/conditional-approval`  | admissions.view   | 4                                |
-| 4   | GET    | `/api/v1/applications/queues/waiting-list`          | admissions.view   | 5                                |
-| 5   | GET    | `/api/v1/applications/queues/approved`              | admissions.view   | 6                                |
-| 6   | GET    | `/api/v1/applications/queues/rejected`              | admissions.view   | 7                                |
-| 7   | GET    | `/api/v1/applications/{id}`                         | admissions.view   | 8-16                             |
-| 8   | GET    | `/api/v1/applications/{id}/preview`                 | admissions.view   | 9                                |
-| 9   | POST   | `/api/v1/applications/{id}/review`                  | admissions.manage | 3, 13, 17, 40, 42, 50            |
-| 10  | POST   | `/api/v1/applications/{id}/withdraw`                | admissions.manage | 13-15, 51                        |
-| 11  | GET    | `/api/v1/applications/{applicationId}/notes`        | admissions.view   | 11                               |
-| 12  | POST   | `/api/v1/applications/{applicationId}/notes`        | admissions.manage | 11                               |
-| 13  | POST   | `/api/v1/applications/{id}/manual-promote`          | admissions.manage | 41, 49                           |
-| 14  | POST   | `/api/v1/applications/{id}/payment-link/regenerate` | admissions.manage | 4, 14, 45                        |
-| 15  | POST   | `/api/v1/applications/{id}/payment/cash`            | admissions.manage | 19, 38, 46                       |
-| 16  | POST   | `/api/v1/applications/{id}/payment/bank-transfer`   | admissions.manage | 20, 38                           |
-| 17  | POST   | `/api/v1/applications/{id}/payment/override`        | admissions.manage | 18, 39, 47                       |
-| 18  | GET    | `/api/v1/admission-overrides`                       | admissions.manage | (overrides page — not yet built) |
-| 19  | GET    | `/api/v1/applications`                              | admissions.view   | (list all, used internally)      |
-| 20  | GET    | `/api/v1/applications/analytics`                    | admissions.view   | 21                               |
-| 21  | GET    | `/api/v1/admission-forms/system`                    | admissions.view   | 22                               |
-| 22  | POST   | `/api/v1/admission-forms/system/rebuild`            | admissions.manage | 22                               |
-| 23  | GET    | `/api/v1/settings/admissions`                       | settings.manage   | 23                               |
-| 24  | PATCH  | `/api/v1/settings/admissions`                       | settings.manage   | 23                               |
-| 25  | GET    | `/api/v1/stripe-config`                             | stripe.manage     | 23 (link)                        |
-| 26  | PUT    | `/api/v1/stripe-config`                             | stripe.manage     | (Stripe settings page)           |
-| 27  | GET    | `/api/v1/public/admissions/form`                    | (none — public)   | 24, 25                           |
-| 28  | POST   | `/api/v1/public/admissions/applications`            | (none — public)   | 24, 26, 28, 43, 44               |
-| 29  | POST   | `/api/v1/public/households/lookup`                  | (none — public)   | 27                               |
-| 30  | GET    | `/api/v1/public/tenants/by-slug/{slug}`             | (none — public)   | 25, 30-32                        |
-| 31  | GET    | `/api/v1/parent/applications`                       | (auth — parent)   | (parent view)                    |
-| 32  | GET    | `/api/v1/parent/applications/{id}`                  | (auth — parent)   | (parent view)                    |
-| 33  | POST   | `/api/v1/parent/applications/{id}/withdraw`         | (auth — parent)   | (parent view)                    |
-| 34  | POST   | `/api/v1/parent/applications/{id}/submit`           | (auth — parent)   | 24                               |
-| 35  | POST   | `/api/v1/webhooks/stripe`                           | (none — Stripe)   | 45                               |
+| #     | From → To                                              | Trigger                                                          | Expected Result                                                              | Pass/Fail |
+| ----- | ------------------------------------------------------ | ---------------------------------------------------------------- | ---------------------------------------------------------------------------- | --------- |
+| 28.1  | submitted → ready_to_admit                             | Auto (via `createPublic` when seats available)                   | Implicit during submission; no UI action. Verify via queue after submission. |           |
+| 28.2  | submitted → waiting_list                               | Auto (seats full)                                                | Same.                                                                        |           |
+| 28.3  | waiting_list → ready_to_admit                          | Manual promote (§26) OR auto-promotion (seat freed)              | Status changes. Timeline entry.                                              |           |
+| 28.4  | waiting_list → rejected                                | Reject dialog (§22)                                              | Status → rejected. Reason captured.                                          |           |
+| 28.5  | waiting_list → withdrawn                               | Withdraw button (detail) or parent self-service                  | Status → withdrawn. Seat not freed (was not holding).                        |           |
+| 28.6  | ready_to_admit → conditional_approval                  | Approve (§18.4)                                                  | Status changes. Payment amount/deadline set. Seat held. Worker job queued.   |           |
+| 28.7  | ready_to_admit → rejected                              | Reject                                                           | Rejected. Seat freed. Auto-promotion may trigger.                            |           |
+| 28.8  | ready_to_admit → withdrawn                             | Withdraw                                                         | Withdrawn. Seat freed. Auto-promotion may trigger.                           |           |
+| 28.9  | conditional_approval → approved                        | Payment (Stripe webhook, cash §19.2, bank §19.3, override §19.4) | Status → approved. Student materialised. Finance records created.            |           |
+| 28.10 | conditional_approval → waiting_list                    | Revert (§19.6) OR cron expiry                                    | Status → waiting_list. Payment fields cleared. Seat freed.                   |           |
+| 28.11 | conditional_approval → rejected                        | Reject                                                           | Rejected. Seat freed.                                                        |           |
+| 28.12 | conditional_approval → withdrawn                       | Withdraw                                                         | Withdrawn. Seat freed.                                                       |           |
+| 28.13 | INVALID: submitted → approved                          | `/review { status: 'approved' }` from submitted                  | 400 `INVALID_STATUS_TRANSITION`.                                             |           |
+| 28.14 | INVALID: submitted → rejected                          | `/review { status: 'rejected' }` from submitted                  | 400 `INVALID_STATUS_TRANSITION`. (Reject valid only from later states.)      |           |
+| 28.15 | INVALID: waiting_list → conditional_approval           | `/review` from waiting_list                                      | 400. Must manually promote first.                                            |           |
+| 28.16 | INVALID: approved → anything                           | `/review` from approved                                          | 400.                                                                         |           |
+| 28.17 | INVALID: rejected → anything                           | `/review` from rejected                                          | 400.                                                                         |           |
+| 28.18 | INVALID: withdrawn → anything                          | `/review` from withdrawn                                         | 400.                                                                         |           |
+| 28.19 | INVALID: ready_to_admit → approved (bypassing payment) | `/review { status: 'approved' }` from ready_to_admit             | 400 `INVALID_STATUS_TRANSITION` — approved only reachable via payment path.  |           |
 
 ---
 
-## 55. Console & Network Health
+## 29. End-to-End flows — 8 flows <a id="29-end-to-end-flows"></a>
 
-| #    | What to Check                 | Expected Result                                                                                                                                                                                                                                                                            | Pass/Fail |
-| ---- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 55.1 | Zero unhandled console errors | While running this entire spec, the browser console should show ZERO red uncaught errors. Yellow warnings may exist but should not indicate functional issues.                                                                                                                             |           |
-| 55.2 | No 500 errors from API        | All API responses should be 2xx or expected 4xx (permission tests, validation). No 500s.                                                                                                                                                                                                   |           |
-| 55.3 | Expected 4xx responses        | The following 4xx responses are intentional and expected during testing: 400 (validation failures in Sections 17-20, 40-41), 403 (permission tests in Section 52), 404 (not-found tests in 8.11-8.12, lookup failure in 27.6), 409 (capacity exhausted in 3.16, 41.7, stale data in 3.17). |           |
-| 55.4 | No CORS errors                | All API requests include proper CORS headers. No CORS-related console errors.                                                                                                                                                                                                              |           |
-| 55.5 | No rate limit surprises       | Navigating between pages should not trigger 429 responses. Only public form submission (3+ per hour per IP) triggers rate limiting.                                                                                                                                                        |           |
-| 55.6 | Dashboard polling cadence     | The admissions dashboard fires `GET /dashboard-summary` approximately every 60 seconds. No more frequent. Verify in Network tab with timestamp column.                                                                                                                                     |           |
-| 55.7 | No duplicate API calls        | Each page should fire its primary GET once on mount, not multiple times. Watch for double-fetching patterns.                                                                                                                                                                               |           |
-| 55.8 | Clean navigation              | Navigating between pages should not leave orphaned API calls or stale event listeners.                                                                                                                                                                                                     |           |
-| 55.9 | Console error on API failure  | When API calls fail (simulated offline), `[ComponentName]` error logs appear in console (not swallowed).                                                                                                                                                                                   |           |
+Each flow is a scripted click-through — a tester opens a new browser session, follows the steps, and reports Pass/Fail on the final state + every intermediate assertion.
+
+### 29.1 Flow A — New-family public application, auto-routes to ready_to_admit, approved via Stripe
+
+1. Unauthenticated → navigate to `/en/apply/{tenant-a-slug}`.
+2. Select "New family" mode.
+3. Fill household payload + 1 student (national id, DOB, target year group `Year 1`).
+4. Check consents. Submit.
+5. Network: `POST /v1/public/admissions/applications` 201. Response includes created application id.
+6. Redirect to `/apply/{tenant-a-slug}/submitted`.
+7. Log in as Tenant A owner.
+8. Dashboard shows ready-to-admit count increased by 1 (assuming Year 1 had available seats).
+9. Navigate to Ready-to-Admit queue → find the new row (by application_number).
+10. Open detail page. Application tab shows submitted data.
+11. Click "Approve → Conditional Approval". Expected `payment_amount_cents` > 0. Toast "Approved".
+12. Copy payment link from Payment tab. Open in a private tab. Complete Stripe checkout with test card `4242 4242 4242 4242`.
+13. Back on staff view: Payment tab refreshes. Status → `approved`. AdmissionsPaymentEvent row with status `succeeded` added. Timeline entries for submission, route, approve, Stripe completion.
+
+Pass/Fail:
+
+### 29.2 Flow B — New-family public application auto-routes to waiting_list, then manual promote
+
+1. Pre-seed: Year 1 capacity = 2; already has 2 ready_to_admit or enrolled.
+2. Submit public application as in 29.1.
+3. Staff view: new application shows up in waiting_list (FIFO).
+4. Click "Manually promote"; enter justification "Exception approved by owner".
+5. Verify status → `ready_to_admit`. Timeline entry §15.10.
+6. Proceed to approve and pay as 29.1.
+
+Pass/Fail:
+
+### 29.3 Flow C — Cash payment from conditional_approval
+
+1. Starting from a conditional_approval app in seeded fixtures.
+2. Tenant A has `allow_cash=true`. Admin user with `admissions.manage` logged in.
+3. Open Payment tab → click "Record cash payment".
+4. Amount pre-filled with expected. Enter receipt_number `CASH-0001`. Save.
+5. Network: `POST /v1/applications/:id/payment/cash` 200. Status → approved.
+6. Verify timeline, payment tab, student materialised, finance invoice + payment + allocation created.
+
+Pass/Fail:
+
+### 29.4 Flow D — Bank transfer payment
+
+1. Starting from conditional_approval. Tenant A `allow_bank_transfer=true`.
+2. Click "Record bank transfer". Enter reference `BANK-REF-001`, transfer_date today.
+3. Save → 200. Status → approved. Timeline §15.7.
+
+Pass/Fail:
+
+### 29.5 Flow E — Force approve with override
+
+1. Starting from conditional_approval. User is `school_owner` (authorised in Tenant A).
+2. Click "Force approve with override". Select `partial_waiver`, actual amount = 50% of expected, justification "Financial hardship documented by letter dated 2026-04-10, see attached email thread."
+3. Save → 200. Status → approved. AdmissionOverride row created. Timeline §15.8.
+
+Pass/Fail:
+
+### 29.6 Flow F — Payment expiry and auto-revert to waiting_list
+
+1. Pre-seed: a conditional_approval app with `payment_deadline = now() - 1 hour`.
+2. Trigger cron manually via worker admin endpoint OR wait up to 15 min for `admissions:payment-expiry`.
+3. Refresh staff Admissions view.
+4. Verify original app → `waiting_list` with substatus. Seat released. Timeline entry §15.14.
+5. If an auto-promotion candidate exists in same (year, year_group), verify that app → `ready_to_admit`. Timeline §15.9.
+
+Pass/Fail:
+
+### 29.7 Flow G — Rejection from ready_to_admit
+
+1. Open a ready_to_admit app. Click "Reject".
+2. Enter reason "Student is outside target age range for Year 1 (age verified on 2026-04-12)."
+3. Submit → 200. Status → rejected. Seat released. Auto-promotion may run.
+4. Verify in Rejected Archive and in timeline.
+
+Pass/Fail:
+
+### 29.8 Flow H — Parent self-withdraw (parent_view spec covers the full flow; admin verifies outcome)
+
+1. Parent logs in, withdraws their application (flow in parent spec).
+2. Admin opens detail → status `withdrawn`. Seat released. Timeline entry §15.12.
+
+Pass/Fail:
 
 ---
 
-## 56. Observations & Bugs Found During Walkthrough
+## 30. Data Invariants — SQL checks after each flow <a id="30-data-invariants"></a>
 
-1. **Overrides page does not exist.** The dashboard has an "Overrides" card linking to `/{locale}/admissions/overrides`, but no `page.tsx` file exists at that path. Clicking it results in a 404. The backend endpoint `GET /api/v1/admission-overrides` exists and returns data, but the frontend page is not built.
+A tester runs these queries against the tenant's Postgres (or the internal admin SQL console) inside an RLS-scoped connection. Each row is a single assertion. Tolerance on monetary equality is ±0.01 (1 cent).
 
-2. **Parent applications page does not exist.** The route-roles file references `/applications` with parent access, and the backend has `GET /api/v1/parent/applications`, but there is no corresponding frontend page at `/{locale}/applications` or `/{locale}/admissions/applications` for the parent perspective. Parents cannot currently view their own applications in the UI.
-
-3. **Copy payment link — potential `unwrap()` issue.** The "Copy payment link" button on the conditional approval queue and detail page reads `checkout_url` from the API response. If the ResponseTransformInterceptor wraps the response in `{ data: { checkout_url } }`, the frontend may get `undefined` for the URL. This was identified in a prior session but may not be fully resolved — verify by checking what gets written to clipboard.
-
-4. **Payment tab — hardcoded labels.** The Payment tab in the application detail page uses hardcoded English labels instead of translation keys. This means the Payment tab will not be translated in Arabic locale.
-
-5. **Notes tab — hardcoded labels.** "Add note", "No notes yet.", and some other Notes tab strings are hardcoded rather than using translation keys.
-
-6. **Reports admissions page — mock data.** The `reports/admissions/page.tsx` uses mock/demo data rather than live API data. It is not connected to the real analytics endpoint.
-
-7. **Application detail page — some hardcoded toasts.** Several toast messages are hardcoded in English rather than using the translation system (e.g., "Moved to conditional approval. Payment link will be emailed.", "Application withdrawn", "Note added").
-
-8. **Rate limiting — front_office included.** The `route-roles.ts` includes `front_office` in the admissions prefix, but the dashboard hides admin-only cards from front_office. If a front_office user navigates directly to `/admissions/rejected` via URL, the route guard behavior needs verification.
+| #     | What to assert                                                               | Expected query + result                                                                                                                                                                                        | Pass/Fail |
+| ----- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 30.1  | Every application row has tenant_id = current tenant                         | `SELECT COUNT(*) FROM applications WHERE tenant_id != current_setting('app.current_tenant_id')::uuid` → 0                                                                                                      |           |
+| 30.2  | application_number unique per tenant                                         | `SELECT application_number, COUNT(*) FROM applications WHERE tenant_id=? GROUP BY application_number HAVING COUNT(*) > 1` → 0 rows                                                                             |           |
+| 30.3  | application_number sequence is monotonic per tenant                          | Convert suffix digits of application_number to int, `SELECT max(n)-min(n)+1 = COUNT(*) FROM ...` — i.e. no gaps unless by design                                                                               |           |
+| 30.4  | After approve (§29.6), payment_amount_cents > 0                              | `SELECT payment_amount_cents FROM applications WHERE id = ?` → matches `FinanceFeesFacade.resolveAnnualNetFeeCents * upfront_percentage / 100`                                                                 |           |
+| 30.5  | After approve, payment_deadline = reviewed_at + settings.payment_window_days | `SELECT (payment_deadline - reviewed_at) FROM applications WHERE id=?` ≈ `'{payment_window_days} days'::interval` ± 1s                                                                                         |           |
+| 30.6  | After approve → payment Stripe success, status='approved'                    | `SELECT status FROM applications WHERE id=?` = 'approved'                                                                                                                                                      |           |
+| 30.7  | AdmissionsPaymentEvent row exists per Stripe success                         | `SELECT COUNT(*) FROM admissions_payment_events WHERE application_id=? AND status='succeeded'` ≥ 1                                                                                                             |           |
+| 30.8  | Stripe event deduplication                                                   | `SELECT stripe_event_id, COUNT(*) FROM admissions_payment_events WHERE tenant_id=? GROUP BY stripe_event_id HAVING COUNT(*) > 1` → 0 rows                                                                      |           |
+| 30.9  | After approve, Student materialised                                          | `SELECT materialised_student_id FROM applications WHERE id=?` IS NOT NULL AND `SELECT COUNT(*) FROM students WHERE id=that_id AND tenant_id=?` = 1                                                             |           |
+| 30.10 | Invoice + Payment + Allocation created                                       | After cash/bank/override/Stripe approve: exactly one `invoices` row, one `payments` row, one `payment_allocations` row linking them, with matching amounts. No orphans.                                        |           |
+| 30.11 | Invoice balance formula                                                      | `SELECT total_amount - COALESCE((SELECT SUM(allocated_amount) FROM payment_allocations WHERE invoice_id=i.id),0) - COALESCE(write_off_amount,0) FROM invoices i WHERE i.id=?` = `balance_amount` ±0.01         |           |
+| 30.12 | Conditional_approval holds a seat                                            | Count of `applications WHERE tenant_id=? AND target_academic_year_id=? AND target_year_group_id=? AND status IN ('ready_to_admit','conditional_approval')` PLUS enrolled students = `available_seats_consumed` |           |
+| 30.13 | Waiting_list applications do NOT hold a seat                                 | Seat calculation (§12 code) excludes waiting_list status                                                                                                                                                       |           |
+| 30.14 | After reject, seat released (if previously holding)                          | If prior state was ready_to_admit or conditional_approval: re-count §30.12 — count decreases by 1                                                                                                              |           |
+| 30.15 | After withdraw, seat released (if previously holding)                        | Same principle                                                                                                                                                                                                 |           |
+| 30.16 | After payment_expiry cron                                                    | Rows with previous `status='conditional_approval'` AND `payment_deadline < now()` now have `status='waiting_list'`, `payment_amount_cents IS NULL`, `payment_deadline IS NULL`                                 |           |
+| 30.17 | After cron, ApplicationNote created per reverted application                 | `SELECT note FROM application_notes WHERE application_id=?` includes the system-generated "payment_expired" note                                                                                               |           |
+| 30.18 | AdmissionOverride immutable: no updated_at column                            | Schema inspection: `\d admission_overrides` shows no `updated_at`                                                                                                                                              |           |
+| 30.19 | ApplicationNote append-only                                                  | Same inspection: `application_notes` has no `updated_at`                                                                                                                                                       |           |
+| 30.20 | Materialised student has status='applicant' at conversion time               | `SELECT status FROM students WHERE id=?` = 'applicant' (until enrolled by principal separately)                                                                                                                |           |
+| 30.21 | AdmissionOverride amount bounds                                              | `SELECT * FROM admission_overrides WHERE actual_amount_cents < 0 OR actual_amount_cents > expected_amount_cents + 1000` → 0 rows (tolerance for rounding)                                                      |           |
+| 30.22 | Override row references existing approver                                    | `SELECT COUNT(*) FROM admission_overrides o LEFT JOIN users u ON u.id=o.approved_by_user_id WHERE u.id IS NULL` → 0                                                                                            |           |
+| 30.23 | Every application has a form_definition_id pointing to its tenant's form     | `SELECT COUNT(*) FROM applications a JOIN admission_form_definitions d ON d.id=a.form_definition_id WHERE a.tenant_id != d.tenant_id` → 0                                                                      |           |
+| 30.24 | Submission_batch_id consistency                                              | For rows sharing a submission_batch_id: same tenant, all rows created within 1 minute of each other                                                                                                            |           |
+| 30.25 | `materialised_student_id` uniqueness                                         | `SELECT materialised_student_id, COUNT(*) FROM applications WHERE materialised_student_id IS NOT NULL GROUP BY materialised_student_id HAVING COUNT(*) > 1` → 0                                                |           |
+| 30.26 | Cross-tenant check                                                           | `SELECT DISTINCT tenant_id FROM applications` executed within RLS-scoped conn → only one tenant_id present                                                                                                     |           |
 
 ---
 
-## 57. Sign-Off
+## 31. Arabic / RTL Behaviour <a id="31-rtl"></a>
 
-| Field                 | Value       |
-| --------------------- | ----------- |
-| Reviewer Name         |             |
-| Review Date           |             |
-| Total Checks Executed |             |
-| Checks Passed         |             |
-| Checks Failed         |             |
-| Blockers Found        |             |
-| Overall Result        | PASS / FAIL |
-| Notes                 |             |
+| #     | What to Check                                    | Expected Result                                                                                                                                         | Pass/Fail |
+| ----- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 31.1  | `/ar/admissions` loads                           | `<html dir="rtl" lang="ar">` at DOM root. All pages mirror; no `left/right` physical classes leak through.                                              |           |
+| 31.2  | Application numbers (`APP-2026-000042`) stay LTR | Wrapped in `<span dir="ltr">` inside Arabic text context.                                                                                               |           |
+| 31.3  | Currency amounts stay LTR                        | `€1,234.56` renders left-to-right regardless of surrounding Arabic text.                                                                                |           |
+| 31.4  | Dates are Gregorian with Western numerals (0-9)  | "12 أبريل 2026" (or translation-file equivalent) — digits are 1,2,4,6 not ١,٢,٤,٦.                                                                      |           |
+| 31.5  | Phone and email inputs                           | LTR even under Arabic locale. Cursor moves left-to-right.                                                                                               |           |
+| 31.6  | Queue group headers                              | Right-aligned; year-group name and count mirror position appropriately.                                                                                 |           |
+| 31.7  | Modals and dialogs                               | Close button (X) appears at the left edge (mirror of English right edge). Primary action buttons are at the start-aligned edge per Arabic convention.   |           |
+| 31.8  | Analytics charts                                 | x-axis origin at the right; tooltip pointing directions mirror. Legend swaps left-right.                                                                |           |
+| 31.9  | Morph bar & sub-strip mirror                     | Brand logo on the right, user avatar on the left. Module sub-strip active-underline direction matches RTL.                                              |           |
+| 31.10 | Logical CSS properties in every admissions page  | Grep each admissions page file: zero occurrences of `ml-`, `mr-`, `pl-`, `pr-`, `left-`, `right-`, `text-left`, `text-right`, `border-l-`, `border-r-`. |           |
+
+---
+
+## 32. Console & Network Health <a id="32-console-network"></a>
+
+| #    | What to Check                                        | Expected Result                                                                                                                                                         | Pass/Fail |
+| ---- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 32.1 | Open each admissions page with DevTools console open | Zero uncaught errors. No React key warnings, no hydration mismatches, no 404s on static assets.                                                                         |           |
+| 32.2 | 4xx during permission tests is deliberate            | 401/403/404 during permission tests are marked with "(expected — permission/cross-tenant test)" in the tester's notes — not a fail.                                     |           |
+| 32.3 | No 429                                               | Routine admin flow does not hit `TOO_MANY_REQUESTS`. If it does on any step, escalate — rate limiting is covered in security spec but should not fire under normal use. |           |
+| 32.4 | Polling cadence                                      | Admissions pages do NOT poll. Data is fetched on mount + explicit refresh. If any poll is observed, note the cadence for review.                                        |           |
+| 32.5 | Websocket connections                                | None required. If one opens unprompted, note it.                                                                                                                        |           |
+| 32.6 | Response sizes                                       | Queue endpoints ≤ 200KB per page of 20. Detail endpoint ≤ 100KB. Log any response > 500KB for perf spec follow-up.                                                      |           |
+| 32.7 | Service Worker / caching                             | Admissions resources not aggressively cached. Logout clears any session-stored state (verify via Application → Local Storage panel).                                    |           |
+| 32.8 | Memory usage                                         | Navigate through 20 applications detail pages. RSS growth ≤ 30MB. No listener leak (Performance tab → Detached DOM nodes count stable).                                 |           |
+
+---
+
+## 33. Permission Matrix — affordance visibility by role <a id="33-permission-matrix"></a>
+
+Applies to each admissions UI action (not each endpoint — that's in the security spec). Columns: `school_owner | school_principal | school_vice_principal | admin | front_office | teacher | parent | student | unauth | cross-tenant_admin`.
+
+| #     | Affordance                                      | owner | principal | vice | admin | front_office | teacher | parent | student | unauth | xtenant_admin |
+| ----- | ----------------------------------------------- | ----- | --------- | ---- | ----- | ------------ | ------- | ------ | ------- | ------ | ------------- |
+| 33.1  | View Dashboard hub                              | OK    | OK        | OK   | OK    | OK           | —       | —      | —       | 401    | 404/empty     |
+| 33.2  | View any queue                                  | OK    | OK        | OK   | OK    | OK           | —       | —      | —       | 401    | 404/empty     |
+| 33.3  | View detail page                                | OK    | OK        | OK   | OK    | OK           | —       | own    | —       | 401    | 404           |
+| 33.4  | Approve `ready_to_admit → conditional_approval` | OK    | OK        | OK   | OK    | —            | —       | —      | —       | 401    | 404           |
+| 33.5  | Record cash payment                             | OK    | OK        | OK   | OK    | —            | —       | —      | —       | 401    | 404           |
+| 33.6  | Record bank transfer                            | OK    | OK        | OK   | OK    | —            | —       | —      | —       | 401    | 404           |
+| 33.7  | Force approve with override                     | OK\*  | OK\*      | —    | —     | —            | —       | —      | —       | 401    | 404           |
+| 33.8  | Manual promote from waiting_list                | OK    | OK        | OK   | OK    | —            | —       | —      | —       | 401    | 404           |
+| 33.9  | Reject                                          | OK    | OK        | OK   | OK    | —            | —       | —      | —       | 401    | 404           |
+| 33.10 | Withdraw (staff)                                | OK    | OK        | OK   | OK    | —            | —       | —      | —       | 401    | 404           |
+| 33.11 | Withdraw (parent)                               | —     | —         | —    | —     | —            | —       | own    | —       | 401    | 404           |
+| 33.12 | Create note (is_internal)                       | OK    | OK        | OK   | OK    | —            | —       | —      | —       | 401    | 404           |
+| 33.13 | View internal notes                             | OK    | OK        | OK   | OK    | OK           | —       | —      | —       | 401    | 404           |
+| 33.14 | View parent-visible notes                       | OK    | OK        | OK   | OK    | OK           | —       | own    | —       | 401    | 404           |
+| 33.15 | Rebuild system form                             | OK    | OK        | OK   | OK    | —            | —       | —      | —       | 401    | 404           |
+| 33.16 | Admissions settings edit                        | OK    | OK        | OK   | OK    | —            | —       | —      | —       | 401    | 404           |
+| 33.17 | View overrides audit log                        | OK    | OK        | OK   | OK    | —            | —       | —      | —       | 401    | 404           |
+| 33.18 | Regenerate payment link                         | OK    | OK        | OK   | OK    | —            | —       | —      | —       | 401    | 404           |
+| 33.19 | Analytics                                       | OK    | OK        | OK   | OK    | OK           | —       | —      | —       | 401    | 404           |
+
+`*` = only the role configured in `admissions.require_override_approval_role` per tenant. Defaults to `school_owner`. The other role may be `school_principal` or admin per tenant configuration. Non-configured roles get 403.
+
+Any `OK` cell gets tested via the UI click-path. Any `—` or 4xx cell gets tested by either (a) verifying the UI affordance is hidden and (b) direct HTTP attempt returns the stated code.
+
+---
+
+## 34. Backend Endpoint Map <a id="34-endpoint-map"></a>
+
+| Method | Path                                           | Permission                       | Exercised in section                        | Notes                                                    |
+| ------ | ---------------------------------------------- | -------------------------------- | ------------------------------------------- | -------------------------------------------------------- |
+| GET    | `/v1/admissions/dashboard-summary`             | admissions.view                  | §4                                          | Dashboard hub                                            |
+| GET    | `/v1/applications`                             | admissions.view                  | §5–§9 (baseline listing)                    | List with filters                                        |
+| GET    | `/v1/applications/queues/ready-to-admit`       | admissions.view                  | §5                                          |                                                          |
+| GET    | `/v1/applications/queues/waiting-list`         | admissions.view                  | §6                                          |                                                          |
+| GET    | `/v1/applications/queues/conditional-approval` | admissions.view                  | §7                                          |                                                          |
+| GET    | `/v1/applications/queues/approved`             | admissions.view                  | §8                                          |                                                          |
+| GET    | `/v1/applications/queues/rejected`             | admissions.view                  | §9                                          |                                                          |
+| GET    | `/v1/applications/analytics`                   | admissions.view                  | §10                                         | Date-range + form filter                                 |
+| GET    | `/v1/applications/:id`                         | admissions.view                  | §13                                         | Detail                                                   |
+| GET    | `/v1/applications/:id/preview`                 | admissions.view                  | §14                                         | Field-by-field preview                                   |
+| POST   | `/v1/applications/:id/review`                  | admissions.manage                | §18, §19, §20, §22 (reject)                 | Generic transition w/ expected_updated_at                |
+| POST   | `/v1/applications/:id/withdraw`                | admissions.manage                | §18, §19, §20, §21                          | Staff withdraw                                           |
+| GET    | `/v1/applications/:applicationId/notes`        | admissions.view                  | §16                                         |                                                          |
+| POST   | `/v1/applications/:applicationId/notes`        | admissions.manage                | §16                                         |                                                          |
+| POST   | `/v1/applications/:id/manual-promote`          | admissions.manage                | §20.2, §26                                  |                                                          |
+| POST   | `/v1/applications/:id/payment-link/regenerate` | admissions.manage                | §17.4                                       |                                                          |
+| POST   | `/v1/applications/:id/payment/cash`            | admissions.manage                | §19.2, §24                                  |                                                          |
+| POST   | `/v1/applications/:id/payment/bank-transfer`   | admissions.manage                | §19.3, §25                                  |                                                          |
+| POST   | `/v1/applications/:id/payment/override`        | admissions.manage + role check   | §19.4, §23                                  | Role must match tenant `require_override_approval_role`  |
+| GET    | `/v1/admission-overrides`                      | admissions.manage                | §17 (event list in some variants)           | Cross-tenant filtered                                    |
+| GET    | `/v1/admission-forms/system`                   | admissions.view                  | §11                                         |                                                          |
+| POST   | `/v1/admission-forms/system/rebuild`           | admissions.manage                | §11.5                                       |                                                          |
+| POST   | `/v1/public/admissions/applications`           | PUBLIC (unauth, IP rate-limited) | §29.1 (parent/public spec primary)          | Exercised from admin side only as read-back verification |
+| GET    | `/v1/public/admissions/form`                   | PUBLIC                           | §11 (cross-check)                           | Parent spec primary                                      |
+| GET    | `/v1/parent/applications`                      | AuthGuard only                   | parent spec primary; admin cross-check only |                                                          |
+| GET    | `/v1/parent/applications/:id`                  | AuthGuard + ownership            | parent spec primary                         |                                                          |
+| POST   | `/v1/parent/applications/:id/withdraw`         | AuthGuard + ownership            | parent spec primary; §29.8 verify           |                                                          |
+| GET    | `/v1/settings/admissions`                      | admissions.manage                | §12                                         | Settings subset                                          |
+| PATCH  | `/v1/settings/admissions`                      | admissions.manage                | §12                                         |                                                          |
+
+28 endpoints total. All guarded endpoints return 401 without a token, 403 with a valid token missing permission, 404 for cross-tenant ids, 400 for Zod/state errors, 409 for `expected_updated_at` mismatches.
+
+---
+
+## 35. Observations & Findings from the walkthrough <a id="35-observations"></a>
+
+These are items the spec-author noticed while tracing the code paths. NOT silently fixed — surfaced for triage. Severity is the spec-author's best guess; product owner decides.
+
+| #     | Severity | Location                                                                    | Observation                                                                                                                                                                                                                                                                               |
+| ----- | -------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OB-01 | P2       | `applications.service.ts` / `createPublic`                                  | Honeypot `website_url` is accepted as optional — confirm the service silently drops submissions where honeypot is non-empty (expected) AND emits a security-audit log line. If it drops silently without any log, we lose detection signal for bots. Security spec covers the audit.      |
+| OB-02 | P2       | `applications.service.ts` / `findOne`                                       | The detail endpoint assembles timeline + notes + capacity in one call. Verify N+1 bounded (perf spec covers the measurement).                                                                                                                                                             |
+| OB-03 | P3       | `admissions-payment.controller.ts`                                          | `AdmissionOverridesController.list` returns paginated overrides but does not expose filters by `approved_by_user_id` or `created_at` range — investigator experience may be poor. Product decision.                                                                                       |
+| OB-04 | P1       | `application-state-machine.service.ts` / `moveToConditionalApproval`        | `SELECT ... FOR UPDATE` on the application row protects against double-approve but not against two admins racing two DIFFERENT ready_to_admit apps for the same last seat in the same year_group. Integration spec covers the capacity-level race. Flag if no capacity-level lock exists. |
+| OB-05 | P2       | Payment link expiry (Stripe `expires_at: min(payment_deadline, now + 23h)`) | If `payment_deadline` is > 24h away, Stripe link silently expires at 23h. Parent sees "Session expired" with no admin-visible indication. Consider surfacing the real Stripe expiry in the admin Payment tab.                                                                             |
+| OB-06 | P2       | `payment-expiry` cron                                                       | Cron runs every 15 min; a payment completing within 14 min before deadline can race with the revert. Integration spec covers race test. Flag if the `markApproved` call doesn't recheck status post-lock.                                                                                 |
+| OB-07 | P3       | `admissions-rate-limit.service.ts`                                          | IP rate limit uses Cloudflare header first; if the deployment is behind a different proxy, the actual client IP may be `127.0.0.1` for all requests, defeating rate limiting. Deployment architecture spec should document the proxy chain (defer).                                       |
+| OB-08 | P2       | `admissions-settings` payload shape                                         | `require_override_approval_role` validation relies on string role name; if a role is renamed without a migration updating the setting, overrides silently fall back to the default role.                                                                                                  |
+| OB-09 | P3       | Reject flow                                                                 | `rejection_reason` field is required when target is `rejected` but the state-machine also accepts `target=rejected` with an omitted reason in certain paths (verify). If so, rejection archive may show empty reason for older rows — legacy data.                                        |
+| OB-10 | P2       | Multi-student submission (`submission_batch_id`)                            | Siblings may resolve to different queues (one ready_to_admit, one waiting_list) based on per-year capacity. Ensure parent email mentions per-student status individually — not "application received" generically.                                                                        |
+| OB-11 | P1       | `manually promote`                                                          | Promote sets status to `ready_to_admit` but does not consume a seat (that happens on conditional_approval). Two parallel manual-promotes against the same year_group can over-queue ready_to_admit rows beyond capacity. Product decision: is that acceptable (just ordering) or a bug?   |
+| OB-12 | P3       | Frontend Settings page                                                      | `allow_cash=false` and `allow_bank_transfer=false` + Stripe keys missing is a dead-end — no payment paths possible except override. Consider a guard in settings to prevent it.                                                                                                           |
+| OB-13 | P2       | Audit-log inspection                                                        | Timeline is derived from notes+row-state rather than a dedicated audit_log table. Some actions (e.g. regenerate payment link) may not leave a timeline entry. Verify — if no entry, flag for addition.                                                                                    |
+| OB-14 | P2       | Parent portal                                                               | Filter excludes `is_internal=true` notes. Double-check any join joined-load does NOT over-fetch internal notes to the client and filter on the frontend (that would be an information leak — security spec covers).                                                                       |
+| OB-15 | P3       | Form rebuild                                                                | Bumps `version_number` but does not invalidate in-flight public form sessions. Parents mid-submit may post to a stale `form_definition_id`. Behaviour TBD: accept but tag as outdated? Reject with a helpful message? Product decision.                                                   |
+
+---
+
+## 36. Sign-off Table <a id="36-signoff"></a>
+
+| Section                          | Reviewer | Date | Pass | Fail | Notes |
+| -------------------------------- | -------- | ---- | ---- | ---- | ----- |
+| 1 — Prerequisites                |          |      |      |      |       |
+| 3 — Global UI Shell              |          |      |      |      |       |
+| 4 — Dashboard                    |          |      |      |      |       |
+| 5 — Ready-to-Admit queue         |          |      |      |      |       |
+| 6 — Waiting-list queue           |          |      |      |      |       |
+| 7 — Conditional-Approval queue   |          |      |      |      |       |
+| 8 — Approved archive             |          |      |      |      |       |
+| 9 — Rejected archive             |          |      |      |      |       |
+| 10 — Analytics                   |          |      |      |      |       |
+| 11 — Form Preview                |          |      |      |      |       |
+| 12 — Settings                    |          |      |      |      |       |
+| 13 — Detail header               |          |      |      |      |       |
+| 14 — Application tab             |          |      |      |      |       |
+| 15 — Timeline tab                |          |      |      |      |       |
+| 16 — Notes tab                   |          |      |      |      |       |
+| 17 — Payment tab                 |          |      |      |      |       |
+| 18-21 — Detail actions per state |          |      |      |      |       |
+| 22 — Reject dialog               |          |      |      |      |       |
+| 23 — Force-approve modal         |          |      |      |      |       |
+| 24 — Record cash modal           |          |      |      |      |       |
+| 25 — Record bank-transfer modal  |          |      |      |      |       |
+| 26 — Manual-promote dialog       |          |      |      |      |       |
+| 27 — Queue components            |          |      |      |      |       |
+| 28 — State machine               |          |      |      |      |       |
+| 29 — End-to-end flows A-H        |          |      |      |      |       |
+| 30 — Data invariants             |          |      |      |      |       |
+| 31 — Arabic / RTL                |          |      |      |      |       |
+| 32 — Console & Network Health    |          |      |      |      |       |
+| 33 — Permission matrix           |          |      |      |      |       |
+| **Overall**                      |          |      |      |      |       |
+
+**Module admin-UI release-ready when every section is signed off Pass with zero observations outstanding at severity P0 or P1.**
