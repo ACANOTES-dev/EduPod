@@ -12246,6 +12246,84 @@
       }
     }
   },
+  "learningHub": {
+    "title": "Learning",
+    "description": "Teaching, assessment, and academic progress \u2014 everything that powers the classroom.",
+    "cardsAria": "Learning modules",
+    "backToLearning": "Back to Learning",
+    "cards": {
+      "classes": {
+        "title": "Classes",
+        "description": "Manage class rosters, assign teachers and students, and handle year-end promotions."
+      },
+      "curriculum": {
+        "title": "Curriculum",
+        "description": "Define subjects, map the curriculum matrix, and ensure every class has the right teaching coverage."
+      },
+      "assessment": {
+        "title": "Assessment",
+        "description": "Oversee assessments, track grading progress, and drill into student analytics."
+      },
+      "homework": {
+        "title": "Homework",
+        "description": "Set and track homework assignments, and manage the class diary."
+      },
+      "attendance": {
+        "title": "Attendance",
+        "description": "Record daily attendance, detect absence patterns, and notify parents."
+      },
+      "reportCards": {
+        "title": "Report Cards",
+        "description": "Generate, review, and publish end-of-term report cards for every student."
+      }
+    },
+    "classesHub": {
+      "title": "Classes",
+      "description": "Manage class rosters, teaching assignments, and year-end promotion.",
+      "cards": {
+        "classList": {
+          "title": "Class List",
+          "description": "View all classes, sections, and their enrolled students."
+        },
+        "classAssignments": {
+          "title": "Class Assignments",
+          "description": "Assign teachers and students to classes and sections."
+        },
+        "promotion": {
+          "title": "Promotion",
+          "description": "Promote students to the next year group at the end of the academic year."
+        }
+      }
+    },
+    "curriculumHub": {
+      "title": "Curriculum",
+      "description": "Define what is taught and where \u2014 subjects and their class coverage.",
+      "cards": {
+        "subjects": {
+          "title": "Subjects",
+          "description": "Create and manage the subjects offered by your school."
+        },
+        "curriculumMatrix": {
+          "title": "Curriculum Matrix",
+          "description": "Map which subjects are taught in which classes by which teachers."
+        }
+      }
+    },
+    "homeworkHub": {
+      "title": "Homework",
+      "description": "Assignments and daily diary for every class.",
+      "cards": {
+        "homework": {
+          "title": "Homework",
+          "description": "Create, assign, and track homework across all classes."
+        },
+        "diary": {
+          "title": "Class Diary",
+          "description": "Daily lesson notes and reminders shared with students and parents."
+        }
+      }
+    }
+  },
   "admissionsHub": {
     "title": "Admissions",
     "description": "Manage applications from submission through approval — every step financially gated.",

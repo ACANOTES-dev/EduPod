@@ -187,7 +187,14 @@ function HouseholdDebtBreakdown({
       {/* Header */}
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">{t('householdDebtBreakdown')}</h3>
+          <div className="flex items-center gap-2.5">
+            <div className="rounded-lg bg-danger-100 p-1.5">
+              <TrendingDown className="h-4 w-4 text-danger-600" />
+            </div>
+            <h3 className="text-sm font-semibold text-text-primary">
+              {t('householdDebtBreakdown')}
+            </h3>
+          </div>
           <p className="mt-0.5 text-xs text-text-tertiary">
             {total} {t('householdsTotal')}
           </p>
@@ -309,7 +316,12 @@ function RecentPayments({ payments }: { payments: FinanceDashboardData['recent_p
       <div className="relative rounded-2xl border border-border bg-surface overflow-hidden">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-600" />
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
-          <h3 className="text-sm font-semibold text-text-primary">{t('recentPayments')}</h3>
+          <div className="flex items-center gap-2.5">
+            <div className="rounded-lg bg-emerald-100 p-1.5">
+              <CreditCard className="h-4 w-4 text-emerald-600" />
+            </div>
+            <h3 className="text-sm font-semibold text-text-primary">{t('recentPayments')}</h3>
+          </div>
           <Link
             href={`/${locale}/finance/payments`}
             className="text-xs font-medium text-primary hover:underline"

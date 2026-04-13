@@ -276,12 +276,11 @@ export const hubConfigs: HubConfig[] = [
   },
   {
     key: 'learning',
-    // Order matters: handleHubClick navigates to the first basePath the user
-    // is permitted to access. Admin roles land on /classes; teacher roles
-    // (who cannot access /classes) land on /assessments, which is the first
-    // teacher-accessible entry after the admin-only prefix.
+    // /learning is the hub landing page — all sub-module paths are listed
+    // so the morph bar highlights "Learning" when navigating within them.
     labelKey: 'nav.learning',
     basePaths: [
+      '/learning',
       '/classes',
       '/subjects',
       '/curriculum-matrix',
@@ -391,52 +390,9 @@ export interface SubStripGroupConfig {
  * If a hub key appears here, the layout renders GroupedSubStrip instead of SubStrip.
  */
 export const hubGroupedSubStripConfigs: Record<string, SubStripGroupConfig[]> = {
-  learning: [
-    {
-      labelKey: 'nav.classes',
-      children: [
-        { labelKey: 'nav.classes', href: '/classes' },
-        { labelKey: 'nav.classAssignments', href: '/class-assignments' },
-        { labelKey: 'nav.promotion', href: '/promotion', roles: ADMIN_ROLES },
-      ],
-      roles: ADMIN_ROLES,
-    },
-    {
-      labelKey: 'nav.curriculum',
-      children: [
-        { labelKey: 'nav.subjects', href: '/subjects' },
-        { labelKey: 'nav.curriculumMatrix', href: '/curriculum-matrix' },
-      ],
-      roles: ADMIN_ROLES,
-    },
-    {
-      labelKey: 'nav.assessment',
-      children: [
-        { labelKey: 'nav.assessmentDashboard', href: '/assessments' },
-        { labelKey: 'nav.gradebook', href: '/gradebook' },
-        { labelKey: 'nav.gradeAnalytics', href: '/analytics' },
-      ],
-    },
-    {
-      labelKey: 'nav.homework',
-      children: [
-        { labelKey: 'nav.homework', href: '/homework' },
-        { labelKey: 'nav.diary', href: '/diary' },
-      ],
-    },
-    {
-      labelKey: 'nav.attendance',
-      href: '/attendance',
-    },
-    {
-      // Report Cards is its own top-level Learning group (Phase 2). Clicking
-      // navigates straight to the consolidated `/report-cards` dashboard which
-      // handles all sub-page navigation internally. No children — no sub-strip.
-      labelKey: 'nav.reportCards',
-      href: '/report-cards',
-      roles: [...ADMIN_ROLES, 'teacher'],
-    },
-  ],
+  // Learning intentionally has no sub-strip — the /learning dashboard
+  // is the navigation surface with hub cards for each sub-module.
+  learning: [],
 };
 
 export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {

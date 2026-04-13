@@ -93,7 +93,12 @@ export function InvoicePipeline({ counts }: { counts: Record<string, number> }) 
     <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-info-400 via-info-500 to-info-600" />
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-text-primary">{t('invoicePipeline')}</h3>
+        <div className="flex items-center gap-2.5">
+          <div className="rounded-lg bg-info-100 p-1.5">
+            <Receipt className="h-4 w-4 text-info-600" />
+          </div>
+          <h3 className="text-sm font-semibold text-text-primary">{t('invoicePipeline')}</h3>
+        </div>
         <Link
           href={`/${locale}/finance/invoices`}
           className="text-xs font-medium text-primary hover:underline"
@@ -164,7 +169,12 @@ export function AgingOverview({ aging }: { aging: FinanceDashboardData['aging_su
     <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-warning-400 via-warning-500 to-warning-600" />
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-text-primary">{t('agingOverview')}</h3>
+        <div className="flex items-center gap-2.5">
+          <div className="rounded-lg bg-warning-100 p-1.5">
+            <Clock className="h-4 w-4 text-warning-600" />
+          </div>
+          <h3 className="text-sm font-semibold text-text-primary">{t('agingOverview')}</h3>
+        </div>
         <Link
           href={`/${locale}/finance/reports`}
           className="text-xs font-medium text-primary hover:underline"
