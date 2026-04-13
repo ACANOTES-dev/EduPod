@@ -106,4 +106,31 @@ export class ApplicationNotesService {
       });
     });
   }
+
+  // ─── Most recent payment-link regenerate (ADM-031 cooldown source) ─────
+
+  /**
+   * Returns the most recent `Regenerated payment link` audit note for the
+   * given application, or null if no such note exists. Used by the
+   * regenerate endpoint to enforce a 60-second cooldown.
+   */
+  async findMostRecentRegenerate(
+    tenantId: string,
+    applicationId: string,
+  ): Promise<{ created_at: Date } | null> {
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      return db.applicationNote.findFirst({
+        where: {
+          tenant_id: tenantId,
+          application_id: applicationId,
+          note: { startsWith: 'Regenerated payment link' },
+        },
+        orderBy: { created_at: 'desc' },
+        select: { created_at: true },
+      });
+    });
+  }
 }

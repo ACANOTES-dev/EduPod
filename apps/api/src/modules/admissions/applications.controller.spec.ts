@@ -47,6 +47,7 @@ const mockApplicationsService = {
 const mockApplicationNotesService = {
   findByApplication: jest.fn(),
   create: jest.fn(),
+  findMostRecentRegenerate: jest.fn().mockResolvedValue(null),
 };
 
 const mockStripeService = {

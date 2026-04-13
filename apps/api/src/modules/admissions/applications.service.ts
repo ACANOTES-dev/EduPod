@@ -262,6 +262,17 @@ export class ApplicationsService {
   ): Promise<CreatePublicResult> {
     // Honeypot check — if website_url is filled, it's a bot
     if (dto.website_url) {
+      // ADM-024: log + count honeypot triggers per tenant so we can see how
+      // often the field is catching real bot traffic. Logged at warn level
+      // and tagged with the tenant + IP so the existing log pipeline (Sentry
+      // + journald) becomes the metric source. Body of `website_url` is
+      // truncated to 64 chars to avoid logging long bot payloads.
+      this.logger.warn(
+        `[admissions.honeypot_triggers] tenant=${tenantId} ip=${ip} website_url="${dto.website_url.slice(
+          0,
+          64,
+        )}"`,
+      );
       return {
         mode: dto.mode,
         submission_batch_id: randomUUID(),

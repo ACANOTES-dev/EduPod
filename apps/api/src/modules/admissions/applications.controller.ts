@@ -3,6 +3,7 @@ import {
   Controller,
   forwardRef,
   Get,
+  HttpException,
   Inject,
   Param,
   ParseUUIDPipe,
@@ -229,6 +230,27 @@ export class ApplicationsController {
     @Body(new ZodValidationPipe(regenerateAdmissionsPaymentLinkSchema))
     dto: RegenerateAdmissionsPaymentLinkDto,
   ) {
+    // ADM-031: 60-second per-application cooldown. The most recent audit
+    // note (written on the previous successful regenerate) is the source of
+    // truth — if it's less than 60s old, reject with 429. Falls open if the
+    // cooldown lookup itself fails so an unrelated DB hiccup never blocks
+    // the regenerate.
+    const cooldownMs = 60_000;
+    const recentNote = await this.applicationNotesService
+      .findMostRecentRegenerate(tenant.tenant_id, id)
+      .catch(() => null);
+    if (recentNote && Date.now() - new Date(recentNote.created_at).getTime() < cooldownMs) {
+      const elapsed = Date.now() - new Date(recentNote.created_at).getTime();
+      const retryIn = Math.ceil((cooldownMs - elapsed) / 1000);
+      throw new HttpException(
+        {
+          code: 'REGENERATE_COOLDOWN',
+          message: `Payment link was regenerated less than 60 seconds ago. Please wait ${retryIn} seconds before trying again.`,
+        },
+        429,
+      );
+    }
+
     const defaults = this.buildDefaultCheckoutUrls(tenant.tenant_id, id);
     const successUrl = dto?.success_url ?? defaults.success_url;
     const cancelUrl = dto?.cancel_url ?? defaults.cancel_url;
