@@ -16,3 +16,4 @@ entry includes the bug ID, date, decision, and one-line reason.
 - ADM-009 (2026-04-13): Blocked — needs explicit user approval to run the new enum + column Prisma migration on prod. — Claude Opus 4.6
 - ADM-010 (2026-04-13): Trimmed per-application shape only (drop student_first_name, student_last_name, target_year_group_id). Kept the wrapper since sibling-batch confirmations need `submission_batch_id` + `household_number`. — Claude Opus 4.6
 - ADM-011 (2026-04-13): Audit note written from the controller (where `user.sub` is available), wrapped in best-effort `try/catch` so an audit-trail failure cannot break the regenerate response. — Claude Opus 4.6
+- ADM-012 (2026-04-13): Endpoint already returned a unified `HOUSEHOLD_NOT_FOUND` code; only timing leak remained. Padded failure path to ~80ms so success vs failure timings overlap. — Claude Opus 4.6

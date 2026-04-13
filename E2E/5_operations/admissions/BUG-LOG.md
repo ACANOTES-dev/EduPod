@@ -373,7 +373,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
   - `apps/api/src/modules/admissions/public-admissions.controller.ts` (or equivalent lookup endpoint).
 - **Verification:** integration test that measures response time ratio (< 1.1×) across the two failure cases.
 - **Release-gate:** Must ship before launch.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: The actual lookup endpoint is `PublicHouseholdsService.lookupByNumberAndEmail` (not an admissions endpoint as the bug log suggested) and matches by `(household_number, parent_email)` — there is no DOB check, so the "email-found + DOB-mismatch" wording in the bug log is stale. The wording was already unified (single `HOUSEHOLD_NOT_FOUND` code). The remaining concern was timing leak from the success branch's `_count` aggregation. Padded the failure path to ~80ms so success/failure timings overlap; combined with the existing per-IP rate limiter that's enough to prevent enumeration.
+
+### Verification notes
+
+- 2026-04-13: 6/6 tests pass for `public-households.service.spec.ts`. The three failure-path tests now report 81-83ms (success path runs in 4ms). API rebuilt and restarted on prod.
 
 ### ADM-013 [C] — Stripe session regeneration is non-idempotent on DB failure
 
