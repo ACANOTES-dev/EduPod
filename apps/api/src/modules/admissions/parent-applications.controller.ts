@@ -27,7 +27,19 @@ export class ParentApplicationsController {
 
   @Get()
   async findOwn(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
-    return this.applicationsService.findByParent(tenant.tenant_id, user.sub);
+    // Wrap the array return in the canonical `{ data, meta }` envelope so
+    // frontend list pages do not crash on `res.meta.total` for empty results
+    // (ADM-016 + ADM-043). The service returns an array; pagination is not
+    // currently implemented at this endpoint, so report the total as the
+    // array length on a single page.
+    const data = (await this.applicationsService.findByParent(
+      tenant.tenant_id,
+      user.sub,
+    )) as unknown[];
+    return {
+      data,
+      meta: { total: data.length, page: 1, pageSize: data.length },
+    };
   }
 
   @Get(':id')

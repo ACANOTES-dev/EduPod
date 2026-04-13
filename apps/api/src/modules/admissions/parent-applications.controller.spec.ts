@@ -73,7 +73,7 @@ describe('ParentApplicationsController', () => {
   // ─── GET /v1/parent/applications ────────────────────────────────────────────
 
   describe('ParentApplicationsController -- findOwn', () => {
-    it('should delegate to applicationsService.findByParent with tenant_id and user_id', async () => {
+    it('should delegate to applicationsService.findByParent and wrap in {data, meta}', async () => {
       mockApplicationsService.findByParent.mockResolvedValue([
         { id: APP_ID, status: 'ready_to_admit' },
       ]);
@@ -81,7 +81,21 @@ describe('ParentApplicationsController', () => {
       const result = await controller.findOwn(TENANT, USER);
 
       expect(mockApplicationsService.findByParent).toHaveBeenCalledWith(TENANT_ID, USER_ID);
-      expect(result).toEqual([{ id: APP_ID, status: 'ready_to_admit' }]);
+      expect(result).toEqual({
+        data: [{ id: APP_ID, status: 'ready_to_admit' }],
+        meta: { total: 1, page: 1, pageSize: 1 },
+      });
+    });
+
+    it('returns an empty data array with meta.total=0 when the parent has no applications', async () => {
+      mockApplicationsService.findByParent.mockResolvedValue([]);
+
+      const result = await controller.findOwn(TENANT, USER);
+
+      expect(result).toEqual({
+        data: [],
+        meta: { total: 0, page: 1, pageSize: 0 },
+      });
     });
   });
 

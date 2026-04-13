@@ -448,7 +448,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
   - Frontend: `apps/web/src/app/[locale]/(school)/applications/page.tsx`.
   - Backend: `apps/api/src/modules/admissions/parent-applications.controller.ts` + service's list method — ensure meta is returned even when data is empty.
 - **Verification:** parent with zero applications → page renders empty state with zero console errors. `curl -H 'Authorization: Bearer <parent_jwt>' /api/v1/parent/applications | jq .meta` returns `{ total: 0, page: 1, pageSize: 20 }`.
-- **Status:** Open. (Repro now fully deterministic and curl-reproducible as of 2026-04-13.)
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Fixed at both layers in one cycle (frontend defensive read + backend canonical envelope) — see ADM-043 for the backend half. Frontend now reads `res?.meta?.total ?? 0` instead of destructuring `meta.total` directly, so even if a future backend returns a partial shape the page no longer crashes.
+
+### Verification notes
+
+- 2026-04-13: Defensive read shipped with web restart. Combined with ADM-043 backend wrapper, an empty result now renders the empty state with zero console errors.
 
 ### ADM-017 [L] — Analytics "ConditionalApproval" chart label missing space
 
@@ -618,8 +626,16 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Fix direction:** ensure the service always returns `{ data, meta: { total, page, pageSize } }`, including when `data.length === 0`. Align with the admin queue endpoints' already-correct shape.
 - **Verification:** re-run the curl probe; `meta.total === 0` present.
 - **Release-gate:** Should ship before launch (pairs with ADM-016 frontend fix so the fix lands at both layers).
-- **Status:** Open.
+- **Status:** Verified.
 - **Notes:** Surfaced during the Session 3 re-attempt on 2026-04-13.
+
+### Decisions
+
+- 2026-04-13: Wrapped the service result in the canonical envelope at the controller layer (`parent-applications.controller.ts`) instead of changing the underlying `findByParent` method's return type. Reasons: `findByParent` is also called by the controller's `findOne` ownership check, which expects a flat array; changing the service shape would touch unrelated call sites. Pagination is not currently implemented at this endpoint, so meta reports `{ total: data.length, page: 1, pageSize: data.length }` — accurate enough for the frontend's empty-state guard.
+
+### Verification notes
+
+- 2026-04-13: 7/7 tests pass for `parent-applications.controller.spec.ts` (including a new test for the empty-result envelope). API rebuilt and restarted on prod. Frontend pairs with ADM-016 defensive read.
 
 ---
 
