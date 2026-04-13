@@ -183,9 +183,12 @@ describe('Applications (e2e)', () => {
       AL_NOOR_DOMAIN,
     ).expect(200);
 
-    const data = res.body.data ?? [];
-    expect(Array.isArray(data)).toBe(true);
-    expect(data.some((item: { id: string }) => item.id === applicationId)).toBe(true);
+    const buckets = res.body.data ?? [];
+    expect(Array.isArray(buckets)).toBe(true);
+    const allApps = buckets.flatMap(
+      (bucket: { applications: Array<{ id: string }> }) => bucket.applications,
+    );
+    expect(allApps.some((item: { id: string }) => item.id === applicationId)).toBe(true);
   });
 
   it('returns admissions analytics for the tenant', async () => {

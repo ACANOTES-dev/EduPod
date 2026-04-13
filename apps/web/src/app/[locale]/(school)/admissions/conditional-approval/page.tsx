@@ -11,17 +11,16 @@ import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
+import { CapacityChip } from '../_components/capacity-chip';
 import { ForceApproveModal } from '../_components/force-approve-modal';
 import { PaymentRecordModal } from '../_components/payment-record-modal';
 import { QueueHeader } from '../_components/queue-header';
-import type { ConditionalApprovalRow } from '../_components/queue-types';
+import type { ConditionalApprovalRow, YearGroupBucket } from '../_components/queue-types';
 import { RejectDialog } from '../_components/reject-dialog';
 
 interface QueueResponse {
-  data: ConditionalApprovalRow[];
+  data: YearGroupBucket<ConditionalApprovalRow>[];
   meta: {
-    page: number;
-    pageSize: number;
     total: number;
     near_expiry_count: number;
     overdue_count: number;
@@ -29,7 +28,7 @@ interface QueueResponse {
 }
 
 function formatAmount(cents: number | null, currency: string | null): string {
-  if (cents === null) return '—';
+  if (cents === null) return '\u2014';
   const value = (cents / 100).toFixed(2);
   return currency ? `${value} ${currency}` : value;
 }
@@ -62,14 +61,12 @@ export default function ConditionalApprovalPage() {
   const { hasAnyRole } = useRoleCheck();
   const canForceApprove = hasAnyRole('school_owner', 'school_principal');
 
-  const [rows, setRows] = React.useState<ConditionalApprovalRow[]>([]);
+  const [buckets, setBuckets] = React.useState<YearGroupBucket<ConditionalApprovalRow>[]>([]);
   const [meta, setMeta] = React.useState({
     total: 0,
     near_expiry_count: 0,
     overdue_count: 0,
   });
-  const [page, setPage] = React.useState(1);
-  const pageSize = 50;
   const [loading, setLoading] = React.useState(true);
   const [copying, setCopying] = React.useState<string | null>(null);
 
@@ -80,11 +77,10 @@ export default function ConditionalApprovalPage() {
   const fetchQueue = React.useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
       const res = await apiClient<QueueResponse>(
-        `/api/v1/applications/queues/conditional-approval?${params.toString()}`,
+        '/api/v1/applications/queues/conditional-approval',
       );
-      setRows(res.data);
+      setBuckets(res.data);
       setMeta({
         total: res.meta.total,
         near_expiry_count: res.meta.near_expiry_count,
@@ -93,11 +89,11 @@ export default function ConditionalApprovalPage() {
     } catch (err) {
       console.error('[ConditionalApprovalPage]', err);
       toast.error(t('errors.loadFailed'));
-      setRows([]);
+      setBuckets([]);
     } finally {
       setLoading(false);
     }
-  }, [page, t]);
+  }, [t]);
 
   React.useEffect(() => {
     void fetchQueue();
@@ -120,6 +116,8 @@ export default function ConditionalApprovalPage() {
     }
   };
 
+  const allRows = buckets.flatMap((b) => b.applications);
+
   return (
     <div className="space-y-6">
       <QueueHeader
@@ -128,134 +126,139 @@ export default function ConditionalApprovalPage() {
         count={meta.total}
         countLabel={t('conditionalApproval.countLabel')}
         badges={
-          meta.near_expiry_count > 0 || meta.overdue_count > 0 ? (
-            <>
-              {meta.overdue_count > 0 && (
-                <span className="inline-flex items-center rounded-full border border-danger-500/40 bg-danger-500/10 px-3 py-1 text-xs font-medium text-danger-700">
-                  {t('conditionalApproval.overdueBadge', { count: meta.overdue_count })}
-                </span>
-              )}
-              {meta.near_expiry_count > 0 && (
-                <span className="inline-flex items-center rounded-full border border-warning-500/40 bg-warning-500/10 px-3 py-1 text-xs font-medium text-warning-700">
-                  {t('conditionalApproval.nearExpiryBadge', {
-                    count: meta.near_expiry_count,
-                  })}
-                </span>
-              )}
-            </>
-          ) : undefined
+          <>
+            {meta.overdue_count > 0 && (
+              <span className="inline-flex items-center rounded-full border border-danger-500/40 bg-danger-500/10 px-3 py-1 text-xs font-medium text-danger-700">
+                {t('conditionalApproval.overdueBadge', { count: meta.overdue_count })}
+              </span>
+            )}
+            {meta.near_expiry_count > 0 && (
+              <span className="inline-flex items-center rounded-full border border-warning-500/40 bg-warning-500/10 px-3 py-1 text-xs font-medium text-warning-700">
+                {t('conditionalApproval.nearExpiryBadge', {
+                  count: meta.near_expiry_count,
+                })}
+              </span>
+            )}
+            {buckets.map((bucket) => (
+              <CapacityChip
+                key={`${bucket.target_academic_year_id}:${bucket.year_group_id}`}
+                capacity={bucket.capacity}
+                yearGroupName={bucket.year_group_name}
+              />
+            ))}
+          </>
         }
       />
 
       {loading ? (
         <div className="text-sm text-text-secondary">{t('common.loading')}</div>
-      ) : rows.length === 0 ? (
+      ) : allRows.length === 0 ? (
         <EmptyState
           icon={Clock}
           title={t('conditionalApproval.emptyTitle')}
           description={t('conditionalApproval.emptyDescription')}
         />
       ) : (
-        <div className="space-y-2">
-          {rows.map((row) => {
-            const parent = row.parent;
-            const parentName = [parent.first_name, parent.last_name].filter(Boolean).join(' ');
-            return (
-              <div
-                key={row.id}
-                className="grid gap-3 rounded-[16px] border border-border bg-surface p-4 md:grid-cols-[1.2fr_1.2fr_1fr_auto] md:items-center"
-              >
-                <div className="min-w-0">
-                  <div className="font-mono text-xs text-text-secondary">
-                    {row.application_number}
-                  </div>
-                  <div className="truncate text-base font-semibold text-text-primary">
-                    {row.student_first_name} {row.student_last_name}
-                  </div>
-                  <div className="text-xs text-text-tertiary">
-                    {row.target_year_group?.name ?? '—'}
-                  </div>
-                </div>
-                <div className="min-w-0 text-sm">
-                  <div className="truncate text-text-primary">{parentName || '—'}</div>
-                  <div className="truncate text-xs text-text-secondary" dir="ltr">
-                    {parent.email ?? parent.phone ?? '—'}
-                  </div>
-                </div>
-                <div className="text-sm">
-                  <div className="font-semibold text-text-primary">
-                    {formatAmount(row.payment_amount_cents, row.currency_code)}
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                    <span
-                      className={`inline-flex items-center rounded-full border px-2 py-0.5 ${urgencyTone(row.payment_urgency)}`}
+        <div className="space-y-6">
+          {buckets.map((bucket) => (
+            <section
+              key={`${bucket.target_academic_year_id}:${bucket.year_group_id}`}
+              className="space-y-3"
+            >
+              <header className="sticky top-0 z-10 flex flex-wrap items-center gap-3 bg-background py-2">
+                <h2 className="text-lg font-semibold text-text-primary">
+                  {bucket.year_group_name}
+                </h2>
+                <span className="text-xs text-text-secondary">
+                  {bucket.target_academic_year_name}
+                </span>
+                <CapacityChip capacity={bucket.capacity} yearGroupName={bucket.year_group_name} />
+              </header>
+              <div className="space-y-2">
+                {bucket.applications.map((row) => {
+                  const parent = row.parent;
+                  const parentName = [parent.first_name, parent.last_name]
+                    .filter(Boolean)
+                    .join(' ');
+                  return (
+                    <div
+                      key={row.id}
+                      className="grid gap-3 rounded-[16px] border border-border bg-surface p-4 md:grid-cols-[1.2fr_1.2fr_1fr_auto] md:items-center"
                     >
-                      {t(`conditionalApproval.urgency.${row.payment_urgency}`)}
-                    </span>
-                    <span className="text-text-tertiary">
-                      {formatDate(row.payment_deadline)} ·{' '}
-                      {deadlineRelative(row.payment_deadline, t)}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={copying === row.id}
-                    onClick={() => copyPaymentLink(row)}
-                  >
-                    {copying === row.id ? t('common.working') : t('conditionalApproval.copyLink')}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setPaymentTarget(row)}>
-                    {t('conditionalApproval.recordPayment')}
-                  </Button>
-                  {canForceApprove && (
-                    <Button size="sm" variant="outline" onClick={() => setOverrideTarget(row)}>
-                      {t('conditionalApproval.forceApprove')}
-                    </Button>
-                  )}
-                  <Button size="sm" variant="destructive" onClick={() => setRejectTargetId(row.id)}>
-                    {t('common.reject')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => router.push(`/${locale}/admissions/${row.id}`)}
-                  >
-                    {t('common.view')}
-                  </Button>
-                </div>
+                      <div className="min-w-0">
+                        <div className="font-mono text-xs text-text-secondary">
+                          {row.application_number}
+                        </div>
+                        <div className="truncate text-base font-semibold text-text-primary">
+                          {row.student_first_name} {row.student_last_name}
+                        </div>
+                      </div>
+                      <div className="min-w-0 text-sm">
+                        <div className="truncate text-text-primary">{parentName || '\u2014'}</div>
+                        <div className="truncate text-xs text-text-secondary" dir="ltr">
+                          {parent.email ?? parent.phone ?? '\u2014'}
+                        </div>
+                      </div>
+                      <div className="text-sm">
+                        <div className="font-semibold text-text-primary">
+                          {formatAmount(row.payment_amount_cents, row.currency_code)}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2 py-0.5 ${urgencyTone(row.payment_urgency)}`}
+                          >
+                            {t(`conditionalApproval.urgency.${row.payment_urgency}`)}
+                          </span>
+                          <span className="text-text-tertiary">
+                            {formatDate(row.payment_deadline)} &middot;{' '}
+                            {deadlineRelative(row.payment_deadline, t)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={copying === row.id}
+                          onClick={() => copyPaymentLink(row)}
+                        >
+                          {copying === row.id
+                            ? t('common.working')
+                            : t('conditionalApproval.copyLink')}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setPaymentTarget(row)}>
+                          {t('conditionalApproval.recordPayment')}
+                        </Button>
+                        {canForceApprove && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setOverrideTarget(row)}
+                          >
+                            {t('conditionalApproval.forceApprove')}
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => setRejectTargetId(row.id)}
+                        >
+                          {t('common.reject')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => router.push(`/${locale}/admissions/${row.id}`)}
+                        >
+                          {t('common.view')}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      )}
-
-      {meta.total > pageSize && (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page === 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            {t('common.previous')}
-          </Button>
-          <span className="text-sm text-text-secondary">
-            {t('common.pageOf', {
-              page,
-              total: Math.ceil(meta.total / pageSize),
-            })}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page * pageSize >= meta.total}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t('common.next')}
-          </Button>
+            </section>
+          ))}
         </div>
       )}
 

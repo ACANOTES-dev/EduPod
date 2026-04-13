@@ -10,12 +10,13 @@ import { Button, EmptyState, Input, toast } from '@school/ui';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
+import { CapacityChip } from '../_components/capacity-chip';
 import { QueueHeader } from '../_components/queue-header';
-import type { RejectedRow } from '../_components/queue-types';
+import type { RejectedRow, YearGroupBucket } from '../_components/queue-types';
 
 interface RejectedResponse {
-  data: RejectedRow[];
-  meta: { page: number; pageSize: number; total: number };
+  data: YearGroupBucket<RejectedRow>[];
+  meta: { total: number };
 }
 
 export default function RejectedArchivePage() {
@@ -24,10 +25,8 @@ export default function RejectedArchivePage() {
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
-  const [rows, setRows] = React.useState<RejectedRow[]>([]);
+  const [buckets, setBuckets] = React.useState<YearGroupBucket<RejectedRow>[]>([]);
   const [total, setTotal] = React.useState(0);
-  const [page, setPage] = React.useState(1);
-  const pageSize = 20;
   const [search, setSearch] = React.useState('');
   const [searchTerm, setSearchTerm] = React.useState('');
   const [loading, setLoading] = React.useState(true);
@@ -35,22 +34,23 @@ export default function RejectedArchivePage() {
   const fetchArchive = React.useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+      const params = new URLSearchParams();
       if (searchTerm) params.set('search', searchTerm);
+      const qs = params.toString();
       const res = await apiClient<RejectedResponse>(
-        `/api/v1/applications/queues/rejected?${params.toString()}`,
+        `/api/v1/applications/queues/rejected${qs ? `?${qs}` : ''}`,
       );
-      setRows(res.data);
+      setBuckets(res.data);
       setTotal(res.meta.total);
     } catch (err) {
       console.error('[RejectedArchivePage]', err);
       toast.error(t('errors.loadFailed'));
-      setRows([]);
+      setBuckets([]);
       setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [page, searchTerm, t]);
+  }, [searchTerm, t]);
 
   React.useEffect(() => {
     void fetchArchive();
@@ -58,11 +58,8 @@ export default function RejectedArchivePage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setPage(1);
     setSearchTerm(search.trim());
   };
-
-  const totalPages = Math.ceil(total / pageSize);
 
   return (
     <div className="space-y-6">
@@ -85,92 +82,94 @@ export default function RejectedArchivePage() {
 
       {loading ? (
         <div className="text-sm text-text-secondary">{t('common.loading')}</div>
-      ) : rows.length === 0 ? (
+      ) : buckets.length === 0 ? (
         <EmptyState
           icon={Archive}
           title={t('rejected.emptyTitle')}
           description={t('rejected.emptyDescription')}
         />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead className="text-start text-xs font-medium uppercase tracking-wide text-text-tertiary">
-              <tr>
-                <th className="px-3 py-2 text-start">{t('rejected.col.applicationNumber')}</th>
-                <th className="px-3 py-2 text-start">{t('rejected.col.student')}</th>
-                <th className="px-3 py-2 text-start">{t('rejected.col.parent')}</th>
-                <th className="px-3 py-2 text-start">{t('rejected.col.reason')}</th>
-                <th className="px-3 py-2 text-start">{t('rejected.col.rejectedBy')}</th>
-                <th className="px-3 py-2 text-start">{t('rejected.col.rejectedOn')}</th>
-                <th className="px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {rows.map((row) => {
-                const parent = row.parent;
-                const parentName = [parent.first_name, parent.last_name].filter(Boolean).join(' ');
-                const reviewer = row.reviewed_by
-                  ? `${row.reviewed_by.first_name} ${row.reviewed_by.last_name}`
-                  : '—';
-                const truncatedReason =
-                  row.rejection_reason && row.rejection_reason.length > 80
-                    ? `${row.rejection_reason.slice(0, 77)}…`
-                    : (row.rejection_reason ?? '—');
-                return (
-                  <tr key={row.id}>
-                    <td className="px-3 py-3 font-mono text-xs text-text-secondary">
-                      {row.application_number}
-                    </td>
-                    <td className="px-3 py-3 font-medium text-text-primary">
-                      {row.student_first_name} {row.student_last_name}
-                    </td>
-                    <td className="px-3 py-3 text-text-secondary">{parentName || '—'}</td>
-                    <td
-                      className="px-3 py-3 text-text-secondary"
-                      title={row.rejection_reason ?? ''}
-                    >
-                      {truncatedReason}
-                    </td>
-                    <td className="px-3 py-3 text-text-secondary">{reviewer}</td>
-                    <td className="px-3 py-3 text-text-secondary">{formatDate(row.reviewed_at)}</td>
-                    <td className="px-3 py-3 text-end">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => router.push(`/${locale}/admissions/${row.id}`)}
-                      >
-                        {t('common.view')}
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page === 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            {t('common.previous')}
-          </Button>
-          <span className="text-sm text-text-secondary">
-            {t('common.pageOf', { page, total: totalPages })}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t('common.next')}
-          </Button>
+        <div className="space-y-6">
+          {buckets.map((bucket) => (
+            <section
+              key={`${bucket.target_academic_year_id}:${bucket.year_group_id}`}
+              className="space-y-3"
+            >
+              <header className="sticky top-0 z-10 flex flex-wrap items-center gap-3 bg-background py-2">
+                <h2 className="text-lg font-semibold text-text-primary">
+                  {bucket.year_group_name}
+                </h2>
+                <span className="text-xs text-text-secondary">
+                  {bucket.target_academic_year_name}
+                </span>
+                <CapacityChip capacity={bucket.capacity} yearGroupName={bucket.year_group_name} />
+              </header>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-sm">
+                  <thead className="text-start text-xs font-medium uppercase tracking-wide text-text-tertiary">
+                    <tr>
+                      <th className="px-3 py-2 text-start">
+                        {t('rejected.col.applicationNumber')}
+                      </th>
+                      <th className="px-3 py-2 text-start">{t('rejected.col.student')}</th>
+                      <th className="px-3 py-2 text-start">{t('rejected.col.parent')}</th>
+                      <th className="px-3 py-2 text-start">{t('rejected.col.reason')}</th>
+                      <th className="px-3 py-2 text-start">{t('rejected.col.rejectedBy')}</th>
+                      <th className="px-3 py-2 text-start">{t('rejected.col.rejectedOn')}</th>
+                      <th className="px-3 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {bucket.applications.map((row) => {
+                      const parent = row.parent;
+                      const parentName = [parent.first_name, parent.last_name]
+                        .filter(Boolean)
+                        .join(' ');
+                      const reviewer = row.reviewed_by
+                        ? `${row.reviewed_by.first_name} ${row.reviewed_by.last_name}`
+                        : '\u2014';
+                      const truncatedReason =
+                        row.rejection_reason && row.rejection_reason.length > 80
+                          ? `${row.rejection_reason.slice(0, 77)}\u2026`
+                          : (row.rejection_reason ?? '\u2014');
+                      return (
+                        <tr key={row.id}>
+                          <td className="px-3 py-3 font-mono text-xs text-text-secondary">
+                            {row.application_number}
+                          </td>
+                          <td className="px-3 py-3 font-medium text-text-primary">
+                            {row.student_first_name} {row.student_last_name}
+                          </td>
+                          <td className="px-3 py-3 text-text-secondary">
+                            {parentName || '\u2014'}
+                          </td>
+                          <td
+                            className="px-3 py-3 text-text-secondary"
+                            title={row.rejection_reason ?? ''}
+                          >
+                            {truncatedReason}
+                          </td>
+                          <td className="px-3 py-3 text-text-secondary">{reviewer}</td>
+                          <td className="px-3 py-3 text-text-secondary">
+                            {formatDate(row.reviewed_at)}
+                          </td>
+                          <td className="px-3 py-3 text-end">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => router.push(`/${locale}/admissions/${row.id}`)}
+                            >
+                              {t('common.view')}
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ))}
         </div>
       )}
     </div>

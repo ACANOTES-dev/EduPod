@@ -14,6 +14,7 @@ import type {
   AdmissionsAnalyticsQuery,
   CreatePublicApplicationDto,
   ListApplicationsQuery,
+  ListApprovedApplicationsQuery,
   ListConditionalApprovalQueueQuery,
   ListRejectedApplicationsQuery,
   ReviewApplicationDto,
@@ -25,6 +26,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SearchIndexService } from '../search/search-index.service';
 import { SequenceService } from '../sequence/sequence.service';
 
+import type { AvailableSeatsResult } from './admissions-capacity.service';
 import { AdmissionsCapacityService } from './admissions-capacity.service';
 import { AdmissionsRateLimitService } from './admissions-rate-limit.service';
 import { ApplicationStateMachineService } from './application-state-machine.service';
@@ -356,7 +358,6 @@ export class ApplicationsService {
           },
         });
       }
-      const form = formAnyStatus;
 
       // Resolve household context
       let householdIdForApps: string | null = null;
@@ -1095,41 +1096,35 @@ export class ApplicationsService {
 
   // ─── Queue: Conditional Approval ──────────────────────────────────────────
 
-  async getConditionalApprovalQueue(tenantId: string, query: ListConditionalApprovalQueueQuery) {
-    const { page, pageSize } = query;
-    const skip = (page - 1) * pageSize;
-
+  async getConditionalApprovalQueue(tenantId: string, _query: ListConditionalApprovalQueueQuery) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      const [rows, total] = await Promise.all([
-        db.application.findMany({
-          where: { tenant_id: tenantId, status: 'conditional_approval' },
-          orderBy: [{ payment_deadline: 'asc' }, { apply_date: 'asc' }],
-          skip,
-          take: pageSize,
-          select: {
-            id: true,
-            application_number: true,
-            student_first_name: true,
-            student_last_name: true,
-            date_of_birth: true,
-            payment_amount_cents: true,
-            currency_code: true,
-            payment_deadline: true,
-            stripe_checkout_session_id: true,
-            target_year_group: { select: { id: true, name: true } },
-            target_academic_year: { select: { id: true, name: true } },
-            payload_json: true,
-            submitted_by: {
-              select: { first_name: true, last_name: true, email: true, phone: true },
-            },
+      const rows = await db.application.findMany({
+        where: { tenant_id: tenantId, status: 'conditional_approval' },
+        orderBy: [{ payment_deadline: 'asc' }, { apply_date: 'asc' }],
+        select: {
+          id: true,
+          application_number: true,
+          student_first_name: true,
+          student_last_name: true,
+          date_of_birth: true,
+          payment_amount_cents: true,
+          currency_code: true,
+          payment_deadline: true,
+          stripe_checkout_session_id: true,
+          target_year_group_id: true,
+          target_academic_year_id: true,
+          target_year_group: { select: { id: true, name: true, display_order: true } },
+          target_academic_year: { select: { id: true, name: true } },
+          payload_json: true,
+          submitted_by: {
+            select: { first_name: true, last_name: true, email: true, phone: true },
           },
-        }),
-        db.application.count({ where: { tenant_id: tenantId, status: 'conditional_approval' } }),
-      ]);
+        },
+      });
 
       const now = Date.now();
       const NEAR_EXPIRY_MS = 48 * 60 * 60 * 1000;
@@ -1148,6 +1143,8 @@ export class ApplicationsService {
           student_first_name: row.student_first_name,
           student_last_name: row.student_last_name,
           date_of_birth: row.date_of_birth,
+          target_year_group_id: row.target_year_group_id,
+          target_academic_year_id: row.target_academic_year_id,
           target_year_group: row.target_year_group,
           target_academic_year: row.target_academic_year,
           parent,
@@ -1160,15 +1157,28 @@ export class ApplicationsService {
         };
       });
 
+      const pairs = rows
+        .filter(
+          (r): r is typeof r & { target_academic_year_id: string; target_year_group_id: string } =>
+            Boolean(r.target_academic_year_id && r.target_year_group_id),
+        )
+        .map((r) => ({
+          academicYearId: r.target_academic_year_id,
+          yearGroupId: r.target_year_group_id,
+        }));
+
+      const capacityMap = await this.capacityService.getAvailableSeatsBatch(db, {
+        tenantId,
+        pairs,
+      });
+
       const nearExpiryCount = data.filter((d) => d.payment_urgency === 'near_expiry').length;
       const overdueCount = data.filter((d) => d.payment_urgency === 'overdue').length;
 
       return {
-        data,
+        data: groupRowsByYearGroup(data, capacityMap),
         meta: {
-          page,
-          pageSize,
-          total,
+          total: rows.length,
           near_expiry_count: nearExpiryCount,
           overdue_count: overdueCount,
         },
@@ -1178,12 +1188,8 @@ export class ApplicationsService {
 
   // ─── Queue: Rejected archive ──────────────────────────────────────────────
 
-  async getApprovedQueue(
-    tenantId: string,
-    query: { page: number; pageSize: number; search?: string },
-  ) {
-    const { page, pageSize, search } = query;
-    const skip = (page - 1) * pageSize;
+  async getApprovedQueue(tenantId: string, query: ListApprovedApplicationsQuery) {
+    const { search } = query;
 
     const where: Prisma.ApplicationWhereInput = {
       tenant_id: tenantId,
@@ -1203,37 +1209,40 @@ export class ApplicationsService {
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      const [rows, total] = await Promise.all([
-        db.application.findMany({
-          where,
-          orderBy: [{ reviewed_at: 'desc' }, { updated_at: 'desc' }],
-          skip,
-          take: pageSize,
-          select: {
-            id: true,
-            application_number: true,
-            student_first_name: true,
-            student_last_name: true,
-            reviewed_at: true,
-            reviewed_by: {
-              select: { id: true, first_name: true, last_name: true },
-            },
-            materialised_student: {
-              select: {
-                id: true,
-                student_number: true,
-                household: {
-                  select: { id: true, household_number: true, household_name: true },
-                },
-                homeroom_class: {
-                  select: { id: true, name: true },
-                },
+      const rows = await db.application.findMany({
+        where,
+        orderBy: [{ reviewed_at: 'desc' }, { updated_at: 'desc' }],
+        select: {
+          id: true,
+          application_number: true,
+          student_first_name: true,
+          student_last_name: true,
+          reviewed_at: true,
+          target_year_group_id: true,
+          target_academic_year_id: true,
+          target_year_group: {
+            select: { id: true, name: true, display_order: true },
+          },
+          target_academic_year: {
+            select: { id: true, name: true },
+          },
+          reviewed_by: {
+            select: { id: true, first_name: true, last_name: true },
+          },
+          materialised_student: {
+            select: {
+              id: true,
+              student_number: true,
+              household: {
+                select: { id: true, household_number: true, household_name: true },
+              },
+              homeroom_class: {
+                select: { id: true, name: true },
               },
             },
           },
-        }),
-        db.application.count({ where }),
-      ]);
+        },
+      });
 
       const data = rows.map((row) => ({
         id: row.id,
@@ -1242,6 +1251,10 @@ export class ApplicationsService {
         student_last_name: row.student_last_name,
         reviewed_at: row.reviewed_at,
         reviewed_by: row.reviewed_by,
+        target_year_group_id: row.target_year_group_id,
+        target_academic_year_id: row.target_academic_year_id,
+        target_year_group: row.target_year_group,
+        target_academic_year: row.target_academic_year,
         student_number: row.materialised_student?.student_number ?? null,
         household_number: row.materialised_student?.household?.household_number ?? null,
         household_name: row.materialised_student?.household?.household_name ?? null,
@@ -1250,13 +1263,30 @@ export class ApplicationsService {
         student_id: row.materialised_student?.id ?? null,
       }));
 
-      return { data, meta: { page, pageSize, total } };
+      const pairs = rows
+        .filter(
+          (r): r is typeof r & { target_academic_year_id: string; target_year_group_id: string } =>
+            Boolean(r.target_academic_year_id && r.target_year_group_id),
+        )
+        .map((r) => ({
+          academicYearId: r.target_academic_year_id,
+          yearGroupId: r.target_year_group_id,
+        }));
+
+      const capacityMap = await this.capacityService.getAvailableSeatsBatch(db, {
+        tenantId,
+        pairs,
+      });
+
+      return {
+        data: groupRowsByYearGroup(data, capacityMap),
+        meta: { total: rows.length },
+      };
     });
   }
 
   async getRejectedArchive(tenantId: string, query: ListRejectedApplicationsQuery) {
-    const { page, pageSize, search } = query;
-    const skip = (page - 1) * pageSize;
+    const { search } = query;
 
     const where: Prisma.ApplicationWhereInput = {
       tenant_id: tenantId,
@@ -1276,30 +1306,33 @@ export class ApplicationsService {
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      const [rows, total] = await Promise.all([
-        db.application.findMany({
-          where,
-          orderBy: [{ reviewed_at: 'desc' }, { updated_at: 'desc' }],
-          skip,
-          take: pageSize,
-          select: {
-            id: true,
-            application_number: true,
-            student_first_name: true,
-            student_last_name: true,
-            rejection_reason: true,
-            reviewed_at: true,
-            reviewed_by: {
-              select: { id: true, first_name: true, last_name: true },
-            },
-            payload_json: true,
-            submitted_by: {
-              select: { first_name: true, last_name: true, email: true, phone: true },
-            },
+      const rows = await db.application.findMany({
+        where,
+        orderBy: [{ reviewed_at: 'desc' }, { updated_at: 'desc' }],
+        select: {
+          id: true,
+          application_number: true,
+          student_first_name: true,
+          student_last_name: true,
+          rejection_reason: true,
+          reviewed_at: true,
+          target_year_group_id: true,
+          target_academic_year_id: true,
+          target_year_group: {
+            select: { id: true, name: true, display_order: true },
           },
-        }),
-        db.application.count({ where }),
-      ]);
+          target_academic_year: {
+            select: { id: true, name: true },
+          },
+          reviewed_by: {
+            select: { id: true, first_name: true, last_name: true },
+          },
+          payload_json: true,
+          submitted_by: {
+            select: { first_name: true, last_name: true, email: true, phone: true },
+          },
+        },
+      });
 
       const data = rows.map((row) => ({
         id: row.id,
@@ -1309,10 +1342,17 @@ export class ApplicationsService {
         rejection_reason: row.rejection_reason,
         reviewed_at: row.reviewed_at,
         reviewed_by: row.reviewed_by,
+        target_year_group_id: row.target_year_group_id,
+        target_academic_year_id: row.target_academic_year_id,
+        target_year_group: row.target_year_group,
+        target_academic_year: row.target_academic_year,
         parent: extractParentContact(row.payload_json, row.submitted_by),
       }));
 
-      return { data, meta: { page, pageSize, total } };
+      return {
+        data: groupRowsByYearGroup(data, new Map()),
+        meta: { total: rows.length },
+      };
     });
   }
 
@@ -1508,6 +1548,90 @@ function groupApplicationsByYearGroup(
       waiting_list_substatus: row.waiting_list_substatus ?? null,
       submitted_by_parent: extractParentContact(row.payload_json, row.submitted_by),
     });
+  }
+
+  return Array.from(buckets.values()).sort((a, b) => {
+    if (a.display_order !== b.display_order) return a.display_order - b.display_order;
+    return a.year_group_name.localeCompare(b.year_group_name);
+  });
+}
+
+// ─── Generic year-group bucketing (approved / rejected / conditional) ─────────
+
+interface YearGroupRow {
+  target_year_group_id: string | null;
+  target_academic_year_id: string | null;
+  target_year_group: { name: string; display_order: number } | null;
+  target_academic_year: { name: string } | null;
+}
+
+function groupRowsByYearGroup<T extends YearGroupRow>(
+  rows: T[],
+  capacityMap: Map<string, AvailableSeatsResult>,
+): Array<{
+  year_group_id: string | null;
+  year_group_name: string;
+  display_order: number;
+  target_academic_year_id: string | null;
+  target_academic_year_name: string;
+  capacity: {
+    total: number;
+    enrolled: number;
+    conditional: number;
+    available: number;
+    configured: boolean;
+  } | null;
+  applications: T[];
+}> {
+  const buckets = new Map<
+    string,
+    {
+      year_group_id: string | null;
+      year_group_name: string;
+      display_order: number;
+      target_academic_year_id: string | null;
+      target_academic_year_name: string;
+      capacity: {
+        total: number;
+        enrolled: number;
+        conditional: number;
+        available: number;
+        configured: boolean;
+      } | null;
+      applications: T[];
+    }
+  >();
+
+  for (const row of rows) {
+    const ygId = row.target_year_group_id;
+    const ayId = row.target_academic_year_id;
+    const bucketKey = `${ayId ?? 'none'}:${ygId ?? 'none'}`;
+
+    let bucket = buckets.get(bucketKey);
+    if (!bucket) {
+      const capacityKey = ayId && ygId ? `${ayId}:${ygId}` : null;
+      const cap = capacityKey ? capacityMap.get(capacityKey) : undefined;
+      bucket = {
+        year_group_id: ygId,
+        year_group_name: row.target_year_group?.name ?? 'Unknown year group',
+        display_order: row.target_year_group?.display_order ?? 9999,
+        target_academic_year_id: ayId,
+        target_academic_year_name: row.target_academic_year?.name ?? 'Unknown academic year',
+        capacity: cap
+          ? {
+              total: cap.total_capacity,
+              enrolled: cap.enrolled_student_count,
+              conditional: cap.conditional_approval_count,
+              available: cap.available_seats,
+              configured: cap.configured,
+            }
+          : null,
+        applications: [],
+      };
+      buckets.set(bucketKey, bucket);
+    }
+
+    bucket.applications.push(row);
   }
 
   return Array.from(buckets.values()).sort((a, b) => {
