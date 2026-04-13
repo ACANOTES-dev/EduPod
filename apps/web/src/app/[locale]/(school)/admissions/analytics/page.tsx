@@ -33,23 +33,34 @@ function FunnelChart({
   data: Array<{ stage: string; count: number }>;
   title: string;
 }) {
+  // Defer mounting the chart until after first paint so ResponsiveContainer
+  // measures a parent that already has its computed width. Without this gate,
+  // Recharts logs a `width(-1) height(-1)` warning during SSR/hydration even
+  // when the wrapper has explicit pixel dimensions. (ADM-019.)
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
       <h3 className="mb-4 text-base font-semibold text-text-primary">{title}</h3>
       <div className="h-[300px] min-h-[300px] w-full">
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
-          <BarChart
-            data={data}
-            layout="vertical"
-            margin={{ top: 0, right: 20, bottom: 0, left: 170 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-            <XAxis type="number" allowDecimals={false} />
-            <YAxis type="category" dataKey="stage" width={160} tick={{ fontSize: 12 }} />
-            <Tooltip />
-            <Bar dataKey="count" fill="#059669" radius={[0, 4, 4, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        {mounted ? (
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
+            <BarChart
+              data={data}
+              layout="vertical"
+              margin={{ top: 0, right: 20, bottom: 0, left: 170 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+              <XAxis type="number" allowDecimals={false} />
+              <YAxis type="category" dataKey="stage" width={160} tick={{ fontSize: 12 }} />
+              <Tooltip />
+              <Bar dataKey="count" fill="#059669" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : null}
       </div>
     </div>
   );
