@@ -76,6 +76,12 @@ Fixes ASSESSMENT-NNN. [details of what changed]
 4. Assert: zero gradebook API calls in network tab
 5. Navigate to `/en/analytics` — same assertions
 
+### Verification notes
+
+- **Date:** 2026-04-13
+- **Verified by:** Independent Playwright walkthrough (new session)
+- **Result:** ✅ PASS — Logged in as `parent@nhqs.test`, navigated to `/en/assessments`. Browser redirected to `/en/dashboard`. Parent dashboard rendered with "Good evening, Zainab" heading. No "Assessment Dashboard" visible. No gradebook API calls in network tab. Role gate is working correctly.
+
 ---
 
 ### ASSESSMENT-002 — Raw ISO timestamp in gradebook Assessments tab due-date column
@@ -113,6 +119,12 @@ Fixes ASSESSMENT-NNN. [details of what changed]
 1. Navigate to `/en/gradebook/{classId}`
 2. Assert: every Due Date cell matches `/^\d{1,2}\s\w+\s\d{4}$/` or a locale-formatted pattern
 3. Assert: no cell contains `T00:00:00`
+
+### Verification notes
+
+- **Date:** 2026-04-13
+- **Verified by:** Independent Playwright walkthrough (new session)
+- **Result:** ✅ PASS — Logged in as `owner@nhqs.test`, navigated to `/en/gradebook`, clicked class 2A (43 assessments). All Due Date cells show formatted dates: "15 Oct 2025", "31 Mar 2026", "1 Nov 2025", "14 Mar 2026", "15 Dec 2025", "14 May 2026", "18 Oct 2025", "8 Apr 2026", etc. Zero raw ISO timestamps (`T00:00:00.000Z`) in the entire table.
 
 ---
 
@@ -152,6 +164,12 @@ Fixes ASSESSMENT-NNN. [details of what changed]
 2. Navigate to `/en/assessments`
 3. Assert: network log contains `/teaching-allocations` but NOT `/teaching-allocations/all`
 
+### Verification notes
+
+- **Date:** 2026-04-13
+- **Verified by:** Independent Playwright walkthrough (new session)
+- **Result:** ✅ PASS — Logged in as `Sarah.daly@nhqs.test`, navigated to `/en/assessments`. Network log shows `GET /api/v1/gradebook/teaching-allocations => 200` (teacher variant). No call to `/teaching-allocations/all` in network log. All 15 API calls returned 200.
+
 ---
 
 ### ASSESSMENT-004 — Parent can access `/en/analytics` (role-gate missing)
@@ -187,6 +205,12 @@ Fixes ASSESSMENT-NNN. [details of what changed]
 1. Log in as parent
 2. Navigate to `/en/analytics`
 3. Assert: URL redirects away from analytics
+
+### Verification notes
+
+- **Date:** 2026-04-13
+- **Verified by:** Independent Playwright walkthrough (new session)
+- **Result:** ✅ PASS — Logged in as `parent@nhqs.test`, navigated to `/en/analytics`. Browser redirected to `/en/dashboard`. No analytics shell visible. Parent sees parent dashboard with "Good evening, Zainab". Role gate is working correctly.
 
 ---
 
@@ -228,6 +252,12 @@ Fixes ASSESSMENT-NNN. [details of what changed]
 2. Assert: "Your Students" shows ≥ 1 student card with name
 3. Click student → grade view loads
 
+### Verification notes
+
+- **Date:** 2026-04-13
+- **Verified by:** Independent Playwright walkthrough (new session)
+- **Result:** ✅ PASS — Logged in as `parent@nhqs.test`, navigated to `/en/dashboard/parent`. "Your Students" section shows **Adam Moore** (2nd class, Active). AI Insight panel also references "Adam Moore · 2nd class". The `student_parents` auto-linking and backfill are working correctly. Parent has a linked student visible.
+
 ---
 
 ### ASSESSMENT-006 — Teacher dashboard calls `/unlock-requests` without permission (403)
@@ -263,6 +293,12 @@ Fixes ASSESSMENT-NNN. [details of what changed]
 1. Log in as teacher
 2. Navigate to `/en/assessments`
 3. Assert: no 403 in console, no `/unlock-requests` call in network
+
+### Verification notes
+
+- **Date:** 2026-04-13
+- **Verified by:** Independent Playwright walkthrough (new session)
+- **Result:** ✅ PASS — Logged in as `Sarah.daly@nhqs.test`, navigated to `/en/assessments`. Console shows **0 errors** (was 403 on `/unlock-requests` before fix). Network log has no call to `/unlock-requests`. Teacher dashboard loads cleanly with only authorized endpoints.
 
 ---
 
