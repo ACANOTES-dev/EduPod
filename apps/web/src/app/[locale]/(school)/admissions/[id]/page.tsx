@@ -21,6 +21,7 @@ import { DynamicFormRenderer } from '@/components/admissions/dynamic-form-render
 import { RecordHub } from '@/components/record-hub';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
+import { formatDate, formatDateTime } from '@/lib/format-date';
 
 import { CapacityPanel } from './_components/capacity-panel';
 import { ForceApproveModal } from './_components/force-approve-modal';
@@ -113,7 +114,7 @@ function NotesTab({
                   {note.author.first_name} {note.author.last_name}
                 </span>
                 <span className="text-xs text-text-tertiary">
-                  {new Date(note.created_at).toLocaleString()}
+                  {formatDateTime(note.created_at)}
                 </span>
               </div>
               <p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">{note.note}</p>
@@ -498,15 +499,11 @@ export default function ApplicationDetailPage() {
         metrics={[
           {
             label: 'Submitted',
-            value: application.submitted_at
-              ? new Date(application.submitted_at).toLocaleDateString()
-              : '—',
+            value: formatDate(application.submitted_at) || '—',
           },
           {
             label: 'Apply date',
-            value: application.apply_date
-              ? new Date(application.apply_date).toLocaleDateString()
-              : '—',
+            value: formatDate(application.apply_date) || '—',
           },
           {
             label: 'Target year group',

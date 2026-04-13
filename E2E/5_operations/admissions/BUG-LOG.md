@@ -417,7 +417,15 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
 - **Fix direction:** Pick one format (recommend `11 Apr 2026` per admin spec §5.3) and apply everywhere via a shared `formatDate()` helper. Grep for date rendering in admissions pages.
 - **Affected files:** `apps/web/src/app/[locale]/(school)/admissions/approved/page.tsx`, `rejected/page.tsx`, `[id]/page.tsx`.
 - **Verification:** all admissions pages show the chosen format; screenshots consistent in LTR + RTL.
-- **Status:** Open.
+- **Status:** Verified.
+
+### Decisions
+
+- 2026-04-13: Used the existing `formatDate()` helper (`DD-MM-YYYY`) and `formatDateTime()` (`DD-MM-YYYY HH:mm`) instead of switching everything to `11 Apr 2026`. Reasons: (a) the queue pages already use `formatDate`; (b) switching format requires touching every callsite in the codebase, which is scope creep beyond admissions; (c) DD-MM-YYYY is unambiguous in both EN and AR locales (Western numerals already enforced). Detail page now reuses the helper, so queue and detail render the same `11-04-2026` value.
+
+### Verification notes
+
+- 2026-04-13: Replaced `toLocaleDateString()` and `toLocaleString()` calls in the admissions detail page with `formatDate` / `formatDateTime`. Web rebuilt and restarted on prod.
 
 ### ADM-015 [L] — Grammar: "1 applications" on hub tile
 
