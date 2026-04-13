@@ -38,8 +38,11 @@ interface UploadedFileShape {
 export class BrandingController {
   constructor(private readonly brandingService: BrandingService) {}
 
+  // Branding (school name, logo, colours) is non-sensitive tenant data
+  // read by the shell layout for every role. Auth is still required so
+  // the tenant context is resolvable, but no specific permission — only
+  // the mutating endpoints below require `branding.manage`.
   @Get()
-  @RequiresPermission('branding.manage')
   async getBranding(@CurrentTenant() tenant: TenantContext) {
     return this.brandingService.getBranding(tenant.tenant_id);
   }
