@@ -128,8 +128,12 @@ Provenance: `[L]` live-verified during the 2026-04-12 Playwright walkthrough · 
   - Click "Nurul Huda" → navigates to `/en/apply/nhqs`.
   - Console clean.
 - **Release-gate:** Must ship before launch — the public URL is advertised.
-- **Status:** Open.
-- **Notes:**
+- **Status:** Verified.
+- **Notes:** Claude Opus 4.6 — 2026-04-13. Root cause: `apiClient` returned the response envelope `{ data: PublicForm }`, but the page set the envelope as the form. `form.fields.length` then crashed because `fields` lived on `form.data`, not `form`. Fixed by piping the response through `unwrap<PublicForm>()` and defensively coercing `fields` to `[]` if absent.
+
+### Verification notes
+
+- 2026-04-13: Incognito navigate to `https://nhqs.edupod.app/en/apply` → page renders the form with fields visible (parent name, email, etc.). Console: 0 errors. `GET /api/v1/public/admissions/form` → 200.
 
 ### ADM-003 [L] — Timeline shows raw ISO timestamp in note copy
 

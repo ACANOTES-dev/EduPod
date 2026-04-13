@@ -7,8 +7,7 @@ import * as React from 'react';
 import { Button, Checkbox, Input, Label, toast } from '@school/ui';
 
 import { DynamicFormRenderer } from '@/components/admissions/dynamic-form-renderer';
-import { apiClient } from '@/lib/api-client';
-import { getAccessToken } from '@/lib/api-client';
+import { apiClient, getAccessToken, unwrap } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,8 +81,13 @@ export default function PublicAdmissionsPage() {
   const [honeypot, setHoneypot] = React.useState('');
 
   React.useEffect(() => {
-    apiClient<PublicForm>('/api/v1/public/admissions/form', { skipAuth: true })
-      .then((res) => setForm(res))
+    apiClient<{ data: PublicForm } | PublicForm>('/api/v1/public/admissions/form', {
+      skipAuth: true,
+    })
+      .then((res) => {
+        const payload = unwrap<PublicForm>(res);
+        setForm({ ...payload, fields: Array.isArray(payload?.fields) ? payload.fields : [] });
+      })
       .catch((err) => {
         console.error('[PublicAdmissionsPage.loadForm]', err);
       })
@@ -218,7 +222,9 @@ export default function PublicAdmissionsPage() {
           <h2 className="mb-4 text-base font-semibold text-text-primary">{t('studentName')}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>{t('firstName')}<span className="text-emerald-600">*</span>
+              <Label>
+                {t('firstName')}
+                <span className="text-emerald-600">*</span>
               </Label>
               <Input
                 value={studentFirstName}
@@ -227,7 +233,9 @@ export default function PublicAdmissionsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>{t('lastName')}<span className="text-emerald-600">*</span>
+              <Label>
+                {t('lastName')}
+                <span className="text-emerald-600">*</span>
               </Label>
               <Input
                 value={studentLastName}
