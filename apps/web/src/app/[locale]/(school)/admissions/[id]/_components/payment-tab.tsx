@@ -12,6 +12,16 @@ export function PaymentTab({ application }: { application: ApplicationDetail }) 
   const deadlineExpired = deadline ? deadline.getTime() < now : false;
   const currencyCode = useTenantCurrency();
 
+  // ADM-030: Stripe checkout sessions expire after at most 23 hours from
+  // creation. If the application's `payment_deadline` is further out than
+  // that, the Stripe link will lapse before the deadline and the parent
+  // would need a fresh regenerate. Warn the admin so they know to re-issue.
+  const stripeMaxExpiryMs = 23 * 60 * 60 * 1000;
+  const stripeExpiresEarlier =
+    deadline !== null &&
+    application.stripe_checkout_session_id !== null &&
+    deadline.getTime() > now + stripeMaxExpiryMs;
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
@@ -44,6 +54,12 @@ export function PaymentTab({ application }: { application: ApplicationDetail }) 
             <dd className="break-all font-mono text-xs text-text-secondary">
               {application.stripe_checkout_session_id ?? '—'}
             </dd>
+            {stripeExpiresEarlier && (
+              <p className="mt-1 text-xs text-amber-700">
+                Stripe sessions expire after 23h — this link will lapse before the payment deadline.
+                Use &ldquo;Copy payment link&rdquo; to issue a fresh session closer to the deadline.
+              </p>
+            )}
           </div>
           <div>
             <dt className="text-xs text-text-tertiary">Current status</dt>

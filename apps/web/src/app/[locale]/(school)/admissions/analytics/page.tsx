@@ -1,15 +1,48 @@
 'use client';
 
 import { ArrowLeft } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import type {
+  BarChart as BarChartType,
+  Bar as BarType,
+  XAxis as XAxisType,
+  YAxis as YAxisType,
+  CartesianGrid as CartesianGridType,
+  Tooltip as TooltipType,
+  ResponsiveContainer as ResponsiveContainerType,
+} from 'recharts';
 
 import { Button, StatCard } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+// ADM-038: dynamic-import the Recharts components so the ~70KB vendor
+// chunk is only shipped to admins who actually open the analytics page.
+const BarChart = dynamic(() => import('recharts').then((m) => m.BarChart), {
+  ssr: false,
+}) as unknown as typeof BarChartType;
+const Bar = dynamic(() => import('recharts').then((m) => m.Bar), {
+  ssr: false,
+}) as unknown as typeof BarType;
+const XAxis = dynamic(() => import('recharts').then((m) => m.XAxis), {
+  ssr: false,
+}) as unknown as typeof XAxisType;
+const YAxis = dynamic(() => import('recharts').then((m) => m.YAxis), {
+  ssr: false,
+}) as unknown as typeof YAxisType;
+const CartesianGrid = dynamic(() => import('recharts').then((m) => m.CartesianGrid), {
+  ssr: false,
+}) as unknown as typeof CartesianGridType;
+const Tooltip = dynamic(() => import('recharts').then((m) => m.Tooltip), {
+  ssr: false,
+}) as unknown as typeof TooltipType;
+const ResponsiveContainer = dynamic(() => import('recharts').then((m) => m.ResponsiveContainer), {
+  ssr: false,
+}) as unknown as typeof ResponsiveContainerType;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

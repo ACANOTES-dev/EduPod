@@ -172,6 +172,24 @@ export default function AdmissionsSettingsPage() {
               <h3 className="mb-3 text-sm font-medium text-text-primary">
                 {t('payment.methodsTitle')}
               </h3>
+
+              {/* ADM-029: dead-end payment config warning. Surfaces when both
+                  cash and bank transfer are disabled — at that point Stripe
+                  is the only remaining method and may be unconfigured. The
+                  banner is non-blocking because Stripe wiring lives behind
+                  /settings/stripe, but it gives the admin a heads-up that
+                  parents will have nothing to click. */}
+              {!settings.allow_cash && !settings.allow_bank_transfer ? (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  No manual payment method is enabled. Parents will only be able to pay via Stripe —
+                  make sure Stripe is configured under{' '}
+                  <Link href={`/${locale}/settings/stripe`} className="font-medium underline">
+                    Settings → Stripe
+                  </Link>{' '}
+                  or applicants will have no way to complete their payment.
+                </div>
+              ) : null}
+
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
