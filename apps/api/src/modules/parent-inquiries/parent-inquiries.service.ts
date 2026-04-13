@@ -1,5 +1,11 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Queue } from 'bullmq';
 
 import { ParentReadFacade } from '../parents/parent-read.facade';
@@ -342,9 +348,9 @@ export class ParentInquiriesService {
     const parent = await this.parentReadFacade.findByUserId(tenantId, userId);
 
     if (!parent) {
-      throw new NotFoundException({
-        code: 'PARENT_NOT_FOUND',
-        message: 'No parent record linked to your account',
+      throw new UnprocessableEntityException({
+        code: 'MISSING_PARENT_RECORD',
+        message: 'Your account is not yet linked to a parent record. Please contact the school.',
       });
     }
 

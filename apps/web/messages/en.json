@@ -7111,6 +7111,7 @@
       "closeSuccess": "Inquiry closed",
       "closeError": "Failed to close inquiry",
       "notFound": "Inquiry not found",
+      "noLinkedStudents": "No students linked to your account.",
       "schoolAdmin": "School Administration",
       "status": {
         "open": "Open",

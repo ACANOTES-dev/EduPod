@@ -44,15 +44,28 @@ export default function ParentInquiriesPage() {
 
   const [inquiries, setInquiries] = React.useState<MyInquiry[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [missingParentRecord, setMissingParentRecord] = React.useState(false);
 
   const fetchInquiries = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await apiClient<{ data: MyInquiry[] }>('/api/v1/inquiries/my');
+      const res = await apiClient<{ data: MyInquiry[] }>('/api/v1/inquiries/my', {
+        silent: true,
+      });
       setInquiries(res.data);
+      setMissingParentRecord(false);
     } catch (err) {
-      console.error('[InquiriesPage]', err);
-      setInquiries([]);
+      const code =
+        err && typeof err === 'object' && 'code' in err
+          ? (err as { code?: string }).code
+          : undefined;
+      if (code === 'MISSING_PARENT_RECORD') {
+        setMissingParentRecord(true);
+        setInquiries([]);
+      } else {
+        console.error('[InquiriesPage]', err);
+        setInquiries([]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +101,15 @@ export default function ParentInquiriesPage() {
         }
       />
 
-      {inquiries.length === 0 ? (
+      {missingParentRecord ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100"
+        >
+          Your account is not yet linked to a parent record. Please contact the school to complete
+          your setup before sending inquiries.
+        </div>
+      ) : inquiries.length === 0 ? (
         <EmptyState
           icon={MessageCircle}
           title={t('noInquiriesYet')}

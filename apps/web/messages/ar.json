@@ -7102,6 +7102,7 @@
       "closeSuccess": "تم إغلاق الاستفسار",
       "closeError": "فشل في إغلاق الاستفسار",
       "notFound": "الاستفسار غير موجود",
+      "noLinkedStudents": "لا يوجد طلاب مرتبطون بحسابك.",
       "schoolAdmin": "إدارة المدرسة",
       "status": {
         "open": "مفتوح",

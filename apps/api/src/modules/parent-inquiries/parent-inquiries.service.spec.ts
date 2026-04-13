@@ -1,5 +1,9 @@
 import { getQueueToken } from '@nestjs/bullmq';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import {
@@ -166,12 +170,12 @@ describe('ParentInquiriesService', () => {
       );
     });
 
-    it('should throw NotFoundException when parent record not found', async () => {
+    it('should throw UnprocessableEntityException when parent record not found', async () => {
       mockPrisma.parent.findFirst.mockResolvedValue(null);
 
       await expect(
         service.listForParent(TENANT_ID, USER_ID, { page: 1, pageSize: 20 }),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(UnprocessableEntityException);
     });
   });
 
@@ -320,13 +324,13 @@ describe('ParentInquiriesService', () => {
 
       await expect(
         service.create(TENANT_ID, USER_ID, { subject: 'Test', message: 'Hello' }),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(UnprocessableEntityException);
 
       try {
         await service.create(TENANT_ID, USER_ID, { subject: 'Test', message: 'Hello' });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
-        expect(err.getResponse()).toMatchObject({ code: 'PARENT_NOT_FOUND' });
+        expect(err.getResponse()).toMatchObject({ code: 'MISSING_PARENT_RECORD' });
       }
     });
 
@@ -577,12 +581,12 @@ describe('ParentInquiriesService', () => {
       expect(result).toEqual({ id: MESSAGE_ID });
     });
 
-    it('edge: should throw NotFoundException when parent has no linked record', async () => {
+    it('edge: should throw UnprocessableEntityException when parent has no linked record', async () => {
       mockPrisma.parent.findFirst.mockResolvedValue(null);
 
       await expect(
         service.addParentMessage(TENANT_ID, USER_ID, INQUIRY_ID, { message: 'Hello' }),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(UnprocessableEntityException);
     });
   });
 

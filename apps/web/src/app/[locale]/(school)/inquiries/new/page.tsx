@@ -51,15 +51,21 @@ export default function NewInquiryPage() {
   const [studentId, setStudentId] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [linkedStudents, setLinkedStudents] = React.useState<LinkedStudent[]>([]);
+  const [studentsLoading, setStudentsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    apiClient<{ data: ParentDashboardData }>('/api/v1/dashboard/parent')
+    apiClient<{ data: ParentDashboardData }>('/api/v1/dashboard/parent', { silent: true })
       .then((res) => {
         if (res.data?.students) {
           setLinkedStudents(res.data.students);
         }
       })
-      .catch((err) => { console.error('[InquiriesNewPage]', err); });
+      .catch((err) => {
+        console.error('[InquiriesNewPage]', err);
+      })
+      .finally(() => {
+        setStudentsLoading(false);
+      });
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -134,7 +140,9 @@ export default function NewInquiryPage() {
           {/* Optional student — dropdown of linked children */}
           <div className="space-y-2">
             <Label htmlFor="student-select">{t('inquiry.studentLabel')}</Label>
-            {linkedStudents.length > 0 ? (
+            {studentsLoading ? (
+              <p className="text-sm text-text-tertiary">{tc('loading')}</p>
+            ) : linkedStudents.length > 0 ? (
               <Select value={studentId} onValueChange={setStudentId}>
                 <SelectTrigger id="student-select" className="w-full">
                   <SelectValue placeholder={t('inquiry.studentPlaceholder')} />
@@ -149,7 +157,7 @@ export default function NewInquiryPage() {
                 </SelectContent>
               </Select>
             ) : (
-              <p className="text-sm text-text-tertiary">{tc('loading')}</p>
+              <p className="text-sm text-text-tertiary">{t('inquiry.noLinkedStudents')}</p>
             )}
           </div>
 
