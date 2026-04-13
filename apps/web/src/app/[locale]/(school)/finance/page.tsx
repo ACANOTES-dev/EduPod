@@ -47,6 +47,7 @@ function KpiCard({
   icon: Icon,
   href,
   accent,
+  gradient,
   subtitle,
 }: {
   label: string;
@@ -54,6 +55,7 @@ function KpiCard({
   icon: LucideIcon;
   href: string;
   accent: string;
+  gradient: string;
   subtitle?: string;
 }) {
   const locale = useLocale();
@@ -62,6 +64,10 @@ function KpiCard({
       href={`/${locale}${href}`}
       className="group relative overflow-hidden rounded-2xl border border-border bg-surface p-5 transition-all hover:border-border-strong hover:shadow-md"
     >
+      {/* Top accent bar */}
+      <div
+        className={`pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${gradient}`}
+      />
       <div className="flex items-start justify-between">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
@@ -79,7 +85,9 @@ function KpiCard({
           <Icon className="h-5 w-5" />
         </div>
       </div>
-      <div className="absolute bottom-0 end-0 start-0 h-1 origin-left scale-x-0 bg-gradient-to-r from-primary/60 to-primary transition-transform group-hover:scale-x-100" />
+      <div
+        className={`absolute bottom-0 end-0 start-0 h-1 origin-left scale-x-0 bg-gradient-to-r ${gradient} transition-transform group-hover:scale-x-100`}
+      />
     </Link>
   );
 }
@@ -91,23 +99,28 @@ function QuickAction({
   icon: Icon,
   href,
   accent,
+  gradient,
 }: {
   label: string;
   icon: LucideIcon;
   href: string;
   accent: string;
+  gradient: string;
 }) {
   const locale = useLocale();
   return (
     <Link
       href={`/${locale}${href}`}
-      className="group flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 transition-all hover:border-border-strong hover:shadow-sm"
+      className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-surface px-4 py-3 transition-all hover:border-border-strong hover:shadow-sm"
     >
       <div className={`shrink-0 rounded-lg p-2 ${accent}`}>
         <Icon className="h-4 w-4" />
       </div>
       <span className="text-sm font-medium text-text-primary">{label}</span>
-      <ArrowRight className="ms-auto h-4 w-4 text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100" />
+      <ArrowRight className="ms-auto h-4 w-4 text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 rtl:rotate-180" />
+      <div
+        className={`absolute bottom-0 end-0 start-0 h-0.5 origin-left scale-x-0 bg-gradient-to-r ${gradient} transition-transform group-hover:scale-x-100`}
+      />
     </Link>
   );
 }
@@ -169,7 +182,8 @@ function HouseholdDebtBreakdown({
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-5">
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-danger-400 via-danger-500 to-danger-600" />
       {/* Header */}
       <div className="mb-5 flex items-center justify-between">
         <div>
@@ -292,7 +306,8 @@ function RecentPayments({ payments }: { payments: FinanceDashboardData['recent_p
 
   return (
     <>
-      <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+      <div className="relative rounded-2xl border border-border bg-surface overflow-hidden">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-600" />
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <h3 className="text-sm font-semibold text-text-primary">{t('recentPayments')}</h3>
           <Link
@@ -491,6 +506,7 @@ export default function FinanceDashboardPage() {
           icon={Receipt}
           href="/finance/overview"
           accent="bg-primary/10 text-primary"
+          gradient="from-primary/60 to-primary"
           subtitle={`${(data.invoice_status_counts.issued ?? 0) + (data.invoice_status_counts.partially_paid ?? 0)} ${t('activeInvoices')}`}
         />
         <KpiCard
@@ -505,6 +521,7 @@ export default function FinanceDashboardPage() {
           icon={TrendingUp}
           href="/finance/overview"
           accent="bg-success-100 text-success-700"
+          gradient="from-emerald-400 to-emerald-600"
         />
         <KpiCard
           label={t('outstandingAmount')}
@@ -520,6 +537,7 @@ export default function FinanceDashboardPage() {
             data.overdue_invoices.length > 0 ? '/finance/overview?overdue=yes' : '/finance/overview'
           }
           accent="bg-danger-100 text-danger-700"
+          gradient="from-danger-400 to-danger-600"
           subtitle={
             data.overdue_invoices.length > 0
               ? `${data.overdue_invoices.length} ${t('overdueInvoicesCount')}`
@@ -528,7 +546,8 @@ export default function FinanceDashboardPage() {
         />
         {/* Split card: Outstanding % + Financial Reports */}
         <div className="flex flex-col gap-2">
-          <div className="flex-1 rounded-2xl border border-border bg-surface p-4">
+          <div className="relative flex-1 overflow-hidden rounded-2xl border border-border bg-surface p-4">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-slate-400 to-slate-600" />
             <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
               {t('outstandingPct')}
             </p>
@@ -576,24 +595,28 @@ export default function FinanceDashboardPage() {
           icon={Zap}
           href="/finance/fee-generation"
           accent="bg-primary/10 text-primary"
+          gradient="from-primary/60 to-primary"
         />
         <QuickAction
           label={t('recordPayment')}
           icon={CreditCard}
           href="/finance/payments/new"
           accent="bg-success-100 text-success-700"
+          gradient="from-emerald-400 to-emerald-600"
         />
         <QuickAction
           label={t('viewInvoices')}
           icon={Receipt}
           href="/finance/invoices"
           accent="bg-info-100 text-info-700"
+          gradient="from-info-400 to-info-600"
         />
         <QuickAction
           label={t('viewStatements')}
           icon={ScrollText}
           href="/finance/statements"
           accent="bg-warning-100 text-warning-700"
+          gradient="from-warning-400 to-warning-600"
         />
       </div>
 

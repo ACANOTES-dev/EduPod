@@ -90,7 +90,8 @@ export function InvoicePipeline({ counts }: { counts: Record<string, number> }) 
   const totalActive = PIPELINE_STAGES.reduce((s, stage) => s + (counts[stage.status] ?? 0), 0);
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-5">
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-info-400 via-info-500 to-info-600" />
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-text-primary">{t('invoicePipeline')}</h3>
         <Link
@@ -160,7 +161,8 @@ export function AgingOverview({ aging }: { aging: FinanceDashboardData['aging_su
   const totalAmount = aging.reduce((s, b) => s + b.total, 0);
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-5">
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-warning-400 via-warning-500 to-warning-600" />
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-text-primary">{t('agingOverview')}</h3>
         <Link
@@ -395,12 +397,14 @@ export function PendingActionsBanner({
 
 interface NavSection {
   titleKey: string;
+  accent: string;
   items: Array<{ labelKey: string; href: string; icon: LucideIcon; descKey: string }>;
 }
 
 const NAV_SECTIONS: NavSection[] = [
   {
     titleKey: 'navSetup',
+    accent: 'from-emerald-400 via-emerald-500 to-emerald-600',
     items: [
       {
         labelKey: 'navFeeTypes',
@@ -436,6 +440,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     titleKey: 'navOperations',
+    accent: 'from-sky-400 via-sky-500 to-sky-600',
     items: [
       {
         labelKey: 'navOverview',
@@ -472,6 +477,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     titleKey: 'navMonitoring',
+    accent: 'from-indigo-400 via-indigo-500 to-indigo-600',
     items: [
       {
         labelKey: 'navStatements',
@@ -505,7 +511,10 @@ function FinanceNavigateSectionCard({ section }: { section: NavSection }) {
   const t = useTranslations('finance');
   const locale = useLocale();
   return (
-    <div>
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5">
+      <div
+        className={`pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${section.accent}`}
+      />
       <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">
         {t(section.titleKey)}
       </h3>
@@ -533,9 +542,9 @@ function FinanceNavigateSectionCard({ section }: { section: NavSection }) {
 export function FinanceNavigate() {
   const t = useTranslations('finance');
   return (
-    <div className="rounded-2xl border border-border bg-surface-secondary/30 p-5">
+    <div>
       <h2 className="mb-5 text-base font-semibold text-text-primary">{t('financeModules')}</h2>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {NAV_SECTIONS.map((section) => (
           <FinanceNavigateSectionCard key={section.titleKey} section={section} />
         ))}

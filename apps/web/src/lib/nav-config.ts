@@ -455,27 +455,10 @@ export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
   ],
   // Operations intentionally has no sub-strip — the /operations dashboard
   // page is the navigation surface for this hub (six cards → six sub-pages).
-  // FIN-010: Finance sub-strip added so module navigation matches the rest
-  // of the shell and the admin spec (admin_view/finance-e2e-spec.md §5.2).
-  finance: [
-    { labelKey: 'nav.financeDashboard', href: '/finance' },
-    { labelKey: 'nav.invoices', href: '/finance/invoices' },
-    { labelKey: 'nav.payments', href: '/finance/payments' },
-    { labelKey: 'nav.refunds', href: '/finance/refunds' },
-    { labelKey: 'nav.creditNotes', href: '/finance/credit-notes' },
-    { labelKey: 'nav.discounts', href: '/finance/discounts' },
-    { labelKey: 'nav.scholarships', href: '/finance/scholarships' },
-    { labelKey: 'nav.paymentPlans', href: '/finance/payment-plans' },
-    { labelKey: 'nav.feeStructures', href: '/finance/fee-structures', overflow: true },
-    { labelKey: 'nav.feeAssignments', href: '/finance/fee-assignments', overflow: true },
-    { labelKey: 'nav.feeTypes', href: '/finance/fee-types', overflow: true },
-    { labelKey: 'nav.feeGeneration', href: '/finance/fee-generation', overflow: true },
-    { labelKey: 'nav.financeOverview', href: '/finance/overview', overflow: true },
-    { labelKey: 'nav.statements', href: '/finance/statements', overflow: true },
-    { labelKey: 'nav.debtBreakdown', href: '/finance/debt-breakdown', overflow: true },
-    { labelKey: 'nav.financeReports', href: '/finance/reports', overflow: true },
-    { labelKey: 'nav.auditTrail', href: '/finance/audit-trail', overflow: true },
-  ],
+  // Finance intentionally has no sub-strip — the /finance dashboard
+  // is the navigation surface for this hub (KPI cards, quick actions,
+  // and categorised module tiles all live on the dashboard itself).
+  finance: [],
   reports: [],
   // The communications hub intentionally has no sub-strip tabs — the
   // `/communications` dashboard is the entire hub navigation. All inbox
