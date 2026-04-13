@@ -127,13 +127,13 @@ export default function ApprovalQueuePage() {
 
   // ── Tab state (synced with URL ?tab=config|unlocks) ─────────────────────
 
-  const initialTab = (searchParams.get('tab') === 'unlocks' ? 'unlocks' : 'config') as TabKey;
+  const initialTab = (searchParams?.get('tab') === 'unlocks' ? 'unlocks' : 'config') as TabKey;
   const [activeTab, setActiveTab] = React.useState<TabKey>(initialTab);
 
   const handleTabChange = React.useCallback(
     (tab: TabKey) => {
       setActiveTab(tab);
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(searchParams?.toString() ?? '');
       if (tab === 'config') {
         params.delete('tab');
       } else {
