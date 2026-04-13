@@ -22,7 +22,6 @@ import { ADMIN_ROLES } from '@/lib/route-roles';
 import type { RoleKey } from '@/lib/route-roles';
 import { useAuth } from '@/providers/auth-provider';
 
-import { InlineApprovalQueue } from './_components/inline-approval-queue';
 import { LeadershipDashboard } from './_components/leadership-dashboard';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -754,9 +753,6 @@ function TeacherAssessmentsDashboard() {
 
       {/* ── My Config Status (teacher view) ──────────────────────────────── */}
       <MyConfigStatus t={t} />
-
-      {/* ── Approval Queue (leadership only) ───────────────────────────────── */}
-      <InlineApprovalQueue />
     </div>
   );
 }
