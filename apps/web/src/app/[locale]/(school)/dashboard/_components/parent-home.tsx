@@ -128,7 +128,7 @@ export function ParentHome({ schoolName }: { schoolName: string }) {
     {
       icon: FileText,
       label: t('parentDashboard.quickActions.viewGrades'),
-      href: '/learning/reports',
+      href: '/dashboard/parent?tab=grades',
     },
     {
       icon: Phone,

@@ -10,6 +10,7 @@ import {
   GraduationCap,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -82,9 +83,14 @@ export default function ParentDashboardPage() {
   const tStudents = useTranslations('students');
   const tCommon = useTranslations('common');
   const locale = useLocale();
+  const searchParams = useSearchParams();
+  const initialTab = ((): ParentTab => {
+    const v = searchParams?.get('tab');
+    return v === 'grades' || v === 'timetable' || v === 'finances' ? v : 'overview';
+  })();
   const [data, setData] = useState<ParentDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<ParentTab>('overview');
+  const [activeTab, setActiveTab] = useState<ParentTab>(initialTab);
   const [hwToday, setHwToday] = useState<
     Array<{
       student: { id: string; first_name: string; last_name: string };
