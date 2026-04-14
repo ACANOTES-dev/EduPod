@@ -217,6 +217,18 @@ export class SchedulingRunsService {
     run: Record<string, unknown>,
   ): Promise<{
     entries: Array<Record<string, unknown>>;
+    period_grids: Record<
+      string,
+      Array<{
+        weekday: number;
+        period_order: number;
+        start_time: string;
+        end_time: string;
+        period_type: string;
+        supervision_mode: string | null;
+      }>
+    >;
+    class_to_year_group: Record<string, string>;
     constraint_report: {
       hard_violations: number;
       preference_satisfaction_pct: number;
@@ -232,17 +244,42 @@ export class SchedulingRunsService {
 
     const snapshot = (run['config_snapshot'] ?? {}) as Record<string, unknown>;
     const classMap = new Map<string, string>();
+    const classToYearGroup: Record<string, string> = {};
+    const periodGrids: Record<
+      string,
+      Array<{
+        weekday: number;
+        period_order: number;
+        start_time: string;
+        end_time: string;
+        period_type: string;
+        supervision_mode: string | null;
+      }>
+    > = {};
     const yearGroups = Array.isArray(snapshot['year_groups'])
       ? (snapshot['year_groups'] as Array<Record<string, unknown>>)
       : [];
     for (const yg of yearGroups) {
+      const ygId = typeof yg['year_group_id'] === 'string' ? yg['year_group_id'] : null;
       const sections = Array.isArray(yg['sections'])
         ? (yg['sections'] as Array<Record<string, unknown>>)
         : [];
       for (const s of sections) {
         if (typeof s['class_id'] === 'string' && typeof s['class_name'] === 'string') {
           classMap.set(s['class_id'], s['class_name']);
+          if (ygId) classToYearGroup[s['class_id']] = ygId;
         }
+      }
+      if (ygId && Array.isArray(yg['period_grid'])) {
+        periodGrids[ygId] = (yg['period_grid'] as Array<Record<string, unknown>>).map((p) => ({
+          weekday: Number(p['weekday'] ?? 0),
+          period_order: Number(p['period_order'] ?? 0),
+          start_time: typeof p['start_time'] === 'string' ? p['start_time'] : '',
+          end_time: typeof p['end_time'] === 'string' ? p['end_time'] : '',
+          period_type: typeof p['period_type'] === 'string' ? p['period_type'] : 'teaching',
+          supervision_mode:
+            typeof p['supervision_mode'] === 'string' ? p['supervision_mode'] : null,
+        }));
       }
     }
 
@@ -314,6 +351,8 @@ export class SchedulingRunsService {
 
     return {
       entries,
+      period_grids: periodGrids,
+      class_to_year_group: classToYearGroup,
       constraint_report: {
         hard_violations: Number(run['hard_constraint_violations'] ?? 0),
         preference_satisfaction_pct: preferenceSatisfactionPct,

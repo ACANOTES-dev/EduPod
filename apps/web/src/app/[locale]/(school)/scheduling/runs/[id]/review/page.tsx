@@ -60,12 +60,23 @@ interface ConstraintReport {
   workload_summary: { teacher: string; periods: number }[];
 }
 
+interface PeriodSlot {
+  weekday: number;
+  period_order: number;
+  start_time: string;
+  end_time: string;
+  period_type: 'teaching' | 'break_supervision' | 'lunch_duty' | 'assembly' | 'free';
+  supervision_mode: string | null;
+}
+
 interface RunReview {
   id: string;
   status: string;
   mode: string;
   updated_at: string;
   entries: ReviewEntry[];
+  period_grids: Record<string, PeriodSlot[]>;
+  class_to_year_group: Record<string, string>;
   constraint_report: ConstraintReport;
 }
 
@@ -455,7 +466,7 @@ interface ClassTimetableProps {
   className: string;
   entries: ReviewEntry[];
   weekdays: number[];
-  periodOrders: number[];
+  periodSlots: PeriodSlot[];
   readOnly: boolean;
   dragPayload: DragPayload | null;
   hoverCell: { class_id: string; weekday: number; period_order: number } | null;
@@ -466,12 +477,27 @@ interface ClassTimetableProps {
   onDrop: (target: { class_id: string; weekday: number; period_order: number }) => void;
 }
 
+function periodTypeLabel(type: PeriodSlot['period_type']): string {
+  switch (type) {
+    case 'break_supervision':
+      return 'Break';
+    case 'lunch_duty':
+      return 'Lunch';
+    case 'assembly':
+      return 'Assembly';
+    case 'free':
+      return 'Free';
+    default:
+      return '';
+  }
+}
+
 function ClassTimetable({
   classId,
   className,
   entries,
   weekdays,
-  periodOrders,
+  periodSlots,
   readOnly,
   dragPayload,
   hoverCell,
@@ -488,6 +514,46 @@ function ClassTimetable({
     }
     return map;
   }, [entries]);
+
+  // For each (weekday, period_order) resolve the period slot metadata (type + time)
+  const slotByCell = React.useMemo(() => {
+    const map = new Map<string, PeriodSlot>();
+    for (const s of periodSlots) {
+      map.set(`${s.weekday}:${s.period_order}`, s);
+    }
+    return map;
+  }, [periodSlots]);
+
+  // Union of period orders present anywhere in the grid (rows). Break/lunch rows
+  // at a given order sort naturally among teaching rows by period_order.
+  const periodOrders = React.useMemo(() => {
+    const set = new Set<number>();
+    for (const s of periodSlots) set.add(s.period_order);
+    const list = [...set];
+    return list.sort((a, b) => a - b);
+  }, [periodSlots]);
+
+  // Representative slot per period_order used for the row label + time range.
+  // If a row mixes types across days (rare), the representative prefers the
+  // most common non-teaching type so the label carries meaning.
+  const rowLabelByPeriod = React.useMemo(() => {
+    const out = new Map<number, { label: string; start: string; end: string; isBreak: boolean }>();
+    for (const po of periodOrders) {
+      const slots = periodSlots.filter((s) => s.period_order === po);
+      const firstBreakish = slots.find(
+        (s) => s.period_type === 'break_supervision' || s.period_type === 'lunch_duty',
+      );
+      const rep = firstBreakish ?? slots[0];
+      if (!rep) continue;
+      out.set(po, {
+        label: `P${po}`,
+        start: rep.start_time,
+        end: rep.end_time,
+        isBreak: rep.period_type !== 'teaching',
+      });
+    }
+    return out;
+  }, [periodOrders, periodSlots]);
 
   return (
     <div className="space-y-2">
@@ -517,120 +583,159 @@ function ClassTimetable({
             </tr>
           </thead>
           <tbody>
-            {periodOrders.map((period) => (
-              <tr key={period} className="border-b border-border last:border-b-0">
-                <td className="px-3 py-2 text-xs font-mono text-text-tertiary align-top">
-                  P{period}
-                </td>
-                {weekdays.map((day) => {
-                  const entry = entryByCell.get(`${day}:${period}`);
-                  const isHoverTarget =
-                    hoverCell?.class_id === classId &&
-                    hoverCell?.weekday === day &&
-                    hoverCell?.period_order === period;
-                  const isDraggedSource =
-                    dragPayload?.type === 'entry' && dragPayload.entry_id === entry?.id;
+            {periodOrders.map((period) => {
+              const rowMeta = rowLabelByPeriod.get(period);
+              return (
+                <tr key={period} className="border-b border-border last:border-b-0">
+                  <td className="px-3 py-2 text-xs font-mono text-text-tertiary align-top whitespace-nowrap">
+                    <div>{rowMeta?.label ?? `P${period}`}</div>
+                    {rowMeta?.start && rowMeta?.end && (
+                      <div className="font-mono text-[10px] text-text-tertiary/80 mt-0.5">
+                        {rowMeta.start}–{rowMeta.end}
+                      </div>
+                    )}
+                  </td>
+                  {weekdays.map((day) => {
+                    const entry = entryByCell.get(`${day}:${period}`);
+                    const slot = slotByCell.get(`${day}:${period}`);
+                    const isNonTeaching =
+                      slot != null &&
+                      (slot.period_type === 'break_supervision' ||
+                        slot.period_type === 'lunch_duty' ||
+                        slot.period_type === 'assembly' ||
+                        slot.period_type === 'free');
+                    const isHoverTarget =
+                      hoverCell?.class_id === classId &&
+                      hoverCell?.weekday === day &&
+                      hoverCell?.period_order === period;
+                    const isDraggedSource =
+                      dragPayload?.type === 'entry' && dragPayload.entry_id === entry?.id;
 
-                  if (entry) {
+                    if (isNonTeaching && !entry) {
+                      const label = periodTypeLabel(slot.period_type);
+                      return (
+                        <td key={day} className="px-2 py-1.5 align-top">
+                          <div
+                            className={`h-12 rounded-lg border border-dashed flex flex-col items-center justify-center text-[11px] font-semibold uppercase tracking-wide ${
+                              slot.period_type === 'lunch_duty'
+                                ? 'border-amber-300/80 dark:border-amber-700/60 bg-amber-100/60 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300'
+                                : 'border-slate-300/80 dark:border-slate-600/60 bg-slate-100/70 dark:bg-slate-800/30 text-slate-600 dark:text-slate-300'
+                            }`}
+                          >
+                            <span>{label}</span>
+                            {slot.start_time && slot.end_time && (
+                              <span className="font-mono text-[10px] font-normal opacity-75">
+                                {slot.start_time}–{slot.end_time}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      );
+                    }
+
+                    if (entry) {
+                      return (
+                        <td key={day} className="px-2 py-1.5 align-top">
+                          <div
+                            draggable={!readOnly && !entry.is_pinned}
+                            onDragStart={() =>
+                              onDragStart({
+                                type: 'entry',
+                                entry_id: entry.id,
+                                class_id: entry.class_id,
+                                weekday: entry.weekday,
+                                period_order: entry.period_order,
+                              })
+                            }
+                            onDragOver={(e) => {
+                              if (readOnly) return;
+                              e.preventDefault();
+                              onDragOver(classId, day, period);
+                            }}
+                            onDragLeave={() => onDragOver('', -1, -1)}
+                            onDragEnd={onDragEnd}
+                            onDrop={(e) => {
+                              if (readOnly) return;
+                              e.preventDefault();
+                              onDrop({ class_id: classId, weekday: day, period_order: period });
+                            }}
+                            className={`relative rounded-lg px-2.5 py-1.5 text-xs transition-all ${
+                              entry.is_pinned
+                                ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-600'
+                                : 'bg-blue-50 dark:bg-blue-900/20 border border-dashed border-blue-300 dark:border-blue-600'
+                            } ${isDraggedSource ? 'opacity-40' : ''} ${
+                              isHoverTarget ? 'ring-2 ring-brand shadow-sm' : ''
+                            } ${!readOnly && !entry.is_pinned ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                          >
+                            {entry.subject_name && (
+                              <div className="font-medium text-text-primary pe-6 truncate">
+                                {entry.subject_name}
+                              </div>
+                            )}
+                            {entry.teacher_name && (
+                              <div className="text-text-secondary truncate">
+                                {entry.teacher_name}
+                              </div>
+                            )}
+                            {entry.room_name && (
+                              <div className="text-text-tertiary truncate">{entry.room_name}</div>
+                            )}
+                            {(entry.start_time || entry.end_time) && (
+                              <div className="font-mono text-[10px] text-text-tertiary mt-0.5 truncate">
+                                {entry.start_time}
+                                {entry.start_time && entry.end_time ? '–' : ''}
+                                {entry.end_time}
+                              </div>
+                            )}
+                            <div
+                              className="absolute top-1 end-1 flex items-center gap-0.5"
+                              onClick={(e) => e.stopPropagation()}
+                              onDragStart={(e) => e.stopPropagation()}
+                            >
+                              {entry.is_pinned && <Pin className="h-2.5 w-2.5 text-amber-500" />}
+                              {!readOnly && !entry.is_pinned && (
+                                <GripVertical className="h-3 w-3 text-text-tertiary opacity-60" />
+                              )}
+                              <PinToggle
+                                scheduleId={entry.id}
+                                isPinned={entry.is_pinned}
+                                onToggle={(pinned) => onPinToggle(entry.id, pinned)}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                      );
+                    }
+
+                    // Empty cell — red-orange shading + drop target
                     return (
                       <td key={day} className="px-2 py-1.5 align-top">
                         <div
-                          draggable={!readOnly && !entry.is_pinned}
-                          onDragStart={() =>
-                            onDragStart({
-                              type: 'entry',
-                              entry_id: entry.id,
-                              class_id: entry.class_id,
-                              weekday: entry.weekday,
-                              period_order: entry.period_order,
-                            })
-                          }
                           onDragOver={(e) => {
                             if (readOnly) return;
                             e.preventDefault();
                             onDragOver(classId, day, period);
                           }}
                           onDragLeave={() => onDragOver('', -1, -1)}
-                          onDragEnd={onDragEnd}
                           onDrop={(e) => {
                             if (readOnly) return;
                             e.preventDefault();
                             onDrop({ class_id: classId, weekday: day, period_order: period });
                           }}
-                          className={`relative rounded-lg px-2.5 py-1.5 text-xs transition-all ${
-                            entry.is_pinned
-                              ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-600'
-                              : 'bg-blue-50 dark:bg-blue-900/20 border border-dashed border-blue-300 dark:border-blue-600'
-                          } ${isDraggedSource ? 'opacity-40' : ''} ${
-                            isHoverTarget ? 'ring-2 ring-brand shadow-sm' : ''
-                          } ${!readOnly && !entry.is_pinned ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                          className={`h-12 rounded-lg border border-dashed transition-colors flex items-center justify-center text-[10px] font-medium ${
+                            isHoverTarget
+                              ? 'border-brand bg-brand/10 text-brand ring-2 ring-brand/40'
+                              : 'border-orange-300 dark:border-orange-700/50 bg-orange-100/80 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300'
+                          }`}
                         >
-                          {entry.subject_name && (
-                            <div className="font-medium text-text-primary pe-6 truncate">
-                              {entry.subject_name}
-                            </div>
-                          )}
-                          {entry.teacher_name && (
-                            <div className="text-text-secondary truncate">{entry.teacher_name}</div>
-                          )}
-                          {entry.room_name && (
-                            <div className="text-text-tertiary truncate">{entry.room_name}</div>
-                          )}
-                          {(entry.start_time || entry.end_time) && (
-                            <div className="font-mono text-[10px] text-text-tertiary mt-0.5 truncate">
-                              {entry.start_time}
-                              {entry.start_time && entry.end_time ? '–' : ''}
-                              {entry.end_time}
-                            </div>
-                          )}
-                          <div
-                            className="absolute top-1 end-1 flex items-center gap-0.5"
-                            onClick={(e) => e.stopPropagation()}
-                            onDragStart={(e) => e.stopPropagation()}
-                          >
-                            {entry.is_pinned && <Pin className="h-2.5 w-2.5 text-amber-500" />}
-                            {!readOnly && !entry.is_pinned && (
-                              <GripVertical className="h-3 w-3 text-text-tertiary opacity-60" />
-                            )}
-                            <PinToggle
-                              scheduleId={entry.id}
-                              isPinned={entry.is_pinned}
-                              onToggle={(pinned) => onPinToggle(entry.id, pinned)}
-                            />
-                          </div>
+                          Unplaced
                         </div>
                       </td>
                     );
-                  }
-
-                  // Empty cell — red-orange shading + drop target
-                  return (
-                    <td key={day} className="px-2 py-1.5 align-top">
-                      <div
-                        onDragOver={(e) => {
-                          if (readOnly) return;
-                          e.preventDefault();
-                          onDragOver(classId, day, period);
-                        }}
-                        onDragLeave={() => onDragOver('', -1, -1)}
-                        onDrop={(e) => {
-                          if (readOnly) return;
-                          e.preventDefault();
-                          onDrop({ class_id: classId, weekday: day, period_order: period });
-                        }}
-                        className={`h-12 rounded-lg border border-dashed transition-colors flex items-center justify-center text-[10px] font-medium ${
-                          isHoverTarget
-                            ? 'border-brand bg-brand/10 text-brand ring-2 ring-brand/40'
-                            : 'border-orange-300 dark:border-orange-700/50 bg-orange-100/80 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300'
-                        }`}
-                      >
-                        Unplaced
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -852,21 +957,61 @@ export default function RunReviewPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [entries]);
 
+  const periodGrids = React.useMemo(() => data?.period_grids ?? {}, [data?.period_grids]);
+  const classToYearGroup = React.useMemo(
+    () => data?.class_to_year_group ?? {},
+    [data?.class_to_year_group],
+  );
+
   const weekdays = React.useMemo(() => {
+    // Prefer weekdays from the period grid if available so break/lunch-only days still show
     const set = new Set<number>();
-    for (const e of entries) set.add(e.weekday);
+    for (const grid of Object.values(periodGrids)) {
+      for (const s of grid) set.add(s.weekday);
+    }
+    if (set.size === 0) {
+      for (const e of entries) set.add(e.weekday);
+    }
     const list = [...set];
     if (list.length === 0) return [1, 2, 3, 4, 5];
     return list.sort((a, b) => a - b);
-  }, [entries]);
+  }, [entries, periodGrids]);
 
-  const periodOrders = React.useMemo(() => {
-    const set = new Set<number>();
-    for (const e of entries) set.add(e.period_order);
-    const list = [...set];
-    if (list.length === 0) return [1, 2, 3, 4, 5, 6, 7, 8];
-    return list.sort((a, b) => a - b);
-  }, [entries]);
+  const activeClassIdResolved = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of entries) {
+      if (!map.has(e.class_id)) map.set(e.class_id, e.class_name);
+    }
+    const list = [...map.keys()].sort();
+    return activeClassId || list[0] || '';
+  }, [activeClassId, entries]);
+
+  // Period slots for the active class's year group. Fall back to synthesising
+  // slot metadata from entries if the API response (or config snapshot) doesn't
+  // carry a period grid for this class's year group.
+  const activePeriodSlots: PeriodSlot[] = React.useMemo(() => {
+    if (!activeClassIdResolved) return [];
+    const ygId = classToYearGroup[activeClassIdResolved];
+    const grid = ygId ? periodGrids[ygId] : undefined;
+    if (grid && grid.length > 0) return grid;
+    // Fallback: synthesise teaching slots from entries so the grid renders
+    const synth = new Map<string, PeriodSlot>();
+    for (const e of entries) {
+      if (e.class_id !== activeClassIdResolved) continue;
+      const key = `${e.weekday}:${e.period_order}`;
+      if (!synth.has(key)) {
+        synth.set(key, {
+          weekday: e.weekday,
+          period_order: e.period_order,
+          start_time: e.start_time,
+          end_time: e.end_time,
+          period_type: 'teaching',
+          supervision_mode: null,
+        });
+      }
+    }
+    return [...synth.values()];
+  }, [activeClassIdResolved, entries, classToYearGroup, periodGrids]);
 
   if (loading) {
     return (
@@ -966,7 +1111,7 @@ export default function RunReviewPage() {
               className={activeClass.name}
               entries={activeEntries}
               weekdays={weekdays}
-              periodOrders={periodOrders}
+              periodSlots={activePeriodSlots}
               readOnly={readOnly}
               dragPayload={dragPayload}
               hoverCell={hoverCell}
