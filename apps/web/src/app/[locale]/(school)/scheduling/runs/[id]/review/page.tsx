@@ -576,6 +576,13 @@ function ClassTimetable({
                           {entry.room_name && (
                             <div className="text-text-tertiary truncate">{entry.room_name}</div>
                           )}
+                          {(entry.start_time || entry.end_time) && (
+                            <div className="font-mono text-[10px] text-text-tertiary mt-0.5 truncate">
+                              {entry.start_time}
+                              {entry.start_time && entry.end_time ? '–' : ''}
+                              {entry.end_time}
+                            </div>
+                          )}
                           <div
                             className="absolute top-1 end-1 flex items-center gap-0.5"
                             onClick={(e) => e.stopPropagation()}
