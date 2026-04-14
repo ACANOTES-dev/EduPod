@@ -28,7 +28,7 @@
 | 2   | Solver core updates                      | `complete` | Claude / 2026-04-14  | Commit `d76344bb`; pin/pool model live on prod.              |
 | 3   | API surface updates                      | `complete` | Claude / 2026-04-14  | Commit `477b0076`; competency API + coverage per-class live. |
 | 4   | Competencies page UI rebuild             | `complete` | Claude / 2026-04-14  | Commit `ed5ea305`; competencies + coverage UI live on prod.  |
-| 5   | Seed NHQS data                           | `pending`  | —                    | Blocked by Stage 4                                           |
+| 5   | Seed NHQS data                           | `complete` | Claude / 2026-04-14  | Commit `<pending>`; NHQS seeded + prereq check fixed (C2).   |
 | 6   | Generate end-to-end on NHQS              | `pending`  | —                    | Blocked by Stage 5                                           |
 | 7   | Substitutes page + table                 | `pending`  | —                    | Blocked by Stage 6                                           |
 | 8   | Downstream rewire                        | `pending`  | —                    | Blocked by Stage 7                                           |
@@ -359,7 +359,105 @@ Each stage appends its own entry here when finished. Use this template exactly:
 
 ### Stage 5 — Seed NHQS data
 
-_Pending — will be populated when Stage 5 completes._
+**Completed:** 2026-04-14
+**Local commit(s):** `<pending>` feat(scheduling): seed NHQS curriculum + competencies + availability; fix prereq check for homeroom schools
+**Deployed to production:** yes — 2026-04-14. Data seed applied via a single psql transaction against `school_platformedupod_prod`. Prereq-check code fix rsynced, `@school/api` rebuilt under the `edupod` user, `pm2 restart api` left the process `online` with all routes mapped.
+
+**What was delivered:**
+
+- **Data seed (NHQS tenant `3ba9b02c-0339-49b8-8583-a06e05a32ac5`, AY `0001b90d-25f1-413d-87d5-2da00ab7168d`):**
+  - Wiped the legacy 122 `teacher_competencies` rows and 24 `curriculum_requirements` rows.
+  - Seeded **59 curriculum rows** covering 9 year groups × 3–11 subjects each. Core subjects (Arabic / English / Mathematics) at 5 periods/week; subsidiaries (Biology, History, Geography, Chemistry, Physics, Business, Economics, Accounting) at 3; Senior infants Geography at 4. `max_periods_per_day = 1`, `requires_double_period = false`.
+  - Seeded **162 pool competencies** — every `(year_group, subject)` curriculum cell has 2–4 qualified teachers. Teacher→subject mapping carried forward from the pre-wipe state, extended with Ahmed Hassan on Mathematics (his job_title was already "Mathematics Teacher" with zero competencies). Delegated picks for three subjects that had no prior data: Physics → Daniel Kavanagh, Lucas Kelly, Sophia Ryan; Accounting → Mia Brennan, Amelia Connolly; Economics → James Byrne, Ava Doyle. All rows have `class_id = NULL` (pool entries) — no pins in this stage.
+  - Seeded **155 staff availability rows** — 31 active teachers × 5 weekdays (Mon–Fri), 08:00–16:00. "Test Staff" and "nnbgfdn ngnrtfn" excluded per user direction.
+  - No room closures, teacher configs, preferences, or `class_scheduling_requirements` per stage doc non-goals (except the one noted below).
+
+- **Prereq check fix (Option C2 — the user's decision after a contradiction between Stage 5 non-goals and acceptance criteria):**
+  - `findActiveAcademicClassesWithYearGroup` in `classes-read.facade.ts` was filtering classes by `subject: { subject_type: 'academic' }`. For homeroom-model schools (NHQS, where every class has `subject_id IS NULL` because one class teaches many subjects), this returned zero rows. Widened the filter to `OR: [{ subject_id: null }, { subject: { subject_type: 'academic' } }]`.
+  - `all_classes_configured` check in `scheduling-prerequisites.service.ts` was comparing two counts that both use the broken filter. Rewrote to: (a) fetch active-academic classes via the fixed method, (b) consider a class "configured" if either it has a `class_scheduling_requirements` row **or** its `year_group` has `curriculum_requirements` rows for this AY. Reason: the solver reads `curriculum_requirements`, not `class_scheduling_requirements`; the latter is only needed by subject-class schools or for per-class overrides. This correctly handles both school models without forcing homeroom schools to seed redundant data.
+  - New facade helper `findClassIdsWithSchedulingRequirements` on `SchedulingReadFacade`.
+  - The Stage 2 `every_class_subject_has_teacher` check also consumed the broken method; with this fix it now iterates all 16 NHQS classes (previously iterated zero, vacuously passing).
+
+**Files changed (high level):**
+
+- Data: `scheduler/stage-5-nhqs-seed.sql` (the exact SQL executed in prod, checked in alongside this log).
+- Code:
+  - `apps/api/src/modules/classes/classes-read.facade.ts` — widened `findActiveAcademicClassesWithYearGroup` filter.
+  - `apps/api/src/modules/scheduling/scheduling-read.facade.ts` — added `findClassIdsWithSchedulingRequirements`.
+  - `apps/api/src/modules/scheduling-runs/scheduling-prerequisites.service.ts` — rewrote `all_classes_configured` to use the new dual-path logic.
+  - `apps/api/src/modules/scheduling-runs/scheduling-prerequisites.service.spec.ts` — updated defaults + existing tests; added one new happy-path case covering the "configured via explicit class_scheduling_requirements rows" path.
+
+**Migrations / schema changes:** none.
+
+**Tests added / updated:**
+
+- unit (api scheduling-runs): `scheduling-prerequisites.service.spec.ts` — 19 tests (was 18), all green. New test covers the subject-class-school path via `findClassIdsWithSchedulingRequirements`. Existing tests retained with refreshed fixtures; defaults now provide a minimum passing shape for `all_classes_configured` so tests targeting other checks don't need to mock it.
+- unit (api scheduling suite): full 34 suites / 678 tests / 1 skipped — green.
+- Playwright: run against `https://nhqs.edupod.app` as `Yusuf Rahman (School Owner)`.
+  1. `GET /api/v1/scheduling-runs/prerequisites?academic_year_id=<0001b90d>` → HTTP 200 with `ready: true` and all six checks `passed: true`. Full response payload pasted into this entry under "Verification evidence".
+  2. `/en/scheduling/competencies` → 1st class "All (pool)" tab shows **17 pre-ticked cells** — matches the seed exactly: Arabic 2 + English 3 + Mathematics 4 + Biology 3 + History 3 + Geography 2.
+  3. `/en/scheduling/competency-coverage` → 85 pool + 24 missing cells (see surprises below — legacy class_subject_grade_configs quirk, not a seed gap).
+  4. `/en/scheduling/auto` → API returns ready=true but the page fails to render the checklist (pre-existing UI bug unrelated to Stage 5; see follow-ups). The solver will not be affected.
+- coverage delta: not measured; thresholds untouched.
+
+**Verification evidence:**
+
+- Pre-seed snapshot (inside the seed transaction, logged): `teacher_competencies=122, curriculum_requirements=24, staff_availability=0`.
+- Post-seed (before COMMIT, logged): `teacher_competencies=162, curriculum_requirements=59, staff_availability=155`.
+- DO-block assertion: `NOTICE: Stage 5 seed verified: 59 curriculum, 162 competencies, 155 availability, 0 uncovered.` → `COMMIT` executed.
+- Per-year-group curriculum count matches the plan exactly: KG=3, JI=3, SI=4, 1st=6, 2nd=6, 3rd=7, 4th=9, 5th=10, 6th=11 (sum 59).
+- Pool depth per (year_group, subject): 2–4 teachers per cell, every cell covered (the "0 uncovered" query in the transaction returned zero rows).
+- Prereqs endpoint final response:
+  ```json
+  {
+    "ready": true,
+    "checks": [
+      { "key": "period_grid_exists", "passed": true, "message": "269 teaching periods configured" },
+      {
+        "key": "all_classes_configured",
+        "passed": true,
+        "message": "All 16 classes have scheduling requirements"
+      },
+      {
+        "key": "all_classes_have_teachers",
+        "passed": true,
+        "message": "All classes have assigned teachers"
+      },
+      {
+        "key": "every_class_subject_has_teacher",
+        "passed": true,
+        "message": "Every class and subject combination has at least one pinned or pool teacher"
+      },
+      { "key": "no_pinned_conflicts", "passed": true, "message": "No pinned entry conflicts" },
+      {
+        "key": "no_pinned_availability_violations",
+        "passed": true,
+        "message": "All pinned entries within teacher availability"
+      }
+    ]
+  }
+  ```
+
+**Surprises / decisions / deviations from the plan:**
+
+- **The stage spec contradicts itself.** Non-goal #1 said "do not seed `class_scheduling_requirements`", but the acceptance criterion said "prereqs must return `ready: true`" — and the `all_classes_configured` check required exactly that table for subject-class schools. User was presented with three options (A seed anyway / B accept 5/6 / C fix the check) and chose C, then refined to C2 (fix the filter **and** widen the "configured" definition). Kept the non-goal intact; zero class_scheduling_requirements rows on NHQS.
+- **Stage 2 was vacuously passing `every_class_subject_has_teacher`** because its class-list query also used the broken `subject_type='academic'` filter. The filter fix here fixed that silent gap too; the check now correctly iterates all 16 NHQS classes and still passes (because every `(class, subject)` in the curriculum has pool teachers).
+- **Teacher availability schema uses `available_from`/`available_to`**, not `start_time`/`end_time` as the stage template suggested, and requires `academic_year_id`. Template adjusted.
+- **Weekday convention** verified as `1..5` for Mon–Fri (matches the `schedule_period_templates` data on the same tenant).
+- **First seed attempt** failed on `column "class_id" is of type uuid but expression is of type text` — `NULL` inside an `INSERT ... SELECT` needs `NULL::uuid` because the literal's type isn't inferable from the target column in that shape. Fixed and rerun cleanly.
+- **Staff filter:** `role_key='teacher'` joined through `tenant_memberships → membership_roles → roles` returned 33 teachers; user excluded "Test Staff" and "nnbgfdn ngnrtfn" → 31 active teachers.
+- **Prereq endpoint needed user+membership session vars** because of a `membership_roles_self_access` RLS policy. Added `SET LOCAL app.current_user_id` / `app.current_membership_id` with zero UUIDs inside the transaction just to satisfy the read-side policy for the joined subquery. Does not write any real session data.
+- **`/en/scheduling/competencies` shows two extra "Needs a teacher" red chips** (Business, Chemistry on 1st class). Root cause: the `matrix-subjects` UI endpoint sources subject list from `class_subject_grade_configs` (a gradebook concern) rather than `curriculum_requirements`. Those configs still reference subjects not present in our scheduling curriculum, so the pool tab renders extra red-chipped columns. Does not affect the solver or the prereq check — both read `curriculum_requirements`. Filed as follow-up.
+- **Coverage page shows 85 pool + 24 missing.** Same root cause as above — the `getCoverage` service builds rows from `findClassSubjectConfigs` (gradebook), not the scheduling curriculum. The 24 "missing" cells are all (class, subject) pairs from the gradebook configs that aren't in the scheduling curriculum. The actual scheduling-coverage is 100%, verified by the prereq check. Follow-up.
+- **`/en/scheduling/auto` UI doesn't render the prereq checklist.** The page reads `prerequisites.checks` but NestJS wraps responses in `{data: {...}}` at the HTTP boundary — the apiClient does not unwrap, so `prerequisites.checks` is always `undefined` and the "Generate Timetable" button stays disabled. Pre-existing bug, surfaces now because Stage 5 is the first time the endpoint returns `ready: true` on NHQS. Unrelated to the seed or the filter fix. Flagged as a blocker for Stage 6 (see follow-ups — Stage 6 must either call the endpoint itself or patch this page first).
+
+**Known follow-ups / debt created:**
+
+- `apps/web/src/app/[locale]/(school)/scheduling/auto/page.tsx` — fix `apiClient` call to unwrap `{data}` for the prereqs response (or change the page's type to `{ data: PrerequisitesResponse }` and read `prerequisites.data.ready`). **This is a Stage 6 blocker** — the auto page is the UI surface for Stage 6's smoke test.
+- The `matrix-subjects` endpoint (used by the competencies pool tab) and `getCoverage` (used by the coverage page) both source their subject set from `class_subject_grade_configs`. For homeroom-model tenants this leaks gradebook-era subject assignments into the scheduler UI. A future cleanup stage should either rebase both on `curriculum_requirements` or expose a `source=scheduling|gradebook` toggle.
+- Widening `findActiveAcademicClassesWithYearGroup` to include homeroom classes was a focused one-call change. A broader audit of other places that filter by `subject: { subject_type: 'academic' }` should happen if more similar bugs surface — this pattern appears in at least `countByAcademicYear` and `countClassRequirements` (both dead now in the prereq check but still exported, so still usable footguns).
+- The `teacher_competencies` unique index still uses default NULL-distinct semantics (documented across Stages 2–4); pool-row dedup is still enforced at the application layer.
+- No integration e2e file for this seed yet; Stage 6's generation run will exercise the full data shape end-to-end and serve as the de facto smoke.
 
 ### Stage 6 — Generate end-to-end on NHQS
 
@@ -384,3 +482,4 @@ Keep a short chronological record of significant orchestration events (not per-s
 - **Stage 2 completed** — 2026-04-14. Solver + prereq service now understand the pin/pool model; `is_primary` scoring removed from the solver. Deployed to prod; api and worker restarted clean. Stage 3 (API surface updates) is now unblocked.
 - **Stage 3 completed** — 2026-04-14. Teacher-competencies API reshaped around `class_id`; `GET /coverage` now returns per-class rows with pinned/pool/missing mode and eligible teacher counts. Deployed to prod. Stage 4 (competencies UI rebuild) is now unblocked.
 - **Stage 4 completed** — 2026-04-14. Competencies page rebuilt around the year-group + class pin/pool model; per-class coverage grid live. Deployed to prod. Stage 5 (seed NHQS data) is now unblocked.
+- **Stage 5 completed** — 2026-04-14. NHQS seeded (59 curriculum, 162 pool competencies, 155 staff availability rows). Prereq check patched (Option C2) to handle homeroom-model schools without seeding redundant `class_scheduling_requirements`. Prereqs endpoint returns `ready: true` on prod. Stage 6 (generate end-to-end) is now unblocked — note the auto-page UI bug documented in Stage 5's follow-ups.

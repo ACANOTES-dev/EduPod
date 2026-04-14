@@ -20,6 +20,7 @@ describe('SchedulingPrerequisitesService', () => {
   const mockSchedulingReadFacade = {
     countTeachingPeriods: jest.fn().mockResolvedValue(0),
     countClassRequirements: jest.fn().mockResolvedValue(0),
+    findClassIdsWithSchedulingRequirements: jest.fn().mockResolvedValue([]),
     findCurriculumForCoverageCheck: jest.fn().mockResolvedValue([]),
     findCompetencyPinsAndPool: jest.fn().mockResolvedValue([]),
   };
@@ -58,11 +59,20 @@ describe('SchedulingPrerequisitesService', () => {
     jest.clearAllMocks();
     mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(0);
     mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(0);
-    mockSchedulingReadFacade.findCurriculumForCoverageCheck.mockResolvedValue([]);
-    mockSchedulingReadFacade.findCompetencyPinsAndPool.mockResolvedValue([]);
+    mockSchedulingReadFacade.findClassIdsWithSchedulingRequirements.mockResolvedValue([]);
+    // Default: one class whose year_group has curriculum → all_classes_configured
+    // passes by default so tests focused on other checks don't need to set it up.
+    mockSchedulingReadFacade.findCurriculumForCoverageCheck.mockResolvedValue([
+      { subject_id: 'sub-default', year_group_id: 'yg-default', subject_name: 'Default' },
+    ]);
+    mockSchedulingReadFacade.findCompetencyPinsAndPool.mockResolvedValue([
+      { subject_id: 'sub-default', year_group_id: 'yg-default', class_id: null },
+    ]);
     mockClassesReadFacade.countByAcademicYear.mockResolvedValue(0);
     mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
-    mockClassesReadFacade.findActiveAcademicClassesWithYearGroup.mockResolvedValue([]);
+    mockClassesReadFacade.findActiveAcademicClassesWithYearGroup.mockResolvedValue([
+      { id: 'cls-default', name: 'Default Class', year_group_id: 'yg-default' },
+    ]);
     mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
     mockStaffAvailabilityReadFacade.findByStaffIds.mockResolvedValue([]);
   });
@@ -73,14 +83,19 @@ describe('SchedulingPrerequisitesService', () => {
 
   describe('check (all pass)', () => {
     it('should return ready:true when all prerequisites are satisfied', async () => {
-      // Period grid exists
       mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
-      // All classes have requirements
-      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
-      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
-      // All classes have teachers
+      mockClassesReadFacade.findActiveAcademicClassesWithYearGroup.mockResolvedValue([
+        { id: 'cls-1', name: '1A', year_group_id: 'yg-1' },
+        { id: 'cls-2', name: '1B', year_group_id: 'yg-1' },
+      ]);
+      // Both classes' year_group has curriculum → configured via path (b).
+      mockSchedulingReadFacade.findCurriculumForCoverageCheck.mockResolvedValue([
+        { subject_id: 'sub-eng', year_group_id: 'yg-1', subject_name: 'English' },
+      ]);
+      mockSchedulingReadFacade.findCompetencyPinsAndPool.mockResolvedValue([
+        { subject_id: 'sub-eng', year_group_id: 'yg-1', class_id: null },
+      ]);
       mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
-      // No pinned entries (so no conflicts)
       mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
 
       const result = await service.check(TENANT_ID, AY_ID);
@@ -89,6 +104,24 @@ describe('SchedulingPrerequisitesService', () => {
       expect(result.checks).toHaveLength(6);
       expect(result.checks.every((c) => c.passed)).toBe(true);
     });
+
+    it('should pass all_classes_configured via explicit class_scheduling_requirements rows', async () => {
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.findActiveAcademicClassesWithYearGroup.mockResolvedValue([
+        { id: 'cls-1', name: 'Math 1A', year_group_id: 'yg-1' },
+      ]);
+      // No curriculum, but an explicit per-class requirement — path (a).
+      mockSchedulingReadFacade.findClassIdsWithSchedulingRequirements.mockResolvedValue(['cls-1']);
+      mockSchedulingReadFacade.findCurriculumForCoverageCheck.mockResolvedValue([]);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
+
+      const result = await service.check(TENANT_ID, AY_ID);
+
+      const configCheck = result.checks.find((c) => c.key === 'all_classes_configured');
+      expect(configCheck?.passed).toBe(true);
+      expect(configCheck?.message).toContain('All 1 classes');
+    });
   });
 
   // ─── Missing period grid ──────────────────────────────────────────────────
@@ -96,8 +129,15 @@ describe('SchedulingPrerequisitesService', () => {
   describe('check (missing period grid)', () => {
     it('should fail when no teaching periods are configured', async () => {
       mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(0);
-      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
-      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findActiveAcademicClassesWithYearGroup.mockResolvedValue([
+        { id: 'cls-1', name: '1A', year_group_id: 'yg-1' },
+      ]);
+      mockSchedulingReadFacade.findCurriculumForCoverageCheck.mockResolvedValue([
+        { subject_id: 'sub-eng', year_group_id: 'yg-1', subject_name: 'English' },
+      ]);
+      mockSchedulingReadFacade.findCompetencyPinsAndPool.mockResolvedValue([
+        { subject_id: 'sub-eng', year_group_id: 'yg-1', class_id: null },
+      ]);
       mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
       mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
 
@@ -115,8 +155,15 @@ describe('SchedulingPrerequisitesService', () => {
   describe('check (missing teachers)', () => {
     it('should fail when classes have no assigned teachers', async () => {
       mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
-      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
-      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findActiveAcademicClassesWithYearGroup.mockResolvedValue([
+        { id: 'cls-1', name: '1A', year_group_id: 'yg-1' },
+      ]);
+      mockSchedulingReadFacade.findCurriculumForCoverageCheck.mockResolvedValue([
+        { subject_id: 'sub-eng', year_group_id: 'yg-1', subject_name: 'English' },
+      ]);
+      mockSchedulingReadFacade.findCompetencyPinsAndPool.mockResolvedValue([
+        { subject_id: 'sub-eng', year_group_id: 'yg-1', class_id: null },
+      ]);
       // 2 classes without teachers
       mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([
         { id: 'cls-1', name: 'Math 1A' },
@@ -136,10 +183,22 @@ describe('SchedulingPrerequisitesService', () => {
   // ─── Unconfigured classes ──────────────────────────────────────────────────
 
   describe('check (unconfigured classes)', () => {
-    it('should fail when classes are missing scheduling requirements', async () => {
+    it('should fail when classes are missing both scheduling requirements and curriculum', async () => {
       mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
-      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
-      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(3);
+      mockClassesReadFacade.findActiveAcademicClassesWithYearGroup.mockResolvedValue([
+        { id: 'cls-1', name: '1A', year_group_id: 'yg-1' },
+        { id: 'cls-2', name: '1B', year_group_id: 'yg-1' },
+        { id: 'cls-3', name: '2A', year_group_id: 'yg-2' },
+        { id: 'cls-4', name: '2B', year_group_id: 'yg-2' },
+        { id: 'cls-5', name: '3A', year_group_id: 'yg-3' },
+      ]);
+      // yg-1 has curriculum → 1A and 1B configured.
+      // cls-5 has an explicit requirement → 3A configured.
+      // yg-2 has no curriculum, 2A/2B have no explicit requirement → unconfigured.
+      mockSchedulingReadFacade.findCurriculumForCoverageCheck.mockResolvedValue([
+        { subject_id: 'sub-eng', year_group_id: 'yg-1', subject_name: 'English' },
+      ]);
+      mockSchedulingReadFacade.findClassIdsWithSchedulingRequirements.mockResolvedValue(['cls-5']);
       mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
       mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
 
@@ -149,6 +208,12 @@ describe('SchedulingPrerequisitesService', () => {
       const configCheck = result.checks.find((c) => c.key === 'all_classes_configured');
       expect(configCheck?.passed).toBe(false);
       expect(configCheck?.message).toContain('2 of 5');
+      expect(configCheck?.details).toEqual({
+        unconfigured: [
+          { id: 'cls-3', name: '2A' },
+          { id: 'cls-4', name: '2B' },
+        ],
+      });
     });
   });
 
@@ -386,8 +451,9 @@ describe('SchedulingPrerequisitesService', () => {
   describe('check (zero active classes)', () => {
     it('should fail all_classes_configured when there are zero active classes', async () => {
       mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
-      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(0);
-      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(0);
+      mockClassesReadFacade.findActiveAcademicClassesWithYearGroup.mockResolvedValue([]);
+      mockSchedulingReadFacade.findCurriculumForCoverageCheck.mockResolvedValue([]);
+      mockSchedulingReadFacade.findCompetencyPinsAndPool.mockResolvedValue([]);
       mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
       mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
 
@@ -395,6 +461,7 @@ describe('SchedulingPrerequisitesService', () => {
 
       const configCheck = result.checks.find((c) => c.key === 'all_classes_configured');
       expect(configCheck?.passed).toBe(false);
+      expect(configCheck?.message).toContain('No active academic classes');
     });
   });
 

@@ -38,29 +38,46 @@ export class SchedulingPrerequisitesService {
     });
 
     // ── 2. All active academic classes have scheduling requirements ──────────
+    //
+    // A class counts as "configured" for the solver when either:
+    //   (a) it has an explicit `class_scheduling_requirements` row (used by
+    //       subject-class schools and for per-class overrides), OR
+    //   (b) its year_group has `curriculum_requirements` for this academic
+    //       year (the data the solver actually consumes).
+    // Homeroom-model schools only need (b); legacy subject-class schools
+    // still rely on (a). Either path unblocks the auto-generation UI.
 
-    const activeClassCount = await this.classesReadFacade.countByAcademicYear(
-      tenantId,
-      academicYearId,
-      { status: 'active', subjectType: 'academic' },
-    );
+    const [schedulableClasses, classIdsWithReqs, curriculumRows] = await Promise.all([
+      this.classesReadFacade.findActiveAcademicClassesWithYearGroup(tenantId, academicYearId),
+      this.schedulingReadFacade.findClassIdsWithSchedulingRequirements(tenantId, academicYearId),
+      this.schedulingReadFacade.findCurriculumForCoverageCheck(tenantId, academicYearId),
+    ]);
 
-    const configuredCount = await this.schedulingReadFacade.countClassRequirements(
-      tenantId,
-      academicYearId,
-      { activeAcademicOnly: true },
-    );
+    const classIdsWithReqsSet = new Set(classIdsWithReqs);
+    const ygIdsWithCurriculum = new Set(curriculumRows.map((c) => c.year_group_id));
 
-    const unconfiguredClasses = activeClassCount - configuredCount;
+    const unconfigured = schedulableClasses.filter((c) => {
+      if (classIdsWithReqsSet.has(c.id)) return false;
+      if (c.year_group_id && ygIdsWithCurriculum.has(c.year_group_id)) return false;
+      return true;
+    });
+
+    const activeClassCount = schedulableClasses.length;
+    const unconfiguredClasses = unconfigured.length;
 
     checks.push({
       key: 'all_classes_configured',
       passed: unconfiguredClasses === 0 && activeClassCount > 0,
       message:
-        unconfiguredClasses === 0
-          ? `All ${activeClassCount} classes have scheduling requirements`
-          : `${unconfiguredClasses} of ${activeClassCount} academic classes are missing scheduling requirements`,
-      details: unconfiguredClasses > 0 ? { unconfigured: unconfiguredClasses } : undefined,
+        activeClassCount === 0
+          ? 'No active academic classes found for this academic year.'
+          : unconfiguredClasses === 0
+            ? `All ${activeClassCount} classes have scheduling requirements`
+            : `${unconfiguredClasses} of ${activeClassCount} academic classes are missing scheduling requirements`,
+      details:
+        unconfiguredClasses > 0
+          ? { unconfigured: unconfigured.map((c) => ({ id: c.id, name: c.name })) }
+          : undefined,
     });
 
     // ── 3. All academic classes have at least one teacher ───────────────────

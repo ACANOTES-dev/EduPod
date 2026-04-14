@@ -413,6 +413,13 @@ export class ClassesReadFacade {
    * Find all active academic classes for an academic year, with the year_group_id
    * needed to look up pool competencies. Used by scheduling prerequisites to
    * verify every `(class, subject)` has a pinned or pool teacher.
+   *
+   * Matches two shapes:
+   *  - Homeroom schools (`subject_id IS NULL`): one class teaches many subjects
+   *    via its year_group's curriculum. NHQS and similar primary schools.
+   *  - Subject-class schools (`subject.subject_type = 'academic'`): each class
+   *    is bound to one academic subject.
+   * Non-academic subject-class rows (e.g. extracurriculars) are excluded.
    */
   async findActiveAcademicClassesWithYearGroup(
     tenantId: string,
@@ -423,7 +430,7 @@ export class ClassesReadFacade {
         tenant_id: tenantId,
         academic_year_id: academicYearId,
         status: 'active',
-        subject: { subject_type: 'academic' },
+        OR: [{ subject_id: null }, { subject: { subject_type: 'academic' } }],
       },
       select: { id: true, name: true, year_group_id: true },
     });

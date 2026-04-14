@@ -470,6 +470,24 @@ export class SchedulingReadFacade {
    * `findTeacherCompetencies` below for the `findUncoveredClassSubjects`
    * helper in `SchedulingPrerequisitesService`.
    */
+  /**
+   * Return the set of class IDs that have an explicit
+   * `class_scheduling_requirements` row for this academic year. The prereq
+   * `all_classes_configured` check treats a class as configured if it has
+   * such a row OR its year_group has curriculum_requirements — the solver
+   * reads the latter.
+   */
+  async findClassIdsWithSchedulingRequirements(
+    tenantId: string,
+    academicYearId: string,
+  ): Promise<string[]> {
+    const rows = await this.prisma.classSchedulingRequirement.findMany({
+      where: { tenant_id: tenantId, academic_year_id: academicYearId },
+      select: { class_id: true },
+    });
+    return rows.map((r) => r.class_id);
+  }
+
   async findCurriculumForCoverageCheck(
     tenantId: string,
     academicYearId: string,
