@@ -27,7 +27,7 @@
 | 1   | Schema migration + cover-teacher removal | `complete` | Claude / 2026-04-13  | Migration live on prod; commit `3893bec7`.                   |
 | 2   | Solver core updates                      | `complete` | Claude / 2026-04-14  | Commit `d76344bb`; pin/pool model live on prod.              |
 | 3   | API surface updates                      | `complete` | Claude / 2026-04-14  | Commit `477b0076`; competency API + coverage per-class live. |
-| 4   | Competencies page UI rebuild             | `complete` | Claude / 2026-04-14  | Commit `<pending>`; competencies + coverage UI live on prod. |
+| 4   | Competencies page UI rebuild             | `complete` | Claude / 2026-04-14  | Commit `ed5ea305`; competencies + coverage UI live on prod.  |
 | 5   | Seed NHQS data                           | `pending`  | —                    | Blocked by Stage 4                                           |
 | 6   | Generate end-to-end on NHQS              | `pending`  | —                    | Blocked by Stage 5                                           |
 | 7   | Substitutes page + table                 | `pending`  | —                    | Blocked by Stage 6                                           |
@@ -280,7 +280,7 @@ Each stage appends its own entry here when finished. Use this template exactly:
 ### Stage 4 — Competencies page UI rebuild
 
 **Completed:** 2026-04-14
-**Local commit(s):** `<pending>` feat(scheduling): rebuild competencies page around year-group + class pin/pool model
+**Local commit(s):** `ed5ea305` feat(scheduling): rebuild competencies page around pin/pool model
 **Deployed to production:** yes — 2026-04-14. Rsynced `apps/web/messages/{en,ar}.json` and `apps/web/src/app/[locale]/(school)/scheduling/{competencies,competency-coverage}/` to `/opt/edupod/app/`. `chown -R edupod:edupod apps/web`. Rebuilt `@school/web` and `pm2 restart web` — PM2 shows the new web process online, HTTP 200 on the page.
 
 **What was delivered:**
