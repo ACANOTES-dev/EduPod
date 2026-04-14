@@ -82,6 +82,35 @@ function getNotificationTitle(n: NotificationItem): string {
       return 'New approval request';
     case 'approval.decided':
       return 'Approval decision made';
+    // Leave & Cover
+    case 'absence.self_reported_confirmation':
+      return 'Absence reported';
+    case 'absence.admin_notice':
+      return `${String(p.reporter_name ?? 'A teacher')} is absent`;
+    case 'absence.cancelled':
+      return `${String(p.reporter_name ?? 'A teacher')}'s absence was cancelled`;
+    case 'substitution.offer_received':
+      return `Cover request: ${String(p.reporter_name ?? 'a colleague')}`;
+    case 'substitution.offer_nominated':
+      return `${String(p.reporter_name ?? 'A colleague')} asked you to cover`;
+    case 'substitution.admin_offer_dispatched':
+      return `${String(p.offers_count ?? '')} cover offer(s) sent`;
+    case 'substitution.accepted':
+      return `Cover confirmed: ${String(p.substitute_name ?? '')}`;
+    case 'substitution.declined':
+      return `Cover offer declined`;
+    case 'substitution.cascade_exhausted':
+      return `Manual cover needed for ${String(p.reporter_name ?? 'an absence')}`;
+    case 'substitution.offer_revoked':
+      return 'Cover offer no longer needed';
+    case 'substitution.nominated_rejected':
+      return `Nominated cover declined`;
+    case 'leave.request_submitted':
+      return `Leave request: ${String(p.requester_name ?? 'a teacher')}`;
+    case 'leave.request_approved':
+      return 'Your leave was approved';
+    case 'leave.request_rejected':
+      return 'Your leave was rejected';
     default:
       return n.template_key ?? 'Notification';
   }
