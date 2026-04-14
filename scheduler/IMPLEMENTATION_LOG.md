@@ -22,16 +22,16 @@
 
 ## Status board
 
-| #   | Stage                                    | Status     | Owner (session/date) | Notes                                           |
-| --- | ---------------------------------------- | ---------- | -------------------- | ----------------------------------------------- |
-| 1   | Schema migration + cover-teacher removal | `complete` | Claude / 2026-04-13  | Migration live on prod; commit `3893bec7`.      |
-| 2   | Solver core updates                      | `complete` | Claude / 2026-04-14  | Commit `d76344bb`; pin/pool model live on prod. |
-| 3   | API surface updates                      | `complete` | Claude / 2026-04-14  | Competency API + coverage per-class live.       |
-| 4   | Competencies page UI rebuild             | `pending`  | —                    | Unblocked by Stage 3                            |
-| 5   | Seed NHQS data                           | `pending`  | —                    | Blocked by Stage 4                              |
-| 6   | Generate end-to-end on NHQS              | `pending`  | —                    | Blocked by Stage 5                              |
-| 7   | Substitutes page + table                 | `pending`  | —                    | Blocked by Stage 6                              |
-| 8   | Downstream rewire                        | `pending`  | —                    | Blocked by Stage 7                              |
+| #   | Stage                                    | Status     | Owner (session/date) | Notes                                                        |
+| --- | ---------------------------------------- | ---------- | -------------------- | ------------------------------------------------------------ |
+| 1   | Schema migration + cover-teacher removal | `complete` | Claude / 2026-04-13  | Migration live on prod; commit `3893bec7`.                   |
+| 2   | Solver core updates                      | `complete` | Claude / 2026-04-14  | Commit `d76344bb`; pin/pool model live on prod.              |
+| 3   | API surface updates                      | `complete` | Claude / 2026-04-14  | Commit `477b0076`; competency API + coverage per-class live. |
+| 4   | Competencies page UI rebuild             | `pending`  | —                    | Unblocked by Stage 3                                         |
+| 5   | Seed NHQS data                           | `pending`  | —                    | Blocked by Stage 4                                           |
+| 6   | Generate end-to-end on NHQS              | `pending`  | —                    | Blocked by Stage 5                                           |
+| 7   | Substitutes page + table                 | `pending`  | —                    | Blocked by Stage 6                                           |
+| 8   | Downstream rewire                        | `pending`  | —                    | Blocked by Stage 7                                           |
 
 ## Parallelisation
 
@@ -200,7 +200,7 @@ Each stage appends its own entry here when finished. Use this template exactly:
 ### Stage 3 — API surface updates
 
 **Completed:** 2026-04-14
-**Local commit(s):** (will be filled in by the follow-up SHA commit, as in Stage 2)
+**Local commit(s):** `477b0076` refactor(scheduling): reshape teacher-competencies API around class_id
 **Deployed to production:** yes — 2026-04-14. Rsynced `packages/shared/src/**`, `apps/api/src/modules/scheduling/**`, and `apps/api/src/modules/scheduling-runs/**` to `/opt/edupod/app/`. Rebuilt **in this order**: `@school/shared` → `@school/api` → `@school/worker` (all under the `edupod` user). `pm2 restart api worker` left both online with `Nest application successfully started`.
 
 **What was delivered:**
