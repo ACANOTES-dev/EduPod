@@ -222,6 +222,26 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     permission_tier: 'admin',
   },
   {
+    permission_key: 'schedule.report_own_absence',
+    description: 'Self-report an absence (sick, emergency) without approval',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'schedule.respond_to_offer',
+    description: 'Accept or decline substitution offers sent to you',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'leave.submit_request',
+    description: 'Submit a leave request for admin approval',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'leave.approve_requests',
+    description: 'Review, approve, or reject staff leave requests',
+    permission_tier: 'admin',
+  },
+  {
     permission_key: 'schedule.view_reports',
     description: 'View scheduling reports: cover analytics, workload heatmap, room utilization',
     permission_tier: 'admin',

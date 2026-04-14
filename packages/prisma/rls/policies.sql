@@ -2576,3 +2576,43 @@ DROP POLICY IF EXISTS oversight_access_log_tenant_isolation ON oversight_access_
 CREATE POLICY oversight_access_log_tenant_isolation ON oversight_access_log
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- ─── Leave & Cover (2026-04-14) ─────────────────────────────────────────────
+
+-- Leave Types (dual-policy: NULL tenant_id = system defaults)
+ALTER TABLE leave_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE leave_types FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS leave_types_tenant_isolation ON leave_types;
+CREATE POLICY leave_types_tenant_isolation ON leave_types
+  USING (
+    tenant_id IS NULL
+    OR tenant_id = current_setting('app.current_tenant_id')::uuid
+  )
+  WITH CHECK (
+    tenant_id IS NULL
+    OR tenant_id = current_setting('app.current_tenant_id')::uuid
+  );
+
+-- Leave Requests
+ALTER TABLE leave_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE leave_requests FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS leave_requests_tenant_isolation ON leave_requests;
+CREATE POLICY leave_requests_tenant_isolation ON leave_requests
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- Substitution Offers
+ALTER TABLE substitution_offers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE substitution_offers FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS substitution_offers_tenant_isolation ON substitution_offers;
+CREATE POLICY substitution_offers_tenant_isolation ON substitution_offers
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- Tenant Scheduling Settings
+ALTER TABLE tenant_scheduling_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_scheduling_settings FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_scheduling_settings_tenant_isolation ON tenant_scheduling_settings;
+CREATE POLICY tenant_scheduling_settings_tenant_isolation ON tenant_scheduling_settings
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);

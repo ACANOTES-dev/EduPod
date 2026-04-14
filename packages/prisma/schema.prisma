@@ -666,6 +666,10 @@ model Tenant {
   // Scheduling World-Class Relations
   teacher_absences             TeacherAbsence[]
   substitution_records         SubstitutionRecord[]
+  substitution_offers          SubstitutionOffer[]
+  leave_types                  LeaveType[]
+  leave_requests               LeaveRequest[]
+  tenant_scheduling_settings   TenantSchedulingSettings[]
   calendar_subscription_tokens CalendarSubscriptionToken[]
   exam_sessions                ExamSession[]
   exam_slots                   ExamSlot[]
@@ -1186,7 +1190,10 @@ model User {
 
   // Scheduling World-Class Relations
   absences_reported            TeacherAbsence[]            @relation("absence_reporter")
+  absences_cancelled           TeacherAbsence[]            @relation("absence_canceller")
   substitutions_assigned       SubstitutionRecord[]        @relation("substitution_assigner")
+  leave_requests_submitted     LeaveRequest[]              @relation("leave_request_submitter")
+  leave_requests_reviewed      LeaveRequest[]              @relation("leave_request_reviewer")
   calendar_subscription_tokens CalendarSubscriptionToken[] @relation("calendar_token_owner")
   scheduling_scenarios_created SchedulingScenario[]        @relation("scenario_creator")
 
@@ -1878,9 +1885,12 @@ model StaffProfile {
   teacher_scheduling_configs      TeacherSchedulingConfig[]
 
   // Scheduling World-Class Relations
-  teacher_absences     TeacherAbsence[]
-  substitution_records SubstitutionRecord[] @relation("substitute_staff")
-  exam_invigilations   ExamInvigilation[]   @relation("exam_invigilator")
+  teacher_absences          TeacherAbsence[]
+  nominated_for_absences    TeacherAbsence[]     @relation("nominated_substitute")
+  substitution_records      SubstitutionRecord[] @relation("substitute_staff")
+  substitution_offers       SubstitutionOffer[]  @relation("offer_candidate")
+  leave_requests            LeaveRequest[]
+  exam_invigilations        ExamInvigilation[]   @relation("exam_invigilator")
 
   // Behaviour Management Relations
   bh_incident_participants BehaviourIncidentParticipant[] @relation("bh_participant_staff")
@@ -2761,6 +2771,7 @@ model Schedule {
 
   // Scheduling World-Class Relations
   substitution_records SubstitutionRecord[]
+  substitution_offers  SubstitutionOffer[]
 
   // Payroll World-Class Relations
   class_delivery_records ClassDeliveryRecord[]
@@ -3705,6 +3716,34 @@ enum SubstitutionStatus {
   confirmed
   declined
   completed
+  revoked
+}
+
+enum AbsenceType {
+  self_reported
+  approved_leave
+}
+
+enum LeaveRequestStatus {
+  pending
+  approved
+  rejected
+  cancelled
+  withdrawn
+}
+
+enum SubstitutionOfferStatus {
+  pending
+  accepted
+  declined
+  expired
+  revoked
+}
+
+enum SubstitutionRecordSource {
+  cascade
+  nomination
+  manual
 }
 
 enum ExamSessionStatus {
@@ -4482,53 +4521,176 @@ model ReportCardVerificationToken {
 // ─── Scheduling World-Class Enhancement Models ────────────────────────────
 
 model TeacherAbsence {
-  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id           String   @db.Uuid
-  staff_profile_id    String   @db.Uuid
-  absence_date        DateTime @db.Date
-  full_day            Boolean  @default(true)
-  period_from         Int?     @db.SmallInt
-  period_to           Int?     @db.SmallInt
-  reason              String?  @db.Text
-  reported_by_user_id String   @db.Uuid
-  reported_at         DateTime @db.Timestamptz()
-  created_at          DateTime @default(now()) @db.Timestamptz()
-  updated_at          DateTime @default(now()) @updatedAt @db.Timestamptz()
+  id                      String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String      @db.Uuid
+  staff_profile_id        String      @db.Uuid
+  absence_date            DateTime    @db.Date
+  date_to                 DateTime?   @db.Date
+  absence_type            AbsenceType @default(self_reported)
+  leave_type_id           String?     @db.Uuid
+  leave_request_id        String?     @db.Uuid
+  nominated_substitute_id String?     @db.Uuid
+  full_day                Boolean     @default(true)
+  period_from             Int?        @db.SmallInt
+  period_to               Int?        @db.SmallInt
+  is_paid                 Boolean     @default(true)
+  days_counted            Decimal     @default(1.00) @db.Decimal(5, 2)
+  reason                  String?     @db.Text
+  reported_by_user_id     String      @db.Uuid
+  reported_at             DateTime    @db.Timestamptz()
+  cancelled_at            DateTime?   @db.Timestamptz()
+  cancelled_by_user_id    String?     @db.Uuid
+  cancellation_reason     String?     @db.Text
+  created_at              DateTime    @default(now()) @db.Timestamptz()
+  updated_at              DateTime    @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant               Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   staff_profile        StaffProfile         @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  leave_type           LeaveType?           @relation(fields: [leave_type_id], references: [id], onDelete: SetNull)
+  leave_request        LeaveRequest?        @relation("absence_leave_request", fields: [leave_request_id], references: [id], onDelete: SetNull)
+  nominated_substitute StaffProfile?        @relation("nominated_substitute", fields: [nominated_substitute_id], references: [id], onDelete: SetNull)
   reported_by          User                 @relation("absence_reporter", fields: [reported_by_user_id], references: [id], onDelete: Cascade)
+  cancelled_by         User?                @relation("absence_canceller", fields: [cancelled_by_user_id], references: [id], onDelete: SetNull)
   substitution_records SubstitutionRecord[]
+  substitution_offers  SubstitutionOffer[]
 
-  @@unique([tenant_id, staff_profile_id, absence_date], name: "idx_teacher_absences_unique")
-  @@index([tenant_id, absence_date], name: "idx_teacher_absences_tenant_date")
+  @@index([tenant_id, absence_date, date_to], name: "idx_teacher_absences_tenant_range")
   @@map("teacher_absences")
 }
 
 model SubstitutionRecord {
-  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id           String             @db.Uuid
-  absence_id          String             @db.Uuid
-  schedule_id         String             @db.Uuid
-  substitute_staff_id String             @db.Uuid
-  status              SubstitutionStatus @default(assigned)
-  assigned_by_user_id String             @db.Uuid
-  assigned_at         DateTime           @db.Timestamptz()
-  confirmed_at        DateTime?          @db.Timestamptz()
-  notes               String?            @db.Text
-  created_at          DateTime           @default(now()) @db.Timestamptz()
-  updated_at          DateTime           @default(now()) @updatedAt @db.Timestamptz()
+  id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String                   @db.Uuid
+  absence_id          String                   @db.Uuid
+  schedule_id         String                   @db.Uuid
+  substitute_staff_id String                   @db.Uuid
+  offer_id            String?                  @db.Uuid
+  absence_date        DateTime?                @db.Date
+  source              SubstitutionRecordSource @default(manual)
+  status              SubstitutionStatus       @default(assigned)
+  assigned_by_user_id String                   @db.Uuid
+  assigned_at         DateTime                 @db.Timestamptz()
+  confirmed_at        DateTime?                @db.Timestamptz()
+  notes               String?                  @db.Text
+  created_at          DateTime                 @default(now()) @db.Timestamptz()
+  updated_at          DateTime                 @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant      Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  absence     TeacherAbsence @relation(fields: [absence_id], references: [id], onDelete: Cascade)
-  schedule    Schedule       @relation(fields: [schedule_id], references: [id], onDelete: Cascade)
-  substitute  StaffProfile   @relation("substitute_staff", fields: [substitute_staff_id], references: [id], onDelete: Cascade)
-  assigned_by User           @relation("substitution_assigner", fields: [assigned_by_user_id], references: [id], onDelete: Cascade)
+  tenant      Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  absence     TeacherAbsence     @relation(fields: [absence_id], references: [id], onDelete: Cascade)
+  schedule    Schedule           @relation(fields: [schedule_id], references: [id], onDelete: Cascade)
+  substitute  StaffProfile       @relation("substitute_staff", fields: [substitute_staff_id], references: [id], onDelete: Cascade)
+  assigned_by User               @relation("substitution_assigner", fields: [assigned_by_user_id], references: [id], onDelete: Cascade)
+  offer       SubstitutionOffer? @relation(fields: [offer_id], references: [id], onDelete: SetNull)
 
   @@index([tenant_id, created_at], name: "idx_substitution_records_tenant_date")
+  @@index([tenant_id, absence_date], name: "idx_substitution_records_tenant_absence_date")
   @@map("substitution_records")
+}
+
+// ─── Leave & Cover ──────────────────────────────────────────────────────────
+
+model LeaveType {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String?  @db.Uuid
+  code                 String   @db.VarChar(50)
+  label                String   @db.VarChar(100)
+  requires_approval    Boolean  @default(true)
+  is_paid_default      Boolean  @default(true)
+  max_days_per_request Int?
+  requires_evidence    Boolean  @default(false)
+  display_order        Int      @default(100)
+  is_active            Boolean  @default(true)
+  created_at           DateTime @default(now()) @db.Timestamptz()
+  updated_at           DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant           Tenant?          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  leave_requests   LeaveRequest[]
+  teacher_absences TeacherAbsence[]
+
+  @@map("leave_types")
+}
+
+model LeaveRequest {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String             @db.Uuid
+  staff_profile_id     String             @db.Uuid
+  leave_type_id        String             @db.Uuid
+  date_from            DateTime           @db.Date
+  date_to              DateTime           @db.Date
+  full_day             Boolean            @default(true)
+  period_from          Int?               @db.SmallInt
+  period_to            Int?               @db.SmallInt
+  reason               String?            @db.Text
+  evidence_url         String?            @db.VarChar(500)
+  status               LeaveRequestStatus @default(pending)
+  submitted_by_user_id String             @db.Uuid
+  submitted_at         DateTime           @default(now()) @db.Timestamptz()
+  reviewed_by_user_id  String?            @db.Uuid
+  reviewed_at          DateTime?          @db.Timestamptz()
+  review_notes         String?            @db.Text
+  created_at           DateTime           @default(now()) @db.Timestamptz()
+  updated_at           DateTime           @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile     @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  leave_type    LeaveType        @relation(fields: [leave_type_id], references: [id], onDelete: Restrict)
+  submitted_by  User             @relation("leave_request_submitter", fields: [submitted_by_user_id], references: [id], onDelete: Cascade)
+  reviewed_by   User?            @relation("leave_request_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
+  absences      TeacherAbsence[] @relation("absence_leave_request")
+
+  @@index([tenant_id, status], name: "idx_leave_requests_tenant_status")
+  @@index([tenant_id, staff_profile_id, submitted_at(sort: Desc)], name: "idx_leave_requests_tenant_staff")
+  @@map("leave_requests")
+}
+
+model SubstitutionOffer {
+  id                 String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String                  @db.Uuid
+  absence_id         String                  @db.Uuid
+  schedule_id        String                  @db.Uuid
+  absence_date       DateTime                @db.Date
+  candidate_staff_id String                  @db.Uuid
+  offered_at         DateTime                @default(now()) @db.Timestamptz()
+  expires_at         DateTime                @db.Timestamptz()
+  status             SubstitutionOfferStatus @default(pending)
+  responded_at       DateTime?               @db.Timestamptz()
+  decline_reason     String?                 @db.Text
+  is_nomination      Boolean                 @default(false)
+  cascade_round      Int                     @default(1) @db.SmallInt
+  created_at         DateTime                @default(now()) @db.Timestamptz()
+  updated_at         DateTime                @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant               Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  absence              TeacherAbsence       @relation(fields: [absence_id], references: [id], onDelete: Cascade)
+  schedule             Schedule             @relation(fields: [schedule_id], references: [id], onDelete: Cascade)
+  candidate            StaffProfile         @relation("offer_candidate", fields: [candidate_staff_id], references: [id], onDelete: Cascade)
+  substitution_records SubstitutionRecord[]
+
+  @@index([tenant_id, absence_id, status], name: "idx_substitution_offers_absence_status")
+  @@index([tenant_id, candidate_staff_id, status], name: "idx_substitution_offers_candidate_status")
+  @@map("substitution_offers")
+}
+
+model TenantSchedulingSettings {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String   @unique @db.Uuid
+  offer_timeout_minutes Int      @default(30)
+  parallel_offer_count  Int      @default(3)
+  sms_enabled           Boolean  @default(false)
+  whatsapp_enabled      Boolean  @default(false)
+  auto_cascade_enabled  Boolean  @default(true)
+  created_at            DateTime @default(now()) @db.Timestamptz()
+  updated_at            DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("tenant_scheduling_settings")
 }
 
 /// Append-only, no updated_at

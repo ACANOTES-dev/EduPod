@@ -69,6 +69,9 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'schedule.view_own',
       'schedule.manage_own_preferences',
       'schedule.view_own_satisfaction',
+      // Leave & Cover
+      'schedule.manage_substitutions',
+      'leave.approve_requests',
       // Search
       'search.view',
       // Students & Attendance
@@ -184,6 +187,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'schedule.view_reports',
       'schedule.manage_exams',
       'schedule.manage_scenarios',
+      'leave.approve_requests',
       // Students, Attendance, Gradebook
       'students.manage',
       'students.view',
@@ -273,6 +277,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'schedule.view_reports',
       'schedule.manage_exams',
       'schedule.manage_scenarios',
+      'leave.approve_requests',
       // Students, Attendance, Gradebook
       'students.manage',
       'students.view',
@@ -345,6 +350,10 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'schedule.manage_own_preferences',
       'schedule.view_own_satisfaction',
       'schedule.view_personal_timetable',
+      // Leave & Cover — teacher self-serve
+      'schedule.report_own_absence',
+      'schedule.respond_to_offer',
+      'leave.submit_request',
       'sen.view',
       'legal.view',
       // Inbox — teachers can send (policy engine gates actual audience)
@@ -411,6 +420,9 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'report_cards.view',
       'report_cards.comment',
       'report_cards.manage',
+      // Leave & Cover — vice principals approve leave + manage substitutions
+      'schedule.manage_substitutions',
+      'leave.approve_requests',
       // Inbox — Vice Principal gets all five keys (admin tier)
       'inbox.settings.read',
       'inbox.settings.write',

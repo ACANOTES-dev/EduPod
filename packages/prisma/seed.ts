@@ -11,6 +11,7 @@ import {
   DEV_PASSWORD,
 } from './seed/dev-data';
 import { GDPR_EXPORT_POLICY_SEEDS } from './seed/gdpr-export-policies';
+import { LEAVE_TYPE_SEEDS } from './seed/leave-types';
 import { PERMISSION_SEEDS } from './seed/permissions';
 import { SYSTEM_ROLES } from './seed/system-roles';
 import { seedInboxDefaultsForTenant } from './src/inbox-defaults';
@@ -209,6 +210,43 @@ async function main() {
       });
     }
     console.log(`  ${GDPR_EXPORT_POLICY_SEEDS.length} GDPR export policies seeded.`);
+
+    // Step 3c: Seed default leave types (system defaults, tenant_id = null)
+    console.log('Seed: Step 3c — Default leave types');
+    for (const lt of LEAVE_TYPE_SEEDS) {
+      // System rows are identified by (tenant_id IS NULL, code). No natural PK
+      // so we look up by code within the system scope and upsert manually.
+      const existing = await prisma.leaveType.findFirst({
+        where: { tenant_id: null, code: lt.code },
+      });
+      if (existing) {
+        await prisma.leaveType.update({
+          where: { id: existing.id },
+          data: {
+            label: lt.label,
+            requires_approval: lt.requires_approval,
+            is_paid_default: lt.is_paid_default,
+            max_days_per_request: lt.max_days_per_request,
+            requires_evidence: lt.requires_evidence,
+            display_order: lt.display_order,
+          },
+        });
+      } else {
+        await prisma.leaveType.create({
+          data: {
+            tenant_id: null,
+            code: lt.code,
+            label: lt.label,
+            requires_approval: lt.requires_approval,
+            is_paid_default: lt.is_paid_default,
+            max_days_per_request: lt.max_days_per_request,
+            requires_evidence: lt.requires_evidence,
+            display_order: lt.display_order,
+          },
+        });
+      }
+    }
+    console.log(`  ${LEAVE_TYPE_SEEDS.length} leave types seeded.`);
 
     // Step 4: Seed global system roles (tenant_id = null)
     console.log('Seed: Step 4 — Global system roles');
