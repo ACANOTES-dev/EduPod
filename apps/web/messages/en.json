@@ -855,7 +855,8 @@
       "enterGrades": "Enter Grades",
       "viewSchedule": "View Schedule",
       "reportAbsence": "Report Absence",
-      "requestLeave": "Request Leave"
+      "requestLeave": "Request Leave",
+      "myOffers": "My Offers"
     },
     "totalStudents": "Total Students",
     "totalStaff": "Total Staff",
@@ -4675,6 +4676,23 @@
       "withdraw": "Withdraw",
       "withdrawnToast": "Request withdrawn.",
       "withdrawError": "Failed to withdraw request."
+    },
+    "offers": {
+      "title": "Substitution Offers",
+      "description": "Cover requests sent to you. Accept to take the class, or decline to pass.",
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "loading": "Loading…",
+      "noPending": "No pending offers.",
+      "nominated": "Requested by name",
+      "coveringFor": "Covering for {name}",
+      "minsRemaining": "{minutes} min remaining",
+      "expiringSoon": "Expiring now",
+      "accept": "Accept",
+      "decline": "Decline",
+      "acceptedToast": "Offer accepted. Thanks for covering.",
+      "declinedToast": "Offer declined.",
+      "actionError": "Action failed. Please try again."
     },
     "admin": {
       "title": "Leave Requests",

@@ -35,6 +35,7 @@ import { SchedulingPublicController } from './scheduling-public.controller';
 import { SchedulingReadFacade } from './scheduling-read.facade';
 import { SubstituteCompetenciesController } from './substitute-competencies.controller';
 import { SubstituteCompetenciesService } from './substitute-competencies.service';
+import { SubstitutionCascadeService } from './substitution-cascade.service';
 import { SubstitutionService } from './substitution.service';
 import { TeacherCompetenciesController } from './teacher-competencies.controller';
 import { TeacherCompetenciesService } from './teacher-competencies.service';
@@ -77,6 +78,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     SchedulerOrchestrationService,
     SchedulerValidationService,
     SubstitutionService,
+    SubstitutionCascadeService,
     AiSubstitutionService,
     CoverTrackingService,
     ScheduleSwapService,
@@ -95,6 +97,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     BreakGroupsService,
     PersonalTimetableService,
     SchedulingReadFacade,
+    SubstitutionCascadeService,
   ],
 })
 export class SchedulingModule {}

@@ -14,7 +14,7 @@
 | S1    | Schema + RLS                     | complete |
 | S2    | Teacher self-report flow         | complete |
 | S3    | Leave request + approval flow    | complete |
-| S4    | Auto-cascade substitution engine | pending  |
+| S4    | Auto-cascade substitution engine | complete |
 | S5    | Notification templates + wiring  | pending  |
 | S6    | Sub board + admin feed UI polish | pending  |
 | S7    | Payroll-facing export endpoint   | pending  |

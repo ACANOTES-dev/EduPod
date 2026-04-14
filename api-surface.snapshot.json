@@ -9608,7 +9608,7 @@
     "path": "/v1/scheduling/absences/:id/cancel",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.report_own_absence"
+    "permission": "schedule.respond_to_offer"
   },
   {
     "method": "POST",
@@ -9847,6 +9847,27 @@
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
     "permission": "schedule.manage_exams"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling/offers/:id/accept",
+    "controller": "SchedulingEnhancedController",
+    "module": "scheduling",
+    "permission": "schedule.respond_to_offer"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling/offers/:id/decline",
+    "controller": "SchedulingEnhancedController",
+    "module": "scheduling",
+    "permission": "schedule.respond_to_offer"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/scheduling/offers/my",
+    "controller": "SchedulingEnhancedController",
+    "module": "scheduling",
+    "permission": "schedule.report_own_absence"
   },
   {
     "method": "GET",

@@ -58,6 +58,7 @@ import { RotationService } from './rotation.service';
 import { ScenarioService } from './scenario.service';
 import { ScheduleSwapService } from './schedule-swap.service';
 import { SchedulingAnalyticsService } from './scheduling-analytics.service';
+import { SubstitutionCascadeService } from './substitution-cascade.service';
 import { SubstitutionService } from './substitution.service';
 
 const rotationWeekQuerySchema = z.object({
@@ -70,6 +71,7 @@ const rotationWeekQuerySchema = z.object({
 export class SchedulingEnhancedController {
   constructor(
     private readonly substitutionService: SubstitutionService,
+    private readonly substitutionCascadeService: SubstitutionCascadeService,
     private readonly aiSubstitutionService: AiSubstitutionService,
     private readonly coverTrackingService: CoverTrackingService,
     private readonly scheduleSwapService: ScheduleSwapService,
@@ -104,7 +106,59 @@ export class SchedulingEnhancedController {
     @Body(new ZodValidationPipe(selfReportAbsenceSchema))
     dto: z.infer<typeof selfReportAbsenceSchema>,
   ) {
-    return this.substitutionService.selfReportAbsence(tenant.tenant_id, user.sub, dto);
+    const absence = await this.substitutionService.selfReportAbsence(
+      tenant.tenant_id,
+      user.sub,
+      dto,
+    );
+    // Fire the cascade synchronously. If it fails, log and continue — the
+    // absence record is already committed and admins can manually assign.
+    try {
+      await this.substitutionCascadeService.runCascade(tenant.tenant_id, absence.id);
+    } catch (err) {
+      console.error('[selfReportAbsence.cascade]', err);
+    }
+    return absence;
+  }
+
+  // ─── Offers (Accept / Decline / My) ──────────────────────────────────────
+
+  @Get('offers/my')
+  @RequiresPermission('schedule.respond_to_offer')
+  async listMyOffers(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.substitutionCascadeService.listMyOffers(tenant.tenant_id, user.sub);
+  }
+
+  @Post('offers/:id/accept')
+  @RequiresPermission('schedule.respond_to_offer')
+  @HttpCode(HttpStatus.OK)
+  async acceptOffer(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.substitutionCascadeService.acceptOffer(tenant.tenant_id, user.sub, id);
+  }
+
+  @Post('offers/:id/decline')
+  @RequiresPermission('schedule.respond_to_offer')
+  @HttpCode(HttpStatus.OK)
+  async declineOffer(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(z.object({ reason: z.string().max(500).nullable().optional() })))
+    dto: { reason?: string | null },
+  ) {
+    return this.substitutionCascadeService.declineOffer(
+      tenant.tenant_id,
+      user.sub,
+      id,
+      dto.reason ?? null,
+    );
   }
 
   // Admin-tier cancel (any absence in the tenant).
@@ -118,7 +172,14 @@ export class SchedulingEnhancedController {
     @Body(new ZodValidationPipe(cancelAbsenceSchema))
     dto: z.infer<typeof cancelAbsenceSchema>,
   ) {
-    return this.substitutionService.cancelAbsence(tenant.tenant_id, user.sub, id, dto);
+    const result = await this.substitutionService.cancelAbsence(
+      tenant.tenant_id,
+      user.sub,
+      id,
+      dto,
+    );
+    await this.substitutionCascadeService.revokeOffersForAbsence(tenant.tenant_id, id);
+    return result;
   }
 
   // Teacher cancel — only their own absence.
@@ -141,9 +202,15 @@ export class SchedulingEnhancedController {
         },
       });
     }
-    return this.substitutionService.cancelAbsence(tenant.tenant_id, user.sub, id, dto, {
-      requireOwnStaffProfileId: staff.id,
-    });
+    const result = await this.substitutionService.cancelAbsence(
+      tenant.tenant_id,
+      user.sub,
+      id,
+      dto,
+      { requireOwnStaffProfileId: staff.id },
+    );
+    await this.substitutionCascadeService.revokeOffersForAbsence(tenant.tenant_id, id);
+    return result;
   }
 
   @Get('absences')

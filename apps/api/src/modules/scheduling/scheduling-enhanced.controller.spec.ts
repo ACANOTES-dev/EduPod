@@ -19,6 +19,7 @@ import { ScenarioService } from './scenario.service';
 import { ScheduleSwapService } from './schedule-swap.service';
 import { SchedulingAnalyticsService } from './scheduling-analytics.service';
 import { SchedulingEnhancedController } from './scheduling-enhanced.controller';
+import { SubstitutionCascadeService } from './substitution-cascade.service';
 import { SubstitutionService } from './substitution.service';
 
 const TENANT: TenantContext = {
@@ -207,6 +208,16 @@ describe('SchedulingEnhancedController', () => {
           },
         },
         { provide: SubstitutionService, useValue: mockSubstitutionService },
+        {
+          provide: SubstitutionCascadeService,
+          useValue: {
+            runCascade: jest.fn().mockResolvedValue({ offers_created: 0 }),
+            acceptOffer: jest.fn(),
+            declineOffer: jest.fn(),
+            listMyOffers: jest.fn().mockResolvedValue({ data: [] }),
+            revokeOffersForAbsence: jest.fn().mockResolvedValue(undefined),
+          },
+        },
         { provide: AiSubstitutionService, useValue: mockAiSubstitutionService },
         { provide: CoverTrackingService, useValue: mockCoverTrackingService },
         { provide: ScheduleSwapService, useValue: mockScheduleSwapService },

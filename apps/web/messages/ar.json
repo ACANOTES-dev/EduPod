@@ -854,7 +854,8 @@
       "enterGrades": "إدخال الدرجات",
       "viewSchedule": "عرض الجدول",
       "reportAbsence": "الإبلاغ عن غياب",
-      "requestLeave": "طلب إجازة"
+      "requestLeave": "طلب إجازة",
+      "myOffers": "عروضي"
     },
     "totalStudents": "إجمالي الطلاب",
     "totalStaff": "إجمالي الموظفين",
@@ -4667,6 +4668,23 @@
       "withdraw": "سحب",
       "withdrawnToast": "تم سحب الطلب.",
       "withdrawError": "فشل سحب الطلب."
+    },
+    "offers": {
+      "title": "عروض التغطية",
+      "description": "طلبات التغطية المرسلة إليك. اقبل لتغطية الحصة أو ارفض لتمريرها.",
+      "pending": "قيد الانتظار",
+      "confirmed": "مؤكدة",
+      "loading": "جاري التحميل…",
+      "noPending": "لا توجد عروض بانتظار الرد.",
+      "nominated": "مطلوب بالاسم",
+      "coveringFor": "تغطية عن {name}",
+      "minsRemaining": "{minutes} دقيقة متبقية",
+      "expiringSoon": "على وشك الانتهاء",
+      "accept": "قبول",
+      "decline": "رفض",
+      "acceptedToast": "تم قبول العرض. شكراً للتغطية.",
+      "declinedToast": "تم رفض العرض.",
+      "actionError": "فشل الإجراء. حاول مرة أخرى."
     },
     "admin": {
       "title": "طلبات الإجازة",

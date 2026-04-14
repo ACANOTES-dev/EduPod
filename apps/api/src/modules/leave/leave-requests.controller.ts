@@ -25,6 +25,7 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { SubstitutionCascadeService } from '../scheduling/substitution-cascade.service';
 
 import { LeaveRequestsService } from './leave-requests.service';
 import { LeaveTypesService } from './leave-types.service';
@@ -35,6 +36,7 @@ export class LeaveController {
   constructor(
     private readonly leaveRequestsService: LeaveRequestsService,
     private readonly leaveTypesService: LeaveTypesService,
+    private readonly substitutionCascadeService: SubstitutionCascadeService,
   ) {}
 
   // ─── Leave Types ──────────────────────────────────────────────────────────
@@ -97,7 +99,15 @@ export class LeaveController {
     @Body(new ZodValidationPipe(reviewLeaveRequestSchema))
     dto: z.infer<typeof reviewLeaveRequestSchema>,
   ) {
-    return this.leaveRequestsService.approve(tenant.tenant_id, user.sub, id, dto);
+    const result = await this.leaveRequestsService.approve(tenant.tenant_id, user.sub, id, dto);
+    // Trigger cascade on the resulting absence. Failure shouldn't roll back
+    // the approval — admins can manually assign if cascade fails.
+    try {
+      await this.substitutionCascadeService.runCascade(tenant.tenant_id, result.absence_id);
+    } catch (err) {
+      console.error('[leave.approve.cascade]', err);
+    }
+    return result;
   }
 
   @Post('requests/:id/reject')

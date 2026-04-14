@@ -1,6 +1,14 @@
 'use client';
 
-import { BookOpen, Calendar, CalendarPlus, CheckSquare, Edit, UserMinus } from 'lucide-react';
+import {
+  BookOpen,
+  Calendar,
+  CalendarPlus,
+  CheckSquare,
+  Edit,
+  Inbox,
+  UserMinus,
+} from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -91,6 +99,11 @@ export function TeacherHome({ schoolName }: { schoolName: string }) {
       icon: CalendarPlus,
       label: tActions('requestLeave'),
       href: '/dashboard/teacher/leave',
+    },
+    {
+      icon: Inbox,
+      label: tActions('myOffers'),
+      href: '/dashboard/teacher/offers',
     },
   ];
 
