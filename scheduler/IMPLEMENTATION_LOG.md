@@ -27,7 +27,7 @@
 | 1   | Schema migration + cover-teacher removal | `complete` | Claude / 2026-04-13  | Migration live on prod; commit `3893bec7`.                   |
 | 2   | Solver core updates                      | `complete` | Claude / 2026-04-14  | Commit `d76344bb`; pin/pool model live on prod.              |
 | 3   | API surface updates                      | `complete` | Claude / 2026-04-14  | Commit `477b0076`; competency API + coverage per-class live. |
-| 4   | Competencies page UI rebuild             | `pending`  | —                    | Unblocked by Stage 3                                         |
+| 4   | Competencies page UI rebuild             | `complete` | Claude / 2026-04-14  | Commit `<pending>`; competencies + coverage UI live on prod. |
 | 5   | Seed NHQS data                           | `pending`  | —                    | Blocked by Stage 4                                           |
 | 6   | Generate end-to-end on NHQS              | `pending`  | —                    | Blocked by Stage 5                                           |
 | 7   | Substitutes page + table                 | `pending`  | —                    | Blocked by Stage 6                                           |
@@ -279,7 +279,83 @@ Each stage appends its own entry here when finished. Use this template exactly:
 
 ### Stage 4 — Competencies page UI rebuild
 
-_Pending — will be populated when Stage 4 completes._
+**Completed:** 2026-04-14
+**Local commit(s):** `<pending>` feat(scheduling): rebuild competencies page around year-group + class pin/pool model
+**Deployed to production:** yes — 2026-04-14. Rsynced `apps/web/messages/{en,ar}.json` and `apps/web/src/app/[locale]/(school)/scheduling/{competencies,competency-coverage}/` to `/opt/edupod/app/`. `chown -R edupod:edupod apps/web`. Rebuilt `@school/web` and `pm2 restart web` — PM2 shows the new web process online, HTTP 200 on the page.
+
+**What was delivered:**
+
+- Competencies page (`/scheduling/competencies`) rebuilt around the Stage 1/3 pin/pool model. Previous "By Teacher" / "By Subject + Year" tabs deleted. New layout:
+  - Legend row at the top distinguishing **Pool (year-group)** / **Pinned (class)** / **Missing**.
+  - Year-group picker (chip bar).
+  - For the selected year group: a subtab bar — leading `All (pool)` tab plus one subtab per class in that year group.
+  - **All (pool) tab**: subjects × teachers checkbox matrix. Rows = curriculum subjects for this year group (from `/curriculum-requirements/matrix-subjects`), columns = teacher-role staff. Ticking a cell POSTs `{ class_id: null }`; unticking DELETEs.
+  - **Class tab**: per-subject row with a single `<Select>` (radio-like: one-of-N). Options are grouped — "Pooled teachers" (those already pool-eligible for this subject in this year group) come first, then "Other teachers". The leading option is `— none —`. Selecting a teacher creates a pin `{ class_id: <uuid> }`; selecting "— none —" deletes the existing pin. Pin replacement happens as delete-then-create in a single helper (the unique index admits at-most-one pin per `(class, subject)` across teachers).
+  - Status column on the pin matrix: **Pinned** (green) when a pin exists, the pool teacher count (blue info badge) when only pool covers the subject, or **Missing** (red) when neither pool nor pin covers the subject.
+- Coverage page (`/scheduling/competency-coverage`) rebuilt around the Stage 3 response shape (`{ rows: Array<{class_id, class_name, year_group_id, year_group_name, subject_id, subject_name, mode, eligible_teacher_count}>, summary: {...} }`):
+  - Columns = every active class, grouped under a two-level header row by year group.
+  - Rows = union of curriculum subjects across all classes.
+  - Cell states: `pinned` (green), `pool` (blue + count), `missing` (red), `not_in_curriculum` (muted em-dash).
+  - KPI cards: Missing / Pool / Pinned / Coverage rate.
+  - "Show only problems" filter collapses to rows that contain at least one missing cell.
+  - Per-cell popover opens on click with subject/class label, mode label, eligible count, and an "Edit competencies" deep link back to `/scheduling/competencies`.
+- Copy wizard (pool-to-other-years) kept: the UI copy already documented "only pool entries copy" per Stage 3's `copyToYears()` contract.
+- Copy from academic year kept.
+- `is_primary` references, star buttons, lock toggle, and "By Teacher / By Subject + Year" tabs are all gone from the UI.
+
+**Files changed (high level):**
+
+- `apps/web/src/app/[locale]/(school)/scheduling/competencies/page.tsx` — full rewrite. 933 → 530 lines; the rest extracted to `_components/` for the max-lines budget.
+- `apps/web/src/app/[locale]/(school)/scheduling/competencies/_components/{pool-matrix,pin-matrix,copy-wizard,types}.{ts,tsx}` — new. Pool/pin matrices isolated, copy wizard lifted out as a self-contained component that accepts already-formatted i18n strings via a `t` prop.
+- `apps/web/src/app/[locale]/(school)/scheduling/competency-coverage/page.tsx` — full rewrite (308 → 440 lines) around the per-class matrix.
+- `apps/web/messages/en.json`, `apps/web/messages/ar.json` — removed `byTeacher`, `bySubject`, `primary`, `locked`, `unlocked`, `lockPermissionDenied`, `coverageGaps`, `coverageAtRisk`, `coverageCovered`, `coverageYearGroup`, `coverageLegendGap`, `coverageLegendAtRisk`, `coverageLegendCovered`, `coverageNoTeachers` (scheduling.v2 only). Added `poolTab`, `poolLabel`, `pinLabel`, `missingLabel`, `poolMode`, `pinMode`, `selectClass`, `selectTeacher`, `selectTeacherNone`, `noTeacherForSubject`, `legendPool`, `legendPin`, `legendMissing`, `pooledTeachers`, `otherTeachers`, `classesSubstrip`, `pinReplaced`, `pinCleared`, `poolSaved`, `poolRemoved`, `selectYearGroupFirstCompetencies`, `coveragePinned`, `coveragePool`, `coverageMissing`, `coverageTotal`, `coverageClass`, `coverageSubject`, `coverageLegendPinned`, `coverageLegendPool`, `coverageLegendMissing`, `coverageShowProblems`, `coverageEligibleCount`. `teacherName` retuned from "Teacher Name" → "Teacher".
+- Description copy updated: "Who can teach what. Assign teachers at the year-group level, or pin to a specific section." / coverage desc: "See which subjects have a teacher assigned for every class."
+
+**Migrations / schema changes:** none. Stage 4 is frontend-only.
+
+**Tests added / updated:**
+
+- unit (web): no new component tests added (the stage doc marks them optional; the repo has no Jest setup for web component testing).
+- type-check: `pnpm --filter @school/web type-check` — clean.
+- lint: `pnpm --filter @school/web lint` — no errors introduced on the touched files. Pre-existing warnings (`max-lines`, `no-untranslated-strings` on other pages) untouched. The new competencies page comes in at 530 lines; `_components/` files at 96, 150, 323 lines each — all under the 600-line ceiling.
+- Playwright: ran against `https://nhqs.edupod.app` as `Yusuf Rahman (School Owner)`. Every flow from the stage doc's Playwright section passed:
+  1. `/en/scheduling/competencies` loads; old "By Teacher/By Subject+Year" tabs gone, replaced by YG picker + class subtabs.
+  2. Selecting "1st class" renders subtabs `All (pool)`, `1A`, `1B`.
+  3. "All (pool)" tab renders the 25-teacher × 8-subject matrix.
+  4. Ticking Ahmed Hassan × Arabic → persists across a hard reload.
+  5. Switching to "1A" subtab → the 8 subject rows match the curriculum.
+  6. Picking "Ahmed Hassan" in the Arabic row → saves the pin (Select shows the teacher, status column shows the "Pinned" badge). Hard reload → pin still there.
+  7. Changing to "Benjamin Gallagher" → pin replaced in place, no duplicate row created.
+  8. Setting back to "— none —" → pin deleted, status column reverts to the pool-count badge.
+  9. `/en/scheduling/competency-coverage` loads with per-class columns (grouped by year group) × per-subject rows. Example summary: `98 pool`, `11 missing`, `0 pinned`, `90% coverage rate`.
+  10. "Show only problems" filter cuts 12 subject rows down to the 4 with at least one missing class.
+  11. `/ar/scheduling/competencies` and `/ar/scheduling/competency-coverage` render with `dir="rtl"` and the translated strings. DOM scan for `ml-/mr-/pl-/pr-/left-/right-/rounded-l-/rounded-r-/border-l-/border-r-` in the rendered `<main>` returned zero hits on both pages.
+- Console errors during the flow: zero.
+- coverage delta: not re-measured; thresholds untouched (`@school/web` has no coverage floor).
+
+**Verification evidence:**
+
+- `pm2 list` after deploy: all three processes `online`; `web` pid freshly rolled.
+- `curl -I https://nhqs.edupod.app/en/scheduling/competencies` → HTTP/2 200.
+- Browser evaluations counted `98` blue (pool), `11` red (missing), `0` emerald (pinned) cells on the coverage grid — matching the KPI cards above them and the stage-3 API response already documented in stage-3's log entry.
+- Pin replacement verified at the DOM level: after changing the Arabic pin from Ahmed → Benjamin, `document.querySelectorAll('table tbody tr')` for the Arabic row still contains exactly one row and the status badge still reads "Pinned".
+
+**Surprises / decisions / deviations from the plan:**
+
+- The plan's component tree called for a `<YearGroupBoard>` wrapper. In practice the page-level state (selected YG, classes, curriculum subjects, competencies, teachers) is all driven by the YG picker; lifting a wrapper between `<CompetenciesPage>` and the matrices added no actual reuse. Kept the state on the page and extracted only `<PoolMatrix>`, `<PinMatrix>`, `<CopyWizard>`, and shared types into `_components/`. Net effect: same separation of concerns with less boilerplate.
+- The Stage 3 coverage response does not include classes that have no curriculum requirements — those never appear as columns. The plan asked for "one per class across all year groups", which we read as "every class that has any curriculum cell", and that's what we render. If an empty class needs to show up later for administrative reasons, it would need a server-side change to `getCoverage()`.
+- The copy-wizard dialog originally inlined in the page rewrite pushed the file to 787 lines — over the 600-line `max-lines` warning. Extracted as its own component. It now accepts already-formatted i18n strings (with `{source}` interpolation done by the parent via `useTranslations`), so the wizard never calls `useTranslations` itself — keeps the dependency graph shallow.
+- The stage doc's Playwright step 11 asked for an RTL sanity check. No hex colour literals were introduced; all colour references go through tokenised Tailwind classes (`bg-blue-500`, `bg-emerald-500`, `bg-red-500`, `bg-blue-100`, etc.) that already flip correctly for AR.
+- Pre-existing unstaged changes in `apps/api/src/modules/gradebook/report-cards/**` were left untouched on `main`; they are unrelated to Stage 4 and will be handled by whoever owns that work.
+- One minor UX note: the pool-tab's "missing" indicator appears on the subject column header (a red chip beneath the subject name). The class-tab's "missing" indicator is in the status column of each subject row. Same state, two renderings — intentional because the two views optimise for different questions ("is this subject covered at all?" vs. "who teaches this subject for this class?").
+
+**Known follow-ups / debt created:**
+
+- `SchedulingReadFacade.findTeacherCompetencies` still emits hardcoded `is_primary: false` on every row for legacy substitution / ai-substitution / teaching-allocations callers. Stages 7 and 8 own removal of this dead field (see stage-2 and stage-3 log entries for the full chain).
+- `teacher_competencies` unique index still uses default NULL-distinct semantics; a dedicated migration to switch to `WITH (NULLS NOT DISTINCT)` is still outstanding.
+- Integration e2e file `apps/api/test/scheduling/teacher-competencies.e2e-spec.ts` remains unwritten; Stage 4 covered the happy-path UI flows but RLS-isolation tests are still pending the unblock of Stage 5 seed data (which exercises the wider schema from a known baseline).
+- The `PinMatrix` select shows pooled teachers first, then every other teacher. This lets you pin a teacher who has no pool entry — creating an "implicit pin" with no pool safety net. Intentional per the stage doc's step 5 ("every other teacher (still selectable; creates an implicit pin without a pool)"). If the product team later decides implicit pins are an anti-pattern, the filter to the list is a one-line change.
+- The `_components/copy-wizard.tsx` is self-contained but duplicates the matrix-subjects call already made by the page. Acceptable since the wizard targets _other_ year groups and the page caches only the source. If several consumers start calling the same endpoint, lift it into a shared hook.
 
 ### Stage 5 — Seed NHQS data
 
@@ -307,3 +383,4 @@ Keep a short chronological record of significant orchestration events (not per-s
 - **Stage 1 completed** — 2026-04-13. Schema migration + cover-teacher removal live on prod (commit `3893bec7`). Stage 2 (solver core) is now unblocked.
 - **Stage 2 completed** — 2026-04-14. Solver + prereq service now understand the pin/pool model; `is_primary` scoring removed from the solver. Deployed to prod; api and worker restarted clean. Stage 3 (API surface updates) is now unblocked.
 - **Stage 3 completed** — 2026-04-14. Teacher-competencies API reshaped around `class_id`; `GET /coverage` now returns per-class rows with pinned/pool/missing mode and eligible teacher counts. Deployed to prod. Stage 4 (competencies UI rebuild) is now unblocked.
+- **Stage 4 completed** — 2026-04-14. Competencies page rebuilt around the year-group + class pin/pool model; per-class coverage grid live. Deployed to prod. Stage 5 (seed NHQS data) is now unblocked.
