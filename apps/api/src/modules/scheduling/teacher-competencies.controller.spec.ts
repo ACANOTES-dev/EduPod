@@ -15,7 +15,7 @@ const STAFF_ID = 'staff-uuid';
 const COMP_ID = 'comp-uuid';
 
 const mockService = {
-  listAll: jest.fn(),
+  list: jest.fn(),
   listByTeacher: jest.fn(),
   listBySubjectYear: jest.fn(),
   create: jest.fn(),
@@ -24,6 +24,8 @@ const mockService = {
   delete: jest.fn(),
   deleteAllForTeacher: jest.fn(),
   copyFromAcademicYear: jest.fn(),
+  getCoverage: jest.fn(),
+  copyToYears: jest.fn(),
 };
 
 describe('TeacherCompetenciesController', () => {
@@ -97,14 +99,59 @@ describe('TeacherCompetenciesController', () => {
     jest.clearAllMocks();
   });
 
-  it('should call service.listAll with tenant_id and academic_year_id', async () => {
-    const mockResult = [{ id: COMP_ID }];
-    mockService.listAll.mockResolvedValue(mockResult);
+  it('should call service.list with tenant_id and the full query', async () => {
+    const mockResult = { data: [{ id: COMP_ID }] };
+    mockService.list.mockResolvedValue(mockResult);
 
-    const result = await controller.listAll(TENANT, { academic_year_id: AY_ID });
+    const result = await controller.list(TENANT, { academic_year_id: AY_ID });
 
-    expect(mockService.listAll).toHaveBeenCalledWith('tenant-uuid', AY_ID);
+    expect(mockService.list).toHaveBeenCalledWith('tenant-uuid', { academic_year_id: AY_ID });
     expect(result).toEqual(mockResult);
+  });
+
+  it('threads class_id query into service.list', async () => {
+    mockService.list.mockResolvedValue({ data: [] });
+
+    await controller.list(TENANT, {
+      academic_year_id: AY_ID,
+      class_id: 'class-uuid',
+    });
+
+    expect(mockService.list).toHaveBeenCalledWith('tenant-uuid', {
+      academic_year_id: AY_ID,
+      class_id: 'class-uuid',
+    });
+  });
+
+  it('supports the "null" literal to filter for pool-only rows', async () => {
+    mockService.list.mockResolvedValue({ data: [] });
+
+    await controller.list(TENANT, { academic_year_id: AY_ID, class_id: 'null' });
+
+    expect(mockService.list).toHaveBeenCalledWith('tenant-uuid', {
+      academic_year_id: AY_ID,
+      class_id: 'null',
+    });
+  });
+
+  it('calls service.update with tenant, id, and body', async () => {
+    mockService.update.mockResolvedValue({ id: COMP_ID, class_id: 'class-uuid' });
+
+    const result = await controller.update(TENANT, COMP_ID, { class_id: 'class-uuid' });
+
+    expect(mockService.update).toHaveBeenCalledWith('tenant-uuid', COMP_ID, {
+      class_id: 'class-uuid',
+    });
+    expect(result).toEqual({ id: COMP_ID, class_id: 'class-uuid' });
+  });
+
+  it('calls service.getCoverage for the coverage endpoint', async () => {
+    mockService.getCoverage.mockResolvedValue({ rows: [], summary: { total: 0 } });
+
+    const result = await controller.getCoverage(TENANT, { academic_year_id: AY_ID });
+
+    expect(mockService.getCoverage).toHaveBeenCalledWith('tenant-uuid', AY_ID);
+    expect(result).toEqual({ rows: [], summary: { total: 0 } });
   });
 
   it('should call service.listByTeacher with correct params', async () => {

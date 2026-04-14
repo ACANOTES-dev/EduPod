@@ -15,14 +15,18 @@ import {
 import { z } from 'zod';
 
 import {
-  createTeacherCompetencySchema,
   bulkCreateTeacherCompetenciesSchema,
   copyCompetenciesToYearsSchema,
+  createTeacherCompetencySchema,
+  listTeacherCompetenciesQuerySchema,
+  updateTeacherCompetencySchema,
 } from '@school/shared';
 import type {
-  CreateTeacherCompetencyDto,
   BulkCreateTeacherCompetenciesDto,
   CopyCompetenciesToYearsDto,
+  CreateTeacherCompetencyDto,
+  ListTeacherCompetenciesQuery,
+  UpdateTeacherCompetencyDto,
 } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -33,17 +37,13 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { TeacherCompetenciesService } from './teacher-competencies.service';
 
-const listByTeacherQuerySchema = z.object({
-  academic_year_id: z.string().uuid(),
-});
-
 const listBySubjectQuerySchema = z.object({
   academic_year_id: z.string().uuid(),
   subject_id: z.string().uuid(),
   year_group_id: z.string().uuid(),
 });
 
-const deleteByTeacherQuerySchema = z.object({
+const simpleAcademicYearQuerySchema = z.object({
   academic_year_id: z.string().uuid(),
 });
 
@@ -57,37 +57,41 @@ const copyBodySchema = z.object({
 export class TeacherCompetenciesController {
   constructor(private readonly service: TeacherCompetenciesService) {}
 
+  // GET /v1/scheduling/teacher-competencies
   @Get()
   @RequiresPermission('schedule.configure_requirements')
-  async listAll(
+  async list(
     @CurrentTenant() tenant: { tenant_id: string },
-    @Query(new ZodValidationPipe(listByTeacherQuerySchema))
-    query: z.infer<typeof listByTeacherQuerySchema>,
+    @Query(new ZodValidationPipe(listTeacherCompetenciesQuerySchema))
+    query: ListTeacherCompetenciesQuery,
   ) {
-    return this.service.listAll(tenant.tenant_id, query.academic_year_id);
+    return this.service.list(tenant.tenant_id, query);
   }
 
+  // GET /v1/scheduling/teacher-competencies/coverage
   @Get('coverage')
   @RequiresPermission('schedule.configure_requirements')
   async getCoverage(
     @CurrentTenant() tenant: { tenant_id: string },
-    @Query(new ZodValidationPipe(listByTeacherQuerySchema))
-    query: z.infer<typeof listByTeacherQuerySchema>,
+    @Query(new ZodValidationPipe(simpleAcademicYearQuerySchema))
+    query: z.infer<typeof simpleAcademicYearQuerySchema>,
   ) {
     return this.service.getCoverage(tenant.tenant_id, query.academic_year_id);
   }
 
+  // GET /v1/scheduling/teacher-competencies/by-teacher/:staffProfileId
   @Get('by-teacher/:staffProfileId')
   @RequiresPermission('schedule.configure_requirements')
   async listByTeacher(
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('staffProfileId', ParseUUIDPipe) staffProfileId: string,
-    @Query(new ZodValidationPipe(listByTeacherQuerySchema))
-    query: z.infer<typeof listByTeacherQuerySchema>,
+    @Query(new ZodValidationPipe(simpleAcademicYearQuerySchema))
+    query: z.infer<typeof simpleAcademicYearQuerySchema>,
   ) {
     return this.service.listByTeacher(tenant.tenant_id, query.academic_year_id, staffProfileId);
   }
 
+  // GET /v1/scheduling/teacher-competencies/by-subject
   @Get('by-subject')
   @RequiresPermission('schedule.configure_requirements')
   async listBySubject(
@@ -103,6 +107,7 @@ export class TeacherCompetenciesController {
     );
   }
 
+  // POST /v1/scheduling/teacher-competencies
   @Post()
   @RequiresPermission('schedule.configure_requirements')
   @HttpCode(HttpStatus.CREATED)
@@ -114,6 +119,7 @@ export class TeacherCompetenciesController {
     return this.service.create(tenant.tenant_id, dto);
   }
 
+  // POST /v1/scheduling/teacher-competencies/bulk
   @Post('bulk')
   @RequiresPermission('schedule.configure_requirements')
   @HttpCode(HttpStatus.CREATED)
@@ -125,18 +131,19 @@ export class TeacherCompetenciesController {
     return this.service.bulkCreate(tenant.tenant_id, dto);
   }
 
+  // PATCH /v1/scheduling/teacher-competencies/:id
   @Patch(':id')
   @RequiresPermission('schedule.configure_requirements')
   async update(
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateTeacherCompetencySchema))
+    dto: UpdateTeacherCompetencyDto,
   ) {
-    // is_primary was the only mutable field; Stage 1 of the scheduler rebuild
-    // dropped it. The route stays so the frontend keeps resolving by id until
-    // Stage 3 reshapes the API around class_id.
-    return this.service.update(tenant.tenant_id, id);
+    return this.service.update(tenant.tenant_id, id, dto);
   }
 
+  // DELETE /v1/scheduling/teacher-competencies/:id
   @Delete(':id')
   @RequiresPermission('schedule.configure_requirements')
   @HttpCode(HttpStatus.OK)
@@ -147,14 +154,15 @@ export class TeacherCompetenciesController {
     return this.service.delete(tenant.tenant_id, id);
   }
 
+  // DELETE /v1/scheduling/teacher-competencies/by-teacher/:staffProfileId
   @Delete('by-teacher/:staffProfileId')
   @RequiresPermission('schedule.configure_requirements')
   @HttpCode(HttpStatus.OK)
   async deleteAllForTeacher(
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('staffProfileId', ParseUUIDPipe) staffProfileId: string,
-    @Query(new ZodValidationPipe(deleteByTeacherQuerySchema))
-    query: z.infer<typeof deleteByTeacherQuerySchema>,
+    @Query(new ZodValidationPipe(simpleAcademicYearQuerySchema))
+    query: z.infer<typeof simpleAcademicYearQuerySchema>,
   ) {
     return this.service.deleteAllForTeacher(
       tenant.tenant_id,
@@ -163,6 +171,7 @@ export class TeacherCompetenciesController {
     );
   }
 
+  // POST /v1/scheduling/teacher-competencies/copy
   @Post('copy')
   @RequiresPermission('schedule.configure_requirements')
   async copy(
@@ -177,6 +186,7 @@ export class TeacherCompetenciesController {
     );
   }
 
+  // POST /v1/scheduling/teacher-competencies/copy-to-years
   @Post('copy-to-years')
   @RequiresPermission('schedule.configure_requirements')
   async copyToYears(

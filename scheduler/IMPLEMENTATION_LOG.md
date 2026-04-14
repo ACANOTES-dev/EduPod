@@ -26,8 +26,8 @@
 | --- | ---------------------------------------- | ---------- | -------------------- | ----------------------------------------------- |
 | 1   | Schema migration + cover-teacher removal | `complete` | Claude / 2026-04-13  | Migration live on prod; commit `3893bec7`.      |
 | 2   | Solver core updates                      | `complete` | Claude / 2026-04-14  | Commit `d76344bb`; pin/pool model live on prod. |
-| 3   | API surface updates                      | `pending`  | —                    | Unblocked by Stage 2                            |
-| 4   | Competencies page UI rebuild             | `pending`  | —                    | Blocked by Stage 3                              |
+| 3   | API surface updates                      | `complete` | Claude / 2026-04-14  | Competency API + coverage per-class live.       |
+| 4   | Competencies page UI rebuild             | `pending`  | —                    | Unblocked by Stage 3                            |
 | 5   | Seed NHQS data                           | `pending`  | —                    | Blocked by Stage 4                              |
 | 6   | Generate end-to-end on NHQS              | `pending`  | —                    | Blocked by Stage 5                              |
 | 7   | Substitutes page + table                 | `pending`  | —                    | Blocked by Stage 6                              |
@@ -199,7 +199,83 @@ Each stage appends its own entry here when finished. Use this template exactly:
 
 ### Stage 3 — API surface updates
 
-_Pending — will be populated when Stage 3 completes._
+**Completed:** 2026-04-14
+**Local commit(s):** (will be filled in by the follow-up SHA commit, as in Stage 2)
+**Deployed to production:** yes — 2026-04-14. Rsynced `packages/shared/src/**`, `apps/api/src/modules/scheduling/**`, and `apps/api/src/modules/scheduling-runs/**` to `/opt/edupod/app/`. Rebuilt **in this order**: `@school/shared` → `@school/api` → `@school/worker` (all under the `edupod` user). `pm2 restart api worker` left both online with `Nest application successfully started`.
+
+**What was delivered:**
+
+- **Shared Zod schemas** (`packages/shared/src/schemas/scheduling.schema.ts`):
+  - `createTeacherCompetencySchema` now accepts `class_id: z.string().uuid().nullable().optional()`. `is_primary` had already been removed in Stage 1.
+  - New `updateTeacherCompetencySchema` lets PATCH toggle `class_id` (UUID = promote pool→pin; `null` = demote pin→pool; omit = no-op).
+  - `bulkCreateTeacherCompetenciesSchema` carries optional `class_id` per-row.
+  - New `listTeacherCompetenciesQuerySchema` with optional `staff_profile_id`, `subject_id`, `year_group_id`, and `class_id` filters. `class_id` accepts a UUID or the literal string `"null"` so URL-only callers can select pool-only rows.
+- **Prereq response type** (`packages/shared/src/types/scheduling-run.ts`): added `EveryClassSubjectHasTeacherDetails` with `uncovered: Array<{ class_id, class_name, subject_id, subject_name }>` and narrowed `PrerequisiteCheck.details` to a union that keeps the check's shape typed for the UI.
+- **Service rewrite** (`apps/api/src/modules/scheduling/teacher-competencies.service.ts`):
+  - `list()` — single entry point driven by the new query schema. `listAll`, `listByTeacher`, `listBySubjectYear` are thin compatibility wrappers.
+  - `create()` — when `class_id` is set, fetches the class via `ClassesReadFacade.findById`, verifies it belongs to the tenant, and asserts `class.year_group_id === dto.year_group_id` (`CLASS_NOT_FOUND` / `CLASS_YEAR_GROUP_MISMATCH`). When `class_id` is null, enforces pool-row uniqueness at the app layer because Postgres treats `NULL` as distinct in composite UNIQUE indexes (so the DB can't catch a duplicate pool row on its own).
+  - `update()` — accepts `{ class_id?: string | null }`. Promotion validates the target class; demotion re-checks pool uniqueness (excluding the row under edit). Empty body returns the current row for frontends that issue refresh PATCHes.
+  - `bulkCreate()` — validates every `class_id` in the batch against the year group before entering the transaction.
+  - `copyFromAcademicYear()` — carries `class_id` verbatim.
+  - `copyToYears()` — now copies **pool entries only** (`class_id IS NULL`). Pins are tied to a specific class that does not exist in the destination year group, so shipping them would fail on the FK. Documented in-file.
+  - `getCoverage()` — **per-class** now: one row per `(class, subject)` curriculum cell, resolved through `resolveTeacherCandidates` from the shared scheduler helper. Each row carries `mode: 'pinned' | 'pool' | 'missing'`, `eligible_teacher_count`, and grouping context (`class_name`, `year_group_name`, `subject_name`). `summary` aggregates `pinned / pool / missing / total`. Inactive and non-academic classes are skipped, matching the orchestration filter.
+  - P2002 → `ConflictException` with `TEACHER_COMPETENCY_DUPLICATE` code.
+- **Controller** (`apps/api/src/modules/scheduling/teacher-competencies.controller.ts`):
+  - New `GET /v1/scheduling/teacher-competencies` accepts the full filter set via `listTeacherCompetenciesQuerySchema`.
+  - `PATCH /v1/scheduling/teacher-competencies/:id` now validates with `updateTeacherCompetencySchema` instead of being a no-op.
+  - `GET /v1/scheduling/teacher-competencies/coverage` unchanged route, new response shape.
+- **Orchestration** (`apps/api/src/modules/scheduling/scheduler-orchestration.service.ts`):
+  - Explicit Stage 3 assertion when mapping Prisma rows into the solver input: `class_id` coerced to `string | null` at the boundary, guarding against any future shape drift.
+  - Retired the redundant per-year-group competency check from `checkPrerequisites()`; the per-class check in `SchedulingPrerequisitesService.every_class_subject_has_teacher` is the canonical source now.
+- **Orchestration spec**: the obsolete "should report missing teacher for subject+year group combo" test is `.skip`ped with a comment pointing at the new check location.
+
+**Files changed (high level):**
+
+- `packages/shared/src/schemas/scheduling.schema.ts`
+- `packages/shared/src/types/scheduling-run.ts`
+- `apps/api/src/modules/scheduling/teacher-competencies.{service,controller,service.spec,controller.spec}.ts`
+- `apps/api/src/modules/scheduling/scheduler-orchestration.{service,service.spec}.ts`
+
+**Migrations / schema changes:** none. Stage 1 delivered `class_id` on the row; Stage 3 only reshapes the API around it.
+
+**Tests added / updated:**
+
+- unit (shared scheduler): none (Stage 2 coverage stands).
+- unit (api scheduling):
+  - `teacher-competencies.service.spec.ts` fully rewritten for the new shape. 20 tests covering: pool create (happy + duplicate), pin create (happy + CLASS_NOT_FOUND + CLASS_YEAR_GROUP_MISMATCH + P2002 → CONFLICT), update (empty body = no-op, promote, demote, mismatch, missing id), list (filters + `class_id="null"` literal), coverage (pin/pool/missing mix + inactive classes), bulkCreate (happy + mismatch), delete (happy + missing), deleteAllForTeacher, copyFromAcademicYear (no-source-data).
+  - `teacher-competencies.controller.spec.ts` updated for the new signature: `list`, `list?class_id=null`, `update` with dto body, `getCoverage`.
+  - `scheduler-orchestration.service.spec.ts` — 1 test skipped per above.
+- Full scheduling test suite: 34 suites, 677 passed, 1 skipped.
+- integration e2e: **not added**. The repo's e2e harness exists but each scheduling e2e file is ~900+ lines of tenant/auth/test-data scaffolding, and the Stage 1 migration already installed the `teacher_competencies_tenant_isolation` RLS policy and smoke-tested it. Stage 3 reshapes DTOs and one endpoint only; RLS is unchanged. Explicitly deferred — see known follow-ups.
+- Playwright: not run. The competencies UI still expects the pre-Stage-3 coverage shape (matrix keyed by year group + subject rather than class + subject) and will render incorrectly until Stage 4 rebuilds it. Same frontend-mismatch allowance the stage doc calls out.
+- coverage delta: not measured; thresholds untouched.
+
+**Verification evidence:**
+
+- `pnpm --filter @school/shared type-check` clean; `@school/worker` clean; `@school/api` clean in every scheduling file (same residual pre-existing errors in admissions/communications/report-cards that were on `main` before Stage 2).
+- `pnpm --filter @school/api lint` → 0 errors, 897 pre-existing warnings.
+- DI smoke test → `DI OK`.
+- Authenticated production smoke from my shell against `https://nhqs.edupod.app` as `owner@nhqs.test`:
+  - `GET /api/v1/scheduling/teacher-competencies?academic_year_id=<2025-2026>` → 122 rows, every row carries `class_id: null` (expected — Stage 1 state: all existing rows are pool entries; Stage 5 seeding adds pins).
+  - `GET /api/v1/scheduling/teacher-competencies?...&class_id=null` → same 122 rows, all with `class_id: null` — filter honoured.
+  - `GET /api/v1/scheduling/teacher-competencies/coverage?academic_year_id=<2025-2026>` → per-class matrix; first row `{class_name: "1A", year_group_name: "1st class", subject_name: "English", mode: "pool", eligible_teacher_count: 2}`. Summary present.
+  - `GET /api/v1/scheduling-runs/prerequisites?academic_year_id=<2025-2026>` → 6 checks including `every_class_subject_has_teacher: passed: true`. `all_classes_configured: false` is a separate Stage-5 gap (only 0 classes have scheduling requirements right now) and unrelated to Stage 3.
+- `pm2 logs api --lines 5 --nostream --out` → `Nest application successfully started`. No DI errors. No scheduler/competency errors on the new surface. Worker likewise clean.
+
+**Surprises / decisions / deviations from the plan:**
+
+- First deploy attempt returned `INTERNAL_ERROR` on every new route because the rebuild script rebuilt `@school/api` before `@school/shared`'s own `dist/` was regenerated — so at runtime, `listTeacherCompetenciesQuerySchema` and `resolveTeacherCandidates` were `undefined`. The build dependency is `shared → api → worker`; the api build does **not** trigger a shared rebuild on its own. Fixed by running `pnpm --filter @school/shared build` first, then api, then worker, then `pm2 restart`. Future stages that add new runtime imports to `@school/shared` **must** rebuild shared before api.
+- The `teacher_competencies` unique index Stage 1 created is 6-column including `class_id`. Postgres treats NULL as distinct in composite unique indexes, so two pool rows (`class_id IS NULL`) with otherwise identical keys would not collide at the DB layer. Worked around in `create()` / `update()` with an explicit `findFirst` pre-insert. A cleaner long-term fix is to switch the index to `WITH (NULLS NOT DISTINCT)` — but changing an existing index on prod has to land on its own migration; flagged for a later stage or a standalone fix.
+- The stage doc asked the list endpoint to "support the existing filters (by staff, by subject, by year_group) and add a new optional `class_id=` filter". Delivered exactly that plus a `class_id="null"` literal for pool-only filtering, which is friendlier than requiring clients to send `class_id=IS%20NULL` or a custom `pool_only=true`.
+- Integration e2e file was not added — documented above and flagged in follow-ups.
+
+**Known follow-ups / debt created:**
+
+- `apps/api/test/scheduling/teacher-competencies.e2e-spec.ts` still not written. Stage 4 will exercise the same endpoints from Playwright end-to-end, which partially covers the gap, but a dedicated RLS-leakage e2e belongs somewhere in the pre-Stage-5 window. Filing against Stage 4 at a minimum.
+- `SchedulingReadFacade.findTeacherCompetencies` still maps `is_primary: false` onto every row for legacy consumers (substitution, ai-substitution, teaching-allocations). Stages 7 (substitutes table) and 8 (downstream rewire) own removing this; the interface field `TeacherCompetencyRow.is_primary` should be deleted once neither depends on it.
+- `scheduler-orchestration.service.ts#checkPrerequisites()` still performs year-group-level curriculum coverage checks; only the competency check was retired. Likely fine — those checks are about different prerequisites (period grid, curriculum existence, pinned-entry conflicts) — but worth a Stage 4 or later pass to decide whether the whole method should fold into `SchedulingPrerequisitesService`.
+- Upgrade the `teacher_competencies` unique index to `WITH (NULLS NOT DISTINCT)` so the DB enforces pool-row uniqueness directly. Small dedicated migration; noted above.
+- `copyToYears()` silently drops pins now (only pool rows copy). Documented in-code; Stage 4 should make sure the UI for "copy to other year groups" surfaces this (probably by only offering it on pool-tab rows).
 
 ### Stage 4 — Competencies page UI rebuild
 
@@ -230,3 +306,4 @@ Keep a short chronological record of significant orchestration events (not per-s
 - **Orchestration package created** — 2026-04-13. Eight-stage plan written. All stages `pending`. Context: following a wiring-bug fix (commit `f878053f`) that made `POST /v1/scheduling-runs` enqueue `scheduling:solve-v2`; that fix is already live on prod and is a prerequisite for the rest of this work but is **not** itself one of the eight stages.
 - **Stage 1 completed** — 2026-04-13. Schema migration + cover-teacher removal live on prod (commit `3893bec7`). Stage 2 (solver core) is now unblocked.
 - **Stage 2 completed** — 2026-04-14. Solver + prereq service now understand the pin/pool model; `is_primary` scoring removed from the solver. Deployed to prod; api and worker restarted clean. Stage 3 (API surface updates) is now unblocked.
+- **Stage 3 completed** — 2026-04-14. Teacher-competencies API reshaped around `class_id`; `GET /coverage` now returns per-class rows with pinned/pool/missing mode and eligible teacher counts. Deployed to prod. Stage 4 (competencies UI rebuild) is now unblocked.

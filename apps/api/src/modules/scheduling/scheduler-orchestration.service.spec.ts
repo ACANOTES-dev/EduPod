@@ -919,33 +919,12 @@ describe('SchedulerOrchestrationService', () => {
       expect(result.ready).toBe(true);
     });
 
-    it('should report missing teacher for subject+year group combo', async () => {
-      const acadFacade = module.get(AcademicReadFacade);
-      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([
-        { id: 'yg-1', name: 'Year 1' },
-      ]);
-      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
-      mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
-        {
-          year_group_id: 'yg-1',
-          subject_id: 's1',
-          subject: { name: 'Maths' },
-          year_group: { name: 'Year 1' },
-        },
-      ]);
-      // No competency for s1:yg-1
-      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
-      const schedFacade = module.get(SchedulesReadFacade);
-      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([]);
-
-      const result = await service.checkPrerequisites(TENANT_ID, AY_ID);
-
-      expect(result.ready).toBe(false);
-      expect(result.missing).toEqual(
-        expect.arrayContaining([
-          expect.stringContaining('No eligible teacher for Maths in Year 1'),
-        ]),
-      );
+    // Retired in Stage 3 of the scheduler rebuild — the year-group-grained
+    // "no eligible teacher" check moved to `SchedulingPrerequisitesService`
+    // as the per-class `every_class_subject_has_teacher` check. Coverage for
+    // the new shape lives in `scheduling-prerequisites.service.spec.ts`.
+    it.skip('should report missing teacher for subject+year group combo (retired Stage 3)', () => {
+      // intentionally empty — see comment above
     });
 
     it('should report multiple year groups missing grids independently', async () => {

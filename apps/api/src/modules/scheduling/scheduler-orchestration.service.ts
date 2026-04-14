@@ -127,36 +127,11 @@ export class SchedulerOrchestrationService {
       }
     }
 
-    // 4. Every subject+year in curriculum has >= 1 eligible teacher
-    if (yearGroupIds.length > 0) {
-      const curriculumEntries = await this.prisma.curriculumRequirement.findMany({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-        },
-        include: {
-          subject: { select: { name: true } },
-          year_group: { select: { name: true } },
-        },
-      });
-
-      const competencies = await this.prisma.teacherCompetency.findMany({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-        },
-        select: { subject_id: true, year_group_id: true },
-      });
-
-      const competencyKeys = new Set(competencies.map((c) => `${c.subject_id}:${c.year_group_id}`));
-
-      for (const entry of curriculumEntries) {
-        const key = `${entry.subject_id}:${entry.year_group_id}`;
-        if (!competencyKeys.has(key)) {
-          missing.push(`No eligible teacher for ${entry.subject.name} in ${entry.year_group.name}`);
-        }
-      }
-    }
+    // 4. (moved) Per-class teacher coverage now lives in
+    //    `SchedulingPrerequisitesService.check()` as the
+    //    `every_class_subject_has_teacher` check, which iterates per class and
+    //    honours the pin/pool model. The redundant per-year-group check that
+    //    used to live here was retired in Stage 3 of the scheduler rebuild.
 
     // 5. No pinned entry conflicts
     const pinnedEntryRows = await this.schedulesReadFacade.findPinnedEntries(
@@ -338,11 +313,19 @@ export class SchedulerOrchestrationService {
         name: staffNameMap.get(teacherId) ?? teacherId,
         competencies: teacherCompetencies
           .filter((tc) => tc.staff_profile_id === teacherId)
-          .map((tc) => ({
-            subject_id: tc.subject_id,
-            year_group_id: tc.year_group_id,
-            class_id: tc.class_id,
-          })),
+          .map((tc) => {
+            // Stage 3 invariant: the solver contract requires `class_id` to be
+            // either a UUID string (pin) or `null` (pool). Prisma types it as
+            // `string | null` but a future schema change could shift this to
+            // `undefined`; fail loudly here rather than silently producing
+            // unsolvable input.
+            const classId: string | null = tc.class_id ?? null;
+            return {
+              subject_id: tc.subject_id,
+              year_group_id: tc.year_group_id,
+              class_id: classId,
+            };
+          }),
         availability: staffAvailabilities
           .filter((sa) => sa.staff_profile_id === teacherId)
           .map((sa) => ({

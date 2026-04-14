@@ -50,17 +50,32 @@ export type UpdateCurriculumRequirementDto = z.infer<typeof updateCurriculumRequ
 
 // ─── Teacher Competencies ───────────────────────────────────────────────────
 
+/**
+ * Pin/pool discriminator on teacher competencies.
+ * - `class_id === null` / omitted → pool entry; solver picks the section.
+ * - `class_id === <uuid>` → pin; solver must honour this class assignment.
+ */
 export const createTeacherCompetencySchema = z.object({
   academic_year_id: z.string().uuid(),
   staff_profile_id: z.string().uuid(),
   subject_id: z.string().uuid(),
   year_group_id: z.string().uuid(),
-  // class_id is introduced by Stage 3 of the scheduler rebuild; Stage 1 only
-  // drops is_primary. The pool-vs-pin distinction will land once the solver
-  // and UI can emit the right value.
+  class_id: z.string().uuid().nullable().optional(),
 });
 
 export type CreateTeacherCompetencyDto = z.infer<typeof createTeacherCompetencySchema>;
+
+/**
+ * PATCH body for a teacher competency. The only mutable field is `class_id`:
+ * - Set to a UUID → promote a pool entry to a pin on that class.
+ * - Set to `null` → demote a pin to a pool entry.
+ * - Omit → no change (endpoint behaves as a read).
+ */
+export const updateTeacherCompetencySchema = z.object({
+  class_id: z.string().uuid().nullable().optional(),
+});
+
+export type UpdateTeacherCompetencyDto = z.infer<typeof updateTeacherCompetencySchema>;
 
 export const bulkCreateTeacherCompetenciesSchema = z.object({
   academic_year_id: z.string().uuid(),
@@ -70,6 +85,7 @@ export const bulkCreateTeacherCompetenciesSchema = z.object({
       z.object({
         subject_id: z.string().uuid(),
         year_group_id: z.string().uuid(),
+        class_id: z.string().uuid().nullable().optional(),
       }),
     )
     .min(1)
@@ -93,6 +109,22 @@ export const copyCompetenciesToYearsSchema = z.object({
 });
 
 export type CopyCompetenciesToYearsDto = z.infer<typeof copyCompetenciesToYearsSchema>;
+
+/**
+ * Optional filters for the list endpoint. `class_id` can be:
+ * - a UUID (pins for that class only),
+ * - the literal string `null` (pool entries only — URL-friendly form),
+ * - omitted (all rows).
+ */
+export const listTeacherCompetenciesQuerySchema = z.object({
+  academic_year_id: z.string().uuid(),
+  staff_profile_id: z.string().uuid().optional(),
+  subject_id: z.string().uuid().optional(),
+  year_group_id: z.string().uuid().optional(),
+  class_id: z.union([z.string().uuid(), z.literal('null')]).optional(),
+});
+
+export type ListTeacherCompetenciesQuery = z.infer<typeof listTeacherCompetenciesQuerySchema>;
 
 // ─── Break Groups ───────────────────────────────────────────────────────────
 

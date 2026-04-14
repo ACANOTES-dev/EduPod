@@ -52,10 +52,29 @@ export interface SchedulingResultJson {
 }
 
 export type SchedulingAdjustment =
-  | { type: 'move'; class_id: string; from_weekday: number; from_period_order: number; to_weekday: number; to_period_order: number; to_room_id?: string }
-  | { type: 'swap'; entry_a: { class_id: string; weekday: number; period_order: number }; entry_b: { class_id: string; weekday: number; period_order: number } }
+  | {
+      type: 'move';
+      class_id: string;
+      from_weekday: number;
+      from_period_order: number;
+      to_weekday: number;
+      to_period_order: number;
+      to_room_id?: string;
+    }
+  | {
+      type: 'swap';
+      entry_a: { class_id: string; weekday: number; period_order: number };
+      entry_b: { class_id: string; weekday: number; period_order: number };
+    }
   | { type: 'remove'; class_id: string; weekday: number; period_order: number }
-  | { type: 'add'; class_id: string; room_id: string | null; teacher_staff_id: string | null; weekday: number; period_order: number };
+  | {
+      type: 'add';
+      class_id: string;
+      room_id: string | null;
+      teacher_staff_id: string | null;
+      weekday: number;
+      period_order: number;
+    };
 
 export interface SchedulingRunProgress {
   status: string;
@@ -65,12 +84,34 @@ export interface SchedulingRunProgress {
   elapsed_ms: number;
 }
 
+/**
+ * Typed `details` payload for the `every_class_subject_has_teacher` check
+ * introduced in Stage 2 of the scheduler rebuild. Each row in `uncovered`
+ * names a specific `(class, subject)` pair that has neither a pinned
+ * competency (`class_id === class.id`) nor a pool entry (`class_id IS NULL`
+ * for the year group). The UI can link each row back to the relevant class
+ * on the competencies page.
+ */
+export interface EveryClassSubjectHasTeacherDetails {
+  uncovered: Array<{
+    class_id: string;
+    class_name: string;
+    subject_id: string;
+    subject_name: string;
+  }>;
+}
+
 export interface PrerequisiteCheck {
   key: string;
   passed: boolean;
   message: string;
   message_ar?: string;
-  details?: unknown;
+  /**
+   * Per-check failure detail. For `every_class_subject_has_teacher` the shape
+   * is `EveryClassSubjectHasTeacherDetails`. Other checks may set their own
+   * shape — callers should narrow on `key` before accessing fields.
+   */
+  details?: EveryClassSubjectHasTeacherDetails | Record<string, unknown>;
 }
 
 export interface PrerequisitesResult {
