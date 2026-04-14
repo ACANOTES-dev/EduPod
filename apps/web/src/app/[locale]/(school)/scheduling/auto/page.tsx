@@ -146,9 +146,11 @@ export default function AutoSchedulerPage() {
     if (!activeRunId) return;
     pollRef.current = setInterval(async () => {
       try {
-        const prog = await apiClient<RunProgress>(
+        // NestJS's global response interceptor wraps responses in `{ data }`.
+        const res = await apiClient<{ data: RunProgress }>(
           `/api/v1/scheduling-runs/${activeRunId}/progress`,
         );
+        const prog = res.data;
         setProgress(prog);
         if (prog.status === 'completed') {
           clearInterval(pollRef.current!);
@@ -174,11 +176,11 @@ export default function AutoSchedulerPage() {
     setConfirmOpen(false);
     setSubmitting(true);
     try {
-      const run = await apiClient<{ id: string }>('/api/v1/scheduling-runs', {
+      const res = await apiClient<{ data: { id: string } }>('/api/v1/scheduling-runs', {
         method: 'POST',
         body: JSON.stringify({ academic_year_id: selectedYear }),
       });
-      setActiveRunId(run.id);
+      setActiveRunId(res.data.id);
       setProgress(null);
       setProgressOpen(true);
     } catch (err: unknown) {

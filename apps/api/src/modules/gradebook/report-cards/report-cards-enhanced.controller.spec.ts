@@ -783,6 +783,7 @@ describe('ReportCardsEnhancedController — acknowledgment', () => {
 
     const result = await controller.acknowledgeReportCard(
       tenantContext,
+      jwtUser as never,
       REPORT_CARD_ID,
       { parent_id: 'parent-1' },
       mockReq as never,
@@ -792,6 +793,7 @@ describe('ReportCardsEnhancedController — acknowledgment', () => {
       TENANT_ID,
       REPORT_CARD_ID,
       'parent-1',
+      USER_ID,
       '1.2.3.4',
     );
     expect(result).toEqual({ acknowledged: true });
@@ -807,6 +809,7 @@ describe('ReportCardsEnhancedController — acknowledgment', () => {
 
     await controller.acknowledgeReportCard(
       tenantContext,
+      jwtUser as never,
       REPORT_CARD_ID,
       { parent_id: 'parent-1' },
       mockReq as never,
@@ -816,6 +819,7 @@ describe('ReportCardsEnhancedController — acknowledgment', () => {
       TENANT_ID,
       REPORT_CARD_ID,
       'parent-1',
+      USER_ID,
       '10.0.0.1',
     );
   });
@@ -830,6 +834,7 @@ describe('ReportCardsEnhancedController — acknowledgment', () => {
 
     await controller.acknowledgeReportCard(
       tenantContext,
+      jwtUser as never,
       REPORT_CARD_ID,
       { parent_id: 'parent-1' },
       mockReq as never,
@@ -839,6 +844,7 @@ describe('ReportCardsEnhancedController — acknowledgment', () => {
       TENANT_ID,
       REPORT_CARD_ID,
       'parent-1',
+      USER_ID,
       undefined,
     );
   });

@@ -20,7 +20,8 @@ import type {
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
-import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { RoomsReadFacade } from '../rooms/rooms-read.facade';
+import { SchedulerOrchestrationService } from '../scheduling/scheduler-orchestration.service';
 
 import { SchedulingPrerequisitesService } from './scheduling-prerequisites.service';
 
@@ -37,7 +38,8 @@ export class SchedulingRunsService {
     private readonly prisma: PrismaService,
     private readonly prerequisites: SchedulingPrerequisitesService,
     private readonly academicReadFacade: AcademicReadFacade,
-    private readonly schedulesReadFacade: SchedulesReadFacade,
+    private readonly roomsReadFacade: RoomsReadFacade,
+    private readonly schedulerOrchestration: SchedulerOrchestrationService,
     @InjectQueue('scheduling') private readonly schedulingQueue: Queue,
   ) {}
 
@@ -74,22 +76,20 @@ export class SchedulingRunsService {
       });
     }
 
-    // Auto-detect mode: if there are any pinned entries, it's hybrid
-    const pinnedCount = await this.schedulesReadFacade.countPinnedEntries(
+    // Assemble the full solver input — the worker's solve-v2 processor reads
+    // `config_snapshot` as a `SolverInputV2` directly. A minimal stub would
+    // crash the processor on `configSnapshot.year_groups.length`.
+    const solverInput = await this.schedulerOrchestration.assembleSolverInput(
       tenantId,
       dto.academic_year_id,
     );
-    const mode: 'auto' | 'hybrid' = pinnedCount > 0 ? 'hybrid' : 'auto';
 
-    // Build config snapshot
-    const configSnapshot = {
-      academic_year_id: dto.academic_year_id,
-      solver_seed: dto.solver_seed ?? null,
-      mode,
-      created_at: new Date().toISOString(),
-      // The worker will read this and compute the full grid hash when it runs
-      grid_hash: null as string | null,
-    };
+    if (dto.solver_seed !== undefined && dto.solver_seed !== null) {
+      solverInput.settings.solver_seed = dto.solver_seed;
+    }
+
+    // Auto-detect mode from pinned entries in the assembled input.
+    const mode: 'auto' | 'hybrid' = solverInput.pinned_entries.length > 0 ? 'hybrid' : 'auto';
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -101,7 +101,7 @@ export class SchedulingRunsService {
           academic_year_id: dto.academic_year_id,
           mode,
           status: 'queued',
-          config_snapshot: configSnapshot,
+          config_snapshot: JSON.parse(JSON.stringify(solverInput)) as Prisma.InputJsonValue,
           solver_seed:
             dto.solver_seed !== undefined && dto.solver_seed !== null
               ? BigInt(dto.solver_seed)
@@ -184,7 +184,7 @@ export class SchedulingRunsService {
     };
   }
 
-  // ─── Get single run with full JSONB ───────────────────────────────────────
+  // ─── Get single run with full JSONB + review-shaped entries ──────────────
 
   async findById(tenantId: string, id: string) {
     const run = await this.prisma.schedulingRun.findFirst({
@@ -198,7 +198,129 @@ export class SchedulingRunsService {
       });
     }
 
-    return this.formatRun(run as unknown as Record<string, unknown>);
+    const base = this.formatRun(run as unknown as Record<string, unknown>);
+    const review = await this.buildReviewShape(tenantId, run as unknown as Record<string, unknown>);
+    const result: Record<string, unknown> = { ...base, ...review };
+    return result;
+  }
+
+  // Resolve solver output IDs to human-readable labels and build the
+  // `entries` + `constraint_report` shape the review UI expects.
+  //
+  // Names for classes, subjects, and teachers come from `config_snapshot`
+  // (built by `SchedulerOrchestrationService.assembleSolverInput` at run
+  // creation time) — avoiding cross-module Prisma access. Room names are
+  // still resolved via `RoomsReadFacade` because the snapshot only carries
+  // room types, not display names.
+  private async buildReviewShape(
+    tenantId: string,
+    run: Record<string, unknown>,
+  ): Promise<{
+    entries: Array<Record<string, unknown>>;
+    constraint_report: {
+      hard_violations: number;
+      preference_satisfaction_pct: number;
+      unassigned_count: number;
+      workload_summary: Array<{ teacher: string; periods: number }>;
+    };
+  }> {
+    const resultJson = run['result_json'] as
+      | { entries?: Array<Record<string, unknown>> }
+      | null
+      | undefined;
+    const rawEntries = Array.isArray(resultJson?.entries) ? resultJson!.entries : [];
+
+    const snapshot = (run['config_snapshot'] ?? {}) as Record<string, unknown>;
+    const classMap = new Map<string, string>();
+    const yearGroups = Array.isArray(snapshot['year_groups'])
+      ? (snapshot['year_groups'] as Array<Record<string, unknown>>)
+      : [];
+    for (const yg of yearGroups) {
+      const sections = Array.isArray(yg['sections'])
+        ? (yg['sections'] as Array<Record<string, unknown>>)
+        : [];
+      for (const s of sections) {
+        if (typeof s['class_id'] === 'string' && typeof s['class_name'] === 'string') {
+          classMap.set(s['class_id'], s['class_name']);
+        }
+      }
+    }
+
+    const subjectMap = new Map<string, string>();
+    const curriculum = Array.isArray(snapshot['curriculum'])
+      ? (snapshot['curriculum'] as Array<Record<string, unknown>>)
+      : [];
+    for (const c of curriculum) {
+      if (typeof c['subject_id'] === 'string' && typeof c['subject_name'] === 'string') {
+        subjectMap.set(c['subject_id'], c['subject_name']);
+      }
+    }
+
+    const teacherMap = new Map<string, string>();
+    const teachers = Array.isArray(snapshot['teachers'])
+      ? (snapshot['teachers'] as Array<Record<string, unknown>>)
+      : [];
+    for (const t of teachers) {
+      if (typeof t['staff_profile_id'] === 'string' && typeof t['name'] === 'string') {
+        teacherMap.set(t['staff_profile_id'], t['name']);
+      }
+    }
+
+    const rooms = await this.roomsReadFacade.findActiveRoomBasics(tenantId);
+    const roomMap = new Map<string, string>(rooms.map((r) => [r.id, r.name]));
+
+    const workload = new Map<string, number>();
+    const entries = rawEntries.map((e) => {
+      const classId = String(e['class_id'] ?? '');
+      const subjectId = typeof e['subject_id'] === 'string' ? e['subject_id'] : null;
+      const teacherId = typeof e['teacher_staff_id'] === 'string' ? e['teacher_staff_id'] : null;
+      const roomId = typeof e['room_id'] === 'string' ? e['room_id'] : null;
+      const weekday = Number(e['weekday'] ?? 0);
+      const periodOrder = Number(e['period_order'] ?? 0);
+
+      if (teacherId) {
+        const name = teacherMap.get(teacherId) ?? teacherId;
+        workload.set(name, (workload.get(name) ?? 0) + 1);
+      }
+
+      return {
+        id: `${classId}_${weekday}_${periodOrder}`,
+        class_id: classId,
+        class_name: classMap.get(classId) ?? classId,
+        subject_name: subjectId ? (subjectMap.get(subjectId) ?? undefined) : undefined,
+        teacher_name: teacherId ? (teacherMap.get(teacherId) ?? undefined) : undefined,
+        room_name: roomId ? (roomMap.get(roomId) ?? undefined) : undefined,
+        weekday,
+        period_order: periodOrder,
+        start_time: typeof e['start_time'] === 'string' ? e['start_time'] : '',
+        end_time: typeof e['end_time'] === 'string' ? e['end_time'] : '',
+        is_pinned: Boolean(e['is_pinned']),
+      };
+    });
+
+    const workloadSummary = [...workload.entries()]
+      .map(([teacher, periods]) => ({ teacher, periods }))
+      .sort((a, b) => b.periods - a.periods);
+
+    const softScore =
+      run['soft_preference_score'] !== null && run['soft_preference_score'] !== undefined
+        ? Number(run['soft_preference_score'])
+        : 0;
+    const softMax =
+      run['soft_preference_max'] !== null && run['soft_preference_max'] !== undefined
+        ? Number(run['soft_preference_max'])
+        : 0;
+    const preferenceSatisfactionPct = softMax > 0 ? Math.round((softScore / softMax) * 100) : 0;
+
+    return {
+      entries,
+      constraint_report: {
+        hard_violations: Number(run['hard_constraint_violations'] ?? 0),
+        preference_satisfaction_pct: preferenceSatisfactionPct,
+        unassigned_count: Number(run['entries_unassigned'] ?? 0),
+        workload_summary: workloadSummary,
+      },
+    };
   }
 
   // ─── Get progress (reads from DB row updated by worker) ───────────────────

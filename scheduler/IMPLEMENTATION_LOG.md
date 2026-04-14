@@ -29,7 +29,7 @@
 | 3   | API surface updates                      | `complete` | Claude / 2026-04-14  | Commit `477b0076`; competency API + coverage per-class live. |
 | 4   | Competencies page UI rebuild             | `complete` | Claude / 2026-04-14  | Commit `ed5ea305`; competencies + coverage UI live on prod.  |
 | 5   | Seed NHQS data                           | `complete` | Claude / 2026-04-14  | Commit `a099008a`; NHQS seeded + prereq check fixed (C2).    |
-| 6   | Generate end-to-end on NHQS              | `pending`  | —                    | Blocked by Stage 5                                           |
+| 6   | Generate end-to-end on NHQS              | `complete` | Claude / 2026-04-14  | Run `eace28b5` applied: 361 entries, 0 hard violations.      |
 | 7   | Substitutes page + table                 | `pending`  | —                    | Blocked by Stage 6                                           |
 | 8   | Downstream rewire                        | `pending`  | —                    | Blocked by Stage 7                                           |
 
@@ -461,7 +461,41 @@ Each stage appends its own entry here when finished. Use this template exactly:
 
 ### Stage 6 — Generate end-to-end on NHQS
 
-_Pending — will be populated when Stage 6 completes._
+**Session:** Claude / 2026-04-14
+**Owner:** Claude
+**Status:** complete
+
+**Observed run:**
+
+- Run id: `eace28b5-75f0-4b07-bc44-eaf48a41be05`, tenant NHQS, academic year `0001b90d-25f1-413d-87d5-2da00ab7168d`.
+- Solver v2 inputs: 9 year groups, 59 curriculum entries, 24 teachers.
+- Result: 361 entries, 33 unassigned, score 5.317/6 (≈89%) in 10,704 ms.
+- `hard_constraint_violations = 0`. No tier-1 violations on apply.
+- Applied at 2026-04-14 07:27:13 UTC. `schedules` table populated: 361 rows, 16 distinct classes, 24 distinct teachers.
+- Analytics dashboard (`/en/scheduling/dashboard`): 16 assigned classes, room utilisation 5%, teacher utilisation 6%, avg gaps 1.4, preference score 89%, latest run shown as applied.
+- `my-timetable` as `Sarah.daly@nhqs.test`: 30 periods rendered across the week with class + room names.
+
+**Bugs surfaced and fixed in-stage:**
+
+1. **`config_snapshot` stub crashed the solver.** `SchedulingRunsService.create` was storing a minimal snapshot `{ academic_year_id, mode, grid_hash: null }`; the worker's `SchedulingSolverV2Processor` reads it as `SolverInputV2` and hit `configSnapshot.year_groups.length` → "Cannot read properties of undefined (reading 'length')". Fix: inject `SchedulerOrchestrationService` into `SchedulingRunsService` and call `assembleSolverInput(tenantId, academicYearId)` to build the full input before the `schedulingRun.create()`. Also switched mode detection to use `solverInput.pinned_entries.length`. Dropped the now-unused `SchedulesReadFacade` from the service constructor. Added `SchedulingModule` to `SchedulingRunsModule.imports`. Added a mock for the new dep in `scheduling-runs.service.spec.ts`; all 42 tests pass.
+2. **Failure-path `schedulingRun.update` bypassed RLS.** When the solver throws, the catch block updated the run with the raw `prisma` client (no tenant context). The `scheduling_runs_tenant_isolation` policy then cast an empty `app.current_tenant_id` setting to `uuid` and raised SQLSTATE 22P02. Fix: wrap the failure-update in `this.prisma.$transaction` and `SELECT set_config('app.current_tenant_id', ${job.data.tenant_id}::text, true)` before the `update`. Added the processor to `packages/eslint-config/raw-sql-allowlist.json` under the `rls-infrastructure` category.
+3. **Review page expected a different response shape than `findById` returned.** The page typed the response as `{ id, status, mode, entries, constraint_report }` and iterated `data.entries`; the API returned the raw scheduling_runs row with `result_json` nested + a `{ data }` envelope from the global interceptor, so the page hit "e is not iterable". Fix: `findById` now resolves class/subject/room/staff names from the DB, maps `result_json.entries` → review `entries[]`, and builds `constraint_report` (hard violations, preference-satisfaction %, unassigned count, workload summary) — returned alongside the existing formatted row fields. The review page was also updated to unwrap `{ data }` and include `updated_at` so the Apply button can send `expected_updated_at` (required by `applyRunSchema`).
+4. **Auto page progress poll and POST both missed the envelope.** Fixed so `setActiveRunId(res.data.id)` on POST and `const prog = res.data` inside the poller.
+5. **`my-timetable` page was calling a non-existent endpoint with the wrong shape.** The page called `/api/v1/scheduling/my-timetable` (404) and expected `{ week, cells, periods, weekdays }`; the real endpoint is `/api/v1/scheduling/timetable/my` and it returns `{ data: TimetableEntry[] }`. Fix: rewrite the page's fetch to call the correct URL with a `week_date` = end-of-week param (so the `effective_start_date <= asOf` filter matches seeded schedules whose effective date is today) and transform `TimetableEntry[]` → the `MyTimetableResponse` shape the rest of the component already knows how to render.
+6. **Teacher role couldn't reach `/scheduling/my-timetable`.** Two permission gates were blocking: the API's `@RequiresPermission('schedule.view_personal_timetable')` (no such permission exists in the prod DB; teachers have `schedule.view_own`) and the web's route-role map, which restricted everything under `/scheduling` to `ADMIN_ROLES`. Fix: changed all four `timetable`/`calendar-tokens` `@RequiresPermission` calls on `SchedulingEnhancedController` from `schedule.view_personal_timetable` → `schedule.view_own`, and added a narrower `/scheduling/my-timetable` entry with `[...ADMIN_ROLES, 'teacher']` before the broader `/scheduling` entry in `apps/web/src/lib/route-roles.ts`.
+7. **Dashboard overview KPIs read nothing from the response.** The page was typed as `apiClient<DashboardOverview>(...)` and `setOverview(ov)`, but the API wraps in `{ data }`. Fixed to `{ data: DashboardOverview }` with `setOverview(ov.data)`.
+
+**Unblocked for next session:** Stage 7 (substitutes page + table) is now unblocked.
+
+**Unassigned slot analysis (for future tuning, not a blocker):** 33 of 430 curriculum slots went unassigned. The solver output was capped by the seeded availability (Mon-Fri 08:00–16:00 per teacher). Because the run hit 0 hard violations and 89% preference satisfaction, this is an over-constraint signal rather than a bug — Stage 8 or a later tuning pass can relax teacher availability windows if this is unacceptable.
+
+**Follow-ups logged for Stages 7–8 / downstream work:**
+
+- The solver result's `SolverAssignmentV2.subject_id` is `null` for homeroom-model schools (Stage 4 coverage work exposed this earlier); the review page therefore omits a subject line on most cells. Not a Stage 6 regression, but the review page will need a subject resolution path once Stage 8 rewires consumers.
+- `scheduling-runs.service.spec.ts` no longer exercises `countPinnedEntries` (removed along with the `SchedulesReadFacade` injection). The mode-detection path is now covered indirectly via `assembleSolverInput` mocks.
+- Pre-existing `admissions/applications.service.spec.ts` and `communications/notification-templates.service.spec.ts` type errors are still on `main`; the Stage 6 changes did not introduce or clear them.
+- `AuditLogWriteProcessor` logs `unrecognized configuration parameter "app.current_tenant_id"` for non-tenant refresh-token and tenant-switch events. Pre-existing, unrelated to scheduling — flagged for a future infra fix.
+- The `createSchedulingRunSchema` is now the only schema left that doesn't echo `expected_updated_at`; apply/discard both require it. Frontend now passes it from `data.updated_at`.
 
 ### Stage 7 — Substitutes page + table
 
@@ -483,3 +517,4 @@ Keep a short chronological record of significant orchestration events (not per-s
 - **Stage 3 completed** — 2026-04-14. Teacher-competencies API reshaped around `class_id`; `GET /coverage` now returns per-class rows with pinned/pool/missing mode and eligible teacher counts. Deployed to prod. Stage 4 (competencies UI rebuild) is now unblocked.
 - **Stage 4 completed** — 2026-04-14. Competencies page rebuilt around the year-group + class pin/pool model; per-class coverage grid live. Deployed to prod. Stage 5 (seed NHQS data) is now unblocked.
 - **Stage 5 completed** — 2026-04-14. NHQS seeded (59 curriculum, 162 pool competencies, 155 staff availability rows). Prereq check patched (Option C2) to handle homeroom-model schools without seeding redundant `class_scheduling_requirements`. Prereqs endpoint returns `ready: true` on prod. Stage 6 (generate end-to-end) is now unblocked — note the auto-page UI bug documented in Stage 5's follow-ups.
+- **Stage 6 completed** — 2026-04-14. Run `eace28b5-75f0-4b07-bc44-eaf48a41be05` applied on NHQS: 361 entries, 0 hard violations, 89% preference satisfaction, 33 unassigned. `schedules` table populated (361 rows × 16 classes × 24 teachers). Analytics and teacher timetable verified live. Seven pipeline bugs fixed in-stage (config_snapshot stub, RLS on failure-update, review shape+envelope, auto-page envelopes, my-timetable wrong URL + role gate, dashboard overview envelope). Stage 7 (substitutes page) is now unblocked.

@@ -20,8 +20,13 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
-import { AcademicReadFacade, MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
+import {
+  AcademicReadFacade,
+  MOCK_FACADE_PROVIDERS,
+  RoomsReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulerOrchestrationService } from '../scheduling/scheduler-orchestration.service';
 
 import { SchedulingPrerequisitesService } from './scheduling-prerequisites.service';
 import { SchedulingRunsService } from './scheduling-runs.service';
@@ -46,6 +51,33 @@ describe('SchedulingRunsService', () => {
     findYearByIdOrThrow: jest.fn().mockResolvedValue(AY_ID),
   };
 
+  const baseSolverInput = () => ({
+    year_groups: [],
+    curriculum: [],
+    teachers: [],
+    rooms: [],
+    room_closures: [],
+    break_groups: [],
+    pinned_entries: [] as Array<{ schedule_id: string }>,
+    student_overlaps: [],
+    settings: {
+      max_solver_duration_seconds: 120,
+      preference_weights: { low: 1, medium: 2, high: 3 },
+      global_soft_weights: {
+        even_subject_spread: 2,
+        minimise_teacher_gaps: 1,
+        room_consistency: 1,
+        workload_balance: 1,
+        break_duty_balance: 1,
+      },
+      solver_seed: null as number | null,
+    },
+  });
+
+  const mockSchedulerOrchestration = {
+    assembleSolverInput: jest.fn(),
+  };
+
   beforeEach(async () => {
     mockPrisma = {
       academicYear: { findFirst: jest.fn() },
@@ -65,14 +97,20 @@ describe('SchedulingRunsService', () => {
     mockTx.schedulingRun.update.mockReset();
     mockSchedulingQueue.add.mockReset().mockResolvedValue({ id: 'job-1' });
     mockAcademicReadFacade.findYearByIdOrThrow.mockResolvedValue(AY_ID);
+    mockSchedulerOrchestration.assembleSolverInput.mockReset().mockResolvedValue(baseSolverInput());
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
+        {
+          provide: RoomsReadFacade,
+          useValue: { findActiveRoomBasics: jest.fn().mockResolvedValue([]) },
+        },
         SchedulingRunsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SchedulingPrerequisitesService, useValue: mockPrerequisites },
+        { provide: SchedulerOrchestrationService, useValue: mockSchedulerOrchestration },
         { provide: getQueueToken('scheduling'), useValue: mockSchedulingQueue },
       ],
     }).compile();
@@ -125,7 +163,9 @@ describe('SchedulingRunsService', () => {
     it('should set mode to hybrid when pinned entries exist', async () => {
       mockPrisma.academicYear.findFirst.mockResolvedValue({ id: AY_ID });
       mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
-      mockPrisma.schedule.count.mockResolvedValue(5);
+      const inputWithPin = baseSolverInput();
+      inputWithPin.pinned_entries.push({ schedule_id: 'pin-1' });
+      mockSchedulerOrchestration.assembleSolverInput.mockResolvedValue(inputWithPin);
 
       const createdRun = {
         id: RUN_ID,

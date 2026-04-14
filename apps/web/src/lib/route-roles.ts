@@ -131,6 +131,9 @@ export const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
     prefix: '/timetables',
     roles: [...ADMIN_ROLES, 'teacher'],
   },
+  // Teachers can view their own timetable even though the rest of /scheduling
+  // is admin-only. Must precede the broader `/scheduling` entry.
+  { prefix: '/scheduling/my-timetable', roles: [...ADMIN_ROLES, 'teacher'] },
   { prefix: '/scheduling', roles: ADMIN_ROLES },
   // Operations hub landing dashboard — visible to any staff role. Individual
   // sub-pages (/admissions, /communications, etc.) still enforce their own

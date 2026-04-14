@@ -248,7 +248,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('timetable/my')
-  @RequiresPermission('schedule.view_personal_timetable')
+  @RequiresPermission('schedule.view_own')
   async getMyTimetable(
     @CurrentTenant() tenant: { tenant_id: string },
     @CurrentUser() user: JwtPayload,
@@ -273,7 +273,7 @@ export class SchedulingEnhancedController {
   }
 
   @Post('calendar-tokens')
-  @RequiresPermission('schedule.view_personal_timetable')
+  @RequiresPermission('schedule.view_own')
   @HttpCode(HttpStatus.CREATED)
   async createCalendarToken(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -285,7 +285,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('calendar-tokens')
-  @RequiresPermission('schedule.view_personal_timetable')
+  @RequiresPermission('schedule.view_own')
   async listCalendarTokens(
     @CurrentTenant() tenant: { tenant_id: string },
     @CurrentUser() user: JwtPayload,
@@ -294,7 +294,7 @@ export class SchedulingEnhancedController {
   }
 
   @Delete('calendar-tokens/:tokenId')
-  @RequiresPermission('schedule.view_personal_timetable')
+  @RequiresPermission('schedule.view_own')
   @HttpCode(HttpStatus.OK)
   async revokeCalendarToken(
     @CurrentTenant() tenant: { tenant_id: string },

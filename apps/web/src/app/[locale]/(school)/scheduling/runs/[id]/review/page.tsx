@@ -47,6 +47,7 @@ interface RunReview {
   id: string;
   status: string;
   mode: string;
+  updated_at: string;
   entries: ReviewEntry[];
   constraint_report: ConstraintReport;
 }
@@ -92,16 +93,23 @@ export default function RunReviewPage() {
 
   React.useEffect(() => {
     setLoading(true);
-    apiClient<RunReview>(`/api/v1/scheduling-runs/${id}`)
-      .then((res) => setData(res))
-      .catch((err) => { console.error('[RunsReviewPage]', err); return setData(null); })
+    apiClient<{ data: RunReview }>(`/api/v1/scheduling-runs/${id}`)
+      .then((res) => setData(res.data))
+      .catch((err) => {
+        console.error('[RunsReviewPage]', err);
+        return setData(null);
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
   async function handleApply() {
+    if (!data) return;
     setActioning(true);
     try {
-      await apiClient(`/api/v1/scheduling-runs/${id}/apply`, { method: 'POST' });
+      await apiClient(`/api/v1/scheduling-runs/${id}/apply`, {
+        method: 'POST',
+        body: JSON.stringify({ expected_updated_at: data.updated_at }),
+      });
       toast.success('Timetable applied successfully');
       setApplyOpen(false);
       router.push('/scheduling/auto');
@@ -114,9 +122,13 @@ export default function RunReviewPage() {
   }
 
   async function handleDiscard() {
+    if (!data) return;
     setActioning(true);
     try {
-      await apiClient(`/api/v1/scheduling-runs/${id}/discard`, { method: 'POST' });
+      await apiClient(`/api/v1/scheduling-runs/${id}/discard`, {
+        method: 'POST',
+        body: JSON.stringify({ expected_updated_at: data.updated_at }),
+      });
       toast.success('Timetable discarded');
       setDiscardOpen(false);
       router.push('/scheduling/auto');
@@ -147,8 +159,8 @@ export default function RunReviewPage() {
         }),
       });
       toast.success('Swap applied');
-      const updated = await apiClient<RunReview>(`/api/v1/scheduling-runs/${id}`);
-      setData(updated);
+      const updated = await apiClient<{ data: RunReview }>(`/api/v1/scheduling-runs/${id}`);
+      setData(updated.data);
     } catch (err) {
       console.error('[RunsReviewPage]', err);
       toast.error('Swap failed');
@@ -245,14 +257,20 @@ export default function RunReviewPage() {
         {/* Timetable Grid */}
         <div className="lg:col-span-3 space-y-4">
           {selectedEntry && (
-            <div className="rounded-lg bg-brand/10 border border-brand/30 px-4 py-2 text-sm text-brand">{t('selected')}<strong>{selectedEntry.class_name}</strong> —{' '}
-              {WEEKDAY_LABELS[selectedEntry.weekday]} P{selectedEntry.period_order}{t('clickAnotherSlotToSwap')}</div>
+            <div className="rounded-lg bg-brand/10 border border-brand/30 px-4 py-2 text-sm text-brand">
+              {t('selected')}
+              <strong>{selectedEntry.class_name}</strong> — {WEEKDAY_LABELS[selectedEntry.weekday]}{' '}
+              P{selectedEntry.period_order}
+              {t('clickAnotherSlotToSwap')}
+            </div>
           )}
           <div className="overflow-x-auto rounded-xl border border-border bg-surface">
             <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="px-3 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary w-16">{t('period')}</th>
+                  <th className="px-3 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary w-16">
+                    {t('period')}
+                  </th>
                   {weekdays.map((day) => (
                     <th
                       key={day}
@@ -368,10 +386,15 @@ export default function RunReviewPage() {
           )}
 
           <div className="rounded-xl border border-border bg-surface p-4 space-y-1.5">
-            <h3 className="text-xs font-semibold text-text-tertiary uppercase mb-2">{t('legend')}</h3>
+            <h3 className="text-xs font-semibold text-text-tertiary uppercase mb-2">
+              {t('legend')}
+            </h3>
             <div className="flex items-center gap-1.5 text-xs text-text-secondary">
               <div className="w-3 h-3 rounded-sm border border-amber-300 bg-amber-50 dark:bg-amber-900/20 shrink-0" />
-              <span>{t('pinEntry')}{t('solid')}</span>
+              <span>
+                {t('pinEntry')}
+                {t('solid')}
+              </span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-text-secondary">
               <div className="w-3 h-3 rounded-sm border border-dashed border-blue-300 bg-blue-50 dark:bg-blue-900/20 shrink-0" />
@@ -389,7 +412,9 @@ export default function RunReviewPage() {
           </DialogHeader>
           <p className="text-sm text-text-secondary">{t('confirmApply')}</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setApplyOpen(false)}>{t('cancelSolve')}</Button>
+            <Button variant="outline" onClick={() => setApplyOpen(false)}>
+              {t('cancelSolve')}
+            </Button>
             <Button onClick={handleApply} disabled={actioning}>
               {actioning && <Loader2 className="h-4 w-4 animate-spin me-2" />}
               {t('applyTimetable')}
@@ -406,7 +431,9 @@ export default function RunReviewPage() {
           </DialogHeader>
           <p className="text-sm text-text-secondary">{t('confirmDiscard')}</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDiscardOpen(false)}>{t('cancelSolve')}</Button>
+            <Button variant="outline" onClick={() => setDiscardOpen(false)}>
+              {t('cancelSolve')}
+            </Button>
             <Button variant="destructive" onClick={handleDiscard} disabled={actioning}>
               {actioning && <Loader2 className="h-4 w-4 animate-spin me-2" />}
               {t('discardTimetable')}

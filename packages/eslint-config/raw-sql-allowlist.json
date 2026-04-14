@@ -278,6 +278,12 @@
       "reason": "RLS context-setting via set_config() within transaction — tagged template"
     },
     {
+      "file": "apps/worker/src/processors/scheduling/solver-v2.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() in the failure-path transaction so the schedulingRun.update can satisfy the tenant_isolation policy on scheduling_runs"
+    },
+    {
       "file": "apps/worker/src/processors/compliance/retention-enforcement.processor.ts",
       "methods": ["$executeRaw"],
       "category": "rls-infrastructure",

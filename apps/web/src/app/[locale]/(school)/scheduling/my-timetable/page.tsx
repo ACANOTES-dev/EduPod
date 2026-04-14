@@ -270,10 +270,74 @@ export default function MyTimetablePage() {
   const fetchTimetable = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient<MyTimetableResponse>(
-        `/api/v1/scheduling/my-timetable?week_offset=${weekOffset}`,
-      );
-      setData(res);
+      // Target date for the requested week — Monday of the offset week.
+      const today = new Date();
+      const mondayOffset = (today.getDay() + 6) % 7;
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - mondayOffset + weekOffset * 7);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+
+      // Use the END of the requested week as the "as-of" date so the server's
+      // `effective_start_date <= asOf` filter always matches a schedule that
+      // starts anywhere within or before that week.
+      const weekDateIso = weekEnd.toISOString().slice(0, 10);
+      const res = await apiClient<{
+        data: Array<{
+          schedule_id: string;
+          weekday: number;
+          period_order: number;
+          start_time: string;
+          end_time: string;
+          class_name: string;
+          subject_name: string | null;
+          room_name: string | null;
+          rotation_week: number | null;
+        }>;
+      }>(`/api/v1/scheduling/timetable/my?week_date=${weekDateIso}`);
+
+      const entries = res.data;
+      const cells: TimetableCell[] = entries.map((e) => ({
+        schedule_id: e.schedule_id,
+        period_name: `P${e.period_order}`,
+        period_order: e.period_order,
+        weekday: e.weekday,
+        subject_name: e.subject_name ?? '',
+        subject_color: null,
+        class_name: e.class_name,
+        room_name: e.room_name,
+        is_cover_duty: false,
+        cover_for_name: null,
+      }));
+
+      const periodMap = new Map<
+        number,
+        { order: number; name: string; start_time: string; end_time: string }
+      >();
+      for (const e of entries) {
+        if (!periodMap.has(e.period_order)) {
+          periodMap.set(e.period_order, {
+            order: e.period_order,
+            name: `P${e.period_order}`,
+            start_time: e.start_time,
+            end_time: e.end_time,
+          });
+        }
+      }
+
+      const weekdays = [...new Set(entries.map((e) => e.weekday))].sort((a, b) => a - b);
+
+      setData({
+        week: {
+          rotation_week_label: null,
+          week_start: weekStart.toISOString(),
+          week_end: weekEnd.toISOString(),
+        },
+        cells,
+        periods: [...periodMap.values()].sort((a, b) => a.order - b.order),
+        weekdays,
+      });
     } catch (err) {
       console.error('[SchedulingMyTimetablePage]', err);
       setData(null);

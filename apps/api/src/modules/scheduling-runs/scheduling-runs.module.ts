@@ -7,6 +7,7 @@ import { ClassesModule } from '../classes/classes.module';
 import { PeriodGridModule } from '../period-grid/period-grid.module';
 import { RoomsModule } from '../rooms/rooms.module';
 import { SchedulesModule } from '../schedules/schedules.module';
+import { SchedulingModule } from '../scheduling/scheduling.module';
 import { StaffAvailabilityModule } from '../staff-availability/staff-availability.module';
 import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 
@@ -27,6 +28,7 @@ import { SchedulingRunsService } from './scheduling-runs.service';
     PeriodGridModule,
     RoomsModule,
     SchedulesModule,
+    SchedulingModule,
     StaffAvailabilityModule,
     StaffProfilesModule,
   ],

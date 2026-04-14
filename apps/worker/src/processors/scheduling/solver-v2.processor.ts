@@ -39,9 +39,15 @@ export class SchedulingSolverV2Processor extends WorkerHost {
       const message = err instanceof Error ? err.message : 'Unknown solver v2 error';
       this.logger.error(`Solver v2 failed for run ${job.data.run_id}: ${message}`);
       try {
-        await this.prisma.schedulingRun.update({
-          where: { id: job.data.run_id },
-          data: { status: 'failed', failure_reason: message },
+        // RLS is enabled on scheduling_runs, so the update must run inside a
+        // transaction with `app.current_tenant_id` set — otherwise the policy's
+        // UUID cast of the empty setting fails with 22P02.
+        await this.prisma.$transaction(async (tx) => {
+          await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${job.data.tenant_id}::text, true)`;
+          await tx.schedulingRun.update({
+            where: { id: job.data.run_id },
+            data: { status: 'failed', failure_reason: message },
+          });
         });
       } catch (updateErr) {
         this.logger.error(`Failed to mark run ${job.data.run_id} as failed: ${updateErr}`);

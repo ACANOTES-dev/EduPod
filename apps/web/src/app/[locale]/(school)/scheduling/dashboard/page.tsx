@@ -604,10 +604,10 @@ export default function SchedulingDashboardPage() {
           return;
         }
         setAcademicYearId(yearId);
-        return apiClient<DashboardOverview>(
+        return apiClient<{ data: DashboardOverview }>(
           `/api/v1/scheduling-dashboard/overview?academic_year_id=${yearId}`,
           { silent: true },
-        ).then((ov) => setOverview(ov));
+        ).then((ov) => setOverview(ov.data));
       })
       .catch((err) => {
         console.error('[SchedulingDashboardPage]', err);
