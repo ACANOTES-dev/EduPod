@@ -534,16 +534,26 @@ function ClassTimetable({
   }, [periodSlots]);
 
   // Representative slot per period_order used for the row label + time range.
-  // If a row mixes types across days (rare), the representative prefers the
-  // most common non-teaching type so the label carries meaning.
+  // Picks the most common (start, end) pair across the week so the row
+  // header time matches what the majority of cells in that row display.
   const rowLabelByPeriod = React.useMemo(() => {
     const out = new Map<number, { label: string; start: string; end: string; isBreak: boolean }>();
     for (const po of periodOrders) {
       const slots = periodSlots.filter((s) => s.period_order === po);
-      const firstBreakish = slots.find(
-        (s) => s.period_type === 'break_supervision' || s.period_type === 'lunch_duty',
-      );
-      const rep = firstBreakish ?? slots[0];
+      if (slots.length === 0) continue;
+      const counts = new Map<string, { slot: PeriodSlot; count: number }>();
+      for (const s of slots) {
+        const key = `${s.start_time}|${s.end_time}`;
+        const existing = counts.get(key);
+        if (existing) existing.count += 1;
+        else counts.set(key, { slot: s, count: 1 });
+      }
+      // Most common time wins; ties broken by picking the earliest weekday
+      let best: { slot: PeriodSlot; count: number } | null = null;
+      for (const candidate of counts.values()) {
+        if (!best || candidate.count > best.count) best = candidate;
+      }
+      const rep = best?.slot ?? slots[0];
       if (!rep) continue;
       out.set(po, {
         label: `P${po}`,
@@ -587,11 +597,12 @@ function ClassTimetable({
               const rowMeta = rowLabelByPeriod.get(period);
               return (
                 <tr key={period} className="border-b border-border last:border-b-0">
-                  <td className="px-3 py-2 text-xs font-mono text-text-tertiary align-top whitespace-nowrap">
+                  <td className="px-3 py-2 text-xs font-mono text-text-tertiary align-top">
                     <div>{rowMeta?.label ?? `P${period}`}</div>
                     {rowMeta?.start && rowMeta?.end && (
-                      <div className="font-mono text-[10px] text-text-tertiary/80 mt-0.5">
-                        {rowMeta.start}–{rowMeta.end}
+                      <div className="font-mono text-[10px] text-text-tertiary/80 mt-0.5 leading-tight">
+                        <div>{rowMeta.start}</div>
+                        <div>{rowMeta.end}</div>
                       </div>
                     )}
                   </td>
@@ -618,8 +629,8 @@ function ClassTimetable({
                           <div
                             className={`h-12 rounded-lg border border-dashed flex flex-col items-center justify-center text-[11px] font-semibold uppercase tracking-wide ${
                               slot.period_type === 'lunch_duty'
-                                ? 'border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-900/15 text-emerald-700 dark:text-emerald-300'
-                                : 'border-slate-200 dark:border-slate-700/40 bg-slate-50 dark:bg-slate-800/20 text-slate-500 dark:text-slate-400'
+                                ? 'border-sky-200 dark:border-sky-800/50 bg-sky-50 dark:bg-sky-900/15 text-sky-700 dark:text-sky-300'
+                                : 'border-amber-200 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/15 text-amber-800 dark:text-amber-300'
                             }`}
                           >
                             <span>{label}</span>
@@ -662,7 +673,7 @@ function ClassTimetable({
                             className={`relative rounded-lg px-2.5 py-1.5 text-xs transition-all ${
                               entry.is_pinned
                                 ? 'bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700'
-                                : 'bg-sky-50 dark:bg-sky-900/15 border border-dashed border-sky-200 dark:border-sky-700/60'
+                                : 'bg-emerald-50 dark:bg-emerald-900/15 border border-dashed border-emerald-200 dark:border-emerald-700/60'
                             } ${isDraggedSource ? 'opacity-40' : ''} ${
                               isHoverTarget ? 'ring-2 ring-brand shadow-sm' : ''
                             } ${!readOnly && !entry.is_pinned ? 'cursor-grab active:cursor-grabbing' : ''}`}
@@ -680,13 +691,18 @@ function ClassTimetable({
                             {entry.room_name && (
                               <div className="text-text-tertiary truncate">{entry.room_name}</div>
                             )}
-                            {(entry.start_time || entry.end_time) && (
-                              <div className="font-mono text-[10px] text-text-tertiary mt-0.5 truncate">
-                                {entry.start_time}
-                                {entry.start_time && entry.end_time ? '–' : ''}
-                                {entry.end_time}
-                              </div>
-                            )}
+                            {(() => {
+                              const start = slot?.start_time || entry.start_time;
+                              const end = slot?.end_time || entry.end_time;
+                              if (!start && !end) return null;
+                              return (
+                                <div className="font-mono text-[10px] text-text-tertiary mt-0.5 truncate">
+                                  {start}
+                                  {start && end ? '–' : ''}
+                                  {end}
+                                </div>
+                              );
+                            })()}
                             <div
                               className="absolute top-1 end-1 flex items-center gap-0.5"
                               onClick={(e) => e.stopPropagation()}
@@ -1205,7 +1221,7 @@ export default function RunReviewPage() {
               </span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-text-secondary">
-              <div className="w-3 h-3 rounded-sm border border-dashed border-sky-200 bg-sky-50 dark:bg-sky-900/15 shrink-0" />
+              <div className="w-3 h-3 rounded-sm border border-dashed border-emerald-200 bg-emerald-50 dark:bg-emerald-900/15 shrink-0" />
               <span>{t('autoGeneratedDashed')}</span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-text-secondary">
@@ -1213,11 +1229,11 @@ export default function RunReviewPage() {
               <span>Unplaced (solver could not fit)</span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-text-secondary">
-              <div className="w-3 h-3 rounded-sm border border-dashed border-slate-200 bg-slate-50 dark:bg-slate-800/20 shrink-0" />
+              <div className="w-3 h-3 rounded-sm border border-dashed border-amber-200 bg-amber-50 dark:bg-amber-900/15 shrink-0" />
               <span>Break</span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-text-secondary">
-              <div className="w-3 h-3 rounded-sm border border-dashed border-emerald-200 bg-emerald-50 dark:bg-emerald-900/15 shrink-0" />
+              <div className="w-3 h-3 rounded-sm border border-dashed border-sky-200 bg-sky-50 dark:bg-sky-900/15 shrink-0" />
               <span>Lunch</span>
             </div>
           </div>
