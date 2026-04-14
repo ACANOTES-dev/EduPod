@@ -98,7 +98,9 @@ export default function AutoSchedulerPage() {
   React.useEffect(() => {
     apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years')
       .then((res) => setYears(res.data ?? []))
-      .catch((err) => { console.error('[SchedulingAutoPage]', err); });
+      .catch((err) => {
+        console.error('[SchedulingAutoPage]', err);
+      });
   }, []);
 
   // Load prerequisites when year changes
@@ -108,11 +110,18 @@ export default function AutoSchedulerPage() {
       return;
     }
     setPrereqLoading(true);
-    apiClient<PrerequisitesResponse>(
+    // NestJS's global response interceptor wraps all responses in `{ data }`.
+    // `apiClient` returns the raw JSON, so the type here must include the
+    // envelope and the setter must unwrap it — matching the pattern used for
+    // `academic-years` above.
+    apiClient<{ data: PrerequisitesResponse }>(
       `/api/v1/scheduling-runs/prerequisites?academic_year_id=${selectedYear}`,
     )
-      .then((res) => setPrerequisites(res))
-      .catch((err) => { console.error('[SchedulingAutoPage]', err); return setPrerequisites(null); })
+      .then((res) => setPrerequisites(res.data))
+      .catch((err) => {
+        console.error('[SchedulingAutoPage]', err);
+        return setPrerequisites(null);
+      })
       .finally(() => setPrereqLoading(false));
   }, [selectedYear]);
 
@@ -125,7 +134,10 @@ export default function AutoSchedulerPage() {
     setRunsLoading(true);
     apiClient<{ data: SchedulingRun[] }>(`/api/v1/scheduling-runs?academic_year_id=${selectedYear}`)
       .then((res) => setRuns(res.data ?? []))
-      .catch((err) => { console.error('[SchedulingAutoPage]', err); return setRuns([]); })
+      .catch((err) => {
+        console.error('[SchedulingAutoPage]', err);
+        return setRuns([]);
+      })
       .finally(() => setRunsLoading(false));
   }, [selectedYear]);
 
@@ -183,7 +195,11 @@ export default function AutoSchedulerPage() {
   async function handleCancelSolve() {
     if (!activeRunId) return;
     clearInterval(pollRef.current!);
-    await apiClient(`/api/v1/scheduling-runs/${activeRunId}/cancel`, { method: 'POST' }).catch((err) => { console.error('[SchedulingAutoPage]', err); });
+    await apiClient(`/api/v1/scheduling-runs/${activeRunId}/cancel`, { method: 'POST' }).catch(
+      (err) => {
+        console.error('[SchedulingAutoPage]', err);
+      },
+    );
     setProgressOpen(false);
     setActiveRunId(null);
     setProgress(null);
@@ -257,7 +273,9 @@ export default function AutoSchedulerPage() {
                     <a
                       href={check.fix_href}
                       className="flex items-center gap-1 text-xs text-brand hover:underline shrink-0"
-                    >{t('fix')}<ChevronRight className="h-3 w-3 rtl:rotate-180" />
+                    >
+                      {t('fix')}
+                      <ChevronRight className="h-3 w-3 rtl:rotate-180" />
                     </a>
                   )}
                   <Badge variant={check.passed ? 'default' : 'danger'} className="text-xs shrink-0">
@@ -300,7 +318,9 @@ export default function AutoSchedulerPage() {
 
         {runsLoading ? (
           <div className="flex items-center gap-2 text-sm text-text-secondary">
-            <Loader2 className="h-4 w-4 animate-spin" />{tCommon('loading')}</div>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {tCommon('loading')}
+          </div>
         ) : runs.length === 0 ? (
           <p className="text-sm text-text-secondary">{t('noRuns')}</p>
         ) : (
@@ -323,7 +343,9 @@ export default function AutoSchedulerPage() {
                   <th className="px-3 py-2 text-start text-xs font-semibold text-text-tertiary uppercase">
                     {t('entriesGenerated')}
                   </th>
-                  <th className="px-3 py-2 text-start text-xs font-semibold text-text-tertiary uppercase">{tCommon('actions')}</th>
+                  <th className="px-3 py-2 text-start text-xs font-semibold text-text-tertiary uppercase">
+                    {tCommon('actions')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -371,7 +393,9 @@ export default function AutoSchedulerPage() {
           <p className="text-sm text-text-secondary">{t('confirmGenerate')}</p>
           <p className="text-sm text-text-tertiary mt-1">{modeLabel}</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>{t('cancelSolve')}</Button>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              {t('cancelSolve')}
+            </Button>
             <Button onClick={handleGenerate} disabled={submitting}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin me-2" />}
               {t('generateTimetable')}
