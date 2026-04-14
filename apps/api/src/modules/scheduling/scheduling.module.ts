@@ -5,6 +5,7 @@ import { AcademicsModule } from '../academics/academics.module';
 import { AiModule } from '../ai/ai.module';
 import { AuthModule } from '../auth/auth.module';
 import { ClassesModule } from '../classes/classes.module';
+import { CommunicationsModule } from '../communications/communications.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { GdprModule } from '../gdpr/gdpr.module';
 import { RoomsModule } from '../rooms/rooms.module';
@@ -15,6 +16,7 @@ import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { AiSubstitutionService } from './ai-substitution.service';
 import { BreakGroupsController } from './break-groups.controller';
 import { BreakGroupsService } from './break-groups.service';
+import { CoverNotificationsService } from './cover-notifications.service';
 import { CoverTrackingService } from './cover-tracking.service';
 import { CurriculumRequirementsController } from './curriculum-requirements.controller';
 import { CurriculumRequirementsService } from './curriculum-requirements.service';
@@ -48,6 +50,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     AiModule,
     AuthModule,
     ClassesModule,
+    CommunicationsModule,
     ConfigurationModule,
     GdprModule,
     RoomsModule,
@@ -79,6 +82,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     SchedulerValidationService,
     SubstitutionService,
     SubstitutionCascadeService,
+    CoverNotificationsService,
     AiSubstitutionService,
     CoverTrackingService,
     ScheduleSwapService,
@@ -98,6 +102,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     PersonalTimetableService,
     SchedulingReadFacade,
     SubstitutionCascadeService,
+    CoverNotificationsService,
   ],
 })
 export class SchedulingModule {}

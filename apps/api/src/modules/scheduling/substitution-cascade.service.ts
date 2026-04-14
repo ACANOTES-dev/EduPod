@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
+import { CoverNotificationsService } from './cover-notifications.service';
 import { SubstitutionService } from './substitution.service';
 
 interface AbsenceRow {
@@ -53,6 +54,7 @@ export class SubstitutionCascadeService {
     private readonly substitutionService: SubstitutionService,
     private readonly schedulesReadFacade: SchedulesReadFacade,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly coverNotifications: CoverNotificationsService,
   ) {}
 
   // ─── Entry point: run a full cascade for an absence ───────────────────────
@@ -67,11 +69,17 @@ export class SubstitutionCascadeService {
     const round = opts.cascadeRound ?? 1;
     const expiresAt = new Date(Date.now() + settings.offer_timeout_minutes * 60 * 1000);
 
-    let totalOffers = 0;
+    const createdOffers: Array<{
+      offer_id: string;
+      candidate_staff_id: string;
+      schedule_id: string;
+      absence_date: Date;
+      is_nomination: boolean;
+    }> = [];
+
     for (const day of this.enumerateDays(absence.absence_date, absence.date_to)) {
       const slots = await this.findAffectedSchedules(tenantId, absence, day);
       for (const slot of slots) {
-        // Skip if this slot already has a confirmed assignment.
         const existingConfirmed = await this.prisma.substitutionRecord.findFirst({
           where: {
             tenant_id: tenantId,
@@ -83,7 +91,6 @@ export class SubstitutionCascadeService {
         });
         if (existingConfirmed) continue;
 
-        // Determine candidates: nomination on round 1, otherwise top-N rank.
         let candidates: string[];
         let isNomination = false;
         if (round === 1 && absence.nominated_substitute_id) {
@@ -101,7 +108,6 @@ export class SubstitutionCascadeService {
             .map((c) => c.staff_profile_id);
         }
 
-        // Skip candidates who already have a live pending offer for this slot/day.
         const alreadyOffered = await this.prisma.substitutionOffer.findMany({
           where: {
             tenant_id: tenantId,
@@ -118,10 +124,11 @@ export class SubstitutionCascadeService {
         if (fresh.length === 0) continue;
 
         const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-        await prismaWithRls.$transaction(async (tx) => {
+        const batchCreated = (await prismaWithRls.$transaction(async (tx) => {
           const db = tx as unknown as PrismaService;
+          const created: Array<{ id: string; candidate_staff_id: string }> = [];
           for (const candidateId of fresh) {
-            await db.substitutionOffer.create({
+            const row = await db.substitutionOffer.create({
               data: {
                 tenant_id: tenantId,
                 absence_id: absenceId,
@@ -134,13 +141,101 @@ export class SubstitutionCascadeService {
                 cascade_round: round,
               },
             });
-            totalOffers += 1;
+            created.push({ id: row.id, candidate_staff_id: candidateId });
           }
-        });
+          return created;
+        })) as Array<{ id: string; candidate_staff_id: string }>;
+
+        for (const row of batchCreated) {
+          createdOffers.push({
+            offer_id: row.id,
+            candidate_staff_id: row.candidate_staff_id,
+            schedule_id: slot.id,
+            absence_date: day,
+            is_nomination: isNomination,
+          });
+        }
       }
     }
 
-    return { offers_created: totalOffers };
+    // Fire notifications for every created offer + one admin broadcast.
+    if (createdOffers.length > 0) {
+      await this.dispatchOfferNotifications(tenantId, absence, createdOffers);
+    } else if (round > 1) {
+      // Retry cascade produced no new candidates — admins must manually assign.
+      await this.dispatchExhaustedNotification(tenantId, absence);
+    }
+
+    return { offers_created: createdOffers.length };
+  }
+
+  private async dispatchOfferNotifications(
+    tenantId: string,
+    absence: AbsenceRow,
+    offers: Array<{
+      offer_id: string;
+      candidate_staff_id: string;
+      schedule_id: string;
+      absence_date: Date;
+      is_nomination: boolean;
+    }>,
+  ) {
+    const staffIds = Array.from(
+      new Set([absence.staff_profile_id, ...offers.map((o) => o.candidate_staff_id)]),
+    );
+    const staff = await this.staffProfileReadFacade.findByIds(tenantId, staffIds);
+    const byStaffId = new Map(staff.map((s) => [s.id, s]));
+    const reporterName = this.formatName(byStaffId.get(absence.staff_profile_id));
+
+    // N is small (<20 slots per day per absence), so per-id lookup is fine.
+    const scheduleContexts = await Promise.all(
+      Array.from(new Set(offers.map((o) => o.schedule_id))).map((id) =>
+        this.schedulesReadFacade.findById(tenantId, id),
+      ),
+    );
+    const bySchedule = new Map(scheduleContexts.filter((s) => s !== null).map((s) => [s!.id, s!]));
+
+    const enriched = offers
+      .map((o) => {
+        const candidate = byStaffId.get(o.candidate_staff_id);
+        const sched = bySchedule.get(o.schedule_id);
+        if (!candidate?.user) return null;
+        return {
+          offer_id: o.offer_id,
+          candidate_user_id: candidate.user.id,
+          is_nomination: o.is_nomination,
+          absence_date: o.absence_date.toISOString().slice(0, 10),
+          class_name: sched?.class_entity?.name ?? null,
+          subject_name: sched?.class_entity?.subject?.name ?? null,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    if (enriched.length > 0) {
+      await this.coverNotifications.notifyOffersDispatched({
+        tenantId,
+        absenceId: absence.id,
+        reporterName,
+        offers: enriched,
+      });
+    }
+  }
+
+  private async dispatchExhaustedNotification(tenantId: string, absence: AbsenceRow) {
+    const staff = await this.staffProfileReadFacade.findByIds(tenantId, [absence.staff_profile_id]);
+    await this.coverNotifications.notifyCascadeExhausted({
+      tenantId,
+      absenceId: absence.id,
+      reporterName: this.formatName(staff[0]),
+      affectedSlots: 0,
+    });
+  }
+
+  private formatName(
+    profile: { user?: { first_name: string; last_name: string } | null } | null | undefined,
+  ): string {
+    if (!profile?.user) return 'Staff member';
+    return `${profile.user.first_name} ${profile.user.last_name}`;
   }
 
   // ─── Accept / Decline ─────────────────────────────────────────────────────
@@ -240,6 +335,62 @@ export class SubstitutionCascadeService {
       return { record_id: record.id };
     })) as { record_id: string };
 
+    // Notifications: let admins + the absent teacher know who accepted, and
+    // tell any revoked siblings their offer is no longer needed.
+    try {
+      const [absence, profiles] = await Promise.all([
+        this.loadAbsence(tenantId, offer.absence_id),
+        this.staffProfileReadFacade.findByIds(tenantId, [offer.candidate_staff_id]),
+      ]);
+      if (absence) {
+        const [reporter] = await this.staffProfileReadFacade.findByIds(tenantId, [
+          absence.staff_profile_id,
+        ]);
+        await this.coverNotifications.notifyOfferAccepted({
+          tenantId,
+          offerId,
+          reporterUserId: reporter?.user.id ?? '',
+          reporterName: this.formatName(reporter),
+          substituteName: this.formatName(profiles[0]),
+          absenceDate: offer.absence_date.toISOString().slice(0, 10),
+        });
+      }
+
+      // Revoke notifications for all siblings that just got closed.
+      const revokedSiblings = await this.prisma.substitutionOffer.findMany({
+        where: {
+          tenant_id: tenantId,
+          absence_id: offer.absence_id,
+          schedule_id: offer.schedule_id,
+          absence_date: offer.absence_date,
+          status: 'revoked',
+          id: { not: offerId },
+          responded_at: { gte: new Date(Date.now() - 10 * 1000) },
+        },
+        select: { id: true, candidate_staff_id: true },
+      });
+      if (revokedSiblings.length > 0) {
+        const siblingStaff = await this.staffProfileReadFacade.findByIds(
+          tenantId,
+          revokedSiblings.map((s) => s.candidate_staff_id),
+        );
+        const byStaffId = new Map(siblingStaff.map((s) => [s.id, s]));
+        for (const sib of revokedSiblings) {
+          const sibProfile = byStaffId.get(sib.candidate_staff_id);
+          if (!sibProfile?.user) continue;
+          await this.coverNotifications.notifyOfferRevoked({
+            tenantId,
+            offerId: sib.id,
+            candidateUserId: sibProfile.user.id,
+            reason: 'sibling_accepted',
+          });
+        }
+      }
+    } catch (err) {
+      // Notifications must never block the accept — log and continue.
+      console.error('[acceptOffer.notify]', err);
+    }
+
     return { id: offerId, status: 'accepted', record_id: result.record_id };
   }
 
@@ -282,6 +433,18 @@ export class SubstitutionCascadeService {
         },
       });
     });
+
+    try {
+      const declinerProfile = await this.staffProfileReadFacade.findById(tenantId, staff.id);
+      await this.coverNotifications.notifyOfferDeclined({
+        tenantId,
+        offerId,
+        declinerName: this.formatName(declinerProfile),
+        isNomination: offer.is_nomination,
+      });
+    } catch (err) {
+      console.error('[declineOffer.notify]', err);
+    }
 
     // If all pending siblings for this slot are now terminal, trigger next cascade
     // round. Skip if this was a nomination decline — Decision 9 escalates to admin.

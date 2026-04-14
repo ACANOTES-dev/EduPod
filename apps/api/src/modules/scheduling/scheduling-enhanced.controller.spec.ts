@@ -11,6 +11,7 @@ import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-rea
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { AiSubstitutionService } from './ai-substitution.service';
+import { CoverNotificationsService } from './cover-notifications.service';
 import { CoverTrackingService } from './cover-tracking.service';
 import { ExamSchedulingService } from './exam-scheduling.service';
 import { PersonalTimetableService } from './personal-timetable.service';
@@ -216,6 +217,13 @@ describe('SchedulingEnhancedController', () => {
             declineOffer: jest.fn(),
             listMyOffers: jest.fn().mockResolvedValue({ data: [] }),
             revokeOffersForAbsence: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: CoverNotificationsService,
+          useValue: {
+            notifySelfReportedAbsence: jest.fn().mockResolvedValue(undefined),
+            notifyAbsenceCancelled: jest.fn().mockResolvedValue(undefined),
           },
         },
         { provide: AiSubstitutionService, useValue: mockAiSubstitutionService },

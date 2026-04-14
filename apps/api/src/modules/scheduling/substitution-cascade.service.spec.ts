@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
+import { CoverNotificationsService } from './cover-notifications.service';
 import { SubstitutionCascadeService } from './substitution-cascade.service';
 import { SubstitutionService } from './substitution.service';
 
@@ -51,7 +52,7 @@ describe('SubstitutionCascadeService', () => {
     substitutionRecord: { findFirst: jest.Mock };
   };
   let mockSubstitutionService: { findEligibleSubstitutes: jest.Mock };
-  let mockSchedulesReadFacade: { findTeacherTimetable: jest.Mock };
+  let mockSchedulesReadFacade: { findTeacherTimetable: jest.Mock; findById: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -75,6 +76,7 @@ describe('SubstitutionCascadeService', () => {
     };
     mockSchedulesReadFacade = {
       findTeacherTimetable: jest.fn().mockResolvedValue([]),
+      findById: jest.fn().mockResolvedValue(null),
     };
 
     mockTx.substitutionOffer.create.mockResolvedValue({ id: OFFER_ID });
@@ -96,6 +98,22 @@ describe('SubstitutionCascadeService', () => {
           provide: StaffProfileReadFacade,
           useValue: {
             findByUserId: jest.fn().mockResolvedValue({ id: STAFF_JAMES }),
+            findById: jest.fn().mockResolvedValue(null),
+            findByIds: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: CoverNotificationsService,
+          useValue: {
+            notifyOffersDispatched: jest.fn().mockResolvedValue(undefined),
+            notifyOfferAccepted: jest.fn().mockResolvedValue(undefined),
+            notifyOfferDeclined: jest.fn().mockResolvedValue(undefined),
+            notifyOfferRevoked: jest.fn().mockResolvedValue(undefined),
+            notifyCascadeExhausted: jest.fn().mockResolvedValue(undefined),
+            notifyAbsenceCancelled: jest.fn().mockResolvedValue(undefined),
+            notifySelfReportedAbsence: jest.fn().mockResolvedValue(undefined),
+            notifyLeaveSubmitted: jest.fn().mockResolvedValue(undefined),
+            notifyLeaveDecision: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],

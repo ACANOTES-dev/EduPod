@@ -280,6 +280,12 @@ export class LeaveRequestsService {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
+  async findById(tenantId: string, id: string) {
+    return this.prisma.leaveRequest.findFirst({
+      where: { tenant_id: tenantId, id },
+    });
+  }
+
   private async findOrThrow(tenantId: string, id: string) {
     const request = await this.prisma.leaveRequest.findFirst({
       where: { tenant_id: tenantId, id },

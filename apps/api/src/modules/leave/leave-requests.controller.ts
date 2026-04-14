@@ -25,7 +25,9 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { CoverNotificationsService } from '../scheduling/cover-notifications.service';
 import { SubstitutionCascadeService } from '../scheduling/substitution-cascade.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { LeaveRequestsService } from './leave-requests.service';
 import { LeaveTypesService } from './leave-types.service';
@@ -37,6 +39,8 @@ export class LeaveController {
     private readonly leaveRequestsService: LeaveRequestsService,
     private readonly leaveTypesService: LeaveTypesService,
     private readonly substitutionCascadeService: SubstitutionCascadeService,
+    private readonly coverNotifications: CoverNotificationsService,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
   // ─── Leave Types ──────────────────────────────────────────────────────────
@@ -59,7 +63,26 @@ export class LeaveController {
     @Body(new ZodValidationPipe(createLeaveRequestSchema))
     dto: z.infer<typeof createLeaveRequestSchema>,
   ) {
-    return this.leaveRequestsService.submit(tenant.tenant_id, user.sub, dto);
+    const result = await this.leaveRequestsService.submit(tenant.tenant_id, user.sub, dto);
+    try {
+      const [requester, leaveType] = await Promise.all([
+        this.staffProfileReadFacade.findByUserId(tenant.tenant_id, user.sub),
+        this.leaveTypesService.findById(tenant.tenant_id, dto.leave_type_id),
+      ]);
+      await this.coverNotifications.notifyLeaveSubmitted({
+        tenantId: tenant.tenant_id,
+        requestId: result.id,
+        requesterName: requester
+          ? `${requester.user.first_name} ${requester.user.last_name}`
+          : 'Staff member',
+        leaveLabel: leaveType?.label ?? 'Leave',
+        dateFrom: dto.date_from,
+        dateTo: dto.date_to,
+      });
+    } catch (err) {
+      console.error('[leave.submit.notify]', err);
+    }
+    return result;
   }
 
   // ─── List ─────────────────────────────────────────────────────────────────
@@ -100,14 +123,43 @@ export class LeaveController {
     dto: z.infer<typeof reviewLeaveRequestSchema>,
   ) {
     const result = await this.leaveRequestsService.approve(tenant.tenant_id, user.sub, id, dto);
-    // Trigger cascade on the resulting absence. Failure shouldn't roll back
-    // the approval — admins can manually assign if cascade fails.
+    await this.notifyDecision(tenant.tenant_id, user.sub, id, true, dto.review_notes ?? null);
     try {
       await this.substitutionCascadeService.runCascade(tenant.tenant_id, result.absence_id);
     } catch (err) {
       console.error('[leave.approve.cascade]', err);
     }
     return result;
+  }
+
+  private async notifyDecision(
+    tenantId: string,
+    reviewerUserId: string,
+    requestId: string,
+    approved: boolean,
+    reviewNotes: string | null,
+  ) {
+    try {
+      const request = await this.leaveRequestsService.findById(tenantId, requestId);
+      if (!request) return;
+      const [requesterStaff, reviewerStaff] = await Promise.all([
+        this.staffProfileReadFacade.findById(tenantId, request.staff_profile_id),
+        this.staffProfileReadFacade.findByUserId(tenantId, reviewerUserId),
+      ]);
+      if (!requesterStaff) return;
+      await this.coverNotifications.notifyLeaveDecision({
+        tenantId,
+        requestId,
+        requesterUserId: requesterStaff.user.id,
+        approved,
+        reviewerName: reviewerStaff
+          ? `${reviewerStaff.user.first_name} ${reviewerStaff.user.last_name}`
+          : 'Admin',
+        reviewNotes,
+      });
+    } catch (err) {
+      console.error('[leave.decision.notify]', err);
+    }
   }
 
   @Post('requests/:id/reject')
@@ -120,7 +172,9 @@ export class LeaveController {
     @Body(new ZodValidationPipe(reviewLeaveRequestSchema))
     dto: z.infer<typeof reviewLeaveRequestSchema>,
   ) {
-    return this.leaveRequestsService.reject(tenant.tenant_id, user.sub, id, dto);
+    const result = await this.leaveRequestsService.reject(tenant.tenant_id, user.sub, id, dto);
+    await this.notifyDecision(tenant.tenant_id, user.sub, id, false, dto.review_notes ?? null);
+    return result;
   }
 
   @Post('requests/:id/withdraw')

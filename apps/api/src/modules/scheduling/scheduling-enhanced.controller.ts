@@ -51,6 +51,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { AiSubstitutionService } from './ai-substitution.service';
+import { CoverNotificationsService } from './cover-notifications.service';
 import { CoverTrackingService } from './cover-tracking.service';
 import { ExamSchedulingService } from './exam-scheduling.service';
 import { PersonalTimetableService } from './personal-timetable.service';
@@ -72,6 +73,7 @@ export class SchedulingEnhancedController {
   constructor(
     private readonly substitutionService: SubstitutionService,
     private readonly substitutionCascadeService: SubstitutionCascadeService,
+    private readonly coverNotifications: CoverNotificationsService,
     private readonly aiSubstitutionService: AiSubstitutionService,
     private readonly coverTrackingService: CoverTrackingService,
     private readonly scheduleSwapService: ScheduleSwapService,
@@ -111,8 +113,34 @@ export class SchedulingEnhancedController {
       user.sub,
       dto,
     );
-    // Fire the cascade synchronously. If it fails, log and continue — the
-    // absence record is already committed and admins can manually assign.
+
+    try {
+      const [reporter, nominee] = await Promise.all([
+        this.staffProfileReadFacade.findById(tenant.tenant_id, absence.staff_id),
+        absence.nominated_substitute_staff_id
+          ? this.staffProfileReadFacade.findById(
+              tenant.tenant_id,
+              absence.nominated_substitute_staff_id,
+            )
+          : Promise.resolve(null),
+      ]);
+      await this.coverNotifications.notifySelfReportedAbsence({
+        tenantId: tenant.tenant_id,
+        absenceId: absence.id,
+        reporterUserId: user.sub,
+        reporterName: reporter
+          ? `${reporter.user.first_name} ${reporter.user.last_name}`
+          : 'Staff member',
+        dateFrom: absence.date,
+        dateTo: absence.date_to ?? null,
+        nominatedSubstituteName: nominee
+          ? `${nominee.user.first_name} ${nominee.user.last_name}`
+          : null,
+      });
+    } catch (err) {
+      console.error('[selfReportAbsence.notify]', err);
+    }
+
     try {
       await this.substitutionCascadeService.runCascade(tenant.tenant_id, absence.id);
     } catch (err) {
