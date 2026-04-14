@@ -1,7 +1,7 @@
 # Stress Test Plan — Scheduling Solver & Substitution Flows
 
 **Module:** Scheduling (Operations)
-**Tenants under test:** `stress-a.edupod.app` (primary), `stress-b.edupod.app` (secondary, RLS isolation)
+**Tenants under test:** `stress-a.edupod.app`, `stress-b.edupod.app`, `stress-c.edupod.app`, `stress-d.edupod.app` — four parallel sandboxes
 **Compiled:** 2026-04-14 · Environment ready: 2026-04-15
 **Status:** Ready to execute
 
@@ -46,9 +46,8 @@ Both tenants live on production (`edupod.app` wildcard DNS). They are completely
 
 **Password for every account below:** `StressTest2026!`
 
-**Stress Test School A** — primary stress tenant
-URL: <https://stress-a.edupod.app>
-Tenant ID: `965f5f8f-0d8e-4350-a589-42af2f4153ea`
+**Stress Test School A**
+URL: <https://stress-a.edupod.app> · Tenant ID: `965f5f8f-0d8e-4350-a589-42af2f4153ea`
 
 | Role             | Email                     |
 | ---------------- | ------------------------- |
@@ -56,9 +55,8 @@ Tenant ID: `965f5f8f-0d8e-4350-a589-42af2f4153ea`
 | school_principal | `principal@stress-a.test` |
 | teacher          | `teacher@stress-a.test`   |
 
-**Stress Test School B** — secondary tenant (use only for cross-tenant scenarios like STRESS-079 RLS isolation)
-URL: <https://stress-b.edupod.app>
-Tenant ID: `a3cba8a3-1927-4d91-bcda-8b84bafbaace`
+**Stress Test School B** (also used for cross-tenant scenarios like STRESS-079 RLS isolation)
+URL: <https://stress-b.edupod.app> · Tenant ID: `a3cba8a3-1927-4d91-bcda-8b84bafbaace`
 
 | Role             | Email                     |
 | ---------------- | ------------------------- |
@@ -66,12 +64,30 @@ Tenant ID: `a3cba8a3-1927-4d91-bcda-8b84bafbaace`
 | school_principal | `principal@stress-b.test` |
 | teacher          | `teacher@stress-b.test`   |
 
+**Stress Test School C**
+URL: <https://stress-c.edupod.app> · Tenant ID: `0f594f74-beb3-465b-90ae-296b330dbcfd`
+
+| Role             | Email                     |
+| ---------------- | ------------------------- |
+| admin            | `admin@stress-c.test`     |
+| school_principal | `principal@stress-c.test` |
+| teacher          | `teacher@stress-c.test`   |
+
+**Stress Test School D**
+URL: <https://stress-d.edupod.app> · Tenant ID: `17273ee5-a7a9-4238-91dc-27d5a40ee9b6`
+
+| Role             | Email                     |
+| ---------------- | ------------------------- |
+| admin            | `admin@stress-d.test`     |
+| school_principal | `principal@stress-d.test` |
+| teacher          | `teacher@stress-d.test`   |
+
 **Additional seeded teachers** (per tenant, 20 total inc. the login teacher above):
 `t2@<slug>.local` through `t20@<slug>.local` — same password. No login expected unless a scenario requires it; these are database rows for the solver to assign.
 
 ### Baseline state already seeded
 
-The baseline dataset below is already present on both tenants. Do **not** re-seed unless the reset procedure instructs you to.
+The baseline dataset below is already present on all four tenants. Do **not** re-seed unless the reset procedure instructs you to.
 
 - **Academic year:** `AY 2025-2026`, active, 2025-09-01 → 2026-06-30
 - **Week shape:** Monday–Friday (weekday 1–5 in the DB)
@@ -157,33 +173,45 @@ The lock is not needed for API calls, Playwright UI steps, DB reads via the app 
 
 If you find stale `acquired` entries older than 60 minutes with no release line, assume the previous session died; append a `— force-released (stale)` line and continue.
 
-### Parallelisation matrix
+### Parallelisation matrix (4 tenants, up to 4 concurrent sessions)
 
-The phase groupings and their concurrency compatibility:
+Each solver/substitution-mutating session must own its own tenant. Four tenants are provisioned (stress-a/b/c/d), so four sessions can run concurrently for most of the pack.
 
-| Phase | Scenarios                              | Tenant required      | Can run in parallel with                         |
-| ----- | -------------------------------------- | -------------------- | ------------------------------------------------ |
-| 1     | 049–075 (subs + sub board + reports)   | stress-a (solved)    | Phase 2/3/4/5-calendar on stress-b               |
-| 2     | 001, 002, 005–008, 035 (solver basics) | stress-a OR stress-b | Phase 1 on the _other_ tenant                    |
-| 3     | 015–028, 029–034 (constraints)         | stress-a OR stress-b | Phase 1 on the _other_ tenant                    |
-| 4     | 003, 004, 041–048 (scale + re-solve)   | stress-a OR stress-b | Phase 1 on the _other_ tenant                    |
-| 5a    | 036–040 (calendar)                     | stress-a OR stress-b | Phase 1 on the _other_ tenant                    |
-| 5b    | 076–080 (data integrity + RLS)         | stress-a + stress-b  | Nothing (needs both tenants coherent)            |
-| 6     | 081–083 (worker / Redis / timeout)     | either               | **Nothing — must run solo (affects deployment)** |
+| Phase | Scenarios                              | Tenant ownership  | Concurrency                                 |
+| ----- | -------------------------------------- | ----------------- | ------------------------------------------- |
+| 1     | 049–075 (subs + sub board + reports)   | any single tenant | Up to 4 concurrent (one session per tenant) |
+| 2     | 001, 002, 005–008, 035 (solver basics) | any single tenant | Up to 4 concurrent                          |
+| 3     | 015–028, 029–034 (constraints)         | any single tenant | Up to 4 concurrent                          |
+| 4     | 003, 004, 041–048 (scale + re-solve)   | any single tenant | Up to 4 concurrent                          |
+| 5a    | 036–040 (calendar)                     | any single tenant | Up to 4 concurrent                          |
+| 5b    | 076–080 (cross-tenant data + RLS)      | two tenants       | 1 session (owns 2 tenants coherently)       |
+| 6     | 081–083 (worker / Redis / timeout)     | any tenant        | **1 session solo — affects deployment**     |
 
-Recommended execution plan:
+**Recommended 4-session plan:**
 
-- **Session A:** stress-a — Phase 2 → 3 → 4 → 5a (sequential on same tenant)
-- **Session B:** stress-b — Pre-solve the tenant (run STRESS-002 manually), then Phase 1 (subs) — in parallel with Session A
-- **Session C (after A+B finish):** Phase 5b on both tenants
-- **Session D (after C finishes, nothing else running):** Phase 6 solo
+**Wave 1 — 4 sessions in parallel:**
 
-At peak, 2 sessions in parallel. Never 3 solver-mutating sessions on the same tenant. Never anything while Phase 6 is running.
+- **Session A → stress-a:** Phase 2 (7) + Phase 3 (20) = 27 scenarios
+- **Session B → stress-b:** Phase 4 (10, includes the slow STRESS-003/004) + Phase 5a (6) = 16 scenarios
+- **Session C → stress-c:** Pre-solve the tenant (run STRESS-002 as setup), then Phase 1 (27 substitution scenarios) = 27 scenarios
+- **Session D → stress-d:** Phase 10 determinism/quality cluster (STRESS-046/047/048 — they need repeated clean solves) + overflow capacity. If no overflow from A/B/C, continue Phase 5a rehearsal or stay idle.
+
+**Wave 2 (after Wave 1 complete) — 1 session:** Phase 5b cross-tenant data + RLS on stress-a + stress-b.
+
+**Wave 3 (after Wave 2, nothing else running) — 1 session solo:** Phase 6 worker/infrastructure.
+
+**Hard rules:**
+
+- Never run two sessions against the same tenant concurrently.
+- Never start Phase 6 while any other session is mid-scenario.
+- Before claiming a scenario, check the summary tracker — 🟡 means another session owns it.
+- Server-modifying actions go through `SERVER-LOCK.md` regardless of phase.
 
 Sessions coordinate via:
 
-1. The summary tracker in this file — mark ⏳ / 🟡 / ✅ / ❌ as you progress. Before starting a scenario, check no other session shows 🟡 on it.
-2. `SERVER-LOCK.md` for server-modifying actions.
+1. The summary tracker in this file — mark ⏳ / 🟡 / ✅ / ❌ as you progress.
+2. `SERVER-LOCK.md` for SSH / pm2 / deploy actions.
+3. Each session owns its tenant for the duration of Wave 1 — do not switch tenants mid-wave.
 
 ### SSH authorisation
 

@@ -147,6 +147,8 @@ interface StressTenantDef {
 const STRESS_TENANTS: StressTenantDef[] = [
   { name: 'Stress Test School A', slug: 'stress-a', domain: 'stress-a.edupod.app' },
   { name: 'Stress Test School B', slug: 'stress-b', domain: 'stress-b.edupod.app' },
+  { name: 'Stress Test School C', slug: 'stress-c', domain: 'stress-c.edupod.app' },
+  { name: 'Stress Test School D', slug: 'stress-d', domain: 'stress-d.edupod.app' },
 ];
 
 interface UserSeed {
