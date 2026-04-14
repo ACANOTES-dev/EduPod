@@ -677,7 +677,7 @@ Keep a short chronological record of significant orchestration events (not per-s
 ## Stage 9 — Audience-specific timetable views
 
 **Completed:** 2026-04-14
-**Local commit(s):** (pending)
+**Local commit(s):** `f4b614a0` feat(timetables): audience-specific timetable views (Stage 9)
 **Deployed to production:** yes — 2026-04-14. API + web rebuilt and restarted on prod. Permission `schedule.view_class` inserted and granted to teacher/parent/student roles across all 4 tenants via SQL.
 
 **What was delivered:**
