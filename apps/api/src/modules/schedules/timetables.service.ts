@@ -82,6 +82,38 @@ export class TimetablesService {
     return schedules.map((s) => this.toTimetableEntry(s));
   }
 
+  async getClassTimetable(
+    tenantId: string,
+    classId: string,
+    query: TimetableQuery,
+  ): Promise<TimetableEntry[]> {
+    const where = this.buildEffectiveFilter(tenantId, query.academic_year_id, query.week_start);
+    where.class_id = classId;
+
+    const schedules = await this.prisma.schedule.findMany({
+      where,
+      orderBy: [{ weekday: 'asc' }, { start_time: 'asc' }],
+      include: {
+        class_entity: {
+          select: {
+            id: true,
+            name: true,
+            subject: { select: { name: true } },
+          },
+        },
+        room: { select: { id: true, name: true } },
+        teacher: {
+          select: {
+            id: true,
+            user: { select: { first_name: true, last_name: true } },
+          },
+        },
+      },
+    });
+
+    return schedules.map((s) => this.toTimetableEntry(s));
+  }
+
   async getStudentTimetable(
     tenantId: string,
     studentId: string,

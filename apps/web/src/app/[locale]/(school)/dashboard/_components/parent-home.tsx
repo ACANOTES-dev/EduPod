@@ -1,9 +1,10 @@
 'use client';
 
-import { CreditCard, FileText, Phone, DollarSign } from 'lucide-react';
+import { CreditCard, DollarSign, FileText, Phone } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { TodayScheduleWidget, type TodayScheduleItem } from '@/components/today-schedule-widget';
 import { apiClient } from '@/lib/api-client';
 
 import { GreetingRow } from './greeting-row';
@@ -32,6 +33,21 @@ interface ParentFinanceResponse {
   invoices: ParentInvoiceSummary[];
 }
 
+interface TimetableCell {
+  weekday: number;
+  period_order: number;
+  subject_name: string;
+  teacher_name: string | null;
+  room_name: string | null;
+}
+
+interface ParentTimetableResponse {
+  class_name: string;
+  weekdays: number[];
+  periods: Array<{ order: number; name: string; start_time: string; end_time: string }>;
+  cells: TimetableCell[];
+}
+
 export function ParentHome({ schoolName }: { schoolName: string }) {
   const t = useTranslations('dashboard');
   const [students, setStudents] = React.useState<LinkedStudent[]>([]);
@@ -40,6 +56,9 @@ export function ParentHome({ schoolName }: { schoolName: string }) {
     null,
   );
   const [currencyCode, setCurrencyCode] = React.useState<string>('');
+  const [selectedStudentId, setSelectedStudentId] = React.useState<string>('');
+  const [todayItems, setTodayItems] = React.useState<TodayScheduleItem[]>([]);
+  const [timetableLoading, setTimetableLoading] = React.useState(false);
 
   React.useEffect(() => {
     async function load() {
@@ -47,9 +66,11 @@ export function ParentHome({ schoolName }: { schoolName: string }) {
         const dash = await apiClient<{ data: { students: LinkedStudent[] } }>(
           '/api/v1/dashboard/parent',
         );
-        setStudents(dash.data.students ?? []);
+        const studentList = dash.data.students ?? [];
+        setStudents(studentList);
+        if (studentList[0]) setSelectedStudentId(studentList[0].student_id);
 
-        const studentIds = (dash.data.students ?? []).map((s) => s.student_id);
+        const studentIds = studentList.map((s) => s.student_id);
         if (studentIds.length === 0) return;
 
         const results = await Promise.all(
@@ -85,9 +106,7 @@ export function ParentHome({ schoolName }: { schoolName: string }) {
           }
         }
 
-        // Sort unpaid by earliest due_date so the most urgent invoice surfaces first
         unpaid.sort((a, b) => a.due_date.localeCompare(b.due_date));
-
         setCurrencyCode(currency);
         setOutstandingBalance(Math.round(total * 100) / 100);
         setOutstandingInvoice(unpaid[0] ?? null);
@@ -97,6 +116,46 @@ export function ParentHome({ schoolName }: { schoolName: string }) {
     }
     void load();
   }, []);
+
+  React.useEffect(() => {
+    if (!selectedStudentId) return;
+
+    setTimetableLoading(true);
+    const todayWeekday = new Date().getDay();
+
+    apiClient<ParentTimetableResponse | { data: ParentTimetableResponse }>(
+      `/api/v1/parent/timetable?student_id=${selectedStudentId}`,
+      { silent: true },
+    )
+      .then((res) => {
+        const payload = 'data' in res ? (res as { data: ParentTimetableResponse }).data : res;
+        const periodMap = new Map<number, { start: string; end: string; name: string }>();
+        for (const p of payload.periods ?? []) {
+          periodMap.set(p.order, { start: p.start_time, end: p.end_time, name: p.name });
+        }
+        const items = (payload.cells ?? [])
+          .filter((c) => c.weekday === todayWeekday)
+          .map<TodayScheduleItem>((c) => {
+            const period = periodMap.get(c.period_order);
+            return {
+              id: `${c.weekday}-${c.period_order}`,
+              start_time: period?.start ?? '00:00',
+              end_time: period?.end ?? '00:00',
+              primary: c.subject_name,
+              secondary: c.teacher_name,
+              tertiary: c.room_name,
+            };
+          });
+        setTodayItems(items);
+      })
+      .catch((err) => {
+        console.error('[ParentHome.timetable]', err);
+        setTodayItems([]);
+      })
+      .finally(() => setTimetableLoading(false));
+  }, [selectedStudentId]);
+
+  const selectedStudent = students.find((s) => s.student_id === selectedStudentId);
 
   const parentStats = [
     ...students.slice(0, 1).map((s) => ({
@@ -154,6 +213,10 @@ export function ParentHome({ schoolName }: { schoolName: string }) {
       ]
     : [];
 
+  const widgetTitle = selectedStudent
+    ? `${selectedStudent.first_name}'s ${t('todaySchedule.title')}`
+    : t('todaySchedule.title');
+
   return (
     <div className="flex flex-col lg:flex-row gap-6">
       <div className="flex-1 min-w-0 space-y-6">
@@ -169,6 +232,35 @@ export function ParentHome({ schoolName }: { schoolName: string }) {
             />
           )}
         </div>
+
+        {students.length > 0 && (
+          <>
+            {students.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {students.map((s) => (
+                  <button
+                    key={s.student_id}
+                    type="button"
+                    onClick={() => setSelectedStudentId(s.student_id)}
+                    className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                      selectedStudentId === s.student_id
+                        ? 'bg-primary text-white'
+                        : 'bg-surface-secondary text-text-secondary hover:bg-surface'
+                    }`}
+                  >
+                    {s.first_name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <TodayScheduleWidget
+              title={widgetTitle}
+              items={todayItems}
+              loading={timetableLoading}
+              viewAllHref="/dashboard/parent?tab=timetable"
+            />
+          </>
+        )}
 
         <PriorityFeed customItems={parentPriority} />
       </div>

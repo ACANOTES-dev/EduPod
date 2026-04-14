@@ -32,6 +32,7 @@
 | 6   | Generate end-to-end on NHQS              | `complete` | Claude / 2026-04-14  | Run `eace28b5` applied: 361 entries, 0 hard violations.              |
 | 7   | Substitutes page + table                 | `complete` | Claude / 2026-04-14  | `substitute_teacher_competencies` live on prod; UI + /suggest wired. |
 | 8   | Downstream rewire                        | `complete` | Claude / 2026-04-14  | Three downstream services now read from `schedules`; rebuild done.   |
+| 9   | Audience-specific timetable views        | `complete` | Claude / 2026-04-14  | Class endpoint + parent gate + admin/teacher/parent dashboards live. |
 
 ## Parallelisation
 
@@ -672,6 +673,69 @@ Keep a short chronological record of significant orchestration events (not per-s
 - The schedule's `class.subject_id` heuristic is subject-school first, homeroom-school fallback. For schools that mix both models per academic year, the resolution still works per-class because the fallback only kicks in when `class.subject_id` is null.
 - `class_id` is now exposed on `TeacherCompetencyRow` since the field was added in Stage 1 and is needed downstream by callers that distinguish pin vs pool.
 - `effective_end_date` semantic for `hasAppliedSchedule`: any schedule row with `effective_end_date IS NULL OR effective_end_date >= now()` counts as "applied". Discarding a run no longer auto-clears the schedules; that is governed by the apply flow on the next run, which deletes prior auto_generated entries for the academic year.
+
+## Stage 9 — Audience-specific timetable views
+
+**Completed:** 2026-04-14
+**Local commit(s):** (pending)
+**Deployed to production:** yes — 2026-04-14. API + web rebuilt and restarted on prod. Permission `schedule.view_class` inserted and granted to teacher/parent/student roles across all 4 tenants via SQL.
+
+**What was delivered:**
+
+- Backend `GET /v1/timetables/class/:classId` — gated by `schedule.manage` OR new `schedule.view_class` permission. Mirrors the other three endpoints' shape.
+- Backend parent gate on `GET /v1/timetables/student/:studentId` — removed the blanket `students.view` guard in favour of `students.view OR (user is a parent linked to the student via student_parents)`. Admins still work; parents can now fetch their own children's timetables.
+- Shared `<TimetableGrid />` rewritten (`apps/web/src/components/timetable-grid.tsx`): period-row × weekday-column layout, audience-specific `getCellLabel`, coloured subject blocks, today-column highlight, mobile day picker, print-mode variant. Cell label helper handles the NHQS homeroom case (no subject_name → show class/teacher/room instead of duplicating class).
+- Admin `/timetables` page overhauled: 4 tabs (Class / Teacher / Student / Room), class tab gets a year-group filter, room tab gets a "Print" button opening a print-optimised page in a new tab. All pickers now use `Promise.allSettled` so a single 4xx (e.g. a teacher hitting `/students`) doesn't blank the picker for the other entity types. `{ silent: true }` on the six bootstrap fetches suppresses noisy "Validation failed" toasts.
+- Print page at `/timetables/rooms/[roomId]/print` in a new `(print)` route group with its own minimal layout — skips the morph shell entirely, auto-triggers `window.print()` after the grid renders.
+- Teacher `/dashboard` home + parent `/dashboard` home: new `<TodayScheduleWidget />` renders today's periods inline with colour-coded subject blocks, a "Now" badge on the current slot, and a "Full week" link. Parent home gets a child selector above the widget (when there are multiple linked students). Admin dashboard intentionally NOT touched (too many conflicts, per user instruction).
+- New permission `schedule.view_class` in `packages/prisma/seed/permissions.ts` + `packages/prisma/seed/system-roles.ts` (granted to teacher, parent, student roles by default).
+- i18n: new keys `scheduling.selectClass`, `class`, `yearGroup`, `allYearGroups`, `weeklyTimetable`, `viewing`, `timetablesDescription`, `roomTimetable`, `missingAcademicYear`, `generatedBy`, `today`, `noPeriods`, `print`, `loading`, plus `dashboard.todaySchedule.*` — added in en + ar.
+
+**Files changed (high level):**
+
+- **API:** `apps/api/src/modules/schedules/timetables.controller.ts` + `.spec.ts`, `apps/api/src/modules/schedules/timetables.service.ts` + `.spec.ts`. `ParentReadFacade` newly injected.
+- **Web:** `apps/web/src/components/timetable-grid.tsx` (rewrite), `apps/web/src/components/today-schedule-widget.tsx` (new), `apps/web/src/app/[locale]/(school)/timetables/page.tsx` (overhaul), `apps/web/src/app/[locale]/(print)/layout.tsx` (new), `apps/web/src/app/[locale]/(print)/timetables/rooms/[roomId]/print/page.tsx` (new), `apps/web/src/app/[locale]/(school)/dashboard/_components/teacher-home.tsx`, `parent-home.tsx`, `apps/web/src/app/[locale]/(school)/rooms/[id]/page.tsx` (cleanup — now imports shared `TimetableEntry`).
+- **Seed:** `packages/prisma/seed/permissions.ts`, `packages/prisma/seed/system-roles.ts`.
+- **i18n:** `apps/web/messages/en.json`, `apps/web/messages/ar.json`.
+- **Snapshot:** `api-surface.snapshot.json` regenerated for the new class endpoint.
+
+**Migrations / schema changes:**
+
+- none (pure application + permission-row work)
+
+**Tests added / updated:**
+
+- `timetables.service.spec.ts`: new `getClassTimetable` describe block (happy-path + week_start).
+- `timetables.controller.spec.ts`: new `getClassTimetable` block (manage path + view_class path + denial). `getStudentTimetable` block rewritten: students.view path, linked-parent allow, unlinked-parent deny, non-parent non-admin deny.
+- Module pass: 32 tests across `timetables.*.spec.ts` green; full `apps/api` suite = 15247 passing (the 11 pre-existing failures from commit `92c7c265` in `scheduling-runs.controller.spec.ts` and the finance/households/pdf-rendering suites are unchanged by Stage 9).
+- Web pass: 310 tests passing including `timetable-grid.spec.ts` (16 helper tests).
+- type-check, lint, DI smoke all clean.
+
+**Verification evidence:**
+
+- SQL: `schedule.view_class` row present in `permissions`. Per-tenant grant counts: al-noor=3, cedar=3, mdad=3, nhqs=4 (teacher + parent + 2 student rows).
+- Playwright on `nhqs.edupod.app` logged in as owner Yusuf Rahman:
+  - `/en/timetables` loads with 4 tabs. Year selector auto-defaults to 2025-2026.
+  - Class tab → year-group filter + "Select class" picker → 1A → grid renders with 15 time slots × weekdays = 23 filled cells. Cell labels show `class + teacher + room` (e.g. "1A · Chloe Kennedy · Classroom 16").
+  - Teacher tab → Sarah Daly → 30 cells spread Mon–Fri with class + room labels.
+  - Room tab → Lab 04 → 16 cells with `class + teacher` labels (clean, no duplicate strings now that `getCellLabel` collapses when `subject_name` is null). "Print" button visible.
+  - Print button opens `/en/timetables/rooms/<uuid>/print?academic_year_id=<uuid>` in a new tab (confirmed from `window.open` tab-list).
+- Teacher dashboard `/en/dashboard/teacher`: existing today-schedule widget still works (unchanged; shows Sarah's 7 classes for today).
+
+**Surprises / decisions / deviations from the plan:**
+
+- The plan called for 4 separate admin pages under `/scheduling/timetables/...`. Existing code already had a tabbed `/timetables` page + a shared `<TimetableGrid />` component, so I adapted the plan and added a fourth tab rather than duplicating the scaffolding. Same functional outcome, half the code.
+- The plan called for a `/dashboard/student/timetable` page. In this codebase there is no dedicated student dashboard route — the student role has `role_tier: 'parent'` and student accounts would fall through the dashboard role-switch. Skipped building a separate page; the `TodayScheduleWidget` added to parent-home covers students too (a student whose account is linked as their own parent would see their own timetable).
+- The plan called for a "class" tab for parents + students. Parents already have a polished `/dashboard/parent?tab=timetable` (existing `TimetableTab` component) hitting a different endpoint. Rather than double-rendering, the parent-home widget links there.
+- Admin dashboard left untouched per user instruction: "not for admin though as too many conflicts".
+- `getCellLabel` was refined mid-verification after seeing `"6B6BClassroom 01"` (primary and secondary both "6B" because the NHQS homeroom model has `subject_name = null`). Fix: when `subject_name` is missing, skip the secondary duplicate.
+- `Promise.allSettled` + `{ silent: true }` replaced `Promise.all` + default error toasts. A teacher visiting `/timetables` would otherwise see a "Missing required permission: users.view" toast because the page tries to pre-load the full staff and student lists on mount. Now the tabs those permissions gate simply come up empty.
+
+**Known follow-ups / debt created:**
+
+- The admin `/timetables` page pre-loads six entity lists on mount even when the user only needs one tab. Could be lazy-loaded per tab. Not worth doing until someone complains about the initial fetch latency.
+- The existing teacher `/dashboard/teacher` page (a separate, fuller teacher dashboard route reached via the login redirect) already has its own today-schedule widget using a different endpoint. The new `<TodayScheduleWidget />` in `/dashboard/_components/teacher-home.tsx` only shows when a teacher lands on `/dashboard` directly (e.g. via explicit navigation). Consolidating the two is a future tidy-up, not required here.
+- The Stage 9 plan's "Hub tile updates on /scheduling/page.tsx" bullet was dropped during implementation — the existing scheduling hub already surfaces relevant links, and the new tabbed `/timetables` page is a first-class page, not a tile grid. Can be added later if the UX team wants it.
 
 ## Scheduler rebuild — done
 

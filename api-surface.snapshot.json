@@ -9013,7 +9013,7 @@
     "path": "/v1/reports/workload",
     "controller": "TimetablesController",
     "module": "schedules",
-    "permission": "students.view"
+    "permission": "schedule.manage"
   },
   {
     "method": "GET",
@@ -9489,6 +9489,13 @@
     "path": "/v1/scheduling-runs/:id/cancel",
     "controller": "SchedulingRunsController",
     "module": "scheduling-runs",
+    "permission": "schedule.view_auto_reports"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/scheduling-runs/:id/diagnostics",
+    "controller": "SchedulingRunsController",
+    "module": "scheduling-runs",
     "permission": "schedule.run_auto"
   },
   {
@@ -9608,7 +9615,7 @@
     "path": "/v1/scheduling/calendar-tokens",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.view_personal_timetable"
+    "permission": "schedule.view_own"
   },
   {
     "method": "POST",
@@ -9622,7 +9629,7 @@
     "path": "/v1/scheduling/calendar-tokens/:tokenId",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.view_personal_timetable"
+    "permission": "schedule.view_own"
   },
   {
     "method": "GET",
@@ -9644,13 +9651,6 @@
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
     "permission": "schedule.view_reports"
-  },
-  {
-    "method": "GET",
-    "path": "/v1/scheduling/cover-teacher",
-    "controller": "CoverTeacherController",
-    "module": "scheduling",
-    "permission": "schedule.manage"
   },
   {
     "method": "GET",
@@ -9818,7 +9818,7 @@
     "path": "/v1/scheduling/rotation",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.view_personal_timetable"
+    "permission": "schedule.view_own"
   },
   {
     "method": "GET",
@@ -9931,6 +9931,83 @@
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
     "permission": "schedule.manage_scenarios"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/scheduling/substitute-competencies",
+    "controller": "SubstituteCompetenciesController",
+    "module": "scheduling",
+    "permission": "schedule.manage_substitutions"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling/substitute-competencies",
+    "controller": "SubstituteCompetenciesController",
+    "module": "scheduling",
+    "permission": "schedule.manage_substitutions"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/scheduling/substitute-competencies/:id",
+    "controller": "SubstituteCompetenciesController",
+    "module": "scheduling",
+    "permission": "schedule.manage_substitutions"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/scheduling/substitute-competencies/:id",
+    "controller": "SubstituteCompetenciesController",
+    "module": "scheduling",
+    "permission": "schedule.manage_substitutions"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling/substitute-competencies/bulk",
+    "controller": "SubstituteCompetenciesController",
+    "module": "scheduling",
+    "permission": "schedule.manage_substitutions"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/scheduling/substitute-competencies/by-subject",
+    "controller": "SubstituteCompetenciesController",
+    "module": "scheduling",
+    "permission": "schedule.manage_substitutions"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/scheduling/substitute-competencies/by-teacher/:staffProfileId",
+    "controller": "SubstituteCompetenciesController",
+    "module": "scheduling",
+    "permission": "schedule.manage_substitutions"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/scheduling/substitute-competencies/by-teacher/:staffProfileId",
+    "controller": "SubstituteCompetenciesController",
+    "module": "scheduling",
+    "permission": "schedule.manage_substitutions"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling/substitute-competencies/copy",
+    "controller": "SubstituteCompetenciesController",
+    "module": "scheduling",
+    "permission": "schedule.manage_substitutions"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling/substitute-competencies/copy-to-years",
+    "controller": "SubstituteCompetenciesController",
+    "module": "scheduling",
+    "permission": "schedule.manage_substitutions"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/scheduling/substitute-competencies/suggest",
+    "controller": "SubstituteCompetenciesController",
+    "module": "scheduling",
+    "permission": "schedule.manage_substitutions"
   },
   {
     "method": "GET",
@@ -10077,7 +10154,7 @@
     "path": "/v1/scheduling/timetable/class/:classId",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.view_personal_timetable"
+    "permission": "schedule.view_own"
   },
   {
     "method": "GET",
@@ -10897,6 +10974,13 @@
     "controller": "SubjectsController",
     "module": "academics",
     "permission": "students.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/timetables/class/:classId",
+    "controller": "TimetablesController",
+    "module": "schedules",
+    "permission": null
   },
   {
     "method": "GET",

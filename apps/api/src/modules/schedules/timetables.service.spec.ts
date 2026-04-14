@@ -143,6 +143,33 @@ describe('TimetablesService', () => {
     });
   });
 
+  describe('getClassTimetable', () => {
+    it('should return entries filtered by class_id', async () => {
+      mockPrisma.schedule.findMany.mockResolvedValue([buildScheduleRow()]);
+
+      const result = await service.getClassTimetable(TENANT_ID, CLASS_ID, {
+        academic_year_id: AY_ID,
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.class_id).toBe(CLASS_ID);
+      const callArgs = mockPrisma.schedule.findMany.mock.calls[0][0];
+      expect(callArgs.where.class_id).toBe(CLASS_ID);
+    });
+
+    it('should use week_start as reference date', async () => {
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
+
+      await service.getClassTimetable(TENANT_ID, CLASS_ID, {
+        academic_year_id: AY_ID,
+        week_start: '2025-10-15',
+      });
+
+      const callArgs = mockPrisma.schedule.findMany.mock.calls[0][0];
+      expect(callArgs.where.effective_start_date).toEqual({ lte: new Date('2025-10-15') });
+    });
+  });
+
   describe('getStudentTimetable', () => {
     it('should return timetable entries for a student based on enrolments', async () => {
       mockClassesReadFacade.findClassIdsForStudent.mockResolvedValue([CLASS_ID]);

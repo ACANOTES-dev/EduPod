@@ -8,7 +8,7 @@ import * as React from 'react';
 import { Button } from '@school/ui';
 
 import { RecordHub } from '@/components/record-hub';
-import { TimetableGrid } from '@/components/timetable-grid';
+import { TimetableGrid, type TimetableEntry } from '@/components/timetable-grid';
 import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -20,17 +20,6 @@ interface RoomDetail {
   capacity: number | null;
   is_exclusive: boolean;
   active: boolean;
-}
-
-interface TimetableEntry {
-  id: string;
-  weekday: number;
-  start_time: string;
-  end_time: string;
-  class_name: string;
-  room_name?: string;
-  teacher_name?: string;
-  subject_name?: string;
 }
 
 interface TimetableResponse {
@@ -76,7 +65,10 @@ function TimetableTab({ roomId }: { roomId: string }) {
   React.useEffect(() => {
     apiClient<TimetableResponse>(`/api/v1/timetables/room/${roomId}`)
       .then((res) => setEntries(res.data))
-      .catch((err) => { console.error('[RoomsPage]', err); return setEntries([]); })
+      .catch((err) => {
+        console.error('[RoomsPage]', err);
+        return setEntries([]);
+      })
       .finally(() => setLoading(false));
   }, [roomId]);
 
@@ -106,7 +98,10 @@ export default function RoomDetailPage() {
     if (!id) return;
     apiClient<{ data: RoomDetail }>(`/api/v1/rooms/${id}`)
       .then((res) => setRoom(res.data))
-      .catch((err) => { console.error('[RoomsPage]', err); return setError('Failed to load room'); })
+      .catch((err) => {
+        console.error('[RoomsPage]', err);
+        return setError('Failed to load room');
+      })
       .finally(() => setLoading(false));
   }, [id]);
 

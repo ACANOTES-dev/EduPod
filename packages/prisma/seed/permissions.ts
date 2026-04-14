@@ -536,6 +536,11 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     description: 'View personal timetable and generate calendar subscription links',
     permission_tier: 'staff',
   },
+  {
+    permission_key: 'schedule.view_class',
+    description: 'View timetable for any class (teachers, students, parents)',
+    permission_tier: 'staff',
+  },
 
   // ─── Parent tier ───────────────────────────────────────────────────────────
   {

@@ -341,6 +341,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'report_cards.view',
       'report_cards.comment',
       'schedule.view_own',
+      'schedule.view_class',
       'schedule.manage_own_preferences',
       'schedule.view_own_satisfaction',
       'schedule.view_personal_timetable',
@@ -389,6 +390,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'parent.submit_inquiry',
       'parent.view_announcements',
       'parent.view_transcripts',
+      'schedule.view_class',
       'legal.view',
       // Inbox — parents hold the send bit; the policy engine decides whether
       // they may actually start a thread or only reply on allow_replies threads.
@@ -423,6 +425,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     role_tier: 'parent',
     default_permissions: [
       'legal.view',
+      'schedule.view_class',
       // Inbox — students hold the send bit; the policy engine decides whether
       // they may actually start or reply (default: reply-only on allow_replies).
       'inbox.send',

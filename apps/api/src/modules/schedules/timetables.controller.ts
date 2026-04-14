@@ -18,6 +18,7 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { TimetablesService } from './timetables.service';
@@ -41,6 +42,7 @@ export class TimetablesController {
     private readonly timetablesService: TimetablesService,
     private readonly permissionCacheService: PermissionCacheService,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly parentReadFacade: ParentReadFacade,
   ) {}
 
   @Get('timetables/teacher/:staffProfileId')
@@ -87,6 +89,37 @@ export class TimetablesController {
     });
   }
 
+  @Get('timetables/class/:classId')
+  async getClassTimetable(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Query(new ZodValidationPipe(timetableQuerySchema))
+    query: z.infer<typeof timetableQuerySchema>,
+  ) {
+    // Allow if user has schedule.manage OR schedule.view_class (teachers, students, parents).
+    const permissions = user.membership_id
+      ? await this.permissionCacheService.getPermissions(user.membership_id)
+      : [];
+
+    const hasManage = permissions.includes('schedule.manage');
+    const hasViewClass = permissions.includes('schedule.view_class');
+
+    if (!hasManage && !hasViewClass) {
+      throw new ForbiddenException({
+        error: {
+          code: 'PERMISSION_DENIED',
+          message: 'Missing required permission: schedule.manage or schedule.view_class',
+        },
+      });
+    }
+
+    return this.timetablesService.getClassTimetable(tenant.tenant_id, classId, {
+      academic_year_id: query.academic_year_id,
+      week_start: query.week_start,
+    });
+  }
+
   @Get('timetables/room/:roomId')
   @RequiresPermission('schedule.manage')
   async getRoomTimetable(
@@ -102,13 +135,36 @@ export class TimetablesController {
   }
 
   @Get('timetables/student/:studentId')
-  @RequiresPermission('students.view')
   async getStudentTimetable(
     @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
     @Param('studentId', ParseUUIDPipe) studentId: string,
     @Query(new ZodValidationPipe(timetableQuerySchema))
     query: z.infer<typeof timetableQuerySchema>,
   ) {
+    // Allow if user has students.view (admin/teacher), OR if user is a parent linked to the student.
+    const permissions = user.membership_id
+      ? await this.permissionCacheService.getPermissions(user.membership_id)
+      : [];
+
+    const hasStudentsView = permissions.includes('students.view');
+
+    if (!hasStudentsView) {
+      const parentId = await this.parentReadFacade.resolveIdByUserId(tenant.tenant_id, user.sub);
+      const isLinked =
+        parentId !== null &&
+        (await this.parentReadFacade.isLinkedToStudent(tenant.tenant_id, parentId, studentId));
+
+      if (!isLinked) {
+        throw new ForbiddenException({
+          error: {
+            code: 'PERMISSION_DENIED',
+            message: 'You can only view timetables for your own children',
+          },
+        });
+      }
+    }
+
     return this.timetablesService.getStudentTimetable(tenant.tenant_id, studentId, {
       academic_year_id: query.academic_year_id,
       week_start: query.week_start,

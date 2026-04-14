@@ -8,6 +8,7 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
@@ -19,6 +20,8 @@ const USER_ID = 'user-uuid-1';
 const STAFF_PROFILE_ID = 'staff-uuid-1';
 const ROOM_ID = 'room-uuid-1';
 const STUDENT_ID = 'student-uuid-1';
+const CLASS_ID = 'class-uuid-1';
+const PARENT_ID = 'parent-uuid-1';
 const AY_ID = 'ay-uuid-1';
 const MEMBERSHIP_ID = 'membership-uuid-1';
 
@@ -45,6 +48,7 @@ describe('TimetablesController', () => {
   let module: TestingModule;
   let mockService: {
     getTeacherTimetable: jest.Mock;
+    getClassTimetable: jest.Mock;
     getRoomTimetable: jest.Mock;
     getStudentTimetable: jest.Mock;
     getWorkloadReport: jest.Mock;
@@ -53,10 +57,15 @@ describe('TimetablesController', () => {
   let mockPrisma: {
     staffProfile: { findFirst: jest.Mock };
   };
+  let mockParentFacade: {
+    resolveIdByUserId: jest.Mock;
+    isLinkedToStudent: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockService = {
       getTeacherTimetable: jest.fn(),
+      getClassTimetable: jest.fn(),
       getRoomTimetable: jest.fn(),
       getStudentTimetable: jest.fn(),
       getWorkloadReport: jest.fn(),
@@ -66,6 +75,10 @@ describe('TimetablesController', () => {
     };
     mockPrisma = {
       staffProfile: { findFirst: jest.fn() },
+    };
+    mockParentFacade = {
+      resolveIdByUserId: jest.fn().mockResolvedValue(null),
+      isLinkedToStudent: jest.fn().mockResolvedValue(false),
     };
 
     module = await Test.createTestingModule({
@@ -103,6 +116,7 @@ describe('TimetablesController', () => {
         { provide: TimetablesService, useValue: mockService },
         { provide: PermissionCacheService, useValue: mockPermissionCache },
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: ParentReadFacade, useValue: mockParentFacade },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -208,16 +222,93 @@ describe('TimetablesController', () => {
     });
   });
 
-  describe('getStudentTimetable', () => {
-    it('should return student timetable', async () => {
-      const expected = [{ schedule_id: 's1' }];
-      mockService.getStudentTimetable.mockResolvedValue(expected);
+  describe('getClassTimetable', () => {
+    it('should return class timetable when user has schedule.manage', async () => {
+      mockPermissionCache.getPermissions.mockResolvedValue(['schedule.manage']);
+      const expected = [{ schedule_id: 's1', class_id: CLASS_ID }];
+      mockService.getClassTimetable.mockResolvedValue(expected);
 
-      const result = await controller.getStudentTimetable(mockTenant, STUDENT_ID, {
+      const result = await controller.getClassTimetable(mockTenant, mockUser, CLASS_ID, {
         academic_year_id: AY_ID,
       });
 
       expect(result).toEqual(expected);
+    });
+
+    it('should allow schedule.view_class', async () => {
+      mockPermissionCache.getPermissions.mockResolvedValue(['schedule.view_class']);
+      mockService.getClassTimetable.mockResolvedValue([]);
+
+      const result = await controller.getClassTimetable(mockTenant, mockUser, CLASS_ID, {
+        academic_year_id: AY_ID,
+      });
+
+      expect(result).toEqual([]);
+    });
+
+    it('should throw ForbiddenException when user has neither permission', async () => {
+      mockPermissionCache.getPermissions.mockResolvedValue([]);
+
+      await expect(
+        controller.getClassTimetable(mockTenant, mockUser, CLASS_ID, {
+          academic_year_id: AY_ID,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('getStudentTimetable', () => {
+    it('should return student timetable when user has students.view', async () => {
+      mockPermissionCache.getPermissions.mockResolvedValue(['students.view']);
+      const expected = [{ schedule_id: 's1' }];
+      mockService.getStudentTimetable.mockResolvedValue(expected);
+
+      const result = await controller.getStudentTimetable(mockTenant, mockUser, STUDENT_ID, {
+        academic_year_id: AY_ID,
+      });
+
+      expect(result).toEqual(expected);
+    });
+
+    it('should allow parent linked to the student', async () => {
+      mockPermissionCache.getPermissions.mockResolvedValue([]);
+      mockParentFacade.resolveIdByUserId.mockResolvedValue(PARENT_ID);
+      mockParentFacade.isLinkedToStudent.mockResolvedValue(true);
+      mockService.getStudentTimetable.mockResolvedValue([]);
+
+      const result = await controller.getStudentTimetable(mockTenant, mockUser, STUDENT_ID, {
+        academic_year_id: AY_ID,
+      });
+
+      expect(result).toEqual([]);
+      expect(mockParentFacade.isLinkedToStudent).toHaveBeenCalledWith(
+        TENANT_ID,
+        PARENT_ID,
+        STUDENT_ID,
+      );
+    });
+
+    it('should reject parent not linked to the student', async () => {
+      mockPermissionCache.getPermissions.mockResolvedValue([]);
+      mockParentFacade.resolveIdByUserId.mockResolvedValue(PARENT_ID);
+      mockParentFacade.isLinkedToStudent.mockResolvedValue(false);
+
+      await expect(
+        controller.getStudentTimetable(mockTenant, mockUser, STUDENT_ID, {
+          academic_year_id: AY_ID,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should reject non-parent non-admin user', async () => {
+      mockPermissionCache.getPermissions.mockResolvedValue([]);
+      mockParentFacade.resolveIdByUserId.mockResolvedValue(null);
+
+      await expect(
+        controller.getStudentTimetable(mockTenant, mockUser, STUDENT_ID, {
+          academic_year_id: AY_ID,
+        }),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
