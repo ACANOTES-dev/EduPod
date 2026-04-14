@@ -1,4 +1,4 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -20,9 +20,7 @@ const mockRlsTx = {
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest
-      .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest.fn().mockImplementation((fn) => fn(mockRlsTx)),
   }),
 }));
 
@@ -77,10 +75,17 @@ describe('ReportCardAcknowledgmentService — acknowledge', () => {
     mockPrisma.reportCard.findFirst.mockResolvedValue({
       id: REPORT_CARD_ID,
       status: 'published',
+      student: { id: 'student-1', student_parents: [{ parent_id: PARENT_ID }] },
     });
     mockPrisma.reportCardAcknowledgment.findFirst.mockResolvedValue(null);
 
-    const result = await service.acknowledge(TENANT_ID, REPORT_CARD_ID, PARENT_ID, '192.168.1.1');
+    const result = await service.acknowledge(
+      TENANT_ID,
+      REPORT_CARD_ID,
+      PARENT_ID,
+      PARENT_ID,
+      '192.168.1.1',
+    );
 
     expect(mockRlsTx.reportCardAcknowledgment.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -95,14 +100,23 @@ describe('ReportCardAcknowledgmentService — acknowledge', () => {
     expect(result).toMatchObject({ id: 'ack-1' });
   });
 
+  it('should throw ForbiddenException when caller is not the parent', async () => {
+    const differentParent = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+
+    await expect(
+      service.acknowledge(TENANT_ID, REPORT_CARD_ID, PARENT_ID, differentParent),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
   it('should be idempotent — return existing acknowledgment on second call', async () => {
     mockPrisma.reportCard.findFirst.mockResolvedValue({
       id: REPORT_CARD_ID,
       status: 'published',
+      student: { id: 'student-1', student_parents: [{ parent_id: PARENT_ID }] },
     });
     mockPrisma.reportCardAcknowledgment.findFirst.mockResolvedValue(baseAcknowledgment);
 
-    const result = await service.acknowledge(TENANT_ID, REPORT_CARD_ID, PARENT_ID);
+    const result = await service.acknowledge(TENANT_ID, REPORT_CARD_ID, PARENT_ID, PARENT_ID);
 
     // Should not create a new record
     expect(mockRlsTx.reportCardAcknowledgment.create).not.toHaveBeenCalled();
@@ -113,18 +127,31 @@ describe('ReportCardAcknowledgmentService — acknowledge', () => {
     mockPrisma.reportCard.findFirst.mockResolvedValue(null);
 
     await expect(
-      service.acknowledge(TENANT_ID, REPORT_CARD_ID, PARENT_ID),
+      service.acknowledge(TENANT_ID, REPORT_CARD_ID, PARENT_ID, PARENT_ID),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should throw ForbiddenException when caller is not linked to the student', async () => {
+    mockPrisma.reportCard.findFirst.mockResolvedValue({
+      id: REPORT_CARD_ID,
+      status: 'published',
+      student: { id: 'student-1', student_parents: [] },
+    });
+
+    await expect(
+      service.acknowledge(TENANT_ID, REPORT_CARD_ID, PARENT_ID, PARENT_ID),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it('should throw ConflictException when report card is not published', async () => {
     mockPrisma.reportCard.findFirst.mockResolvedValue({
       id: REPORT_CARD_ID,
       status: 'draft',
+      student: { id: 'student-1', student_parents: [{ parent_id: PARENT_ID }] },
     });
 
     await expect(
-      service.acknowledge(TENANT_ID, REPORT_CARD_ID, PARENT_ID),
+      service.acknowledge(TENANT_ID, REPORT_CARD_ID, PARENT_ID, PARENT_ID),
     ).rejects.toThrow(ConflictException);
   });
 
@@ -132,10 +159,11 @@ describe('ReportCardAcknowledgmentService — acknowledge', () => {
     mockPrisma.reportCard.findFirst.mockResolvedValue({
       id: REPORT_CARD_ID,
       status: 'published',
+      student: { id: 'student-1', student_parents: [{ parent_id: PARENT_ID }] },
     });
     mockPrisma.reportCardAcknowledgment.findFirst.mockResolvedValue(null);
 
-    await service.acknowledge(TENANT_ID, REPORT_CARD_ID, PARENT_ID);
+    await service.acknowledge(TENANT_ID, REPORT_CARD_ID, PARENT_ID, PARENT_ID);
 
     expect(mockRlsTx.reportCardAcknowledgment.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -228,8 +256,8 @@ describe('ReportCardAcknowledgmentService — getAcknowledgmentStatus', () => {
   it('should throw NotFoundException when report card not found', async () => {
     mockPrisma.reportCard.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.getAcknowledgmentStatus(TENANT_ID, REPORT_CARD_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.getAcknowledgmentStatus(TENANT_ID, REPORT_CARD_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });

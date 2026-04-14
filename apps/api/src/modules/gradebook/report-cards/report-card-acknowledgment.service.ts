@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -19,11 +20,34 @@ export class ReportCardAcknowledgmentService {
     tenantId: string,
     reportCardId: string,
     parentId: string,
+    callerUserId: string,
     ipAddress?: string,
   ) {
+    // Verify caller is the parent being acknowledged (cannot acknowledge on behalf of another parent)
+    if (callerUserId !== parentId) {
+      throw new ForbiddenException({
+        error: {
+          code: 'PARENT_MISMATCH',
+          message: 'You can only acknowledge a report card as yourself',
+        },
+      });
+    }
+
     const reportCard = await this.prisma.reportCard.findFirst({
       where: { id: reportCardId, tenant_id: tenantId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        student: {
+          select: {
+            id: true,
+            student_parents: {
+              where: { parent_id: parentId },
+              select: { parent_id: true },
+            },
+          },
+        },
+      },
     });
 
     if (!reportCard) {
@@ -31,6 +55,16 @@ export class ReportCardAcknowledgmentService {
         error: {
           code: 'REPORT_CARD_NOT_FOUND',
           message: `Report card "${reportCardId}" not found`,
+        },
+      });
+    }
+
+    // Verify parent is linked to the student
+    if (!reportCard.student || reportCard.student.student_parents.length === 0) {
+      throw new ForbiddenException({
+        error: {
+          code: 'NOT_STUDENT_PARENT',
+          message: 'You are not a parent of this student',
         },
       });
     }
@@ -119,7 +153,8 @@ export class ReportCardAcknowledgmentService {
       parent_id: parent.id,
       parent_name: `${parent.first_name} ${parent.last_name}`,
       acknowledged: acknowledgedParentIds.has(parent.id),
-      acknowledged_at: acknowledgments.find((a) => a.parent_id === parent.id)?.acknowledged_at ?? null,
+      acknowledged_at:
+        acknowledgments.find((a) => a.parent_id === parent.id)?.acknowledged_at ?? null,
     }));
 
     const totalParents = parents.length;

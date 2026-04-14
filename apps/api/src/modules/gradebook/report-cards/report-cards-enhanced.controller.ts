@@ -426,6 +426,7 @@ export class ReportCardsEnhancedController {
   @RequiresPermission('gradebook.view')
   async acknowledgeReportCard(
     @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(acknowledgeReportCardSchema))
     dto: z.infer<typeof acknowledgeReportCardSchema>,
@@ -435,7 +436,13 @@ export class ReportCardsEnhancedController {
       (req.headers['x-forwarded-for'] as string | undefined) ??
       req.socket.remoteAddress ??
       undefined;
-    return this.acknowledgmentService.acknowledge(tenant.tenant_id, id, dto.parent_id, ipAddress);
+    return this.acknowledgmentService.acknowledge(
+      tenant.tenant_id,
+      id,
+      dto.parent_id,
+      user.sub,
+      ipAddress,
+    );
   }
 
   @Get('report-cards/:id/acknowledgment-status')
