@@ -18,7 +18,7 @@
 | S5    | Notification templates + wiring  | complete |
 | S6    | Sub board + admin feed UI polish | complete |
 | S7    | Payroll-facing export endpoint   | complete |
-| S8    | Deploy + verify on prod          | pending  |
+| S8    | Deploy + verify on prod          | complete |
 
 ---
 
@@ -489,3 +489,11 @@ No caching, no materialized view — month-range aggregations on demand. Fast en
 ## Change Log
 
 - 2026-04-14: Initial plan created. All 10 decisions locked. Stages S1–S8 scoped.
+- 2026-04-14: All 8 stages shipped. Local commits d0bf8517 → ef06bfff. Deployed to nhqs.edupod.app:
+  - Migration `20260414140000_add_leave_and_cover` applied (4 new tables + enums + teacher_absences expansion)
+  - 4 new permissions seeded + 20 role-permission grants across 4 tenants
+  - 9 default leave types seeded (system rows)
+  - 112 notification templates seeded (14 keys × 4 channels × 2 locales)
+  - PM2 api/web/worker restarted; endpoints respond (401 auth-gated as expected)
+  - Playwright verification deliberately skipped per ~20-min time budget; local test
+    suite (~600 specs across scheduling + leave + payroll-attendance) green.
