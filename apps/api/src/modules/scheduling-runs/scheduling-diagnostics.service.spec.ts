@@ -123,7 +123,11 @@ describe('SchedulingDiagnosticsService', () => {
     expect(supply!.affected.subject?.name).toBe('Arabic');
     expect(supply!.affected.year_group?.name).toBe('Grade 3');
     expect(supply!.affected.classes).toHaveLength(2);
+    expect(supply!.solutions).toHaveLength(3);
+    expect(supply!.solutions[0]?.effort).toBe('quick');
+    expect(supply!.solutions[2]?.effort).toBe('long');
     expect(result.summary.total_unassigned_periods).toBe(8);
+    expect(result.summary.total_unassigned_gaps).toBe(2);
     expect(result.summary.critical_issues).toBe(1);
     expect(result.summary.can_proceed).toBe(false);
   });
@@ -196,6 +200,7 @@ describe('SchedulingDiagnosticsService', () => {
     expect(result.diagnostics[0]?.category).toBe('unassigned_slots');
     expect(result.diagnostics[0]?.severity).toBe('medium');
     expect(result.diagnostics[0]?.affected.subject?.name).toBe('Mathematics');
+    expect(result.diagnostics[0]?.solutions).toHaveLength(3);
     expect(result.summary.medium_issues).toBe(1);
     expect(result.summary.critical_issues).toBe(0);
   });
@@ -237,5 +242,6 @@ describe('SchedulingDiagnosticsService', () => {
     expect(cap).toBeDefined();
     expect(cap!.severity).toBe('high');
     expect(cap!.affected.teachers?.[0]?.name).toBe('Mrs Lynch');
+    expect(cap!.solutions).toHaveLength(3);
   });
 });

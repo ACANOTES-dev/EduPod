@@ -4,12 +4,18 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowLeft,
+  ArrowUpRight,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Info,
+  Lightbulb,
   Loader2,
   Pin,
+  Sparkles,
   Trash2,
   Users,
+  Zap,
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -68,6 +74,14 @@ type DiagnosticCategory =
   | 'workload_cap_hit'
   | 'availability_pinch'
   | 'unassigned_slots';
+type SolutionEffort = 'quick' | 'medium' | 'long';
+
+interface Solution {
+  label: string;
+  detail: string;
+  effort: SolutionEffort;
+  href?: string;
+}
 
 interface Diagnostic {
   id: string;
@@ -75,7 +89,7 @@ interface Diagnostic {
   category: DiagnosticCategory;
   title: string;
   description: string;
-  recommendation: string;
+  solutions: Solution[];
   affected: {
     subject?: { id: string; name: string };
     year_group?: { id: string; name: string };
@@ -88,6 +102,7 @@ interface Diagnostic {
 interface DiagnosticsResult {
   summary: {
     total_unassigned_periods: number;
+    total_unassigned_gaps: number;
     critical_issues: number;
     high_issues: number;
     medium_issues: number;
@@ -122,94 +137,315 @@ function groupEntries(entries: ReviewEntry[]) {
 
 // ─── Diagnostics panel ────────────────────────────────────────────────────────
 
-function severityIcon(sev: DiagnosticSeverity) {
-  if (sev === 'critical') return <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />;
-  if (sev === 'high') return <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />;
-  if (sev === 'medium') return <Info className="h-4 w-4 text-blue-500 shrink-0" />;
-  return <Info className="h-4 w-4 text-text-tertiary shrink-0" />;
-}
+// ─── Severity theming ─────────────────────────────────────────────────────────
 
-function severityBadgeVariant(sev: DiagnosticSeverity): 'danger' | 'default' | 'secondary' {
-  if (sev === 'critical') return 'danger';
-  if (sev === 'high') return 'default';
-  return 'secondary';
-}
+const SEVERITY_THEME: Record<
+  DiagnosticSeverity,
+  {
+    label: string;
+    accent: string; // left stripe + icon bg
+    bg: string; // card bg
+    border: string;
+    iconColor: string;
+    icon: typeof AlertCircle;
+    badge: 'danger' | 'default' | 'secondary';
+  }
+> = {
+  critical: {
+    label: 'Critical',
+    accent: 'bg-red-500',
+    bg: 'bg-red-50/60 dark:bg-red-900/10',
+    border: 'border-red-200 dark:border-red-700/40',
+    iconColor: 'text-red-600 dark:text-red-400',
+    icon: AlertCircle,
+    badge: 'danger',
+  },
+  high: {
+    label: 'High priority',
+    accent: 'bg-amber-500',
+    bg: 'bg-amber-50/60 dark:bg-amber-900/10',
+    border: 'border-amber-200 dark:border-amber-700/40',
+    iconColor: 'text-amber-600 dark:text-amber-400',
+    icon: AlertTriangle,
+    badge: 'default',
+  },
+  medium: {
+    label: 'Needs attention',
+    accent: 'bg-blue-500',
+    bg: 'bg-blue-50/60 dark:bg-blue-900/10',
+    border: 'border-blue-200 dark:border-blue-700/40',
+    iconColor: 'text-blue-600 dark:text-blue-400',
+    icon: Info,
+    badge: 'secondary',
+  },
+  info: {
+    label: 'Info',
+    accent: 'bg-text-tertiary',
+    bg: 'bg-surface-secondary/40',
+    border: 'border-border',
+    iconColor: 'text-text-tertiary',
+    icon: Info,
+    badge: 'secondary',
+  },
+};
 
-function DiagnosticsPanel({ result }: { result: DiagnosticsResult }) {
+const EFFORT_THEME: Record<SolutionEffort, { label: string; className: string; icon: typeof Zap }> =
+  {
+    quick: {
+      label: 'Quick fix',
+      className:
+        'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700/50',
+      icon: Zap,
+    },
+    medium: {
+      label: 'Medium effort',
+      className:
+        'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-700/50',
+      icon: Sparkles,
+    },
+    long: {
+      label: 'Long-term',
+      className:
+        'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-700/50',
+      icon: Users,
+    },
+  };
+
+// ─── Diagnostic card ──────────────────────────────────────────────────────────
+
+function DiagnosticCard({ d, locale }: { d: Diagnostic; locale: string }) {
+  const theme = SEVERITY_THEME[d.severity];
+  const SeverityIcon = theme.icon;
+
   return (
-    <div className="rounded-xl border border-border bg-surface p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-text-primary">Timetable analysis</h3>
-        {result.summary.total_unassigned_periods > 0 && (
-          <Badge variant="danger">{result.summary.total_unassigned_periods} unplaced</Badge>
+    <div
+      className={`relative overflow-hidden rounded-xl border ${theme.border} ${theme.bg} shadow-sm`}
+    >
+      {/* Severity accent stripe */}
+      <div className={`absolute start-0 top-0 h-full w-1 ${theme.accent}`} aria-hidden="true" />
+
+      <div className="ps-4 pe-4 py-4 space-y-3">
+        {/* Header */}
+        <div className="flex items-start gap-3">
+          <div
+            className={`shrink-0 rounded-lg bg-surface p-1.5 border ${theme.border} ${theme.iconColor}`}
+          >
+            <SeverityIcon className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-sm font-semibold text-text-primary leading-tight">{d.title}</h4>
+              <Badge variant={theme.badge} className="text-[10px] uppercase tracking-wide">
+                {theme.label}
+              </Badge>
+            </div>
+            <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">{d.description}</p>
+          </div>
+        </div>
+
+        {/* Solutions */}
+        {d.solutions.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+              <Lightbulb className="h-3 w-3" />
+              <span>Suggested solutions</span>
+            </div>
+            <ol className="space-y-2">
+              {d.solutions.map((s, i) => {
+                const effortTheme = EFFORT_THEME[s.effort];
+                const EffortIcon = effortTheme.icon;
+                return (
+                  <li
+                    key={i}
+                    className="rounded-lg border border-border bg-surface p-2.5 hover:shadow-sm transition-shadow"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <span className="shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-brand/10 text-brand text-[11px] font-bold">
+                        {i + 1}
+                      </span>
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-xs font-medium text-text-primary">{s.label}</p>
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${effortTheme.className}`}
+                          >
+                            <EffortIcon className="h-2.5 w-2.5" />
+                            {effortTheme.label}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-text-secondary leading-relaxed">
+                          {s.detail}
+                        </p>
+                        {s.href && (
+                          <a
+                            href={`/${locale}${s.href}`}
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-brand hover:underline"
+                          >
+                            Go to settings
+                            <ArrowUpRight className="h-3 w-3 rtl:rotate-[270deg]" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
         )}
-      </div>
 
-      {result.diagnostics.length === 0 ? (
-        <p className="text-xs text-text-secondary">
-          No issues detected — every required period was placed.
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {result.diagnostics.map((d) => (
-            <div
-              key={d.id}
-              className="rounded-lg border border-border bg-surface-secondary/40 p-3 space-y-2"
-            >
-              <div className="flex items-start gap-2">
-                {severityIcon(d.severity)}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-text-primary">{d.title}</p>
-                    <Badge variant={severityBadgeVariant(d.severity)} className="text-[10px]">
-                      {d.severity}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-text-secondary mt-1 leading-relaxed">
-                    {d.description}
-                  </p>
-                </div>
-              </div>
-
-              <div className="ms-6 text-xs text-text-primary bg-brand/5 border-s-2 border-brand ps-2.5 py-1.5">
-                <span className="font-medium">Suggested fix: </span>
-                <span className="text-text-secondary">{d.recommendation}</span>
-              </div>
-
-              {d.affected.classes && d.affected.classes.length > 0 && (
-                <div className="ms-6 flex flex-wrap gap-1 text-[10px]">
-                  {d.affected.classes.slice(0, 12).map((c) => (
+        {/* Affected entities */}
+        {((d.affected.classes && d.affected.classes.length > 0) ||
+          (d.affected.teachers && d.affected.teachers.length > 0)) && (
+          <div className="pt-2 border-t border-border/60 space-y-2">
+            {d.affected.classes && d.affected.classes.length > 0 && (
+              <div className="flex items-start gap-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-text-tertiary mt-0.5 shrink-0">
+                  Classes
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {d.affected.classes.slice(0, 16).map((c) => (
                     <span
                       key={c.id}
-                      className="rounded bg-surface-secondary px-1.5 py-0.5 text-text-secondary"
+                      className="rounded-md bg-surface border border-border px-1.5 py-0.5 text-[10px] font-mono text-text-primary"
                     >
                       {c.name}
                     </span>
                   ))}
-                  {d.affected.classes.length > 12 && (
-                    <span className="text-text-tertiary">
-                      +{d.affected.classes.length - 12} more
+                  {d.affected.classes.length > 16 && (
+                    <span className="text-[10px] text-text-tertiary py-0.5">
+                      +{d.affected.classes.length - 16} more
                     </span>
                   )}
                 </div>
-              )}
-
-              {d.affected.teachers && d.affected.teachers.length > 0 && (
-                <div className="ms-6 flex items-center gap-1.5 text-[10px] text-text-tertiary">
-                  <Users className="h-3 w-3" />
+              </div>
+            )}
+            {d.affected.teachers && d.affected.teachers.length > 0 && (
+              <div className="flex items-start gap-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-text-tertiary mt-0.5 shrink-0">
+                  Teachers
+                </span>
+                <div className="flex items-center gap-1.5 text-[10px] text-text-secondary">
+                  <Users className="h-3 w-3 text-text-tertiary" />
                   <span>
                     {d.affected.teachers
-                      .slice(0, 4)
+                      .slice(0, 5)
                       .map((t) => t.name)
                       .join(', ')}
-                    {d.affected.teachers.length > 4 && ` +${d.affected.teachers.length - 4} more`}
+                    {d.affected.teachers.length > 5 && ` +${d.affected.teachers.length - 5} more`}
                   </span>
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Diagnostics panel ────────────────────────────────────────────────────────
+
+function DiagnosticsPanel({ result, locale }: { result: DiagnosticsResult; locale: string }) {
+  const [mediumExpanded, setMediumExpanded] = React.useState(false);
+
+  const critical = result.diagnostics.filter((d) => d.severity === 'critical');
+  const high = result.diagnostics.filter((d) => d.severity === 'high');
+  const medium = result.diagnostics.filter((d) => d.severity === 'medium');
+
+  const { total_unassigned_periods, total_unassigned_gaps, critical_issues, high_issues } =
+    result.summary;
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+      {/* Header with gradient accent */}
+      <div className="relative bg-gradient-to-br from-brand/5 via-transparent to-transparent border-b border-border px-4 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="rounded-lg bg-brand/10 p-1.5 text-brand">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary">Timetable analysis</h3>
+              <p className="text-[11px] text-text-tertiary">
+                {total_unassigned_periods > 0
+                  ? `${total_unassigned_periods} unplaced period(s) across ${total_unassigned_gaps} gap(s)`
+                  : 'Every required period was placed'}
+              </p>
+            </div>
+          </div>
+          {total_unassigned_periods > 0 && (
+            <div className="flex items-center gap-1 shrink-0">
+              {critical_issues > 0 && (
+                <Badge variant="danger" className="text-[10px]">
+                  {critical_issues} critical
+                </Badge>
+              )}
+              {high_issues > 0 && (
+                <Badge variant="default" className="text-[10px]">
+                  {high_issues} high
+                </Badge>
               )}
             </div>
-          ))}
+          )}
         </div>
-      )}
+      </div>
+
+      <div className="p-4 space-y-4">
+        {result.diagnostics.length === 0 ? (
+          <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
+            <CheckCircle2 className="h-4 w-4" />
+            <span>No issues detected — this timetable is ready to apply.</span>
+          </div>
+        ) : (
+          <>
+            {critical.length > 0 && (
+              <section className="space-y-2">
+                {critical.map((d) => (
+                  <DiagnosticCard key={d.id} d={d} locale={locale} />
+                ))}
+              </section>
+            )}
+
+            {high.length > 0 && (
+              <section className="space-y-2">
+                {high.map((d) => (
+                  <DiagnosticCard key={d.id} d={d} locale={locale} />
+                ))}
+              </section>
+            )}
+
+            {medium.length > 0 && (
+              <section className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setMediumExpanded((v) => !v)}
+                  className="w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-surface-secondary/40 px-3 py-2 text-xs font-medium text-text-primary hover:bg-surface-secondary transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Info className="h-3.5 w-3.5 text-blue-500" />
+                    <span>
+                      {medium.length} other gap{medium.length === 1 ? '' : 's'} need attention
+                    </span>
+                  </div>
+                  {mediumExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-text-tertiary" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-text-tertiary" />
+                  )}
+                </button>
+                {mediumExpanded && (
+                  <div className="space-y-2">
+                    {medium.map((d) => (
+                      <DiagnosticCard key={d.id} d={d} locale={locale} />
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -218,8 +454,9 @@ function DiagnosticsPanel({ result }: { result: DiagnosticsResult }) {
 
 export default function RunReviewPage() {
   const t = useTranslations('scheduling.auto');
-  const _params = useParams<{ id: string }>();
+  const _params = useParams<{ id: string; locale?: string }>();
   const id = _params?.id ?? '';
+  const locale = _params?.locale ?? 'en';
   const router = useRouter();
 
   const [data, setData] = React.useState<RunReview | null>(null);
@@ -518,15 +755,41 @@ export default function RunReviewPage() {
               </span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-text-secondary">{t('unassignedSlots')}</span>
-              <Badge variant={report?.unassigned_count > 0 ? 'secondary' : 'default'}>
-                {report?.unassigned_count ?? 0}
+              <div className="flex flex-col">
+                <span className="text-text-secondary">Unplaced periods</span>
+                <span className="text-[10px] text-text-tertiary">
+                  total lessons the solver couldn&apos;t fit
+                </span>
+              </div>
+              <Badge
+                variant={
+                  (diagnostics?.summary.total_unassigned_periods ?? 0) > 0 ? 'danger' : 'default'
+                }
+              >
+                {diagnostics?.summary.total_unassigned_periods ?? report?.unassigned_count ?? 0}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex flex-col">
+                <span className="text-text-secondary">Gaps (class × subject)</span>
+                <span className="text-[10px] text-text-tertiary">
+                  distinct combinations with at least one unplaced period
+                </span>
+              </div>
+              <Badge
+                variant={
+                  (diagnostics?.summary.total_unassigned_gaps ?? report?.unassigned_count ?? 0) > 0
+                    ? 'secondary'
+                    : 'default'
+                }
+              >
+                {diagnostics?.summary.total_unassigned_gaps ?? report?.unassigned_count ?? 0}
               </Badge>
             </div>
           </div>
 
           {diagnostics && diagnostics.diagnostics.length > 0 && (
-            <DiagnosticsPanel result={diagnostics} />
+            <DiagnosticsPanel result={diagnostics} locale={locale} />
           )}
 
           {report?.workload_summary && report.workload_summary.length > 0 && (

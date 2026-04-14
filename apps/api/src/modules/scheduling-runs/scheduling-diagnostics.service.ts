@@ -12,13 +12,22 @@ export type DiagnosticCategory =
   | 'availability_pinch'
   | 'unassigned_slots';
 
+export type SolutionEffort = 'quick' | 'medium' | 'long';
+
+export interface Solution {
+  label: string;
+  detail: string;
+  effort: SolutionEffort;
+  href?: string;
+}
+
 export interface Diagnostic {
   id: string;
   severity: DiagnosticSeverity;
   category: DiagnosticCategory;
   title: string;
   description: string;
-  recommendation: string;
+  solutions: Solution[];
   affected: {
     subject?: { id: string; name: string };
     year_group?: { id: string; name: string };
@@ -30,6 +39,7 @@ export interface Diagnostic {
 
 export interface DiagnosticsSummary {
   total_unassigned_periods: number;
+  total_unassigned_gaps: number;
   critical_issues: number;
   high_issues: number;
   medium_issues: number;
@@ -218,6 +228,7 @@ export class SchedulingDiagnosticsService {
 
     const summary: DiagnosticsSummary = {
       total_unassigned_periods: totalUnassignedPeriods,
+      total_unassigned_gaps: unassigned.length,
       critical_issues: diagnostics.filter((d) => d.severity === 'critical').length,
       high_issues: diagnostics.filter((d) => d.severity === 'high').length,
       medium_issues: diagnostics.filter((d) => d.severity === 'medium').length,
@@ -303,9 +314,25 @@ export class SchedulingDiagnosticsService {
           `${subjectName} in ${ygName} needs ${demand} periods/week across ${classCount} class(es), ` +
           `but only ${supply} teacher(s) are qualified — that would require ${Math.round(impliedLoad)} ` +
           `periods/week each, above the ${maxFeasible}/week cap. ${unassignedPeriods} period(s) went unplaced.`,
-        recommendation:
-          `Add at least ${additionalTeachersNeeded} more teacher(s) qualified for ${subjectName} in ${ygName}, ` +
-          `or broaden an existing teacher's competencies to cover this subject/year group.`,
+        solutions: [
+          {
+            label: 'Broaden existing teachers\u2019 competencies',
+            detail: `Add ${subjectName}/${ygName} as a pool competency for teachers who already teach a related subject. Fastest way to grow the pool.`,
+            effort: 'quick',
+            href: '/scheduling/competencies',
+          },
+          {
+            label: 'Raise the weekly period cap',
+            detail: `Increase max_periods_per_week for qualified teachers in Teacher Config (currently ${maxFeasible}). Only safe if workload/welfare allows.`,
+            effort: 'medium',
+            href: '/scheduling/teacher-config',
+          },
+          {
+            label: `Hire ${additionalTeachersNeeded} more ${subjectName} teacher(s)`,
+            detail: `Structural fix: onboard ${additionalTeachersNeeded} additional staff qualified for ${subjectName} in ${ygName} so per-teacher load drops below ${maxFeasible}/week.`,
+            effort: 'long',
+          },
+        ],
         affected: {
           subject: { id: subjectId, name: subjectName },
           year_group: { id: yearGroupId, name: ygName },
@@ -355,10 +382,34 @@ export class SchedulingDiagnosticsService {
       title: `${maxedOut.length} teacher(s) at their weekly load cap`,
       description:
         `These teachers are already scheduled at or beyond their configured ${DEFAULT_MAX_PERIODS_PER_WEEK}-period weekly maximum. ` +
-        `Any additional lessons would push them over.`,
-      recommendation:
-        `If more periods need to be placed, raise these teachers' max_periods_per_week in /scheduling/teacher-config, ` +
-        `or train/hire more staff qualified for the affected subjects.`,
+        `Any additional lessons would push them over. This is often the real reason curriculum gaps remain unplaced.`,
+      solutions: [
+        {
+          label: 'Raise these teachers\u2019 weekly caps',
+          detail: `Bump max_periods_per_week in Teacher Config for ${maxedOut
+            .slice(0, 3)
+            .map((t) => t.name)
+            .join(', ')}${
+            maxedOut.length > 3 ? ` and ${maxedOut.length - 3} more` : ''
+          }. Quickest way to absorb unplaced periods, but check welfare/contract limits first.`,
+          effort: 'quick',
+          href: '/scheduling/teacher-config',
+        },
+        {
+          label: 'Spread the load to more teachers',
+          detail:
+            'Broaden competency coverage so other qualified staff can pick up some of these periods. Rebalances without increasing anyone\u2019s individual workload.',
+          effort: 'medium',
+          href: '/scheduling/competencies',
+        },
+        {
+          label: 'Reduce curriculum density',
+          detail:
+            'Lower min_periods_per_week for lower-priority subjects in affected year groups. Trade-off: less teaching time for that subject.',
+          effort: 'medium',
+          href: '/scheduling/curriculum',
+        },
+      ],
       affected: {
         teachers: maxedOut.map((t) => ({ id: t.id, name: t.name })),
       },
@@ -426,9 +477,27 @@ export class SchedulingDiagnosticsService {
         description:
           `Qualified teachers collectively have ~${totalAvailablePeriods} teaching periods/week available, ` +
           `which is tight against the ${unassignedPeriods} unplaced period(s) for this subject.`,
-        recommendation:
-          `Extend weekly availability windows in /scheduling/availability for teachers qualified in ` +
-          `${subjectName}, or spread more of the ${subjectName} load across additional teachers.`,
+        solutions: [
+          {
+            label: 'Extend availability windows',
+            detail: `Widen weekly working hours for ${subjectName} teachers in Staff Availability — even 30 extra minutes per teacher per day often frees enough slots.`,
+            effort: 'quick',
+            href: '/scheduling/availability',
+          },
+          {
+            label: 'Add more qualified teachers',
+            detail: `Make additional existing staff eligible for ${subjectName} in ${ygName} via the pool. Spreads the same demand across more hours without increasing any one person\u2019s workload.`,
+            effort: 'medium',
+            href: '/scheduling/competencies',
+          },
+          {
+            label: `Reduce ${subjectName} demand`,
+            detail:
+              'Lower the subject\u2019s min_periods_per_week in Curriculum. Use only if the curriculum has headroom — this trades teaching time for scheduling feasibility.',
+            effort: 'medium',
+            href: '/scheduling/curriculum',
+          },
+        ],
         affected: {
           subject: { id: subjectId, name: subjectName },
           year_group: { id: yearGroupId, name: ygName },
@@ -479,9 +548,26 @@ export class SchedulingDiagnosticsService {
         description:
           `The solver couldn't place ${unassignedPeriods} ${subjectName} period(s) across ${affectedClasses.length} class(es). ` +
           `Likely cause: tight class or room conflicts — the period grid may be saturated for this subject.`,
-        recommendation:
-          `Review /scheduling/period-grid and /scheduling/room-closures. If the grid is packed, consider pinning ` +
-          `this subject to specific slots or adjusting the curriculum's min_periods_per_week for ${ygName}.`,
+        solutions: [
+          {
+            label: 'Pin priority lessons manually',
+            detail: `Anchor the most important ${subjectName} periods to specific slots via Teacher Competencies pins. The solver will route around them instead of dropping them.`,
+            effort: 'quick',
+            href: '/scheduling/competencies',
+          },
+          {
+            label: 'Open up the period grid',
+            detail: `Check if the grid has unused teaching slots or if room closures are blocking otherwise-viable periods for ${ygName}.`,
+            effort: 'medium',
+            href: '/scheduling/period-grid',
+          },
+          {
+            label: `Trim ${subjectName} curriculum demand`,
+            detail: `Lower min_periods_per_week for ${subjectName} in ${ygName}. Use only if the curriculum can accept slightly less instructional time.`,
+            effort: 'medium',
+            href: '/scheduling/curriculum',
+          },
+        ],
         affected: {
           subject: { id: subjectId, name: subjectName },
           year_group: { id: yearGroupId, name: ygName },
