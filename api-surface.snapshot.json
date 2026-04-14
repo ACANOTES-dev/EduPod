@@ -6853,6 +6853,13 @@
     "permission": "pastoral.manage_critical_incidents"
   },
   {
+    "method": "GET",
+    "path": "/v1/payroll/absence-periods",
+    "controller": "PayrollAttendanceController",
+    "module": "leave",
+    "permission": "payroll.manage_attendance"
+  },
+  {
     "method": "DELETE",
     "path": "/v1/payroll/adjustments/:id",
     "controller": "PayrollEnhancedController",

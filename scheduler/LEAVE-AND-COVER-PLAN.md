@@ -17,7 +17,7 @@
 | S4    | Auto-cascade substitution engine | complete |
 | S5    | Notification templates + wiring  | complete |
 | S6    | Sub board + admin feed UI polish | complete |
-| S7    | Payroll-facing export endpoint   | pending  |
+| S7    | Payroll-facing export endpoint   | complete |
 | S8    | Deploy + verify on prod          | pending  |
 
 ---
