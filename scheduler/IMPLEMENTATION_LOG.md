@@ -28,7 +28,7 @@
 | 2   | Solver core updates                      | `complete` | Claude / 2026-04-14  | Commit `d76344bb`; pin/pool model live on prod.              |
 | 3   | API surface updates                      | `complete` | Claude / 2026-04-14  | Commit `477b0076`; competency API + coverage per-class live. |
 | 4   | Competencies page UI rebuild             | `complete` | Claude / 2026-04-14  | Commit `ed5ea305`; competencies + coverage UI live on prod.  |
-| 5   | Seed NHQS data                           | `complete` | Claude / 2026-04-14  | Commit `<pending>`; NHQS seeded + prereq check fixed (C2).   |
+| 5   | Seed NHQS data                           | `complete` | Claude / 2026-04-14  | Commit `a099008a`; NHQS seeded + prereq check fixed (C2).    |
 | 6   | Generate end-to-end on NHQS              | `pending`  | —                    | Blocked by Stage 5                                           |
 | 7   | Substitutes page + table                 | `pending`  | —                    | Blocked by Stage 6                                           |
 | 8   | Downstream rewire                        | `pending`  | —                    | Blocked by Stage 7                                           |
@@ -360,7 +360,7 @@ Each stage appends its own entry here when finished. Use this template exactly:
 ### Stage 5 — Seed NHQS data
 
 **Completed:** 2026-04-14
-**Local commit(s):** `<pending>` feat(scheduling): seed NHQS curriculum + competencies + availability; fix prereq check for homeroom schools
+**Local commit(s):** `a099008a` feat(scheduling): seed NHQS curriculum + fix prereq for homeroom schools
 **Deployed to production:** yes — 2026-04-14. Data seed applied via a single psql transaction against `school_platformedupod_prod`. Prereq-check code fix rsynced, `@school/api` rebuilt under the `edupod` user, `pm2 restart api` left the process `online` with all routes mapped.
 
 **What was delivered:**
