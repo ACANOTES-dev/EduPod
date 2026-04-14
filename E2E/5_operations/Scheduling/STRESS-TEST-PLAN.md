@@ -1,0 +1,1730 @@
+# Stress Test Plan — Scheduling Solver & Substitution Flows
+
+**Module:** Scheduling (Operations)
+**Tenants under test:** `stress-a.edupod.app` (primary), `stress-b.edupod.app` (secondary, RLS isolation)
+**Compiled:** 2026-04-14 · Environment ready: 2026-04-15
+**Status:** Ready to execute
+
+## Purpose
+
+This document is the exhaustive pre-launch stress test pack for the Scheduling module. It covers the auto-scheduler (CSP solver), curriculum/period/class-requirement inputs, staff availability/preferences, substitution workflows, sub board rendering, cover fairness reports, cross-cutting data edge cases, and worker/infrastructure resilience.
+
+Every scenario below must execute to **PASS** before the module can be declared production-hardened. Scenarios marked **N/A** require a written justification in the result row.
+
+**Target market:** Ireland primary (with international expansion). Baseline calendar uses Europe/Dublin timezone, EUR currency, DD/MM/YYYY dates, September academic year start.
+
+The 83 scenarios below are organised into 18 categories:
+
+| Category                                    | Scenarios |
+| ------------------------------------------- | --------- |
+| 1 — Solver: Size & Feasibility              | 5         |
+| 2 — Solver: Infeasibility Detection         | 4         |
+| 3 — Solver: Resource & Room Constraints     | 5         |
+| 4 — Solver: Block / Consecutive             | 4         |
+| 5 — Solver: Teacher Load & Distribution     | 5         |
+| 6 — Solver: Staff Availability              | 5         |
+| 7 — Solver: Curriculum & Class Requirements | 6         |
+| 8 — Solver: Calendar Edge Cases             | 6         |
+| 9 — Solver: Re-solve & Incremental          | 5         |
+| 10 — Solver: Quality & Determinism          | 3         |
+| 11 — Substitution: Basic Flows              | 5         |
+| 12 — Substitution: Assignment Logic         | 6         |
+| 13 — Substitution: Cascading & Volume       | 3         |
+| 14 — Substitution: Edge Data                | 5         |
+| 15 — Sub Board Display                      | 4         |
+| 16 — Cover Reports & Fairness               | 4         |
+| 17 — Cross-cutting / Data                   | 5         |
+| 18 — Worker & Infrastructure Resilience     | 3         |
+
+---
+
+## Test environment
+
+Both tenants live on production (`edupod.app` wildcard DNS). They are completely separate from `nhqs.edupod.app` and other real tenants.
+
+### Credentials
+
+**Password for every account below:** `StressTest2026!`
+
+**Stress Test School A** — primary stress tenant
+URL: <https://stress-a.edupod.app>
+Tenant ID: `965f5f8f-0d8e-4350-a589-42af2f4153ea`
+
+| Role             | Email                     |
+| ---------------- | ------------------------- |
+| admin            | `admin@stress-a.test`     |
+| school_principal | `principal@stress-a.test` |
+| teacher          | `teacher@stress-a.test`   |
+
+**Stress Test School B** — secondary tenant (use only for cross-tenant scenarios like STRESS-079 RLS isolation)
+URL: <https://stress-b.edupod.app>
+Tenant ID: `a3cba8a3-1927-4d91-bcda-8b84bafbaace`
+
+| Role             | Email                     |
+| ---------------- | ------------------------- |
+| admin            | `admin@stress-b.test`     |
+| school_principal | `principal@stress-b.test` |
+| teacher          | `teacher@stress-b.test`   |
+
+**Additional seeded teachers** (per tenant, 20 total inc. the login teacher above):
+`t2@<slug>.local` through `t20@<slug>.local` — same password. No login expected unless a scenario requires it; these are database rows for the solver to assign.
+
+### Baseline state already seeded
+
+The baseline dataset below is already present on both tenants. Do **not** re-seed unless the reset procedure instructs you to.
+
+- **Academic year:** `AY 2025-2026`, active, 2025-09-01 → 2026-06-30
+- **Week shape:** Monday–Friday (weekday 1–5 in the DB)
+- **Period grid:** 8 periods × 5 days = 40 slots. Periods are 45 min. Break 11:15–11:35 (between P3 and P4). Lunch 13:05–13:35 (between P5 and P6). A single `Primary Break` group covers all year groups.
+- **Subjects (11):** Maths, English, Irish, Science, History, Geography, Religion, PE, Art, IT, Music
+- **Year groups (6):** Y7, Y8, Y9, Y10, Y11, Y12
+- **Classes (10):** Y7-A/B, Y8-A/B, Y9-A/B, Y10-A/B, Y11-A, Y12-A
+- **Rooms (25):** CR01–CR20 (classrooms, capacity 30), LAB01–LAB02 (science_lab, 24), GYM01 (gym, 60), ART01 (art_room, 28), COMP01 (computer_lab, 28)
+- **Teachers (20):** all full-time, all active. Teacher 1 == the `teacher@<slug>.test` login account; 2–20 are `t2–t20@<slug>.local`
+- **Curriculum:** 66 requirements (6 year groups × 11 subjects). Maths/English 5 periods/week, Irish/Science 4, History/Geography 3, Religion/PE/Art 2, IT/Music 1 → total 32 periods/week/class with 8 free for flexibility
+- **Teacher competencies:** Every teacher can teach every subject for every year group (1320 rows). Generous coverage keeps the baseline solvable; constraint-shortage scenarios (STRESS-006, STRESS-008) tighten this via per-scenario seed.
+
+This matches the STRESS-002 "medium school" scale and is the default starting state for every scenario unless the scenario's setup section says otherwise.
+
+### Seed / reset scripts
+
+Two scripts live under `packages/prisma/scripts/`:
+
+**`create-stress-tenants.ts`** — idempotent tenant provisioner. Already run. Re-run only if tenants are accidentally deleted. Creates tenant rows, domains, branding, settings, modules, notification settings, sequences, tenant-scoped roles + permissions, inbox defaults, and the admin/principal/teacher login accounts.
+
+```bash
+ssh root@46.62.244.139 'sudo -u edupod bash -c "set -a; source /opt/edupod/app/.env; set +a; cd /opt/edupod/app && npx tsx packages/prisma/scripts/create-stress-tenants.ts"'
+```
+
+**`stress-seed.ts`** — scenario-independent baseline dataset + teardown. Flags:
+
+- `--mode baseline` — seed the 20-teacher / 10-class dataset described above (idempotent upsert)
+- `--mode teardown` — delete the seeded academic year (cascade removes classes, schedules, curriculum, competencies, period templates). Teachers, subjects, rooms, year groups kept.
+- `--mode nuke` — aggressive teardown: also deletes seeded teachers t2–t20, subjects, rooms, year groups. Leaves tenant shell + admin/principal/teacher login accounts intact.
+- `--tenant-slug stress-a|stress-b` — defaults to `stress-a`.
+
+Examples:
+
+```bash
+# Reset stress-a to a clean baseline between mutating scenarios
+ssh root@46.62.244.139 'sudo -u edupod bash -c "set -a; source /opt/edupod/app/.env; set +a; cd /opt/edupod/app && npx tsx packages/prisma/scripts/stress-seed.ts --mode nuke --tenant-slug stress-a && npx tsx packages/prisma/scripts/stress-seed.ts --mode baseline --tenant-slug stress-a"'
+```
+
+Both scripts use the `DATABASE_MIGRATE_URL` role (which has `BYPASSRLS`) because cross-tenant provisioning can't be done with the app role. **Never** run these scripts against any tenant other than `stress-a` / `stress-b` — the safety guard is the `--tenant-slug` flag, which must be set explicitly.
+
+### Reset procedure (between mutating scenarios)
+
+Most scenarios mutate shared scheduling state (scheduling runs, locks, absences). Reset when the next scenario depends on a clean slate:
+
+1. Via UI: Scheduling → Runs → archive any in-progress run; delete scenario-specific additions (absences, closures, extra teachers)
+2. Or via script (fastest, wipes everything): `stress-seed.ts --mode nuke --tenant-slug stress-a` followed by `--mode baseline --tenant-slug stress-a`
+3. After reset, re-verify baseline by logging in as admin and spot-checking 1 class, 1 subject, and the period grid exist.
+
+Between **non-mutating** scenarios (display/read-only), no reset is needed.
+
+---
+
+## Session protocols
+
+When more than one agent session is running against this pack at the same time, or when a session is fixing bugs, follow these rules.
+
+### Bug-fix policy — NOT just log
+
+When a scenario fails:
+
+1. **Reproduce locally** if possible; confirm the failure isn't a seed issue or a flaky test.
+2. **Open a bug entry** in `BUG-LOG.md` using the existing `SCHED-NNN` numbering (continue from the last used number). Severity per the P0–P3 scale above.
+3. **Fix the bug in the codebase.** Commit with a `fix(scheduling): …` conventional commit. Do not leave the codebase in a broken state between scenarios.
+4. **Deploy** via the standard rsync + pm2 restart flow on the production server (this plan runs against production stress tenants).
+5. **Re-run the failing scenario** via Playwright to confirm the fix.
+6. **Run the regression suite**: rerun every scenario in the same _category_ that has already been marked PASS. A fix that breaks a previously-passing scenario is itself a bug and must be resolved before moving on. The goal is a single solver + substitution stack that passes every scenario simultaneously — not a series of mutually-incompatible patches.
+7. **Update the tracker** rows — both the fixed scenario (PASS) and any regressions that were introduced + repaired during the fix.
+
+Never skip step 6. Never disable a scenario to unblock another. Never weaken a scenario's expected behaviour just to make it pass — if the expected behaviour genuinely needs revising, raise that as a plan update, not a silent redline.
+
+### Server-action lock
+
+Any action that modifies server-side state (SSH commands, pm2 restart, deploys, infrastructure toggles for STRESS-081 through STRESS-083) must hold the exclusive lock at `E2E/5_operations/Scheduling/SERVER-LOCK.md`.
+
+Protocol for acquiring the lock:
+
+1. Read `SERVER-LOCK.md`. If the last line is an `acquired` line with no matching `released` line, another session holds it — wait 60s and retry.
+2. Append a new line: `2026-04-15 14:23:00 UTC — session-A — acquired — deploying fix for SCHED-013`
+3. Do the server work.
+4. Append a matching release line: `2026-04-15 14:31:00 UTC — session-A — released`
+
+The lock is not needed for API calls, Playwright UI steps, DB reads via the app API, or anything else that doesn't touch the host filesystem / pm2 / systemd / nginx. It IS needed for SSH sessions that run scripts, restarts, rsync deploys, or modify files under `/opt/edupod/app/`.
+
+If you find stale `acquired` entries older than 60 minutes with no release line, assume the previous session died; append a `— force-released (stale)` line and continue.
+
+### Parallelisation matrix
+
+The phase groupings and their concurrency compatibility:
+
+| Phase | Scenarios                              | Tenant required      | Can run in parallel with                         |
+| ----- | -------------------------------------- | -------------------- | ------------------------------------------------ |
+| 1     | 049–075 (subs + sub board + reports)   | stress-a (solved)    | Phase 2/3/4/5-calendar on stress-b               |
+| 2     | 001, 002, 005–008, 035 (solver basics) | stress-a OR stress-b | Phase 1 on the _other_ tenant                    |
+| 3     | 015–028, 029–034 (constraints)         | stress-a OR stress-b | Phase 1 on the _other_ tenant                    |
+| 4     | 003, 004, 041–048 (scale + re-solve)   | stress-a OR stress-b | Phase 1 on the _other_ tenant                    |
+| 5a    | 036–040 (calendar)                     | stress-a OR stress-b | Phase 1 on the _other_ tenant                    |
+| 5b    | 076–080 (data integrity + RLS)         | stress-a + stress-b  | Nothing (needs both tenants coherent)            |
+| 6     | 081–083 (worker / Redis / timeout)     | either               | **Nothing — must run solo (affects deployment)** |
+
+Recommended execution plan:
+
+- **Session A:** stress-a — Phase 2 → 3 → 4 → 5a (sequential on same tenant)
+- **Session B:** stress-b — Pre-solve the tenant (run STRESS-002 manually), then Phase 1 (subs) — in parallel with Session A
+- **Session C (after A+B finish):** Phase 5b on both tenants
+- **Session D (after C finishes, nothing else running):** Phase 6 solo
+
+At peak, 2 sessions in parallel. Never 3 solver-mutating sessions on the same tenant. Never anything while Phase 6 is running.
+
+Sessions coordinate via:
+
+1. The summary tracker in this file — mark ⏳ / 🟡 / ✅ / ❌ as you progress. Before starting a scenario, check no other session shows 🟡 on it.
+2. `SERVER-LOCK.md` for server-modifying actions.
+
+### SSH authorisation
+
+Sessions running this pack have **explicit SSH authorisation** for `root@46.62.244.139` for the duration of stress testing, including:
+
+- Running the seed scripts above
+- Deploying code fixes (rsync + pm2 restart, per `CLAUDE.md` deployment hard rules)
+- Inspecting logs (`pm2 logs`, `journalctl`, `cat /var/log/...`)
+- Running `pm2 restart` on `api`, `web`, `worker` (for Phase 6 scenarios specifically)
+
+Sessions do **not** have authorisation for:
+
+- Modifying production `.env` files
+- Changing DB credentials, SSH keys, or secrets
+- Upgrading server packages
+- Destructive actions on other tenants' data (NHQS, Cedar, Al-Noor, Midaad)
+- `rm -rf`, `DROP`, `TRUNCATE` except inside the stress-\* tenant scope
+
+Every server-modifying action must be preceded by acquiring the server lock.
+
+---
+
+## Playwright conventions
+
+Efficiency matters — don't burn retries or sleep cycles.
+
+### Wait strategy
+
+- Prefer `browser_wait_for({ text: "…" })` or `browser_wait_for({ selector: "…" })` over blind sleeps.
+- Solve runs: poll the run-status endpoint every 2 seconds with a 120s cap. Do NOT sit in a 60s sleep — the worker notifies via status updates well before that.
+- Sub Board auto-refresh: poll every 5s up to 30s. If the board still shows stale state after 30s, treat as a bug, not a flake.
+- Login → dashboard render: use `browser_wait_for({ selector: '[data-testid="dashboard-shell"]' })` not a 10s sleep.
+- API calls under test: chain `browser_network_requests` to assert the request fired; don't sleep and hope.
+
+### Screenshots and snapshots
+
+- Use `browser_snapshot` (accessibility tree) for assertions — cheap, structured, parseable. Never take screenshots for assertions; they're slow and brittle.
+- Only use `browser_take_screenshot` if a bug report genuinely benefits from a visual artefact.
+
+### Parallel browser contexts
+
+- One browser instance per session. Multiple tabs if needed (e.g. for STRESS-070 real-time Sub Board).
+- Never open two tabs to the SAME tenant doing mutations simultaneously from one session — the resulting race breaks scenario reproducibility.
+
+### Time budget per scenario
+
+- Simple UI scenario (substitution basic flow): ≤ 10 min
+- Solver scenario at medium scale: ≤ 15 min (including solve time up to 60s)
+- Large-scale scenario (STRESS-003/004): ≤ 30 min
+- Worker resilience scenario (STRESS-081): ≤ 20 min, mostly waiting on pm2 restart
+
+If a scenario genuinely needs > 30 min, pause and report — something is either wrong with the setup or the scenario boundary is mis-drawn.
+
+## Severity classification
+
+Each failure logged against this plan should be tagged:
+
+- **P0** — solver produces corrupt output, RLS leakage, or permanent data loss
+- **P1** — blocker for core flow (solve fails, absence can't be logged)
+- **P2** — UX/accuracy regression but workaround exists
+- **P3** — cosmetic or non-critical
+
+---
+
+## Summary tracker
+
+| ID         | Title                                              | Status     | Last Run | Bug |
+| ---------- | -------------------------------------------------- | ---------- | -------- | --- |
+| STRESS-001 | Baseline tiny school                               | ⏳ Not Run | -        | -   |
+| STRESS-002 | Medium school                                      | ⏳ Not Run | -        | -   |
+| STRESS-003 | Large production-scale school                      | ⏳ Not Run | -        | -   |
+| STRESS-004 | Extreme scale                                      | ⏳ Not Run | -        | -   |
+| STRESS-005 | Empty inputs                                       | ⏳ Not Run | -        | -   |
+| STRESS-006 | Teacher shortage infeasibility                     | ⏳ Not Run | -        | -   |
+| STRESS-007 | Room shortage infeasibility                        | ⏳ Not Run | -        | -   |
+| STRESS-008 | Competency shortage                                | ⏳ Not Run | -        | -   |
+| STRESS-009 | Over-constrained locks + preferences               | ⏳ Not Run | -        | -   |
+| STRESS-010 | Specialist room bottleneck                         | ⏳ Not Run | -        | -   |
+| STRESS-011 | Room closures overlapping demand                   | ⏳ Not Run | -        | -   |
+| STRESS-012 | Multi-purpose rooms                                | ⏳ Not Run | -        | -   |
+| STRESS-013 | Specific-room requirement                          | ⏳ Not Run | -        | -   |
+| STRESS-014 | Room closure added post-solve                      | ⏳ Not Run | -        | -   |
+| STRESS-015 | Double-period blocks                               | ⏳ Not Run | -        | -   |
+| STRESS-016 | Double-period must not span break                  | ⏳ Not Run | -        | -   |
+| STRESS-017 | Double-period must not span lunch                  | ⏳ Not Run | -        | -   |
+| STRESS-018 | Triple-period blocks                               | ⏳ Not Run | -        | -   |
+| STRESS-019 | Max-per-day cap per teacher                        | ⏳ Not Run | -        | -   |
+| STRESS-020 | No-back-to-back >3 periods                         | ⏳ Not Run | -        | -   |
+| STRESS-021 | Even daily distribution                            | ⏳ Not Run | -        | -   |
+| STRESS-022 | No-same-subject-twice-same-day                     | ⏳ Not Run | -        | -   |
+| STRESS-023 | Teacher minimum load                               | ⏳ Not Run | -        | -   |
+| STRESS-024 | Part-time by day                                   | ⏳ Not Run | -        | -   |
+| STRESS-025 | Part-time by period                                | ⏳ Not Run | -        | -   |
+| STRESS-026 | Leave of absence mid-term                          | ⏳ Not Run | -        | -   |
+| STRESS-027 | Hard unavailable (religious/medical)               | ⏳ Not Run | -        | -   |
+| STRESS-028 | Staff preferences as soft constraint               | ⏳ Not Run | -        | -   |
+| STRESS-029 | Class with required teacher                        | ⏳ Not Run | -        | -   |
+| STRESS-030 | Class with required room                           | ⏳ Not Run | -        | -   |
+| STRESS-031 | Class with fixed time slot                         | ⏳ Not Run | -        | -   |
+| STRESS-032 | Cross-year-group class                             | ⏳ Not Run | -        | -   |
+| STRESS-033 | Subject mismatch between curriculum and class req  | ⏳ Not Run | -        | -   |
+| STRESS-034 | Fractional / zero / negative curriculum periods    | ⏳ Not Run | -        | -   |
+| STRESS-035 | 5-day week baseline                                | ⏳ Not Run | -        | -   |
+| STRESS-036 | 6-day school week                                  | ⏳ Not Run | -        | -   |
+| STRESS-037 | Staff training / pupil-free day                    | ⏳ Not Run | -        | -   |
+| STRESS-038 | Mid-term break week                                | ⏳ Not Run | -        | -   |
+| STRESS-039 | Break groups per year                              | ⏳ Not Run | -        | -   |
+| STRESS-040 | Mid-week public holiday                            | ⏳ Not Run | -        | -   |
+| STRESS-041 | Re-solve with 70% slots locked                     | ⏳ Not Run | -        | -   |
+| STRESS-042 | Re-solve after teacher removed                     | ⏳ Not Run | -        | -   |
+| STRESS-043 | Re-solve after class added                         | ⏳ Not Run | -        | -   |
+| STRESS-044 | Concurrent solve attempts                          | ⏳ Not Run | -        | -   |
+| STRESS-045 | Cancel mid-solve                                   | ⏳ Not Run | -        | -   |
+| STRESS-046 | Determinism — same input                           | ⏳ Not Run | -        | -   |
+| STRESS-047 | Determinism under reorder                          | ⏳ Not Run | -        | -   |
+| STRESS-048 | Solution quality metrics                           | ⏳ Not Run | -        | -   |
+| STRESS-049 | Single-period absence                              | ⏳ Not Run | -        | -   |
+| STRESS-050 | Full-day absence                                   | ⏳ Not Run | -        | -   |
+| STRESS-051 | Multi-day absence                                  | ⏳ Not Run | -        | -   |
+| STRESS-052 | Planned absence (two weeks ahead)                  | ⏳ Not Run | -        | -   |
+| STRESS-053 | Last-minute absence                                | ⏳ Not Run | -        | -   |
+| STRESS-054 | Auto-assign picks free teacher                     | ⏳ Not Run | -        | -   |
+| STRESS-055 | Auto-assign respects competency                    | ⏳ Not Run | -        | -   |
+| STRESS-056 | Auto-assign respects fairness cap                  | ⏳ Not Run | -        | -   |
+| STRESS-057 | Auto-assign skips busy/on-leave teachers           | ⏳ Not Run | -        | -   |
+| STRESS-058 | Auto-assign with no qualified sub                  | ⏳ Not Run | -        | -   |
+| STRESS-059 | Manual override of auto-assignment                 | ⏳ Not Run | -        | -   |
+| STRESS-060 | Cover-for-cover (sub also absent)                  | ⏳ Not Run | -        | -   |
+| STRESS-061 | Three-level cascading re-assignment                | ⏳ Not Run | -        | -   |
+| STRESS-062 | Flu day (30%+ staff absent)                        | ⏳ Not Run | -        | -   |
+| STRESS-063 | Absence during exam slot                           | ⏳ Not Run | -        | -   |
+| STRESS-064 | Absence on holiday (no-op)                         | ⏳ Not Run | -        | -   |
+| STRESS-065 | Absence logged retroactively                       | ⏳ Not Run | -        | -   |
+| STRESS-066 | Absence with zero duration                         | ⏳ Not Run | -        | -   |
+| STRESS-067 | Absence overlapping a break                        | ⏳ Not Run | -        | -   |
+| STRESS-068 | Empty Sub Board                                    | ⏳ Not Run | -        | -   |
+| STRESS-069 | Sub Board with 50+ assignments                     | ⏳ Not Run | -        | -   |
+| STRESS-070 | Sub Board real-time update                         | ⏳ Not Run | -        | -   |
+| STRESS-071 | Sub Board across day boundary                      | ⏳ Not Run | -        | -   |
+| STRESS-072 | Zero-cover report                                  | ⏳ Not Run | -        | -   |
+| STRESS-073 | Fairness boundary (CV 0.2/0.4/0.6)                 | ⏳ Not Run | -        | -   |
+| STRESS-074 | Single-teacher fairness degenerate                 | ⏳ Not Run | -        | -   |
+| STRESS-075 | CSV export at scale                                | ⏳ Not Run | -        | -   |
+| STRESS-076 | Teacher deleted while assigned to substitution     | ⏳ Not Run | -        | -   |
+| STRESS-077 | Class deleted while scheduled                      | ⏳ Not Run | -        | -   |
+| STRESS-078 | Room deleted while in use                          | ⏳ Not Run | -        | -   |
+| STRESS-079 | RLS — tenant B cannot see tenant A's substitutions | ⏳ Not Run | -        | -   |
+| STRESS-080 | Academic year rollover mid-scenario                | ⏳ Not Run | -        | -   |
+| STRESS-081 | BullMQ worker crash mid-solve                      | ⏳ Not Run | -        | -   |
+| STRESS-082 | Redis unavailable at enqueue                       | ⏳ Not Run | -        | -   |
+| STRESS-083 | Solve timeout enforcement                          | ⏳ Not Run | -        | -   |
+
+Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
+
+---
+
+## Scenarios
+
+### Category 1 — Solver: Size & Feasibility
+
+#### STRESS-001 — Baseline tiny school
+
+**Intent:** Smoke test the solver with minimal input. Confirms end-to-end happy path is alive before piling on complexity.
+
+**Setup:**
+
+- 5 teachers: T1 (Maths), T2 (English), T3 (Science), T4 (Irish), T5 (History) — all FT
+- 3 classes: Y7-A, Y7-B, Y7-C
+- Curriculum: each subject 5 periods/week per class
+- Period grid reduced to 5 periods/day × 5 days
+
+**Steps:**
+
+1. Open Scheduling → Period Grid, confirm 25 slots
+2. Open Curriculum, confirm 5 subjects × 5 periods = 25 periods required per class
+3. Start a new scheduling run
+4. Wait for solve
+5. Open generated timetable for Y7-A
+
+**Expected:** solve status `succeeded` within 5s; all 25 slots filled; no teacher/room double-booking; every subject appears exactly 5×.
+
+**Failure modes:** partial schedule, > 30s runtime, double-booking, missing subjects.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-002 — Medium school
+
+**Intent:** Realistic small-school load. 15 teachers, 10 classes, full period grid.
+
+**Setup:**
+
+- 15 teachers across 8 subjects (some teach 2 subjects)
+- 10 classes, Y7–Y9 mixed
+- Full 8 × 5 = 40 period grid with break + lunch
+- Curriculum: standard allocation (Maths 5, English 5, Irish 4, Science 4, History 3, Geography 3, PE 2, Art 2, Religion 2 = 30 per class)
+
+**Steps:** run solve, inspect 3 random class timetables.
+
+**Expected:** solve `succeeded` <20s; all curriculum requirements met; break/lunch slots never assigned to subjects.
+
+**Failure modes:** schedule extends into break, curriculum short by >0 periods for any class.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-003 — Large production-scale school
+
+**Intent:** Production-scale load. Verify solver performance at expected deployment size.
+
+**Setup:**
+
+- 30 teachers, 40 classes (Y1–Y12), 35 periods/week
+- 12 subjects with varied period allocations
+- Mixed room requirements (classrooms, labs, gym, art room, computer room)
+- ~20% of teachers part-time with availability windows
+
+**Steps:** run solve, time it, inspect 5 random timetables + 3 teacher timetables.
+
+**Expected:** solve `succeeded` <90s (per architecture budget); no double-bookings; all part-time windows respected; solver progress events fire at least every 10s.
+
+**Failure modes:** runtime >120s, worker OOM kill, missing part-time respect, no progress events.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-004 — Extreme scale
+
+**Intent:** Discover the solver's upper bound. Either it scales or we learn the hard ceiling.
+
+**Setup:**
+
+- 60 teachers, 80 classes, 40 periods/week
+- 15 subjects
+- 100+ rooms total
+- Constraint density matches STRESS-003
+
+**Steps:** run solve with aggressive timeout (10 min). Capture solver runtime, memory peak, and any partial output.
+
+**Expected:** EITHER solve succeeds OR fails cleanly with a structured `infeasible`/`timeout` status and clear error surfaced in UI. **Unacceptable:** silent hang, worker crash without status update, partial schedule saved as final.
+
+**Failure modes:** no timeout enforcement, worker killed without job status update, UI shows "Running" indefinitely.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-005 — Empty inputs
+
+**Intent:** Boundary cases — empty period grid, no teachers, no classes, no curriculum.
+
+**Setup (4 sub-cases, reset between):**
+
+- (a) No period grid configured
+- (b) Period grid exists, 0 teachers
+- (c) 0 classes
+- (d) Classes + teachers but 0 curriculum entries
+
+**Steps:** attempt to start solve in each state.
+
+**Expected:** solve rejected pre-flight with a human-readable reason. UI disables "Run solve" button OR shows a validation modal listing what's missing. **No crash, no orphan job, no infinite spinner.**
+
+**Failure modes:** job silently queued with empty state, worker crashes, UI spinner never ends.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 2 — Solver: Infeasibility Detection
+
+#### STRESS-006 — Teacher shortage infeasibility
+
+**Intent:** Demand exceeds supply on a specialist subject. Verify solver reports infeasibility with the specific reason, not a silent partial schedule.
+
+**Setup:**
+
+- 1 Physics teacher (FT, 30 periods/week max)
+- 8 classes each needing 4 Physics periods/week = 32 periods demanded
+- Other subjects over-supplied so they don't mask the shortage
+
+**Steps:** run solve; open solve-report.
+
+**Expected:** solve status `infeasible`; report explicitly names Physics as unfillable, quantifies shortage (32 demanded, 30 capacity).
+
+**Failure modes:** status `succeeded` with Physics short-scheduled, or `failed` with generic error.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-007 — Room shortage infeasibility
+
+**Intent:** More classes need a classroom simultaneously than classrooms exist.
+
+**Setup:**
+
+- Period grid with 20 classes but only 18 classrooms
+- All 20 classes scheduled to have simultaneous lessons in P1
+
+**Steps:** run solve.
+
+**Expected:** solver detects over-commitment and either (a) spreads classes across periods to fit 18 rooms, or (b) reports infeasible with room capacity as cause.
+
+**Failure modes:** two classes assigned to same room same period.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-008 — Competency shortage
+
+**Intent:** A subject has no qualified teacher configured.
+
+**Setup:**
+
+- Remove all competency links for "Irish" subject
+- Curriculum still requires Irish 4 periods/week per class
+
+**Steps:** run solve.
+
+**Expected:** `infeasible` with "no qualified teachers for Irish" surfaced.
+
+**Failure modes:** unqualified teacher auto-assigned; solve succeeds despite gap.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-009 — Over-constrained locks + preferences
+
+**Intent:** Mutually exclusive hard locks.
+
+**Setup:**
+
+- Class Y7-A locked to Room LAB01 at P1 Monday
+- Class Y8-B ALSO locked to Room LAB01 at P1 Monday (same room same slot, different class)
+
+**Steps:** run solve.
+
+**Expected:** validation error before solve starts, OR solve reports `infeasible` with the specific clash identified.
+
+**Failure modes:** solver silently drops one lock; solve appears successful but locks violated.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 3 — Solver: Resource & Room Constraints
+
+#### STRESS-010 — Specialist room bottleneck
+
+**Intent:** Only 2 science labs for 10 science classes — verify allocation strategy.
+
+**Setup:**
+
+- 10 classes, each requiring 4 Science periods/week (40 demanded)
+- Only LAB01 and LAB02 exist
+- Labs closed P7–P8 daily for clean-up
+
+**Steps:** run solve, inspect lab timetables.
+
+**Expected:** both labs close to 100% utilised in open hours; Science never scheduled in P7–P8; no over-booking.
+
+**Failure modes:** Science scheduled during lab closure; labs double-booked.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-011 — Room closures overlapping demand
+
+**Intent:** Ad-hoc closure blocks a peak-demand slot.
+
+**Setup:** close COMP01 for full day Wednesday. IT curriculum demands 2 periods/week for 8 classes.
+
+**Steps:** run solve.
+
+**Expected:** IT rescheduled to Mon/Tue/Thu/Fri; no IT on Wed.
+
+**Failure modes:** solver ignores closure; IT scheduled in closed room.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-012 — Multi-purpose rooms
+
+**Intent:** One room used by multiple subjects — ensure solver doesn't over-specialise.
+
+**Setup:** ART01 usable for Art AND IT; mark both subjects as valid uses in the room config.
+
+**Steps:** run solve.
+
+**Expected:** ART01 hosts both subjects at different times; no conflicts.
+
+**Failure modes:** solver treats ART01 as Art-only, wasting capacity; or double-books Art and IT same slot.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-013 — Specific-room requirement
+
+**Intent:** Class requires a specific room (e.g. assembly in GYM01).
+
+**Setup:** add a class requirement: Y10-A "Assembly" must use GYM01.
+
+**Steps:** run solve.
+
+**Expected:** Assembly slot placed in GYM01; solver doesn't re-route it elsewhere.
+
+**Failure modes:** assembly placed in CR05; requirement silently ignored.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-014 — Room closure added post-solve
+
+**Intent:** Closure introduced after a timetable is live. Downstream: which classes need re-scheduling?
+
+**Setup:** run a solve successfully; then close LAB01 for next Mon P1–P4.
+
+**Steps:**
+
+1. Log the closure in Room Closures
+2. Check whether the system flags conflicting classes and offers re-schedule or substitution
+
+**Expected:** conflicts surfaced in a "needs attention" list; admin can trigger targeted re-solve for affected slots only.
+
+**Failure modes:** closure logged silently, classes still booked into closed lab; no conflict detection.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 4 — Solver: Block / Consecutive
+
+#### STRESS-015 — Double-period blocks
+
+**Intent:** Labs, PE, Art need 2 consecutive periods.
+
+**Setup:** mark Science, PE, Art as requiring double-period blocks in curriculum.
+
+**Steps:** run solve, inspect output.
+
+**Expected:** every Science/PE/Art lesson is 2 consecutive periods; no single-period stragglers.
+
+**Failure modes:** single periods of PE scheduled; blocks split across a break.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-016 — Double-period must not span break
+
+**Intent:** Block spanning break should be forbidden.
+
+**Setup:** as STRESS-015. Break exists after P3.
+
+**Steps:** inspect any P3–P4 double periods.
+
+**Expected:** no block starts at P3 (would span break). Blocks placed only where both halves are in the same uninterrupted chunk.
+
+**Failure modes:** P3–P4 assignment with a break in the middle.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-017 — Double-period must not span lunch
+
+**Intent:** Same as 016 but for lunch boundary.
+
+**Setup:** as STRESS-015; lunch after P5.
+
+**Expected:** no block at P5–P6.
+
+**Failure modes:** P5–P6 block scheduled.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-018 — Triple-period blocks
+
+**Intent:** Rare but requested (e.g. extended science practical, long-form art project, drama rehearsal).
+
+**Setup:** curriculum marks Art as 3-period block once a week.
+
+**Steps:** run solve.
+
+**Expected:** each class gets exactly one 3-consecutive-period Art block in a day; no across-break placement.
+
+**Failure modes:** solver drops triple requirement to single; triple block crosses break.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 5 — Solver: Teacher Load & Distribution
+
+#### STRESS-019 — Max-per-day cap per teacher
+
+**Intent:** Prevent any teacher being assigned > N periods in a day (e.g. cap 6).
+
+**Setup:** teacher-level cap = 6 periods/day. Sufficient subject demand to tempt the solver into 7–8.
+
+**Expected:** no teacher exceeds 6 in any day; solver rebalances.
+
+**Failure modes:** teacher has 7+ lessons in one day.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-020 — No-back-to-back >3 periods
+
+**Intent:** Teacher comfort constraint.
+
+**Setup:** configure max-consecutive = 3 for teachers.
+
+**Expected:** no teacher assigned to 4 consecutive periods without a gap.
+
+**Failure modes:** 4+ consecutive periods assigned to a teacher.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-021 — Even daily distribution
+
+**Intent:** Maths 5×/week must spread across ≥4 days (pedagogical best practice).
+
+**Setup:** curriculum specifies Maths 5×/week, distribution rule "≥4 distinct days".
+
+**Expected:** no class has Maths on fewer than 4 days of the week.
+
+**Failure modes:** Maths clustered into 3 days or fewer.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-022 — No-same-subject-twice-same-day
+
+**Intent:** Curriculum rule: no subject should appear twice in the same day for a class (except explicit doubles).
+
+**Setup:** enable "no duplicate same day" for English.
+
+**Expected:** English never appears twice in a day (except sanctioned blocks).
+
+**Failure modes:** two separate English periods on same day.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-023 — Teacher minimum load
+
+**Intent:** No teacher should end with 0 assignments if they have availability and competencies.
+
+**Setup:** 20 teachers with overlapping competencies; curriculum requires roughly even distribution.
+
+**Expected:** every teacher has ≥1 assignment. If a teacher has 0, the report flags them with a reason.
+
+**Failure modes:** idle teacher silently produced; no indication.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 6 — Solver: Staff Availability
+
+#### STRESS-024 — Part-time by day
+
+**Intent:** Teacher works Mon/Wed/Fri only.
+
+**Setup:** 1 teacher configured available Mon/Wed/Fri, unavailable Tue/Thu.
+
+**Expected:** zero assignments Tue/Thu for that teacher.
+
+**Failure modes:** Tue/Thu assignment slips through.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-025 — Part-time by period
+
+**Intent:** Teacher available P1–P4 only every day.
+
+**Expected:** no P5–P8 assignments for that teacher.
+
+**Failure modes:** P6 assignment for a morning-only teacher.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-026 — Leave of absence mid-term
+
+**Intent:** Teacher goes on leave from a fixed date mid-term; solver must respect leave window on re-solve.
+
+**Setup:** log leave for T3 from 2026-05-01 to 2026-05-14. Re-solve for May.
+
+**Expected:** no assignments for T3 in that window; substitute coverage paths kick in if re-solve isn't acceptable.
+
+**Failure modes:** T3 scheduled during leave.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-027 — Hard unavailable (recurring medical / personal)
+
+**Intent:** Recurring hard-unavailable slots (e.g. teacher has standing medical appointment, childcare pickup, or union rep duty every Thursday P7).
+
+**Setup:** configure hard-unavailable for T1 every Thursday P7.
+
+**Expected:** solver never schedules T1 at Thursday P7.
+
+**Failure modes:** Thursday P7 assignment for T1.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-028 — Preferences as soft constraint
+
+**Intent:** Preferences guide the solver but don't break feasibility.
+
+**Setup:** all 20 teachers prefer P1 (impossible); mark as preferences (not hard).
+
+**Expected:** solver honours preferences where feasible and falls back without error where not. Report lists which preferences couldn't be honoured.
+
+**Failure modes:** solver fails due to preference conflict; silent preference drop without reporting.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 7 — Solver: Curriculum & Class Requirements
+
+#### STRESS-029 — Class with required teacher
+
+**Intent:** Class Y12-A has "must be taught by T5 for Irish" (only T5 has a higher-level Irish qualification).
+
+**Setup:** class requirement Y12-A Irish → T5.
+
+**Expected:** all Irish periods for Y12-A taught by T5.
+
+**Failure modes:** another teacher assigned.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-030 — Class with required room
+
+**Intent:** Class Y11-B "must use LAB02 for Science".
+
+**Expected:** all Y11-B Science in LAB02.
+
+**Failure modes:** Science scheduled in LAB01.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-031 — Class with fixed time slot
+
+**Intent:** Assembly Y7-all Monday P1 (pinned).
+
+**Setup:** fixed-slot requirement for all Y7 classes Mon P1 = Assembly, Room GYM01.
+
+**Expected:** all Y7 classes show Assembly at Mon P1.
+
+**Failure modes:** assembly rescheduled.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-032 — Cross-year-group class
+
+**Intent:** Shared class spanning Y10 and Y11 (elective like Advanced Music or Higher-Level Maths).
+
+**Setup:** create a class entity with students from Y10 and Y11 enrolled; schedule it.
+
+**Expected:** solver schedules it once; both Y10 and Y11 affected students have the slot blocked from conflicting lessons.
+
+**Failure modes:** solver double-counts the class; students in the elective also scheduled into an overlapping normal lesson.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-033 — Subject mismatch: curriculum vs class requirement
+
+**Intent:** Curriculum says 0 periods of "Drama" but class requirement adds 2. Which wins?
+
+**Setup:** curriculum lacks Drama; add class requirement Y9-A Drama 2 periods/week.
+
+**Expected:** either (a) validation rejects mismatched requirement up-front with a clear message, or (b) class requirement wins and report documents the override.
+
+**Failure modes:** silent drop; Drama missing from timetable without explanation.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-034 — Fractional / zero / negative curriculum periods
+
+**Intent:** Data-validation boundary. Garbage input should not reach the solver.
+
+**Setup (3 sub-cases):**
+
+- (a) Curriculum row with 3.5 periods
+- (b) Curriculum row with 0 periods
+- (c) Curriculum row with -1 periods
+
+**Expected:** Zod/DB rejects insert; UI shows validation error. No corrupt row ever reaches the solver.
+
+**Failure modes:** fractional accepted; negative accepted; solver crashes on non-integer.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 8 — Solver: Calendar Edge Cases
+
+#### STRESS-035 — 5-day week baseline
+
+**Intent:** Confirm default week shape solves cleanly. Covered implicitly by STRESS-002 but worth an explicit pass.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-036 — 6-day school week
+
+**Intent:** International expansion — some non-Irish markets use a 6-day week (e.g. Mon–Sat). Verify the grid supports non-standard week shapes without day-of-week hardcoding.
+
+**Setup:** change period grid to Mon–Sat; all other settings unchanged.
+
+**Expected:** solver distributes evenly across 6 days; Sunday never appears.
+
+**Failure modes:** Sunday assignments; day-of-week hardcoded to Mon–Fri somewhere.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-037 — Staff training / pupil-free day
+
+**Intent:** A scheduled Croke Park / CPD day where pupils are not in school but staff are. Scheduler must treat the day as a non-teaching day for that week.
+
+**Setup:** mark Wed 2026-05-13 as a staff training day (no pupils).
+
+**Expected:** no lessons assigned that day; weekly subject demand either compresses into remaining days (with a quality flag if it over-stuffs) or is accepted as a one-off shortfall with a report entry. Staff rosters for that day (if tracked) still show the staff as present.
+
+**Failure modes:** lessons scheduled that day; silent demand shortfall; day treated as a full holiday with staff also absent.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-038 — Mid-term break week
+
+**Intent:** Irish school calendar includes fixed mid-term breaks (Halloween / February / Easter). An entire week must be treated as non-teaching inside an otherwise active term.
+
+**Setup:** mark the week of 2026-10-26 to 2026-10-30 as mid-term break.
+
+**Expected:** no lessons assigned that week; schedule resumes normally on 2026-11-02; weekly-cadence reports handle the skipped week without counting zero-delivery against teachers; curriculum pacing adjusts (term hour-totals shrink accordingly).
+
+**Failure modes:** lessons placed during break week; reports show fake under-delivery; pacing calculations divide by the break week as if normal.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-039 — Break groups per year
+
+**Intent:** Junior years break after P2, senior years after P3.
+
+**Setup:** create two break groups, assign Y1–Y6 to early, Y7–Y12 to late.
+
+**Expected:** solver honours break-group assignment; seniors and juniors in different rooms during each others' breaks.
+
+**Failure modes:** uniform break applied; mixed breaks ignored.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-040 — Mid-week public holiday
+
+**Intent:** A Wednesday holiday in the solve window.
+
+**Setup:** mark Wed 2026-05-06 as school holiday.
+
+**Expected:** no assignments on that date; weekly demand compressed into 4 days; solver reports compressed-week anywhere it affects quality.
+
+**Failure modes:** holiday ignored; assignments scheduled; compression causes over-stuffing without flag.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 9 — Solver: Re-solve & Incremental
+
+#### STRESS-041 — Re-solve with 70% slots locked
+
+**Intent:** Most common real-world re-solve scenario. Admin locks most of the schedule, adds one new class.
+
+**Setup:** run solve; lock 70% of assignments; add one new Y9 class; re-solve.
+
+**Expected:** locked slots unchanged; new class fitted into remaining capacity; minimal churn elsewhere.
+
+**Failure modes:** locked assignments changed; widespread churn; solver re-generates from scratch.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-042 — Re-solve after teacher removed
+
+**Intent:** Teacher leaves mid-year; only their lessons need re-scheduling.
+
+**Setup:** solve; archive teacher T4; re-solve.
+
+**Expected:** only T4's lessons reassigned to other qualified teachers; rest untouched.
+
+**Failure modes:** full re-solve; T4 still appears; no-qualified-teacher error if only T4 could teach subject X (legit infeasible).
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-043 — Re-solve after class added
+
+**Intent:** New Y1 class enrolled after year starts.
+
+**Setup:** solve; add new class Y1-D mid-year; re-solve.
+
+**Expected:** new class fitted; existing schedules intact.
+
+**Failure modes:** existing schedules churned; new class left unscheduled.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-044 — Concurrent solve attempts
+
+**Intent:** Two admins click "Run solve" simultaneously.
+
+**Setup:** open two browser tabs as admin; start solve in both within 1 second.
+
+**Expected:** one run succeeds; the other is rejected or queued with "already running" status. Never two parallel solves on same tenant.
+
+**Failure modes:** two solves run in parallel and overwrite each other; race produces inconsistent state.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-045 — Cancel mid-solve
+
+**Intent:** Admin cancels a running solve.
+
+**Setup:** start a large solve (STRESS-003 scale); wait 10s; click cancel.
+
+**Expected:** job cancelled; run status `cancelled`; no partial writes to timetable; rerun possible immediately.
+
+**Failure modes:** cancel ignored; partial timetable persists; rerun blocked by orphan state.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 10 — Solver: Quality & Determinism
+
+#### STRESS-046 — Determinism — same input, same output
+
+**Intent:** Same seed data produces identical output across runs.
+
+**Setup:** run STRESS-002 scenario 3 times in succession with no data changes; diff the output timetables.
+
+**Expected:** byte-identical outputs (ignoring timestamps). If solver uses randomness, seed should be stable.
+
+**Failure modes:** outputs vary between identical runs.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-047 — Determinism under reordering
+
+**Intent:** Reordering input rows (teachers, classes) should not change output.
+
+**Setup:** run STRESS-002; then swap order of teachers in seed data; re-solve.
+
+**Expected:** same output regardless of input row order.
+
+**Failure modes:** different output — signals input-order dependency.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-048 — Solution quality metrics
+
+**Intent:** Output should minimise teacher idle time, even day distribution, respect preferences.
+
+**Setup:** run STRESS-003; pull quality metrics from solve report.
+
+**Expected:** report includes: teacher-gap index (lower = better), day-distribution variance, preference-honoured %. All within documented target ranges.
+
+**Failure modes:** report missing metrics; metrics in bad ranges (high teacher gaps, lopsided days).
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 11 — Substitution: Basic Flows
+
+_Pre-req for this category: a solved timetable (from STRESS-002 or STRESS-003) must exist._
+
+#### STRESS-049 — Single-period absence
+
+**Intent:** Most common absence — one teacher, one period.
+
+**Setup:** log absence for T2, today, P3 only.
+
+**Steps:**
+
+1. Navigate to Scheduling → Substitutions
+2. Add absence for T2, P3 today
+3. Trigger auto-assign
+4. Open Sub Board
+
+**Expected:** one substitution created; qualified free teacher auto-assigned; shows on Sub Board.
+
+**Failure modes:** no sub created; sub assigned to busy teacher; Sub Board empty.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-050 — Full-day absence
+
+**Intent:** Absence covers all periods in a day.
+
+**Setup:** log absence for T2, full day today.
+
+**Expected:** 8 substitutions created (one per period); distributed across multiple subs if possible (fairness); Sub Board shows all 8.
+
+**Failure modes:** only first period covered; all 8 assigned to same sub with no fairness.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-051 — Multi-day absence
+
+**Intent:** Absence spans 5 consecutive days.
+
+**Setup:** log absence for T2 for a full week.
+
+**Expected:** substitutions generated for every scheduled period in that week; Sub Board correctly shows per-day breakdown.
+
+**Failure modes:** only first day covered; Sub Board rolls over incorrectly.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-052 — Planned absence (two weeks ahead)
+
+**Intent:** Future absence with lead time.
+
+**Setup:** log absence for T2 for a specific date two weeks out.
+
+**Expected:** substitution visible in Sub Board under that future date; not shown as "today"; notifications only fire closer to the date.
+
+**Failure modes:** planned absence shown as "today"; premature notifications; data overwritten when the date arrives.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-053 — Last-minute absence (30 min before period)
+
+**Intent:** Absence logged just before the period starts.
+
+**Setup:** log absence for T2 for P3 today, at 09:30 when P3 starts 10:00.
+
+**Expected:** substitution created; notification sent immediately; Sub Board updates real-time.
+
+**Failure modes:** notification not sent; sub board delayed update.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 12 — Substitution: Assignment Logic
+
+#### STRESS-054 — Auto-assign picks teacher with free period
+
+**Intent:** Must pick from teachers actually free.
+
+**Setup:** absence for T2 P3. Verify T7 is free P3 per timetable.
+
+**Expected:** auto-assign picks T7 (or another free qualified teacher), never a teacher teaching another class.
+
+**Failure modes:** teacher with conflicting class selected.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-055 — Auto-assign respects competency
+
+**Intent:** Sub should be qualified for the subject.
+
+**Setup:** absence for T2 (English) P3. Configure T7 free but only competent in Maths.
+
+**Expected:** auto-assign picks another free teacher with English competency, not T7.
+
+**Failure modes:** T7 assigned despite lack of English competency.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-056 — Auto-assign respects fairness cap
+
+**Intent:** Per-tenant weekly cap enforced.
+
+**Setup:** tenant fairness cap = 2 covers/week. T7 already has 2 covers this week. New absence T2 P3 where T7 is otherwise the top pick.
+
+**Expected:** auto-assign skips T7, picks next candidate.
+
+**Failure modes:** T7 assigned, breaching cap silently.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-057 — Auto-assign skips busy/on-leave teachers
+
+**Intent:** Teachers on approved leave or with their own absence today must not be picked.
+
+**Setup:** log two concurrent absences (T2 and T8) for same period P3. Verify T8 not picked to cover T2.
+
+**Expected:** system skips on-leave teachers; picks from remaining available pool.
+
+**Failure modes:** T8 assigned to cover T2 despite being absent.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-058 — Auto-assign with no qualified substitute
+
+**Intent:** All competent teachers unavailable.
+
+**Setup:** Only T5 can teach Irish (higher-level). T5 absent P3. Log absence.
+
+**Expected:** substitution row created but unassigned; Sub Board shows "needs manual assignment"; admin can override with an unqualified teacher or cancel the class.
+
+**Failure modes:** system assigns unqualified teacher silently; OR creates nothing, leaving period uncovered without flag.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-059 — Manual override
+
+**Intent:** Admin reassigns a substitution away from auto-pick.
+
+**Setup:** as STRESS-054; after auto-assign, reassign to a specific teacher manually.
+
+**Expected:** manual assignment saves, overrides auto pick, fairness counters updated accordingly.
+
+**Failure modes:** manual change reverts; counters not updated.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 13 — Substitution: Cascading & Volume
+
+#### STRESS-060 — Cover-for-cover
+
+**Intent:** Assigned sub is also absent.
+
+**Setup:** T2 absent P3, auto-assigned to T7. Log absence for T7 covering same P3.
+
+**Expected:** system detects the conflict and re-assigns; chain terminates at a free qualified teacher or a manual-needed state.
+
+**Failure modes:** T7 shown as the cover despite being absent; no re-assignment triggered.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-061 — Three-level cascading re-assignment
+
+**Intent:** Cover chain of 3 before settling.
+
+**Setup:** contrive a scenario where first 2 picks are also absent; third is available.
+
+**Expected:** the third is assigned; Sub Board reflects chain history without bloat.
+
+**Failure modes:** resolver gets stuck in loop; picks unavailable teacher; history not shown.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-062 — Flu day — 30%+ staff absent
+
+**Intent:** High-volume simultaneous absences.
+
+**Setup:** log absences for 7 of 20 teachers, full day today.
+
+**Expected:** bulk auto-assign completes; Sub Board shows all affected slots; where auto-assign fails, unassigned rows are clearly flagged; no UI crash with volume; fairness applied across the surge.
+
+**Failure modes:** auto-assign timeouts; Sub Board lag/crash; slots silently left uncovered.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 14 — Substitution: Edge Data
+
+#### STRESS-063 — Absence during exam slot
+
+**Intent:** Absent teacher is scheduled as exam invigilator.
+
+**Setup:** create exam slot, assign T2 as invigilator. Log absence for T2 covering that slot.
+
+**Expected:** system picks a replacement invigilator OR flags it for manual attention. Exam slot never left uninvigilated silently.
+
+**Failure modes:** exam proceeds with no invigilator; no alert.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-064 — Absence on holiday (no-op)
+
+**Intent:** Absence logged for a day that is a school holiday.
+
+**Setup:** mark Friday 2026-05-08 as holiday; log absence for T2 on that day.
+
+**Expected:** no substitutions generated (no lessons to cover); absence recorded for HR purposes only.
+
+**Failure modes:** phantom substitution rows created; Sub Board shows covers on holiday.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-065 — Absence logged retroactively
+
+**Intent:** Absence recorded after the date has passed.
+
+**Setup:** log absence for T2 for yesterday.
+
+**Expected:** absence accepted for record-keeping; no new substitutions created (lesson already passed); cover report updated if an impromptu cover happened.
+
+**Failure modes:** system tries to generate future-facing subs for past date; or rejects outright without clear explanation.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-066 — Zero-duration absence
+
+**Intent:** Start time equals end time.
+
+**Setup:** attempt to create absence with identical start/end.
+
+**Expected:** validation rejects; clear error message.
+
+**Failure modes:** zero-duration absence saved; crashes downstream queries.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-067 — Absence overlapping a break
+
+**Intent:** Absence window includes break time.
+
+**Setup:** log absence P2–P4 (which includes the mid-morning break).
+
+**Expected:** only P2, P3, P4 get substitutions (break doesn't need a cover).
+
+**Failure modes:** break treated as a period and assigned a sub; or P3 silently skipped alongside the break.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 15 — Sub Board Display
+
+#### STRESS-068 — Empty Sub Board
+
+**Intent:** No absences today.
+
+**Expected:** Sub Board shows clear "No substitutions today" state; page loads <1s.
+
+**Failure modes:** blank page, infinite spinner, crash.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-069 — Sub Board with 50+ assignments
+
+**Intent:** High-volume rendering.
+
+**Setup:** generate 50+ substitutions via STRESS-062 scenario.
+
+**Expected:** all rows render; scroll performant; printing / PDF export works.
+
+**Failure modes:** virtual scroll errors; print cuts off rows; browser hangs.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-070 — Sub Board real-time update
+
+**Intent:** Admin A watches Sub Board while Admin B assigns. A's view must update.
+
+**Setup:** two browser tabs. Tab 1: Sub Board open. Tab 2: assign a new substitution.
+
+**Expected:** Tab 1 reflects the new row within 30s (polling acceptable) or instantly (websocket if implemented).
+
+**Failure modes:** Tab 1 shows stale data indefinitely.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-071 — Sub Board across day boundary
+
+**Intent:** Load Sub Board at 23:59, leave open past midnight.
+
+**Expected:** after midnight, board refreshes to show next day's scheduled subs; no duplicate rendering.
+
+**Failure modes:** stale yesterday content persists; timezone drift causes wrong day.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 16 — Cover Reports & Fairness
+
+#### STRESS-072 — Zero-cover report
+
+**Intent:** Report for a date range with no covers.
+
+**Setup:** select range with no absence activity.
+
+**Expected:** report shows all zeros, no crash, no divide-by-zero.
+
+**Failure modes:** NaN in fairness index; UI crashes on empty data.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-073 — Fairness boundary (CV 0.2 / 0.4 / 0.6)
+
+**Intent:** Grade cutoffs.
+
+**Setup:** contrive 3 datasets with CV exactly at 0.199, 0.399, 0.599.
+
+**Expected:** grades "excellent", "good", "fair" respectively at just under each cutoff; "good", "fair", "poor" at or above.
+
+**Failure modes:** off-by-one on boundary; inconsistent bucket assignment.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-074 — Single-teacher fairness degenerate
+
+**Intent:** Only one teacher has ever covered — fairness undefined mathematically.
+
+**Expected:** report handles gracefully; grade "excellent" with explanation "only one covering teacher, fairness not measurable between teachers".
+
+**Failure modes:** division by zero; misleading grade.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-075 — CSV export at scale
+
+**Intent:** Export large cover-report CSV.
+
+**Setup:** date range with 500+ substitutions.
+
+**Expected:** CSV streams back < 10s; non-ASCII characters (Irish fadas á é í ó ú, European accents) preserved as UTF-8; correct column separators; opens cleanly in Excel & LibreOffice.
+
+**Failure modes:** timeout; truncated file; mojibake; broken encoding.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 17 — Cross-cutting / Data
+
+#### STRESS-076 — Teacher deleted while assigned to substitution
+
+**Intent:** Referential integrity when admin archives a teacher who still has pending substitutions.
+
+**Setup:** create substitution assigning T7 as sub; then archive T7.
+
+**Expected:** system blocks archival with "cannot archive — pending substitution assignments" OR cleanly reassigns. No dangling FK.
+
+**Failure modes:** silent orphan row; crash loading Sub Board.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-077 — Class deleted while scheduled
+
+**Intent:** Similar but for class entity.
+
+**Setup:** delete a class that has an active schedule.
+
+**Expected:** blocked OR cascade with warning; no orphan timetable rows.
+
+**Failure modes:** orphan rows in schedule; Sub Board shows ghost assignments.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-078 — Room deleted while in use
+
+**Intent:** Admin deletes LAB01 which is scheduled Mon P3.
+
+**Expected:** blocked with "in-use" message OR forces re-schedule.
+
+**Failure modes:** delete succeeds, timetable references non-existent room; solver crashes on next run.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-079 — RLS — tenant isolation
+
+**Intent:** Tenant B cannot see Tenant A's substitutions, absences, or timetables.
+
+**Setup:** seed substitutions in tenant A; log in as tenant B admin.
+
+**Expected:** tenant B sees only its own data. API direct hits with tenant B's JWT but tenant A's resource IDs return 404, never the data.
+
+**Failure modes:** cross-tenant data visible — P0.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-080 — Academic year rollover mid-scenario
+
+**Intent:** Academic year transitions while substitutions / solve runs are in flight.
+
+**Setup:** create substitution for 2026-08-31 (end of year); advance academic year; inspect records.
+
+**Expected:** historical records retained under old academic year; new year starts fresh; no data loss; no reports cross years unless explicitly requested.
+
+**Failure modes:** records orphaned; reports blend year data silently.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+### Category 18 — Worker & Infrastructure Resilience
+
+#### STRESS-081 — BullMQ worker crash mid-solve
+
+**Intent:** Worker process dies during a solve.
+
+**Setup:** start STRESS-003; `pm2 restart worker` mid-solve.
+
+**Expected:** job either retries automatically (on restart) or is marked `failed` with clear error; no orphan "Running" state; admin can re-trigger.
+
+**Failure modes:** job stuck "Running" forever; partial timetable saved; tenant locked out of future solves.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-082 — Redis unavailable at enqueue
+
+**Intent:** Redis down when admin clicks "Run solve".
+
+**Setup:** stop Redis; click Run solve.
+
+**Expected:** API returns structured error "queue unavailable, try again in a moment"; UI shows retry affordance; no partial DB writes.
+
+**Failure modes:** 500 with stack trace; orphan scheduling-run row with no job behind it.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+#### STRESS-083 — Solve timeout enforcement
+
+**Intent:** Solve that takes > configured max must be killed.
+
+**Setup:** configure max-solve-time = 30s; run STRESS-004 extreme scale (expected > 30s).
+
+**Expected:** job killed at 30s; status `timeout`; reason surfaced; admin can adjust timeout and retry.
+
+**Failure modes:** job runs indefinitely; no timeout; worker OOM-killed silently.
+
+| Run date | Outcome | Notes | Bug ID |
+| -------- | ------- | ----- | ------ |
+
+---
+
+## Results log
+
+Once scenarios begin, append a summary entry per run here (in addition to the per-scenario tracker rows):
+
+| Date | Scenarios run | Pass | Fail | N/A | Notes |
+| ---- | ------------- | ---- | ---- | --- | ----- |
+
+---
+
+## Appendix A — Suggested seeding helpers
+
+To make scenarios repeatable, consider adding:
+
+- `scripts/stress-seed.ts` — one entry point per scenario ID, seeds the exact rows needed
+- Metadata tag `stress_tag` on mutable rows so cleanup is a single query
+- Snapshot/restore at the DB level before stress runs
+
+These are nice-to-haves; manual setup via admin UI is acceptable for an initial pass.
+
+## Appendix B — Sign-off
+
+This module is declared production-hardened once all 83 scenarios show ✅ PASS with zero P0/P1 bugs open.
+
+| Reviewer | Date | Signed off |
+| -------- | ---- | ---------- |
