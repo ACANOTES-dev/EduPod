@@ -13,7 +13,7 @@
 | ----- | -------------------------------- | -------- |
 | S1    | Schema + RLS                     | complete |
 | S2    | Teacher self-report flow         | complete |
-| S3    | Leave request + approval flow    | pending  |
+| S3    | Leave request + approval flow    | complete |
 | S4    | Auto-cascade substitution engine | pending  |
 | S5    | Notification templates + wiring  | pending  |
 | S6    | Sub board + admin feed UI polish | pending  |

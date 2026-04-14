@@ -147,6 +147,9 @@ export * from './schemas/scheduling.schema';
 // Scheduling World-Class Enhancement Schemas
 export * from './schemas/scheduling-enhanced.schema';
 
+// Leave & Cover
+export * from './schemas/leave.schema';
+
 // Reports World-Class Enhancement Schemas
 export * from './schemas/reports-enhanced.schema';
 

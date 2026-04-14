@@ -38,6 +38,7 @@ import { HomeworkModule } from './modules/homework/homework.module';
 import { HouseholdsModule } from './modules/households/households.module';
 import { ImportsModule } from './modules/imports/imports.module';
 import { InboxModule } from './modules/inbox/inbox.module';
+import { LeaveModule } from './modules/leave/leave.module';
 import { MetricsMiddleware } from './modules/metrics/metrics.middleware';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { ParentInquiriesModule } from './modules/parent-inquiries/parent-inquiries.module';
@@ -148,6 +149,7 @@ import { WebsiteModule } from './modules/website/website.module';
     StaffPreferencesModule,
     SchedulingRunsModule,
     GradebookModule,
+    LeaveModule,
     PdfRenderingModule,
     FinanceModule,
     EventsModule,

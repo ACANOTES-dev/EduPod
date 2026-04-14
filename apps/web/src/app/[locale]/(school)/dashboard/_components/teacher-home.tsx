@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, Calendar, CheckSquare, Edit, UserMinus } from 'lucide-react';
+import { BookOpen, Calendar, CalendarPlus, CheckSquare, Edit, UserMinus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -86,6 +86,11 @@ export function TeacherHome({ schoolName }: { schoolName: string }) {
       icon: UserMinus,
       label: tActions('reportAbsence'),
       onClick: () => setAbsenceDialogOpen(true),
+    },
+    {
+      icon: CalendarPlus,
+      label: tActions('requestLeave'),
+      href: '/dashboard/teacher/leave',
     },
   ];
 

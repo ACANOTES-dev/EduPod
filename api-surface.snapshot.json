@@ -5306,6 +5306,55 @@
     "permission": "users.invite"
   },
   {
+    "method": "GET",
+    "path": "/v1/leave/requests",
+    "controller": "LeaveController",
+    "module": "leave",
+    "permission": "leave.submit_request"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/leave/requests",
+    "controller": "LeaveController",
+    "module": "leave",
+    "permission": "leave.submit_request"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/leave/requests/:id/approve",
+    "controller": "LeaveController",
+    "module": "leave",
+    "permission": "leave.submit_request"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/leave/requests/:id/reject",
+    "controller": "LeaveController",
+    "module": "leave",
+    "permission": "leave.approve_requests"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/leave/requests/:id/withdraw",
+    "controller": "LeaveController",
+    "module": "leave",
+    "permission": "leave.approve_requests"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/leave/requests/my",
+    "controller": "LeaveController",
+    "module": "leave",
+    "permission": "leave.approve_requests"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/leave/types",
+    "controller": "LeaveController",
+    "module": "leave",
+    "permission": "leave.submit_request"
+  },
+  {
     "method": "POST",
     "path": "/v1/legal/dpa/accept",
     "controller": "LegalDpaController",
