@@ -485,6 +485,17 @@ Each stage appends its own entry here when finished. Use this template exactly:
 6. **Teacher role couldn't reach `/scheduling/my-timetable`.** Two permission gates were blocking: the API's `@RequiresPermission('schedule.view_personal_timetable')` (no such permission exists in the prod DB; teachers have `schedule.view_own`) and the web's route-role map, which restricted everything under `/scheduling` to `ADMIN_ROLES`. Fix: changed all four `timetable`/`calendar-tokens` `@RequiresPermission` calls on `SchedulingEnhancedController` from `schedule.view_personal_timetable` → `schedule.view_own`, and added a narrower `/scheduling/my-timetable` entry with `[...ADMIN_ROLES, 'teacher']` before the broader `/scheduling` entry in `apps/web/src/lib/route-roles.ts`.
 7. **Dashboard overview KPIs read nothing from the response.** The page was typed as `apiClient<DashboardOverview>(...)` and `setOverview(ov)`, but the API wraps in `{ data }`. Fixed to `{ data: DashboardOverview }` with `setOverview(ov.data)`.
 
+**Addendum (diagnostics, same session):** The raw "33 unassigned" signal was too weak for the user — a school admin needs to know _why_ and _what to do_. Added `SchedulingDiagnosticsService` + `GET /scheduling-runs/:id/diagnostics` + a new "Timetable analysis" panel on the review page. The service reads `result_json.unassigned` + `config_snapshot` and emits categorised diagnostics with concrete recommendations:
+
+- `teacher_supply_shortage` (critical) — supply × max_periods vs demand; recommends how many extra teachers to add
+- `workload_cap_hit` (high) — teachers already at `max_periods_per_week`; recommends raising caps in /scheduling/teacher-config
+- `availability_pinch` (high) — qualified teachers' cumulative available periods can't cover demand; recommends widening availability windows
+- `unassigned_slots` (medium) — fallback for (subject, year-group) gaps that don't match a specific diagnosis; surfaces affected classes
+
+For the NHQS run: 1 `workload_cap_hit` (Sarah Daly, William Dunne, Benjamin Gallagher, Chloe Kennedy all at 25/25) + 19 medium-severity fallback diagnostics across Arabic/English/Mathematics/Business. Confirms the earlier manual analysis ("per-teacher load is impossibly high for core subjects"): the solver hit the 25-period cap first on four teachers, which cascaded into the unplaced periods. Surfaces this to the user instead of making them guess.
+
+Tests: 5 new unit tests in `scheduling-diagnostics.service.spec.ts` covering not-found, no-issues, supply-shortage, fallback, and workload-cap paths. All pass.
+
 **Unblocked for next session:** Stage 7 (substitutes page + table) is now unblocked.
 
 **Unassigned slot analysis (for future tuning, not a blocker):** 33 of 430 curriculum slots went unassigned. The solver output was capped by the seeded availability (Mon-Fri 08:00–16:00 per teacher). Because the run hit 0 hard violations and 89% preference satisfaction, this is an over-constraint signal rather than a bug — Stage 8 or a later tuning pass can relax teacher availability windows if this is unacceptable.

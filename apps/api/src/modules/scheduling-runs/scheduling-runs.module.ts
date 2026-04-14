@@ -14,6 +14,7 @@ import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { SchedulingApplyService } from './scheduling-apply.service';
 import { SchedulingDashboardController } from './scheduling-dashboard.controller';
 import { SchedulingDashboardService } from './scheduling-dashboard.service';
+import { SchedulingDiagnosticsService } from './scheduling-diagnostics.service';
 import { SchedulingPrerequisitesService } from './scheduling-prerequisites.service';
 import { SchedulingRunsReadFacade } from './scheduling-runs-read.facade';
 import { SchedulingRunsController } from './scheduling-runs.controller';
@@ -38,6 +39,7 @@ import { SchedulingRunsService } from './scheduling-runs.service';
     SchedulingApplyService,
     SchedulingPrerequisitesService,
     SchedulingDashboardService,
+    SchedulingDiagnosticsService,
     SchedulingRunsReadFacade,
   ],
   exports: [SchedulingRunsService, SchedulingRunsReadFacade],

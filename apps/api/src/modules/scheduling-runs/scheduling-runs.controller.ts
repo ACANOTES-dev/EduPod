@@ -35,6 +35,7 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { SchedulingApplyService } from './scheduling-apply.service';
+import { SchedulingDiagnosticsService } from './scheduling-diagnostics.service';
 import { SchedulingPrerequisitesService } from './scheduling-prerequisites.service';
 import { SchedulingRunsService } from './scheduling-runs.service';
 
@@ -55,6 +56,7 @@ export class SchedulingRunsController {
     private readonly runsService: SchedulingRunsService,
     private readonly applyService: SchedulingApplyService,
     private readonly prerequisitesService: SchedulingPrerequisitesService,
+    private readonly diagnosticsService: SchedulingDiagnosticsService,
   ) {}
 
   /**
@@ -127,6 +129,20 @@ export class SchedulingRunsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.runsService.getProgress(tenant.tenant_id, id);
+  }
+
+  /**
+   * GET /v1/scheduling-runs/:id/diagnostics
+   * Return a categorised analysis of why periods went unassigned,
+   * with concrete recommendations for the school admin.
+   */
+  @Get(':id/diagnostics')
+  @RequiresPermission('schedule.view_auto_reports')
+  async getDiagnostics(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.diagnosticsService.analyse(tenant.tenant_id, id);
   }
 
   /**

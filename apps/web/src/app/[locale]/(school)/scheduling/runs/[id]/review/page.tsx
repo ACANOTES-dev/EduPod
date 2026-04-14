@@ -1,6 +1,16 @@
 'use client';
 
-import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, Pin, Trash2 } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  Info,
+  Loader2,
+  Pin,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -52,6 +62,40 @@ interface RunReview {
   constraint_report: ConstraintReport;
 }
 
+type DiagnosticSeverity = 'critical' | 'high' | 'medium' | 'info';
+type DiagnosticCategory =
+  | 'teacher_supply_shortage'
+  | 'workload_cap_hit'
+  | 'availability_pinch'
+  | 'unassigned_slots';
+
+interface Diagnostic {
+  id: string;
+  severity: DiagnosticSeverity;
+  category: DiagnosticCategory;
+  title: string;
+  description: string;
+  recommendation: string;
+  affected: {
+    subject?: { id: string; name: string };
+    year_group?: { id: string; name: string };
+    classes?: Array<{ id: string; name: string }>;
+    teachers?: Array<{ id: string; name: string }>;
+  };
+  metrics?: Record<string, number>;
+}
+
+interface DiagnosticsResult {
+  summary: {
+    total_unassigned_periods: number;
+    critical_issues: number;
+    high_issues: number;
+    medium_issues: number;
+    can_proceed: boolean;
+  };
+  diagnostics: Diagnostic[];
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const WEEKDAY_LABELS: Record<number, string> = {
@@ -76,6 +120,100 @@ function groupEntries(entries: ReviewEntry[]) {
   return byDay;
 }
 
+// ─── Diagnostics panel ────────────────────────────────────────────────────────
+
+function severityIcon(sev: DiagnosticSeverity) {
+  if (sev === 'critical') return <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />;
+  if (sev === 'high') return <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />;
+  if (sev === 'medium') return <Info className="h-4 w-4 text-blue-500 shrink-0" />;
+  return <Info className="h-4 w-4 text-text-tertiary shrink-0" />;
+}
+
+function severityBadgeVariant(sev: DiagnosticSeverity): 'danger' | 'default' | 'secondary' {
+  if (sev === 'critical') return 'danger';
+  if (sev === 'high') return 'default';
+  return 'secondary';
+}
+
+function DiagnosticsPanel({ result }: { result: DiagnosticsResult }) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-text-primary">Timetable analysis</h3>
+        {result.summary.total_unassigned_periods > 0 && (
+          <Badge variant="danger">{result.summary.total_unassigned_periods} unplaced</Badge>
+        )}
+      </div>
+
+      {result.diagnostics.length === 0 ? (
+        <p className="text-xs text-text-secondary">
+          No issues detected — every required period was placed.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {result.diagnostics.map((d) => (
+            <div
+              key={d.id}
+              className="rounded-lg border border-border bg-surface-secondary/40 p-3 space-y-2"
+            >
+              <div className="flex items-start gap-2">
+                {severityIcon(d.severity)}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-text-primary">{d.title}</p>
+                    <Badge variant={severityBadgeVariant(d.severity)} className="text-[10px]">
+                      {d.severity}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-text-secondary mt-1 leading-relaxed">
+                    {d.description}
+                  </p>
+                </div>
+              </div>
+
+              <div className="ms-6 text-xs text-text-primary bg-brand/5 border-s-2 border-brand ps-2.5 py-1.5">
+                <span className="font-medium">Suggested fix: </span>
+                <span className="text-text-secondary">{d.recommendation}</span>
+              </div>
+
+              {d.affected.classes && d.affected.classes.length > 0 && (
+                <div className="ms-6 flex flex-wrap gap-1 text-[10px]">
+                  {d.affected.classes.slice(0, 12).map((c) => (
+                    <span
+                      key={c.id}
+                      className="rounded bg-surface-secondary px-1.5 py-0.5 text-text-secondary"
+                    >
+                      {c.name}
+                    </span>
+                  ))}
+                  {d.affected.classes.length > 12 && (
+                    <span className="text-text-tertiary">
+                      +{d.affected.classes.length - 12} more
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {d.affected.teachers && d.affected.teachers.length > 0 && (
+                <div className="ms-6 flex items-center gap-1.5 text-[10px] text-text-tertiary">
+                  <Users className="h-3 w-3" />
+                  <span>
+                    {d.affected.teachers
+                      .slice(0, 4)
+                      .map((t) => t.name)
+                      .join(', ')}
+                    {d.affected.teachers.length > 4 && ` +${d.affected.teachers.length - 4} more`}
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function RunReviewPage() {
@@ -85,6 +223,7 @@ export default function RunReviewPage() {
   const router = useRouter();
 
   const [data, setData] = React.useState<RunReview | null>(null);
+  const [diagnostics, setDiagnostics] = React.useState<DiagnosticsResult | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [applyOpen, setApplyOpen] = React.useState(false);
   const [discardOpen, setDiscardOpen] = React.useState(false);
@@ -93,11 +232,24 @@ export default function RunReviewPage() {
 
   React.useEffect(() => {
     setLoading(true);
-    apiClient<{ data: RunReview }>(`/api/v1/scheduling-runs/${id}`)
-      .then((res) => setData(res.data))
+    Promise.all([
+      apiClient<{ data: RunReview }>(`/api/v1/scheduling-runs/${id}`),
+      apiClient<{ data: DiagnosticsResult }>(`/api/v1/scheduling-runs/${id}/diagnostics`, {
+        silent: true,
+      }).catch((err) => {
+        // Diagnostics are best-effort — a failure here shouldn't hide the
+        // timetable. Log and continue with the run payload only.
+        console.error('[RunsReviewPage] diagnostics fetch failed', err);
+        return null;
+      }),
+    ])
+      .then(([runRes, diagRes]) => {
+        setData(runRes.data);
+        setDiagnostics(diagRes?.data ?? null);
+      })
       .catch((err) => {
         console.error('[RunsReviewPage]', err);
-        return setData(null);
+        setData(null);
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -372,6 +524,10 @@ export default function RunReviewPage() {
               </Badge>
             </div>
           </div>
+
+          {diagnostics && diagnostics.diagnostics.length > 0 && (
+            <DiagnosticsPanel result={diagnostics} />
+          )}
 
           {report?.workload_summary && report.workload_summary.length > 0 && (
             <div className="rounded-xl border border-border bg-surface p-4 space-y-2">
