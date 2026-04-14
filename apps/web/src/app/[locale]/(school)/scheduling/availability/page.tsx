@@ -63,6 +63,7 @@ interface DayRowProps {
 }
 
 function DayRow({ weekday, label, entry, onChange, onToggle }: DayRowProps) {
+  const t = useTranslations('scheduling');
   const isEnabled = !!entry;
 
   return (
@@ -148,7 +149,10 @@ export default function AvailabilityPage() {
           setSelectedYear(yearsRes.data[0].id);
         }
       })
-      .catch((err) => { console.error('[SchedulingAvailabilityPage]', err); return toast.error('Failed to load reference data'); });
+      .catch((err) => {
+        console.error('[SchedulingAvailabilityPage]', err);
+        return toast.error('Failed to load reference data');
+      });
   }, []);
 
   // Load availability when staff + year selected
@@ -262,7 +266,9 @@ export default function AvailabilityPage() {
               </button>
             ))}
             {filteredStaff.length === 0 && (
-              <div className="px-3 py-6 text-center text-xs text-text-tertiary">{t('noStaffFound')}</div>
+              <div className="px-3 py-6 text-center text-xs text-text-tertiary">
+                {t('noStaffFound')}
+              </div>
             )}
           </div>
         </div>
@@ -270,7 +276,9 @@ export default function AvailabilityPage() {
         {/* Availability grid */}
         <div className="flex-1">
           {!selectedStaff ? (
-            <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border text-sm text-text-tertiary">{t('selectAStaffMemberTo')}</div>
+            <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border text-sm text-text-tertiary">
+              {t('selectAStaffMemberTo')}
+            </div>
           ) : isLoading ? (
             <div className="space-y-2">
               {WEEKDAYS.map((d) => (
@@ -298,7 +306,9 @@ export default function AvailabilityPage() {
                   </Select>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleClear}>{t('clearAll')}</Button>
+                  <Button variant="outline" size="sm" onClick={handleClear}>
+                    {t('clearAll')}
+                  </Button>
                   <Button size="sm" onClick={() => void handleSave()} disabled={isSaving}>
                     {isSaving ? 'Saving…' : 'Save'}
                   </Button>

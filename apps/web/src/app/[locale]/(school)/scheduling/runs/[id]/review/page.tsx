@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  GripVertical,
   Info,
   Lightbulb,
   Loader2,
@@ -123,28 +124,14 @@ const WEEKDAY_LABELS: Record<number, string> = {
   6: 'Sat',
 };
 
-function groupEntries(entries: ReviewEntry[]) {
-  const byDay: Record<number, ReviewEntry[]> = {};
-  for (const e of entries) {
-    if (!byDay[e.weekday]) byDay[e.weekday] = [];
-    byDay[e.weekday]!.push(e);
-  }
-  for (const day of Object.keys(byDay)) {
-    byDay[Number(day)]!.sort((a, b) => a.period_order - b.period_order);
-  }
-  return byDay;
-}
-
-// ─── Diagnostics panel ────────────────────────────────────────────────────────
-
 // ─── Severity theming ─────────────────────────────────────────────────────────
 
 const SEVERITY_THEME: Record<
   DiagnosticSeverity,
   {
     label: string;
-    accent: string; // left stripe + icon bg
-    bg: string; // card bg
+    accent: string;
+    bg: string;
     border: string;
     iconColor: string;
     icon: typeof AlertCircle;
@@ -221,11 +208,9 @@ function DiagnosticCard({ d, locale }: { d: Diagnostic; locale: string }) {
     <div
       className={`relative overflow-hidden rounded-xl border ${theme.border} ${theme.bg} shadow-sm`}
     >
-      {/* Severity accent stripe */}
       <div className={`absolute start-0 top-0 h-full w-1 ${theme.accent}`} aria-hidden="true" />
 
       <div className="ps-4 pe-4 py-4 space-y-3">
-        {/* Header */}
         <div className="flex items-start gap-3">
           <div
             className={`shrink-0 rounded-lg bg-surface p-1.5 border ${theme.border} ${theme.iconColor}`}
@@ -243,7 +228,6 @@ function DiagnosticCard({ d, locale }: { d: Diagnostic; locale: string }) {
           </div>
         </div>
 
-        {/* Solutions */}
         {d.solutions.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
@@ -279,9 +263,11 @@ function DiagnosticCard({ d, locale }: { d: Diagnostic; locale: string }) {
                         {s.href && (
                           <a
                             href={`/${locale}${s.href}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-[11px] font-medium text-brand hover:underline"
                           >
-                            Go to settings
+                            Go to settings (new tab)
                             <ArrowUpRight className="h-3 w-3 rtl:rotate-[270deg]" />
                           </a>
                         )}
@@ -294,7 +280,6 @@ function DiagnosticCard({ d, locale }: { d: Diagnostic; locale: string }) {
           </div>
         )}
 
-        {/* Affected entities */}
         {((d.affected.classes && d.affected.classes.length > 0) ||
           (d.affected.teachers && d.affected.teachers.length > 0)) && (
           <div className="pt-2 border-t border-border/60 space-y-2">
@@ -358,7 +343,6 @@ function DiagnosticsPanel({ result, locale }: { result: DiagnosticsResult; local
 
   return (
     <div className="rounded-2xl border border-border bg-surface overflow-hidden">
-      {/* Header with gradient accent */}
       <div className="relative bg-gradient-to-br from-brand/5 via-transparent to-transparent border-b border-border px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -450,6 +434,203 @@ function DiagnosticsPanel({ result, locale }: { result: DiagnosticsResult; local
   );
 }
 
+// ─── Per-class timetable grid ─────────────────────────────────────────────────
+
+interface EmptySlot {
+  class_id: string;
+  weekday: number;
+  period_order: number;
+}
+
+interface DragPayload {
+  type: 'entry' | 'empty';
+  entry_id?: string;
+  class_id: string;
+  weekday: number;
+  period_order: number;
+}
+
+interface ClassTimetableProps {
+  classId: string;
+  className: string;
+  entries: ReviewEntry[];
+  weekdays: number[];
+  periodOrders: number[];
+  readOnly: boolean;
+  dragPayload: DragPayload | null;
+  hoverCell: { class_id: string; weekday: number; period_order: number } | null;
+  onPinToggle: (entryId: string, pinned: boolean) => void;
+  onDragStart: (payload: DragPayload) => void;
+  onDragOver: (class_id: string, weekday: number, period_order: number) => void;
+  onDragEnd: () => void;
+  onDrop: (target: { class_id: string; weekday: number; period_order: number }) => void;
+}
+
+function ClassTimetable({
+  classId,
+  className,
+  entries,
+  weekdays,
+  periodOrders,
+  readOnly,
+  dragPayload,
+  hoverCell,
+  onPinToggle,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
+}: ClassTimetableProps) {
+  const entryByCell = React.useMemo(() => {
+    const map = new Map<string, ReviewEntry>();
+    for (const e of entries) {
+      map.set(`${e.weekday}:${e.period_order}`, e);
+    }
+    return map;
+  }, [entries]);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between">
+        <h3 className="text-sm font-semibold text-text-primary">
+          Class <span className="font-mono">{className}</span>
+        </h3>
+        <p className="text-xs text-text-tertiary">
+          Drag lessons to swap. Drop onto an empty orange slot to move.
+        </p>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-border bg-surface">
+        <table className="w-full min-w-[640px] table-fixed">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="px-3 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary w-16">
+                Period
+              </th>
+              {weekdays.map((day) => (
+                <th
+                  key={day}
+                  className="px-3 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary"
+                >
+                  {WEEKDAY_LABELS[day] ?? `Day ${day}`}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {periodOrders.map((period) => (
+              <tr key={period} className="border-b border-border last:border-b-0">
+                <td className="px-3 py-2 text-xs font-mono text-text-tertiary align-top">
+                  P{period}
+                </td>
+                {weekdays.map((day) => {
+                  const entry = entryByCell.get(`${day}:${period}`);
+                  const isHoverTarget =
+                    hoverCell?.class_id === classId &&
+                    hoverCell?.weekday === day &&
+                    hoverCell?.period_order === period;
+                  const isDraggedSource =
+                    dragPayload?.type === 'entry' && dragPayload.entry_id === entry?.id;
+
+                  if (entry) {
+                    return (
+                      <td key={day} className="px-2 py-1.5 align-top">
+                        <div
+                          draggable={!readOnly && !entry.is_pinned}
+                          onDragStart={() =>
+                            onDragStart({
+                              type: 'entry',
+                              entry_id: entry.id,
+                              class_id: entry.class_id,
+                              weekday: entry.weekday,
+                              period_order: entry.period_order,
+                            })
+                          }
+                          onDragOver={(e) => {
+                            if (readOnly) return;
+                            e.preventDefault();
+                            onDragOver(classId, day, period);
+                          }}
+                          onDragLeave={() => onDragOver('', -1, -1)}
+                          onDragEnd={onDragEnd}
+                          onDrop={(e) => {
+                            if (readOnly) return;
+                            e.preventDefault();
+                            onDrop({ class_id: classId, weekday: day, period_order: period });
+                          }}
+                          className={`relative rounded-lg px-2.5 py-1.5 text-xs transition-all ${
+                            entry.is_pinned
+                              ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-600'
+                              : 'bg-blue-50 dark:bg-blue-900/20 border border-dashed border-blue-300 dark:border-blue-600'
+                          } ${isDraggedSource ? 'opacity-40' : ''} ${
+                            isHoverTarget ? 'ring-2 ring-brand shadow-sm' : ''
+                          } ${!readOnly && !entry.is_pinned ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                        >
+                          {entry.subject_name && (
+                            <div className="font-medium text-text-primary pe-6 truncate">
+                              {entry.subject_name}
+                            </div>
+                          )}
+                          {entry.teacher_name && (
+                            <div className="text-text-secondary truncate">{entry.teacher_name}</div>
+                          )}
+                          {entry.room_name && (
+                            <div className="text-text-tertiary truncate">{entry.room_name}</div>
+                          )}
+                          <div
+                            className="absolute top-1 end-1 flex items-center gap-0.5"
+                            onClick={(e) => e.stopPropagation()}
+                            onDragStart={(e) => e.stopPropagation()}
+                          >
+                            {entry.is_pinned && <Pin className="h-2.5 w-2.5 text-amber-500" />}
+                            {!readOnly && !entry.is_pinned && (
+                              <GripVertical className="h-3 w-3 text-text-tertiary opacity-60" />
+                            )}
+                            <PinToggle
+                              scheduleId={entry.id}
+                              isPinned={entry.is_pinned}
+                              onToggle={(pinned) => onPinToggle(entry.id, pinned)}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                    );
+                  }
+
+                  // Empty cell — red-orange shading + drop target
+                  return (
+                    <td key={day} className="px-2 py-1.5 align-top">
+                      <div
+                        onDragOver={(e) => {
+                          if (readOnly) return;
+                          e.preventDefault();
+                          onDragOver(classId, day, period);
+                        }}
+                        onDragLeave={() => onDragOver('', -1, -1)}
+                        onDrop={(e) => {
+                          if (readOnly) return;
+                          e.preventDefault();
+                          onDrop({ class_id: classId, weekday: day, period_order: period });
+                        }}
+                        className={`h-12 rounded-lg border border-dashed transition-colors flex items-center justify-center text-[10px] font-medium ${
+                          isHoverTarget
+                            ? 'border-brand bg-brand/10 text-brand ring-2 ring-brand/40'
+                            : 'border-orange-300 dark:border-orange-700/50 bg-orange-100/80 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300'
+                        }`}
+                      >
+                        Unplaced
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function RunReviewPage() {
@@ -465,7 +646,10 @@ export default function RunReviewPage() {
   const [applyOpen, setApplyOpen] = React.useState(false);
   const [discardOpen, setDiscardOpen] = React.useState(false);
   const [actioning, setActioning] = React.useState(false);
-  const [selectedEntry, setSelectedEntry] = React.useState<ReviewEntry | null>(null);
+  const [activeClassId, setActiveClassId] = React.useState<string>('');
+
+  const [dragPayload, setDragPayload] = React.useState<DragPayload | null>(null);
+  const [hoverCell, setHoverCell] = React.useState<EmptySlot | null>(null);
 
   React.useEffect(() => {
     setLoading(true);
@@ -474,8 +658,6 @@ export default function RunReviewPage() {
       apiClient<{ data: DiagnosticsResult }>(`/api/v1/scheduling-runs/${id}/diagnostics`, {
         silent: true,
       }).catch((err) => {
-        // Diagnostics are best-effort — a failure here shouldn't hide the
-        // timetable. Log and continue with the run payload only.
         console.error('[RunsReviewPage] diagnostics fetch failed', err);
         return null;
       }),
@@ -483,6 +665,9 @@ export default function RunReviewPage() {
       .then(([runRes, diagRes]) => {
         setData(runRes.data);
         setDiagnostics(diagRes?.data ?? null);
+        // default to first class
+        const firstClass = runRes.data.entries[0]?.class_id;
+        if (firstClass) setActiveClassId((prev) => prev || firstClass);
       })
       .catch((err) => {
         console.error('[RunsReviewPage]', err);
@@ -529,35 +714,6 @@ export default function RunReviewPage() {
     }
   }
 
-  async function handleCellClick(entry: ReviewEntry) {
-    if (!selectedEntry) {
-      setSelectedEntry(entry);
-      return;
-    }
-    if (selectedEntry.id === entry.id) {
-      setSelectedEntry(null);
-      return;
-    }
-    // Swap via PATCH
-    try {
-      await apiClient(`/api/v1/scheduling-runs/${id}/adjustments`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          entry_a_id: selectedEntry.id,
-          entry_b_id: entry.id,
-        }),
-      });
-      toast.success('Swap applied');
-      const updated = await apiClient<{ data: RunReview }>(`/api/v1/scheduling-runs/${id}`);
-      setData(updated.data);
-    } catch (err) {
-      console.error('[RunsReviewPage]', err);
-      toast.error('Swap failed');
-    } finally {
-      setSelectedEntry(null);
-    }
-  }
-
   function handlePinToggle(entryId: string, pinned: boolean) {
     if (!data) return;
     setData({
@@ -565,6 +721,145 @@ export default function RunReviewPage() {
       entries: data.entries.map((e) => (e.id === entryId ? { ...e, is_pinned: pinned } : e)),
     });
   }
+
+  function handleDragStart(payload: DragPayload) {
+    setDragPayload(payload);
+  }
+
+  function handleDragOver(class_id: string, weekday: number, period_order: number) {
+    if (!class_id || weekday < 0) {
+      setHoverCell(null);
+      return;
+    }
+    setHoverCell({ class_id, weekday, period_order });
+  }
+
+  function handleDragEnd() {
+    setDragPayload(null);
+    setHoverCell(null);
+  }
+
+  async function handleDrop(target: { class_id: string; weekday: number; period_order: number }) {
+    const source = dragPayload;
+    setDragPayload(null);
+    setHoverCell(null);
+    if (!source || !data) return;
+    if (source.type !== 'entry') return;
+    if (source.class_id !== target.class_id) {
+      toast.error('Lessons can only be swapped within the same class.');
+      return;
+    }
+    if (source.weekday === target.weekday && source.period_order === target.period_order) {
+      return;
+    }
+
+    const existingEntries = data.entries;
+    const sourceEntry = existingEntries.find((e) => e.id === source.entry_id);
+    if (!sourceEntry) return;
+
+    const destEntry = existingEntries.find(
+      (e) =>
+        e.class_id === target.class_id &&
+        e.weekday === target.weekday &&
+        e.period_order === target.period_order,
+    );
+
+    const previousData = data;
+
+    const adjustment = destEntry
+      ? {
+          type: 'swap' as const,
+          entry_a: {
+            class_id: sourceEntry.class_id,
+            weekday: sourceEntry.weekday,
+            period_order: sourceEntry.period_order,
+          },
+          entry_b: {
+            class_id: destEntry.class_id,
+            weekday: destEntry.weekday,
+            period_order: destEntry.period_order,
+          },
+        }
+      : {
+          type: 'move' as const,
+          class_id: sourceEntry.class_id,
+          from_weekday: sourceEntry.weekday,
+          from_period_order: sourceEntry.period_order,
+          to_weekday: target.weekday,
+          to_period_order: target.period_order,
+        };
+
+    const updatedEntries = existingEntries.map((e) => {
+      if (e.id === sourceEntry.id) {
+        return { ...e, weekday: target.weekday, period_order: target.period_order };
+      }
+      if (destEntry && e.id === destEntry.id && adjustment.type === 'swap') {
+        return { ...e, weekday: sourceEntry.weekday, period_order: sourceEntry.period_order };
+      }
+      return e;
+    });
+
+    setData({ ...data, entries: updatedEntries });
+
+    try {
+      const res = await apiClient<{ data: { updated_at: string } }>(
+        `/api/v1/scheduling-runs/${id}/adjustments`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ adjustment, expected_updated_at: data.updated_at }),
+        },
+      );
+      const nextUpdatedAt = res.data.updated_at;
+      setData((prev) =>
+        prev ? { ...prev, entries: updatedEntries, updated_at: nextUpdatedAt } : prev,
+      );
+
+      // Refresh diagnostics so the constraint report reflects the new layout.
+      try {
+        const diagRes = await apiClient<{ data: DiagnosticsResult }>(
+          `/api/v1/scheduling-runs/${id}/diagnostics`,
+          { silent: true },
+        );
+        setDiagnostics(diagRes.data ?? null);
+      } catch (diagErr) {
+        console.error('[RunsReviewPage] diagnostics refresh failed', diagErr);
+      }
+
+      toast.success(adjustment.type === 'swap' ? 'Swap saved' : 'Lesson moved');
+    } catch (err) {
+      console.error('[RunsReviewPage]', err);
+      setData(previousData);
+      toast.error('Could not save the change. The run may have been modified — reload the page.');
+    }
+  }
+
+  const entries = React.useMemo(() => data?.entries ?? [], [data?.entries]);
+
+  const classList = React.useMemo<Array<{ id: string; name: string }>>(() => {
+    const map = new Map<string, string>();
+    for (const e of entries) {
+      if (!map.has(e.class_id)) map.set(e.class_id, e.class_name);
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [entries]);
+
+  const weekdays = React.useMemo(() => {
+    const set = new Set<number>();
+    for (const e of entries) set.add(e.weekday);
+    const list = [...set];
+    if (list.length === 0) return [1, 2, 3, 4, 5];
+    return list.sort((a, b) => a - b);
+  }, [entries]);
+
+  const periodOrders = React.useMemo(() => {
+    const set = new Set<number>();
+    for (const e of entries) set.add(e.period_order);
+    const list = [...set];
+    if (list.length === 0) return [1, 2, 3, 4, 5, 6, 7, 8];
+    return list.sort((a, b) => a - b);
+  }, [entries]);
 
   if (loading) {
     return (
@@ -586,23 +881,17 @@ export default function RunReviewPage() {
     );
   }
 
-  const grouped = groupEntries(data.entries);
-  const weekdays = Object.keys(grouped).map(Number).sort();
   const isProposed = data.status === 'completed';
+  const readOnly = !isProposed;
   const report = data.constraint_report;
 
-  // Unique sorted period orders
-  const periodOrders = Array.from(
-    new Set(
-      Object.values(grouped)
-        .flat()
-        .map((e) => e.period_order),
-    ),
-  ).sort((a, b) => a - b);
+  const activeClass = classList.find((c) => c.id === activeClassId) ?? classList[0];
+  const activeEntries = activeClass
+    ? data.entries.filter((e) => e.class_id === activeClass.id)
+    : [];
 
   return (
     <div className="space-y-6">
-      {/* Proposed Banner */}
       {isProposed && (
         <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-4 py-3 flex items-center gap-3">
           <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
@@ -643,102 +932,50 @@ export default function RunReviewPage() {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Timetable Grid */}
         <div className="lg:col-span-3 space-y-4">
-          {selectedEntry && (
-            <div className="rounded-lg bg-brand/10 border border-brand/30 px-4 py-2 text-sm text-brand">
-              {t('selected')}
-              <strong>{selectedEntry.class_name}</strong> — {WEEKDAY_LABELS[selectedEntry.weekday]}{' '}
-              P{selectedEntry.period_order}
-              {t('clickAnotherSlotToSwap')}
+          {/* Class tabs */}
+          {classList.length > 0 && (
+            <div className="flex gap-1 overflow-x-auto border-b border-border pb-px">
+              {classList.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setActiveClassId(c.id)}
+                  className={`whitespace-nowrap px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                    activeClassId === c.id
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-text-tertiary hover:text-text-secondary'
+                  }`}
+                >
+                  {c.name}
+                </button>
+              ))}
             </div>
           )}
-          <div className="overflow-x-auto rounded-xl border border-border bg-surface">
-            <table className="w-full min-w-[640px]">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="px-3 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary w-16">
-                    {t('period')}
-                  </th>
-                  {weekdays.map((day) => (
-                    <th
-                      key={day}
-                      className="px-3 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary"
-                    >
-                      {WEEKDAY_LABELS[day] ?? `Day ${day}`}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {periodOrders.map((period) => (
-                  <tr key={period} className="border-b border-border last:border-b-0">
-                    <td className="px-3 py-2 text-xs font-mono text-text-tertiary align-top">
-                      P{period}
-                    </td>
-                    {weekdays.map((day) => {
-                      const cellEntries = (grouped[day] ?? []).filter(
-                        (e) => e.period_order === period,
-                      );
-                      return (
-                        <td key={day} className="px-2 py-1.5 align-top">
-                          <div className="flex flex-col gap-1">
-                            {cellEntries.map((entry) => {
-                              const isSelected = selectedEntry?.id === entry.id;
-                              return (
-                                <div
-                                  key={entry.id}
-                                  className={`relative rounded-lg px-2.5 py-1.5 text-xs cursor-pointer transition-all ${
-                                    entry.is_pinned
-                                      ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-600'
-                                      : 'bg-blue-50 dark:bg-blue-900/20 border border-dashed border-blue-300 dark:border-blue-600'
-                                  } ${isSelected ? 'ring-2 ring-brand' : ''}`}
-                                  onClick={() => handleCellClick(entry)}
-                                >
-                                  <div className="font-medium text-text-primary pe-6">
-                                    {entry.class_name}
-                                  </div>
-                                  {entry.subject_name && (
-                                    <div className="text-text-secondary opacity-75">
-                                      {entry.subject_name}
-                                    </div>
-                                  )}
-                                  {entry.room_name && (
-                                    <div className="text-text-tertiary opacity-75">
-                                      {entry.room_name}
-                                    </div>
-                                  )}
-                                  <div
-                                    className="absolute top-1 end-1 flex items-center gap-0.5"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {entry.is_pinned && (
-                                      <Pin className="h-2.5 w-2.5 text-amber-500" />
-                                    )}
-                                    <PinToggle
-                                      scheduleId={entry.id}
-                                      isPinned={entry.is_pinned}
-                                      onToggle={(pinned) => handlePinToggle(entry.id, pinned)}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
-                            {cellEntries.length === 0 && (
-                              <div className="h-8 rounded-lg border border-dashed border-border bg-transparent" />
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+
+          {activeClass ? (
+            <ClassTimetable
+              classId={activeClass.id}
+              className={activeClass.name}
+              entries={activeEntries}
+              weekdays={weekdays}
+              periodOrders={periodOrders}
+              readOnly={readOnly}
+              dragPayload={dragPayload}
+              hoverCell={hoverCell}
+              onPinToggle={handlePinToggle}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
+              onDrop={handleDrop}
+            />
+          ) : (
+            <div className="rounded-xl border border-border bg-surface py-16 text-center">
+              <p className="text-sm text-text-tertiary">No classes in this run</p>
+            </div>
+          )}
         </div>
 
-        {/* Constraint Report Side Panel */}
         <div className="space-y-4">
           <div className="rounded-xl border border-border bg-surface p-4 space-y-3">
             <h3 className="text-sm font-semibold text-text-primary">{t('constraintReport')}</h3>
@@ -819,11 +1056,14 @@ export default function RunReviewPage() {
               <div className="w-3 h-3 rounded-sm border border-dashed border-blue-300 bg-blue-50 dark:bg-blue-900/20 shrink-0" />
               <span>{t('autoGeneratedDashed')}</span>
             </div>
+            <div className="flex items-center gap-1.5 text-xs text-text-secondary">
+              <div className="w-3 h-3 rounded-sm border border-dashed border-orange-300 bg-orange-100/80 dark:bg-orange-900/20 shrink-0" />
+              <span>Unplaced (solver could not fit)</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Apply Dialog */}
       <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
         <DialogContent>
           <DialogHeader>
@@ -842,7 +1082,6 @@ export default function RunReviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Discard Dialog */}
       <Dialog open={discardOpen} onOpenChange={setDiscardOpen}>
         <DialogContent>
           <DialogHeader>

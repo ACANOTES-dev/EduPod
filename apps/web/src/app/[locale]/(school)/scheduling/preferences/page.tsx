@@ -95,6 +95,7 @@ function PreferenceTabPanel({
   onChangeSentiment,
   onChangePriority,
 }: TabPanelProps) {
+  const t = useTranslations('scheduling');
   const tCommon = useTranslations('common');
   const [newEntityId, setNewEntityId] = React.useState('');
   const [newSentiment, setNewSentiment] = React.useState<PreferenceSentiment>('prefer');
@@ -163,12 +164,18 @@ function PreferenceTabPanel({
             setNewEntityId('');
           }}
         >
-          <Plus className="me-1.5 h-3.5 w-3.5" />{t('add')}</Button>
+          <Plus className="me-1.5 h-3.5 w-3.5" />
+          {t('add')}
+        </Button>
       </div>
 
       {/* Preference list */}
       {kindPrefs.length === 0 ? (
-        <div className="rounded-lg border border-border py-8 text-center text-sm text-text-tertiary">{tCommon('no')}{kind.replace('_', ' ')}{t('preferencesSet')}</div>
+        <div className="rounded-lg border border-border py-8 text-center text-sm text-text-tertiary">
+          {tCommon('no')}
+          {kind.replace('_', ' ')}
+          {t('preferencesSet')}
+        </div>
       ) : (
         <div className="space-y-2">
           {kindPrefs.map((pref) => (
@@ -258,7 +265,10 @@ export default function PreferencesPage() {
           setSelectedYear(yearsRes.data[0].id);
         }
       })
-      .catch((err) => { console.error('[SchedulingPreferencesPage]', err); return toast.error('Failed to load reference data'); });
+      .catch((err) => {
+        console.error('[SchedulingPreferencesPage]', err);
+        return toast.error('Failed to load reference data');
+      });
   }, []);
 
   // Load period slots when year is selected
@@ -268,7 +278,9 @@ export default function PreferencesPage() {
       .then((res) =>
         setPeriodSlots(res.data.filter((p) => p.period_type === 'teaching') as PeriodSlot[]),
       )
-      .catch((err) => { console.error('[SchedulingPreferencesPage]', err); });
+      .catch((err) => {
+        console.error('[SchedulingPreferencesPage]', err);
+      });
   }, [selectedYear]);
 
   // Load preferences when staff + year selected
@@ -399,7 +411,9 @@ export default function PreferencesPage() {
       </div>
 
       {!selectedStaff ? (
-        <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border text-sm text-text-tertiary">{t('selectAStaffMemberTo2')}</div>
+        <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border text-sm text-text-tertiary">
+          {t('selectAStaffMemberTo2')}
+        </div>
       ) : isLoading ? (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (

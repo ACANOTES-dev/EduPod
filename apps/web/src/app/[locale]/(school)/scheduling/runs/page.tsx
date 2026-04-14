@@ -30,11 +30,13 @@ interface SchedulingRun {
   status: 'queued' | 'running' | 'completed' | 'failed' | 'applied' | 'discarded';
   mode: 'auto' | 'hybrid';
   created_at: string;
-  completed_at?: string;
-  assigned_count: number;
-  unassigned_count: number;
-  pinned_count: number;
-  score?: number;
+  applied_at?: string | null;
+  entries_generated?: number | null;
+  entries_unassigned?: number | null;
+  entries_pinned?: number | null;
+  soft_preference_score?: number | null;
+  soft_preference_max?: number | null;
+  solver_duration_ms?: number | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -61,11 +63,19 @@ function statusBadgeVariant(
 }
 
 function formatDuration(run: SchedulingRun): string {
-  if (!run.completed_at) return '\u2014';
-  const ms = new Date(run.completed_at).getTime() - new Date(run.created_at).getTime();
+  const ms = run.solver_duration_ms;
+  if (ms == null) return '—';
   const secs = Math.round(ms / 1000);
+  if (secs < 1) return `${ms}ms`;
   if (secs < 60) return `${secs}s`;
-  return `${Math.round(secs / 60)}m ${secs % 60}s`;
+  return `${Math.floor(secs / 60)}m ${secs % 60}s`;
+}
+
+function computeScore(run: SchedulingRun): number | null {
+  const score = run.soft_preference_score;
+  const max = run.soft_preference_max;
+  if (score == null || max == null || max <= 0) return null;
+  return Math.round((score / max) * 100);
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -90,7 +100,9 @@ export default function SchedulingRunsPage() {
         setYears(data);
         if (data.length > 0) setSelectedYear(data[0]!.id);
       })
-      .catch((err) => { console.error('[SchedulingRunsPage]', err); });
+      .catch((err) => {
+        console.error('[SchedulingRunsPage]', err);
+      });
   }, []);
 
   // Load runs
@@ -99,7 +111,10 @@ export default function SchedulingRunsPage() {
     setLoading(true);
     apiClient<{ data: SchedulingRun[] }>(`/api/v1/scheduling-runs?academic_year_id=${selectedYear}`)
       .then((res) => setRuns(res.data ?? []))
-      .catch((err) => { console.error('[SchedulingRunsPage]', err); return setRuns([]); })
+      .catch((err) => {
+        console.error('[SchedulingRunsPage]', err);
+        return setRuns([]);
+      })
       .finally(() => setLoading(false));
   }, [selectedYear]);
 
@@ -176,73 +191,78 @@ export default function SchedulingRunsPage() {
                 </tr>
               </thead>
               <tbody>
-                {runs.map((run) => (
-                  <tr
-                    key={run.id}
-                    className="border-b border-border last:border-b-0 hover:bg-surface-secondary/50 transition-colors cursor-pointer"
-                    onClick={() => router.push(`/${locale}/scheduling/runs/${run.id}`)}
-                  >
-                    <td className="px-4 py-3 text-text-primary">
-                      {new Date(run.created_at).toLocaleDateString(locale, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="secondary" className="capitalize">
-                        {run.mode}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={statusBadgeVariant(run.status)}>
-                        {run.status === 'running' && (
-                          <Loader2 className="h-3 w-3 animate-spin me-1" />
+                {runs.map((run) => {
+                  const score = computeScore(run);
+                  return (
+                    <tr
+                      key={run.id}
+                      className="border-b border-border last:border-b-0 hover:bg-surface-secondary/50 transition-colors cursor-pointer"
+                      onClick={() => router.push(`/${locale}/scheduling/runs/${run.id}/review`)}
+                    >
+                      <td className="px-4 py-3 text-text-primary">
+                        {new Date(run.created_at).toLocaleDateString(locale, {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant="secondary" className="capitalize">
+                          {run.mode}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={statusBadgeVariant(run.status)}>
+                          {run.status === 'running' && (
+                            <Loader2 className="h-3 w-3 animate-spin me-1" />
+                          )}
+                          {t(`auto.${run.status}`)}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-text-primary">
+                        {run.entries_generated ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-text-secondary">
+                        {run.entries_unassigned ?? '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        {score != null ? (
+                          <span
+                            className={`font-mono font-semibold ${
+                              score >= 80
+                                ? 'text-green-600 dark:text-green-400'
+                                : score >= 60
+                                  ? 'text-amber-600 dark:text-amber-400'
+                                  : 'text-red-600 dark:text-red-400'
+                            }`}
+                          >
+                            {score}%
+                          </span>
+                        ) : (
+                          <span className="text-text-tertiary">—</span>
                         )}
-                        {t(`auto.${run.status}`)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-text-primary">{run.assigned_count}</td>
-                    <td className="px-4 py-3 font-mono text-text-secondary">
-                      {run.unassigned_count}
-                    </td>
-                    <td className="px-4 py-3">
-                      {run.score != null ? (
-                        <span
-                          className={`font-mono font-semibold ${
-                            run.score >= 80
-                              ? 'text-green-600 dark:text-green-400'
-                              : run.score >= 60
-                                ? 'text-amber-600 dark:text-amber-400'
-                                : 'text-red-600 dark:text-red-400'
-                          }`}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-text-secondary">
+                        {formatDuration(run)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/${locale}/scheduling/runs/${run.id}/review`);
+                          }}
+                          className="text-xs text-brand hover:underline flex items-center gap-1"
                         >
-                          {run.score}
-                        </span>
-                      ) : (
-                        <span className="text-text-tertiary">{t('u2014')}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-text-secondary">
-                      {formatDuration(run)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/${locale}/scheduling/runs/${run.id}`);
-                        }}
-                        className="text-xs text-brand hover:underline flex items-center gap-1"
-                      >
-                        {t('auto.viewReview')}
-                        <ChevronRight className="h-3 w-3 rtl:rotate-180" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                          {t('auto.viewReview')}
+                          <ChevronRight className="h-3 w-3 rtl:rotate-180" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

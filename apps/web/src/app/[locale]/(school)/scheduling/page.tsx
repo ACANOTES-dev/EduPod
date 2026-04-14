@@ -421,11 +421,17 @@ export default function SchedulingHubPage() {
           setLoading(false);
           return;
         }
-        return apiClient<DashboardOverview>(
+        return apiClient<{ data: DashboardOverview } | DashboardOverview>(
           `/api/v1/scheduling-dashboard/overview?academic_year_id=${yearId}`,
           { silent: true },
         )
-          .then((ov) => setOverview(ov))
+          .then((ov) => {
+            const payload =
+              ov && typeof ov === 'object' && 'data' in ov
+                ? (ov as { data: DashboardOverview }).data
+                : (ov as DashboardOverview);
+            setOverview(payload ?? null);
+          })
           .finally(() => setLoading(false));
       })
       .catch((err) => {

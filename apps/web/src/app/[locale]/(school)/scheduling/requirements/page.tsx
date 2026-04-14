@@ -167,7 +167,10 @@ export default function RequirementsPage() {
           setSelectedYear(yearsRes.data[0].id);
         }
       })
-      .catch((err) => { console.error('[SchedulingRequirementsPage]', err); return toast.error('Failed to load reference data'); });
+      .catch((err) => {
+        console.error('[SchedulingRequirementsPage]', err);
+        return toast.error('Failed to load reference data');
+      });
   }, []);
 
   const fetchRequirements = React.useCallback(async (p: number, year: string, cls: string) => {
@@ -377,6 +380,30 @@ export default function RequirementsPage() {
     <div className="space-y-6">
       <PageHeader title={t('auto.requirements')} description={t('auto.requirementsDesc')} />
 
+      {/* Empty-state / purpose banner — shown when nothing configured */}
+      {totalClasses > 0 && configuredCount === 0 && (
+        <div className="rounded-xl border border-border bg-surface p-4 space-y-2 text-sm">
+          <div className="flex items-start gap-2">
+            <Circle className="h-4 w-4 shrink-0 mt-0.5 text-text-tertiary" />
+            <div className="space-y-1.5">
+              <p className="font-medium text-text-primary">
+                No per-class overrides yet — this is optional.
+              </p>
+              <p className="text-text-secondary">
+                Class Requirements lets you fine-tune per class: preferred room, required room type,
+                max consecutive periods, spread across the week, and expected student count. The
+                solver already has the default curriculum loaded per year group — you only need rows
+                here when a specific class needs different settings.
+              </p>
+              <p className="text-text-secondary">
+                To get started, click <strong>Configure remaining with defaults</strong> below to
+                populate a row per class × subject. You can then adjust values inline.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Completeness banner */}
       {totalClasses > 0 && (
         <div
@@ -392,7 +419,11 @@ export default function RequirementsPage() {
             <Circle className="h-4 w-4 shrink-0" />
           )}
           <span>
-            {configuredCount}{t('of')}{totalClasses}{t('classesConfigured')}</span>
+            {configuredCount}
+            {t('of')}
+            {totalClasses}
+            {t('classesConfigured')}
+          </span>
           {configuredCount < totalClasses && (
             <Button
               size="sm"
@@ -411,9 +442,14 @@ export default function RequirementsPage() {
                     toast.success('Defaults applied to remaining classes');
                     void fetchRequirements(page, selectedYear, classFilter);
                   })
-                  .catch((err) => { console.error('[SchedulingRequirementsPage]', err); return toast.error('Failed to apply defaults'); });
+                  .catch((err) => {
+                    console.error('[SchedulingRequirementsPage]', err);
+                    return toast.error('Failed to apply defaults');
+                  });
               }}
-            >{t('configureRemainingWithDefaults')}</Button>
+            >
+              {t('configureRemainingWithDefaults')}
+            </Button>
           )}
         </div>
       )}

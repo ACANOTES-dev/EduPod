@@ -71,7 +71,10 @@ export default function TeacherConfigPage() {
         setAcademicYears(res.data);
         if (res.data[0]) setSelectedYear(res.data[0].id);
       })
-      .catch((err) => { console.error('[SchedulingTeacherConfigPage]', err); return toast.error(tc('errorGeneric')); });
+      .catch((err) => {
+        console.error('[SchedulingTeacherConfigPage]', err);
+        return toast.error(tc('errorGeneric'));
+      });
   }, [tc]);
 
   // Fetch teacher configs merged with all staff profiles
@@ -85,7 +88,7 @@ export default function TeacherConfigPage() {
         ),
         apiClient<{
           data: Array<{ id: string; user?: { first_name: string; last_name: string } }>;
-        }>('/api/v1/staff-profiles?pageSize=200'),
+        }>('/api/v1/staff-profiles?pageSize=100'),
       ]);
 
       // Build a map of existing configs by staff_profile_id
