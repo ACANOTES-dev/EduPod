@@ -108,6 +108,7 @@ export class SubstitutionService {
     const weekday = targetDate.getDay();
     const subjectId = schedule.class_entity?.subject_id ?? null;
     const yearGroupId = schedule.class_entity?.year_group_id ?? null;
+    const classId = schedule.class_id;
     const academicYearId = schedule.class_entity?.academic_year_id ?? schedule.academic_year_id;
 
     // Find teachers already busy at this time slot on that date
@@ -121,24 +122,28 @@ export class SubstitutionService {
     // All staff
     const allStaff = await this.staffProfileReadFacade.findActiveStaff(tenantId);
 
-    // Competencies. The is_primary ranking signal was dropped in Stage 1 of
-    // the scheduler rebuild; Stage 7 will rewire this against the new
-    // substitute_teacher_competencies table. Until then every competent
-    // candidate ranks equally on the subject-competency axis.
-    const competencies =
-      subjectId || yearGroupId
-        ? await this.prisma.teacherCompetency.findMany({
+    // Stage 7: substitute competencies live in their own table. Pin for this
+    // specific class ranks higher than a pool entry for the year group; both
+    // outrank non-competent candidates.
+    const competencyRows =
+      subjectId && yearGroupId
+        ? await this.prisma.substituteTeacherCompetency.findMany({
             where: {
               tenant_id: tenantId,
               academic_year_id: academicYearId,
-              ...(subjectId ? { subject_id: subjectId } : {}),
-              ...(yearGroupId ? { year_group_id: yearGroupId } : {}),
+              subject_id: subjectId,
+              OR: [{ class_id: classId }, { class_id: null, year_group_id: yearGroupId }],
             },
-            select: { staff_profile_id: true },
+            select: { staff_profile_id: true, class_id: true },
           })
         : [];
 
-    const competentStaffIds = new Set(competencies.map((c) => c.staff_profile_id));
+    const pinnedStaffIds = new Set<string>();
+    const pooledStaffIds = new Set<string>();
+    for (const row of competencyRows) {
+      if (row.class_id === classId) pinnedStaffIds.add(row.staff_profile_id);
+      else pooledStaffIds.add(row.staff_profile_id);
+    }
 
     // Cover counts (substitution_records from last 30 days for fairness)
     const thirtyDaysAgo = new Date();
@@ -165,18 +170,22 @@ export class SubstitutionService {
       if (staff.id === schedule.teacher_staff_id) continue;
 
       const name = `${staff.user.first_name} ${staff.user.last_name}`.trim();
-      const isCompetent = subjectId ? competentStaffIds.has(staff.id) : true;
+      const isPinned = pinnedStaffIds.has(staff.id);
+      const isPooled = pooledStaffIds.has(staff.id);
+      const isCompetent = subjectId ? isPinned || isPooled : true;
       const coverCount = coverCountMap.get(staff.id) ?? 0;
 
       let rankScore = 0;
-      if (isCompetent) rankScore += 20;
+      if (isPinned) rankScore += 30;
+      else if (isPooled) rankScore += 20;
+      else if (isCompetent) rankScore += 10;
       rankScore -= coverCount * 2; // Penalise frequent cover teachers for fairness
 
       results.push({
         staff_profile_id: staff.id,
         name,
         is_competent: isCompetent,
-        is_primary: false, // Stage 1: primary ranking dropped; Stage 7 rewires.
+        is_primary: isPinned,
         is_available: true, // Availability already filtered by busy check
         cover_count: coverCount,
         rank_score: rankScore,

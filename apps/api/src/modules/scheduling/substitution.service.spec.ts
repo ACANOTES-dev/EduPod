@@ -45,7 +45,7 @@ describe('SubstitutionService', () => {
       delete: jest.Mock;
     };
     schedule: { findFirst: jest.Mock; findMany: jest.Mock };
-    teacherCompetency: { findMany: jest.Mock };
+    substituteTeacherCompetency: { findMany: jest.Mock };
     substitutionRecord: {
       findFirst: jest.Mock;
       findMany: jest.Mock;
@@ -70,7 +70,7 @@ describe('SubstitutionService', () => {
         findFirst: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
       },
-      teacherCompetency: {
+      substituteTeacherCompetency: {
         findMany: jest.fn().mockResolvedValue([]),
       },
       substitutionRecord: {
@@ -223,6 +223,7 @@ describe('SubstitutionService', () => {
       start_time: new Date('1970-01-01T09:00:00Z'),
       end_time: new Date('1970-01-01T10:00:00Z'),
       academic_year_id: 'ay-1',
+      class_id: 'class-1',
       class_entity: { year_group_id: 'yg-1', subject_id: 'sub-1', academic_year_id: 'ay-1' },
     };
 
@@ -235,7 +236,7 @@ describe('SubstitutionService', () => {
         { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
         { id: STAFF_ID, user: { first_name: 'John', last_name: 'Doe' } }, // absent teacher
       ]);
-      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+      mockPrisma.substituteTeacherCompetency.findMany.mockResolvedValue([]);
       mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
 
       const result = await service.findEligibleSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-20');
@@ -253,7 +254,7 @@ describe('SubstitutionService', () => {
         { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
         { id: 'staff-3', user: { first_name: 'Bob', last_name: 'Jones' } },
       ]);
-      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+      mockPrisma.substituteTeacherCompetency.findMany.mockResolvedValue([]);
       mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
 
       const result = await service.findEligibleSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-20');
@@ -272,7 +273,9 @@ describe('SubstitutionService', () => {
         { id: 'staff-3', user: { first_name: 'Bob', last_name: 'Jones' } },
       ]);
       // staff-2 is competent, staff-3 is not
-      mockPrisma.teacherCompetency.findMany.mockResolvedValue([{ staff_profile_id: 'staff-2' }]);
+      mockPrisma.substituteTeacherCompetency.findMany.mockResolvedValue([
+        { staff_profile_id: 'staff-2', class_id: null },
+      ]);
       mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
 
       const result = await service.findEligibleSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-20');
@@ -293,7 +296,7 @@ describe('SubstitutionService', () => {
         { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
         { id: 'staff-3', user: { first_name: 'Bob', last_name: 'Jones' } },
       ]);
-      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+      mockPrisma.substituteTeacherCompetency.findMany.mockResolvedValue([]);
       // staff-2 has covered 5 times, staff-3 has not covered at all
       mockPrisma.substitutionRecord.findMany.mockResolvedValue([
         { substitute_staff_id: 'staff-2' },
@@ -716,7 +719,7 @@ describe('SubstitutionService', () => {
       (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
         { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
       ]);
-      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+      mockPrisma.substituteTeacherCompetency.findMany.mockResolvedValue([]);
       mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
 
       const result = await service.findEligibleSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-20');
@@ -743,7 +746,7 @@ describe('SubstitutionService', () => {
       (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
         { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
       ]);
-      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+      mockPrisma.substituteTeacherCompetency.findMany.mockResolvedValue([]);
       mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
 
       const result = await service.findEligibleSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-20');

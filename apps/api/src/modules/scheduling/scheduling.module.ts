@@ -33,6 +33,8 @@ import { SchedulingAnalyticsService } from './scheduling-analytics.service';
 import { SchedulingEnhancedController } from './scheduling-enhanced.controller';
 import { SchedulingPublicController } from './scheduling-public.controller';
 import { SchedulingReadFacade } from './scheduling-read.facade';
+import { SubstituteCompetenciesController } from './substitute-competencies.controller';
+import { SubstituteCompetenciesService } from './substitute-competencies.service';
 import { SubstitutionService } from './substitution.service';
 import { TeacherCompetenciesController } from './teacher-competencies.controller';
 import { TeacherCompetenciesService } from './teacher-competencies.service';
@@ -56,6 +58,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
   controllers: [
     CurriculumRequirementsController,
     TeacherCompetenciesController,
+    SubstituteCompetenciesController,
     BreakGroupsController,
     RoomClosuresController,
     TeacherSchedulingConfigController,
@@ -67,6 +70,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
   providers: [
     CurriculumRequirementsService,
     TeacherCompetenciesService,
+    SubstituteCompetenciesService,
     BreakGroupsService,
     RoomClosuresService,
     TeacherSchedulingConfigService,
@@ -87,6 +91,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     SchedulerOrchestrationService,
     CurriculumRequirementsService,
     TeacherCompetenciesService,
+    SubstituteCompetenciesService,
     BreakGroupsService,
     PersonalTimetableService,
     SchedulingReadFacade,

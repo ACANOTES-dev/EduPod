@@ -118,6 +118,7 @@ export interface ScheduleSubstitutionContextRow {
   id: string;
   teacher_staff_id: string | null;
   academic_year_id: string;
+  class_id: string;
   weekday: number;
   start_time: Date;
   end_time: Date;
@@ -527,10 +528,7 @@ export class SchedulesReadFacade {
    * Find schedule entries with teacher + class + subject + DES code mapping includes.
    * Used by regulatory DES Form TL (teaching loads) generation.
    */
-  async findTeachingLoadEntries(
-    tenantId: string,
-    academicYearId: string,
-  ): Promise<unknown[]> {
+  async findTeachingLoadEntries(tenantId: string, academicYearId: string): Promise<unknown[]> {
     return this.prisma.schedule.findMany({
       where: {
         tenant_id: tenantId,
@@ -728,6 +726,7 @@ export class SchedulesReadFacade {
         id: true,
         teacher_staff_id: true,
         academic_year_id: true,
+        class_id: true,
         weekday: true,
         start_time: true,
         end_time: true,

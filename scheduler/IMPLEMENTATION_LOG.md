@@ -22,16 +22,16 @@
 
 ## Status board
 
-| #   | Stage                                    | Status     | Owner (session/date) | Notes                                                        |
-| --- | ---------------------------------------- | ---------- | -------------------- | ------------------------------------------------------------ |
-| 1   | Schema migration + cover-teacher removal | `complete` | Claude / 2026-04-13  | Migration live on prod; commit `3893bec7`.                   |
-| 2   | Solver core updates                      | `complete` | Claude / 2026-04-14  | Commit `d76344bb`; pin/pool model live on prod.              |
-| 3   | API surface updates                      | `complete` | Claude / 2026-04-14  | Commit `477b0076`; competency API + coverage per-class live. |
-| 4   | Competencies page UI rebuild             | `complete` | Claude / 2026-04-14  | Commit `ed5ea305`; competencies + coverage UI live on prod.  |
-| 5   | Seed NHQS data                           | `complete` | Claude / 2026-04-14  | Commit `a099008a`; NHQS seeded + prereq check fixed (C2).    |
-| 6   | Generate end-to-end on NHQS              | `complete` | Claude / 2026-04-14  | Run `eace28b5` applied: 361 entries, 0 hard violations.      |
-| 7   | Substitutes page + table                 | `pending`  | —                    | Blocked by Stage 6                                           |
-| 8   | Downstream rewire                        | `pending`  | —                    | Blocked by Stage 7                                           |
+| #   | Stage                                    | Status     | Owner (session/date) | Notes                                                                |
+| --- | ---------------------------------------- | ---------- | -------------------- | -------------------------------------------------------------------- |
+| 1   | Schema migration + cover-teacher removal | `complete` | Claude / 2026-04-13  | Migration live on prod; commit `3893bec7`.                           |
+| 2   | Solver core updates                      | `complete` | Claude / 2026-04-14  | Commit `d76344bb`; pin/pool model live on prod.                      |
+| 3   | API surface updates                      | `complete` | Claude / 2026-04-14  | Commit `477b0076`; competency API + coverage per-class live.         |
+| 4   | Competencies page UI rebuild             | `complete` | Claude / 2026-04-14  | Commit `ed5ea305`; competencies + coverage UI live on prod.          |
+| 5   | Seed NHQS data                           | `complete` | Claude / 2026-04-14  | Commit `a099008a`; NHQS seeded + prereq check fixed (C2).            |
+| 6   | Generate end-to-end on NHQS              | `complete` | Claude / 2026-04-14  | Run `eace28b5` applied: 361 entries, 0 hard violations.              |
+| 7   | Substitutes page + table                 | `complete` | Claude / 2026-04-14  | `substitute_teacher_competencies` live on prod; UI + /suggest wired. |
+| 8   | Downstream rewire                        | `pending`  | —                    | Blocked by Stage 7                                                   |
 
 ## Parallelisation
 
@@ -529,3 +529,72 @@ Keep a short chronological record of significant orchestration events (not per-s
 - **Stage 4 completed** — 2026-04-14. Competencies page rebuilt around the year-group + class pin/pool model; per-class coverage grid live. Deployed to prod. Stage 5 (seed NHQS data) is now unblocked.
 - **Stage 5 completed** — 2026-04-14. NHQS seeded (59 curriculum, 162 pool competencies, 155 staff availability rows). Prereq check patched (Option C2) to handle homeroom-model schools without seeding redundant `class_scheduling_requirements`. Prereqs endpoint returns `ready: true` on prod. Stage 6 (generate end-to-end) is now unblocked — note the auto-page UI bug documented in Stage 5's follow-ups.
 - **Stage 6 completed** — 2026-04-14. Run `eace28b5-75f0-4b07-bc44-eaf48a41be05` applied on NHQS: 361 entries, 0 hard violations, 89% preference satisfaction, 33 unassigned. `schedules` table populated (361 rows × 16 classes × 24 teachers). Analytics and teacher timetable verified live. Seven pipeline bugs fixed in-stage (config_snapshot stub, RLS on failure-update, review shape+envelope, auto-page envelopes, my-timetable wrong URL + role gate, dashboard overview envelope). Stage 7 (substitutes page) is now unblocked.
+- **Stage 7 completed** — 2026-04-14. `substitute_teacher_competencies` table + RLS policy + `set_updated_at` trigger deployed on prod. Full CRUD API surface (`list`, `create`, `update`, `delete`, `bulk`, `copy`, `copy-to-years`, `by-teacher`, `by-subject`) plus new `GET /v1/scheduling/substitute-competencies/suggest?academic_year_id=…&class_id=…&subject_id=…&date=…` endpoint ranking pin > pool > cover-count penalty. `SubstitutionService.findEligibleSubstitutes` rewired to query the new table (pin = `class_id` match on the schedule's class, pool = same `year_group`); `is_primary` signal restored. Frontend page `/scheduling/substitute-competencies` is a literal clone of the Stage 4 page with amber accent and parallel i18n (en + ar). Hub tile added under "Day-to-day Operations". Verified on NHQS as `Yusuf Rahman (owner)`: pool POST returned 201 (Sarah Daly → Arabic), pin POST returned 201 (Sarah Daly → K1A Arabic) and persisted across reload with "Preferred" badge. RTL pass on `/ar/scheduling/substitute-competencies` — header, banner, legend translated; `dir="rtl"` applied. 52 unit tests pass across `substitute-competencies.service.spec.ts`, `substitution.service.spec.ts`, `substitution-branches.spec.ts`. DI smoke clean. Stage 8 (downstream rewire — teaching-allocations, report-comments) is now unblocked.
+
+## Stage 7 — Substitutes page + table
+
+**What shipped**
+
+- New Prisma model `SubstituteTeacherCompetency` mirroring `TeacherCompetency` (same six-column unique index including `class_id`, same FK cascades on `tenant`/`academic_year`/`staff_profile`/`subject`/`year_group`/`class`). Migration `20260414120000_add_substitute_teacher_competencies/` with both `migration.sql` and `post_migrate.sql` (the latter enables `ENABLE` + `FORCE` RLS, installs `substitute_teacher_competencies_tenant_isolation` policy, and the `set_updated_at` trigger). Applied on prod with `DATABASE_MIGRATE_URL` for ownership privileges (the runtime role cannot `ALTER TABLE`).
+
+- New Zod schemas in `packages/shared/src/schemas/scheduling.schema.ts` under the "Substitute Teacher Competencies" section: `create…`, `update…`, `bulkCreate…`, `copyToYears…`, `list…Query`, and the new `suggestSubstitutesQuerySchema = { class_id, subject_id, date }`. Re-exported via the barrel.
+
+- New `SubstituteCompetenciesService` + `SubstituteCompetenciesController`:
+  - CRUD mirrors `TeacherCompetenciesService` exactly (pool-row application-layer uniqueness, `assertClassMatchesYearGroup`, P2002 translation).
+  - `suggest(tenantId, academic_year_id, { class_id, subject_id, date })` queries rows where `(class_id = X OR (class_id IS NULL AND year_group_id = Y)) AND subject_id = S`, fetches active staff + day availability + weekly workload, then ranks: pin +25, pool +20, available +15, −1 per weekly cover. Returns `{ staff_profile_id, name, is_pinned, is_available, cover_count, rank_score }` sorted by score desc.
+  - Controller routes: `GET`, `POST`, `PATCH :id`, `DELETE :id`, `GET coverage → suggest`, `GET by-teacher/:id`, `GET by-subject`, `POST bulk`, `POST copy`, `POST copy-to-years`. All behind `@RequiresPermission('schedule.manage_substitutions')`.
+  - Registered in `SchedulingModule` as controller + provider + export.
+
+- `SubstitutionService.findEligibleSubstitutes` rewired: swaps `teacherCompetency.findMany` for `substituteTeacherCompetency.findMany` with the pin/pool OR clause, restores the `is_primary` signal (now = pin for this specific class), and ranks: pin +30, pool +20, any-competent +10, −2 per weekly cover. The `SchedulesReadFacade.findByIdWithSubstitutionContext` select was extended to include `class_id` at the top level (needed for pin matching). `ScheduleSubstitutionContextRow` interface now exposes `class_id: string`.
+
+- New frontend page `/scheduling/substitute-competencies/page.tsx` cloned from the Stage 4 competencies page with amber accent (amber-500 checkboxes, amber-600 pin badges, amber-50/70 banner stripe, amber-500 tab underline). Own `_components/{types,pool-matrix,pin-matrix,copy-wizard}.tsx` to keep the primary competencies page untouched. Hub tile added under "Day-to-day Operations" using `UserCheck` icon.
+
+- New i18n keys in `messages/en.json` + `messages/ar.json` under `scheduling.v2`: `substituteCompetencies`, `…Desc`, `…Banner`, `substitutePoolSaved/Removed`, `substitutePinReplaced/Cleared`, `substitutePinLabel`, `substituteLegend{Pool,Pin,None}`, `noSubstituteForSubject`. Plus `scheduling.hub.substituteCompetenciesDesc` for the tile caption.
+
+**Migrations / schema changes**
+
+- `20260414120000_add_substitute_teacher_competencies/migration.sql` — table creation, FKs, indexes.
+- `20260414120000_add_substitute_teacher_competencies/post_migrate.sql` — RLS policy + `set_updated_at` trigger.
+- `packages/prisma/schema.prisma` — new `SubstituteTeacherCompetency` model plus inverse `substitute_teacher_competencies` array relations on `Tenant`, `StaffProfile`, `AcademicYear`, `YearGroup`, `Subject`, `Class`.
+
+**Tests added / updated**
+
+- New: `apps/api/src/modules/scheduling/substitute-competencies.service.spec.ts` — 10 tests across CRUD (pool/pin create, year-group mismatch, pool duplicate conflict, promote/demote/no-op update, delete) and `suggest` (pin > pool ranking, workload tiebreak, empty when no competencies, class-not-found `NotFoundException`).
+- Updated: `apps/api/src/modules/scheduling/substitution.service.spec.ts` — mocks switched from `teacherCompetency` to `substituteTeacherCompetency`; the "assigns higher rank to competent teachers" test now seeds a pool row `{ staff_profile_id, class_id: null }`; `mockSchedule` gains `class_id` for pin matching.
+- Updated: `apps/api/src/modules/scheduling/substitution-branches.spec.ts` — same mock rename + `class_id` on the null-class_entity fixture.
+- Full module pass: 29 scheduling test suites, 560 tests, all green.
+
+**Deployment trace**
+
+- Rsync of `packages/{prisma,shared}` and `apps/{api,web}` with the mandated excludes (`.git`, `node_modules`, `.next`, `dist`, `.env*`, `.turbo`, `*.tsbuildinfo`). `chown -R edupod:edupod` post-sync. `.env` symlinks at `apps/api/.env` and `apps/worker/.env` verified intact.
+- `pnpm migrate:deploy` applied `20260414120000_add_substitute_teacher_competencies`. `post_migrate.sql` required `DATABASE_MIGRATE_URL` (owner role) — ran cleanly on retry: `ALTER TABLE`, `CREATE POLICY`, `CREATE TRIGGER`.
+- `pnpm --filter @school/shared build` + `pnpm --filter @school/prisma generate` to rebuild the shared dist (the API consumes `@school/shared/dist`) and regenerate the Prisma client.
+- `pnpm --filter @school/{api,worker} build`, `pnpm --filter @school/web build`. `pm2 restart api worker web`. Health check returns 200, postgresql+redis+bullmq all up.
+
+**Playwright verification (nhqs.edupod.app, Yusuf Rahman owner)**
+
+- `/en/scheduling` — "Substitute Competencies" tile renders under "Day-to-day Operations".
+- `/en/scheduling/substitute-competencies` — header, amber banner, three-item legend (Pool / Preferred / Not eligible), year group buttons (K → 6th Class), class tabs + `All (pool)`, subject columns, teacher rows all render.
+- Create pool: click Sarah Daly × Arabic → `POST /api/v1/scheduling/substitute-competencies` → 201. Reload → checkbox stays checked (persisted).
+- Create pin: switch to K1A tab → Select → Sarah Daly for Arabic → 201. Reload → select label reads "Sarah Daly", status cell shows the "Preferred" amber badge.
+- RTL: `/ar/scheduling/substitute-competencies` — `dir="rtl"`, header "كفاءات البدلاء", banner + legend translated.
+
+**Acceptance checklist**
+
+- [x] New table + RLS policy live on prod.
+- [x] New API endpoints respond (list + CRUD + suggest).
+- [x] New UI page loads, creates/pins/deletes.
+- [x] Substitution service rewired to the new table (`is_primary` restored via `class_id` match).
+- [x] Hub tile added.
+- [x] i18n en + ar.
+- [x] Playwright: hub tile, CRUD, persistence, RTL.
+- [x] type-check / lint / DI smoke / 29 scheduling test suites clean.
+- [x] Local commit; nothing pushed.
+- [x] Completion entry appended + status board flipped.
+
+**Notes / follow-ups**
+
+- The substitutions page (`/scheduling/substitutions`) has a pre-existing 404 on `GET /api/v1/staff?pageSize=200&role=teacher` (flagged in Stage 1's log). Unrelated to Stage 7; the `/substitute-competencies` endpoint the new page hits works fine. Leaving as-is — belongs to whichever stage rewires that page next.
+- The existing `teacher_competencies` table still only has `ENABLE ROW LEVEL SECURITY` (no `FORCE`) — a pre-Stage-1 inconsistency. Stage 7 uses both `ENABLE` + `FORCE` on `substitute_teacher_competencies` as the stage doc required. Worth reconciling at some point but out of scope.
+- Permission `schedule.manage_substitutions` is already provisioned in DB (used by the existing enhanced substitutions endpoints). No seed-data change needed.
+- The new controller's `/suggest` endpoint is in addition to the existing `GET /absences/:id/substitutes` on `scheduling-enhanced.controller` — they now share the same ranking signal via the rewired `SubstitutionService.findEligibleSubstitutes`. Stage 8 can decide whether to consolidate.

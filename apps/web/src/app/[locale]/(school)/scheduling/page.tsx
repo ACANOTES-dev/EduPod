@@ -19,6 +19,7 @@ import {
   Pin,
   ShieldCheck,
   Sparkles,
+  UserCheck,
   UserCog,
   UserX,
   Users,
@@ -350,6 +351,12 @@ const CATEGORIES: ModuleCategory[] = [
         descKey: 'hub.substitutionsDesc',
         href: '/scheduling/substitutions',
         icon: UserX,
+      },
+      {
+        labelKey: 'v2.substituteCompetencies',
+        descKey: 'hub.substituteCompetenciesDesc',
+        href: '/scheduling/substitute-competencies',
+        icon: UserCheck,
       },
       {
         labelKey: 'board.navTitle',

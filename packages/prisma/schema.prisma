@@ -545,12 +545,13 @@ model Tenant {
   scheduling_runs               SchedulingRun[]
 
   // P4B-v2 Relations
-  curriculum_requirements    CurriculumRequirement[]
-  teacher_competencies       TeacherCompetency[]
-  break_groups               BreakGroup[]
-  break_group_year_groups    BreakGroupYearGroup[]
-  room_closures              RoomClosure[]
-  teacher_scheduling_configs TeacherSchedulingConfig[]
+  curriculum_requirements          CurriculumRequirement[]
+  teacher_competencies             TeacherCompetency[]
+  substitute_teacher_competencies  SubstituteTeacherCompetency[]
+  break_groups                     BreakGroup[]
+  break_group_year_groups          BreakGroupYearGroup[]
+  room_closures                    RoomClosure[]
+  teacher_scheduling_configs       TeacherSchedulingConfig[]
 
   // P5 Relations
   grading_scales              GradingScale[]
@@ -1872,8 +1873,9 @@ model StaffProfile {
   staff_recurring_deductions   StaffRecurringDeduction[]
 
   // P4B-v2 Relations
-  teacher_competencies       TeacherCompetency[]
-  teacher_scheduling_configs TeacherSchedulingConfig[]
+  teacher_competencies            TeacherCompetency[]
+  substitute_teacher_competencies SubstituteTeacherCompetency[]
+  teacher_scheduling_configs      TeacherSchedulingConfig[]
 
   // Scheduling World-Class Relations
   teacher_absences     TeacherAbsence[]
@@ -1928,10 +1930,11 @@ model AcademicYear {
   scheduling_runs               SchedulingRun[]
 
   // P4B-v2 Relations
-  curriculum_requirements    CurriculumRequirement[]
-  teacher_competencies       TeacherCompetency[]
-  break_groups               BreakGroup[]
-  teacher_scheduling_configs TeacherSchedulingConfig[]
+  curriculum_requirements         CurriculumRequirement[]
+  teacher_competencies            TeacherCompetency[]
+  substitute_teacher_competencies SubstituteTeacherCompetency[]
+  break_groups                    BreakGroup[]
+  teacher_scheduling_configs      TeacherSchedulingConfig[]
 
   // Scheduling World-Class Relations
   scheduling_scenarios SchedulingScenario[]
@@ -2329,10 +2332,11 @@ model YearGroup {
   fee_structures FeeStructure[]
 
   // P4B-v2 Relations
-  curriculum_requirements   CurriculumRequirement[]
-  teacher_competencies      TeacherCompetency[]
-  break_group_year_groups   BreakGroupYearGroup[]
-  schedule_period_templates SchedulePeriodTemplate[]
+  curriculum_requirements         CurriculumRequirement[]
+  teacher_competencies            TeacherCompetency[]
+  substitute_teacher_competencies SubstituteTeacherCompetency[]
+  break_group_year_groups         BreakGroupYearGroup[]
+  schedule_period_templates       SchedulePeriodTemplate[]
 
   // Gradebook Phase D Relations
   year_group_grade_weights YearGroupGradeWeight[]
@@ -2375,8 +2379,9 @@ model Subject {
   report_card_subject_comments ReportCardSubjectComment[]
 
   // P4B-v2 Relations
-  curriculum_requirements CurriculumRequirement[]
-  teacher_competencies    TeacherCompetency[]
+  curriculum_requirements         CurriculumRequirement[]
+  teacher_competencies            TeacherCompetency[]
+  substitute_teacher_competencies SubstituteTeacherCompetency[]
 
   // P5+ World-Class Gradebook Relations
   rubric_templates             RubricTemplate[]
@@ -2462,7 +2467,8 @@ model Class {
   period_year_weights    PeriodYearWeight[]    @relation("PeriodYearWeightClass")
 
   // Scheduler Rebuild Relations
-  teacher_competencies TeacherCompetency[]
+  teacher_competencies            TeacherCompetency[]
+  substitute_teacher_competencies SubstituteTeacherCompetency[]
 
   @@unique([tenant_id, name, academic_year_id], name: "idx_classes_tenant_name_year")
   @@index([tenant_id, academic_year_id], name: "idx_classes_tenant_year")
@@ -3058,6 +3064,37 @@ model TeacherCompetency {
   @@index([tenant_id, academic_year_id, subject_id, year_group_id], name: "idx_teacher_competency_subject_year")
   @@index([tenant_id, class_id], name: "idx_teacher_competencies_tenant_class")
   @@map("teacher_competencies")
+}
+
+// Substitute-competency parallel table. Same pin/pool grain as TeacherCompetency
+// but identifies WHO IS QUALIFIED TO COVER for whom in general — independent of
+// any specific absence date. `teacher_absences` / `substitution_records` handle
+// the date-specific side.
+model SubstituteTeacherCompetency {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String   @db.Uuid
+  academic_year_id String   @db.Uuid
+  staff_profile_id String   @db.Uuid
+  subject_id       String   @db.Uuid
+  year_group_id    String   @db.Uuid
+  // class_id = NULL → pool entry: eligible to cover any section in the year group.
+  // class_id = <uuid> → pin: preferred cover for this specific section.
+  class_id         String?  @db.Uuid
+  created_at       DateTime @default(now()) @db.Timestamptz()
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  subject       Subject      @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  year_group    YearGroup    @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+  class         Class?       @relation(fields: [class_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, academic_year_id, staff_profile_id, subject_id, year_group_id, class_id], name: "idx_substitute_teacher_competency_unique")
+  @@index([tenant_id, academic_year_id, staff_profile_id], name: "idx_substitute_teacher_competency_staff")
+  @@index([tenant_id, academic_year_id, subject_id, year_group_id], name: "idx_substitute_teacher_competency_subject_year")
+  @@index([tenant_id, class_id], name: "idx_substitute_teacher_competencies_tenant_class")
+  @@map("substitute_teacher_competencies")
 }
 
 model BreakGroup {

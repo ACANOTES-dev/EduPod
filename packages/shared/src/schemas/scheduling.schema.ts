@@ -126,6 +126,96 @@ export const listTeacherCompetenciesQuerySchema = z.object({
 
 export type ListTeacherCompetenciesQuery = z.infer<typeof listTeacherCompetenciesQuerySchema>;
 
+// ─── Substitute Teacher Competencies ────────────────────────────────────────
+
+/**
+ * Parallel to teacher-competency schemas, but on the substitute table. Same
+ * pin/pool semantics: `class_id === null` → pool (eligible to cover any section
+ * in the year group); `class_id === <uuid>` → pin (preferred cover for that
+ * section, ranks higher in suggestions).
+ */
+export const createSubstituteTeacherCompetencySchema = z.object({
+  academic_year_id: z.string().uuid(),
+  staff_profile_id: z.string().uuid(),
+  subject_id: z.string().uuid(),
+  year_group_id: z.string().uuid(),
+  class_id: z.string().uuid().nullable().optional(),
+});
+
+export type CreateSubstituteTeacherCompetencyDto = z.infer<
+  typeof createSubstituteTeacherCompetencySchema
+>;
+
+export const updateSubstituteTeacherCompetencySchema = z.object({
+  class_id: z.string().uuid().nullable().optional(),
+});
+
+export type UpdateSubstituteTeacherCompetencyDto = z.infer<
+  typeof updateSubstituteTeacherCompetencySchema
+>;
+
+export const bulkCreateSubstituteTeacherCompetenciesSchema = z.object({
+  academic_year_id: z.string().uuid(),
+  staff_profile_id: z.string().uuid(),
+  competencies: z
+    .array(
+      z.object({
+        subject_id: z.string().uuid(),
+        year_group_id: z.string().uuid(),
+        class_id: z.string().uuid().nullable().optional(),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
+
+export type BulkCreateSubstituteTeacherCompetenciesDto = z.infer<
+  typeof bulkCreateSubstituteTeacherCompetenciesSchema
+>;
+
+export const copySubstituteCompetenciesToYearsSchema = z.object({
+  academic_year_id: z.string().uuid(),
+  source_year_group_id: z.string().uuid(),
+  targets: z
+    .array(
+      z.object({
+        year_group_id: z.string().uuid(),
+        subject_ids: z.array(z.string().uuid()).min(1),
+      }),
+    )
+    .min(1)
+    .max(50),
+});
+
+export type CopySubstituteCompetenciesToYearsDto = z.infer<
+  typeof copySubstituteCompetenciesToYearsSchema
+>;
+
+export const listSubstituteTeacherCompetenciesQuerySchema = z.object({
+  academic_year_id: z.string().uuid(),
+  staff_profile_id: z.string().uuid().optional(),
+  subject_id: z.string().uuid().optional(),
+  year_group_id: z.string().uuid().optional(),
+  class_id: z.union([z.string().uuid(), z.literal('null')]).optional(),
+});
+
+export type ListSubstituteTeacherCompetenciesQuery = z.infer<
+  typeof listSubstituteTeacherCompetenciesQuerySchema
+>;
+
+/**
+ * Query for the `/suggest` endpoint. Given a `(class_id, subject_id, date)`,
+ * return ranked cover candidates using the pin-first, pool-fallback model
+ * plus workload and availability signals.
+ */
+export const suggestSubstitutesQuerySchema = z.object({
+  class_id: z.string().uuid(),
+  subject_id: z.string().uuid(),
+  date: z.string().date(),
+});
+
+export type SuggestSubstitutesQuery = z.infer<typeof suggestSubstitutesQuerySchema>;
+
 // ─── Break Groups ───────────────────────────────────────────────────────────
 
 export const createBreakGroupSchema = z.object({

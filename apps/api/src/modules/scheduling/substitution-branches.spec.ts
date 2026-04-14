@@ -45,7 +45,7 @@ describe('SubstitutionService — branch coverage', () => {
       delete: jest.Mock;
     };
     schedule: { findFirst: jest.Mock; findMany: jest.Mock };
-    teacherCompetency: { findMany: jest.Mock };
+    substituteTeacherCompetency: { findMany: jest.Mock };
     substitutionRecord: {
       findFirst: jest.Mock;
       findMany: jest.Mock;
@@ -64,7 +64,7 @@ describe('SubstitutionService — branch coverage', () => {
         delete: jest.fn(),
       },
       schedule: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
-      teacherCompetency: { findMany: jest.fn().mockResolvedValue([]) },
+      substituteTeacherCompetency: { findMany: jest.fn().mockResolvedValue([]) },
       substitutionRecord: {
         findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([]),
@@ -195,6 +195,7 @@ describe('SubstitutionService — branch coverage', () => {
         start_time: new Date('1970-01-01T09:00:00Z'),
         end_time: new Date('1970-01-01T10:00:00Z'),
         academic_year_id: 'ay-1',
+        class_id: 'class-1',
         class_entity: null,
       });
       (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
@@ -202,7 +203,7 @@ describe('SubstitutionService — branch coverage', () => {
       (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
         { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
       ]);
-      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+      mockPrisma.substituteTeacherCompetency.findMany.mockResolvedValue([]);
       mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
 
       const result = await service.findEligibleSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-20');
