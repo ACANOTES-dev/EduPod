@@ -29,6 +29,7 @@ const mockSchedule = {
   start_time: new Date('1970-01-01T09:00:00Z'),
   end_time: new Date('1970-01-01T10:00:00Z'),
   academic_year_id: 'ay-1',
+  class_id: 'class-1',
   class_entity: {
     name: '10A',
     year_group_id: 'yg-1',
@@ -46,7 +47,7 @@ describe('AiSubstitutionService', () => {
   let mockPrisma: {
     schedule: { findFirst: jest.Mock; findMany: jest.Mock };
     staffProfile: { findMany: jest.Mock };
-    teacherCompetency: { findMany: jest.Mock };
+    substituteTeacherCompetency: { findMany: jest.Mock };
     substitutionRecord: { findMany: jest.Mock };
   };
 
@@ -69,7 +70,7 @@ describe('AiSubstitutionService', () => {
           { id: 'staff-3', user: { first_name: 'Bob', last_name: 'Jones' } },
         ]),
       },
-      teacherCompetency: {
+      substituteTeacherCompetency: {
         findMany: jest.fn().mockResolvedValue([]),
       },
       substitutionRecord: {
@@ -497,7 +498,7 @@ describe('AiSubstitutionService', () => {
       const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
 
       expect(result.data).toHaveLength(1);
-      expect(mockPrisma.teacherCompetency.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.substituteTeacherCompetency.findMany).not.toHaveBeenCalled();
     });
 
     // Two tests about merging is_primary across duplicate competency rows were
@@ -532,7 +533,7 @@ describe('AiSubstitutionService', () => {
 
       expect(result.data).toHaveLength(1);
       // Competency query should use fallback-ay
-      expect(mockPrisma.teacherCompetency.findMany).toHaveBeenCalledWith(
+      expect(mockPrisma.substituteTeacherCompetency.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ academic_year_id: 'fallback-ay' }),
         }),
@@ -658,7 +659,11 @@ describe('AiSubstitutionService', () => {
       expect(result.data).toHaveLength(0);
     });
 
-    it('should query competencies with only subject_id when year_group_id is null', async () => {
+    it('should skip the competency lookup when year_group_id is null', async () => {
+      // Stage 8: substitute competencies are keyed by (subject, year_group),
+      // so if either is missing the AI ranker treats everyone as "generally
+      // competent" and leaves is_primary/is_competent inferred at the prompt
+      // level. The DB query is skipped entirely.
       const schedWithSubjectOnly = {
         ...mockSchedule,
         class_entity: {
@@ -684,17 +689,10 @@ describe('AiSubstitutionService', () => {
 
       await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
 
-      expect(mockPrisma.teacherCompetency.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ subject_id: 'sub-1' }),
-        }),
-      );
-      // year_group_id should not be in the where
-      const callArgs = mockPrisma.teacherCompetency.findMany.mock.calls[0]![0];
-      expect(callArgs.where).not.toHaveProperty('year_group_id');
+      expect(mockPrisma.substituteTeacherCompetency.findMany).not.toHaveBeenCalled();
     });
 
-    it('should query competencies with only year_group_id when subject_id is null', async () => {
+    it('should skip the competency lookup when subject_id is null', async () => {
       const schedWithYgOnly = {
         ...mockSchedule,
         class_entity: {
@@ -718,13 +716,7 @@ describe('AiSubstitutionService', () => {
 
       await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
 
-      expect(mockPrisma.teacherCompetency.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ year_group_id: 'yg-1' }),
-        }),
-      );
-      const callArgs = mockPrisma.teacherCompetency.findMany.mock.calls[0]![0];
-      expect(callArgs.where).not.toHaveProperty('subject_id');
+      expect(mockPrisma.substituteTeacherCompetency.findMany).not.toHaveBeenCalled();
     });
 
     it('should use fallback name when tokenised name not found for staff', async () => {

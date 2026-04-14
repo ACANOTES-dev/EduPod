@@ -73,12 +73,7 @@ export interface TeacherCompetencyRow {
   staff_profile_id: string;
   subject_id: string;
   year_group_id: string;
-  /**
-   * Always `false` after Stage 1 of the scheduler rebuild — the underlying
-   * column was dropped. Kept on the type so Stage 2 (solver) and Stage 8
-   * (teaching-allocations) can be retired alongside the interface in one pass.
-   */
-  is_primary: boolean;
+  class_id: string | null;
 }
 
 export interface TeacherSchedulingConfigRow {
@@ -449,19 +444,15 @@ export class SchedulingReadFacade {
     if (opts?.yearGroupId) where.year_group_id = opts.yearGroupId;
     if (opts?.staffProfileId) where.staff_profile_id = opts.staffProfileId;
 
-    const rows = await this.prisma.teacherCompetency.findMany({
+    return this.prisma.teacherCompetency.findMany({
       where,
       select: {
         staff_profile_id: true,
         subject_id: true,
         year_group_id: true,
+        class_id: true,
       },
     });
-
-    // is_primary was dropped in Stage 1 of the scheduler rebuild; we still emit
-    // it on the row so downstream consumers (solver input, teaching-allocations)
-    // keep compiling until they are rewritten in later stages.
-    return rows.map((r) => ({ ...r, is_primary: false }));
   }
 
   /**

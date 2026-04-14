@@ -5,7 +5,7 @@ import {
   AcademicReadFacade,
   ClassesReadFacade,
   MOCK_FACADE_PROVIDERS,
-  SchedulingReadFacade,
+  SchedulesReadFacade,
   StaffProfileReadFacade,
   StudentReadFacade,
 } from '../../../common/tests/mock-facades';
@@ -46,7 +46,8 @@ function buildMockPrisma() {
     subjectPeriodWeight: { findMany: jest.fn() },
     periodYearWeight: { findMany: jest.fn() },
     assessment: { groupBy: jest.fn() },
-    teacherCompetency: { findMany: jest.fn() },
+    // teacherCompetency removed in Stage 8 — visibility now derives from the
+    // live `schedules` table via SchedulesReadFacade.getTeacherAssignmentsForYear.
   };
 }
 
@@ -695,7 +696,10 @@ describe('ReportCardsQueriesService — listReportCardLibrary', () => {
     findClassesGeneric: jest.Mock;
   };
   let mockAcademicFacade: { findCurrentYear: jest.Mock };
-  let mockSchedulingFacade: { findTeacherCompetencies: jest.Mock };
+  let mockSchedulesFacade: {
+    getTeacherAssignmentsForYear: jest.Mock;
+    hasAppliedSchedule: jest.Mock;
+  };
 
   const TEACHER_ID = 'dddddddd-1111-4111-8111-111111111111';
   const STAFF_PROFILE_ID = 'dddddddd-2222-4222-8222-222222222222';
@@ -716,8 +720,9 @@ describe('ReportCardsQueriesService — listReportCardLibrary', () => {
     mockAcademicFacade = {
       findCurrentYear: jest.fn().mockResolvedValue(null),
     };
-    mockSchedulingFacade = {
-      findTeacherCompetencies: jest.fn().mockResolvedValue([]),
+    mockSchedulesFacade = {
+      getTeacherAssignmentsForYear: jest.fn().mockResolvedValue([]),
+      hasAppliedSchedule: jest.fn().mockResolvedValue(false),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -729,7 +734,7 @@ describe('ReportCardsQueriesService — listReportCardLibrary', () => {
         { provide: StaffProfileReadFacade, useValue: mockStaffFacade },
         { provide: ClassesReadFacade, useValue: mockClassesFacade },
         { provide: AcademicReadFacade, useValue: mockAcademicFacade },
-        { provide: SchedulingReadFacade, useValue: mockSchedulingFacade },
+        { provide: SchedulesReadFacade, useValue: mockSchedulesFacade },
       ],
     }).compile();
 

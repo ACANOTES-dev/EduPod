@@ -50,7 +50,6 @@ interface Allocation {
   year_group_name: string;
   staff_profile_id: string;
   teacher_name: string;
-  is_primary: boolean;
   has_grade_config: boolean;
   has_approved_categories: number;
   has_approved_weights: boolean;
@@ -439,13 +438,14 @@ export function LeadershipDashboard() {
 
   const today = React.useMemo(() => startOfToday(), []);
 
-  // class+subject → first teacher lookup (prefer primary)
+  // class+subject → first teacher lookup. After Stage 8 the schedules table is
+  // the source of truth, so any row with a teacher for this class+subject is
+  // authoritative — there is no "primary vs secondary" distinction anymore.
   const teacherByClassSubject = React.useMemo(() => {
     const map = new Map<string, { staff_profile_id: string; teacher_name: string }>();
     for (const a of allocations) {
       const key = `${a.class_id}:${a.subject_id}`;
-      const existing = map.get(key);
-      if (!existing || (a.is_primary && !existing)) {
+      if (!map.has(key)) {
         map.set(key, { staff_profile_id: a.staff_profile_id, teacher_name: a.teacher_name });
       }
     }

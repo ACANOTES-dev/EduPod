@@ -115,7 +115,7 @@ import { SafeguardingScanMessageProcessor } from './processors/safeguarding/mess
 import { SafeguardingNotifyReviewersProcessor } from './processors/safeguarding/notify-reviewers.processor';
 import { SlaCheckProcessor } from './processors/safeguarding/sla-check.processor';
 import { SchedulingSolverV2Processor } from './processors/scheduling/solver-v2.processor';
-import { SchedulingStaleReaperProcessor } from './processors/scheduling-stale-reaper.processor';
+import { SchedulingStaleReaperJob } from './processors/scheduling-stale-reaper.processor';
 import { SearchIndexProcessor } from './processors/search-index.processor';
 import { SearchReindexProcessor } from './processors/search-reindex.processor';
 import { AnomalyScanProcessor } from './processors/security/anomaly-scan.processor';
@@ -421,7 +421,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     AttendancePatternDetectionProcessor,
     // Scheduling queue processors
     SchedulingSolverV2Processor,
-    SchedulingStaleReaperProcessor,
+    SchedulingStaleReaperJob,
     // Gradebook queue — single @Processor dispatcher routes jobs to the
     // @Injectable processor services below by job name. This eliminates the
     // competitive-consumer race that used to silently drop jobs when

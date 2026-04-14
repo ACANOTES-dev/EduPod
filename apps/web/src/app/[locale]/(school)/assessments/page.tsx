@@ -36,7 +36,6 @@ interface TeachingAllocation {
   year_group_name: string;
   staff_profile_id: string;
   teacher_name: string;
-  is_primary: boolean;
   has_grade_config: boolean;
   has_approved_categories: number;
   has_approved_weights: boolean;
@@ -45,6 +44,7 @@ interface TeachingAllocation {
 
 interface AllocationsResponse {
   data: TeachingAllocation[];
+  meta?: { reason: 'no_timetable_applied' | 'ok' };
 }
 
 interface PaginatedResponse<T> {
@@ -121,6 +121,21 @@ function EmptyState({ message }: { message: string }) {
     <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-surface p-12">
       <LayoutGrid className="mb-3 h-10 w-10 text-text-tertiary" />
       <p className="text-sm text-text-tertiary">{message}</p>
+    </div>
+  );
+}
+
+function NoTimetableEmptyState({ t }: { t: (k: string) => string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-surface p-12 text-center">
+      <LayoutGrid className="mb-3 h-10 w-10 text-text-tertiary" />
+      <p className="text-sm text-text-primary font-medium mb-1">{t('noTimetableApplied')}</p>
+      <Link
+        href="/scheduling/auto"
+        className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+      >
+        {t('goToScheduler')}
+      </Link>
     </div>
   );
 }
@@ -619,6 +634,7 @@ function TeacherAssessmentsDashboard() {
   const t = useTranslations('teacherAssessments');
 
   const [allocations, setAllocations] = React.useState<TeachingAllocation[]>([]);
+  const [noTimetable, setNoTimetable] = React.useState(false);
   const [configCounts, setConfigCounts] = React.useState<ConfigCounts>({
     categories: 0,
     approvedCategories: 0,
@@ -648,6 +664,7 @@ function TeacherAssessmentsDashboard() {
         ]);
 
       setAllocations(allocationsRes.data);
+      setNoTimetable(allocationsRes.meta?.reason === 'no_timetable_applied');
 
       const allCategories = categoriesRes.data;
       const approvedCats = allCategories.filter(
@@ -694,7 +711,9 @@ function TeacherAssessmentsDashboard() {
       </div>
 
       {/* Allocations data */}
-      {allocations.length === 0 ? (
+      {noTimetable ? (
+        <NoTimetableEmptyState t={t} />
+      ) : allocations.length === 0 ? (
         <EmptyState message={t('noAllocations')} />
       ) : (
         <>

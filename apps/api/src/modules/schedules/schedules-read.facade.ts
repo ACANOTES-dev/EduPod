@@ -22,7 +22,9 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { $Enums } from '@prisma/client';
 
+import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulingReadFacade } from '../scheduling/scheduling-read.facade';
 
 // ─── Common effective-date filter ─────────────────────────────────────────────
 
@@ -137,7 +139,15 @@ export interface ScheduleSubstitutionContextRow {
 
 @Injectable()
 export class SchedulesReadFacade {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // Stage 8: subject resolution for homeroom-model schools needs to read
+    // teacher_competencies (scheduling-owned) and class_subject_grade_configs
+    // (gradebook-owned). Both are exposed via global read-facades; using them
+    // here keeps the cross-module Prisma boundary clean.
+    private readonly schedulingReadFacade: SchedulingReadFacade,
+    private readonly gradebookReadFacade: GradebookReadFacade,
+  ) {}
 
   // ─── Single-record lookups ──────────────────────────────────────────────────
 
@@ -213,6 +223,196 @@ export class SchedulesReadFacade {
     });
 
     return new Set(rows.map((r) => r.teacher_staff_id).filter((id): id is string => id !== null));
+  }
+
+  /**
+   * Return the distinct `(class_id, subject_id)` pairs this teacher is
+   * assigned to teach in the given academic year, derived from the live
+   * `schedules` table (Stage 8 source of truth).
+   *
+   * Schools come in two flavours:
+   *   - Subject-specific classes (`class.subject_id IS NOT NULL`) — the
+   *     schedule row's class already identifies the subject, so each row
+   *     yields one pair directly.
+   *   - Homeroom classes (`class.subject_id IS NULL`) — one class teaches
+   *     multiple subjects across the week, and the schedule row only says
+   *     *when* this teacher is in front of the class, not which subject.
+   *     The subject is resolved via the curriculum matrix for that class
+   *     intersected with the teacher's competencies (pin first, pool+year
+   *     group fallback).
+   *
+   * Empty array → no timetable applied yet (or the teacher is simply
+   * unscheduled). Callers should use `hasAppliedSchedule` to distinguish
+   * those two cases for empty-state UX.
+   */
+  async getTeacherAssignmentsForYear(
+    tenantId: string,
+    academicYearId: string,
+    staffProfileId: string,
+  ): Promise<Array<{ class_id: string; subject_id: string }>> {
+    const scheduleRows = await this.prisma.schedule.findMany({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: academicYearId,
+        teacher_staff_id: staffProfileId,
+        ...effectiveNow(),
+      },
+      select: {
+        class_id: true,
+        class_entity: { select: { subject_id: true, year_group_id: true } },
+      },
+    });
+
+    const classInfo = new Map<
+      string,
+      { subject_id: string | null; year_group_id: string | null }
+    >();
+    for (const r of scheduleRows) {
+      if (classInfo.has(r.class_id)) continue;
+      classInfo.set(r.class_id, {
+        subject_id: r.class_entity?.subject_id ?? null,
+        year_group_id: r.class_entity?.year_group_id ?? null,
+      });
+    }
+
+    if (classInfo.size === 0) return [];
+
+    return this.resolveClassSubjectPairs(tenantId, academicYearId, classInfo, staffProfileId);
+  }
+
+  /**
+   * Admin view — every teacher's `(class_id, subject_id, teacher_staff_id)`
+   * assignment across the year. Same subject-resolution fallback as
+   * `getTeacherAssignmentsForYear`.
+   */
+  async getAllAssignmentsForYear(
+    tenantId: string,
+    academicYearId: string,
+  ): Promise<Array<{ class_id: string; subject_id: string; teacher_staff_id: string }>> {
+    const scheduleRows = await this.prisma.schedule.findMany({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: academicYearId,
+        teacher_staff_id: { not: null },
+        ...effectiveNow(),
+      },
+      select: {
+        class_id: true,
+        teacher_staff_id: true,
+        class_entity: { select: { subject_id: true, year_group_id: true } },
+      },
+    });
+
+    if (scheduleRows.length === 0) return [];
+
+    const pairsByTeacher = new Map<
+      string,
+      Map<string, { subject_id: string | null; year_group_id: string | null }>
+    >();
+    for (const r of scheduleRows) {
+      if (!r.teacher_staff_id) continue;
+      const classInfo =
+        pairsByTeacher.get(r.teacher_staff_id) ??
+        new Map<string, { subject_id: string | null; year_group_id: string | null }>();
+      if (!classInfo.has(r.class_id)) {
+        classInfo.set(r.class_id, {
+          subject_id: r.class_entity?.subject_id ?? null,
+          year_group_id: r.class_entity?.year_group_id ?? null,
+        });
+      }
+      pairsByTeacher.set(r.teacher_staff_id, classInfo);
+    }
+
+    const out: Array<{ class_id: string; subject_id: string; teacher_staff_id: string }> = [];
+    for (const [teacherId, classInfo] of pairsByTeacher) {
+      const pairs = await this.resolveClassSubjectPairs(
+        tenantId,
+        academicYearId,
+        classInfo,
+        teacherId,
+      );
+      for (const p of pairs) {
+        out.push({ ...p, teacher_staff_id: teacherId });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Resolve `(class_id, subject_id)` pairs for a teacher from a set of
+   * scheduled classes. Subject-specific classes resolve directly; homeroom
+   * classes fall through to the curriculum matrix × teacher competency
+   * intersection.
+   */
+  private async resolveClassSubjectPairs(
+    tenantId: string,
+    academicYearId: string,
+    classInfo: Map<string, { subject_id: string | null; year_group_id: string | null }>,
+    staffProfileId: string,
+  ): Promise<Array<{ class_id: string; subject_id: string }>> {
+    const homeroomClassIds: string[] = [];
+    const pairs: Array<{ class_id: string; subject_id: string }> = [];
+    for (const [classId, info] of classInfo) {
+      if (info.subject_id) {
+        pairs.push({ class_id: classId, subject_id: info.subject_id });
+      } else {
+        homeroomClassIds.push(classId);
+      }
+    }
+
+    if (homeroomClassIds.length === 0) return pairs;
+
+    const [competencies, matrix] = await Promise.all([
+      this.schedulingReadFacade.findTeacherCompetencies(tenantId, academicYearId, {
+        staffProfileId,
+      }),
+      this.gradebookReadFacade.findClassSubjectConfigs(tenantId, homeroomClassIds),
+    ]);
+
+    const subjectsByClass = new Map<string, Set<string>>();
+    for (const m of matrix) {
+      const set = subjectsByClass.get(m.class_id) ?? new Set<string>();
+      set.add(m.subject_id);
+      subjectsByClass.set(m.class_id, set);
+    }
+
+    for (const classId of homeroomClassIds) {
+      const info = classInfo.get(classId);
+      if (!info) continue;
+      const matrixSubjects = subjectsByClass.get(classId) ?? new Set<string>();
+      for (const subjectId of matrixSubjects) {
+        const hasPin = competencies.some(
+          (c) => c.class_id === classId && c.subject_id === subjectId,
+        );
+        const hasPool = competencies.some(
+          (c) =>
+            c.class_id === null &&
+            c.subject_id === subjectId &&
+            c.year_group_id === info.year_group_id,
+        );
+        if (hasPin || hasPool) {
+          pairs.push({ class_id: classId, subject_id: subjectId });
+        }
+      }
+    }
+    return pairs;
+  }
+
+  /**
+   * Return `true` if the academic year has any currently-effective schedule
+   * entries. Used by downstream services to distinguish "no timetable
+   * applied yet" from "teacher just has no allocations".
+   */
+  async hasAppliedSchedule(tenantId: string, academicYearId: string): Promise<boolean> {
+    const row = await this.prisma.schedule.findFirst({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: academicYearId,
+        ...effectiveNow(),
+      },
+      select: { id: true },
+    });
+    return row !== null;
   }
 
   /**

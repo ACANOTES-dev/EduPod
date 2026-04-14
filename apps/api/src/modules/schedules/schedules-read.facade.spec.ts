@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { $Enums } from '@prisma/client';
 
+import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulingReadFacade } from '../scheduling/scheduling-read.facade';
 
 import { SchedulesReadFacade } from './schedules-read.facade';
 
@@ -43,6 +45,8 @@ describe('SchedulesReadFacade', () => {
       groupBy: jest.Mock;
     };
   };
+  let mockSchedulingFacade: { findTeacherCompetencies: jest.Mock };
+  let mockGradebookFacade: { findClassSubjectConfigs: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -54,8 +58,20 @@ describe('SchedulesReadFacade', () => {
       },
     };
 
+    mockSchedulingFacade = {
+      findTeacherCompetencies: jest.fn().mockResolvedValue([]),
+    };
+    mockGradebookFacade = {
+      findClassSubjectConfigs: jest.fn().mockResolvedValue([]),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
-      providers: [SchedulesReadFacade, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        SchedulesReadFacade,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SchedulingReadFacade, useValue: mockSchedulingFacade },
+        { provide: GradebookReadFacade, useValue: mockGradebookFacade },
+      ],
     }).compile();
 
     facade = module.get<SchedulesReadFacade>(SchedulesReadFacade);
@@ -923,6 +939,176 @@ describe('SchedulesReadFacade', () => {
       expect(result).toHaveLength(1);
       const callArgs = mockPrisma.schedule.findMany.mock.calls[0][0];
       expect(callArgs.where.effective_start_date).toEqual({ lte: rangeEnd });
+    });
+  });
+
+  // ─── Stage 8 helpers ───────────────────────────────────────────────────────
+
+  describe('SchedulesReadFacade -- getTeacherAssignmentsForYear', () => {
+    it('dedupes by (class_id, subject_id) for subject-specific classes', async () => {
+      mockPrisma.schedule.findMany.mockResolvedValue([
+        { class_id: 'class-a', class_entity: { subject_id: 'math', year_group_id: 'yg-1' } },
+        { class_id: 'class-a', class_entity: { subject_id: 'math', year_group_id: 'yg-1' } },
+        { class_id: 'class-b', class_entity: { subject_id: 'math', year_group_id: 'yg-1' } },
+      ]);
+
+      const result = await facade.getTeacherAssignmentsForYear(TENANT_ID, 'ay-1', STAFF_ID);
+
+      expect(result).toEqual([
+        { class_id: 'class-a', subject_id: 'math' },
+        { class_id: 'class-b', subject_id: 'math' },
+      ]);
+    });
+
+    it('returns empty array when the teacher has no scheduled entries', async () => {
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      const result = await facade.getTeacherAssignmentsForYear(TENANT_ID, 'ay-1', STAFF_ID);
+      expect(result).toEqual([]);
+    });
+
+    it('resolves homeroom classes via competency × curriculum matrix (pool match)', async () => {
+      // NHQS-shape: class has subject_id=null (homeroom model). The teacher
+      // teaches Arabic + Maths across Grade 3's matrix; only those two
+      // subjects land in the pool.
+      mockPrisma.schedule.findMany.mockResolvedValue([
+        { class_id: 'class-3a', class_entity: { subject_id: null, year_group_id: 'yg-3' } },
+      ]);
+      mockSchedulingFacade.findTeacherCompetencies.mockResolvedValue([
+        { subject_id: 'arabic', year_group_id: 'yg-3', class_id: null },
+        { subject_id: 'math', year_group_id: 'yg-3', class_id: null },
+      ]);
+      mockGradebookFacade.findClassSubjectConfigs.mockResolvedValue([
+        { class_id: 'class-3a', subject_id: 'arabic' },
+        { class_id: 'class-3a', subject_id: 'math' },
+        { class_id: 'class-3a', subject_id: 'english' }, // teacher has no competency → skipped
+      ]);
+
+      const result = await facade.getTeacherAssignmentsForYear(TENANT_ID, 'ay-1', STAFF_ID);
+
+      expect(result).toEqual(
+        expect.arrayContaining([
+          { class_id: 'class-3a', subject_id: 'arabic' },
+          { class_id: 'class-3a', subject_id: 'math' },
+        ]),
+      );
+      expect(result).not.toContainEqual({ class_id: 'class-3a', subject_id: 'english' });
+    });
+
+    it('honours pin (class_id match) when resolving homeroom subject', async () => {
+      mockPrisma.schedule.findMany.mockResolvedValue([
+        { class_id: 'class-3a', class_entity: { subject_id: null, year_group_id: 'yg-3' } },
+      ]);
+      mockSchedulingFacade.findTeacherCompetencies.mockResolvedValue([
+        { subject_id: 'arabic', year_group_id: 'yg-3', class_id: 'class-3a' },
+      ]);
+      mockGradebookFacade.findClassSubjectConfigs.mockResolvedValue([
+        { class_id: 'class-3a', subject_id: 'arabic' },
+      ]);
+
+      const result = await facade.getTeacherAssignmentsForYear(TENANT_ID, 'ay-1', STAFF_ID);
+      expect(result).toEqual([{ class_id: 'class-3a', subject_id: 'arabic' }]);
+    });
+
+    it('scopes the query by tenant + academic year + teacher + effective-now', async () => {
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      await facade.getTeacherAssignmentsForYear(TENANT_ID, 'ay-1', STAFF_ID);
+      const where = mockPrisma.schedule.findMany.mock.calls[0][0].where;
+      expect(where.tenant_id).toBe(TENANT_ID);
+      expect(where.academic_year_id).toBe('ay-1');
+      expect(where.teacher_staff_id).toBe(STAFF_ID);
+      expect(where.OR).toEqual([
+        { effective_end_date: null },
+        { effective_end_date: { gte: expect.any(Date) } },
+      ]);
+    });
+  });
+
+  describe('SchedulesReadFacade -- getAllAssignmentsForYear', () => {
+    it('dedupes by (class_id, subject_id, teacher_staff_id) for subject-specific classes', async () => {
+      mockPrisma.schedule.findMany.mockResolvedValue([
+        {
+          class_id: 'class-a',
+          teacher_staff_id: 'staff-1',
+          class_entity: { subject_id: 'math', year_group_id: 'yg-1' },
+        },
+        {
+          class_id: 'class-a',
+          teacher_staff_id: 'staff-1',
+          class_entity: { subject_id: 'math', year_group_id: 'yg-1' },
+        },
+        {
+          class_id: 'class-a',
+          teacher_staff_id: 'staff-2',
+          class_entity: { subject_id: 'math', year_group_id: 'yg-1' },
+        },
+        {
+          class_id: 'class-b',
+          teacher_staff_id: 'staff-1',
+          class_entity: { subject_id: 'math', year_group_id: 'yg-1' },
+        },
+      ]);
+
+      const result = await facade.getAllAssignmentsForYear(TENANT_ID, 'ay-1');
+
+      expect(result).toHaveLength(3);
+      expect(result).toContainEqual({
+        class_id: 'class-a',
+        subject_id: 'math',
+        teacher_staff_id: 'staff-1',
+      });
+      expect(result).toContainEqual({
+        class_id: 'class-a',
+        subject_id: 'math',
+        teacher_staff_id: 'staff-2',
+      });
+      expect(result).toContainEqual({
+        class_id: 'class-b',
+        subject_id: 'math',
+        teacher_staff_id: 'staff-1',
+      });
+    });
+
+    it('skips rows missing teacher_staff_id', async () => {
+      mockPrisma.schedule.findMany.mockResolvedValue([
+        {
+          class_id: 'a',
+          teacher_staff_id: null,
+          class_entity: { subject_id: 'math', year_group_id: 'yg-1' },
+        },
+        {
+          class_id: 'c',
+          teacher_staff_id: 'staff-1',
+          class_entity: { subject_id: 'math', year_group_id: 'yg-1' },
+        },
+      ]);
+      const result = await facade.getAllAssignmentsForYear(TENANT_ID, 'ay-1');
+      expect(result).toEqual([{ class_id: 'c', subject_id: 'math', teacher_staff_id: 'staff-1' }]);
+    });
+  });
+
+  describe('SchedulesReadFacade -- hasAppliedSchedule', () => {
+    it('returns true when at least one effective row exists for the year', async () => {
+      mockPrisma.schedule.findFirst.mockResolvedValue({ id: SCHEDULE_ID });
+      const result = await facade.hasAppliedSchedule(TENANT_ID, 'ay-1');
+      expect(result).toBe(true);
+    });
+
+    it('returns false when no effective rows exist', async () => {
+      mockPrisma.schedule.findFirst.mockResolvedValue(null);
+      const result = await facade.hasAppliedSchedule(TENANT_ID, 'ay-1');
+      expect(result).toBe(false);
+    });
+
+    it('filters by tenant + academic year + effective-now', async () => {
+      mockPrisma.schedule.findFirst.mockResolvedValue(null);
+      await facade.hasAppliedSchedule(TENANT_ID, 'ay-1');
+      const where = mockPrisma.schedule.findFirst.mock.calls[0][0].where;
+      expect(where.tenant_id).toBe(TENANT_ID);
+      expect(where.academic_year_id).toBe('ay-1');
+      expect(where.OR).toEqual([
+        { effective_end_date: null },
+        { effective_end_date: { gte: expect.any(Date) } },
+      ]);
     });
   });
 });

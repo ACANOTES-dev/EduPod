@@ -99,7 +99,10 @@ describe('SchedulingSolverV2Processor', () => {
   it('should ignore jobs with a different name', async () => {
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new SchedulingSolverV2Processor(mockPrisma as never);
+    const processor = new SchedulingSolverV2Processor(
+      mockPrisma as never,
+      { process: jest.fn() } as never,
+    );
 
     await processor.process(buildJob('scheduling:other-job'));
 
@@ -109,7 +112,10 @@ describe('SchedulingSolverV2Processor', () => {
   it('should reject jobs without tenant_id', async () => {
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new SchedulingSolverV2Processor(mockPrisma as never);
+    const processor = new SchedulingSolverV2Processor(
+      mockPrisma as never,
+      { process: jest.fn() } as never,
+    );
 
     await expect(
       processor.process(buildJob(SCHEDULING_SOLVE_V2_JOB, { tenant_id: undefined })),
@@ -130,7 +136,10 @@ describe('SchedulingSolverV2Processor', () => {
       },
     });
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new SchedulingSolverV2Processor(mockPrisma as never);
+    const processor = new SchedulingSolverV2Processor(
+      mockPrisma as never,
+      { process: jest.fn() } as never,
+    );
 
     await processor.process(buildJob());
 
@@ -141,7 +150,10 @@ describe('SchedulingSolverV2Processor', () => {
   it('should run the solver, apply the stored seed, and persist the completed run result', async () => {
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new SchedulingSolverV2Processor(mockPrisma as never);
+    const processor = new SchedulingSolverV2Processor(
+      mockPrisma as never,
+      { process: jest.fn() } as never,
+    );
 
     await processor.process(buildJob());
 
@@ -185,14 +197,20 @@ describe('SchedulingSolverV2Processor', () => {
   it('should mark the run as failed and rethrow when the solver crashes', async () => {
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new SchedulingSolverV2Processor(mockPrisma as never);
+    const processor = new SchedulingSolverV2Processor(
+      mockPrisma as never,
+      { process: jest.fn() } as never,
+    );
     mockSolveV2.mockImplementation(() => {
       throw new Error('solver exploded');
     });
 
     await expect(processor.process(buildJob())).rejects.toThrow('solver exploded');
 
-    expect(mockPrisma.schedulingRun.update).toHaveBeenCalledWith({
+    // Stage 6 wired the failure-path update into a $transaction so the RLS
+    // policy on scheduling_runs sees a tenant context. The update lands on
+    // the tx mock, not the top-level prisma client.
+    expect(mockTx.schedulingRun.update).toHaveBeenCalledWith({
       where: { id: RUN_ID },
       data: {
         failure_reason: 'solver exploded',

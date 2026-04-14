@@ -3,7 +3,7 @@ import { Job } from 'bullmq';
 
 import {
   SCHEDULING_REAP_STALE_JOB,
-  SchedulingStaleReaperProcessor,
+  SchedulingStaleReaperJob,
 } from './scheduling-stale-reaper.processor';
 
 const TENANT_A_ID = '11111111-1111-1111-1111-111111111111';
@@ -42,7 +42,7 @@ function buildMockPrismaClient(prisma: ReturnType<typeof buildMockPrisma>) {
   return prisma as unknown as PrismaClient;
 }
 
-describe('SchedulingStaleReaperProcessor', () => {
+describe('SchedulingStaleReaperJob', () => {
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2026-04-01T12:00:00.000Z'));
   });
@@ -54,7 +54,7 @@ describe('SchedulingStaleReaperProcessor', () => {
 
   it('should ignore jobs with a different name', async () => {
     const prisma = buildMockPrisma();
-    const processor = new SchedulingStaleReaperProcessor(buildMockPrismaClient(prisma));
+    const processor = new SchedulingStaleReaperJob(buildMockPrismaClient(prisma));
 
     await processor.process(buildJob('scheduling:other-job'));
 
@@ -83,7 +83,7 @@ describe('SchedulingStaleReaperProcessor', () => {
         updated_at: new Date('2026-04-01T11:59:30.000Z'),
       },
     ]);
-    const processor = new SchedulingStaleReaperProcessor(buildMockPrismaClient(prisma));
+    const processor = new SchedulingStaleReaperJob(buildMockPrismaClient(prisma));
 
     await processor.process(buildJob(SCHEDULING_REAP_STALE_JOB));
 

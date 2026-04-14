@@ -7,7 +7,7 @@ import { AcademicReadFacade } from '../../academics/academic-read.facade';
 import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { S3Service } from '../../s3/s3.service';
-import { SchedulingReadFacade } from '../../scheduling/scheduling-read.facade';
+import { SchedulesReadFacade } from '../../schedules/schedules-read.facade';
 import { StaffProfileReadFacade } from '../../staff-profiles/staff-profile-read.facade';
 import { StudentReadFacade } from '../../students/student-read.facade';
 
@@ -199,7 +199,7 @@ export class ReportCardsQueriesService {
     private readonly classesReadFacade: ClassesReadFacade,
     private readonly studentReadFacade: StudentReadFacade,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
-    private readonly schedulingReadFacade: SchedulingReadFacade,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
     private readonly s3Service: S3Service,
   ) {}
   // ─── LIST ───────────────────────────────────────────────────────────────────
@@ -1158,58 +1158,17 @@ export class ReportCardsQueriesService {
     );
     for (const id of assignedClassIds) classIdSet.add(id);
 
-    // b. Teaching competencies for the active academic year, then cross with
-    //    curriculum matrix assignments (class_subject_grade_configs are
-    //    gradebook-owned, so direct access is fine) to land on concrete
-    //    class IDs.
+    // b. Classes the teacher is scheduled to teach for the active academic
+    //    year. Stage 8: live `schedules` table is the source of truth, not
+    //    teacher_competencies × curriculum-matrix derivation.
     const activeYear = await this.academicReadFacade.findCurrentYear(tenantId);
     if (activeYear) {
-      const allCompetencies = await this.schedulingReadFacade.findTeacherCompetencies(
+      const pairs = await this.schedulesReadFacade.getTeacherAssignmentsForYear(
         tenantId,
         activeYear.id,
+        staffProfileId,
       );
-      const competencies = allCompetencies.filter((c) => c.staff_profile_id === staffProfileId);
-
-      if (competencies.length > 0) {
-        const subjectIds = [...new Set(competencies.map((c) => c.subject_id))];
-        const yearGroupIds = [...new Set(competencies.map((c) => c.year_group_id))];
-
-        // All classes in the relevant year_groups (active) and their
-        // curriculum matrix subject assignments.
-        const [activeClassRows, configs] = await Promise.all([
-          this.classesReadFacade.findClassesGeneric(
-            tenantId,
-            {
-              year_group_id: { in: yearGroupIds },
-              status: 'active',
-              academic_year_id: activeYear.id,
-            },
-            { id: true, year_group_id: true },
-          ) as Promise<Array<{ id: string; year_group_id: string | null }>>,
-          this.prisma.classSubjectGradeConfig.findMany({
-            where: {
-              tenant_id: tenantId,
-              subject_id: { in: subjectIds },
-            },
-            select: { class_id: true, subject_id: true },
-          }),
-        ]);
-
-        const classYearGroup = new Map<string, string | null>(
-          activeClassRows.map((c) => [c.id, c.year_group_id]),
-        );
-        const competencyKey = new Set<string>(
-          competencies.map((c) => `${c.subject_id}:${c.year_group_id}`),
-        );
-
-        for (const cfg of configs) {
-          const yearGroupId = classYearGroup.get(cfg.class_id);
-          if (!yearGroupId) continue;
-          if (competencyKey.has(`${cfg.subject_id}:${yearGroupId}`)) {
-            classIdSet.add(cfg.class_id);
-          }
-        }
-      }
+      for (const p of pairs) classIdSet.add(p.class_id);
     }
 
     if (classIdSet.size === 0) return [];

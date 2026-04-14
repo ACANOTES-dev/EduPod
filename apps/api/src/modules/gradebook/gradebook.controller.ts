@@ -141,16 +141,14 @@ export class GradebookController {
     @CurrentTenant() tenant: { tenant_id: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    return {
-      data: await this.teachingAllocationsService.getMyAllocations(tenant.tenant_id, user.sub),
-    };
+    return this.teachingAllocationsService.getMyAllocations(tenant.tenant_id, user.sub);
   }
 
   // GET /v1/gradebook/teaching-allocations/all
   @Get('gradebook/teaching-allocations/all')
   @RequiresPermission('gradebook.manage')
   async getAllAllocations(@CurrentTenant() tenant: { tenant_id: string }) {
-    return { data: await this.teachingAllocationsService.getAllAllocations(tenant.tenant_id) };
+    return this.teachingAllocationsService.getAllAllocations(tenant.tenant_id);
   }
 
   // GET /v1/gradebook/classes/:classId/allocations
@@ -160,9 +158,7 @@ export class GradebookController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('classId', ParseUUIDPipe) classId: string,
   ) {
-    return {
-      data: await this.teachingAllocationsService.getClassAllocations(tenant.tenant_id, classId),
-    };
+    return this.teachingAllocationsService.getClassAllocations(tenant.tenant_id, classId);
   }
 
   // ─── Grade Configs ──────────────────────────────────────────────────────

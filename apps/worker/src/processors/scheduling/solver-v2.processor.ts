@@ -7,6 +7,10 @@ import { solveV2 } from '../../../../../packages/shared/src/scheduler';
 import type { SolverInputV2 } from '../../../../../packages/shared/src/scheduler';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, type TenantJobPayload } from '../../base/tenant-aware-job';
+import {
+  SCHEDULING_REAP_STALE_JOB,
+  SchedulingStaleReaperJob,
+} from '../scheduling-stale-reaper.processor';
 
 export interface SchedulingSolverV2Payload extends TenantJobPayload {
   tenant_id: string;
@@ -23,12 +27,27 @@ export const SCHEDULING_SOLVE_V2_JOB = 'scheduling:solve-v2';
 export class SchedulingSolverV2Processor extends WorkerHost {
   private readonly logger = new Logger(SchedulingSolverV2Processor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
+  // Stage 8: this is the SOLE @Processor on the `scheduling` queue. We used
+  // to have a second @Processor for the stale-reaper job, but that spawned a
+  // competing BullMQ Worker instance that silently no-op'd whichever solve-v2
+  // job it pulled first. The stale reaper now lives as a plain service that
+  // we dispatch to here when a `scheduling:reap-stale-runs` job lands.
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly staleReaperJob: SchedulingStaleReaperJob,
+  ) {
     super();
   }
 
   async process(job: Job<SchedulingSolverV2Payload>): Promise<void> {
-    if (job.name !== SCHEDULING_SOLVE_V2_JOB) return;
+    if (job.name === SCHEDULING_REAP_STALE_JOB) {
+      await this.staleReaperJob.process(job as unknown as Job);
+      return;
+    }
+    if (job.name !== SCHEDULING_SOLVE_V2_JOB) {
+      this.logger.warn(`Unknown scheduling job name: ${job.name} (id ${job.id})`);
+      return;
+    }
 
     this.logger.log(`Processing ${SCHEDULING_SOLVE_V2_JOB} -- run ${job.data.run_id}`);
 

@@ -1,23 +1,22 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../base/queue.constants';
-
 export const SCHEDULING_REAP_STALE_JOB = 'scheduling:reap-stale-runs';
 
-@Processor(QUEUE_NAMES.SCHEDULING, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class SchedulingStaleReaperProcessor extends WorkerHost {
-  private readonly logger = new Logger(SchedulingStaleReaperProcessor.name);
+// Stage 8: this used to be `@Processor(QUEUE_NAMES.SCHEDULING)` alongside the
+// solver-v2 processor. BullMQ then spawned two competing Worker instances on
+// the same queue, and whichever pulled a `solve-v2` job first would silently
+// no-op (its early-return marked the BullMQ job complete without running the
+// solver). We collapsed both processors into a single @Processor on the
+// solver-v2 file; this class is now a plain service called by that processor
+// when a `scheduling:reap-stale-runs` job lands.
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+@Injectable()
+export class SchedulingStaleReaperJob {
+  private readonly logger = new Logger(SchedulingStaleReaperJob.name);
+
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== SCHEDULING_REAP_STALE_JOB) return;

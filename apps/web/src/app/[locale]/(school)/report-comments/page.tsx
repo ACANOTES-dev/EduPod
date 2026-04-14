@@ -74,6 +74,7 @@ interface LandingScope {
   overall_class_ids: string[];
   subject_assignments: Array<{ class_id: string; subject_id: string }>;
   active_window_id: string | null;
+  no_timetable_applied?: boolean;
 }
 
 interface GroupedCards {
@@ -103,6 +104,7 @@ export default function ReportCommentsLandingPage() {
   const [period, setPeriod] = React.useState<AcademicPeriod | null>(null);
   const [grouped, setGrouped] = React.useState<GroupedCards[]>([]);
   const [homeroomCards, setHomeroomCards] = React.useState<HomeroomCard[]>([]);
+  const [noTimetable, setNoTimetable] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   const [loadFailed, setLoadFailed] = React.useState(false);
   const [refreshToken, setRefreshToken] = React.useState(0);
@@ -163,9 +165,11 @@ export default function ReportCommentsLandingPage() {
         // 2. Fetch landing scope (B6 / B9): the backend tells us which
         // overall homeroom classes the actor can write and which
         // (class, subject) pairs they can write subject comments for.
-        // The subject side is derived from teacher_competencies joined
-        // against class_subject_grade_configs (the curriculum matrix).
-        // See report-comment-windows.service#getLandingScopeForActor.
+        // Stage 8: the subject side now derives from the live `schedules`
+        // table (pairs the teacher is actually timetabled to teach). If no
+        // timetable has been applied yet, the backend sets
+        // `no_timetable_applied=true` so we can render a dedicated empty
+        // state linking to the scheduler.
         let scope: LandingScope = {
           is_admin: true,
           overall_class_ids: [],
@@ -184,6 +188,7 @@ export default function ReportCommentsLandingPage() {
           console.error('[ReportCommentsLanding] landing scope', err);
         }
         if (cancelled) return;
+        setNoTimetable(scope.no_timetable_applied === true);
 
         const overallAllowed = !scope.is_admin ? new Set(scope.overall_class_ids) : null;
 
@@ -544,13 +549,30 @@ export default function ReportCommentsLandingPage() {
       {/* Load failed */}
       {!isLoading && loadFailed && <EmptyState icon={FileText} title={t('loadFailed')} />}
 
-      {/* Empty state */}
-      {!isLoading && !loadFailed && grouped.length === 0 && homeroomCards.length === 0 && (
+      {/* Empty state — no timetable applied (Stage 8) takes precedence */}
+      {!isLoading && !loadFailed && noTimetable && (
         <EmptyState
           icon={MessageSquare}
-          title={activeWindow ? t('noAssignments') : t('noActivity')}
+          title={t('noTimetableApplied')}
+          description={t('noTimetableAppliedDesc')}
+          action={{
+            label: t('goToScheduler'),
+            onClick: () => router.push(`/${locale}/scheduling/auto`),
+          }}
         />
       )}
+
+      {/* Empty state — window/assignment variants */}
+      {!isLoading &&
+        !loadFailed &&
+        !noTimetable &&
+        grouped.length === 0 &&
+        homeroomCards.length === 0 && (
+          <EmptyState
+            icon={MessageSquare}
+            title={activeWindow ? t('noAssignments') : t('noActivity')}
+          />
+        )}
 
       {/* Homeroom overall comments card */}
       {!isLoading && !loadFailed && homeroomCards.length > 0 && (

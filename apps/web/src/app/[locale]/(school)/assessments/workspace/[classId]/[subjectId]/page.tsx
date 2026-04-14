@@ -52,7 +52,6 @@ interface TeachingAllocation {
   year_group_name: string;
   staff_profile_id: string;
   teacher_name: string;
-  is_primary: boolean;
   has_grade_config: boolean;
   has_approved_categories: number;
   has_approved_weights: boolean;

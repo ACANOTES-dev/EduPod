@@ -10,7 +10,7 @@ import { Prisma } from '@prisma/client';
 import { AcademicReadFacade } from '../../academics/academic-read.facade';
 import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
-import { SchedulingReadFacade } from '../../scheduling/scheduling-read.facade';
+import { SchedulesReadFacade } from '../../schedules/schedules-read.facade';
 import { StaffProfileReadFacade } from '../../staff-profiles/staff-profile-read.facade';
 
 import { ReportCommentWindowsService } from './report-comment-windows.service';
@@ -64,8 +64,9 @@ const mockAcademicReadFacade = {
   findCurrentYear: jest.fn().mockResolvedValue({ id: 'year-uuid' }),
 };
 
-const mockSchedulingReadFacade = {
-  findTeacherCompetencies: jest.fn().mockResolvedValue([]),
+const mockSchedulesReadFacade = {
+  hasAppliedSchedule: jest.fn().mockResolvedValue(true),
+  getTeacherAssignmentsForYear: jest.fn().mockResolvedValue([]),
 };
 
 const mockClassesReadFacade = {
@@ -112,7 +113,8 @@ describe('ReportCommentWindowsService', () => {
     mockAcademicReadFacade.findCurrentYear.mockReset().mockResolvedValue({ id: 'year-uuid' });
     mockClassesReadFacade.findClassIdsByStaff.mockReset().mockResolvedValue([]);
     mockClassesReadFacade.findClassesGeneric.mockReset().mockResolvedValue([]);
-    mockSchedulingReadFacade.findTeacherCompetencies.mockReset().mockResolvedValue([]);
+    mockSchedulesReadFacade.hasAppliedSchedule.mockReset().mockResolvedValue(true);
+    mockSchedulesReadFacade.getTeacherAssignmentsForYear.mockReset().mockResolvedValue([]);
     mockStaffProfileReadFacade.resolveProfileId.mockReset().mockResolvedValue('staff-uuid');
     mockStaffProfileReadFacade.findManyGeneric.mockReset().mockResolvedValue([]);
 
@@ -122,7 +124,7 @@ describe('ReportCommentWindowsService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
         { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
-        { provide: SchedulingReadFacade, useValue: mockSchedulingReadFacade },
+        { provide: SchedulesReadFacade, useValue: mockSchedulesReadFacade },
         { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
       ],
     }).compile();
@@ -415,7 +417,7 @@ describe('ReportCommentWindowsService', () => {
       mockPrisma.classSubjectGradeConfig.findMany.mockResolvedValue(MATRIX);
     });
 
-    it('should return every matrix pair for an admin (no competency filter)', async () => {
+    it('should return every matrix pair for an admin (no schedule dependency)', async () => {
       mockPrisma.reportCommentWindow.findFirst.mockResolvedValueOnce(baseWindow);
 
       const result = await service.getLandingScopeForActor(TENANT_ID, {
@@ -428,30 +430,23 @@ describe('ReportCommentWindowsService', () => {
         overall_class_ids: [],
         subject_assignments: MATRIX,
         active_window_id: WINDOW_ID,
+        no_timetable_applied: false,
       });
-      // Admins should never trigger the staff_profile lookup.
       expect(mockStaffProfileReadFacade.resolveProfileId).not.toHaveBeenCalled();
-      // Admins should not query competencies — the whole matrix is theirs.
-      expect(mockSchedulingReadFacade.findTeacherCompetencies).not.toHaveBeenCalled();
+      expect(mockSchedulesReadFacade.hasAppliedSchedule).not.toHaveBeenCalled();
+      expect(mockSchedulesReadFacade.getTeacherAssignmentsForYear).not.toHaveBeenCalled();
     });
 
-    it('should intersect competencies × matrix for a teacher', async () => {
+    it('should return the teacher scheduled pairs from the live schedules table', async () => {
       mockPrisma.reportCommentWindow.findFirst.mockResolvedValueOnce(baseWindow);
       mockStaffProfileReadFacade.resolveProfileId.mockResolvedValueOnce('staff-uuid');
       mockPrisma.reportCommentWindowHomeroom.findMany.mockResolvedValueOnce([
         { class_id: 'class-4a' },
       ]);
-      // Teacher is competent to teach Maths to year group 4 — so the
-      // expected pairs are Maths in 4A and Maths in 4B. 5A Biology is
-      // filtered out (wrong year group); 4A English is filtered out (not
-      // a competency); 4B English doesn't exist in the matrix anyway.
-      mockSchedulingReadFacade.findTeacherCompetencies.mockResolvedValueOnce([
-        {
-          staff_profile_id: 'staff-uuid',
-          subject_id: 'subj-maths',
-          year_group_id: 'yg-4',
-          is_primary: true,
-        },
+      mockSchedulesReadFacade.hasAppliedSchedule.mockResolvedValueOnce(true);
+      mockSchedulesReadFacade.getTeacherAssignmentsForYear.mockResolvedValueOnce([
+        { class_id: 'class-4a', subject_id: 'subj-maths' },
+        { class_id: 'class-4b', subject_id: 'subj-maths' },
       ]);
 
       const result = await service.getLandingScopeForActor(TENANT_ID, {
@@ -467,25 +462,44 @@ describe('ReportCommentWindowsService', () => {
           { class_id: 'class-4b', subject_id: 'subj-maths' },
         ],
         active_window_id: WINDOW_ID,
+        no_timetable_applied: false,
       });
-      // Competency lookup should be scoped to the resolved year + teacher.
-      expect(mockSchedulingReadFacade.findTeacherCompetencies).toHaveBeenCalledWith(
+      expect(mockSchedulesReadFacade.getTeacherAssignmentsForYear).toHaveBeenCalledWith(
         TENANT_ID,
         'year-uuid',
-        { staffProfileId: 'staff-uuid' },
+        'staff-uuid',
       );
     });
 
-    it('should return empty overall + matrix pairs when no window is open', async () => {
+    it('should surface no_timetable_applied when no schedule has been applied', async () => {
+      mockPrisma.reportCommentWindow.findFirst.mockResolvedValueOnce(baseWindow);
+      mockStaffProfileReadFacade.resolveProfileId.mockResolvedValueOnce('staff-uuid');
+      mockPrisma.reportCommentWindowHomeroom.findMany.mockResolvedValueOnce([
+        { class_id: 'class-4a' },
+      ]);
+      mockSchedulesReadFacade.hasAppliedSchedule.mockResolvedValueOnce(false);
+
+      const result = await service.getLandingScopeForActor(TENANT_ID, {
+        userId: 'teacher-uuid',
+        isAdmin: false,
+      });
+
+      expect(result).toEqual({
+        is_admin: false,
+        overall_class_ids: ['class-4a'],
+        subject_assignments: [],
+        active_window_id: WINDOW_ID,
+        no_timetable_applied: true,
+      });
+      expect(mockSchedulesReadFacade.getTeacherAssignmentsForYear).not.toHaveBeenCalled();
+    });
+
+    it('should return empty overall + subject pairs when no window is open', async () => {
       mockPrisma.reportCommentWindow.findFirst.mockResolvedValueOnce(null);
       mockStaffProfileReadFacade.resolveProfileId.mockResolvedValueOnce('staff-uuid');
-      mockSchedulingReadFacade.findTeacherCompetencies.mockResolvedValueOnce([
-        {
-          staff_profile_id: 'staff-uuid',
-          subject_id: 'subj-biology',
-          year_group_id: 'yg-5',
-          is_primary: false,
-        },
+      mockSchedulesReadFacade.hasAppliedSchedule.mockResolvedValueOnce(true);
+      mockSchedulesReadFacade.getTeacherAssignmentsForYear.mockResolvedValueOnce([
+        { class_id: 'class-5a', subject_id: 'subj-biology' },
       ]);
 
       const result = await service.getLandingScopeForActor(TENANT_ID, {
@@ -493,7 +507,7 @@ describe('ReportCommentWindowsService', () => {
         isAdmin: false,
       });
       // Subject assignments still come back (teaching assignments are
-      // window-independent), but the overall list is empty because
+      // window-independent), but overall_class_ids is empty because
       // nothing is open for the teacher to write to.
       expect(result.overall_class_ids).toEqual([]);
       expect(result.subject_assignments).toEqual([
@@ -513,23 +527,22 @@ describe('ReportCommentWindowsService', () => {
       });
       expect(result.overall_class_ids).toEqual([]);
       expect(result.subject_assignments).toEqual([]);
-      expect(mockSchedulingReadFacade.findTeacherCompetencies).not.toHaveBeenCalled();
+      expect(result.no_timetable_applied).toBe(false);
+      expect(mockSchedulesReadFacade.hasAppliedSchedule).not.toHaveBeenCalled();
     });
 
-    it('should return empty pairs when a teacher has no competencies', async () => {
+    it('should return empty pairs when the teacher has no scheduled classes', async () => {
       mockPrisma.reportCommentWindow.findFirst.mockResolvedValueOnce(baseWindow);
       mockStaffProfileReadFacade.resolveProfileId.mockResolvedValueOnce('staff-uuid');
-      mockSchedulingReadFacade.findTeacherCompetencies.mockResolvedValueOnce([]);
+      mockSchedulesReadFacade.hasAppliedSchedule.mockResolvedValueOnce(true);
+      mockSchedulesReadFacade.getTeacherAssignmentsForYear.mockResolvedValueOnce([]);
 
       const result = await service.getLandingScopeForActor(TENANT_ID, {
         userId: 'teacher-uuid',
         isAdmin: false,
       });
       expect(result.subject_assignments).toEqual([]);
-      // When the competency list is empty we can short-circuit — the
-      // matrix lookup still runs to build the `classes` lookup map, but
-      // we don't waste work classifying an empty filter.
-      expect(result.overall_class_ids).toEqual([]);
+      expect(result.no_timetable_applied).toBe(false);
     });
   });
 

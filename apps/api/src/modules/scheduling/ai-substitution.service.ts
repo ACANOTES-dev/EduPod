@@ -86,6 +86,7 @@ export class AiSubstitutionService {
     const weekday = targetDate.getDay();
     const subjectId = schedule.class_entity?.subject_id ?? null;
     const yearGroupId = schedule.class_entity?.year_group_id ?? null;
+    const classId = schedule.class_id;
     const academicYearId = schedule.class_entity?.academic_year_id ?? schedule.academic_year_id;
 
     // Find busy teachers at that slot
@@ -107,23 +108,28 @@ export class AiSubstitutionService {
       return { data: [] };
     }
 
-    // Load competencies. is_primary was dropped in Stage 1 of the scheduler
-    // rebuild; Stage 7 will rewire AI ranking against the new
-    // substitute_teacher_competencies table.
-    const competencies =
-      subjectId || yearGroupId
-        ? await this.prisma.teacherCompetency.findMany({
+    // Stage 8: pull substitute competencies from the Stage 7 table. Pin
+    // (class-specific) > pool (year-group) > ineligible.
+    const competencyRows =
+      subjectId && yearGroupId
+        ? await this.prisma.substituteTeacherCompetency.findMany({
             where: {
               tenant_id: tenantId,
               academic_year_id: academicYearId,
-              ...(subjectId ? { subject_id: subjectId } : {}),
-              ...(yearGroupId ? { year_group_id: yearGroupId } : {}),
+              subject_id: subjectId,
+              OR: [{ class_id: classId }, { class_id: null, year_group_id: yearGroupId }],
             },
-            select: { staff_profile_id: true },
+            select: { staff_profile_id: true, class_id: true },
           })
         : [];
 
-    const competentStaffIds = new Set(competencies.map((c) => c.staff_profile_id));
+    const pinnedStaffIds = new Set<string>();
+    const pooledStaffIds = new Set<string>();
+    for (const row of competencyRows) {
+      if (row.class_id === classId) pinnedStaffIds.add(row.staff_profile_id);
+      else pooledStaffIds.add(row.staff_profile_id);
+    }
+    const competentStaffIds = new Set<string>([...pinnedStaffIds, ...pooledStaffIds]);
 
     // Load cover counts (last 30 days)
     const thirtyDaysAgo = new Date();
@@ -161,14 +167,13 @@ export class AiSubstitutionService {
       tokenisedNameMap.set(entity.id, entity.fields.full_name ?? '');
     }
 
-    // Build context for AI. is_primary always false post-Stage-1; the
-    // Stage 7 rewire will reinstate a real primary-vs-secondary signal from
-    // the substitute_teacher_competencies table.
+    // Build context for AI. Stage 8: `is_primary` = pinned substitute for
+    // this specific class; `is_competent` covers both pin and pool rows.
     const staffContext = availableStaff.map((s) => ({
       staff_profile_id: s.id,
       name: tokenisedNameMap.get(s.id) ?? `${s.user.first_name} ${s.user.last_name}`.trim(),
       is_competent: subjectId ? competentStaffIds.has(s.id) : true,
-      is_primary: false,
+      is_primary: pinnedStaffIds.has(s.id),
       cover_count_last_30_days: coverCountMap.get(s.id) ?? 0,
     }));
 

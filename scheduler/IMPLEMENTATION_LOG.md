@@ -31,7 +31,7 @@
 | 5   | Seed NHQS data                           | `complete` | Claude / 2026-04-14  | Commit `a099008a`; NHQS seeded + prereq check fixed (C2).            |
 | 6   | Generate end-to-end on NHQS              | `complete` | Claude / 2026-04-14  | Run `eace28b5` applied: 361 entries, 0 hard violations.              |
 | 7   | Substitutes page + table                 | `complete` | Claude / 2026-04-14  | `substitute_teacher_competencies` live on prod; UI + /suggest wired. |
-| 8   | Downstream rewire                        | `pending`  | —                    | Blocked by Stage 7                                                   |
+| 8   | Downstream rewire                        | `complete` | Claude / 2026-04-14  | Three downstream services now read from `schedules`; rebuild done.   |
 
 ## Parallelisation
 
@@ -598,3 +598,94 @@ Keep a short chronological record of significant orchestration events (not per-s
 - The existing `teacher_competencies` table still only has `ENABLE ROW LEVEL SECURITY` (no `FORCE`) — a pre-Stage-1 inconsistency. Stage 7 uses both `ENABLE` + `FORCE` on `substitute_teacher_competencies` as the stage doc required. Worth reconciling at some point but out of scope.
 - Permission `schedule.manage_substitutions` is already provisioned in DB (used by the existing enhanced substitutions endpoints). No seed-data change needed.
 - The new controller's `/suggest` endpoint is in addition to the existing `GET /absences/:id/substitutes` on `scheduling-enhanced.controller` — they now share the same ranking signal via the rewired `SubstitutionService.findEligibleSubstitutes`. Stage 8 can decide whether to consolidate.
+- **Stage 8 completed** — 2026-04-14. Three downstream consumers (teaching-allocations, report-comment-windows, report-cards-queries) now read from the live `schedules` table via three new `SchedulesReadFacade` helpers (`getTeacherAssignmentsForYear`, `getAllAssignmentsForYear`, `hasAppliedSchedule`). The hardcoded `is_primary: false` field was retired from `SchedulingReadFacade.findTeacherCompetencies`, the `TeacherCompetencyRow` interface, and frontend display in assessments + leadership-dashboard. New empty-state UX ("No timetable applied yet → Go to scheduling") on `/en/assessments` and `/en/report-comments` for the no-applied-schedule branch. Found and fixed a pre-existing worker bug: two `@Processor('scheduling')` classes spawned competing BullMQ Worker instances that silently no-op'd whichever solve-v2 jobs they happened to pull first; consolidated into a single `SchedulingSolverV2Processor` that dispatches `scheduling:reap-stale-runs` to the now-plain-service `SchedulingStaleReaperJob`. Verified end-to-end on NHQS: Flow A (with applied run) shows Sarah Daly's 56 allocations and the report-comments subject pairs; Flow B (after run discard + schedule end-date) shows the empty-state UX with the CTA. Generated a fresh end-to-end run `4288cbb6-8166-4b14-91c6-d7dc591713a5` (358 entries, 36 unassigned, 88% preference satisfaction, **10.8s solver time** for 16 classes / 24 teachers / 59 curriculum entries / 9 year groups), applied it cleanly. The scheduler rebuild (Stages 1-8) is now done.
+
+## Stage 8 — Downstream rewire
+
+**What shipped**
+
+- New `SchedulesReadFacade` helpers (`apps/api/src/modules/schedules/schedules-read.facade.ts`):
+  - `getTeacherAssignmentsForYear(tenantId, academicYearId, staffProfileId)` — distinct `(class_id, subject_id)` pairs for the teacher, derived from the live `schedules` table and dedup'd. Handles two school models: subject-specific classes resolve directly via `class.subject_id`; homeroom classes (Class.subject_id = NULL, the NHQS pattern) fall through to a curriculum-matrix × teacher-competency intersection.
+  - `getAllAssignmentsForYear(tenantId, academicYearId)` — same shape per teacher, used by the leadership dashboard.
+  - `hasAppliedSchedule(tenantId, academicYearId)` — boolean used by callers to distinguish "no timetable applied yet" from "this teacher just isn't scheduled".
+
+- `apps/api/src/modules/gradebook/teaching-allocations.service.ts` — full rewrite. `getMyAllocations` and `getAllAllocations` now query schedules via the facade, hydrate class/subject/teacher names, and layer gradebook setup status (grade configs, approved categories, weights, assessment counts). New return shape: `{ data: TeachingAllocation[], meta: { reason: 'no_timetable_applied' | 'ok' } }`. The `is_primary` field is gone from both the interface and the response.
+
+- `apps/api/src/modules/gradebook/report-cards/report-comment-windows.service.ts` — `getLandingScopeForActor` teacher path now derives `subject_assignments` from `getTeacherAssignmentsForYear` instead of competency × matrix. Admin path unchanged (whole curriculum matrix). New `no_timetable_applied: boolean` on the response.
+
+- `apps/api/src/modules/gradebook/report-cards/report-cards-queries.service.ts` — `resolveTeacherVisibleStudents` swaps the competency × matrix block for `getTeacherAssignmentsForYear` to derive class IDs.
+
+- `apps/api/src/modules/scheduling/scheduling-read.facade.ts` — `findTeacherCompetencies` no longer hardcodes `is_primary: false`; the `TeacherCompetencyRow` interface drops the field and adds `class_id: string | null`.
+
+- `apps/api/src/modules/scheduling/ai-substitution.service.ts` — Stage 7 carry-over: switched from `teacherCompetency` to `substituteTeacherCompetency`, with pin (`class_id` match) restoring the real `is_primary` signal for AI ranking.
+
+- Frontend `is_primary` cleanup: removed from `assessments/page.tsx`, `assessments/_components/leadership-dashboard.tsx`, and `assessments/workspace/[classId]/[subjectId]/page.tsx` interfaces. Empty-state UX added to `assessments/page.tsx` (NoTimetableEmptyState component with Go-to-scheduling link) and `report-comments/page.tsx` (EmptyState with router-push action). New i18n keys `assessments.noTimetableApplied`, `assessments.goToScheduler`, `reportComments.noTimetableApplied`, `reportComments.noTimetableAppliedDesc`, `reportComments.goToScheduler` in en + ar.
+
+- Worker bug fix: collapsed two `@Processor(QUEUE_NAMES.SCHEDULING)` classes into one. `SchedulingStaleReaperProcessor` is now `SchedulingStaleReaperJob` (`@Injectable()`, no decorator), and `SchedulingSolverV2Processor` is the SOLE BullMQ worker on the scheduling queue. It dispatches `scheduling:reap-stale-runs` jobs to the stale reaper service. Without this, BullMQ would assign solve-v2 jobs to whichever worker pulled them first; the wrong worker's early-return guard would silently mark the job complete in BullMQ without running the solver.
+
+**Migrations / schema changes**
+
+- None. Pure code rewire.
+
+**Tests added / updated**
+
+- New: 11 facade unit tests in `schedules-read.facade.spec.ts` across `getTeacherAssignmentsForYear` (subject-specific dedupe, empty teacher, homeroom resolution via pool match, homeroom resolution via pin, scope filters), `getAllAssignmentsForYear` (subject-specific triples, missing teacher_staff_id), `hasAppliedSchedule` (true/false/scope).
+- New: 8 unit tests in `teaching-allocations.service.spec.ts` (getMyAllocations: no academic year / no profile / empty schedule / hydrated / unscheduled-teacher; getAllAllocations: no schedule / hydrated; getClassAllocations: filter by class).
+- Updated: `report-comment-windows.service.spec.ts` — five rewritten tests covering admin path, teacher schedule-derived path, no_timetable_applied, no-window, no-staff-profile, no-scheduled-classes.
+- Updated: `report-cards-queries.service.spec.ts` — `SchedulingReadFacade` mock swapped for `SchedulesReadFacade`; legacy `teacherCompetency` Prisma mock removed.
+- Updated: `ai-substitution.service.spec.ts` — `teacherCompetency` mock swapped for `substituteTeacherCompetency`, two "either-or" tests rewritten as "both or skip" to match the Stage 7 + 8 contract that competencies are keyed by `(subject, year_group)`.
+- Updated: `scheduling-stale-reaper.processor.spec.ts` — class rename `Processor → Job`.
+- Updated: `solver-v2.processor.spec.ts` — constructor takes a 2nd `staleReaperJob` arg now; the failure-path assertion moved from `mockPrisma.schedulingRun.update` to `mockTx.schedulingRun.update` to reflect the Stage 6 RLS-transaction wrap.
+- Full module pass: 100 suites, 2004 tests across `gradebook/`, `schedules/`, `scheduling/`, all green. Worker tests: 7 green.
+
+**Deployment trace**
+
+- Rsync of `packages/shared`, `apps/api`, `apps/web` with the mandated excludes; `chown -R edupod:edupod`; `.env` symlinks intact. Rebuild + restart api + web.
+- Worker-bug fix required a second deploy: rsync `apps/worker`, rebuild, restart. After restart the new fresh run was processed in 10.8s on the first try.
+- Health check: api 200, postgresql/redis/bullmq all up.
+
+**Playwright verification (nhqs.edupod.app)**
+
+- Flow A — with the Stage 6 applied run still live:
+  - Sarah Daly logged in → `/en/assessments` shows TOTAL ALLOCATIONS = 52 (homeroom resolution working — 14 classes × multiple subjects via curriculum matrix × pool competency).
+  - `/en/report-comments` shows the open comment window banner and the subject pairs grid (no empty state).
+  - Owner Yusuf Rahman → `/en/assessments` (leadership dashboard) shows Active Teachers = 20, Total Assessments = 33.
+- Flow B — after discarding the run + end-dating its 361 schedules:
+  - Sarah Daly → `/en/assessments` shows TOTAL ALLOCATIONS = 0 + the new "No timetable has been applied yet" empty state with "Go to scheduling" link.
+  - `/en/report-comments` shows the new "No timetable has been applied yet" EmptyState alongside Sarah's homeroom 2A overall card (homeroom card persists because it is window-table driven, not schedule-table driven — correct per Stage 8 contract).
+- Fresh end-to-end run: triggered via UI → run `4288cbb6-8166-4b14-91c6-d7dc591713a5` queued at 11:52:54 → solver completed in **10.8s** → applied via UI → 358 schedules across 16 classes × 24 teachers landed in the `schedules` table → Sarah's `/en/assessments` reflowed to TOTAL ALLOCATIONS = 56.
+
+**Acceptance checklist**
+
+- [x] All three target services read from `schedules` (via the shared helper).
+- [x] `is_primary` references removed from the three service response shapes and the gradebook/assessment frontend.
+- [x] Empty-state copy rendered correctly when no timetable is applied (verified Flow B).
+- [x] Unit + integration tests green (2004 API tests + 7 worker tests).
+- [x] Playwright Flow A and Flow B both pass.
+- [x] type-check / lint / DI clean.
+- [x] Local commit; nothing pushed.
+- [x] Completion entry appended; status board flipped to `complete` for Stage 8.
+
+**Notes / follow-ups**
+
+- The worker bug (two competing `@Processor` instances on one queue) was pre-existing — Stage 6's run worked by lucky timing, but on a busy worker most solve-v2 jobs would never run. If new domain-specific scheduling jobs are ever added later, route them through the single `SchedulingSolverV2Processor` dispatcher rather than introducing a new `@Processor` for the same queue.
+- The schedule's `class.subject_id` heuristic is subject-school first, homeroom-school fallback. For schools that mix both models per academic year, the resolution still works per-class because the fallback only kicks in when `class.subject_id` is null.
+- `class_id` is now exposed on `TeacherCompetencyRow` since the field was added in Stage 1 and is needed downstream by callers that distinguish pin vs pool.
+- `effective_end_date` semantic for `hasAppliedSchedule`: any schedule row with `effective_end_date IS NULL OR effective_end_date >= now()` counts as "applied". Discarding a run no longer auto-clears the schedules; that is governed by the apply flow on the next run, which deletes prior auto_generated entries for the academic year.
+
+## Scheduler rebuild — done
+
+All eight stages complete:
+
+| #   | Stage                                    | Status     |
+| --- | ---------------------------------------- | ---------- |
+| 1   | Schema migration + cover-teacher removal | `complete` |
+| 2   | Solver core updates                      | `complete` |
+| 3   | API surface updates                      | `complete` |
+| 4   | Competencies page UI rebuild             | `complete` |
+| 5   | Seed NHQS data                           | `complete` |
+| 6   | Generate end-to-end on NHQS              | `complete` |
+| 7   | Substitutes page + table                 | `complete` |
+| 8   | Downstream rewire                        | `complete` |
+
+Live on prod. NHQS has an applied timetable (run 4288cbb6, 358 entries) and the new substitute-competencies + downstream-schedule-derived flows. The `scheduler/` folder stays in the repo for historical reference and any future scheduler iterations.
