@@ -179,6 +179,10 @@ export class BreakGroupsService {
     const obj = bg as Record<string, unknown>;
     const yearGroups = obj['year_groups'];
 
+    const detail = Array.isArray(yearGroups)
+      ? yearGroups.map((yg: Record<string, unknown>) => yg['year_group'])
+      : [];
+
     return {
       ...obj,
       year_group_ids: Array.isArray(yearGroups)
@@ -187,9 +191,8 @@ export class BreakGroupsService {
             return ygObj?.['id'] ?? yg['year_group_id'];
           })
         : [],
-      year_groups_detail: Array.isArray(yearGroups)
-        ? yearGroups.map((yg: Record<string, unknown>) => yg['year_group'])
-        : [],
+      year_groups_detail: detail,
+      year_groups: detail,
     };
   }
 }

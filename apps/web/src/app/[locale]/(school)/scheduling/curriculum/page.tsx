@@ -60,10 +60,15 @@ interface EditableRow {
   double_period_count: string;
 }
 
+// Default period duration (minutes) when the row has no explicit value.
+// Matches the typical period length in the system period grid.
+const DEFAULT_PERIOD_DURATION_MIN = 45;
+
 function computeHoursPerWeek(row: EditableRow): number | null {
-  const dur = parseInt(row.period_duration, 10);
+  const durParsed = parseInt(row.period_duration, 10);
+  const dur = Number.isFinite(durParsed) && durParsed > 0 ? durParsed : DEFAULT_PERIOD_DURATION_MIN;
   const min = parseInt(row.min_periods_per_week, 10);
-  if (isNaN(dur) || isNaN(min) || dur <= 0 || min <= 0) return null;
+  if (isNaN(min) || min <= 0) return null;
   return (dur * min) / 60;
 }
 
@@ -96,7 +101,10 @@ export default function CurriculumPage() {
         if (yearsRes.data[0]) setSelectedYear(yearsRes.data[0].id);
         if (ygRes.data[0]) setSelectedYearGroup(ygRes.data[0].id);
       })
-      .catch((err) => { console.error('[SchedulingCurriculumPage]', err); return toast.error(tc('errorGeneric')); });
+      .catch((err) => {
+        console.error('[SchedulingCurriculumPage]', err);
+        return toast.error(tc('errorGeneric'));
+      });
   }, [tc]);
 
   // Fetch and merge data
@@ -118,9 +126,12 @@ export default function CurriculumPage() {
         ),
         apiClient<
           { total_teaching_periods: number } | { data: { total_teaching_periods: number } }
-        >(`/api/v1/period-grid/teaching-count?${params.toString()}`).catch((err) => { console.error('[SchedulingCurriculumPage]', err); return ({
-          total_teaching_periods: 0,
-        }); }),
+        >(`/api/v1/period-grid/teaching-count?${params.toString()}`).catch((err) => {
+          console.error('[SchedulingCurriculumPage]', err);
+          return {
+            total_teaching_periods: 0,
+          };
+        }),
       ]);
 
       // Handle wrapped response: { data: { total_teaching_periods: N } } or { total_teaching_periods: N }

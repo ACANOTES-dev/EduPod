@@ -181,12 +181,15 @@ export const addExamSlotSchema = z
     year_group_id: z.string().uuid(),
     date: z.string().date(),
     start_time: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:mm'),
-    end_time: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:mm'),
+    end_time: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, 'Must be HH:mm')
+      .optional(),
     room_id: z.string().uuid().nullable().optional(),
     duration_minutes: z.number().int().min(15).max(480),
     student_count: z.number().int().min(1),
   })
-  .refine((d) => d.end_time > d.start_time, {
+  .refine((d) => !d.end_time || d.end_time > d.start_time, {
     message: 'end_time must be after start_time',
     path: ['end_time'],
   });

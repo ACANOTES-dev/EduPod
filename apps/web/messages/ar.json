@@ -4837,6 +4837,7 @@
     "skipWeekends": "تخطي عطلات نهاية الأسبوع",
     "bulkCreate": "إنشاء جماعي",
     "auto": {
+      "capacity": "السعة",
       "periodGrid": "شبكة الحصص",
       "periodGridDesc": "تحديد هيكل الحصص الأسبوعية لكل عام دراسي.",
       "requirements": "متطلبات الفصول",
@@ -5368,6 +5369,10 @@
       "description": "إنشاء جلسات الامتحانات وتخصيص القاعات والمراقبين.",
       "createSession": "إنشاء جلسة",
       "sessionCreated": "تم إنشاء جلسة الامتحان",
+      "deleteSession": "حذف الجلسة",
+      "sessionDeleted": "تم حذف جلسة الامتحان",
+      "sessionDeleteFailed": "فشل حذف جلسة الامتحان",
+      "confirmDeleteSession": "هل تريد حذف هذه الجلسة؟ ستتم إزالة جميع فترات الامتحان والمراقبين. لا يمكن التراجع.",
       "sessionName": "اسم الجلسة",
       "sessionNamePlaceholder": "مثال: امتحانات نهاية العام 2025",
       "academicPeriod": "الفترة الأكاديمية",
@@ -5404,6 +5409,7 @@
       "invigilators": "المراقبون",
       "time": "الوقت",
       "duration": "المدة",
+      "date": "التاريخ",
       "validationRequired": "يرجى ملء جميع الحقول المطلوبة."
     },
     "scenarios": {

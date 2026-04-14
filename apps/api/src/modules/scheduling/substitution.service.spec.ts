@@ -53,6 +53,7 @@ describe('SubstitutionService', () => {
       count: jest.Mock;
       create: jest.Mock;
     };
+    tenant: { findUnique: jest.Mock };
   };
 
   beforeEach(async () => {
@@ -79,6 +80,9 @@ describe('SubstitutionService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
         create: jest.fn(),
+      },
+      tenant: {
+        findUnique: jest.fn().mockResolvedValue({ name: 'Test School', branding: null }),
       },
     };
 
@@ -574,10 +578,12 @@ describe('SubstitutionService', () => {
 
       const result = await service.getTodayBoard(TENANT_ID);
 
-      expect(result.today).toHaveLength(1);
-      expect(result.today[0]!.id).toBe('abs-today');
+      // New board shape: today's rows are flattened into slots[], upcoming
+      // keeps per-absence roll-ups. `today[]` no longer exists.
+      expect(Array.isArray(result.slots)).toBe(true);
       expect(result.upcoming).toHaveLength(1);
-      expect(result.upcoming[0]!.id).toBe('abs-tomorrow');
+      expect(result.upcoming[0]!.teacher_name).toBe('Bob Smith');
+      expect(result.today_date).toBeDefined();
       expect(result.generated_at).toBeDefined();
     });
 
@@ -586,7 +592,7 @@ describe('SubstitutionService', () => {
 
       const result = await service.getTodayBoard(TENANT_ID);
 
-      expect(result.today).toHaveLength(0);
+      expect(result.slots).toHaveLength(0);
       expect(result.upcoming).toHaveLength(0);
     });
   });

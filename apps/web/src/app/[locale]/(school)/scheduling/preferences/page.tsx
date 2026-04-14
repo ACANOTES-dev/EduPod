@@ -288,7 +288,7 @@ export default function PreferencesPage() {
     if (!selectedStaff || !selectedYear) return;
     setIsLoading(true);
     apiClient<PreferencesResponse>(
-      `/api/v1/staff-preferences?staff_profile_id=${selectedStaff}&academic_year_id=${selectedYear}&pageSize=100`,
+      `/api/v1/staff-scheduling-preferences?staff_profile_id=${selectedStaff}&academic_year_id=${selectedYear}&pageSize=100`,
     )
       .then((res) => setPreferences(res.data))
       .catch((err) => {
@@ -316,7 +316,7 @@ export default function PreferencesPage() {
     if (kind === 'time_slot') payload['period_slot_id'] = entityId;
 
     try {
-      const created = await apiClient<Preference>('/api/v1/staff-preferences', {
+      const created = await apiClient<Preference>('/api/v1/staff-scheduling-preferences', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
@@ -329,7 +329,7 @@ export default function PreferencesPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await apiClient(`/api/v1/staff-preferences/${id}`, { method: 'DELETE' });
+      await apiClient(`/api/v1/staff-scheduling-preferences/${id}`, { method: 'DELETE' });
       setPreferences((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
       console.error('[SchedulingPreferencesPage]', err);
@@ -339,7 +339,7 @@ export default function PreferencesPage() {
 
   const handleChangeSentiment = async (id: string, sentiment: PreferenceSentiment) => {
     try {
-      const updated = await apiClient<Preference>(`/api/v1/staff-preferences/${id}`, {
+      const updated = await apiClient<Preference>(`/api/v1/staff-scheduling-preferences/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ sentiment }),
       });
@@ -352,7 +352,7 @@ export default function PreferencesPage() {
 
   const handleChangePriority = async (id: string, priority: number) => {
     try {
-      const updated = await apiClient<Preference>(`/api/v1/staff-preferences/${id}`, {
+      const updated = await apiClient<Preference>(`/api/v1/staff-scheduling-preferences/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ priority }),
       });

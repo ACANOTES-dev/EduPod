@@ -27,7 +27,22 @@ export class CoverTrackingService {
   async getCoverReport(
     tenantId: string,
     query: CoverReportQuery,
-  ): Promise<{ data: TeacherCoverStat[] }> {
+  ): Promise<{
+    from_date: string;
+    to_date: string;
+    total_substitutions: number;
+    fairness_index: number;
+    avg_cover_count: number;
+    teachers: Array<{
+      staff_profile_id: string;
+      teacher_name: string;
+      department: string | null;
+      cover_count: number;
+      total_periods: number;
+      cover_pct: number;
+    }>;
+    by_department: Array<{ department: string; cover_count: number }>;
+  }> {
     const records = await this.prisma.substitutionRecord.findMany({
       where: {
         tenant_id: tenantId,
@@ -39,40 +54,76 @@ export class CoverTrackingService {
       select: {
         substitute_staff_id: true,
         substitute: {
-          select: { user: { select: { first_name: true, last_name: true } } },
+          select: {
+            department: true,
+            user: { select: { first_name: true, last_name: true } },
+          },
         },
       },
     });
 
-    const countMap = new Map<string, { name: string; count: number }>();
+    const countMap = new Map<string, { name: string; department: string | null; count: number }>();
 
     for (const r of records) {
       const existing = countMap.get(r.substitute_staff_id);
       const name = `${r.substitute.user.first_name} ${r.substitute.user.last_name}`.trim();
+      const department = r.substitute.department ?? null;
       if (existing) {
         existing.count += 1;
       } else {
-        countMap.set(r.substitute_staff_id, { name, count: 1 });
+        countMap.set(r.substitute_staff_id, { name, department, count: 1 });
       }
     }
 
-    const data: TeacherCoverStat[] = [...countMap.entries()].map(
-      ([staff_profile_id, { name, count }]) => ({
+    const totalSubs = records.length;
+    const counts = Array.from(countMap.values()).map((v) => v.count);
+    const mean = counts.length ? counts.reduce((a, c) => a + c, 0) / counts.length : 0;
+    const variance = counts.length
+      ? counts.reduce((a, c) => a + Math.pow(c - mean, 2), 0) / counts.length
+      : 0;
+    const stdDev = Math.sqrt(variance);
+    const fairnessIndex = mean > 0 ? stdDev / mean : 0;
+
+    const teachers = Array.from(countMap.entries())
+      .map(([staff_profile_id, { name, department, count }]) => ({
         staff_profile_id,
-        name,
+        teacher_name: name,
+        department,
         cover_count: count,
-      }),
-    );
+        total_periods: totalSubs,
+        cover_pct: totalSubs > 0 ? (count / totalSubs) * 100 : 0,
+      }))
+      .sort((a, b) => b.cover_count - a.cover_count);
 
-    data.sort((a, b) => b.cover_count - a.cover_count);
+    const deptMap = new Map<string, number>();
+    for (const t of teachers) {
+      const key = t.department ?? 'Unassigned';
+      deptMap.set(key, (deptMap.get(key) ?? 0) + t.cover_count);
+    }
+    const byDepartment = Array.from(deptMap.entries())
+      .map(([department, cover_count]) => ({ department, cover_count }))
+      .sort((a, b) => b.cover_count - a.cover_count);
 
-    return { data };
+    return {
+      from_date: query.date_from,
+      to_date: query.date_to,
+      total_substitutions: totalSubs,
+      fairness_index: Math.round(fairnessIndex * 1000) / 1000,
+      avg_cover_count: Math.round(mean * 100) / 100,
+      teachers,
+      by_department: byDepartment,
+    };
   }
 
   // ─── Get Cover Fairness ───────────────────────────────────────────────────
 
   async getCoverFairness(tenantId: string, query: CoverReportQuery): Promise<CoverFairnessResult> {
-    const { data: stats } = await this.getCoverReport(tenantId, query);
+    const report = await this.getCoverReport(tenantId, query);
+    const stats: TeacherCoverStat[] = report.teachers.map((t) => ({
+      staff_profile_id: t.staff_profile_id,
+      name: t.teacher_name,
+      cover_count: t.cover_count,
+    }));
 
     if (stats.length === 0) {
       return {

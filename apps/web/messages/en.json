@@ -4845,6 +4845,7 @@
     "skipWeekends": "Skip Weekends",
     "bulkCreate": "Bulk Create",
     "auto": {
+      "capacity": "Capacity",
       "periodGrid": "Period Grid",
       "periodGridDesc": "Define the weekly period structure for each academic year.",
       "requirements": "Class Requirements",
@@ -5376,6 +5377,10 @@
       "description": "Create and manage exam sessions, assign rooms and invigilators.",
       "createSession": "Create Session",
       "sessionCreated": "Exam session created",
+      "deleteSession": "Delete session",
+      "sessionDeleted": "Exam session deleted",
+      "sessionDeleteFailed": "Failed to delete exam session",
+      "confirmDeleteSession": "Delete this exam session? All exam slots and invigilator assignments will be removed. This cannot be undone.",
       "sessionName": "Session Name",
       "sessionNamePlaceholder": "e.g. End of Year Exams 2025",
       "academicPeriod": "Academic Period",
@@ -5412,6 +5417,7 @@
       "invigilators": "Invigilators",
       "time": "Time",
       "duration": "Duration",
+      "date": "Date",
       "validationRequired": "Please fill in all required fields."
     },
     "scenarios": {

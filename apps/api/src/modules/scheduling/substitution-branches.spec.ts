@@ -52,6 +52,7 @@ describe('SubstitutionService — branch coverage', () => {
       count: jest.Mock;
       create: jest.Mock;
     };
+    tenant: { findUnique: jest.Mock };
   };
 
   beforeEach(async () => {
@@ -70,6 +71,9 @@ describe('SubstitutionService — branch coverage', () => {
         findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
         create: jest.fn(),
+      },
+      tenant: {
+        findUnique: jest.fn().mockResolvedValue({ name: 'Test School', branding: null }),
       },
     };
 
@@ -307,13 +311,13 @@ describe('SubstitutionService — branch coverage', () => {
 
       const result = await service.getTodayBoard(TENANT_ID);
 
-      expect(result.today).toHaveLength(1);
-      const sub = result.today[0]!.substitutions[0]!;
-      expect(sub.substitute_name).toBe('Bob Smith');
-      expect(sub.room_name).toBe('Room 101');
-      expect(sub.class_name).toBe('Math 1A');
-      expect(sub.subject_name).toBe('Mathematics');
-      expect(sub.period_order).toBe(3);
+      expect(result.slots).toHaveLength(1);
+      const slot = result.slots[0]!;
+      expect(slot.substitute_name).toBe('Bob Smith');
+      expect(slot.room_name).toBe('Room 101');
+      expect(slot.class_name).toBe('Math 1A');
+      expect(slot.subject_name).toBe('Mathematics');
+      expect(slot.period_order).toBe(3);
     });
 
     it('edge: should handle null room and class_entity in substitution schedule', async () => {
@@ -346,10 +350,10 @@ describe('SubstitutionService — branch coverage', () => {
 
       const result = await service.getTodayBoard(TENANT_ID);
 
-      const sub = result.today[0]!.substitutions[0]!;
-      expect(sub.room_name).toBeNull();
-      expect(sub.class_name).toBeNull();
-      expect(sub.subject_name).toBeNull();
+      const slot = result.slots[0]!;
+      expect(slot.room_name).toBeNull();
+      expect(slot.class_name).toBeNull();
+      expect(slot.subject_name).toBeNull();
     });
   });
 

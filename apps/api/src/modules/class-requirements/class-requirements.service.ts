@@ -151,11 +151,47 @@ export class ClassRequirementsService {
   async bulkUpsert(tenantId: string, dto: BulkClassRequirementsDto) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
+    // Resolve the list of entries to upsert. Two modes:
+    // 1. `requirements` provided: use them as-is.
+    // 2. `apply_defaults_to_unconfigured`: expand to one default entry per
+    //    active class that does not yet have a requirement for this year.
+    let entries = dto.requirements ?? [];
+
+    if (dto.apply_defaults_to_unconfigured && entries.length === 0) {
+      const [classes, existing] = await Promise.all([
+        this.classesReadFacade.findByAcademicYear(tenantId, dto.academic_year_id),
+        this.schedulingReadFacade.findClassRequirementsPaginated(tenantId, dto.academic_year_id, {
+          skip: 0,
+          take: 10_000,
+        }),
+      ]);
+
+      const configuredIds = new Set(
+        (existing.data as Array<{ class_id: string }>).map((r) => r.class_id),
+      );
+      entries = classes
+        .filter((c) => c.status === 'active' && !configuredIds.has(c.id))
+        .map((c) => ({
+          class_id: c.id,
+          periods_per_week: 5,
+          required_room_type: null,
+          preferred_room_id: null,
+          max_consecutive_periods: 2,
+          min_consecutive_periods: 1,
+          spread_preference: 'spread_evenly' as const,
+          student_count: null,
+        }));
+    }
+
+    if (entries.length === 0) {
+      return { data: [], count: 0 };
+    }
+
     const results = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       const upserted: unknown[] = [];
 
-      for (const entry of dto.requirements) {
+      for (const entry of entries) {
         const result = await db.classSchedulingRequirement.upsert({
           where: {
             idx_class_sched_req_unique: {

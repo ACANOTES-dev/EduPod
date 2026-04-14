@@ -125,6 +125,18 @@ export class RoomClosuresService {
     if (result['created_at'] instanceof Date) {
       result['created_at'] = (result['created_at'] as Date).toISOString();
     }
+    const room = result['room'] as { name?: string } | undefined;
+    if (room) {
+      result['room_name'] = room.name ?? null;
+    }
+    const createdBy = result['created_by'] as
+      | { first_name?: string; last_name?: string }
+      | undefined;
+    if (createdBy) {
+      const fn = createdBy.first_name ?? '';
+      const ln = createdBy.last_name ?? '';
+      result['created_by_name'] = `${fn} ${ln}`.trim() || null;
+    }
     return result;
   }
 }

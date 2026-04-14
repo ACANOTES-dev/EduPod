@@ -18,6 +18,7 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 export interface SubstituteCandidate {
   staff_profile_id: string;
@@ -35,6 +36,7 @@ export class SubstitutionService {
     private readonly prisma: PrismaService,
     private readonly schedulesReadFacade: SchedulesReadFacade,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   // ─── Report Absence ───────────────────────────────────────────────────────
@@ -611,6 +613,11 @@ export class SubstitutionService {
 
     const todayStr = today.toISOString().slice(0, 10);
 
+    const [tenantName, branding] = await Promise.all([
+      this.tenantReadFacade.findNameById(tenantId),
+      this.tenantReadFacade.findBranding(tenantId),
+    ]);
+
     const todayAbsences = absences.filter(
       (a) => a.absence_date.toISOString().slice(0, 10) === todayStr,
     );
@@ -618,28 +625,37 @@ export class SubstitutionService {
       (a) => a.absence_date.toISOString().slice(0, 10) !== todayStr,
     );
 
-    const formatAbsence = (a: (typeof absences)[0]) => ({
-      id: a.id,
-      staff_name: `${a.staff_profile.user.first_name} ${a.staff_profile.user.last_name}`.trim(),
-      absence_date: a.absence_date.toISOString().slice(0, 10),
-      full_day: a.full_day,
-      reason: a.reason,
-      substitutions: a.substitution_records.map((sr) => ({
-        id: sr.id,
-        substitute_name: `${sr.substitute.user.first_name} ${sr.substitute.user.last_name}`.trim(),
-        status: sr.status,
+    // Flatten today's substitution records into per-slot rows for the board.
+    const slots = todayAbsences.flatMap((a) =>
+      a.substitution_records.map((sr) => ({
+        schedule_id: sr.schedule_id,
+        period_name: `P${sr.schedule.period_order}`,
         period_order: sr.schedule.period_order,
         start_time: sr.schedule.start_time.toISOString().slice(11, 16),
         end_time: sr.schedule.end_time.toISOString().slice(11, 16),
-        room_name: sr.schedule.room?.name ?? null,
-        class_name: sr.schedule.class_entity?.name ?? null,
+        absent_teacher_name:
+          `${a.staff_profile.user.first_name} ${a.staff_profile.user.last_name}`.trim(),
+        substitute_name: `${sr.substitute.user.first_name} ${sr.substitute.user.last_name}`.trim(),
         subject_name: sr.schedule.class_entity?.subject?.name ?? null,
+        class_name: sr.schedule.class_entity?.name ?? null,
+        room_name: sr.schedule.room?.name ?? null,
+        status: sr.status,
       })),
-    });
+    );
+
+    const upcoming = upcomingAbsences.map((a) => ({
+      absence_date: a.absence_date.toISOString().slice(0, 10),
+      teacher_name: `${a.staff_profile.user.first_name} ${a.staff_profile.user.last_name}`.trim(),
+      coverage_count: a.substitution_records.length,
+      total_slots: a.substitution_records.length,
+    }));
 
     return {
-      today: todayAbsences.map(formatAbsence),
-      upcoming: upcomingAbsences.map(formatAbsence),
+      today_date: todayStr,
+      slots,
+      upcoming,
+      school_name: tenantName ?? null,
+      school_logo_url: branding?.logo_url ?? null,
       generated_at: new Date().toISOString(),
     };
   }

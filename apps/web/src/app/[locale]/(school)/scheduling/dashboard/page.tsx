@@ -328,6 +328,7 @@ function RoomUtilisationTab({ academicYearId }: { academicYearId: string }) {
 // ─── Trends Tab ───────────────────────────────────────────────────────────────
 
 function TrendsTab({ academicYearId }: { academicYearId: string }) {
+  const t = useTranslations('scheduling.auto');
   const tCommon = useTranslations('common');
   const [trends, setTrends] = React.useState<TrendPoint[]>([]);
   const [loading, setLoading] = React.useState(true);

@@ -363,9 +363,12 @@ function TodayTab() {
 
   React.useEffect(() => {
     void fetchAbsences();
-    apiClient<{ data: StaffProfile[] }>('/api/v1/staff?pageSize=200&role=teacher')
+    apiClient<{ data: StaffProfile[] }>('/api/v1/scheduling/teachers')
       .then((res) => setStaff(res.data ?? []))
-      .catch((err) => { console.error('[SchedulingSubstitutionsPage]', err); return setStaff([]); });
+      .catch((err) => {
+        console.error('[SchedulingSubstitutionsPage]', err);
+        return setStaff([]);
+      });
   }, [fetchAbsences]);
 
   const handleFindSub = async (absenceId: string, slot: AbsenceSlot) => {
@@ -457,13 +460,13 @@ function TodayTab() {
               </p>
             </div>
             <Badge variant="secondary">
-              {absence.slots.filter((s) => s.substitute_status === 'unassigned').length}{' '}
+              {(absence.slots ?? []).filter((s) => s.substitute_status === 'unassigned').length}{' '}
               {t('unassigned')}
             </Badge>
           </div>
 
           <div className="divide-y divide-border">
-            {absence.slots.map((slot) => (
+            {(absence.slots ?? []).map((slot) => (
               <div key={slot.schedule_id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                 <div className="flex-1 min-w-0 space-y-0.5">
                   <p className="text-sm font-medium text-text-primary">

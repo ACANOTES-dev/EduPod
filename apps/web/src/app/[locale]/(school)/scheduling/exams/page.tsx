@@ -1,7 +1,16 @@
 /* eslint-disable school/no-hand-rolled-forms -- legacy form, tracked for migration in HR-025 */
 'use client';
 
-import { BookOpen, Calendar, ChevronRight, Loader2, Plus, Sparkles, UserCheck } from 'lucide-react';
+import {
+  BookOpen,
+  Calendar,
+  ChevronRight,
+  Loader2,
+  Plus,
+  Sparkles,
+  Trash2,
+  UserCheck,
+} from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -253,7 +262,9 @@ function AddExamSlotModal({
           setSubjects(sRes.data ?? []);
           setYearGroups(ygRes.data ?? []);
         })
-        .catch((err) => { console.error('[SchedulingExamsPage]', err); });
+        .catch((err) => {
+          console.error('[SchedulingExamsPage]', err);
+        });
     }
   }, [open, sessionId]);
 
@@ -586,11 +597,11 @@ function SessionDetail({ session, onBack }: { session: ExamSession; onBack: () =
                   <td className="px-4 py-3 text-text-secondary">{slot.room_name ?? '—'}</td>
                   <td className="px-4 py-3 text-text-secondary">{slot.student_count}</td>
                   <td className="px-4 py-3">
-                    {slot.invigilators.length === 0 ? (
+                    {(slot.invigilators ?? []).length === 0 ? (
                       <span className="text-text-tertiary">—</span>
                     ) : (
                       <div className="space-y-0.5">
-                        {slot.invigilators.map((inv, i) => (
+                        {(slot.invigilators ?? []).map((inv, i) => (
                           <p key={i} className="text-xs text-text-secondary">
                             {inv.name} <span className="text-text-tertiary">({inv.role})</span>
                           </p>
@@ -644,7 +655,10 @@ export default function ExamsPage() {
     void fetchSessions();
     apiClient<{ data: AcademicPeriod[] }>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data ?? []))
-      .catch((err) => { console.error('[SchedulingExamsPage]', err); return setPeriods([]); });
+      .catch((err) => {
+        console.error('[SchedulingExamsPage]', err);
+        return setPeriods([]);
+      });
   }, [fetchSessions]);
 
   const handleCreateSession = async (values: {
@@ -659,6 +673,18 @@ export default function ExamsPage() {
     });
     toast.success(t('sessionCreated'));
     void fetchSessions();
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    if (!window.confirm(t('confirmDeleteSession'))) return;
+    try {
+      await apiClient(`/api/v1/scheduling/exam-sessions/${sessionId}`, { method: 'DELETE' });
+      toast.success(t('sessionDeleted'));
+      void fetchSessions();
+    } catch (err) {
+      console.error('[SchedulingExamsPage]', err);
+      toast.error(t('sessionDeleteFailed'));
+    }
   };
 
   if (selectedSession) {
@@ -729,6 +755,19 @@ export default function ExamsPage() {
                     )}
                   </p>
                 </div>
+                {session.status === 'planning' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={t('deleteSession')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleDeleteSession(session.id);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                )}
                 <ChevronRight className="h-5 w-5 text-text-tertiary rtl:rotate-180" />
               </div>
             </li>

@@ -93,10 +93,16 @@ export default function CoverReportsPage() {
   const fetchReport = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient<CoverReportData>(
-        `/api/v1/scheduling/cover-reports?from=${fromDate}&to=${toDate}`,
+      // API wraps the payload in { data }; unwrap when present, otherwise use
+      // the raw response (older/alternate shapes return the payload at top level).
+      const res = await apiClient<{ data?: CoverReportData } & Partial<CoverReportData>>(
+        `/api/v1/scheduling/cover-reports?date_from=${fromDate}&date_to=${toDate}`,
       );
-      setData(res);
+      const payload =
+        res.data && typeof res.data === 'object' && 'teachers' in res.data
+          ? (res.data as CoverReportData)
+          : (res as unknown as CoverReportData);
+      setData(payload);
     } catch (err) {
       console.error('[SchedulingCoverReportsPage]', err);
       setData(null);
@@ -113,7 +119,7 @@ export default function CoverReportsPage() {
     setExporting(true);
     try {
       const res = await fetch(
-        `/api/v1/scheduling/cover-reports/export?from=${fromDate}&to=${toDate}&format=csv`,
+        `/api/v1/scheduling/cover-reports/export?date_from=${fromDate}&date_to=${toDate}&format=csv`,
         {
           headers: {
             Authorization: `Bearer ${(await import('@/lib/api-client')).getAccessToken() ?? ''}`,

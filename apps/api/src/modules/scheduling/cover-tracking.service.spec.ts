@@ -15,6 +15,7 @@ function makeSubRecord(staffId: string, subjectName: string | null = 'Maths') {
   return {
     substitute_staff_id: staffId,
     substitute: {
+      department: null,
       user: { first_name: 'Teacher', last_name: staffId },
     },
     schedule: {
@@ -57,8 +58,8 @@ describe('CoverTrackingService', () => {
 
       const result = await service.getCoverReport(TENANT_ID, DEFAULT_QUERY);
 
-      const staff1 = result.data.find((d) => d.staff_profile_id === 'staff-1');
-      const staff2 = result.data.find((d) => d.staff_profile_id === 'staff-2');
+      const staff1 = result.teachers.find((d) => d.staff_profile_id === 'staff-1');
+      const staff2 = result.teachers.find((d) => d.staff_profile_id === 'staff-2');
       expect(staff1?.cover_count).toBe(2);
       expect(staff2?.cover_count).toBe(1);
     });
@@ -73,8 +74,8 @@ describe('CoverTrackingService', () => {
 
       const result = await service.getCoverReport(TENANT_ID, DEFAULT_QUERY);
 
-      expect(result.data[0]!.staff_profile_id).toBe('staff-1');
-      expect(result.data[0]!.cover_count).toBe(3);
+      expect(result.teachers[0]!.staff_profile_id).toBe('staff-1');
+      expect(result.teachers[0]!.cover_count).toBe(3);
     });
 
     it('should return empty array when no cover records exist', async () => {
@@ -82,21 +83,25 @@ describe('CoverTrackingService', () => {
 
       const result = await service.getCoverReport(TENANT_ID, DEFAULT_QUERY);
 
-      expect(result.data).toHaveLength(0);
+      expect(result.teachers).toHaveLength(0);
+      expect(result.total_substitutions).toBe(0);
     });
 
     it('should include teacher name in report', async () => {
       mockPrisma.substitutionRecord.findMany.mockResolvedValue([
         {
           substitute_staff_id: 'staff-1',
-          substitute: { user: { first_name: 'Alice', last_name: 'Brown' } },
+          substitute: {
+            department: null,
+            user: { first_name: 'Alice', last_name: 'Brown' },
+          },
           schedule: { class_entity: { subject: { name: 'Science' } } },
         },
       ]);
 
       const result = await service.getCoverReport(TENANT_ID, DEFAULT_QUERY);
 
-      expect(result.data[0]!.name).toBe('Alice Brown');
+      expect(result.teachers[0]!.teacher_name).toBe('Alice Brown');
     });
   });
 

@@ -237,6 +237,15 @@ export class ExamSchedulingService {
       });
     }
 
+    // Compute end_time if not provided: start_time + duration_minutes.
+    const [sh, sm] = dto.start_time.split(':').map((n) => parseInt(n, 10));
+    const endTotal = (sh ?? 0) * 60 + (sm ?? 0) + dto.duration_minutes;
+    const computedEndHh = Math.floor(endTotal / 60) % 24;
+    const computedEndMm = endTotal % 60;
+    const endTimeStr =
+      dto.end_time ??
+      `${String(computedEndHh).padStart(2, '0')}:${String(computedEndMm).padStart(2, '0')}`;
+
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const slot = (await prismaWithRls.$transaction(async (tx) => {
@@ -249,7 +258,7 @@ export class ExamSchedulingService {
           year_group_id: dto.year_group_id,
           date: new Date(dto.date),
           start_time: new Date(`1970-01-01T${dto.start_time}:00.000Z`),
-          end_time: new Date(`1970-01-01T${dto.end_time}:00.000Z`),
+          end_time: new Date(`1970-01-01T${endTimeStr}:00.000Z`),
           room_id: dto.room_id ?? null,
           duration_minutes: dto.duration_minutes,
           student_count: dto.student_count,
@@ -264,8 +273,52 @@ export class ExamSchedulingService {
       year_group_id: dto.year_group_id,
       date: dto.date,
       start_time: dto.start_time,
-      end_time: dto.end_time,
+      end_time: endTimeStr,
       created_at: (slot as { created_at: Date }).created_at.toISOString(),
+    };
+  }
+
+  // ─── List Exam Slots ──────────────────────────────────────────────────────
+
+  async listExamSlots(tenantId: string, sessionId: string) {
+    const session = await this.prisma.examSession.findFirst({
+      where: { id: sessionId, tenant_id: tenantId },
+      select: { id: true },
+    });
+    if (!session) {
+      throw new NotFoundException({
+        error: { code: 'EXAM_SESSION_NOT_FOUND', message: 'Exam session not found' },
+      });
+    }
+
+    const slots = await this.prisma.examSlot.findMany({
+      where: { tenant_id: tenantId, exam_session_id: sessionId },
+      orderBy: [{ date: 'asc' }, { start_time: 'asc' }],
+      include: {
+        subject: { select: { id: true, name: true } },
+        year_group: { select: { id: true, name: true } },
+        room: { select: { id: true, name: true } },
+      },
+    });
+
+    return {
+      data: slots.map((s) => ({
+        id: s.id,
+        exam_session_id: s.exam_session_id,
+        subject_id: s.subject_id,
+        subject_name: s.subject?.name ?? null,
+        year_group_id: s.year_group_id,
+        year_group_name: s.year_group?.name ?? null,
+        room_id: s.room_id,
+        room_name: s.room?.name ?? null,
+        date: s.date.toISOString().slice(0, 10),
+        start_time: s.start_time.toISOString().slice(11, 16),
+        end_time: s.end_time.toISOString().slice(11, 16),
+        duration_minutes: s.duration_minutes,
+        student_count: s.student_count,
+        invigilators: [] as Array<{ name: string; role: string }>,
+        created_at: s.created_at.toISOString(),
+      })),
     };
   }
 

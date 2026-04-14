@@ -182,6 +182,21 @@ export class SchedulingEnhancedController {
     return { data };
   }
 
+  // Admin-tier list of active staff for the substitutions / sub-assignment
+  // pickers. Returns a flat {id, full_name, department} shape used by the
+  // substitutions admin page.
+  @Get('teachers')
+  @RequiresPermission('schedule.manage_substitutions')
+  async listTeachers(@CurrentTenant() tenant: { tenant_id: string }) {
+    const all = await this.staffProfileReadFacade.findActiveStaff(tenant.tenant_id);
+    const data = all.map((s) => ({
+      id: s.id,
+      full_name: `${s.user.first_name} ${s.user.last_name}`.trim(),
+      department: s.department,
+    }));
+    return { data };
+  }
+
   @Post('offers/:id/accept')
   @RequiresPermission('schedule.respond_to_offer')
   @HttpCode(HttpStatus.OK)
@@ -582,6 +597,15 @@ export class SchedulingEnhancedController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.examSchedulingService.deleteExamSession(tenant.tenant_id, id);
+  }
+
+  @Get('exam-sessions/:id/slots')
+  @RequiresPermission('schedule.manage_exams')
+  async listExamSlots(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) sessionId: string,
+  ) {
+    return this.examSchedulingService.listExamSlots(tenant.tenant_id, sessionId);
   }
 
   @Post('exam-sessions/:id/slots')

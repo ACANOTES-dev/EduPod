@@ -12,6 +12,7 @@ import { RoomsModule } from '../rooms/rooms.module';
 import { StaffAvailabilityModule } from '../staff-availability/staff-availability.module';
 import { StaffPreferencesModule } from '../staff-preferences/staff-preferences.module';
 import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
 import { AiSubstitutionService } from './ai-substitution.service';
 import { BreakGroupsController } from './break-groups.controller';
@@ -57,6 +58,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     StaffAvailabilityModule,
     StaffPreferencesModule,
     StaffProfilesModule,
+    TenantsModule,
     BullModule.registerQueue({ name: 'scheduling' }),
   ],
   controllers: [

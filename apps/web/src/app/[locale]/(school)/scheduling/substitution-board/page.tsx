@@ -149,7 +149,7 @@ export default function SubstitutionBoardPage() {
 
         {/* Today's substitutions table */}
         <div className={`overflow-hidden rounded-2xl border ${cardBg}`}>
-          {!data || data.slots.length === 0 ? (
+          {!data || (data.slots ?? []).length === 0 ? (
             <div className="flex items-center justify-center py-16">
               <p className={`text-xl ${mutedText}`}>{t('noSubstitutionsToday')}</p>
             </div>
@@ -176,7 +176,7 @@ export default function SubstitutionBoardPage() {
                 </tr>
               </thead>
               <tbody>
-                {[...data.slots]
+                {[...(data.slots ?? [])]
                   .sort((a, b) => a.period_order - b.period_order)
                   .map((slot, i) => (
                     <tr
@@ -214,7 +214,7 @@ export default function SubstitutionBoardPage() {
         </div>
 
         {/* Upcoming absences */}
-        {data && data.upcoming.length > 0 && (
+        {data && (data.upcoming ?? []).length > 0 && (
           <div className="space-y-4">
             <h2 className="text-2xl font-semibold">{t('upcomingAbsences')}</h2>
             <div className={`overflow-hidden rounded-2xl border ${cardBg}`}>
@@ -232,7 +232,7 @@ export default function SubstitutionBoardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.upcoming.map((abs, i) => (
+                  {(data.upcoming ?? []).map((abs, i) => (
                     <tr
                       key={i}
                       className={`border-b ${borderColor} last:border-b-0 ${rowHover} transition-colors`}
