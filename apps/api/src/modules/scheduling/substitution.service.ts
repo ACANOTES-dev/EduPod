@@ -8,7 +8,9 @@ import {
 import type {
   AbsenceQuery,
   AssignSubstituteDto,
+  CancelAbsenceDto,
   ReportAbsenceDto,
+  SelfReportAbsenceDto,
   SubstitutionRecordQuery,
 } from '@school/shared';
 
@@ -41,23 +43,185 @@ export class SubstitutionService {
     // Verify staff exists in tenant
     await this.staffProfileReadFacade.existsOrThrow(tenantId, dto.staff_id);
 
-    // Check for duplicate
-    const existing = await this.prisma.teacherAbsence.findFirst({
-      where: {
-        tenant_id: tenantId,
-        staff_profile_id: dto.staff_id,
-        absence_date: new Date(dto.date),
-      },
+    await this.assertNoOverlappingAbsence(tenantId, dto.staff_id, dto.date, dto.date_to ?? null);
+
+    return this.createAbsence(tenantId, userId, {
+      staffProfileId: dto.staff_id,
+      date: dto.date,
+      dateTo: dto.date_to ?? null,
+      fullDay: dto.full_day ?? true,
+      periodFrom: dto.period_from ?? null,
+      periodTo: dto.period_to ?? null,
+      reason: dto.reason ?? null,
+      absenceType: 'self_reported',
+      nominatedSubstituteId: null,
+      leaveTypeId: null,
+      leaveRequestId: null,
+      isPaid: true,
+      daysCounted: this.computeDaysCounted(dto.date, dto.date_to ?? null, dto.full_day ?? true),
     });
-    if (existing) {
-      throw new ConflictException({
+  }
+
+  // ─── Self-Report Absence (Teacher) ───────────────────────────────────────
+  // Teacher-initiated flow. Uses auth context to locate the staff_profile;
+  // accepts an optional nominated substitute. No approval required — the sick
+  // absence is effective immediately and the cascade engine runs from here.
+
+  async selfReportAbsence(tenantId: string, userId: string, dto: SelfReportAbsenceDto) {
+    const staff = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
+    if (!staff) {
+      throw new BadRequestException({
         error: {
-          code: 'ABSENCE_ALREADY_EXISTS',
-          message: 'An absence record already exists for this staff on this date',
+          code: 'STAFF_PROFILE_NOT_FOUND',
+          message: 'No staff profile linked to the current user',
         },
       });
     }
 
+    // Nominee must be an active teacher in the same tenant (no competency check —
+    // per Decision 10, Sarah may nominate any active colleague).
+    if (dto.nominated_substitute_staff_id) {
+      if (dto.nominated_substitute_staff_id === staff.id) {
+        throw new BadRequestException({
+          error: {
+            code: 'CANNOT_NOMINATE_SELF',
+            message: 'You cannot nominate yourself as a substitute',
+          },
+        });
+      }
+      await this.staffProfileReadFacade.existsOrThrow(tenantId, dto.nominated_substitute_staff_id);
+    }
+
+    await this.assertNoOverlappingAbsence(tenantId, staff.id, dto.date, dto.date_to ?? null);
+
+    return this.createAbsence(tenantId, userId, {
+      staffProfileId: staff.id,
+      date: dto.date,
+      dateTo: dto.date_to ?? null,
+      fullDay: dto.full_day ?? true,
+      periodFrom: dto.period_from ?? null,
+      periodTo: dto.period_to ?? null,
+      reason: dto.reason ?? null,
+      absenceType: 'self_reported',
+      nominatedSubstituteId: dto.nominated_substitute_staff_id ?? null,
+      leaveTypeId: null,
+      leaveRequestId: null,
+      isPaid: true,
+      daysCounted: this.computeDaysCounted(dto.date, dto.date_to ?? null, dto.full_day ?? true),
+    });
+  }
+
+  // ─── Cancel Absence ──────────────────────────────────────────────────────
+  // Soft-cancel: sets cancelled_at + reason. Cascade revocation of pending
+  // offers + confirmed records lands in S4.
+
+  async cancelAbsence(
+    tenantId: string,
+    userId: string,
+    absenceId: string,
+    dto: CancelAbsenceDto,
+    opts: { requireOwnStaffProfileId?: string } = {},
+  ) {
+    const absence = await this.prisma.teacherAbsence.findFirst({
+      where: { tenant_id: tenantId, id: absenceId },
+    });
+    if (!absence) {
+      throw new NotFoundException({
+        error: {
+          code: 'ABSENCE_NOT_FOUND',
+          message: `Absence with id "${absenceId}" not found`,
+        },
+      });
+    }
+    if (absence.cancelled_at) {
+      throw new ConflictException({
+        error: { code: 'ABSENCE_ALREADY_CANCELLED', message: 'This absence is already cancelled' },
+      });
+    }
+    if (
+      opts.requireOwnStaffProfileId &&
+      absence.staff_profile_id !== opts.requireOwnStaffProfileId
+    ) {
+      throw new NotFoundException({
+        error: {
+          code: 'ABSENCE_NOT_FOUND',
+          message: `Absence with id "${absenceId}" not found`,
+        },
+      });
+    }
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+    await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      await db.teacherAbsence.update({
+        where: { id: absenceId },
+        data: {
+          cancelled_at: new Date(),
+          cancelled_by_user_id: userId,
+          cancellation_reason: dto.cancellation_reason ?? null,
+        },
+      });
+    });
+
+    return { id: absenceId, cancelled_at: new Date().toISOString() };
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  private async assertNoOverlappingAbsence(
+    tenantId: string,
+    staffProfileId: string,
+    date: string,
+    dateTo: string | null,
+  ) {
+    const rangeStart = new Date(date);
+    const rangeEnd = dateTo ? new Date(dateTo) : rangeStart;
+
+    // Find any active absence whose range intersects the requested range.
+    // Overlap condition: existing.absence_date <= requested.rangeEnd AND
+    // COALESCE(existing.date_to, existing.absence_date) >= requested.rangeStart.
+    const overlapping = await this.prisma.teacherAbsence.findFirst({
+      where: {
+        tenant_id: tenantId,
+        staff_profile_id: staffProfileId,
+        cancelled_at: null,
+        absence_date: { lte: rangeEnd },
+        OR: [
+          { date_to: null, absence_date: { gte: rangeStart } },
+          { date_to: { gte: rangeStart } },
+        ],
+      },
+    });
+
+    if (overlapping) {
+      throw new ConflictException({
+        error: {
+          code: 'ABSENCE_OVERLAPS_EXISTING',
+          message: 'An active absence already exists covering part or all of this date range',
+        },
+      });
+    }
+  }
+
+  private async createAbsence(
+    tenantId: string,
+    userId: string,
+    args: {
+      staffProfileId: string;
+      date: string;
+      dateTo: string | null;
+      fullDay: boolean;
+      periodFrom: number | null;
+      periodTo: number | null;
+      reason: string | null;
+      absenceType: 'self_reported' | 'approved_leave';
+      nominatedSubstituteId: string | null;
+      leaveTypeId: string | null;
+      leaveRequestId: string | null;
+      isPaid: boolean;
+      daysCounted: number;
+    },
+  ) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const absence = (await prismaWithRls.$transaction(async (tx) => {
@@ -65,25 +229,48 @@ export class SubstitutionService {
       return db.teacherAbsence.create({
         data: {
           tenant_id: tenantId,
-          staff_profile_id: dto.staff_id,
-          absence_date: new Date(dto.date),
-          full_day: dto.full_day ?? true,
-          period_from: dto.period_from ?? null,
-          period_to: dto.period_to ?? null,
-          reason: dto.reason ?? null,
+          staff_profile_id: args.staffProfileId,
+          absence_date: new Date(args.date),
+          date_to: args.dateTo ? new Date(args.dateTo) : null,
+          absence_type: args.absenceType,
+          leave_type_id: args.leaveTypeId,
+          leave_request_id: args.leaveRequestId,
+          nominated_substitute_id: args.nominatedSubstituteId,
+          full_day: args.fullDay,
+          period_from: args.periodFrom,
+          period_to: args.periodTo,
+          is_paid: args.isPaid,
+          days_counted: args.daysCounted,
+          reason: args.reason,
           reported_by_user_id: userId,
           reported_at: new Date(),
         },
       });
-    })) as unknown as { id: string; absence_date: Date; created_at: Date };
+    })) as unknown as { id: string; absence_date: Date; date_to: Date | null; created_at: Date };
 
     return {
-      id: (absence as { id: string }).id,
-      staff_id: dto.staff_id,
-      date: dto.date,
-      full_day: dto.full_day ?? true,
-      created_at: (absence as { created_at: Date }).created_at.toISOString(),
+      id: absence.id,
+      staff_id: args.staffProfileId,
+      date: args.date,
+      date_to: args.dateTo,
+      full_day: args.fullDay,
+      absence_type: args.absenceType,
+      nominated_substitute_staff_id: args.nominatedSubstituteId,
+      days_counted: args.daysCounted,
+      created_at: absence.created_at.toISOString(),
     };
+  }
+
+  private computeDaysCounted(date: string, dateTo: string | null, fullDay: boolean): number {
+    // Partial-day absences count as 0.5 regardless of how many periods — payroll
+    // cares about paid-vs-unpaid day fractions, not precise period math.
+    if (!fullDay) return 0.5;
+    if (!dateTo) return 1;
+    const start = new Date(date);
+    const end = new Date(dateTo);
+    const ms = end.getTime() - start.getTime();
+    const days = Math.round(ms / (1000 * 60 * 60 * 24)) + 1;
+    return days;
   }
 
   // ─── Find Eligible Substitutes ────────────────────────────────────────────
@@ -325,7 +512,7 @@ export class SubstitutionService {
     const where: {
       tenant_id: string;
       substitute_staff_id?: string;
-      status?: 'assigned' | 'confirmed' | 'declined' | 'completed';
+      status?: 'assigned' | 'confirmed' | 'declined' | 'completed' | 'revoked';
       created_at?: { gte?: Date; lte?: Date };
     } = { tenant_id: tenantId };
 

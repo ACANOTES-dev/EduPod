@@ -9524,7 +9524,7 @@
     "path": "/v1/scheduling/absences",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.manage_substitutions"
+    "permission": "schedule.report_own_absence"
   },
   {
     "method": "POST",
@@ -9550,6 +9550,27 @@
   {
     "method": "DELETE",
     "path": "/v1/scheduling/absences/:id",
+    "controller": "SchedulingEnhancedController",
+    "module": "scheduling",
+    "permission": "schedule.manage_substitutions"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling/absences/:id/cancel",
+    "controller": "SchedulingEnhancedController",
+    "module": "scheduling",
+    "permission": "schedule.report_own_absence"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling/absences/:id/cancel-own",
+    "controller": "SchedulingEnhancedController",
+    "module": "scheduling",
+    "permission": "schedule.manage_substitutions"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling/absences/self-report",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
     "permission": "schedule.manage_substitutions"

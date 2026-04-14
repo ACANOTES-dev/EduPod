@@ -19,6 +19,7 @@ const mockTx = {
   teacherAbsence: {
     create: jest.fn(),
     delete: jest.fn(),
+    update: jest.fn(),
   },
   substitutionRecord: {
     create: jest.fn(),
@@ -210,6 +211,175 @@ describe('SubstitutionService', () => {
       });
 
       expect(result.full_day).toBe(true);
+    });
+
+    it('should store date_to for multi-day absences and compute days_counted', async () => {
+      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_ID });
+      mockPrisma.teacherAbsence.findFirst.mockResolvedValue(null);
+
+      const result = await service.reportAbsence(TENANT_ID, USER_ID, {
+        staff_id: STAFF_ID,
+        date: '2026-03-23',
+        date_to: '2026-03-27',
+        full_day: true,
+      });
+
+      expect(result.date_to).toBe('2026-03-27');
+      expect(result.days_counted).toBe(5);
+      expect(mockTx.teacherAbsence.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            date_to: new Date('2026-03-27'),
+            days_counted: 5,
+          }),
+        }),
+      );
+    });
+
+    it('should reject overlapping active absences', async () => {
+      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_ID });
+      mockPrisma.teacherAbsence.findFirst.mockResolvedValue({
+        id: 'overlap-1',
+        absence_date: new Date('2026-03-20'),
+        date_to: null,
+      });
+
+      await expect(
+        service.reportAbsence(TENANT_ID, USER_ID, {
+          staff_id: STAFF_ID,
+          date: '2026-03-20',
+          full_day: true,
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  // ─── selfReportAbsence ────────────────────────────────────────────────────
+
+  describe('selfReportAbsence', () => {
+    it('should derive staff_profile_id from the JWT user_id', async () => {
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findByUserId as jest.Mock).mockResolvedValue({ id: STAFF_ID });
+      mockPrisma.teacherAbsence.findFirst.mockResolvedValue(null);
+
+      const result = await service.selfReportAbsence(TENANT_ID, USER_ID, {
+        date: '2026-03-20',
+        full_day: true,
+      });
+
+      expect(result.staff_id).toBe(STAFF_ID);
+      expect(result.absence_type).toBe('self_reported');
+      expect(mockTx.teacherAbsence.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            staff_profile_id: STAFF_ID,
+            absence_type: 'self_reported',
+            reported_by_user_id: USER_ID,
+          }),
+        }),
+      );
+    });
+
+    it('should store a nominated substitute when provided', async () => {
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findByUserId as jest.Mock).mockResolvedValue({ id: STAFF_ID });
+      mockPrisma.teacherAbsence.findFirst.mockResolvedValue(null);
+
+      const OSCAR_ID = '00000000-0000-0000-0000-0000000000c0';
+      const result = await service.selfReportAbsence(TENANT_ID, USER_ID, {
+        date: '2026-03-20',
+        full_day: false,
+        period_from: 1,
+        period_to: 2,
+        nominated_substitute_staff_id: OSCAR_ID,
+      });
+
+      expect(result.nominated_substitute_staff_id).toBe(OSCAR_ID);
+      expect(result.days_counted).toBe(0.5);
+    });
+
+    it('should reject self-nomination', async () => {
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findByUserId as jest.Mock).mockResolvedValue({ id: STAFF_ID });
+
+      await expect(
+        service.selfReportAbsence(TENANT_ID, USER_ID, {
+          date: '2026-03-20',
+          full_day: true,
+          nominated_substitute_staff_id: STAFF_ID,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should fail if no staff profile is linked to the user', async () => {
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findByUserId as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.selfReportAbsence(TENANT_ID, USER_ID, { date: '2026-03-20', full_day: true }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ─── cancelAbsence ────────────────────────────────────────────────────────
+
+  describe('cancelAbsence', () => {
+    const ABS_ID = '00000000-0000-0000-0000-000000000cab';
+
+    it('should soft-cancel an active absence', async () => {
+      mockPrisma.teacherAbsence.findFirst.mockResolvedValue({
+        id: ABS_ID,
+        staff_profile_id: STAFF_ID,
+        cancelled_at: null,
+      });
+      mockTx.teacherAbsence.update.mockResolvedValue({ id: ABS_ID });
+
+      const result = await service.cancelAbsence(TENANT_ID, USER_ID, ABS_ID, {
+        cancellation_reason: 'Feeling better',
+      });
+
+      expect(result.id).toBe(ABS_ID);
+      expect(mockTx.teacherAbsence.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: ABS_ID },
+          data: expect.objectContaining({
+            cancelled_by_user_id: USER_ID,
+            cancellation_reason: 'Feeling better',
+          }),
+        }),
+      );
+    });
+
+    it('should throw when absence already cancelled', async () => {
+      mockPrisma.teacherAbsence.findFirst.mockResolvedValue({
+        id: ABS_ID,
+        staff_profile_id: STAFF_ID,
+        cancelled_at: new Date(),
+      });
+
+      await expect(service.cancelAbsence(TENANT_ID, USER_ID, ABS_ID, {})).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('should throw 404 if absence belongs to another staff when ownership is required', async () => {
+      mockPrisma.teacherAbsence.findFirst.mockResolvedValue({
+        id: ABS_ID,
+        staff_profile_id: 'some-other-staff',
+        cancelled_at: null,
+      });
+
+      await expect(
+        service.cancelAbsence(
+          TENANT_ID,
+          USER_ID,
+          ABS_ID,
+          {},
+          {
+            requireOwnStaffProfileId: STAFF_ID,
+          },
+        ),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

@@ -849,6 +849,13 @@
       "nowBadge": "الآن",
       "viewAll": "الأسبوع كاملاً"
     },
+    "teacherActions": {
+      "takeAttendance": "تسجيل الحضور",
+      "enterGrades": "إدخال الدرجات",
+      "viewSchedule": "عرض الجدول",
+      "reportAbsence": "الإبلاغ عن غياب",
+      "requestLeave": "طلب إجازة"
+    },
     "totalStudents": "إجمالي الطلاب",
     "totalStaff": "إجمالي الموظفين",
     "activeClasses": "الفصول النشطة",
@@ -4635,6 +4642,25 @@
     "viewInvoices": "عرض الفواتير"
   },
   "scheduling": {
+    "selfReport": {
+      "title": "الإبلاغ عن غياب",
+      "description": "أخبر المدرسة بأنك لن تحضر. سيتم ترتيب البديل تلقائياً.",
+      "dateFrom": "أول يوم غياب",
+      "dateTo": "آخر يوم غياب",
+      "singleDay": "يوم واحد",
+      "fullDay": "يوم كامل",
+      "periodFrom": "من حصة",
+      "periodTo": "إلى حصة",
+      "reason": "السبب (اختياري)",
+      "reasonPlaceholder": "مثال: شعور بالتعب، موعد طبي",
+      "nominateLabel": "ترشيح زميل للتغطية (اختياري)",
+      "autoAssign": "تعيين تلقائي للبديل المتاح",
+      "nominateHelp": "إذا اتفقت مع زميل، سيتم تقديم العرض له أولاً.",
+      "submit": "إرسال",
+      "cancel": "إلغاء",
+      "submittedToast": "تم الإبلاغ عن الغياب. جاري إيجاد بديل الآن.",
+      "submitError": "فشل الإبلاغ عن الغياب. حاول مرة أخرى."
+    },
     "rooms": "الغرف",
     "schedules": "الجداول",
     "timetables": "الجداول الزمنية",

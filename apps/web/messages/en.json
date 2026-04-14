@@ -850,6 +850,13 @@
       "nowBadge": "Now",
       "viewAll": "Full week"
     },
+    "teacherActions": {
+      "takeAttendance": "Take Attendance",
+      "enterGrades": "Enter Grades",
+      "viewSchedule": "View Schedule",
+      "reportAbsence": "Report Absence",
+      "requestLeave": "Request Leave"
+    },
     "totalStudents": "Total Students",
     "totalStaff": "Total Staff",
     "activeClasses": "Active Classes",
@@ -4643,6 +4650,25 @@
     "viewInvoices": "View Invoices"
   },
   "scheduling": {
+    "selfReport": {
+      "title": "Report Absence",
+      "description": "Let the school know you won't be in. Your cover will be sorted automatically.",
+      "dateFrom": "First day out",
+      "dateTo": "Last day out",
+      "singleDay": "Single day",
+      "fullDay": "Full day",
+      "periodFrom": "From period",
+      "periodTo": "To period",
+      "reason": "Reason (optional)",
+      "reasonPlaceholder": "e.g. feeling unwell, medical appointment",
+      "nominateLabel": "Nominate a specific cover (optional)",
+      "autoAssign": "Auto-assign next available",
+      "nominateHelp": "If you and a colleague have agreed, they'll be offered the cover first.",
+      "submit": "Submit absence",
+      "cancel": "Cancel",
+      "submittedToast": "Absence reported. Finding cover now.",
+      "submitError": "Failed to report absence. Please try again."
+    },
     "rooms": "Rooms",
     "schedules": "Schedules",
     "timetables": "Timetables",

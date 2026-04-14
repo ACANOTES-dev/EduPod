@@ -6,17 +6,52 @@ export const reportAbsenceSchema = z
   .object({
     staff_id: z.string().uuid(),
     date: z.string().date(),
+    date_to: z.string().date().nullable().optional(),
     full_day: z.boolean().default(true),
     period_from: z.number().int().min(0).nullable().optional(),
     period_to: z.number().int().min(0).nullable().optional(),
     reason: z.string().max(500).nullable().optional(),
   })
-  .refine(
-    (d) => d.full_day || (d.period_from !== undefined && d.period_from !== null),
-    { message: 'period_from is required when full_day is false', path: ['period_from'] },
-  );
+  .refine((d) => d.full_day || (d.period_from !== undefined && d.period_from !== null), {
+    message: 'period_from is required when full_day is false',
+    path: ['period_from'],
+  })
+  .refine((d) => !d.date_to || d.date_to >= d.date, {
+    message: 'date_to must be on or after date',
+    path: ['date_to'],
+  });
 
 export type ReportAbsenceDto = z.infer<typeof reportAbsenceSchema>;
+
+// Teacher self-report: no staff_id (derived from auth context). Can optionally
+// nominate a specific substitute to be offered first — if they decline, the
+// absence escalates to admin rather than falling through to the auto-cascade.
+export const selfReportAbsenceSchema = z
+  .object({
+    date: z.string().date(),
+    date_to: z.string().date().nullable().optional(),
+    full_day: z.boolean().default(true),
+    period_from: z.number().int().min(0).nullable().optional(),
+    period_to: z.number().int().min(0).nullable().optional(),
+    reason: z.string().max(500).nullable().optional(),
+    nominated_substitute_staff_id: z.string().uuid().nullable().optional(),
+  })
+  .refine((d) => d.full_day || (d.period_from !== undefined && d.period_from !== null), {
+    message: 'period_from is required when full_day is false',
+    path: ['period_from'],
+  })
+  .refine((d) => !d.date_to || d.date_to >= d.date, {
+    message: 'date_to must be on or after date',
+    path: ['date_to'],
+  });
+
+export type SelfReportAbsenceDto = z.infer<typeof selfReportAbsenceSchema>;
+
+export const cancelAbsenceSchema = z.object({
+  cancellation_reason: z.string().max(500).nullable().optional(),
+});
+
+export type CancelAbsenceDto = z.infer<typeof cancelAbsenceSchema>;
 
 export const assignSubstituteSchema = z.object({
   absence_id: z.string().uuid(),
@@ -41,7 +76,7 @@ export const substitutionRecordQuerySchema = z.object({
   date_from: z.string().date().optional(),
   date_to: z.string().date().optional(),
   staff_id: z.string().uuid().optional(),
-  status: z.enum(['assigned', 'confirmed', 'declined', 'completed']).optional(),
+  status: z.enum(['assigned', 'confirmed', 'declined', 'completed', 'revoked']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

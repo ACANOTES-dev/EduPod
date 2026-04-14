@@ -1,9 +1,10 @@
 'use client';
 
-import { BookOpen, Calendar, CheckSquare, Edit } from 'lucide-react';
+import { BookOpen, Calendar, CheckSquare, Edit, UserMinus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { SelfReportAbsenceDialog } from '@/components/self-report-absence-dialog';
 import { TodayScheduleWidget, type TodayScheduleItem } from '@/components/today-schedule-widget';
 import { apiClient } from '@/lib/api-client';
 
@@ -25,8 +26,10 @@ interface MyTimetableEntry {
 
 export function TeacherHome({ schoolName }: { schoolName: string }) {
   const t = useTranslations('dashboard.todaySchedule');
+  const tActions = useTranslations('dashboard.teacherActions');
   const [todayItems, setTodayItems] = React.useState<TodayScheduleItem[]>([]);
   const [timetableLoading, setTimetableLoading] = React.useState(true);
+  const [absenceDialogOpen, setAbsenceDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
     const today = new Date();
@@ -76,9 +79,14 @@ export function TeacherHome({ schoolName }: { schoolName: string }) {
   ];
 
   const teacherActions = [
-    { icon: CheckSquare, label: 'Take Attendance', href: '/attendance/take' },
-    { icon: Edit, label: 'Enter Grades', href: '/gradebook' },
-    { icon: Calendar, label: 'View Schedule', href: '/scheduling/my-timetable' },
+    { icon: CheckSquare, label: tActions('takeAttendance'), href: '/attendance/take' },
+    { icon: Edit, label: tActions('enterGrades'), href: '/gradebook' },
+    { icon: Calendar, label: tActions('viewSchedule'), href: '/scheduling/my-timetable' },
+    {
+      icon: UserMinus,
+      label: tActions('reportAbsence'),
+      onClick: () => setAbsenceDialogOpen(true),
+    },
   ];
 
   const teacherPriority = [
@@ -120,6 +128,8 @@ export function TeacherHome({ schoolName }: { schoolName: string }) {
         <SchoolSnapshot variant="default" customStats={teacherStats} />
         <QuickActions variant="grid" customActions={teacherActions} />
       </div>
+
+      <SelfReportAbsenceDialog open={absenceDialogOpen} onOpenChange={setAbsenceDialogOpen} />
     </div>
   );
 }

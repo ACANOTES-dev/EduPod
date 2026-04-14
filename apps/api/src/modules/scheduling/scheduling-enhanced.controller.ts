@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
@@ -19,6 +20,7 @@ import {
   absenceQuerySchema,
   addExamSlotSchema,
   assignSubstituteSchema,
+  cancelAbsenceSchema,
   compareScenarioSchema,
   coverReportQuerySchema,
   createExamSessionSchema,
@@ -31,6 +33,7 @@ import {
   scenarioQuerySchema,
   schedulingAnalyticsQuerySchema,
   schedulingHistoricalComparisonQuerySchema,
+  selfReportAbsenceSchema,
   substitutionRecordQuerySchema,
   timetableQuerySchema,
   updateExamSessionSchema,
@@ -45,6 +48,7 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { AiSubstitutionService } from './ai-substitution.service';
 import { CoverTrackingService } from './cover-tracking.service';
@@ -74,6 +78,7 @@ export class SchedulingEnhancedController {
     private readonly examSchedulingService: ExamSchedulingService,
     private readonly scenarioService: ScenarioService,
     private readonly analyticsService: SchedulingAnalyticsService,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
   // ─── Substitution ───────────────────────────────────────────────────────
@@ -87,6 +92,58 @@ export class SchedulingEnhancedController {
     @Body(new ZodValidationPipe(reportAbsenceSchema)) dto: z.infer<typeof reportAbsenceSchema>,
   ) {
     return this.substitutionService.reportAbsence(tenant.tenant_id, user.sub, dto);
+  }
+
+  // Teacher-initiated self-report. Derives staff_profile_id from the JWT.
+  @Post('absences/self-report')
+  @RequiresPermission('schedule.report_own_absence')
+  @HttpCode(HttpStatus.CREATED)
+  async selfReportAbsence(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(selfReportAbsenceSchema))
+    dto: z.infer<typeof selfReportAbsenceSchema>,
+  ) {
+    return this.substitutionService.selfReportAbsence(tenant.tenant_id, user.sub, dto);
+  }
+
+  // Admin-tier cancel (any absence in the tenant).
+  @Post('absences/:id/cancel')
+  @RequiresPermission('schedule.manage_substitutions')
+  @HttpCode(HttpStatus.OK)
+  async cancelAbsenceAsAdmin(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(cancelAbsenceSchema))
+    dto: z.infer<typeof cancelAbsenceSchema>,
+  ) {
+    return this.substitutionService.cancelAbsence(tenant.tenant_id, user.sub, id, dto);
+  }
+
+  // Teacher cancel — only their own absence.
+  @Post('absences/:id/cancel-own')
+  @RequiresPermission('schedule.report_own_absence')
+  @HttpCode(HttpStatus.OK)
+  async cancelOwnAbsence(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(cancelAbsenceSchema))
+    dto: z.infer<typeof cancelAbsenceSchema>,
+  ) {
+    const staff = await this.staffProfileReadFacade.findByUserId(tenant.tenant_id, user.sub);
+    if (!staff) {
+      throw new NotFoundException({
+        error: {
+          code: 'STAFF_PROFILE_NOT_FOUND',
+          message: 'No staff profile linked to the current user',
+        },
+      });
+    }
+    return this.substitutionService.cancelAbsence(tenant.tenant_id, user.sub, id, dto, {
+      requireOwnStaffProfileId: staff.id,
+    });
   }
 
   @Get('absences')

@@ -12,7 +12,7 @@
 | Stage | Title                            | Status   |
 | ----- | -------------------------------- | -------- |
 | S1    | Schema + RLS                     | complete |
-| S2    | Teacher self-report flow         | pending  |
+| S2    | Teacher self-report flow         | complete |
 | S3    | Leave request + approval flow    | pending  |
 | S4    | Auto-cascade substitution engine | pending  |
 | S5    | Notification templates + wiring  | pending  |
