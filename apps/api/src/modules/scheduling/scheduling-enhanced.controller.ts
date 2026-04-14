@@ -160,6 +160,28 @@ export class SchedulingEnhancedController {
     return this.substitutionCascadeService.listMyOffers(tenant.tenant_id, user.sub);
   }
 
+  // ─── Colleagues (for nomination picker) ──────────────────────────────────
+  // Teacher-scoped list of active colleagues, name-only. Used by the
+  // self-report absence dialog so teachers can nominate a sub without needing
+  // the admin-tier staff.view permission.
+  @Get('colleagues')
+  @RequiresPermission('schedule.report_own_absence')
+  async listColleagues(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const self = await this.staffProfileReadFacade.findByUserId(tenant.tenant_id, user.sub);
+    const all = await this.staffProfileReadFacade.findActiveStaff(tenant.tenant_id);
+    const data = all
+      .filter((s) => !self || s.id !== self.id)
+      .map((s) => ({
+        id: s.id,
+        first_name: s.user.first_name,
+        last_name: s.user.last_name,
+      }));
+    return { data };
+  }
+
   @Post('offers/:id/accept')
   @RequiresPermission('schedule.respond_to_offer')
   @HttpCode(HttpStatus.OK)

@@ -19,9 +19,10 @@ import {
 
 import { apiClient } from '@/lib/api-client';
 
-interface StaffSummary {
+interface Colleague {
   id: string;
-  user: { first_name: string; last_name: string };
+  first_name: string;
+  last_name: string;
 }
 
 interface Props {
@@ -33,7 +34,7 @@ interface Props {
 export function SelfReportAbsenceDialog({ open, onOpenChange, onSuccess }: Props) {
   const t = useTranslations('scheduling.selfReport');
   const todayIso = React.useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const [colleagues, setColleagues] = React.useState<StaffSummary[]>([]);
+  const [colleagues, setColleagues] = React.useState<Colleague[]>([]);
 
   const form = useForm<SelfReportAbsenceDto>({
     resolver: zodResolver(selfReportAbsenceSchema),
@@ -62,7 +63,7 @@ export function SelfReportAbsenceDialog({ open, onOpenChange, onSuccess }: Props
       reason: null,
       nominated_substitute_staff_id: null,
     });
-    apiClient<{ data: StaffSummary[] }>('/api/v1/staff?pageSize=100', { silent: true })
+    apiClient<{ data: Colleague[] }>('/api/v1/scheduling/colleagues', { silent: true })
       .then((res) => setColleagues(res.data ?? []))
       .catch((err) => console.error('[SelfReportAbsenceDialog.colleagues]', err));
   }, [open, form, todayIso]);
@@ -207,7 +208,7 @@ export function SelfReportAbsenceDialog({ open, onOpenChange, onSuccess }: Props
               <option value="">{t('autoAssign')}</option>
               {colleagues.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.user.first_name} {c.user.last_name}
+                  {c.first_name} {c.last_name}
                 </option>
               ))}
             </select>

@@ -9710,6 +9710,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/scheduling/colleagues",
+    "controller": "SchedulingEnhancedController",
+    "module": "scheduling",
+    "permission": "schedule.respond_to_offer"
+  },
+  {
+    "method": "GET",
     "path": "/v1/scheduling/cover-reports",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
@@ -9860,7 +9867,7 @@
     "path": "/v1/scheduling/offers/:id/accept",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.respond_to_offer"
+    "permission": "schedule.report_own_absence"
   },
   {
     "method": "POST",
