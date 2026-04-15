@@ -40,7 +40,7 @@ Open → In Progress → Fixed → Verified
 ### SCHED-001 — Substitutions page crashes with "Something went wrong"
 
 **Severity:** P0
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 
 **Summary:** Navigating to `/en/scheduling/substitutions` renders the error boundary instead of the page. The component tries to `.filter` an undefined staff array because the upstream `/api/v1/staff?pageSize=200&role=teacher` call returns a 404. Admins cannot report absences through this UI at all.
@@ -80,7 +80,7 @@ Open → In Progress → Fixed → Verified
 ### SCHED-002 — Sub Board page crashes
 
 **Severity:** P0
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 
 **Summary:** `/en/scheduling/substitution-board` renders the error boundary. Same root cause pattern as SCHED-001: the page component accesses `.length` on an undefined value. The Sub Board is a staffroom display — if it crashes, schools lose visibility of today's cover status.
@@ -116,7 +116,7 @@ Open → In Progress → Fixed → Verified
 ### SCHED-003 — Class Requirements "Configure with defaults" returns 400
 
 **Severity:** P1
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 
 **Summary:** Class Requirements is empty for every tenant that hasn't manually configured it. The only way to populate it is "Configure remaining with defaults", which returns 400 from the bulk endpoint. This blocks any tenant from per-class overrides — the Auto-Scheduler runs on year-group defaults only.
@@ -153,7 +153,7 @@ Open → In Progress → Fixed → Verified
 ### SCHED-004 — Staff Preferences module non-functional
 
 **Severity:** P1
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 
 **Summary:** The Staff Preferences page exists and renders a staff picker + Subject/Class/Time Slot tabs + Add button. Both the list fetch (`GET /api/v1/staff-preferences`) and the create (`POST /api/v1/staff-preferences`) return 404 — the backend module is not mounted at all.
@@ -194,7 +194,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-005 — Exams "Add Exam" (slot create) returns 400
 
 **Severity:** P1
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 
 **Summary:** Creating an exam session works, but adding any exam (slot) to the session fails. The `POST /api/v1/scheduling/exam-sessions/{id}/slots` endpoint returns 400. The `GET /slots` endpoint also 404s on initial load, which is suspicious — likely the slots route isn't mounted, and the 400 on POST is the same missing route that the server is treating as an invalid request.
@@ -233,7 +233,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-006 — Analytics Trends tab crashes
 
 **Severity:** P1
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 
 **Summary:** The Analytics dashboard has 4 tabs. Overview, Workload, Rooms work. Clicking "Trends" triggers an undefined-access crash and the error boundary catches it.
@@ -262,7 +262,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-007 — Room Closures list: Room name + Created By columns blank
 
 **Severity:** P2
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 
 **Summary:** After creating a room closure, the list renders the new row but the Room column AND the Created By column are both empty. The backend response likely isn't joining `rooms.name` or `users.first_name + last_name` — only the room_id/user_id is present.
@@ -293,7 +293,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-008 — Break Groups: Year Groups column blank
 
 **Severity:** P2
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 
 **Summary:** Existing break groups ("Yard 1 - Juniors", "Yard 2 - Seniors") render in the list but the Year Groups column is empty. Same root cause as SCHED-007 — likely the list GET isn't joining the member year-groups.
@@ -316,7 +316,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-009 — Curriculum Hours-per-Week/Month/Year all render 0
 
 **Severity:** P2
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 
 **Summary:** The Curriculum page shows "Period Duration" with a "min" suffix and an empty spinbutton for every subject. Hrs/Week, Hrs/Month, Hrs/Year cells all render "—". The "Forecast Teaching Hours" footer row shows 0.0 / 0.0 / 0.0. This isn't a calculation bug in isolation — it's a missing input: the "period duration" field is blank, so the hours forecast can't be computed.
@@ -341,7 +341,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-010 — Analytics Rooms tab: `scheduling.auto.capacity` i18n key unresolved
 
 **Severity:** P2
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 
 **Summary:** On the Analytics → Rooms tab, each room card subtitle reads `classroom · scheduling.auto.capacity: 25` — the translation key `scheduling.auto.capacity` is rendered literally instead of resolved to "Capacity".
@@ -364,7 +364,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-011 — Cover Reports endpoint returns 400
 
 **Severity:** P2
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 
 **Summary:** `GET /api/v1/scheduling/cover-reports?from=2026-03-15&to=2026-04-14` returns 400. The UI masks the error by rendering "No cover data for the selected period." — if a tenant had real cover history they'd still see the empty state because the fetch fails.
@@ -394,7 +394,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-012 — Exam sessions have no delete UI
 
 **Severity:** P3
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 
 **Summary:** The Exams module allows creating sessions but provides no way to delete one via the UI. Neither the list row nor the session detail page exposes a destroy action. Test sessions accumulate as orphaned data.
@@ -634,7 +634,7 @@ curl -X POST https://stress-d.edupod.app/api/v1/scheduling/absences \
 ### SCHED-017 — Solver v2 reports `status=completed` while leaving curriculum demand unfilled (medium school)
 
 **Severity:** P1
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 **Found by:** session-A during STRESS-002 execution on `stress-a.edupod.app`, 2026-04-15
 
@@ -685,7 +685,7 @@ curl -s https://stress-a.edupod.app/api/v1/scheduling-runs/<id> \
 ### SCHED-018 — `class_scheduling_requirements.preferred_room_id` (and `required_room_type`) never reach the solver
 
 **Severity:** P1
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 **Found by:** session-C during STRESS-030 execution on `stress-c.edupod.app`, 2026-04-15
 
@@ -740,7 +740,7 @@ The class-level preference was completely ignored. (Note Y11-B doesn't exist in 
 ### SCHED-019 — Cascade engine offers covers to teachers who are themselves on leave that period
 
 **Severity:** P1
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 **Found by:** session-D during STRESS-057 execution on `stress-d.edupod.app`, 2026-04-15
 
@@ -793,7 +793,7 @@ Expected: T11 should be excluded from the candidate pool because they have an ac
 ### SCHED-020 — Sub Board still surfaces revoked substitution rows
 
 **Severity:** P3
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 **Found by:** session-D during STRESS-049/050 walkthrough on `stress-d.edupod.app`, 2026-04-15
 
@@ -824,7 +824,7 @@ Expected: T11 should be excluded from the candidate pool because they have an ac
 ### SCHED-021 — `/scheduling-runs/:id/progress` emits negative `entries_assigned` when solver drops more than it places
 
 **Severity:** P3
-**Status:** Fixed (commit a892ca92)
+**Status:** Open
 **Provenance:** [L]
 **Found by:** session-A during STRESS-007 execution on `stress-a.edupod.app`, 2026-04-15
 
@@ -910,6 +910,59 @@ This is on the same feature axis as SCHED-018. A complete fix likely co-designs 
 **Workaround:** None.
 
 **Release gate:** P2 — limits per-class scheduling flexibility. Schools currently work around by editing year-group curriculum, which affects every class in that year.
+
+---
+
+### SCHED-024 — Solver violates `requires_double_period`: emits standalone single-period entries for double-required subjects
+
+**Severity:** P1
+**Status:** Open
+**Provenance:** [L]
+**Found by:** session-B during STRESS-015 execution on `stress-b.edupod.app`, 2026-04-15
+
+**Summary:** When `curriculum_requirements.requires_double_period = true` for a subject, every appearance of that subject in the solved schedule MUST be part of a 2-consecutive-period block. The solver violates this constraint: it places single-period entries for double-required subjects, emitting partial assignments rather than failing infeasibly.
+
+**Reproduction:** On stress-b baseline, set `requires_double_period=true` for Science, PE, and Art (all 6 year groups, 18 curriculum rows total). Trigger a solve.
+
+```sql
+UPDATE curriculum_requirements SET requires_double_period = true
+ WHERE tenant_id='<TENANT>'::uuid AND academic_year_id='<AY>'::uuid
+   AND subject_id IN (SELECT id FROM subjects WHERE name IN ('Science','PE','Art'));
+```
+
+Run id `e1f87145-dc28-4df6-8629-c06e979b5e44` produced:
+
+- `entries_generated=206`, `entries_unassigned` covering 114 periods (203% of baseline-shortfall).
+- Of 23 Science/PE/Art entries placed (16 Science + 4 PE + 3 Art), **all 23 are singletons** — none paired into a 2-period block.
+
+Examples of singleton placements (class_id prefix, weekday, period_order):
+
+- Science class=55bd566a wd=1 period=6 (no Science in the same class on weekday 1 at period 5 or 7 — the placement is isolated).
+- Science class=ab8bb4f0 wd=1 period=6 (same — isolated singleton).
+- Science class=c9ef074c wd=4 period=5 (no pair at P4 or P6).
+
+**Expected:** Either (a) every Science/PE/Art appearance is part of a 2-period run on the same class/day, OR (b) status=infeasible with a constraint report citing "could not place X double-period blocks for subject Y".
+
+**Affected files:**
+
+- `packages/shared/src/scheduler/constraints-v2.ts` — `checkMinConsecutive()` is called on every placement (constraint #11 in `checkHardConstraintsV2`) and is supposed to enforce `requires_double_period`. Either the check is too lenient (it allows the first half of a planned double to land alone), or the greedy phase places one slot and never returns to place its partner.
+- `packages/shared/src/scheduler/solver-v2.ts` — variable generation should pair double-required slots so the solver treats them atomically (one variable per double, not two variables that happen to be adjacent). If variables are paired and the second slot still ends up unfilled, that is a domain-pruning concern in `domain-v2.ts`.
+
+**Fix direction:**
+
+1. Audit how `requires_double_period` translates into CSP variables. If the current generator produces N independent variables for a subject (where N = `min_periods_per_week`), pair them: generate `N/2` "double" variables whose domain values are `(weekday, period_start)` pairs over consecutive teaching slots that don't span a break/lunch.
+2. Add a hard-fail path: if at backtrack-end any double-variable is unassigned, return `infeasible` with a per-subject shortage report rather than reporting `completed`.
+3. Add unit test in `packages/shared/src/scheduler/__tests__/solver-v2.test.ts`: feed a 1-class fixture with 4 double-required Science periods/week and 5 free slots/day; assert the output contains exactly 2 Science blocks of length 2, no Science singletons, and no Science blocks crossing a break.
+
+**Cascading impacts:** STRESS-016 and STRESS-017 cannot be meaningfully tested while this bug exists — both depend on the solver actually producing doubles. Both marked N/A pending fix (vacuous truth: zero double placements, therefore zero break/lunch-spanning placements).
+
+**Verification after fix:**
+
+1. Re-run STRESS-015 setup on stress-b. Expect `requires_double_period` subjects to appear only in 2-period runs.
+2. Re-run STRESS-016 (Science/PE/Art double, look for any P3-P4 placement). Expect zero P3-P4 doubles (P3 ends 11:15, break 11:15-11:35, P4 starts 11:35).
+3. Re-run STRESS-017 (look for P5-P6). Expect zero P5-P6 doubles (P5 ends 13:05, lunch 13:05-13:35, P6 starts 13:35).
+
+**Release gate:** P1 — solver outputs that silently violate a hard constraint are worse than infeasibility. Admins applying such a schedule will publish a timetable where Science labs end after 45 minutes when they were configured to need 90 minutes, breaking lesson planning for every teacher who requires the double slot.
 
 ---
 
