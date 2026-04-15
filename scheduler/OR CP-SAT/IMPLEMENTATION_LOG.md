@@ -30,7 +30,7 @@
 | 3   | CP-SAT model — hard constraints    | `complete` | 2026-04-15           | per-cell BoolVars; all 16 hard constraints + supervision; 18 pytest tests                                                                                        |
 | 4   | CP-SAT model — soft preferences    | `complete` | 2026-04-15           | soft objective + quality_metrics; realistic baseline 252/260 in 5s budget                                                                                        |
 | 5   | Parity testing (cutover gate)      | `complete` | 2026-04-15           | 7 fixtures; CP-SAT +20% placement on Tier 3, -0.6% on Tier 2 (structural)                                                                                        |
-| 6   | Worker IPC integration             | `pending`  | —                    | —                                                                                                                                                                |
+| 6   | Worker IPC integration             | `complete` | 2026-04-15           | worker always calls sidecar; cp_sat_status + sidecar_duration_ms + placed/unassigned counts logged per solve and persisted on `result_json.meta`                 |
 | 7   | Production cutover (atomic deploy) | `pending`  | —                    | —                                                                                                                                                                |
 | 8   | Legacy retire                      | `pending`  | —                    | —                                                                                                                                                                |
 | 9   | Full stress re-run                 | `pending`  | —                    | —                                                                                                                                                                |
@@ -638,3 +638,74 @@ heuristics.fixed_search != nullptr`); (b) `interleave_search = True` blows
   exercised by `test_solve_supervision.py` in Python and by Wave 1 stress
   tests on legacy, but a parity comparison on supervision-heavy fixtures is a
   Stage 9 gap.
+
+---
+
+### Stage 6 — Worker IPC integration
+
+**Completed:** 2026-04-15
+**Local commit(s):** `53a2a46f` feat(scheduling): worker dispatches solve via cp-sat sidecar + cp_sat_status observability
+**Deployed to production:** no — Stage 6 is local-only by design; Stage 7 ships the worker + sidecar atomically
+
+**What was delivered:**
+
+- **`packages/shared/src/scheduler/cp-sat-client.ts`** — new thin HTTP client. Exports `solveViaCpSat(input, opts)` returning `SolverOutputV2`, typed `CpSatSolveError` (fields: `code`, `message`, `status`, `details`), and `CpSatClientOptions`. Every failure path (HTTP 4xx/5xx with or without structured envelope, HTTP 5xx with garbled body, `TypeError` → `CP_SAT_UNREACHABLE`, `AbortError` → `CP_SAT_UNREACHABLE`) funnels through `CpSatSolveError` with a typed `code`. Round-trip timeout via `AbortController` + `setTimeout`; cleared in `finally`.
+- **Worker swap in `apps/worker/src/processors/scheduling/solver-v2.processor.ts`.** Step-2 body now calls `solveViaCpSat(configSnapshot, { baseUrl: process.env.SOLVER_PY_URL ?? 'http://localhost:5557', timeoutMs: (max_solver_duration_seconds + 30) * 1000, requestId: run_id })`. Legacy `solveV2` import removed at the integration site; the file `packages/shared/src/scheduler/solver-v2.ts` itself stays in the codebase until Stage 8. SCHED-027 three-phase transaction pattern preserved. BullMQ lock extension now runs on a plain `setInterval` (the `onProgress` callback that used to drive it is gone) and is cleared in `finally` so the Node process doesn't hang after `solveViaCpSat` resolves or throws.
+- **Structured observability log line per solve.** Emitted after the sidecar returns as `cp_sat.solve_complete {json-blob}` carrying `run_id`, `tenant_id`, `cp_sat_status`, `sidecar_duration_ms`, `placed_count`, `unassigned_count`. Grep-able from pm2 / journald during Stage 7's observation window and Stage 12's diagnostics.
+- **Same four fields persisted on `scheduling_runs.result_json.meta`.** Durable signal per run that Stage 7's observation window and Stage 12's diagnostics can read without a cross-table join.
+- **`cp_sat_status` added to the contract.** Python `SolverOutputV2` (`apps/solver-py/src/solver_py/schema/output.py`) gains a `CpSatStatus = Literal["optimal","feasible","infeasible","unknown"]` field defaulting to `"feasible"`; the TypeScript `SolverOutputV2` in `packages/shared/src/scheduler/types-v2.ts` gains a matching optional `cp_sat_status?: CpSatStatus`. Sidecar `solve.py` populates the field from `solver.solve()`'s status: `OPTIMAL → optimal`, `FEASIBLE → feasible`, `INFEASIBLE → infeasible`, `UNKNOWN → unknown` (and the greedy fallback is returned). When the lex-better selector prefers greedy over CP-SAT's feasible/optimal solution, the status still reports what CP-SAT returned so operators can see the solver finished but the greedy placement was preferred.
+- **`CpSatSolveError` code prefixed into `failure_reason`.** When the sidecar throws, the outer catch builds `failure_reason = "${err.code}: ${err.message}"` (e.g., `CP_SAT_UNREACHABLE: fetch failed`) so operators can bucket failures with a single grep.
+
+**Files changed (high level):**
+
+- `packages/shared/src/scheduler/cp-sat-client.ts` — new.
+- `packages/shared/src/scheduler/__tests__/cp-sat-client.spec.ts` — new (8 tests).
+- `packages/shared/src/scheduler/index.ts` — export `solveViaCpSat`, `CpSatSolveError`, `CpSatClientOptions`.
+- `packages/shared/src/scheduler/types-v2.ts` — new `CpSatStatus` type; optional `cp_sat_status` on `SolverOutputV2`.
+- `apps/worker/src/processors/scheduling/solver-v2.processor.ts` — swap to `solveViaCpSat`; observability meta + log line; `setInterval` lock extender; typed `CpSatSolveError` prefix in `failure_reason`.
+- `apps/worker/src/processors/scheduling/solver-v2.processor.spec.ts` — mocks now target `solveViaCpSat` and include `cp_sat_status` in the returned envelope; new assertion for `result_json.meta = { cp_sat_status, sidecar_duration_ms, placed_count, unassigned_count }`; new test asserting `CpSatSolveError` surfaces as `failure_reason: "CP_SAT_UNREACHABLE: fetch failed"`.
+- `apps/solver-py/src/solver_py/schema/output.py` — `CpSatStatus` Literal; `cp_sat_status` field on `SolverOutputV2` (default `"feasible"`).
+- `apps/solver-py/src/solver_py/schema/__init__.py` — re-export `CpSatStatus`.
+- `apps/solver-py/src/solver_py/solver/solve.py` — plumb `cp_sat_status` through the three output builders (`_build_infeasible_output` → `infeasible`, `_build_solution_output` → `optimal | feasible`, `_build_greedy_output` → takes status as a parameter; UNKNOWN path passes `"unknown"`, lex-loss path passes the CP-SAT status).
+- `apps/solver-py/tests/test_health.py` — assert `cp_sat_status` in `{"optimal","feasible","infeasible","unknown"}` on the `/solve` response.
+- `apps/solver-py/tests/test_solve_cp_sat_status.py` — new (3 tests).
+
+**Tests added / updated:**
+
+- unit (TS): 9 new — 8 in `cp-sat-client.spec.ts`, 1 in `solver-v2.processor.spec.ts` (`CpSatSolveError` failure path). Existing processor tests updated to mock `solveViaCpSat` and assert on `result_json.meta`.
+- unit (Python / pytest): 3 new in `tests/test_solve_cp_sat_status.py`; 1 assertion added to `tests/test_health.py`.
+- parity: n/a — Stage 5 parity harness unaffected (adds optional field; `CpSatStatus` is absent on legacy output and present on CP-SAT output, both accepted).
+- stress re-run: n/a — Stage 9.
+- coverage delta: not measured for this stage (only new files added + one-site surface change; no modules dropped below the jest threshold during the full run).
+
+**Performance measurements (where applicable):**
+
+- Local manual smoke against the live sidecar (127.0.0.1:5557) on the Stage-2 minimal fixture returned `cp_sat_status=optimal`, `duration_ms=2`, `score=5/10`, `placed=2`, `unassigned=7`. End-to-end HTTP round-trip < 10 ms on localhost.
+- No regression expected in solve time from adding the observability field: the sidecar's cost is reading CP-SAT's status int + a constant-time literal assignment.
+
+**Verification evidence:**
+
+- `pnpm --filter @school/shared test -- cp-sat-client` → 8 pass.
+- `pnpm --filter @school/worker test -- solver-v2.processor` → 10 pass (includes new `CpSatSolveError` path). Log output shows the `cp_sat.solve_complete {...}` line firing with the expected JSON shape.
+- `pnpm --filter @school/shared test` → 929/929 pass (45 suites, 67 s).
+- `pnpm --filter @school/worker test` → 898/898 pass (119 suites).
+- `.venv/bin/python -m pytest` inside `apps/solver-py/` → 34/34 pass (14 s).
+- `ruff check` + `ruff format --check` on changed Python files → clean.
+- `mypy --strict src/` on sidecar → clean.
+- ESLint on changed TS files → clean.
+- DI smoke test from `CLAUDE.md` → `DI OK`.
+- Local `curl http://127.0.0.1:5557/health` → 200 `{"status":"ok","version":"0.1.0"}`; `curl -X POST /solve -d @fixtures/solver_input_minimal.json` → body includes `cp_sat_status: "optimal"`.
+
+**Surprises / decisions / deviations from the plan:**
+
+- **Four literals, not three.** The user's instruction listed `optimal/feasible/unknown` for `cp_sat_status`. I added a fourth — `infeasible` — because CP-SAT can prove infeasibility (distinct from a timeout) and mapping it to one of the other three would have been observability-incorrect. An infeasible run is a provable "no solution exists" result, not a "solver gave up"; operators need the distinction. Called out here rather than buried.
+- **`cp_sat_status` is optional on the TS `SolverOutputV2`.** The legacy `solveV2` path doesn't populate it. Making it required would have forced a Stage-8-esque change to the legacy solver mid-Stage-6. Optional now, required after Stage 8 retires legacy.
+- **`setInterval` replaces the old `onProgress`-driven lock-extender.** The CP-SAT sidecar doesn't expose an incremental-progress hook over HTTP, so the per-N-seconds lock extension that used to piggyback on the legacy solver's callback now runs on a plain timer and is cleared in `finally`. This means the worker extends the BullMQ lock every 60 s regardless of whether the sidecar is making progress — correct for the CP-SAT model where the whole solve is one CPU-bound syscall.
+- **Pre-existing type error in `scheduling-stale-reaper.processor.spec.ts:249`** (not introduced by Stage 6 — reproducible on HEAD without my changes). Flagged so Stage 8 or a follow-up can clean it up; not in scope for this stage.
+- **Stage-6 log still says "Stage 8" in the processor class comment** (pre-existing — the comment calls the current processor "the SOLE @Processor on the `scheduling` queue" and references "Stage 8"). Kept verbatim; rewriting that comment is out of scope.
+
+**Known follow-ups / debt created:**
+
+- **Stage 7's deploy should set `SOLVER_PY_URL=http://127.0.0.1:5557`** in the worker's env block and confirm the sidecar is up before enabling traffic. The worker fails closed (run → `failed` with `CP_SAT_UNREACHABLE: ...`) when the sidecar is down; that's the correct default, but Stage 7's runbook should explicitly prestart the sidecar.
+- **Stage 12 diagnostics can read `result_json.meta` directly** to bucket runs by solver outcome without joining the structured log sink. `meta.cp_sat_status = "unknown"` is the "solver gave up, greedy took over" signal Stage 12 should surface to admins as "we used a fallback algorithm for this run — results may be suboptimal but are still valid."
+- **Legacy `result_json` shape has no `meta` key.** If any existing UI consumer of `result_json` iterates keys (rather than reading specific fields), it will now see an extra `meta` object. Spot-checked the frontend readers — they key into `entries`, `unassigned`, `quality_metrics`, `overrides_applied` by name; none iterate. No action needed but flagged for Stage 7's smoke test.
