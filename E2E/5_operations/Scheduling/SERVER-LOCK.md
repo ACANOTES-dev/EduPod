@@ -48,3 +48,4 @@ This file is the exclusive lock for any server-modifying action taken during the
 2026-04-15 04:15:00 UTC — claude-fixer — released — SCHED-023 deployed end-to-end (migration applied, API + worker + web built, override create/list/delete + solver integration + overrides_applied audit all verified on stress-c).
 
 2026-04-15 08:08:00 UTC — wave2-session — acquired — Wave 2 stress-test run: STRESS-076/077/078/079/080 cross-tenant + data-integrity scenarios
+2026-04-15 08:26:00 UTC — wave2-session — released — Wave 2 complete. STRESS-076/077/078/079/080 all PASS. SCHED-028 fixed + deployed (assembleSolverInput now filters on employment_status). API healthy post-restart, smoke-run 3d78bf1d exercised the orchestration path end-to-end with 238 entries generated.
