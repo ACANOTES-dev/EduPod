@@ -264,6 +264,110 @@ jobs:
           PLATFORM_DOMAIN: edupod.app
           REDIS_URL: redis://localhost:6379
 
+  solver-py:
+    # CP-SAT sidecar (Python) pytest + ruff + mypy + end-to-end integration
+    # against the TS regression harness. Runs only when the sidecar or the
+    # shared scheduler contract changes — it's ~2 min for the full harness
+    # once the venv is primed, so gating on changed paths keeps the fast-PR
+    # loop honest.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true'
+    needs: [changes, ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: solver-py-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          package-manager-cache: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: apps/solver-py/pyproject.toml
+
+      - name: Install TS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create solver-py venv + install
+        working-directory: apps/solver-py
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -e ".[dev]"
+
+      - name: Verify ortools pin
+        working-directory: apps/solver-py
+        run: .venv/bin/pip freeze | grep -i "^ortools==" | tee /tmp/ortools-pin
+        # Stage 5 carryover §4: the pin matters. If this prints a version
+        # other than 9.15.6755 without a Stage 9 retest-and-approval sign-off,
+        # this job fails on purpose.
+
+      - name: Assert ortools pin is 9.15.6755
+        run: |
+          grep -q '^ortools==9.15.6755' /tmp/ortools-pin || {
+            echo "Unexpected ortools version — Stage 5 carryover §4 requires an explicit retest before changing the pin."
+            cat /tmp/ortools-pin
+            exit 1
+          }
+
+      - name: Lint (ruff)
+        working-directory: apps/solver-py
+        run: .venv/bin/ruff check src tests
+
+      - name: Type check (mypy)
+        working-directory: apps/solver-py
+        run: .venv/bin/mypy src
+
+      - name: Unit tests (pytest)
+        working-directory: apps/solver-py
+        run: .venv/bin/pytest -q
+
+      - name: Start sidecar
+        working-directory: apps/solver-py
+        run: |
+          .venv/bin/uvicorn solver_py.main:app --host 127.0.0.1 --port 5557 --log-level error > /tmp/sidecar.log 2>&1 &
+          echo $! > /tmp/sidecar.pid
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:5557/health >/dev/null 2>&1; then
+              echo "sidecar up (pid $(cat /tmp/sidecar.pid))"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "sidecar failed to start within 20s"
+          cat /tmp/sidecar.log
+          exit 1
+
+      - name: TS CP-SAT regression harness vs live sidecar
+        env:
+          CP_SAT_SIDECAR_URL: http://127.0.0.1:5557/solve
+        run: pnpm --filter @school/shared test -- --testPathPattern="cp-sat-regression" --testTimeout=900000
+
+      - name: Stop sidecar
+        if: always()
+        run: |
+          if [ -f /tmp/sidecar.pid ]; then
+            kill $(cat /tmp/sidecar.pid) 2>/dev/null || true
+          fi
+
+      - name: Upload sidecar log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sidecar-log
+          path: /tmp/sidecar.log
+
   visual:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
     needs: [changes, ci]

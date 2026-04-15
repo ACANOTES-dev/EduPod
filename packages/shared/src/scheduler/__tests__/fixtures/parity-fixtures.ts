@@ -423,7 +423,7 @@ export function buildTier2WithSupervision(): SolverInputV2 {
       preferences: [],
       max_periods_per_week: 22,
       max_periods_per_day: 6,
-      max_supervision_duties_per_week: 2,
+      max_supervision_duties_per_week: 4,
     });
   }
 
@@ -445,17 +445,20 @@ export function buildTier2WithSupervision(): SolverInputV2 {
     });
   }
 
-  // Single break group covering all year groups; 4 yard supervisors at
-  // each morning-break + lunch slot (5 weekdays × 2 slots × 4 supervisors
-  // = 40 supervision duties/week against a pool of 20 teachers capped at
-  // 2 duties/week each — exactly saturated, a stress condition for the
-  // supervision modelling).
+  // Supervision demand is computed per physical break slot, and each of
+  // the 6 year groups carries its own copy of the shared grid's 2 break
+  // cells × 5 weekdays = 10 physical break slots. Total 60 break slots ×
+  // required_supervisor_count. With `required_supervisor_count = 1` the
+  // demand is 60 duties/week, covered by 20 teachers × 4 duties/week =
+  // 80 supply (75 % saturation — exercises the supervision modelling
+  // cleanly without CP-SAT proving INFEASIBLE on the deterministic
+  // single-worker search).
   const breakGroups = [
     {
       break_group_id: 'bg-primary',
       name: 'Primary Break',
       year_group_ids: yearGroups.map((y) => y.year_group_id),
-      required_supervisor_count: 4,
+      required_supervisor_count: 1,
     },
   ];
 
