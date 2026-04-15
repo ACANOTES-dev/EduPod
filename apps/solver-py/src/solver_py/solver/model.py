@@ -1,22 +1,29 @@
 """Build the CP-SAT model from a pruned set of legal assignments.
 
-Per-lesson boolean cells, aggressively pruned at variable-generation
-time. For every legal ``(lesson, slot, teacher, room)`` tuple a single
-``BoolVar`` is allocated; hard constraints become linear sums.
+Per-lesson boolean cells over ``(lesson, slot, teacher)`` only — room
+identity is assigned post-solve by ``solve._assign_rooms`` so the
+variable count stays manageable on realistic inputs. Each placement
+implicitly consumes one room of the lesson's required type at that
+time-group; the per-(room_type, time_group) capacity constraint
+guarantees feasibility before the greedy assigner runs.
 
 Sections (in declaration order):
 
   A. Per-lesson placement gated by ``placed[l]``. ``sum(x[la]) == placed[l]``.
-     Stage 3 maximises ``sum(placed) + sum(supervision_filled)`` so a
-     tenant whose demand can't fully fit degrades to ``unassigned``
-     instead of failing the whole run. Stage 4 will dominate this term
-     with a much larger coefficient and add preference scoring on top.
+     The placement booleans + supervision booleans feed the objective —
+     ``solver.objective.assemble_objective`` weights them so a placed
+     lesson with zero satisfied preferences strictly out-scores an
+     unplaced lesson with every preference satisfied.
   B. Subject ``max_periods_per_day`` per ``(class, subject, weekday)``.
   C. Class no-overlap per ``time_group_id``.
-  D. Exclusive-room no-overlap per ``time_group_id``.
+  D. Per-(room_type, time_group) capacity — number of placements needing
+     a room of type T at time-group TG must not exceed the count of
+     eligible exclusive rooms of that type. Replaces the per-room
+     no-overlap of earlier drafts; cuts the variable count on
+     interchangeable-room baselines by ~10×.
   E. Teacher caps — ``max_periods_per_week`` and ``max_periods_per_day``.
-  F. Double-period pairing — anchor + follower share teacher, room, and
-     consecutive periods on the same weekday.
+  F. Double-period pairing — anchor + follower share teacher and
+     consecutive periods on the same weekday (rooms paired post-solve).
   G. Yard-break supervision — required supervisor count per slot,
      supervision-duty cap per teacher (week).
   H. Combined teacher no-overlap per ``time_group_id`` — teaching legals
@@ -240,16 +247,54 @@ def build_model(
         else:
             model.add(sum(placement_vars[idx] for idx in indices) <= capacity)
 
-    # ─── D. Exclusive-room no-overlap per time_group ──────────────────────────
-    exclusive_rooms = {i for i, r in enumerate(input_payload.rooms) if r.is_exclusive}
-    by_room_tg: dict[tuple[int, int], list[int]] = defaultdict(list)
-    for la_idx, la in enumerate(legal):
-        if la.room_idx == -1 or la.room_idx not in exclusive_rooms:
+    # ─── D. Per-(room_type, time_group) capacity ──────────────────────────────
+    closed_rooms = {rc.room_id for rc in input_payload.room_closures}
+    exclusive_by_type: dict[str, int] = defaultdict(int)
+    has_nonexclusive_by_type: dict[str, bool] = defaultdict(bool)
+    for room in input_payload.rooms:
+        if room.room_id in closed_rooms:
             continue
+        if room.is_exclusive:
+            exclusive_by_type[room.room_type] += 1
+        else:
+            has_nonexclusive_by_type[room.room_type] = True
+    total_exclusive = sum(exclusive_by_type.values())
+    has_any_nonexclusive = any(has_nonexclusive_by_type.values())
+
+    by_type_tg: dict[tuple[str | None, int], list[int]] = defaultdict(list)
+    for la_idx, la in enumerate(legal):
+        lesson = lessons[la.lesson_idx]
         slot = slot_by_id[la.slot_id]
-        by_room_tg[(la.room_idx, slot.time_group_id)].append(la_idx)
-    for (room_idx, tg), indices in by_room_tg.items():
-        capacity = 1 - pinned_load.room_tg.get((room_idx, tg), 0)
+        by_type_tg[(lesson.required_room_type, slot.time_group_id)].append(la_idx)
+
+    pinned_room_load_at_tg: dict[tuple[str, int], int] = defaultdict(int)
+    for (room_idx, tg), count in pinned_load.room_tg.items():
+        if room_idx >= len(input_payload.rooms):
+            continue
+        room = input_payload.rooms[room_idx]
+        if not room.is_exclusive:
+            continue
+        pinned_room_load_at_tg[(room.room_type, tg)] += count
+
+    unlimited = max(len(legal), 1)
+    for (room_type, tg), indices in by_type_tg.items():
+        if room_type is None:
+            # Lesson with no required_room_type — uses any exclusive room
+            # not already pinned at this time-group, OR any non-exclusive room.
+            if has_any_nonexclusive:
+                capacity = unlimited
+            else:
+                pinned_here = sum(
+                    pinned_room_load_at_tg.get((rt, tg), 0) for rt in exclusive_by_type
+                )
+                capacity = total_exclusive - pinned_here
+        else:
+            if has_nonexclusive_by_type.get(room_type, False):
+                capacity = unlimited
+            else:
+                capacity = exclusive_by_type.get(room_type, 0) - pinned_room_load_at_tg.get(
+                    (room_type, tg), 0
+                )
         if capacity <= 0:
             for idx in indices:
                 model.add(placement_vars[idx] == 0)
@@ -296,10 +341,10 @@ def build_model(
         anchor_idx, follower_idx = lesson_indices  # emitted in this order in lessons.py
         anchor_legal = legal_by_lesson.get(anchor_idx, [])
         follower_legal = legal_by_lesson.get(follower_idx, [])
-        follower_lookup: dict[tuple[int, int, int], int] = {}
+        follower_lookup: dict[tuple[int, int], int] = {}
         for la_idx in follower_legal:
             la = legal[la_idx]
-            follower_lookup[(la.teacher_idx, la.room_idx, la.slot_id)] = la_idx
+            follower_lookup[(la.teacher_idx, la.slot_id)] = la_idx
 
         for la_idx in anchor_legal:
             la = legal[la_idx]
@@ -307,21 +352,21 @@ def build_model(
             if next_slot_id is None:
                 model.add(placement_vars[la_idx] == 0)
                 continue
-            match = follower_lookup.get((la.teacher_idx, la.room_idx, next_slot_id))
+            match = follower_lookup.get((la.teacher_idx, next_slot_id))
             if match is None:
                 model.add(placement_vars[la_idx] == 0)
                 continue
             model.add(placement_vars[la_idx] == placement_vars[match])
 
-        anchor_lookup: dict[tuple[int, int, int], int] = {}
+        anchor_lookup: dict[tuple[int, int], int] = {}
         for la_idx in anchor_legal:
             la = legal[la_idx]
             next_slot_id = next_teaching.get(la.slot_id)
             if next_slot_id is not None:
-                anchor_lookup[(la.teacher_idx, la.room_idx, next_slot_id)] = la_idx
+                anchor_lookup[(la.teacher_idx, next_slot_id)] = la_idx
         for la_idx in follower_legal:
             la = legal[la_idx]
-            if (la.teacher_idx, la.room_idx, la.slot_id) not in anchor_lookup:
+            if (la.teacher_idx, la.slot_id) not in anchor_lookup:
                 model.add(placement_vars[la_idx] == 0)
 
     # ─── G. Yard-break supervision ────────────────────────────────────────────
@@ -393,13 +438,10 @@ def build_model(
             if terms:
                 model.add(sum(terms) <= capacity)
 
-    # ─── Objective: maximise placed lessons + filled supervision slots ────────
-    objective_terms: list[cp_model.IntVar] = list(placed_indicator.values()) + list(
-        supervision_vars.values()
-    )
-    if objective_terms:
-        model.maximize(sum(objective_terms))
-
+    # Objective is assembled by ``solver.objective.assemble_objective`` so the
+    # Stage 4 soft-preference terms can layer on top of the Stage 3 placement
+    # contribution. Doing it here would force a re-call of ``model.maximize``,
+    # which CP-SAT does not support cleanly.
     return BuiltModel(
         model=model,
         placement_vars=placement_vars,

@@ -1,4 +1,4 @@
-"""Per-lesson pruning — compute legal ``(slot, teacher, room)`` tuples.
+"""Per-lesson pruning — compute legal ``(slot, teacher)`` tuples.
 
 Generates, for every ``Lesson``, the set of ``LegalAssignment`` triples
 the solver should be allowed to choose from. Pruning enforces the legacy
@@ -9,7 +9,13 @@ v2 invariants up-front (so they never appear as CP-SAT constraints):
   ``class_id == null`` → pool member).
 - Teacher availability windows, extended for adjacent classroom breaks.
 - Period type must be ``teaching``.
-- Room must match ``required_room_type`` when set.
+- Room availability is checked at the type level only (lesson must have
+  at least one eligible room of the required type). Specific room IDs
+  are assigned post-solve by ``solve._assign_rooms`` so the model stays
+  small — including the room dimension in placement BoolVars
+  multiplied the variable count by ~10× on realistic baselines and
+  stalled CP-SAT presolve. Per-(room_type, time_group) capacity is
+  enforced as a separate constraint section in ``model.py``.
 - Closed rooms removed (legacy v2 blocks the room for the whole week —
   granular per-date filtering is a separate stage).
 """
@@ -32,7 +38,6 @@ class LegalAssignment:
     lesson_idx: int
     slot_id: int
     teacher_idx: int
-    room_idx: int  # -1 = no room (room-less lesson)
 
 
 def _competent_teachers(
@@ -147,7 +152,6 @@ def build_legal_assignments(
             continue
 
         local_indices: list[int] = []
-        room_choices: list[int] = rooms if rooms else [-1]
 
         for slot in candidate_slots:
             window_start, window_end = adjacent_classroom_break_window(
@@ -159,17 +163,15 @@ def build_legal_assignments(
                     teacher, slot.weekday, window_start, window_end
                 ):
                     continue
-                for room_idx in room_choices:
-                    legal_idx = len(legal)
-                    legal.append(
-                        LegalAssignment(
-                            lesson_idx=lesson_idx,
-                            slot_id=slot.slot_id,
-                            teacher_idx=teacher_idx,
-                            room_idx=room_idx,
-                        )
+                legal_idx = len(legal)
+                legal.append(
+                    LegalAssignment(
+                        lesson_idx=lesson_idx,
+                        slot_id=slot.slot_id,
+                        teacher_idx=teacher_idx,
                     )
-                    local_indices.append(legal_idx)
+                )
+                local_indices.append(legal_idx)
 
         if not local_indices:
             diagnostics[lesson_idx] = (
