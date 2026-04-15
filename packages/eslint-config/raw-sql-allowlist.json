@@ -62,6 +62,18 @@
       "reason": "SELECT FOR UPDATE lock on behaviour_award_types within TenantAwareJob transaction for dedup serialization (DZ-24)"
     },
     {
+      "file": "apps/api/src/modules/scheduling/scheduler-orchestration.service.ts",
+      "methods": ["$executeRaw"],
+      "category": "select-for-update",
+      "reason": "SET LOCAL lock_timeout = '2s' in cancelRun so Postgres fails fast on row-lock contention with the solver worker — prevents 500s when admin cancels while worker is mid-write (SCHED-027)"
+    },
+    {
+      "file": "apps/worker/src/processors/scheduling/solver-v2.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "SELECT set_config('app.current_tenant_id', ...) inside the two short transactions introduced to avoid holding a row lock during the 120s solve (SCHED-027 worker split-txn). Tagged template, tenant_id parameter is validated UUID."
+    },
+    {
       "file": "apps/worker/src/processors/behaviour/partition-maintenance.processor.ts",
       "methods": ["$executeRawUnsafe", "$queryRawUnsafe"],
       "category": "ddl-operations",

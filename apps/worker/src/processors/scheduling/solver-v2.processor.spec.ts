@@ -46,6 +46,9 @@ function buildMockTx(options?: {
           : options.run,
       ),
       update: jest.fn().mockResolvedValue({ id: RUN_ID }),
+      // SCHED-027 follow-up: the final write uses updateMany with a
+      // status='running' guard so a concurrent cancel isn't clobbered.
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
   };
 }
@@ -171,20 +174,20 @@ describe('SchedulingSolverV2Processor', () => {
         onProgress: expect.any(Function),
       }),
     );
-    expect(mockTx.schedulingRun.update).toHaveBeenNthCalledWith(2, {
-      where: { id: RUN_ID },
+    expect(mockTx.schedulingRun.updateMany).toHaveBeenCalledWith({
+      where: { id: RUN_ID, status: 'running' },
       data: expect.objectContaining({
         entries_generated: 1,
         entries_pinned: 1,
         entries_unassigned: 1,
         hard_constraint_violations: 2,
-        result_json: {
+        result_json: expect.objectContaining({
           entries: [
             { id: 'entry-1', is_pinned: false },
             { id: 'entry-2', is_pinned: true },
           ],
           unassigned: [{ id: 'unassigned-1' }],
-        },
+        }),
         soft_preference_max: 100,
         soft_preference_score: 87,
         solver_duration_ms: 1234,
@@ -216,13 +219,52 @@ describe('SchedulingSolverV2Processor', () => {
 
     await processor.process(buildJob());
 
-    expect(mockTx.schedulingRun.update).toHaveBeenNthCalledWith(2, {
+    // Step 1: flip to running (update)
+    expect(mockTx.schedulingRun.update).toHaveBeenCalledWith({
       where: { id: RUN_ID },
+      data: { status: 'running' },
+    });
+
+    // Step 3: conditional write of results (updateMany guarded by status)
+    expect(mockTx.schedulingRun.updateMany).toHaveBeenCalledWith({
+      where: { id: RUN_ID, status: 'running' },
       data: expect.objectContaining({
         status: 'completed',
         failure_reason: null,
         entries_unassigned: 0,
       }),
+    });
+  });
+
+  it('should discard solver results when a cancel won the race (updateMany returns count: 0)', async () => {
+    const mockTx = buildMockTx();
+    // Override: simulate cancel having landed — conditional updateMany matches
+    // no rows because status is no longer 'running'.
+    mockTx.schedulingRun.updateMany.mockResolvedValue({ count: 0 });
+
+    const mockPrisma = buildMockPrisma(mockTx);
+    const processor = new SchedulingSolverV2Processor(
+      mockPrisma as never,
+      { process: jest.fn() } as never,
+    );
+
+    // Return empty unassigned so the finalStatus would have been 'completed'
+    mockSolveV2.mockReturnValue({
+      constraint_summary: { tier1_violations: 0 },
+      duration_ms: 1200,
+      entries: [{ id: 'entry-1', is_pinned: false }],
+      max_score: 100,
+      score: 87,
+      unassigned: [],
+    } as never);
+
+    await processor.process(buildJob());
+
+    // updateMany was called (with the guard) but matched zero rows — worker
+    // exits cleanly without throwing.
+    expect(mockTx.schedulingRun.updateMany).toHaveBeenCalledWith({
+      where: { id: RUN_ID, status: 'running' },
+      data: expect.any(Object),
     });
   });
 

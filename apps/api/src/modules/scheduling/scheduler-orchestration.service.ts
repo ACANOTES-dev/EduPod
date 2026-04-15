@@ -918,13 +918,51 @@ export class SchedulerOrchestrationService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const updated = (await prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-      return db.schedulingRun.update({
-        where: { id: runId },
-        data: { status: 'failed', failure_reason: 'Cancelled by user' },
-      });
-    })) as unknown as { id: string; status: string };
+    // The worker holds a row-level lock on the run while it updates status to
+    // `completed` / `failed` inside its own transaction. A naive UPDATE here
+    // blocks waiting on that lock for tens of seconds — long enough to blow
+    // past Prisma's interactive-transaction timeout and surface as a 500.
+    //
+    // Cap the wait at 2s so the cancel either lands immediately (common case,
+    // worker not mid-write) or fails cleanly with a retryable error. Keep the
+    // whole interactive transaction short so the outer Prisma timeout never
+    // fires.
+    let updated: { id: string; status: string };
+    try {
+      updated = (await prismaWithRls.$transaction(
+        async (tx) => {
+          const db = tx as unknown as PrismaService;
+          await db.$executeRaw`SET LOCAL lock_timeout = '2s'`;
+          return db.schedulingRun.update({
+            where: { id: runId },
+            data: { status: 'failed', failure_reason: 'Cancelled by user' },
+          });
+        },
+        { timeout: 5_000 },
+      )) as unknown as { id: string; status: string };
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        (err.code === 'P2034' || err.code === 'P2028')
+      ) {
+        throw new ConflictException({
+          code: 'RUN_CANCEL_BUSY',
+          message:
+            'The scheduling worker is currently writing this run. Try cancel again in a few seconds.',
+        });
+      }
+      // Postgres raises lock_timeout as a generic error; Prisma surfaces the
+      // SQLSTATE in `meta.code` or the message. Check both.
+      const message = err instanceof Error ? err.message : '';
+      if (message.includes('lock_timeout') || message.includes('canceling statement')) {
+        throw new ConflictException({
+          code: 'RUN_CANCEL_BUSY',
+          message:
+            'The scheduling worker is currently writing this run. Try cancel again in a few seconds.',
+        });
+      }
+      throw err;
+    }
 
     return {
       id: updated.id,

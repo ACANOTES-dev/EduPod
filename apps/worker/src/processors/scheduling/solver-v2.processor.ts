@@ -86,33 +86,48 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     super(prisma);
   }
 
-  protected async processJob(data: SchedulingSolverV2Payload, tx: PrismaClient): Promise<void> {
-    const { run_id } = data;
+  protected async processJob(data: SchedulingSolverV2Payload, _tx: PrismaClient): Promise<void> {
+    const { run_id, tenant_id } = data;
 
-    // 1. Load the run
-    const run = await tx.schedulingRun.findFirst({
-      where: { id: run_id },
+    // SCHED-027 (Wave-2 follow-up): the solver is CPU-bound and runs for up to
+    // 120s. If we did the whole job inside the outer TenantAwareJob transaction,
+    // the `SET status='running'` update would hold a row-level exclusive lock
+    // on `scheduling_runs` for the full solve duration, blocking any concurrent
+    // cancel on the same run until the worker committed. Split the work into
+    // three steps, each in its own short transaction, so the run row is free
+    // for cancels during the CPU-bound phase:
+    //
+    //   1. Short txn: load + flip status to 'running' (row lock released on commit)
+    //   2. No txn:    run solver in pure JS (no DB work, no lock)
+    //   3. Short txn: write results, but ONLY if the admin hasn't cancelled —
+    //                 a conditional `updateMany` respects a prior cancel.
+
+    // ─── Step 1: claim the run ────────────────────────────────────────────
+    const run = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenant_id}::text, true)`;
+      const row = await tx.schedulingRun.findFirst({ where: { id: run_id } });
+      if (!row || row.status !== 'queued') {
+        return null;
+      }
+      await tx.schedulingRun.update({
+        where: { id: run_id },
+        data: { status: 'running' },
+      });
+      return row;
     });
 
-    if (!run || run.status !== 'queued') {
+    if (!run) {
       this.logger.warn(`Run ${run_id} not found or not in queued status, skipping`);
       return;
     }
 
-    // 2. Update status to running
-    await tx.schedulingRun.update({
-      where: { id: run_id },
-      data: { status: 'running' },
-    });
-
-    // 3. Load solver input from config_snapshot
+    // ─── Step 2: run the solver (no DB, no lock) ──────────────────────────
     const configSnapshot = run.config_snapshot as unknown as SolverInputV2 | null;
 
     if (!configSnapshot) {
       throw new Error('No config_snapshot found on scheduling run');
     }
 
-    // Apply solver seed from run if set
     if (run.solver_seed !== null) {
       configSnapshot.settings.solver_seed = Number(run.solver_seed);
     }
@@ -121,7 +136,6 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
       `Starting solver v2 for run ${run_id}: ${configSnapshot.year_groups.length} year groups, ${configSnapshot.curriculum.length} curriculum entries, ${configSnapshot.teachers.length} teachers`,
     );
 
-    // 4. Run solver
     let lastExtend = Date.now();
     const EXTEND_INTERVAL_MS = 60_000;
 
@@ -179,25 +193,41 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
             .map((u) => JSON.stringify(u))
             .join('; ')}${unassignedCount > 20 ? ' …' : ''}`;
 
-    await tx.schedulingRun.update({
-      where: { id: run_id },
-      data: {
-        status: finalStatus,
-        failure_reason: failureReason,
-        result_json: JSON.parse(JSON.stringify(resultJson)),
-        hard_constraint_violations: result.constraint_summary.tier1_violations,
-        soft_preference_score: result.score,
-        soft_preference_max: result.max_score,
-        entries_generated: result.entries.filter((e) => !e.is_pinned).length,
-        entries_pinned: result.entries.filter((e) => e.is_pinned).length,
-        entries_unassigned: unassignedCount,
-        solver_duration_ms: result.duration_ms,
-        solver_seed:
-          configSnapshot.settings.solver_seed !== null
-            ? BigInt(configSnapshot.settings.solver_seed)
-            : BigInt(0),
-      },
+    // ─── Step 3: persist results (conditional on status='running') ────────
+    // Use `updateMany` with `status: 'running'` so a cancel that landed during
+    // the solve (flipping status to 'failed' with 'Cancelled by user') is not
+    // silently overwritten by this final write. If the cancel won the race,
+    // updateMany returns { count: 0 } and we log + exit without touching the
+    // record.
+    const writeResult = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenant_id}::text, true)`;
+      return tx.schedulingRun.updateMany({
+        where: { id: run_id, status: 'running' },
+        data: {
+          status: finalStatus,
+          failure_reason: failureReason,
+          result_json: JSON.parse(JSON.stringify(resultJson)),
+          hard_constraint_violations: result.constraint_summary.tier1_violations,
+          soft_preference_score: result.score,
+          soft_preference_max: result.max_score,
+          entries_generated: result.entries.filter((e) => !e.is_pinned).length,
+          entries_pinned: result.entries.filter((e) => e.is_pinned).length,
+          entries_unassigned: unassignedCount,
+          solver_duration_ms: result.duration_ms,
+          solver_seed:
+            configSnapshot.settings.solver_seed !== null
+              ? BigInt(configSnapshot.settings.solver_seed)
+              : BigInt(0),
+        },
+      });
     });
+
+    if (writeResult.count === 0) {
+      this.logger.log(
+        `Solver v2 results for run ${run_id} discarded — run was cancelled while solving`,
+      );
+      return;
+    }
 
     this.logger.log(
       `Solver v2 ${finalStatus} for run ${run_id}: ${result.entries.length} entries, ${unassignedCount} unassigned, score ${result.score}/${result.max_score} in ${result.duration_ms}ms`,

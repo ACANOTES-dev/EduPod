@@ -49,3 +49,6 @@ This file is the exclusive lock for any server-modifying action taken during the
 
 2026-04-15 08:08:00 UTC — wave2-session — acquired — Wave 2 stress-test run: STRESS-076/077/078/079/080 cross-tenant + data-integrity scenarios
 2026-04-15 08:26:00 UTC — wave2-session — released — Wave 2 complete. STRESS-076/077/078/079/080 all PASS. SCHED-028 fixed + deployed (assembleSolverInput now filters on employment_status). API healthy post-restart, smoke-run 3d78bf1d exercised the orchestration path end-to-end with 238 entries generated.
+
+2026-04-15 08:32:00 UTC — wave2-session — acquired — fixing SCHED-027 cancel transaction timeout regression surfaced by Wave 2 smoke test
+2026-04-15 08:52:00 UTC — wave2-session — released — SCHED-027 re-fix deployed (cancel lock_timeout + worker transaction split). Mid-solve cancel verified on stress-a run 7ee28040: admin 200 response, worker discarded results cleanly at 8:48:06, final state failed/Cancelled-by-user/no result write. All Wave 1 + Wave 2 fixes green. Ready for Wave 3.

@@ -33,6 +33,8 @@ const mockTx = {
     update: jest.fn(),
     delete: jest.fn(),
   },
+  // Used by cancelRun to cap lock waits at 2s before Prisma's own timeout.
+  $executeRaw: jest.fn().mockResolvedValue(0),
 };
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
@@ -2155,6 +2157,66 @@ describe('SchedulerOrchestrationService', () => {
       const result = await service.applyRun(TENANT_ID, RUN_ID, USER_ID);
 
       expect(result.applied_at).toBeNull();
+    });
+  });
+
+  // ─── cancelRun ──────────────────────────────────────────────────────────────
+
+  describe('cancelRun', () => {
+    it('should throw NotFound when the run does not exist', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findStatusById as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.cancelRun(TENANT_ID, RUN_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequest when the run is not queued or running', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findStatusById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+      });
+
+      await expect(service.cancelRun(TENANT_ID, RUN_ID)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should set lock_timeout and mark queued run as failed', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findStatusById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'queued',
+      });
+
+      mockTx.schedulingRun.update.mockResolvedValue({ id: RUN_ID, status: 'failed' });
+
+      const result = await service.cancelRun(TENANT_ID, RUN_ID);
+
+      expect(mockTx.$executeRaw).toHaveBeenCalled();
+      expect(mockTx.schedulingRun.update).toHaveBeenCalledWith({
+        where: { id: RUN_ID },
+        data: { status: 'failed', failure_reason: 'Cancelled by user' },
+      });
+      expect(result).toEqual({ id: RUN_ID, status: 'failed' });
+    });
+
+    it('should translate a Postgres lock_timeout into RUN_CANCEL_BUSY (409)', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findStatusById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'running',
+      });
+
+      // Simulate the worker holding the row: Prisma bubbles up the lock
+      // timeout as a generic error mentioning `canceling statement`.
+      mockTx.schedulingRun.update.mockRejectedValue(
+        new Error('canceling statement due to lock_timeout'),
+      );
+
+      await expect(service.cancelRun(TENANT_ID, RUN_ID)).rejects.toMatchObject({
+        response: {
+          code: 'RUN_CANCEL_BUSY',
+        },
+      });
     });
   });
 });

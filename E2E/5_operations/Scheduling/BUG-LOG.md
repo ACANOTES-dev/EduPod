@@ -457,7 +457,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 | SCHED-021 | P3       | Open                       | [L] | session-A             | Progress endpoint emits negative `entries_assigned` when unassigned>placed            |
 | SCHED-022 | P2       | Open (feature gap)         | [L] | session-C             | Cross-year-group / multi-year-group class entity not modelable                        |
 | SCHED-023 | P2       | Open (feature gap)         | [L] | session-C             | `class_scheduling_requirements` lacks per-(class, subject) overrides                  |
-| SCHED-027 | P2       | Open                       | [L] | session-C             | No public cancel endpoint for queued/running runs; enum lacks `cancelled`             |
+| SCHED-027 | P2       | Fixed (deployed, 2 passes) | [L] | session-C + wave2     | Cancel endpoint now deadlock-proof: lock_timeout + worker split-txn (Wave 2 re-fix)   |
 | SCHED-025 | P2       | Open                       | [L] | session-A             | Solver v2 non-deterministic despite `solver_seed=0` (STRESS-046/047)                  |
 | SCHED-026 | P2       | Open                       | [L] | session-A             | Quality report lacks teacher-gap / day-variance / preference breakdown                |
 | SCHED-028 | P2       | Fixed (deployed)           | [L] | wave2-session         | Archived teachers still fed into solver when stale competency rows exist (STRESS-076) |
@@ -1159,6 +1159,72 @@ Independent counts confirm scoping: stress-a rooms=24 vs stress-b rooms=25; stre
 - Blocking the archive PATCH when the teacher has pending substitutions. The spec (STRESS-076) allows either "block" or "cleanly reassign" — we chose neither-block-nor-reassign because the live board + picker filter already make archived teachers inert for future solves, and blocking archival would make it hard to clean up staff who have left.
 
 **Deploy:** rsync of `apps/api/src/modules/scheduling/scheduler-orchestration.service.{ts,spec.ts}` to `/opt/edupod/app/apps/api`, server-side `pnpm --filter @school/api build`, `pm2 restart api`. No worker or web changes needed.
+
+---
+
+### SCHED-027 — Wave 2 re-fix (cancel endpoint now deadlock-proof)
+
+**Severity:** P2
+**Status:** Fixed (deployed, 2 passes)
+**Provenance:** [L] — original SCHED-027 found by session-C on 2026-04-15. Residual deadlock regression surfaced by wave2-session smoke test on 2026-04-15 after SCHED-028 deploy.
+**Found by:** wave2-session
+
+**Problem the first pass left:** SCHED-027 shipped `POST /v1/scheduling/runs/:id/cancel` in an earlier session, but the implementation wrapped the status UPDATE in a bare interactive transaction. If the worker was in the middle of its own transaction (the whole 120-second solve ran inside one transaction, holding a row-level exclusive lock on the `scheduling_runs` row), the cancel's UPDATE queued behind that lock forever. Prisma's interactive-transaction timer (5000 ms) fired first, surfacing a `Transaction API error: Transaction already closed` and a 500 INTERNAL_ERROR to the caller. The endpoint worked only when the worker happened to not be writing; under realistic load it crashed.
+
+**Wave 2 fix — two layers:**
+
+1. **API side — `scheduler-orchestration.service.cancelRun`**
+   - Added `SET LOCAL lock_timeout = '2s'` at the top of the RLS transaction so Postgres fails fast on row-lock contention rather than spinning until the outer Prisma timeout.
+   - Explicit `{ timeout: 5_000 }` on `$transaction` so the inner timeout is predictable.
+   - Catches `PrismaClientKnownRequestError` P2034/P2028 and generic `canceling statement` / `lock_timeout` messages, translates them into `ConflictException` with code `RUN_CANCEL_BUSY` (HTTP 409) and a retry hint. Admins get a clean "try again in a few seconds" rather than 500.
+   - 4 new regression tests in `scheduler-orchestration.service.spec.ts` cover: not-found, wrong-status, happy path (now asserts `$executeRaw` is called for the lock_timeout), and the busy-worker lock-contention translation.
+
+2. **Worker side — `solver-v2.processor.processJob`**
+   - Restructured from one long transaction into three phases so the scheduling-run row is NOT held locked during the CPU-bound solve:
+     - **Step 1 — claim:** short transaction, set RLS, `findFirst` + `update status='running'`. Row lock released on commit.
+     - **Step 2 — solve:** pure JS computation outside any transaction. No DB work, no lock.
+     - **Step 3 — persist:** short transaction, `updateMany` with `where: { id: run_id, status: 'running' }`. If the cancel landed during Step 2, status is already `'failed'` with `'Cancelled by user'`, the guard matches 0 rows, the worker logs `Solver v2 results for run <id> discarded — run was cancelled while solving` and exits cleanly. No race-overwrite of the admin's cancel.
+   - 1 updated test + 1 new test in `solver-v2.processor.spec.ts` cover both the happy path (updateMany matches 1 row, status becomes `completed`/`failed`) and the cancel-race path (updateMany returns `count: 0`, worker discards results without throwing).
+
+**Production verification (stress-a, 2026-04-15):**
+
+- Triggered run `7ee28040-ef5f-4ea1-9c5a-803c8db543a2` on the active AY.
+- Called `POST /scheduling/runs/:id/cancel` immediately. Response: HTTP 200 `{"id":"7ee28040...","status":"failed"}`. No 500.
+- Worker log at 8:46:05 — `Starting solver v2 for run 7ee28040…: 6 year groups, 66 curriculum entries, 20 teachers` (Step 1 claim committed; Step 2 solving).
+- Worker log at 8:48:06 — `Solver v2 results for run 7ee28040… discarded — run was cancelled while solving` (Step 3 `updateMany` matched 0 rows, worker exited cleanly without writing results).
+- Final row state: `status: failed`, `failure_reason: Cancelled by user`, `entries_generated: 0`, `solver_duration_ms: null`. The admin's cancel survived the worker's completion.
+
+**Out of scope for this pass:**
+
+- Cooperative abort inside the solver itself (so the solve stops early when cancelled, rather than running to completion and discarding). Currently the CPU is still spent; only the persistence is skipped. Worthwhile follow-up but tangential to the user-visible correctness fix.
+- Adding a dedicated `cancelled` value to the `SchedulingRunStatus` enum. Today we reuse `failed` with a specific `failure_reason`. Semantically accurate (run did not produce a schedule) and avoids a migration.
+
+**Deploy:** rsync `apps/api/src/modules/scheduling/scheduler-orchestration.service.ts`+`.spec.ts` and `apps/worker/src/processors/scheduling/solver-v2.processor.ts`+`.spec.ts`, server-side `pnpm --filter @school/api build`, `pnpm --filter @school/worker build`, `pm2 restart api` + `pm2 restart worker`. SERVER-LOCK.md carries the bracketed acquire/release entries.
+
+---
+
+## Wave 1 + Wave 2 health check — 2026-04-15 (pre-Wave-3)
+
+Before Wave 3 starts, verified the three fixes deployed in the Wave 2 session + a sample of earlier Wave 1 fixes still work on `stress-a.edupod.app`.
+
+| Fix                                            | Verification                                                                                                             | Status |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------ |
+| **SCHED-013** worker crash loop                | Worker pid `4183991` up since `pm2 restart`, processed two solve jobs end-to-end without restarting                      | ✅     |
+| **SCHED-016** admin schedule.\* permissions    | Admin JWT can hit `GET /scheduling/teachers`, `POST /scheduling/runs/trigger`, `POST .../cancel`                         | ✅     |
+| **SCHED-017** solver reports failed on partial | Completed solve with 49 unassigned slots returned `status: failed` with enumerated `failure_reason`                      | ✅     |
+| **SCHED-023** class_subject_requirements       | Endpoints `GET/POST/PATCH/DELETE /v1/class-subject-requirements` live; RLS respected (verified stress-c)                 | ✅     |
+| **SCHED-027** cancel endpoint (Wave 2 refix)   | `POST /scheduling/runs/:id/cancel` returns 200 during queued + running; worker discards its own write on cancel race     | ✅     |
+| **SCHED-028** archived teachers filter         | Solver ignored archived (inactive) staff; only active 20 staff fed to solver on smoke run; 238 entries generated cleanly | ✅     |
+| **RLS isolation (STRESS-079)**                 | Tenant B JWT hitting 7 tenant-A resource IDs → 404 or empty-list across the board                                        | ✅     |
+
+**Health gates green:**
+
+- No P0/P1 open bugs outstanding.
+- P2 opens remaining (SCHED-015, 018, 021, 022, 025, 026) are feature gaps and quality-of-life items, not crash/correctness blockers. Safe to enter Wave 3.
+- No worker restart loops (uptime ≥ 3h on stable workers; just-restarted worker processing new jobs normally).
+- No leaked server locks.
+
+**Wave 3 clearance:** Phase 6 worker/infrastructure scenarios (STRESS-081/082/083) may begin. These require pm2 restart + Redis outage simulation — they will need the server lock exclusively and no other sessions active.
 
 ---
 
