@@ -150,7 +150,7 @@ Each stage appends its own entry here when finished. Use this template exactly:
 ### Stage 2 — JSON contract (pydantic mirror of SolverInputV2 / SolverOutputV2)
 
 **Completed:** 2026-04-15
-**Local commit(s):** _to be filled in immediately after — see the `feat(scheduling): define solver i/o contract as pydantic v2 models` commit_
+**Local commit(s):** `82af1e0f` feat(scheduling): define solver i/o contract as pydantic v2 models
 **Deployed to production:** no — Stage 2 is local-only; sidecar deploys at Stage 7.
 
 **What was delivered:**
