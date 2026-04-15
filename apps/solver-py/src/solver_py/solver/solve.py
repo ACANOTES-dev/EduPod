@@ -112,10 +112,18 @@ def solve(input_payload: SolverInputV2) -> SolverOutputV2:
     # 8 workers chosen empirically — diminishing returns past that on the
     # realistic baseline; tenants can override via env at the sidecar
     # level if their server has fewer cores.
-    solver.parameters.num_search_workers = 8
-    solver.parameters.interleave_search = True
-    # Use the greedy hint as a feasibility jump-start.
-    solver.parameters.repair_hint = True
+    # Single worker keeps the budget honest — ``interleave_search`` with
+    # 8 workers blew through ``max_time_in_seconds`` by 4-7× on Tier 3
+    # parity inputs (each interleaved chunk runs to completion before the
+    # budget is checked, OR-Tools 9.15). With the greedy fallback in
+    # ``_build_greedy_output`` we always have a valid output even when
+    # CP-SAT returns UNKNOWN, so single-worker is the right call:
+    # deterministic, in-budget, and the floor is the greedy hint.
+    solver.parameters.num_search_workers = 1
+    # Note: ``repair_hint = True`` segfaults inside CP-SAT 9.15's
+    # ``MinimizeL1DistanceWithHint`` when ``interleave_search`` is on
+    # (Check failed: heuristics.fixed_search != nullptr). Single-worker
+    # path doesn't trigger that crash either way.
 
     status = solver.solve(built.model)
     duration_ms = int(round((time.perf_counter() - start) * 1000))
