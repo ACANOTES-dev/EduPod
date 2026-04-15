@@ -60,7 +60,11 @@ module.exports = {
       exec_mode: 'fork',
       instances: 1,
       autorestart: true,
-      max_memory_restart: '750M',
+      // CP-SAT phase of scheduler v2 reaches ~900MB RSS during a 6-year-group /
+      // 320-variable solve. The previous 750M ceiling triggered a pm2 restart
+      // every ~60s mid-solve, killing every queued scheduling run. Server has
+      // 12GB free; 2G is comfortable headroom (SCHED-013 follow-up, 2026-04-15).
+      max_memory_restart: '2G',
       kill_timeout: Number.parseInt(WORKER_SHUTDOWN_GRACE_MS, 10) + 5000,
       env: {
         NODE_ENV: 'production',
