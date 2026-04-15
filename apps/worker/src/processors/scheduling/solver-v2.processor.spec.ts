@@ -34,7 +34,7 @@ function buildMockTx(options?: {
   run?: {
     config_snapshot: {
       curriculum: unknown[];
-      settings: { solver_seed: number | null };
+      settings: { solver_seed: number | null; max_solver_duration_seconds?: number };
       teachers: unknown[];
       year_groups: unknown[];
     } | null;
@@ -365,6 +365,66 @@ describe('SchedulingSolverV2Processor', () => {
         status: 'failed',
       },
     });
+  });
+
+  // Stage 7 carryover §2: the HTTP fetch timeout must never drop below a floor
+  // (default 120 s, overridable via CP_SAT_REQUEST_TIMEOUT_FLOOR_MS) so a
+  // tenant with a small budget (e.g. 30 s) doesn't race the sidecar's presolve
+  // phase and trip the AbortController early.
+  it('should clamp the HTTP timeout to the floor when the tenant budget is below it', async () => {
+    const mockTx = buildMockTx({
+      run: {
+        config_snapshot: {
+          curriculum: [],
+          settings: { solver_seed: null, max_solver_duration_seconds: 30 },
+          teachers: [],
+          year_groups: [],
+        },
+        solver_seed: null,
+        status: 'queued',
+      },
+    });
+    const mockPrisma = buildMockPrisma(mockTx);
+    const processor = new SchedulingSolverV2Processor(
+      mockPrisma as never,
+      { process: jest.fn() } as never,
+    );
+
+    await processor.process(buildJob());
+
+    // budget = (30 + 60) * 1000 = 90 000; floor = 120 000 → floor wins.
+    expect(mockSolveViaCpSat).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ timeoutMs: 120000 }),
+    );
+  });
+
+  it('should use the budget-derived timeout when it exceeds the floor', async () => {
+    const mockTx = buildMockTx({
+      run: {
+        config_snapshot: {
+          curriculum: [],
+          settings: { solver_seed: null, max_solver_duration_seconds: 120 },
+          teachers: [],
+          year_groups: [],
+        },
+        solver_seed: null,
+        status: 'queued',
+      },
+    });
+    const mockPrisma = buildMockPrisma(mockTx);
+    const processor = new SchedulingSolverV2Processor(
+      mockPrisma as never,
+      { process: jest.fn() } as never,
+    );
+
+    await processor.process(buildJob());
+
+    // budget = (120 + 60) * 1000 = 180 000; floor = 120 000 → budget wins.
+    expect(mockSolveViaCpSat).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ timeoutMs: 180000 }),
+    );
   });
 
   // Stage 6: sidecar unreachable / sidecar errors surface as CpSatSolveError.

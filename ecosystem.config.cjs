@@ -72,6 +72,44 @@ module.exports = {
         WORKER_SHUTDOWN_GRACE_MS,
         SENTRY_ENVIRONMENT,
         SENTRY_RELEASE,
+        // CP-SAT cutover (Stage 7): the worker dispatches every solve to the
+        // loopback solver-py sidecar below. The request-timeout floor protects
+        // tenants with small `max_solver_duration_seconds` budgets from tripping
+        // the AbortController during the sidecar's presolve phase (Stage 5
+        // carryover §2). Client formula: max(floor, (budget + 60) * 1000).
+        SOLVER_PY_URL: 'http://127.0.0.1:5557',
+        CP_SAT_REQUEST_TIMEOUT_FLOOR_MS: '120000',
+      },
+    },
+    // ─── OR-Tools CP-SAT sidecar ────────────────────────────────────────────
+    //
+    // Loopback-only FastAPI service that houses the CP-SAT scheduling solver.
+    // Invoked exclusively by the worker via SOLVER_PY_URL above — NEVER
+    // proxied by nginx. Runs inside a Python 3.12 venv at
+    // /opt/edupod/app/apps/solver-py/.venv. `interpreter: 'none'` tells pm2
+    // to exec uvicorn directly instead of wrapping it in Node.
+    //
+    // `num_search_workers = 1` is fixed inside solve.py per Stage 5 findings:
+    // OR-Tools 9.15's `interleave_search` overshoots max_time_in_seconds by
+    // 4-7× on Tier-3-scale fixtures, and `repair_hint = True` segfaults in
+    // `MinimizeL1DistanceWithHint`. Stage 9 re-tests multi-worker once the
+    // upstream bugs are confirmed fixed.
+    {
+      name: 'solver-py',
+      cwd: `${APP_DIR}/apps/solver-py`,
+      script: `${APP_DIR}/apps/solver-py/.venv/bin/uvicorn`,
+      args: 'solver_py.main:app --host 127.0.0.1 --port 5557',
+      interpreter: 'none',
+      exec_mode: 'fork',
+      instances: 1,
+      autorestart: true,
+      max_memory_restart: '2G',
+      max_restarts: 10,
+      min_uptime: '30s',
+      env: {
+        SOLVER_PY_PORT: '5557',
+        LOG_LEVEL: 'INFO',
+        PYTHONUNBUFFERED: '1',
       },
     },
   ],

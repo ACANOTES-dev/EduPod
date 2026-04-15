@@ -193,7 +193,18 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     }, EXTEND_INTERVAL_MS);
 
     const sidecarUrl = process.env.SOLVER_PY_URL ?? 'http://localhost:5557';
-    const timeoutMs = (configSnapshot.settings.max_solver_duration_seconds + 30) * 1000;
+    // Stage 7 carryover §2: clients must give the sidecar ≥ 90 s of breathing
+    // room on Tier-3-scale solves (61 s wall under single-worker). We enforce
+    // a 120 s floor (overridable via CP_SAT_REQUEST_TIMEOUT_FLOOR_MS) and bump
+    // the per-tenant budget by +60 s instead of the old +30 s so a tenant
+    // running at the default `max_solver_duration_seconds = 60` no longer
+    // sits right on the edge of the HTTP timeout.
+    const timeoutFloorMs = Number.parseInt(
+      process.env.CP_SAT_REQUEST_TIMEOUT_FLOOR_MS ?? '120000',
+      10,
+    );
+    const budgetTimeoutMs = (configSnapshot.settings.max_solver_duration_seconds + 60) * 1000;
+    const timeoutMs = Math.max(timeoutFloorMs, budgetTimeoutMs);
     let result;
     try {
       result = await solveViaCpSat(configSnapshot, {
