@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse
 
 from solver_py import __version__
 from solver_py.config import settings
+from solver_py.schema import SolverInputV2
 
 
 class _JsonLogFormatter(logging.Formatter):
@@ -107,13 +108,25 @@ async def health() -> dict[str, str]:
 
 
 @app.post("/solve")
-async def solve() -> JSONResponse:
+async def solve(payload: SolverInputV2) -> JSONResponse:
+    logger.info(
+        "received solve request",
+        extra={
+            "year_groups": len(payload.year_groups),
+            "classes": sum(len(yg.sections) for yg in payload.year_groups),
+            "teachers": len(payload.teachers),
+            "curriculum_entries": len(payload.curriculum),
+            "pinned_entries": len(payload.pinned_entries),
+            "rooms": len(payload.rooms),
+            "break_groups": len(payload.break_groups),
+        },
+    )
     return JSONResponse(
         status_code=501,
         content={
             "error": {
                 "code": "NOT_IMPLEMENTED",
-                "message": "Stage 3 will implement this",
+                "message": "CP-SAT modelling lands in stage 3; input parsed cleanly.",
             }
         },
     )
