@@ -86,6 +86,32 @@ export class SchedulingSolverV2Processor extends WorkerHost {
 class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
   private readonly logger = new Logger(SchedulingSolverV2Job.name);
 
+  /**
+   * Stage 9.5.1 post-close amendment follow-up: ``TenantAwareJob`` defaults to
+   * a 5-minute interactive-transaction timeout. The §D budget ceiling raise
+   * to 3600s means a long-budget solve can run up to 601s sidecar time + HTTP
+   * overhead. Because ``processJob`` below uses ``this.prisma.$transaction``
+   * for every DB write (steps 1 and 3) and does NOT use the outer ``_tx``,
+   * the outer TenantAwareJob transaction sits idle for the full solve while
+   * holding its pool connection — and Prisma errors on commit with
+   * ``Transaction already closed`` once it crosses the 5-min ceiling. (NHQS
+   * re-smoke ``18cce701`` at 600s budget produced exactly this — 373 placed,
+   * 65 unassigned, overwritten by a Prisma timeout in the outer catch.)
+   *
+   * Fix: bump this job's timeout to 3780s = 3600s budget + 60s HTTP slack +
+   * 120s presolve/orchestration buffer. Matches the HTTP timeout formula in
+   * ``processJob`` (``(budget + 60) * 1000``) with additional room for the
+   * pre-solve claim + post-solve write. Memory cost is negligible — the
+   * outer transaction is a single idle connection per active solve.
+   *
+   * Long-term (Part 2): refactor SchedulingSolverV2Job to not extend
+   * TenantAwareJob at all, since every DB write already uses its own
+   * short transaction. The outer wrapper is currently load-bearing only
+   * for the tenant-id / user-id validation it does — that can move into
+   * the processor directly.
+   */
+  protected override readonly transactionTimeoutMs: number = 3780 * 1000;
+
   constructor(
     prisma: PrismaClient,
     private readonly job: Job<SchedulingSolverV2Payload>,
