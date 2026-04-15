@@ -110,6 +110,15 @@ const DEFAULT_SETTINGS = {
       roomConsistency: 1,
       workloadBalance: 1,
     },
+    // SCHED-023: when true, the orchestration layer rejects a solver run
+    // if any class_subject_requirements row's periods_per_week does not
+    // match the year-group curriculum baseline (or if the override names a
+    // subject that has no year-group curriculum at all). Default false —
+    // schools that want freedom to author per-class subject overrides
+    // without matching the year-group curriculum can leave this off;
+    // schools that want the override to be a pure room/block hint (never
+    // a period-count change) can flip it on.
+    strict_class_subject_override: false,
   },
   approvals: { expiryDays: 7, reminderAfterHours: 48 },
   compliance: { auditLogRetentionMonths: 36 },

@@ -546,6 +546,7 @@ model Tenant {
 
   // P4B-v2 Relations
   curriculum_requirements          CurriculumRequirement[]
+  class_subject_requirements       ClassSubjectRequirement[]
   teacher_competencies             TeacherCompetency[]
   substitute_teacher_competencies  SubstituteTeacherCompetency[]
   break_groups                     BreakGroup[]
@@ -1941,6 +1942,7 @@ model AcademicYear {
 
   // P4B-v2 Relations
   curriculum_requirements         CurriculumRequirement[]
+  class_subject_requirements      ClassSubjectRequirement[]
   teacher_competencies            TeacherCompetency[]
   substitute_teacher_competencies SubstituteTeacherCompetency[]
   break_groups                    BreakGroup[]
@@ -2390,6 +2392,7 @@ model Subject {
 
   // P4B-v2 Relations
   curriculum_requirements         CurriculumRequirement[]
+  class_subject_requirements      ClassSubjectRequirement[]
   teacher_competencies            TeacherCompetency[]
   substitute_teacher_competencies SubstituteTeacherCompetency[]
 
@@ -2453,6 +2456,9 @@ model Class {
 
   // P4B Relations
   scheduling_requirements ClassSchedulingRequirement[]
+
+  // P4B-v2 Relations
+  subject_requirements ClassSubjectRequirement[]
 
   // P5 Relations
   class_subject_grade_configs ClassSubjectGradeConfig[]
@@ -2720,6 +2726,9 @@ model Room {
 
   // P4B Relations
   class_scheduling_requirements ClassSchedulingRequirement[] @relation("class_req_preferred_room")
+
+  // P4B-v2 Relations
+  class_subject_requirements ClassSubjectRequirement[] @relation("class_subject_req_preferred_room")
 
   // P4B-v2 Relations
   room_closures RoomClosure[]
@@ -3047,6 +3056,43 @@ model CurriculumRequirement {
   @@index([tenant_id, academic_year_id], name: "idx_curriculum_req_tenant_year")
   @@index([tenant_id, academic_year_id, year_group_id], name: "idx_curriculum_req_year_group")
   @@map("curriculum_requirements")
+}
+
+/// Per-(class, subject) override layer on top of year-group CurriculumRequirement.
+/// Lets admins express "Y11-A Physics = 4 periods/week in LAB02" without
+/// touching the year-group curriculum that governs every other class in Y11.
+/// When an override exists for a (class, subject) pair, the solver uses its
+/// periods_per_week / room hints / double-period flags in preference to the
+/// year-group baseline. Tenant flag `scheduling.strict_class_subject_override`
+/// switches the merge policy from "override wins" to "reject if periods don't
+/// match the year-group baseline". See SCHED-023 in BUG-LOG for context.
+model ClassSubjectRequirement {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String    @db.Uuid
+  academic_year_id       String    @db.Uuid
+  class_id               String    @db.Uuid
+  subject_id             String    @db.Uuid
+  periods_per_week       Int       @db.SmallInt
+  max_periods_per_day    Int?      @db.SmallInt
+  preferred_room_id      String?   @db.Uuid
+  required_room_type     RoomType?
+  requires_double_period Boolean   @default(false)
+  double_period_count    Int?      @db.SmallInt
+  notes                  String?   @db.Text
+  created_at             DateTime  @default(now()) @db.Timestamptz()
+  updated_at             DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant         Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year  AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  class_entity   Class        @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  subject        Subject      @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  preferred_room Room?        @relation("class_subject_req_preferred_room", fields: [preferred_room_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, academic_year_id, class_id, subject_id], name: "idx_class_subject_req_unique")
+  @@index([tenant_id, academic_year_id], name: "idx_class_subject_req_tenant_year")
+  @@index([tenant_id, academic_year_id, class_id], name: "idx_class_subject_req_class")
+  @@map("class_subject_requirements")
 }
 
 model TeacherCompetency {

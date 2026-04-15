@@ -47,6 +47,13 @@ export interface CurriculumEntry {
   /** Room type required for this subject (e.g., 'lab' for Science) */
   required_room_type: string | null;
   preferred_room_id: string | null;
+  /**
+   * SCHED-023: when set, this entry applies only to the named class inside the
+   * year group and supersedes the year-group baseline for that one class.
+   * When `null`, the entry is the year-group baseline applied to every class
+   * that doesn't have a matching override.
+   */
+  class_id?: string | null;
 }
 
 /**
@@ -152,6 +159,21 @@ export interface ClassRoomOverride {
   required_room_type: string | null;
 }
 
+/**
+ * SCHED-023 audit entry — populated by the orchestration layer when a
+ * `class_subject_requirements` row supersedes a year-group
+ * `curriculum_requirements` baseline for a specific (class, subject).
+ * The worker copies this list into the run's `constraint_report` so the
+ * admin sees exactly which classes deviated from the year-group defaults.
+ */
+export interface ClassSubjectOverrideAudit {
+  class_id: string;
+  subject_id: string;
+  baseline_periods: number | null;
+  override_periods: number;
+  reason: 'class_subject_override';
+}
+
 export interface SolverInputV2 {
   year_groups: YearGroupInput[];
   curriculum: CurriculumEntry[];
@@ -163,6 +185,12 @@ export interface SolverInputV2 {
   student_overlaps: StudentOverlapV2[];
   /** Optional per-(class, subject) room overrides — see ClassRoomOverride. */
   class_room_overrides?: ClassRoomOverride[];
+  /**
+   * SCHED-023: audit trail of class-subject overrides that were applied at
+   * orchestration time. Consumed by the worker to attach onto the run's
+   * constraint_report; has no effect on solver behaviour.
+   */
+  overrides_applied?: ClassSubjectOverrideAudit[];
   settings: SolverSettingsV2;
 }
 

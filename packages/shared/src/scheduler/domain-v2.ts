@@ -128,11 +128,34 @@ function generateTeachingVariables(
   const doubleVars: CSPVariableV2[] = [];
   const singleVars: CSPVariableV2[] = [];
 
+  // SCHED-023 override filter: when a class-specific curriculum entry exists
+  // for (class_id, subject_id), we must skip the corresponding year-group
+  // entry ONLY for that class — the override carries the canonical
+  // periods_per_week / room / double-period values for that class.
+  const classOverrideKeys = new Set(
+    input.curriculum.filter((c) => c.class_id != null).map((c) => `${c.class_id}::${c.subject_id}`),
+  );
+
   for (const curriculum of input.curriculum) {
     const yg = input.year_groups.find((y) => y.year_group_id === curriculum.year_group_id);
     if (!yg) continue;
 
-    for (const section of yg.sections) {
+    // If this is a class-specific override, restrict fan-out to that one
+    // section. If it's a year-group baseline, iterate every section but
+    // skip any that have their own override row (handled further down
+    // by the `classOverrideKeys` check).
+    const sections = curriculum.class_id
+      ? yg.sections.filter((s) => s.class_id === curriculum.class_id)
+      : yg.sections;
+
+    for (const section of sections) {
+      if (
+        curriculum.class_id == null &&
+        classOverrideKeys.has(`${section.class_id}::${curriculum.subject_id}`)
+      ) {
+        // Year-group baseline is superseded for this class — skip.
+        continue;
+      }
       // Count pinned entries for this subject+section
       const pinnedCount = pinnedAssignments.filter(
         (a) =>

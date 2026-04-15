@@ -121,6 +121,10 @@ const DEFAULT_SETTINGS = {
       roomConsistency: 1,
       workloadBalance: 1,
     },
+    // SCHED-023: default to "override wins" policy for class-subject
+    // requirements; flip to true on a tenant to reject mismatched overrides
+    // at scheduling-run preflight.
+    strict_class_subject_override: false,
   },
   approvals: { expiryDays: 7, reminderAfterHours: 48 },
   compliance: { auditLogRetentionMonths: 36 },

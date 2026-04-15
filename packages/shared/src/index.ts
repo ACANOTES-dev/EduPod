@@ -82,6 +82,7 @@ export * from './types/scheduling-run';
 // P4B Schemas
 export * from './schemas/schedule-period-template.schema';
 export * from './schemas/class-scheduling-requirement.schema';
+export * from './schemas/class-subject-requirement.schema';
 export * from './schemas/staff-availability.schema';
 export * from './schemas/staff-scheduling-preference.schema';
 export * from './schemas/scheduling-run.schema';

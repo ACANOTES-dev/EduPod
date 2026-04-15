@@ -1404,6 +1404,14 @@ CREATE POLICY curriculum_requirements_tenant_isolation ON curriculum_requirement
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
 
+-- class_subject_requirements (standard) — SCHED-023
+ALTER TABLE class_subject_requirements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE class_subject_requirements FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS class_subject_requirements_tenant_isolation ON class_subject_requirements;
+CREATE POLICY class_subject_requirements_tenant_isolation ON class_subject_requirements
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
 -- teacher_competencies (standard)
 ALTER TABLE teacher_competencies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE teacher_competencies FORCE ROW LEVEL SECURITY;
