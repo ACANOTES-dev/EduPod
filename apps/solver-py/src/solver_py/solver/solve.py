@@ -7,7 +7,8 @@ Pipeline:
   4. Build the CP-SAT model (hard constraints, no objective).
   5. Add soft-preference reified vars + objective terms.
   6. Configure the solver (timeout, seed, single worker for determinism).
-  7. Solve.
+  7. Solve, with the Stage 9.5.1 EarlyStopCallback halting on
+     greedy-match stagnation or relative-gap closure.
   8. Translate the solver state into a ``SolverOutputV2`` — pinned entries
      pass through verbatim; placed lessons become ``SolverAssignmentV2``;
      unplaced lessons become ``UnassignedSlotV2`` with a reason; failure
@@ -19,6 +20,7 @@ Pipeline:
 from __future__ import annotations
 
 import logging
+import os
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -28,6 +30,7 @@ from ortools.sat.python import cp_model
 from solver_py.schema import (
     ConstraintSummary,
     CpSatStatus,
+    EarlyStopReason,
     PinnedEntryV2,
     PreferenceSatisfaction,
     SolverAssignmentV2,
@@ -35,6 +38,7 @@ from solver_py.schema import (
     SolverOutputV2,
     UnassignedSlotV2,
 )
+from solver_py.solver.early_stop import EarlyStopCallback
 from solver_py.solver.hints import greedy_assign
 from solver_py.solver.lessons import Lesson, build_lessons
 from solver_py.solver.model import build_model
@@ -84,7 +88,7 @@ def solve(input_payload: SolverInputV2) -> SolverOutputV2:
         built.placement_vars,
         built.supervision_vars,
     )
-    assemble_objective(
+    objective_meta = assemble_objective(
         built.model,
         input_payload,
         lessons,
@@ -102,15 +106,9 @@ def solve(input_payload: SolverInputV2) -> SolverOutputV2:
         built.model.add_hint(var, 1 if la_idx in greedy_chosen else 0)
 
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = float(
-        input_payload.settings.max_solver_duration_seconds
-    )
+    budget_seconds = float(input_payload.settings.max_solver_duration_seconds)
+    solver.parameters.max_time_in_seconds = budget_seconds
     solver.parameters.random_seed = input_payload.settings.solver_seed or 0
-    # Deterministic parallel: ``interleave_search`` lets CP-SAT use the
-    # full machine while keeping the search reproducible at a fixed seed.
-    # 8 workers chosen empirically — diminishing returns past that on the
-    # realistic baseline; tenants can override via env at the sidecar
-    # level if their server has fewer cores.
     # Single worker keeps the budget honest — ``interleave_search`` with
     # 8 workers blew through ``max_time_in_seconds`` by 4-7× on Tier 3
     # parity inputs (each interleaved chunk runs to completion before the
@@ -124,17 +122,50 @@ def solve(input_payload: SolverInputV2) -> SolverOutputV2:
     # (Check failed: heuristics.fixed_search != nullptr). Single-worker
     # path doesn't trigger that crash either way.
 
-    status = solver.solve(built.model)
+    # Stage 9.5.1 §A — early-stop callback halts CP-SAT when it stops
+    # finding improvements past the greedy floor or when the relative
+    # objective gap closes below ``gap_threshold``. Tunables come from
+    # env vars so production can adjust without redeploying source.
+    placement_weight = objective_meta.placement_weight
+    greedy_hint_score = placement_weight * len(greedy_chosen)
+    callback = EarlyStopCallback(
+        greedy_hint_score=greedy_hint_score,
+        stagnation_seconds=float(os.environ.get("CP_SAT_EARLY_STOP_STAGNATION_SECONDS", "8")),
+        gap_threshold=float(os.environ.get("CP_SAT_EARLY_STOP_GAP_THRESHOLD", "0.001")),
+        min_runtime_seconds=float(
+            os.environ.get("CP_SAT_EARLY_STOP_MIN_RUNTIME_SECONDS", "2")
+        ),
+    )
+
+    status = solver.solve(built.model, callback)
     duration_ms = int(round((time.perf_counter() - start) * 1000))
+    early_stop_triggered: bool = callback.triggered
+    early_stop_reason: EarlyStopReason = callback.reason
+    # ``time_saved_ms`` is the budget remaining when we halted. 0 when the
+    # callback didn't fire OR when the solver ran past budget (negative
+    # clamped to 0).
+    time_saved_ms = (
+        max(int(round((budget_seconds - solver.wall_time) * 1000)), 0)
+        if early_stop_triggered
+        else 0
+    )
 
     if status == cp_model.MODEL_INVALID:
         raise SolveError("CP-SAT reports MODEL_INVALID — model build is broken")
 
     pinned_assignments = _pinned_to_assignments(input_payload.pinned_entries, slots)
 
+    def _stamp_early_stop(output: SolverOutputV2) -> SolverOutputV2:
+        output.early_stop_triggered = early_stop_triggered
+        output.early_stop_reason = early_stop_reason
+        output.time_saved_ms = time_saved_ms
+        return output
+
     if status == cp_model.INFEASIBLE:
-        return _build_infeasible_output(
-            input_payload, lessons, pinned_assignments, diagnostics, duration_ms, soft
+        return _stamp_early_stop(
+            _build_infeasible_output(
+                input_payload, lessons, pinned_assignments, diagnostics, duration_ms, soft
+            )
         )
 
     greedy_output = _build_greedy_output(
@@ -155,7 +186,7 @@ def solve(input_payload: SolverInputV2) -> SolverOutputV2:
         # greedy placement we already built as the hint. Stage 3 acceptance
         # criterion requires the realistic baseline to converge in budget;
         # this guarantees a valid output even when CP-SAT punts.
-        return greedy_output
+        return _stamp_early_stop(greedy_output)
 
     cpsat_status: CpSatStatus = "optimal" if status == cp_model.OPTIMAL else "feasible"
     cpsat_output = _build_solution_output(
@@ -182,9 +213,9 @@ def solve(input_payload: SolverInputV2) -> SolverOutputV2:
     cpsat_key = (len(cpsat_output.entries), cpsat_output.score)
     greedy_key = (len(greedy_output.entries), greedy_output.score)
     if cpsat_key >= greedy_key:
-        return cpsat_output
+        return _stamp_early_stop(cpsat_output)
     greedy_output.cp_sat_status = cpsat_status
-    return greedy_output
+    return _stamp_early_stop(greedy_output)
 
 
 def _pinned_to_assignments(

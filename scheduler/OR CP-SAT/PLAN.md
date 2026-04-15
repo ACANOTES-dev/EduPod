@@ -84,6 +84,10 @@ Stage 8: Legacy retire (delete solver-v2.ts, constraints-v2.ts, domain-v2.ts, so
   ↓
 Stage 9: Full stress re-run (Waves 1, 2, 3 against CP-SAT on stress-a/b/c/d; prove regressions absent, completeness improved)
   ↓
+Stage 9.5.1: Early-stop + supervision fixture + STRESS-021 (model-impacting Wave-5 deferrals; raises budget ceiling to 1h)
+  ↓
+Stage 9.5.2: Scale proof — tier-4/5/6 fixtures (Irish secondary / MAT / college-level; state-of-the-art bar)
+  ↓
 Stage 10: Contract reshape (SolverInputV2/OutputV2 restructured to CP-SAT-native shape; sidecar + client + result_json consumers updated)
   ↓
 Stage 11: Orchestration rebuild (assembleSolverInput rewritten from scratch against the new contract; scheduler-orchestration cleaned of SCHED-013…028 scar tissue)
@@ -101,6 +105,8 @@ Stage 12: Diagnostics module overhaul (state-of-the-art explainability layer —
 - Stage 7 cannot deploy without the client integration of Stage 6.
 - Stage 8 cannot delete legacy until Stage 7's cutover is live and stable.
 - Stage 9 validates the cutover — must wait until legacy is gone so the one engine is what's measured.
+- Stage 9.5.1 closes three Wave-5 deferrals that directly affect solver behaviour (early-stop, supervision fixture, STRESS-021). Must follow Stage 9 (which produced the deferral list) and precede 9.5.2 (whose budget expansion depends on early-stop existing).
+- Stage 9.5.2 measures CP-SAT at state-of-the-art scale (tier-4/5/6). Depends on Stage 9.5.1's early-stop because the expanded 1-hour budget is only safe with a working halt mechanism.
 - Stage 10 reshapes the contract; doing it before Stage 7 would mean maintaining two contract shapes during the critical migration window.
 - Stage 11 depends on Stage 10's new contract shape. It's the final cleanup.
 - Stage 12 depends on a stable CP-SAT in production (Stage 9 green) and the final contract shape (Stage 11 done) because the diagnostics module consumes both the solver's output and its internal infeasibility certificates. Landing it earlier would mean rebuilding against a shifting target.
@@ -111,20 +117,22 @@ A state-of-the-art solver without an equally-capable diagnostics layer is a half
 
 ## Stage summary
 
-| Stage | Name                            | Touches                                                                                                                                                                            | Proven by                                                                                                                                            |
-| ----- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | Python sidecar scaffold         | New `apps/solver-py/` with `pyproject.toml`, FastAPI, `/health`, Dockerfile                                                                                                        | `curl localhost:5557/health` returns 200 locally                                                                                                     |
-| 2     | JSON contract                   | `apps/solver-py/schema/*.py` pydantic models; round-trip fixture                                                                                                                   | pytest round-trips a `SolverInputV2` fixture without data loss                                                                                       |
-| 3     | CP-SAT model — hard constraints | `apps/solver-py/solver/*.py` CP-SAT variable + hard constraint builders                                                                                                            | pytest on 5 fixture inputs; every solution has 0 hard violations OR returns UNSAT cleanly                                                            |
-| 4     | CP-SAT model — soft preferences | `apps/solver-py/solver/soft.py`, scoring function, quality metrics                                                                                                                 | pytest — soft score on fixtures matches or exceeds legacy output                                                                                     |
-| 5     | Parity testing                  | `packages/shared/src/scheduler/__tests__/cp-sat-parity.test.ts`; local double-run against legacy                                                                                   | CP-SAT unassigned ≤ legacy unassigned on 3 scale tiers — **this is the cutover gate**                                                                |
-| 6     | Worker IPC integration          | `solver-v2.processor.ts` always calls sidecar; `cp-sat-client.ts`; worker unit tests. No prod deploy yet.                                                                          | Unit tests pass; local worker hits sidecar; ts + py test suites green                                                                                |
-| 7     | Production cutover              | Atomic deploy — rsync sidecar, `pip install`, add `solver-py` to `ecosystem.config.cjs`, rsync worker change, pm2 restart                                                          | Sidecar online on prod; every tenant solves via CP-SAT end-to-end                                                                                    |
-| 8     | Legacy retire                   | Delete `solver-v2.ts`, `constraints-v2.ts`, `domain-v2.ts`, `soft-scoring-v2.ts`, their specs                                                                                      | Full `turbo test` green post-deletion; worker simpler                                                                                                |
-| 9     | Full stress re-run              | Re-run Wave 1 + Wave 2 + Wave 3 scenarios against CP-SAT backend                                                                                                                   | All scenarios pass; completeness at 100% on realistic input; determinism verified                                                                    |
-| 10    | Contract reshape                | `SolverInputV2` / `SolverOutputV2` restructured to CP-SAT-native shape; sidecar pydantic models; client; result_json consumers (UI, apply)                                         | Every consumer of `result_json` works against the new shape; Stage 9 scenarios re-pass                                                               |
-| 11    | Orchestration rebuild           | `scheduler-orchestration.service.assembleSolverInput` rewritten against the new contract; legacy scar tissue removed                                                               | New orchestration emits the Stage 10 shape; Stage 9 scenarios re-pass; code surface smaller                                                          |
-| 12    | Diagnostics module overhaul     | `SchedulingDiagnosticsService` rebuilt on CP-SAT infeasibility certificates + pre-solve feasibility sweep; Python IIS endpoint; review-page UI; plain-English translation registry | Synthetic infeasible fixtures diagnose root causes within 50 ms; non-technical user test validates every top-5 solution is actionable without jargon |
+| Stage | Name                            | Touches                                                                                                                                                                                | Proven by                                                                                                                                            |
+| ----- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Python sidecar scaffold         | New `apps/solver-py/` with `pyproject.toml`, FastAPI, `/health`, Dockerfile                                                                                                            | `curl localhost:5557/health` returns 200 locally                                                                                                     |
+| 2     | JSON contract                   | `apps/solver-py/schema/*.py` pydantic models; round-trip fixture                                                                                                                       | pytest round-trips a `SolverInputV2` fixture without data loss                                                                                       |
+| 3     | CP-SAT model — hard constraints | `apps/solver-py/solver/*.py` CP-SAT variable + hard constraint builders                                                                                                                | pytest on 5 fixture inputs; every solution has 0 hard violations OR returns UNSAT cleanly                                                            |
+| 4     | CP-SAT model — soft preferences | `apps/solver-py/solver/soft.py`, scoring function, quality metrics                                                                                                                     | pytest — soft score on fixtures matches or exceeds legacy output                                                                                     |
+| 5     | Parity testing                  | `packages/shared/src/scheduler/__tests__/cp-sat-parity.test.ts`; local double-run against legacy                                                                                       | CP-SAT unassigned ≤ legacy unassigned on 3 scale tiers — **this is the cutover gate**                                                                |
+| 6     | Worker IPC integration          | `solver-v2.processor.ts` always calls sidecar; `cp-sat-client.ts`; worker unit tests. No prod deploy yet.                                                                              | Unit tests pass; local worker hits sidecar; ts + py test suites green                                                                                |
+| 7     | Production cutover              | Atomic deploy — rsync sidecar, `pip install`, add `solver-py` to `ecosystem.config.cjs`, rsync worker change, pm2 restart                                                              | Sidecar online on prod; every tenant solves via CP-SAT end-to-end                                                                                    |
+| 8     | Legacy retire                   | Delete `solver-v2.ts`, `constraints-v2.ts`, `domain-v2.ts`, `soft-scoring-v2.ts`, their specs                                                                                          | Full `turbo test` green post-deletion; worker simpler                                                                                                |
+| 9     | Full stress re-run              | Re-run Wave 1 + Wave 2 + Wave 3 scenarios against CP-SAT backend                                                                                                                       | All scenarios pass; completeness at 100% on realistic input; determinism verified                                                                    |
+| 9.5.1 | Early-stop + deferrals          | CP-SAT `SolutionCallback` halts on greedy-match stagnation + gap closure; supervision fixture rebuilt at realistic density; STRESS-021 capacity residual fixed; budget ceiling → 3600s | Easy solves close in seconds regardless of budget; supervision 100% at realistic density; STRESS-021 40/40 pairs span ≥ 4 days                       |
+| 9.5.2 | Scale proof                     | Tier-4/5/6 synthetic fixtures (Irish-secondary large / MAT / college); escalating-budget matrix; diminishing-returns analysis; per-size budget recommendations                         | ≥98% tier-4, ≥95% tier-5, ≥90% tier-6 (or diagnosed ceiling); budget knees measured; `max_memory_restart` verified adequate                          |
+| 10    | Contract reshape                | `SolverInputV2` / `SolverOutputV2` restructured to CP-SAT-native shape; sidecar pydantic models; client; result_json consumers (UI, apply)                                             | Every consumer of `result_json` works against the new shape; Stage 9 scenarios re-pass                                                               |
+| 11    | Orchestration rebuild           | `scheduler-orchestration.service.assembleSolverInput` rewritten against the new contract; legacy scar tissue removed                                                                   | New orchestration emits the Stage 10 shape; Stage 9 scenarios re-pass; code surface smaller                                                          |
+| 12    | Diagnostics module overhaul     | `SchedulingDiagnosticsService` rebuilt on CP-SAT infeasibility certificates + pre-solve feasibility sweep; Python IIS endpoint; review-page UI; plain-English translation registry     | Synthetic infeasible fixtures diagnose root causes within 50 ms; non-technical user test validates every top-5 solution is actionable without jargon |
 
 ## Target metrics — how we know this migration was worth it
 
@@ -160,12 +168,43 @@ The migration is measured against **two distinct benchmarks** because the two te
 
 The distinction matters because "hit 100% on NHQS" is not a valid success criterion in principle — we do not know a priori that the NHQS data is feasible, and nobody on the team has audited it row by row. Stage 12 exists precisely to make this distinction visible to the tenant: **"97% placed — and here are the 3 structural data issues that block the remaining 3%"** is a far stronger product than "97% placed" with no explanation.
 
+### Benchmark 3 — tier-4/5/6 state-of-the-art scale proof (measured in Stage 9.5.2)
+
+The first two benchmarks measure correctness on datasets we know. Benchmark 3 measures scale: can CP-SAT handle a genuine 1000-lesson Irish secondary week, a 2000-lesson MAT / multi-campus workload, or a 3000+ lesson college-level timetable — all within a configurable budget that reaches up to 1 hour?
+
+| Tier                             | Target shape                                | Placement bar                 | Budget knee expected |
+| -------------------------------- | ------------------------------------------- | ----------------------------- | -------------------- |
+| Tier 4 — Irish secondary (large) | ~50 classes, 80 teachers, ~1100 lessons     | ≥ 98 %                        | 120-180 s            |
+| Tier 5 — MAT / multi-campus      | ~95 classes, 160 teachers, ~2200 lessons    | ≥ 95 %                        | 300-600 s            |
+| Tier 6 — college / thousands     | ~130 sections, 180 lecturers, ~3200 lessons | ≥ 90 % (or diagnosed ceiling) | 1800 s               |
+
+Stage 9.5.2 produces the actual measurements; the values above are expectations going in. If any tier misses the bar, the stage's deliverable is a faithful diagnosis (greedy quality at scale vs CP-SAT tree search at scale), not a forced fix.
+
+### Budget architecture — why the ceiling is 1 hour, not 120 s
+
+The legacy solver capped at a 120-second wall-clock timeout. When we migrated to CP-SAT we kept 120 s as the carry-forward value because nobody had challenged it. Stage 9 surfaced that the number is genuinely arbitrary: real scheduling software (Untis, aSc, enterprise OR solvers) routinely budgets in **minutes to hours**, not seconds, because timetable generation is a batch background task — admin clicks Generate, walks away, returns to a result. There is no UX pressure to finish in 2 minutes.
+
+Stage 9.5.1 raises the soft ceiling to **3600 s (1 hour) per tenant**, configurable via `max_solver_duration_seconds`. The default for existing tenants stays at 60 s. Stage 9.5.2 measures appropriate defaults for each tier size.
+
+**The ceiling is only safe because of early-stop.** Stage 9.5.1's `EarlyStopCallback` halts the solver when either (a) the objective matches the greedy-hint score with N seconds of stagnation, or (b) the objective-to-best-bound gap falls below a tuned threshold. In practice this means small-tenant solves finish in seconds regardless of the budget ceiling, and large-tenant solves use exactly the compute they need. The user experience is "the solver takes as long as the problem takes" — not "wait 1 hour no matter what."
+
+**Two operational classes have different ceilings:**
+
+| Operation                   | Ceiling | Rationale                                                                                    |
+| --------------------------- | ------- | -------------------------------------------------------------------------------------------- |
+| Scheduling run              | 3600 s  | Batch background task; value of a correct schedule outweighs time-to-return                  |
+| Stage 12 what-if simulation | 120 s   | UX-facing; admin interactively previews a config change; must return inside a tolerable wait |
+
+Early-stop applies to both; the ceiling is the difference. Stage 12 uses the same sidecar with a shorter per-request budget.
+
 ### Combined migration pass criterion
 
 The migration is complete when:
 
-- stress-a hits 100% placement with 0 hard violations in < 10 s, deterministic (Stage 9).
+- stress-a hits 100 % placement with 0 hard violations, deterministic (Stage 9 — done).
 - All tenants (stress-a/b/c/d + nhqs + any onboarded tenant) hit ≥ legacy placement with every gap diagnosed (Stage 12).
+- Tier-4, tier-5, tier-6 hit their respective placement bars or a diagnosed ceiling (Stage 9.5.2).
+- Early-stop provably closes fast on easy cases (Stage 9.5.1).
 - No SCHED-### regression surfaces in 7 consecutive days of production traffic (Stage 8 window).
 
 If any of these miss, we treat the migration as incomplete and debug before declaring done.

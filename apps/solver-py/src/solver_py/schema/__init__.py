@@ -34,6 +34,7 @@ from solver_py.schema.input import (
 from solver_py.schema.output import (
     ConstraintSummary,
     CpSatStatus,
+    EarlyStopReason,
     PreferenceBreakdownEntry,
     PreferenceSatisfaction,
     QualityMetricRange,
@@ -50,6 +51,7 @@ __all__ = [
     "ConstraintSummary",
     "CpSatStatus",
     "CurriculumEntry",
+    "EarlyStopReason",
     "GlobalSoftWeights",
     "PeriodSlotV2",
     "PeriodType",

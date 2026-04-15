@@ -95,6 +95,8 @@ scheduler/OR CP-SAT/
     ├── stage-7-production-cutover.md
     ├── stage-8-legacy-retire.md
     ├── stage-9-full-stress-rerun.md
+    ├── stage-9.5.1-early-stop-and-deferrals.md
+    ├── stage-9.5.2-scale-proof.md
     ├── stage-10-contract-reshape.md
     ├── stage-11-orchestration-rebuild.md
     └── stage-12-diagnostics-overhaul.md

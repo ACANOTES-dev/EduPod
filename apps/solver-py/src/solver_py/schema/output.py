@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from solver_py.schema.input import PreferenceType
 
 CpSatStatus = Literal["optimal", "feasible", "infeasible", "unknown"]
+EarlyStopReason = Literal["stagnation", "gap", "not_triggered"]
 
 
 class _Strict(BaseModel):
@@ -85,3 +86,12 @@ class SolverOutputV2(_Strict):
     # and the per-solve log line. ``unknown`` means CP-SAT timed out and the greedy
     # fallback was returned (see ``_build_greedy_output``).
     cp_sat_status: CpSatStatus = "feasible"
+    # Stage 9.5.1 §A early-stop telemetry. ``triggered=True`` + ``reason="gap"``
+    # or ``"stagnation"`` means the EarlyStopCallback halted the solver before
+    # the budget was exhausted. ``time_saved_ms`` is the budget remaining at
+    # halt — 0 when the solver ran the full budget (or was the greedy fallback).
+    # All three are optional so SolverOutputV2 stays backward-compatible during
+    # the stage 9.5.1 deploy window.
+    early_stop_triggered: bool = False
+    early_stop_reason: EarlyStopReason = "not_triggered"
+    time_saved_ms: int = 0
