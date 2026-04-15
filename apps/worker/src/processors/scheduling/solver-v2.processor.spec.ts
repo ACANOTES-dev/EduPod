@@ -189,7 +189,39 @@ describe('SchedulingSolverV2Processor', () => {
         soft_preference_score: 87,
         solver_duration_ms: 1234,
         solver_seed: BigInt(123),
+        // SCHED-017: any unassigned demand flips the run to `failed` with a
+        // reason enumerating what couldn't be placed. Only zero-unassigned
+        // runs count as `completed`.
+        status: 'failed',
+        failure_reason: expect.stringContaining('1 curriculum slot'),
+      }),
+    });
+  });
+
+  it('should mark the run as completed when every slot is placed (zero unassigned)', async () => {
+    mockSolveV2.mockReturnValueOnce({
+      constraint_summary: { tier1_violations: 0 },
+      duration_ms: 500,
+      entries: [{ id: 'entry-1', is_pinned: false }],
+      max_score: 100,
+      score: 100,
+      unassigned: [],
+    } as never);
+    const mockTx = buildMockTx();
+    const mockPrisma = buildMockPrisma(mockTx);
+    const processor = new SchedulingSolverV2Processor(
+      mockPrisma as never,
+      { process: jest.fn() } as never,
+    );
+
+    await processor.process(buildJob());
+
+    expect(mockTx.schedulingRun.update).toHaveBeenNthCalledWith(2, {
+      where: { id: RUN_ID },
+      data: expect.objectContaining({
         status: 'completed',
+        failure_reason: null,
+        entries_unassigned: 0,
       }),
     });
   });

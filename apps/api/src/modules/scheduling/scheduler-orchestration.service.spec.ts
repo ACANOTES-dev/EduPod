@@ -61,6 +61,7 @@ describe('SchedulerOrchestrationService', () => {
     yearGroup: { findMany: jest.Mock };
     schedulePeriodTemplate: { findMany: jest.Mock };
     curriculumRequirement: { findMany: jest.Mock };
+    classSchedulingRequirement: { findMany: jest.Mock };
     teacherCompetency: { findMany: jest.Mock };
     staffAvailability: { findMany: jest.Mock };
     staffSchedulingPreference: { findMany: jest.Mock };
@@ -87,6 +88,7 @@ describe('SchedulerOrchestrationService', () => {
       yearGroup: { findMany: jest.fn().mockResolvedValue([]) },
       schedulePeriodTemplate: { findMany: jest.fn().mockResolvedValue([]) },
       curriculumRequirement: { findMany: jest.fn().mockResolvedValue([]) },
+      classSchedulingRequirement: { findMany: jest.fn().mockResolvedValue([]) },
       teacherCompetency: { findMany: jest.fn().mockResolvedValue([]) },
       staffAvailability: { findMany: jest.fn().mockResolvedValue([]) },
       staffSchedulingPreference: { findMany: jest.fn().mockResolvedValue([]) },

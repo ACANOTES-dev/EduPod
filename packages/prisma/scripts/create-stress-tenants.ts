@@ -300,6 +300,31 @@ async function provisionTenant(
     }
   }
 
+  // 8b. Stress-tenant override: grant the admin role ALL permissions.
+  // Real-tenant admins run on the canonical SYSTEM_ROLES subset, but the
+  // stress tenants need their admin account to exercise every endpoint
+  // (solver trigger, substitutions, reports, offers, personal-view APIs).
+  // This is scoped to stress-* tenants only — SYSTEM_ROLES in seed.ts
+  // remains the source of truth for production.
+  const adminRoleId = roleIdByKey.get('admin');
+  if (adminRoleId) {
+    let granted = 0;
+    for (const [permKey, permId] of permissionMap) {
+      // Skip platform-level permissions — they belong to platform_owner.
+      if (permKey.startsWith('platform.') || permKey.startsWith('tenants.')) continue;
+      const existing = await prisma.rolePermission.findUnique({
+        where: { role_id_permission_id: { role_id: adminRoleId, permission_id: permId } },
+      });
+      if (!existing) {
+        await prisma.rolePermission.create({
+          data: { role_id: adminRoleId, permission_id: permId, tenant_id: tenant.id },
+        });
+        granted++;
+      }
+    }
+    if (granted > 0) console.log(`  admin role: granted ${granted} additional permissions`);
+  }
+
   // 9. Inbox defaults (idempotent)
   await seedInboxDefaultsForTenant(prisma, tenant.id);
 

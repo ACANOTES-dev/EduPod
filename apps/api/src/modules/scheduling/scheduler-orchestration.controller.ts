@@ -113,6 +113,23 @@ export class SchedulerOrchestrationController {
     return this.service.discardRun(tenant.tenant_id, id);
   }
 
+  // SCHED-027: cancel endpoint for queued/running runs. A queued run is
+  // transitioned immediately to `failed` with a "Cancelled by user" reason;
+  // the worker's guard clause (solver-v2.processor.ts:97) skips jobs whose
+  // run is no longer in queued status, so no partial writes occur. A running
+  // run is also flipped — the solver's synchronous CP-SAT phase cannot be
+  // interrupted cooperatively yet (that work is tracked separately), so
+  // this flags the run dead and the next run can proceed.
+  @Post(':id/cancel')
+  @RequiresPermission('schedule.run_auto')
+  @HttpCode(HttpStatus.OK)
+  async cancelRun(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.cancelRun(tenant.tenant_id, id);
+  }
+
   @Get(':id/status')
   @RequiresPermission('schedule.run_auto')
   async getRunStatus(

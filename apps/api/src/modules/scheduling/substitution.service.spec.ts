@@ -53,6 +53,7 @@ describe('SubstitutionService', () => {
       count: jest.Mock;
       create: jest.Mock;
     };
+    substitutionOffer: { findMany: jest.Mock; updateMany: jest.Mock };
     tenant: { findUnique: jest.Mock };
   };
 
@@ -80,6 +81,10 @@ describe('SubstitutionService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
         create: jest.fn(),
+      },
+      substitutionOffer: {
+        findMany: jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       tenant: {
         findUnique: jest.fn().mockResolvedValue({ name: 'Test School', branding: null }),

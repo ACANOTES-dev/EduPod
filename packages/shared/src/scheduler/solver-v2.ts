@@ -15,6 +15,7 @@ import type {
   DomainValueV2,
   ProgressCallbackV2,
   CancelCheckV2,
+  QualityMetricsV2,
 } from './types-v2';
 
 // ─── Options ────────────────────────────────────────────────────────────────
@@ -255,6 +256,18 @@ function scoreValueV2(
     );
     if (curriculum?.preferred_room_id === value.room_id) {
       score += 10;
+    }
+    // SCHED-018: per-(class, subject) override from class_scheduling_requirements.
+    // Scored higher than year-group curriculum hint so class-level intent wins.
+    if (variable.class_id !== null && input.class_room_overrides) {
+      const override = input.class_room_overrides.find(
+        (o) =>
+          o.class_id === variable.class_id &&
+          (o.subject_id === variable.subject_id || o.subject_id === null),
+      );
+      if (override?.preferred_room_id === value.room_id) {
+        score += 20;
+      }
     }
   }
 
@@ -762,8 +775,14 @@ export function solveV2(input: SolverInputV2, options: SolverOptionsV2 = {}): So
     };
   }
 
-  // 1. Seeded RNG
-  const rng = mulberry32(input.settings.solver_seed ?? Date.now());
+  // 1. Seeded RNG.
+  //
+  // SCHED-025: determinism. Falling back to `Date.now()` when the caller
+  // omits a seed makes repeat runs non-reproducible even with identical
+  // inputs. Use a fixed fallback (0) so "same input → same output" holds
+  // whenever the caller does not pin a seed. Tenants that want explicit
+  // randomisation pass an integer via `solver_seed`.
+  const rng = mulberry32(input.settings.solver_seed ?? 0);
 
   // 2. Convert pinned entries to SolverAssignmentV2[]
   const pinnedAssignments = pinnedEntriesToAssignments(input);
@@ -839,19 +858,219 @@ export function solveV2(input: SolverInputV2, options: SolverOptionsV2 = {}): So
   // Attach preference satisfaction per entry
   const entries = attachPreferenceSatisfaction(finalAssignments, prefScore.per_entry_satisfaction);
 
+  // SCHED-024: demote isolated placements for double-required subjects.
+  // The greedy+repair loop is lenient about partial doubles during search,
+  // but a final schedule that leaves singletons for a requires_double_period
+  // subject violates a hard constraint. Move each orphaned placement from
+  // entries → unassigned so the run is reported as `failed` (per SCHED-017)
+  // rather than silently publishing a broken schedule.
+  const { keptEntries, demotedUnassigned } = demoteIsolatedDoubles(input, entries);
+
   // Final progress callback
   if (onProgress) {
-    onProgress(finalAssignments.filter((a) => !a.is_pinned).length, variables.length, 'complete');
+    onProgress(keptEntries.filter((a) => !a.is_pinned).length, variables.length, 'complete');
   }
 
   return {
-    entries,
-    unassigned,
+    entries: keptEntries,
+    unassigned: [...unassigned, ...demotedUnassigned],
     score: prefScore.score,
     max_score: prefScore.max_score,
     duration_ms: Date.now() - startTime,
-    constraint_summary: buildConstraintSummary(input, entries),
+    constraint_summary: buildConstraintSummary(input, keptEntries),
+    quality_metrics: buildQualityMetrics(input, keptEntries, prefScore.per_entry_satisfaction),
   };
+}
+
+/**
+ * Compute SCHED-026 quality metrics from the final entry set. This is a pure
+ * function — no side effects, no solver state — so adding/removing metrics
+ * here does not change solve behaviour.
+ */
+function buildQualityMetrics(
+  input: SolverInputV2,
+  entries: SolverAssignmentV2[],
+  perEntrySatisfaction: SolverAssignmentV2['preference_satisfaction'],
+): QualityMetricsV2 {
+  // ── Teacher gap index ──
+  // For each teacher × weekday, compute (last_period - first_period + 1) - lesson_count.
+  // Sum into one average per teacher across active days, then min/avg/max across teachers.
+  const byTeacherDay = new Map<string, number[]>();
+  for (const e of entries) {
+    if (e.teacher_staff_id === null || e.is_supervision) continue;
+    const key = `${e.teacher_staff_id}::${e.weekday}`;
+    const list = byTeacherDay.get(key) ?? [];
+    list.push(e.period_order);
+    byTeacherDay.set(key, list);
+  }
+  const perTeacherGapAvg = new Map<string, number[]>();
+  for (const [key, periods] of byTeacherDay) {
+    const teacherId = key.split('::')[0]!;
+    if (periods.length === 0) continue;
+    const span = Math.max(...periods) - Math.min(...periods) + 1;
+    const gap = span - periods.length;
+    const list = perTeacherGapAvg.get(teacherId) ?? [];
+    list.push(gap);
+    perTeacherGapAvg.set(teacherId, list);
+  }
+  const teacherAverages: number[] = [];
+  for (const gaps of perTeacherGapAvg.values()) {
+    if (gaps.length === 0) continue;
+    teacherAverages.push(gaps.reduce((s, g) => s + g, 0) / gaps.length);
+  }
+  const gapIndex = minAvgMax(teacherAverages);
+
+  // ── Day distribution variance ──
+  // For each class, compute stddev of lessons_per_day across the 5 (or N)
+  // weekdays the class has any scheduled slot. Lower = more even.
+  const byClassDay = new Map<string, number>();
+  const classesSeen = new Set<string>();
+  for (const e of entries) {
+    if (e.class_id === null || e.is_supervision) continue;
+    classesSeen.add(e.class_id);
+    const key = `${e.class_id}::${e.weekday}`;
+    byClassDay.set(key, (byClassDay.get(key) ?? 0) + 1);
+  }
+  const classStdDevs: number[] = [];
+  const workingDays = new Set(
+    input.year_groups.flatMap((yg) => yg.period_grid.map((p) => p.weekday)),
+  );
+  const dayCount = Math.max(workingDays.size, 1);
+  for (const classId of classesSeen) {
+    const perDay: number[] = [];
+    for (const d of workingDays) {
+      perDay.push(byClassDay.get(`${classId}::${d}`) ?? 0);
+    }
+    const mean = perDay.reduce((s, c) => s + c, 0) / dayCount;
+    const variance = perDay.reduce((s, c) => s + (c - mean) ** 2, 0) / dayCount;
+    classStdDevs.push(Math.sqrt(variance));
+  }
+  const distVar = minAvgMax(classStdDevs);
+
+  // ── Preference breakdown ──
+  const prefTypes = new Map<
+    string,
+    { preference_type: 'subject' | 'class_pref' | 'time_slot'; honoured: number; violated: number }
+  >();
+  const prefById = new Map<string, 'subject' | 'class_pref' | 'time_slot'>();
+  for (const t of input.teachers) {
+    for (const pref of t.preferences) {
+      prefById.set(pref.id, pref.preference_type);
+    }
+  }
+  for (const s of perEntrySatisfaction ?? []) {
+    const type = prefById.get(s.preference_id);
+    if (!type) continue;
+    const row = prefTypes.get(type) ?? { preference_type: type, honoured: 0, violated: 0 };
+    if (s.satisfied) row.honoured += 1;
+    else row.violated += 1;
+    prefTypes.set(type, row);
+  }
+
+  return {
+    teacher_gap_index: gapIndex,
+    day_distribution_variance: distVar,
+    preference_breakdown: Array.from(prefTypes.values()),
+  };
+}
+
+function minAvgMax(values: number[]): { min: number; avg: number; max: number } {
+  if (values.length === 0) return { min: 0, avg: 0, max: 0 };
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const avg = values.reduce((s, v) => s + v, 0) / values.length;
+  return { min, avg: round2(avg), max };
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * Post-processor for SCHED-024: detect double-required subjects that ended up
+ * as isolated singletons (no adjacent same-subject period on the same day
+ * for the same class) and demote them to the unassigned list. The run's
+ * status then reflects reality — a partial double-period requirement is
+ * an infeasible placement, not a success.
+ */
+function demoteIsolatedDoubles(
+  input: SolverInputV2,
+  entries: SolverAssignmentV2[],
+): {
+  keptEntries: SolverAssignmentV2[];
+  demotedUnassigned: SolverOutputV2['unassigned'];
+} {
+  const doubleRequired = new Set(
+    input.curriculum
+      .filter((c) => c.requires_double_period && c.subject_id !== null)
+      .map((c) => `${c.year_group_id}::${c.subject_id}`),
+  );
+  if (doubleRequired.size === 0) {
+    return { keptEntries: entries, demotedUnassigned: [] };
+  }
+
+  // Bucket entries by (class, subject, weekday) — pinned entries are trusted
+  // to be pre-validated by the admin, so we only demote non-pinned ones.
+  const bucketKey = (e: SolverAssignmentV2) => `${e.class_id}::${e.subject_id}::${e.weekday}`;
+  const buckets = new Map<string, SolverAssignmentV2[]>();
+  for (const e of entries) {
+    if (e.class_id === null || e.subject_id === null) continue;
+    if (!doubleRequired.has(`${e.year_group_id}::${e.subject_id}`)) continue;
+    const key = bucketKey(e);
+    const list = buckets.get(key) ?? [];
+    list.push(e);
+    buckets.set(key, list);
+  }
+
+  const toRemove = new Set<SolverAssignmentV2>();
+  for (const [, bucket] of buckets) {
+    if (bucket.length === 0) continue;
+    // Sort by period_order; a placement is isolated if neither neighbour
+    // (period-1 / period+1) is also in this bucket.
+    const orders = new Set(bucket.map((e) => e.period_order));
+    for (const entry of bucket) {
+      if (entry.is_pinned) continue;
+      const hasNeighbour = orders.has(entry.period_order - 1) || orders.has(entry.period_order + 1);
+      if (!hasNeighbour) toRemove.add(entry);
+    }
+  }
+
+  if (toRemove.size === 0) {
+    return { keptEntries: entries, demotedUnassigned: [] };
+  }
+
+  const keptEntries = entries.filter((e) => !toRemove.has(e));
+
+  // Group demotions by (year_group, subject, class) to match the existing
+  // unassigned shape. periods_remaining carries the demoted count.
+  const demotedGroups = new Map<
+    string,
+    { year_group_id: string; subject_id: string | null; class_id: string | null; count: number }
+  >();
+  for (const e of toRemove) {
+    const k = `${e.year_group_id}::${e.subject_id}::${e.class_id}`;
+    const existing = demotedGroups.get(k);
+    if (existing) existing.count += 1;
+    else
+      demotedGroups.set(k, {
+        year_group_id: e.year_group_id,
+        subject_id: e.subject_id,
+        class_id: e.class_id,
+        count: 1,
+      });
+  }
+
+  const demotedUnassigned: SolverOutputV2['unassigned'] = [];
+  for (const g of demotedGroups.values()) {
+    demotedUnassigned.push({
+      year_group_id: g.year_group_id,
+      subject_id: g.subject_id,
+      class_id: g.class_id,
+      periods_remaining: g.count,
+      reason: 'Isolated singleton for a double-period-required subject (SCHED-024)',
+    });
+  }
+  return { keptEntries, demotedUnassigned };
 }
 
 // ─── Greedy + Repair Solver ────────────────────────────────────────────────

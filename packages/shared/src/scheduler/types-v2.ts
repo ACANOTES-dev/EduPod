@@ -135,6 +135,23 @@ export interface SolverSettingsV2 {
   solver_seed: number | null;
 }
 
+/**
+ * Per-(class, subject) room override — honoured by the solver's room-selection
+ * scoring. When `required_room_type` is set, rooms of a different type are
+ * forbidden. When `preferred_room_id` is set, the named room is rewarded
+ * (but another room is acceptable if the preferred one is busy).
+ *
+ * Populated from `class_scheduling_requirements` in the orchestration layer
+ * (SCHED-018). If the list is empty the solver behaves as it always has —
+ * year-group-wide room hints on `CurriculumEntry` remain the only signal.
+ */
+export interface ClassRoomOverride {
+  class_id: string;
+  subject_id: string | null;
+  preferred_room_id: string | null;
+  required_room_type: string | null;
+}
+
 export interface SolverInputV2 {
   year_groups: YearGroupInput[];
   curriculum: CurriculumEntry[];
@@ -144,6 +161,8 @@ export interface SolverInputV2 {
   break_groups: BreakGroupInput[];
   pinned_entries: PinnedEntryV2[];
   student_overlaps: StudentOverlapV2[];
+  /** Optional per-(class, subject) room overrides — see ClassRoomOverride. */
+  class_room_overrides?: ClassRoomOverride[];
   settings: SolverSettingsV2;
 }
 
@@ -182,6 +201,31 @@ export interface UnassignedSlotV2 {
   reason: string;
 }
 
+/**
+ * Quality metrics surfaced to admins to assess schedule shape beyond the
+ * aggregate preference score. Added for SCHED-026 / STRESS-048.
+ *
+ *   - teacher_gap_index: per-teacher, per-day, `(span - lesson_count)` where
+ *     span = `last_period - first_period + 1`. A value of 0 means no idle
+ *     periods inside the teacher's working day; larger values = more gaps.
+ *     Reported as min / avg / max across teachers with ≥1 assignment.
+ *   - day_distribution_variance: per-class stddev of `lessons_per_day`
+ *     across the week. 0 means every working day has the same load.
+ *     Reported as min / avg / max across classes.
+ *   - preference_breakdown: honoured vs violated counts rolled up by
+ *     preference_type. Useful to see whether subject preferences got
+ *     honoured while time-slot preferences got sacrificed (or vice versa).
+ */
+export interface QualityMetricsV2 {
+  teacher_gap_index: { min: number; avg: number; max: number };
+  day_distribution_variance: { min: number; avg: number; max: number };
+  preference_breakdown: Array<{
+    preference_type: 'subject' | 'class_pref' | 'time_slot';
+    honoured: number;
+    violated: number;
+  }>;
+}
+
 export interface SolverOutputV2 {
   entries: SolverAssignmentV2[];
   unassigned: UnassignedSlotV2[];
@@ -194,6 +238,8 @@ export interface SolverOutputV2 {
     tier2_violations: number;
     tier3_violations: number;
   };
+  /** Optional quality metrics — emitted by the main solver path (SCHED-026). */
+  quality_metrics?: QualityMetricsV2;
 }
 
 // ─── Validation Types ───────────────────────────────────────────────────────

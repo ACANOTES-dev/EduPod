@@ -140,23 +140,47 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
       },
     });
 
-    // 5. Save results
+    // 5. Save results.
+    //
+    // A run with any unassigned curriculum demand must NOT be reported as
+    // `completed` — that shape lets an admin click Apply and silently publish
+    // a partial timetable (SCHED-017). Classify the run explicitly:
+    //
+    //   entries_unassigned === 0 → completed  (every demand placed)
+    //   entries_unassigned  >  0 → failed     (solver couldn't place all demand)
+    //
+    // `failed_reason` enumerates the first ~20 unplaceable slots so admins can
+    // see exactly what didn't fit. Once the SchedulingRunStatus enum gains a
+    // `partial` value we can distinguish genuine infeasibility from
+    // time-limited partial solves — until then the stricter `failed` surface
+    // is safer than a false `completed`.
     const resultJson = {
       entries: result.entries,
       unassigned: result.unassigned,
     };
 
+    const unassignedCount = result.unassigned.length;
+    const finalStatus = unassignedCount === 0 ? 'completed' : 'failed';
+    const failureReason =
+      unassignedCount === 0
+        ? null
+        : `Solver left ${unassignedCount} curriculum slot${unassignedCount === 1 ? '' : 's'} unplaced. First: ${result.unassigned
+            .slice(0, 20)
+            .map((u) => JSON.stringify(u))
+            .join('; ')}${unassignedCount > 20 ? ' …' : ''}`;
+
     await tx.schedulingRun.update({
       where: { id: run_id },
       data: {
-        status: 'completed',
+        status: finalStatus,
+        failure_reason: failureReason,
         result_json: JSON.parse(JSON.stringify(resultJson)),
         hard_constraint_violations: result.constraint_summary.tier1_violations,
         soft_preference_score: result.score,
         soft_preference_max: result.max_score,
         entries_generated: result.entries.filter((e) => !e.is_pinned).length,
         entries_pinned: result.entries.filter((e) => e.is_pinned).length,
-        entries_unassigned: result.unassigned.length,
+        entries_unassigned: unassignedCount,
         solver_duration_ms: result.duration_ms,
         solver_seed:
           configSnapshot.settings.solver_seed !== null
@@ -166,7 +190,7 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     });
 
     this.logger.log(
-      `Solver v2 completed for run ${run_id}: ${result.entries.length} entries, ${result.unassigned.length} unassigned, score ${result.score}/${result.max_score} in ${result.duration_ms}ms`,
+      `Solver v2 ${finalStatus} for run ${run_id}: ${result.entries.length} entries, ${unassignedCount} unassigned, score ${result.score}/${result.max_score} in ${result.duration_ms}ms`,
     );
   }
 }

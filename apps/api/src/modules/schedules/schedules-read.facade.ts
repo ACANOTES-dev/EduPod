@@ -122,6 +122,7 @@ export interface ScheduleSubstitutionContextRow {
   academic_year_id: string;
   class_id: string;
   weekday: number;
+  period_order: number | null;
   start_time: Date;
   end_time: Date;
   class_entity: {
@@ -928,6 +929,7 @@ export class SchedulesReadFacade {
         academic_year_id: true,
         class_id: true,
         weekday: true,
+        period_order: true,
         start_time: true,
         end_time: true,
         class_entity: {

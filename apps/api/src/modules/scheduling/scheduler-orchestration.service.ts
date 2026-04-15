@@ -187,6 +187,7 @@ export class SchedulerOrchestrationService {
       pinnedSchedules,
       classEnrolments,
       tenantSettings,
+      classRequirements,
     ] = await Promise.all([
       // Year groups with active classes and student counts
       this.academicReadFacade.findYearGroupsWithClassesAndCounts(tenantId, academicYearId),
@@ -241,6 +242,23 @@ export class SchedulerOrchestrationService {
 
       // Tenant settings for solver config
       this.configurationReadFacade.findSettings(tenantId),
+
+      // SCHED-018: per-(class) room overrides from class_scheduling_requirements.
+      // The solver rewards matches with a +20 score bonus (vs +10 for the
+      // year-group-wide CurriculumEntry.preferred_room_id), so class-level
+      // intent wins on tie.
+      this.prisma.classSchedulingRequirement.findMany({
+        where: {
+          tenant_id: tenantId,
+          academic_year_id: academicYearId,
+          OR: [{ preferred_room_id: { not: null } }, { required_room_type: { not: null } }],
+        },
+        select: {
+          class_id: true,
+          preferred_room_id: true,
+          required_room_type: true,
+        },
+      }),
     ]);
 
     // ─── Build year_groups with period grids ─────────────────────────────────
@@ -439,6 +457,20 @@ export class SchedulerOrchestrationService {
       solver_seed: null,
     };
 
+    // SCHED-018: fold class-level preferences into a single overrides array.
+    // An entry with a non-null `preferred_room_id` OR `required_room_type`
+    // signals "this specific class cares about its room"; the solver consults
+    // this list at room-selection time (solver-v2.ts) and prefers the named
+    // room over the year-group-wide curriculum hint.
+    const classRoomOverrides = classRequirements
+      .filter((r) => r.preferred_room_id !== null || r.required_room_type !== null)
+      .map((r) => ({
+        class_id: r.class_id,
+        subject_id: null as string | null,
+        preferred_room_id: r.preferred_room_id,
+        required_room_type: r.required_room_type,
+      }));
+
     return {
       year_groups: yearGroupInputs,
       curriculum,
@@ -448,6 +480,7 @@ export class SchedulerOrchestrationService {
       break_groups: breakGroups,
       pinned_entries: pinnedEntries,
       student_overlaps: studentOverlaps,
+      class_room_overrides: classRoomOverrides,
       settings,
     };
   }
@@ -746,6 +779,45 @@ export class SchedulerOrchestrationService {
       return db.schedulingRun.update({
         where: { id: runId },
         data: { status: 'discarded' },
+      });
+    })) as unknown as { id: string; status: string };
+
+    return {
+      id: updated.id,
+      status: updated.status,
+    };
+  }
+
+  // SCHED-027: cancel a queued or running solver run. The worker's processor
+  // short-circuits when it picks up a job whose run is no longer in `queued`
+  // status (`solver-v2.processor.ts:97`), so a cancelled queued run is safe:
+  // no partial writes to the timetable. Running runs can also be cancelled
+  // (flipped to `failed`) so admins aren't blocked behind a slow solve;
+  // cooperative abort inside CP-SAT is a follow-up task.
+  async cancelRun(tenantId: string, runId: string) {
+    const run = await this.schedulingRunsReadFacade.findStatusById(tenantId, runId);
+
+    if (!run) {
+      throw new NotFoundException({
+        code: 'SCHEDULING_RUN_NOT_FOUND',
+        message: `Scheduling run "${runId}" not found`,
+      });
+    }
+
+    if (!['queued', 'running'].includes(run.status)) {
+      throw new BadRequestException({
+        code: 'RUN_NOT_CANCELLABLE',
+        message: `Only queued or running runs can be cancelled. Current status: "${run.status}"`,
+      });
+    }
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const updated = (await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      return db.schedulingRun.update({
+        where: { id: runId },
+        data: { status: 'failed', failure_reason: 'Cancelled by user' },
       });
     })) as unknown as { id: string; status: string };
 

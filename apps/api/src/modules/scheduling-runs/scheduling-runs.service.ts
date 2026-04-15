@@ -395,12 +395,22 @@ export class SchedulingRunsService {
             ? 'complete'
             : 'failed';
 
+    // `entries_assigned` was historically derived as
+    // `entries_generated - entries_unassigned`, which goes negative when the
+    // solver drops more slots than it places (e.g. room-shortage infeasibility
+    // runs). Clamp to zero and surface raw counters separately so the UI can
+    // render progress/total without ever showing a negative — SCHED-021.
+    const placed = run.entries_generated ?? 0;
+    const unassigned = run.entries_unassigned ?? 0;
+
     return {
       id: run.id,
       status: run.status,
       phase,
-      entries_assigned: (run.entries_generated ?? 0) - (run.entries_unassigned ?? 0),
-      entries_total: run.entries_generated,
+      entries_assigned: Math.max(0, placed - unassigned),
+      entries_placed: placed,
+      entries_unassigned: unassigned,
+      entries_total: placed,
       elapsed_ms: run.solver_duration_ms ?? 0,
       failure_reason: run.failure_reason,
       updated_at: run.updated_at.toISOString(),

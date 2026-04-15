@@ -250,6 +250,11 @@ export class SubstitutionService {
       });
     })) as unknown as { id: string; absence_date: Date; date_to: Date | null; created_at: Date };
 
+    // SCHED-019 part 2: if the newly-absent teacher has any pending cover
+    // offers that overlap this absence, revoke them. Otherwise the staff
+    // member could accept an offer for a period they can no longer cover.
+    await this.revokeOverlappingPendingOffers(tenantId, args);
+
     return {
       id: absence.id,
       staff_id: args.staffProfileId,
@@ -261,6 +266,52 @@ export class SubstitutionService {
       days_counted: args.daysCounted,
       created_at: absence.created_at.toISOString(),
     };
+  }
+
+  private async revokeOverlappingPendingOffers(
+    tenantId: string,
+    args: {
+      staffProfileId: string;
+      date: string;
+      dateTo: string | null;
+      fullDay: boolean;
+      periodFrom: number | null;
+      periodTo: number | null;
+    },
+  ): Promise<void> {
+    const start = new Date(args.date);
+    start.setHours(0, 0, 0, 0);
+    const end = args.dateTo ? new Date(args.dateTo) : new Date(args.date);
+    end.setHours(0, 0, 0, 0);
+    end.setDate(end.getDate() + 1);
+
+    const pending = await this.prisma.substitutionOffer.findMany({
+      where: {
+        tenant_id: tenantId,
+        candidate_staff_id: args.staffProfileId,
+        status: 'pending',
+        absence_date: { gte: start, lt: end },
+      },
+      select: { id: true, schedule: { select: { period_order: true } } },
+    });
+
+    const ids: string[] = [];
+    for (const o of pending) {
+      if (args.fullDay) {
+        ids.push(o.id);
+        continue;
+      }
+      const p = o.schedule.period_order;
+      const from = args.periodFrom ?? Number.POSITIVE_INFINITY;
+      const to = args.periodTo ?? Number.NEGATIVE_INFINITY;
+      if (p != null && p >= from && p <= to) ids.push(o.id);
+    }
+    if (ids.length === 0) return;
+
+    await this.prisma.substitutionOffer.updateMany({
+      where: { id: { in: ids }, status: 'pending' },
+      data: { status: 'revoked', responded_at: new Date() },
+    });
   }
 
   private computeDaysCounted(date: string, dateTo: string | null, fullDay: boolean): number {
@@ -307,6 +358,44 @@ export class SubstitutionService {
       endTime: schedule.end_time,
       effectiveDate: targetDate,
     });
+
+    // Find teachers who themselves have an active absence covering this
+    // date+period. An absence is disqualifying if it is not cancelled AND
+    // (a) full-day, OR (b) the schedule's period_order falls inside the
+    // absence's period_from..period_to range. Without this filter the
+    // cascade would happily offer a cover to someone who's on leave for
+    // that exact period — SCHED-019.
+    const targetPeriod = schedule.period_order ?? null;
+    const dayStart = new Date(targetDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+    const absenceRows = await this.prisma.teacherAbsence.findMany({
+      where: {
+        tenant_id: tenantId,
+        cancelled_at: null,
+        absence_date: { gte: dayStart, lt: dayEnd },
+      },
+      select: {
+        staff_profile_id: true,
+        full_day: true,
+        period_from: true,
+        period_to: true,
+      },
+    });
+    const absentStaffIds = new Set<string>();
+    for (const a of absenceRows) {
+      if (a.full_day) {
+        absentStaffIds.add(a.staff_profile_id);
+        continue;
+      }
+      if (targetPeriod == null) continue;
+      const from = a.period_from ?? Number.POSITIVE_INFINITY;
+      const to = a.period_to ?? Number.NEGATIVE_INFINITY;
+      if (targetPeriod >= from && targetPeriod <= to) {
+        absentStaffIds.add(a.staff_profile_id);
+      }
+    }
 
     // All staff
     const allStaff = await this.staffProfileReadFacade.findActiveStaff(tenantId);
@@ -357,6 +446,8 @@ export class SubstitutionService {
       if (busyIds.has(staff.id)) continue;
       // Skip the absent teacher themselves
       if (staff.id === schedule.teacher_staff_id) continue;
+      // Skip teachers whose own active absence covers this period — SCHED-019.
+      if (absentStaffIds.has(staff.id)) continue;
 
       const name = `${staff.user.first_name} ${staff.user.last_name}`.trim();
       const isPinned = pinnedStaffIds.has(staff.id);
@@ -592,6 +683,10 @@ export class SubstitutionService {
           select: { user: { select: { first_name: true, last_name: true } } },
         },
         substitution_records: {
+          // Only active covers belong on the board. Revoked (cancelled
+          // absence) and declined offers must not clutter the staffroom
+          // display — SCHED-020.
+          where: { status: { notIn: ['revoked', 'declined'] } },
           include: {
             substitute: {
               select: { user: { select: { first_name: true, last_name: true } } },
