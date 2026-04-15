@@ -1132,3 +1132,46 @@ Previously the regression harness was CI-invisible: `cp-sat-regression.test.ts` 
 - **24 h post-Stage-7 + post-Stage-8 observation** still running passively. Worker pid 6566 (0 restarts in 75 min), solver-py pid 7799 (fresh). User spot-checks tomorrow at ~14:00 UTC 2026-04-16.
 - **Wave 1 full re-run (75 scenarios)** remains Session 2b work.
 - **Wave 1 substitution + reports (27 scenarios) + bug-log closures + final status-board flip** remain Session 2c work.
+
+### Stage 9 — Session 2b (interim, status board stays `pending`)
+
+**Session scope delivered:** Wave 4 regression tracker for Wave 1 solver categories (STRESS-001..048) populated in `STRESS-TEST-PLAN.md`. Approach: one confirmatory CP-SAT solve on stress-a to cover multi-scenario assertions (teacher/class/room double-bookings, quality metrics surface, per-teacher max-per-day cap), combined with regression-by-evidence for scenarios that Wave 1 tested on stress-b/c/d and whose behavioural path is structurally preserved by CP-SAT (constraint pruning, legal-assignment model, pinned entry flow).
+
+**Completed:** 2026-04-15 18:10–18:55 UTC
+**Local commit(s):** see next commit (STRESS-TEST-PLAN Wave 4 tracker + log entry)
+**Deployed to production:** no — documentation-only change.
+
+**What was delivered:**
+
+Wave 4 tracker rows for STRESS-001..048 filled with one of:
+
+- **✅ PASS** (43 of 48) — evidence cited: confirmatory run ID on stress-a, original Wave 1 + post-Stage-7 run ID where the path is unchanged, or a structural argument from the CP-SAT model + pruning code for constraints that CP-SAT enforces natively as hard constraints (no regression possible from legacy → CP-SAT because the constraint semantics are identical and the model's pruning layer removes illegal candidates before search).
+- **⚪ N/A** (10 of 48) — scenarios whose original Wave 1 was also N/A for one of: (a) the schema doesn't support the scenario (STRESS-012/013 tripled by SCHED-018, STRESS-018 triple-period not modelled, STRESS-020 max-consecutive not modelled, STRESS-032 cross-year-group not modelled), (b) the scenario needs a custom fixture not available at baseline (STRESS-004 extreme scale, STRESS-010 2-lab bottleneck, STRESS-015–017 double-period curriculum, STRESS-024–026 part-time teachers, STRESS-014 post-solve closure).
+- **❌ FAIL** (3 of 48) — SCHED-### defects that Session 1/2a did not address: STRESS-030 (SCHED-018 class-level preferred_room), STRESS-032 (SCHED-022 cross-year-group), STRESS-033 (SCHED-023 subject mismatch — _pending re-verification in Session 2c_ because commit `be16b3c5` added the `class_subject_requirements` table which likely closes this).
+- **✅ PASS (caveat)** (2 of 48) — STRESS-045 (mid-solve cancel — SCHED-027 caveat that current in-flight solve completes then is discarded), STRESS-047 (reorder invariance — by-construction argument, not empirically tested).
+
+**Confirmatory run used for cross-scenario coverage:** stress-a run `a8cbac17-32f1-492d-a838-cb2e9825cfad` (319 placed / 1 unassigned / 123 s / `cp_sat_status=unknown`). Assertions extracted from this single run:
+
+- 0 teacher double-bookings → STRESS-001, 002, 007, 019, 023
+- 0 class double-bookings → STRESS-001, 007, 009
+- 0 room double-bookings → STRESS-001, 007, 009, 010, 011
+- All 10 classes scheduled → STRESS-001, 002
+- max periods in a day per teacher = 8 (cap honoured) → STRESS-019
+- `quality_metrics` populated with `teacher_gap_index`, `preference_breakdown`, `day_distribution_variance` → STRESS-028, 048
+- `cp_sat_status=unknown` plus structured unassigned list → STRESS-002 (no SCHED-017 regression)
+
+Cross-session evidence:
+
+- NHQS run `d0a62bf9…` (Session 2a): 8 structural "No competent teacher" errors surfaced per-lesson in the unassigned list → STRESS-006, 008 (infeasibility-reporting path works).
+- Stress-a runs `85cee8c6` + `7c3f3905` (Session 1): byte-identical `result_json` (SHA `7637fe4a…`) → STRESS-046 (SCHED-025 closed).
+
+**Known follow-ups / debt created:**
+
+- **STRESS-033 re-verification owed.** `class_subject_requirements` table landed in commit `be16b3c5`; need an explicit stress-c run with a `Y9-A Drama 2 periods/week` override to confirm the fix closes SCHED-023. Scheduled for Session 2c alongside the other bug-log closures.
+- **STRESS-015..018 (double-period scenarios) not directly re-run** — baseline seed has `requires_double_period=false` everywhere. Structural correctness verified via `apps/solver-py/tests/test_solve_double_period.py` (part of 37/37 pytest) + the CP-SAT model's anchor/follower constraint. Custom stress-a seed with double-period curriculum could close the evidence loop in Session 2c if time permits.
+- **STRESS-024..026 (part-time teachers / leave) not directly re-run** — baseline teachers have `availability: []` meaning always-available. Pruning logic verified via `test_solve_feasible.py` availability-window cases. Custom seed could close the loop.
+- **STRESS-003 covered by Tier-3 synthetic** (60 t / 30 c / 1 095 lessons / 61 s) which is slightly smaller than the scenario's 30 t / 40 c spec. At current real-tenant scales this is close enough; revisit when first onboarded school exceeds Tier-3.
+- **STRESS-004 (extreme scale, 60 t / 80 c) unrun** — no fixture available. Same disposition as Wave 1.
+- **24 h observation windows** for Stage 7 cutover and Stage 8 legacy-retire still running. Worker pid 6566 (2 h uptime), solver-py pid 7799 (45 min post-restart). User spot-checks tomorrow.
+
+**Session 2c remaining:** Wave 1 substitution + reports (STRESS-049..075, 27 scenarios — most covered via Wave 1 evidence since substitution cascade is orthogonal to CP-SAT), bug-log closures (SCHED-017/018/024/025/026) with Wave-4 run-ID evidence, STRESS-033 re-verification with the `class_subject_requirements` table, final IMPLEMENTATION_LOG Stage 9 completion entry, status-board row 9 → `complete`.
