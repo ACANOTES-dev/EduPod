@@ -19,6 +19,10 @@ export const reportAbsenceSchema = z
   .refine((d) => !d.date_to || d.date_to >= d.date, {
     message: 'date_to must be on or after date',
     path: ['date_to'],
+  })
+  .refine((d) => d.period_from == null || d.period_to == null || d.period_to >= d.period_from, {
+    message: 'period_to must be on or after period_from',
+    path: ['period_to'],
   });
 
 export type ReportAbsenceDto = z.infer<typeof reportAbsenceSchema>;
@@ -43,6 +47,10 @@ export const selfReportAbsenceSchema = z
   .refine((d) => !d.date_to || d.date_to >= d.date, {
     message: 'date_to must be on or after date',
     path: ['date_to'],
+  })
+  .refine((d) => d.period_from == null || d.period_to == null || d.period_to >= d.period_from, {
+    message: 'period_to must be on or after period_from',
+    path: ['period_to'],
   });
 
 export type SelfReportAbsenceDto = z.infer<typeof selfReportAbsenceSchema>;
