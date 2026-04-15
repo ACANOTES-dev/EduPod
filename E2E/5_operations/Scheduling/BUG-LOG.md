@@ -428,22 +428,23 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 
 ## Summary Table
 
-| ID        | Severity | Status | Tag | Summary                                                          |
-| --------- | -------- | ------ | --- | ---------------------------------------------------------------- |
-| SCHED-001 | P0       | Open   | [L] | Substitutions page crashes with undefined.filter                 |
-| SCHED-002 | P0       | Open   | [L] | Sub Board page crashes with undefined.length                     |
-| SCHED-003 | P1       | Open   | [L] | Class Requirements "Configure with defaults" 400                 |
-| SCHED-004 | P1       | Open   | [L] | Staff Preferences 404 on GET and POST — endpoint missing         |
-| SCHED-005 | P1       | Open   | [L] | Exams Add-Exam (slot POST) returns 400; GET /slots also 404      |
-| SCHED-006 | P1       | Open   | [L] | Analytics Trends tab crashes                                     |
-| SCHED-007 | P2       | Open   | [L] | Room Closures list: Room name + Created By columns blank         |
-| SCHED-008 | P2       | Open   | [L] | Break Groups: Year Groups column blank                           |
-| SCHED-009 | P2       | Open   | [L] | Curriculum Hrs/Week/Month/Year all render 0 due to missing input |
-| SCHED-010 | P2       | Open   | [L] | Analytics Rooms: `scheduling.auto.capacity` i18n key unresolved  |
-| SCHED-011 | P2       | Open   | [L] | Cover Reports endpoint 400                                       |
-| SCHED-012 | P3       | Open   | [L] | Exam sessions have no delete UI                                  |
+| ID        | Severity | Status | Tag | Summary                                                                                     |
+| --------- | -------- | ------ | --- | ------------------------------------------------------------------------------------------- |
+| SCHED-001 | P0       | Open   | [L] | Substitutions page crashes with undefined.filter                                            |
+| SCHED-002 | P0       | Open   | [L] | Sub Board page crashes with undefined.length                                                |
+| SCHED-003 | P1       | Open   | [L] | Class Requirements "Configure with defaults" 400                                            |
+| SCHED-004 | P1       | Open   | [L] | Staff Preferences 404 on GET and POST — endpoint missing                                    |
+| SCHED-005 | P1       | Open   | [L] | Exams Add-Exam (slot POST) returns 400; GET /slots also 404                                 |
+| SCHED-006 | P1       | Open   | [L] | Analytics Trends tab crashes                                                                |
+| SCHED-007 | P2       | Open   | [L] | Room Closures list: Room name + Created By columns blank                                    |
+| SCHED-008 | P2       | Open   | [L] | Break Groups: Year Groups column blank                                                      |
+| SCHED-009 | P2       | Open   | [L] | Curriculum Hrs/Week/Month/Year all render 0 due to missing input                            |
+| SCHED-010 | P2       | Open   | [L] | Analytics Rooms: `scheduling.auto.capacity` i18n key unresolved                             |
+| SCHED-011 | P2       | Open   | [L] | Cover Reports endpoint 400                                                                  |
+| SCHED-012 | P3       | Open   | [L] | Exam sessions have no delete UI                                                             |
+| SCHED-013 | P1       | Open   | [L] | Stress-tenant admin role missing 9/17 schedule.\* permissions (blocks all solver scenarios) |
 
-**Severity totals:** P0: 2, P1: 4, P2: 5, P3: 1 — **Total: 12 bugs**
+**Severity totals:** P0: 2, P1: 5, P2: 5, P3: 1 — **Total: 13 bugs**
 
 ---
 
@@ -465,6 +466,98 @@ All 12 bugs fixed, deployed to production, and verified via Playwright. Key chan
 - **SCHED-012**: Added delete button to exam session list cards (shown when `status === 'planning'`). Frontend calls existing `DELETE /exam-sessions/:id`. Leftover test sessions removed via the new UI.
 
 **Regression tests**: All scheduling test suites pass (128 + 16 + 20 tests green). Build + deploy workflow: `pnpm build` (shared → api → web) + rsync + pm2 restart. All 12 bugs verified via Playwright end-to-end on `https://nhqs.edupod.app`.
+
+---
+
+## Stress-test bugs (SCHED-013 onwards)
+
+---
+
+### SCHED-013 — Stress-tenant admin role missing 9 of 17 `schedule.*` permissions (blocks all solver scenarios)
+
+**Severity:** P1
+**Status:** Open
+**Provenance:** [L] — found during STRESS-029 setup on stress-c.edupod.app, 2026-04-15
+
+**Summary:** The `admin` tenant-role provisioned by `packages/prisma/scripts/create-stress-tenants.ts` only has 8 of the 17 available `schedule.*` permissions. `schedule.run_auto`, `schedule.apply_auto`, `schedule.override_conflict`, `schedule.view_class`, `schedule.view_own`, `schedule.view_own_satisfaction`, `schedule.manage_own_preferences`, `schedule.report_own_absence`, and `schedule.respond_to_offer` are all missing. This means an admin cannot invoke the prerequisites endpoint or trigger a solve at all on any stress tenant (`stress-a`, `stress-b`, `stress-c`, `stress-d` — they all came from the same script).
+
+**Reproduction:**
+
+```
+curl -sS -X POST https://stress-c.edupod.app/api/v1/scheduling/runs/prerequisites \
+  -H "Authorization: Bearer <admin-jwt>" \
+  -H 'Content-Type: application/json' \
+  -d '{"academic_year_id":"<ay-id>"}'
+# → {"error":{"code":"PERMISSION_DENIED","message":"Missing required permission: schedule.run_auto"}}
+```
+
+**Expected:** admin role on stress tenants has every `schedule.*` permission. The seed script claims to assign "tenant-scoped roles + permissions" for the admin, principal, teacher users.
+
+**Affected files:**
+
+- `packages/prisma/scripts/create-stress-tenants.ts` — the role/permission hydrator
+- Likely the canonical admin-permission list used by the script
+
+**Fix direction:**
+
+1. In `create-stress-tenants.ts`, when seeding the `admin` role, assign **every** row from `permissions` (or at minimum every `schedule.*`, `grades.*`, `finance.*`, etc) for that tenant. Easiest approach: SELECT all permission_ids and bulk-insert into `role_permissions` for the admin role.
+2. Re-run the script — it is idempotent (stress-c created via this script).
+3. Or do an ad-hoc DB patch for the existing 4 tenants (already done for stress-c during this test).
+
+**Playwright / API verification:**
+
+1. Re-login as `admin@stress-<slug>.test`
+2. `POST /api/v1/scheduling/runs/prerequisites` should return `{ready: true, missing: []}`.
+
+**Workaround applied on stress-c (2026-04-15):**
+
+```sql
+INSERT INTO role_permissions (role_id, permission_id, tenant_id)
+SELECT r.id, p.id, r.tenant_id
+FROM roles r CROSS JOIN permissions p
+WHERE r.tenant_id = '<stress-c tenant_id>' AND r.role_key = 'admin' AND p.permission_key LIKE 'schedule.%'
+ON CONFLICT DO NOTHING;
+```
+
+Session-A, B, D may need the same patch on their tenants (or fix the seed script for all four).
+
+**Release gate:** P1 — blocks all solver + substitution scenarios from running on stress tenants until patched.
+
+---
+
+### SCHED-013 — Worker crash loop blocks scheduling solver (audit-log processor missing RLS context + empty-UUID handling)
+
+**Severity:** P1
+**Status:** Fixed (pending deploy + verification)
+**Provenance:** [L]
+**Found by:** session-A during STRESS-002 execution on `stress-a.edupod.app`
+
+**Summary:** Every mutating request enqueues an audit-log job. `AuditLogWriteProcessor.process()` calls `prisma.auditLog.create()` outside any transaction, so `SET LOCAL app.current_tenant_id` is never issued. The `audit_logs` RLS policy evaluates `current_setting('app.current_tenant_id')::uuid`, and when the GUC is unset PostgreSQL raises `42704 unrecognized configuration parameter` on every insert. With `FORCE ROW LEVEL SECURITY` on, even the `edupod_app` role hits this. BullMQ retries, pm2 eventually restarts the worker (12 restarts observed in ~2 hours), and any in-flight scheduling solve is killed — the run stays `queued` forever while the UI shows an infinite spinner. A second failure path: when the interceptor emits an empty string for `entity_id`/`tenantId`, Prisma tries to coerce `""` into a UUID and fails with `22P02 invalid input syntax for type uuid`, causing the same restart loop.
+
+**Reproduction:**
+
+1. `ssh root@46.62.244.139 "sudo -u edupod pm2 logs worker --nostream --lines 80 --err"` — shows stack traces like `unrecognized configuration parameter "app.current_tenant_id"` for every audit event.
+2. `sudo -u edupod pm2 list` — `worker` row shows restart counter (`↺`) climbing every few minutes.
+3. POST `/api/v1/scheduling-runs` as a principal user. Poll `/api/v1/scheduling-runs/<id>/progress`: status remains `queued`. Worker logs show `SchedulingSolverV2Job` progress ticks (50/320, 100/320…) that never reach completion — the process is killed mid-solve.
+
+**Affected files:**
+
+- `apps/worker/src/processors/audit-log/audit-log-write.processor.ts`
+- `apps/worker/src/processors/audit-log/audit-log-write.processor.spec.ts`
+
+**Fix:**
+
+1. Wrap the `auditLog.create()` call in `prisma.$transaction(async (tx) => …)` that first runs `SELECT set_config('app.current_tenant_id', $1::text, true)` and the matching `app.current_user_id`. Use `00000000-0000-0000-0000-000000000000` when the payload tenant/user is null — the policy's `tenant_id IS NULL OR …` branch still matches platform-level rows without breaking the cast.
+2. Normalise payload UUIDs via a regex check: empty string or malformed UUID → `undefined` so Prisma omits the column instead of sending `""`.
+
+**Verification:**
+
+1. `pnpm --filter @school/worker test -- audit-log-write` — all specs green.
+2. Redeploy worker; `sudo -u edupod pm2 list` should show stable `↺` counter.
+3. `POST /api/v1/scheduling-runs` → progress transitions `queued → running → completed` inside the 20s budget for STRESS-002 scale.
+4. `SELECT count(*) FROM audit_logs WHERE created_at > now() - interval '5 minutes'` > 0.
+
+**Release gate:** P1 — blocks every BullMQ-driven feature (solver, substitutions, notifications, gradebook rollups, …) because the worker can't stay alive long enough to complete anything.
 
 ---
 

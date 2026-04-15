@@ -14,3 +14,7 @@ This file is the exclusive lock for any server-modifying action taken during the
 ## Log
 
 <!-- Newest at bottom. Append only. -->
+
+2026-04-15 10:00:00 UTC — session-B — acquired — reset stress-b baseline for scenarios 010-028
+2026-04-15 10:00:10 UTC — session-B — released — blocked on Playwright MCP browser lock; no server changes made
+2026-04-15 00:04:30 UTC — session-A — acquired — inspecting worker for stuck queued scheduling run

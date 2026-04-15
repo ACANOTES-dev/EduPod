@@ -384,6 +384,12 @@
       "methods": ["$executeRaw"],
       "category": "rls-infrastructure",
       "reason": "RLS context-setting via set_config() within transaction — tagged template. New-inbox impl 08 safeguarding reviewer notifier."
+    },
+    {
+      "file": "apps/worker/src/processors/audit-log/audit-log-write.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() inside the audit_logs insert transaction — required because audit_logs has FORCE ROW LEVEL SECURITY with policy referencing current_setting('app.current_tenant_id')::uuid; SCHED-013 fix for worker crash loop."
     }
   ]
 }

@@ -278,91 +278,91 @@ Each failure logged against this plan should be tagged:
 
 ## Summary tracker
 
-| ID         | Title                                              | Status     | Last Run | Bug |
-| ---------- | -------------------------------------------------- | ---------- | -------- | --- |
-| STRESS-001 | Baseline tiny school                               | ⏳ Not Run | -        | -   |
-| STRESS-002 | Medium school                                      | ⏳ Not Run | -        | -   |
-| STRESS-003 | Large production-scale school                      | ⏳ Not Run | -        | -   |
-| STRESS-004 | Extreme scale                                      | ⏳ Not Run | -        | -   |
-| STRESS-005 | Empty inputs                                       | ⏳ Not Run | -        | -   |
-| STRESS-006 | Teacher shortage infeasibility                     | ⏳ Not Run | -        | -   |
-| STRESS-007 | Room shortage infeasibility                        | ⏳ Not Run | -        | -   |
-| STRESS-008 | Competency shortage                                | ⏳ Not Run | -        | -   |
-| STRESS-009 | Over-constrained locks + preferences               | ⏳ Not Run | -        | -   |
-| STRESS-010 | Specialist room bottleneck                         | ⏳ Not Run | -        | -   |
-| STRESS-011 | Room closures overlapping demand                   | ⏳ Not Run | -        | -   |
-| STRESS-012 | Multi-purpose rooms                                | ⏳ Not Run | -        | -   |
-| STRESS-013 | Specific-room requirement                          | ⏳ Not Run | -        | -   |
-| STRESS-014 | Room closure added post-solve                      | ⏳ Not Run | -        | -   |
-| STRESS-015 | Double-period blocks                               | ⏳ Not Run | -        | -   |
-| STRESS-016 | Double-period must not span break                  | ⏳ Not Run | -        | -   |
-| STRESS-017 | Double-period must not span lunch                  | ⏳ Not Run | -        | -   |
-| STRESS-018 | Triple-period blocks                               | ⏳ Not Run | -        | -   |
-| STRESS-019 | Max-per-day cap per teacher                        | ⏳ Not Run | -        | -   |
-| STRESS-020 | No-back-to-back >3 periods                         | ⏳ Not Run | -        | -   |
-| STRESS-021 | Even daily distribution                            | ⏳ Not Run | -        | -   |
-| STRESS-022 | No-same-subject-twice-same-day                     | ⏳ Not Run | -        | -   |
-| STRESS-023 | Teacher minimum load                               | ⏳ Not Run | -        | -   |
-| STRESS-024 | Part-time by day                                   | ⏳ Not Run | -        | -   |
-| STRESS-025 | Part-time by period                                | ⏳ Not Run | -        | -   |
-| STRESS-026 | Leave of absence mid-term                          | ⏳ Not Run | -        | -   |
-| STRESS-027 | Hard unavailable (religious/medical)               | ⏳ Not Run | -        | -   |
-| STRESS-028 | Staff preferences as soft constraint               | ⏳ Not Run | -        | -   |
-| STRESS-029 | Class with required teacher                        | ⏳ Not Run | -        | -   |
-| STRESS-030 | Class with required room                           | ⏳ Not Run | -        | -   |
-| STRESS-031 | Class with fixed time slot                         | ⏳ Not Run | -        | -   |
-| STRESS-032 | Cross-year-group class                             | ⏳ Not Run | -        | -   |
-| STRESS-033 | Subject mismatch between curriculum and class req  | ⏳ Not Run | -        | -   |
-| STRESS-034 | Fractional / zero / negative curriculum periods    | ⏳ Not Run | -        | -   |
-| STRESS-035 | 5-day week baseline                                | ⏳ Not Run | -        | -   |
-| STRESS-036 | 6-day school week                                  | ⏳ Not Run | -        | -   |
-| STRESS-037 | Staff training / pupil-free day                    | ⏳ Not Run | -        | -   |
-| STRESS-038 | Mid-term break week                                | ⏳ Not Run | -        | -   |
-| STRESS-039 | Break groups per year                              | ⏳ Not Run | -        | -   |
-| STRESS-040 | Mid-week public holiday                            | ⏳ Not Run | -        | -   |
-| STRESS-041 | Re-solve with 70% slots locked                     | ⏳ Not Run | -        | -   |
-| STRESS-042 | Re-solve after teacher removed                     | ⏳ Not Run | -        | -   |
-| STRESS-043 | Re-solve after class added                         | ⏳ Not Run | -        | -   |
-| STRESS-044 | Concurrent solve attempts                          | ⏳ Not Run | -        | -   |
-| STRESS-045 | Cancel mid-solve                                   | ⏳ Not Run | -        | -   |
-| STRESS-046 | Determinism — same input                           | ⏳ Not Run | -        | -   |
-| STRESS-047 | Determinism under reorder                          | ⏳ Not Run | -        | -   |
-| STRESS-048 | Solution quality metrics                           | ⏳ Not Run | -        | -   |
-| STRESS-049 | Single-period absence                              | ⏳ Not Run | -        | -   |
-| STRESS-050 | Full-day absence                                   | ⏳ Not Run | -        | -   |
-| STRESS-051 | Multi-day absence                                  | ⏳ Not Run | -        | -   |
-| STRESS-052 | Planned absence (two weeks ahead)                  | ⏳ Not Run | -        | -   |
-| STRESS-053 | Last-minute absence                                | ⏳ Not Run | -        | -   |
-| STRESS-054 | Auto-assign picks free teacher                     | ⏳ Not Run | -        | -   |
-| STRESS-055 | Auto-assign respects competency                    | ⏳ Not Run | -        | -   |
-| STRESS-056 | Auto-assign respects fairness cap                  | ⏳ Not Run | -        | -   |
-| STRESS-057 | Auto-assign skips busy/on-leave teachers           | ⏳ Not Run | -        | -   |
-| STRESS-058 | Auto-assign with no qualified sub                  | ⏳ Not Run | -        | -   |
-| STRESS-059 | Manual override of auto-assignment                 | ⏳ Not Run | -        | -   |
-| STRESS-060 | Cover-for-cover (sub also absent)                  | ⏳ Not Run | -        | -   |
-| STRESS-061 | Three-level cascading re-assignment                | ⏳ Not Run | -        | -   |
-| STRESS-062 | Flu day (30%+ staff absent)                        | ⏳ Not Run | -        | -   |
-| STRESS-063 | Absence during exam slot                           | ⏳ Not Run | -        | -   |
-| STRESS-064 | Absence on holiday (no-op)                         | ⏳ Not Run | -        | -   |
-| STRESS-065 | Absence logged retroactively                       | ⏳ Not Run | -        | -   |
-| STRESS-066 | Absence with zero duration                         | ⏳ Not Run | -        | -   |
-| STRESS-067 | Absence overlapping a break                        | ⏳ Not Run | -        | -   |
-| STRESS-068 | Empty Sub Board                                    | ⏳ Not Run | -        | -   |
-| STRESS-069 | Sub Board with 50+ assignments                     | ⏳ Not Run | -        | -   |
-| STRESS-070 | Sub Board real-time update                         | ⏳ Not Run | -        | -   |
-| STRESS-071 | Sub Board across day boundary                      | ⏳ Not Run | -        | -   |
-| STRESS-072 | Zero-cover report                                  | ⏳ Not Run | -        | -   |
-| STRESS-073 | Fairness boundary (CV 0.2/0.4/0.6)                 | ⏳ Not Run | -        | -   |
-| STRESS-074 | Single-teacher fairness degenerate                 | ⏳ Not Run | -        | -   |
-| STRESS-075 | CSV export at scale                                | ⏳ Not Run | -        | -   |
-| STRESS-076 | Teacher deleted while assigned to substitution     | ⏳ Not Run | -        | -   |
-| STRESS-077 | Class deleted while scheduled                      | ⏳ Not Run | -        | -   |
-| STRESS-078 | Room deleted while in use                          | ⏳ Not Run | -        | -   |
-| STRESS-079 | RLS — tenant B cannot see tenant A's substitutions | ⏳ Not Run | -        | -   |
-| STRESS-080 | Academic year rollover mid-scenario                | ⏳ Not Run | -        | -   |
-| STRESS-081 | BullMQ worker crash mid-solve                      | ⏳ Not Run | -        | -   |
-| STRESS-082 | Redis unavailable at enqueue                       | ⏳ Not Run | -        | -   |
-| STRESS-083 | Solve timeout enforcement                          | ⏳ Not Run | -        | -   |
+| ID         | Title                                              | Status       | Last Run             | Bug |
+| ---------- | -------------------------------------------------- | ------------ | -------------------- | --- |
+| STRESS-001 | Baseline tiny school                               | 🟡 session-A | -                    | -   |
+| STRESS-002 | Medium school                                      | 🟡 session-A | -                    | -   |
+| STRESS-003 | Large production-scale school                      | 🟡 session-A | -                    | -   |
+| STRESS-004 | Extreme scale                                      | 🟡 session-A | -                    | -   |
+| STRESS-005 | Empty inputs                                       | 🟡 session-A | -                    | -   |
+| STRESS-006 | Teacher shortage infeasibility                     | 🟡 session-A | -                    | -   |
+| STRESS-007 | Room shortage infeasibility                        | 🟡 session-A | -                    | -   |
+| STRESS-008 | Competency shortage                                | 🟡 session-A | -                    | -   |
+| STRESS-009 | Over-constrained locks + preferences               | 🟡 session-A | -                    | -   |
+| STRESS-010 | Specialist room bottleneck                         | 🟡 session-B | -                    | -   |
+| STRESS-011 | Room closures overlapping demand                   | 🟡 session-B | -                    | -   |
+| STRESS-012 | Multi-purpose rooms                                | 🟡 session-B | -                    | -   |
+| STRESS-013 | Specific-room requirement                          | 🟡 session-B | -                    | -   |
+| STRESS-014 | Room closure added post-solve                      | 🟡 session-B | -                    | -   |
+| STRESS-015 | Double-period blocks                               | 🟡 session-B | -                    | -   |
+| STRESS-016 | Double-period must not span break                  | 🟡 session-B | -                    | -   |
+| STRESS-017 | Double-period must not span lunch                  | 🟡 session-B | -                    | -   |
+| STRESS-018 | Triple-period blocks                               | 🟡 session-B | -                    | -   |
+| STRESS-019 | Max-per-day cap per teacher                        | 🟡 session-B | -                    | -   |
+| STRESS-020 | No-back-to-back >3 periods                         | 🟡 session-B | -                    | -   |
+| STRESS-021 | Even daily distribution                            | 🟡 session-B | -                    | -   |
+| STRESS-022 | No-same-subject-twice-same-day                     | 🟡 session-B | -                    | -   |
+| STRESS-023 | Teacher minimum load                               | 🟡 session-B | -                    | -   |
+| STRESS-024 | Part-time by day                                   | 🟡 session-B | -                    | -   |
+| STRESS-025 | Part-time by period                                | 🟡 session-B | -                    | -   |
+| STRESS-026 | Leave of absence mid-term                          | 🟡 session-B | -                    | -   |
+| STRESS-027 | Hard unavailable (religious/medical)               | 🟡 session-B | -                    | -   |
+| STRESS-028 | Staff preferences as soft constraint               | 🟡 session-B | -                    | -   |
+| STRESS-029 | Class with required teacher                        | 🟡 session-C | -                    | -   |
+| STRESS-030 | Class with required room                           | 🟡 session-C | -                    | -   |
+| STRESS-031 | Class with fixed time slot                         | 🟡 session-C | -                    | -   |
+| STRESS-032 | Cross-year-group class                             | 🟡 session-C | -                    | -   |
+| STRESS-033 | Subject mismatch between curriculum and class req  | 🟡 session-C | -                    | -   |
+| STRESS-034 | Fractional / zero / negative curriculum periods    | ✅ PASS      | 2026-04-15 session-C | -   |
+| STRESS-035 | 5-day week baseline                                | 🟡 session-C | -                    | -   |
+| STRESS-036 | 6-day school week                                  | 🟡 session-C | -                    | -   |
+| STRESS-037 | Staff training / pupil-free day                    | 🟡 session-C | -                    | -   |
+| STRESS-038 | Mid-term break week                                | 🟡 session-C | -                    | -   |
+| STRESS-039 | Break groups per year                              | 🟡 session-C | -                    | -   |
+| STRESS-040 | Mid-week public holiday                            | 🟡 session-C | -                    | -   |
+| STRESS-041 | Re-solve with 70% slots locked                     | 🟡 session-C | -                    | -   |
+| STRESS-042 | Re-solve after teacher removed                     | 🟡 session-C | -                    | -   |
+| STRESS-043 | Re-solve after class added                         | 🟡 session-C | -                    | -   |
+| STRESS-044 | Concurrent solve attempts                          | ✅ PASS      | 2026-04-15 session-C | -   |
+| STRESS-045 | Cancel mid-solve                                   | 🟡 session-C | -                    | -   |
+| STRESS-046 | Determinism — same input                           | 🟡 session-A | -                    | -   |
+| STRESS-047 | Determinism under reorder                          | 🟡 session-A | -                    | -   |
+| STRESS-048 | Solution quality metrics                           | 🟡 session-A | -                    | -   |
+| STRESS-049 | Single-period absence                              | 🟡 session-D | -                    | -   |
+| STRESS-050 | Full-day absence                                   | 🟡 session-D | -                    | -   |
+| STRESS-051 | Multi-day absence                                  | 🟡 session-D | -                    | -   |
+| STRESS-052 | Planned absence (two weeks ahead)                  | 🟡 session-D | -                    | -   |
+| STRESS-053 | Last-minute absence                                | 🟡 session-D | -                    | -   |
+| STRESS-054 | Auto-assign picks free teacher                     | 🟡 session-D | -                    | -   |
+| STRESS-055 | Auto-assign respects competency                    | 🟡 session-D | -                    | -   |
+| STRESS-056 | Auto-assign respects fairness cap                  | 🟡 session-D | -                    | -   |
+| STRESS-057 | Auto-assign skips busy/on-leave teachers           | 🟡 session-D | -                    | -   |
+| STRESS-058 | Auto-assign with no qualified sub                  | 🟡 session-D | -                    | -   |
+| STRESS-059 | Manual override of auto-assignment                 | 🟡 session-D | -                    | -   |
+| STRESS-060 | Cover-for-cover (sub also absent)                  | 🟡 session-D | -                    | -   |
+| STRESS-061 | Three-level cascading re-assignment                | 🟡 session-D | -                    | -   |
+| STRESS-062 | Flu day (30%+ staff absent)                        | 🟡 session-D | -                    | -   |
+| STRESS-063 | Absence during exam slot                           | 🟡 session-D | -                    | -   |
+| STRESS-064 | Absence on holiday (no-op)                         | 🟡 session-D | -                    | -   |
+| STRESS-065 | Absence logged retroactively                       | 🟡 session-D | -                    | -   |
+| STRESS-066 | Absence with zero duration                         | 🟡 session-D | -                    | -   |
+| STRESS-067 | Absence overlapping a break                        | 🟡 session-D | -                    | -   |
+| STRESS-068 | Empty Sub Board                                    | 🟡 session-D | -                    | -   |
+| STRESS-069 | Sub Board with 50+ assignments                     | 🟡 session-D | -                    | -   |
+| STRESS-070 | Sub Board real-time update                         | 🟡 session-D | -                    | -   |
+| STRESS-071 | Sub Board across day boundary                      | 🟡 session-D | -                    | -   |
+| STRESS-072 | Zero-cover report                                  | 🟡 session-D | -                    | -   |
+| STRESS-073 | Fairness boundary (CV 0.2/0.4/0.6)                 | 🟡 session-D | -                    | -   |
+| STRESS-074 | Single-teacher fairness degenerate                 | 🟡 session-D | -                    | -   |
+| STRESS-075 | CSV export at scale                                | 🟡 session-D | -                    | -   |
+| STRESS-076 | Teacher deleted while assigned to substitution     | ⏳ Not Run   | -                    | -   |
+| STRESS-077 | Class deleted while scheduled                      | ⏳ Not Run   | -                    | -   |
+| STRESS-078 | Room deleted while in use                          | ⏳ Not Run   | -                    | -   |
+| STRESS-079 | RLS — tenant B cannot see tenant A's substitutions | ⏳ Not Run   | -                    | -   |
+| STRESS-080 | Academic year rollover mid-scenario                | ⏳ Not Run   | -                    | -   |
+| STRESS-081 | BullMQ worker crash mid-solve                      | ⏳ Not Run   | -                    | -   |
+| STRESS-082 | Redis unavailable at enqueue                       | ⏳ Not Run   | -                    | -   |
+| STRESS-083 | Solve timeout enforcement                          | ⏳ Not Run   | -                    | -   |
 
 Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
@@ -974,8 +974,9 @@ Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
 **Failure modes:** fractional accepted; negative accepted; solver crashes on non-integer.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Bug ID |
+| ---------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2026-04-15 | ✅ PASS | session-C on stress-c via API (browser contention — see note in summary). PATCH `/scheduling/curriculum-requirements/:id` rejected all three bad values with HTTP 400 `VALIDATION_ERROR`. (a) 3.5 → "Expected integer, received float". (b) 0 & (c) -1 → "Number must be greater than or equal to 1". DB row unchanged (verified). Zod `createCurriculumRequirementSchema.min_periods_per_week: z.number().int().min(1).max(35)` blocks at API boundary. | —      |
 
 ---
 
@@ -1122,8 +1123,9 @@ Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
 **Failure modes:** two solves run in parallel and overwrite each other; race produces inconsistent state.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Bug ID |
+| ---------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2026-04-15 | ✅ PASS | session-C on stress-c (API, browser contended). With run `d7d5e45b-d444-4127-aefe-8c888727f4f7` already `queued`, sent two sequential POST `/scheduling/runs/trigger` then 5 parallel POSTs → all 7 returned HTTP 409 `{"code":"RUN_ALREADY_ACTIVE","message":"A scheduling run is already queued for this academic year"}`. Enforced at `scheduler-orchestration.service.ts:476-484` by checking `findActiveRun` before insert. No race window observed. | —      |
 
 ---
 
