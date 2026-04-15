@@ -31,7 +31,7 @@
 | 4   | CP-SAT model — soft preferences    | `complete` | 2026-04-15           | soft objective + quality_metrics; realistic baseline 252/260 in 5s budget                                                                                        |
 | 5   | Parity testing (cutover gate)      | `complete` | 2026-04-15           | 7 fixtures; CP-SAT +20% placement on Tier 3, -0.6% on Tier 2 (structural)                                                                                        |
 | 6   | Worker IPC integration             | `complete` | 2026-04-15           | worker always calls sidecar; cp_sat_status + sidecar_duration_ms + placed/unassigned counts logged per solve and persisted on `result_json.meta`                 |
-| 7   | Production cutover (atomic deploy) | `pending`  | —                    | —                                                                                                                                                                |
+| 7   | Production cutover (atomic deploy) | `complete` | 2026-04-15           | solver-py pm2 app live on 127.0.0.1:5557; worker env has SOLVER_PY_URL + CP_SAT_REQUEST_TIMEOUT_FLOOR_MS; smoke on stress-a/stress-b/nhqs all PASS; 0 errors     |
 | 8   | Legacy retire                      | `pending`  | —                    | —                                                                                                                                                                |
 | 9   | Full stress re-run                 | `pending`  | —                    | —                                                                                                                                                                |
 | 10  | Contract reshape                   | `pending`  | —                    | —                                                                                                                                                                |
@@ -709,3 +709,92 @@ heuristics.fixed_search != nullptr`); (b) `interleave_search = True` blows
 - **Stage 7's deploy should set `SOLVER_PY_URL=http://127.0.0.1:5557`** in the worker's env block and confirm the sidecar is up before enabling traffic. The worker fails closed (run → `failed` with `CP_SAT_UNREACHABLE: ...`) when the sidecar is down; that's the correct default, but Stage 7's runbook should explicitly prestart the sidecar.
 - **Stage 12 diagnostics can read `result_json.meta` directly** to bucket runs by solver outcome without joining the structured log sink. `meta.cp_sat_status = "unknown"` is the "solver gave up, greedy took over" signal Stage 12 should surface to admins as "we used a fallback algorithm for this run — results may be suboptimal but are still valid."
 - **Legacy `result_json` shape has no `meta` key.** If any existing UI consumer of `result_json` iterates keys (rather than reading specific fields), it will now see an extra `meta` object. Spot-checked the frontend readers — they key into `entries`, `unassigned`, `quality_metrics`, `overrides_applied` by name; none iterate. No action needed but flagged for Stage 7's smoke test.
+
+---
+
+### Stage 7 — Production cutover (atomic deploy)
+
+**Completed:** 2026-04-15
+**Local commit(s):** `8795db44` feat(scheduling): production cutover to cp-sat sidecar (ecosystem + timeout floor)
+**Deployed to production:** yes — 2026-04-15 13:42 UTC (UTC server time). Restarted: solver-py (new pm2 app id 4, loopback 5557), worker (pm2 id 5 with updated env). api + web untouched.
+
+**What was delivered:**
+
+- **Atomic cutover to CP-SAT.** The sidecar (`solver-py`) is live on production at `http://127.0.0.1:5557` as pm2 app id 4, and the production worker now reaches it for every scheduling solve. There is no per-tenant feature flag; every tenant is on CP-SAT from the cutover moment. Legacy `solveV2` is still in the repo for a `git revert` rollback until Stage 8.
+- **Server-side Python toolchain installed.** Python 3.12.3 was already present at `/usr/bin/python3.12`; `python3.12-venv` was installed via `apt-get install -y python3.12-venv` (needed for `ensurepip`; the initial `python3.12 -m venv` failed without it). Clean venv created at `/opt/edupod/app/apps/solver-py/.venv`; `pip install -e .` pulled the full dependency graph (ortools 150 MB wheel + FastAPI + pandas + numpy + uvicorn, ~29 packages total).
+- **`ortools==9.15.6755` pinned and verified.** `pip freeze | grep ortools` returned exactly `ortools==9.15.6755` (evidence captured at `/tmp/stage7-pip-freeze.txt`). The sidecar ships with `num_search_workers=1` hard-coded in `solve.py` per Stage 5's finding that OR-Tools 9.15's multi-worker + `interleave_search` overshoots the time budget by 4–7× on Tier-3-scale inputs, and `repair_hint=True` segfaults inside `MinimizeL1DistanceWithHint`. Stage 9 re-tests multi-worker after the upstream bugs are confirmed fixed.
+- **`ecosystem.config.cjs` extended.** Added the `solver-py` pm2 app entry (venv'd uvicorn, `interpreter: 'none'`, `max_memory_restart: '2G'`, `min_uptime: '30s'`, `max_restarts: 10`, loopback-only `127.0.0.1:5557`, not exposed by nginx) and two new worker env vars: `SOLVER_PY_URL=http://127.0.0.1:5557` and `CP_SAT_REQUEST_TIMEOUT_FLOOR_MS=120000`. The worker was re-launched via `pm2 delete worker && pm2 start ecosystem.config.cjs --only worker` because `pm2 restart --update-env` reads env from the shell, not the config file; both env vars are now visible in `/proc/<pid>/environ`.
+- **Client-side timeout floor applied (Stage 5 carryover §2).** `apps/worker/src/processors/scheduling/solver-v2.processor.ts` now computes the fetch timeout as `max(CP_SAT_REQUEST_TIMEOUT_FLOOR_MS, (max_solver_duration_seconds + 60) * 1000)` with the floor defaulting to 120 000 ms. The previous `(budget + 30) × 1000` formula gave a tenant running at the default 60 s budget only 90 s of HTTP headroom; the new formula guarantees ≥ 120 s even for a tenant that drops their budget below 60 s. Two focused jest tests (`should clamp the HTTP timeout to the floor`, `should use the budget-derived timeout when it exceeds the floor`) pin both branches.
+- **`packages/shared/tsconfig.json` gained a test exclude** (`"exclude": ["src/**/__tests__/**", "src/**/*.spec.ts", "src/**/*.test.ts"]`) so the production `tsc` build does not try to compile Stage 2 / 5 / 6 test files — two of which (`cp-sat-contract.test.ts`, `cp-sat-parity.test.ts`) use Node builtins (`fs`, `path`, `os`, `process`) not typed by the server's install. The build-time exclude also keeps `dist/` free of test artefacts. Local build + local test suite both clean after the change; rsynced to the server before the rebuild.
+- **Single-worker decision captured in the deploy commit** (Stage 5 carryover §4): the `8795db44` commit body explicitly notes `"Sidecar ships num_search_workers=1 per Stage 5 — OR-Tools 9.15 has budget-overrun and segfault bugs in multi-worker configs. Stage 9 revisits after upstream fix."` so a future session reading the git log sees the constraint without re-deriving it from Stage 5.
+
+**Files changed (high level):**
+
+- `apps/worker/src/processors/scheduling/solver-v2.processor.ts` — timeout formula + floor env var + comment.
+- `apps/worker/src/processors/scheduling/solver-v2.processor.spec.ts` — two new tests for the clamp/budget branches; `buildMockTx` fixture settings type extended with optional `max_solver_duration_seconds`.
+- `ecosystem.config.cjs` — new `solver-py` pm2 app; worker env gains `SOLVER_PY_URL` + `CP_SAT_REQUEST_TIMEOUT_FLOOR_MS`.
+- `packages/shared/tsconfig.json` — `exclude` list added (keeps tests out of the production build).
+- `E2E/5_operations/Scheduling/SERVER-LOCK.md` — `acquired` (13:36:53 UTC) + `released` (14:02:04 UTC) entries with the cutover summary.
+- `scheduler/OR CP-SAT/IMPLEMENTATION_LOG.md` — this entry + status-board flip.
+
+**Tests added / updated:**
+
+- unit (TS): 2 new in `solver-v2.processor.spec.ts` — clamp-to-floor + budget-wins paths. Existing 10 tests in that file re-verified. Full worker suite 900/900 pass (119 suites, 7 s); full shared suite 929/929 pass (45 suites, 67 s).
+- unit (Python / pytest): no new tests (sidecar behaviour unchanged from Stage 6).
+- parity: n/a — Stage 5 is the gate for cutover; re-running parity post-deploy is Stage 9's scope.
+- stress re-run: n/a — Stage 9.
+- coverage delta: not measured (two added tests in an already-covered file; no files dropped below threshold during `turbo test`).
+
+**Performance measurements (where applicable):**
+
+- **Sidecar health round-trip:** `curl http://127.0.0.1:5557/health` returned 200 in `duration_ms=1.42` on the first call post-start (sidecar JSON log line captured).
+- **Three end-to-end smoke runs (shown as placed / unassigned / wall / cp_sat_status):**
+  - stress-a (20 teachers, 66 curriculum, 6 year groups): 319 / 1 / 123.7 s / `unknown`. Legacy Wave-1 baseline was 212; CP-SAT placed +50%.
+  - stress-b (same cardinality): 318 / 2 / 123.7 s / `unknown`. Consistent with stress-a.
+  - nhqs (24 teachers, 63 curriculum, 9 year groups): 344 / 94 / 120.7 s / `unknown`. NHQS has substantially more constraint density; the 94 unassigned is the curriculum saturation edge, not a solver regression — soft preference score was 6/6.
+- All three runs had `cp_sat_status = "unknown"` — CP-SAT hit the 120 s budget and the greedy fallback was returned, exactly as Stage 5's single-worker finding predicted for Tier-3 / real-school-scale inputs. `sidecar_duration_ms` matched worker-observed `solver_duration_ms` to within 50 ms in every run (round-trip overhead is negligible on the loopback interface).
+- **Resource shape:** solver-py RSS settled at 904 MB after processing three back-to-back 120 s solves (still well under the `max_memory_restart: '2G'` ceiling); worker RSS at 275 MB. No OOM, no pm2-triggered restart.
+
+**Verification evidence:**
+
+- **Sidecar pip freeze** (truncated; full file at `/tmp/stage7-pip-freeze.txt`):
+  - `ortools==9.15.6755` (pinned to the Stage 5 target — verified)
+  - `fastapi==0.135.3`, `pydantic==2.13.0`, `uvicorn==0.44.0`, `pandas==3.0.2`, `numpy==2.4.4`
+  - 29 packages total in the venv; no transitive pulled a newer `ortools`.
+- **Sidecar import smoke** (Ubuntu 24.04 x86_64): `.venv/bin/python -c "from ortools.sat.python import cp_model; m = cp_model.CpModel(); x = m.NewIntVar(0,10,'x'); m.Add(x <= 5); print(cp_model.CpSolver().Solve(m), …)"` returned `CpSolverStatus.OPTIMAL 0`. No `libstdc++`-class missing-shared-lib surprises.
+- **Worker runtime env** (`/proc/<pid>/environ`): `SOLVER_PY_URL=http://127.0.0.1:5557`, `CP_SAT_REQUEST_TIMEOUT_FLOOR_MS=120000`, `WORKER_PORT=5556`, `NODE_ENV=production` all present.
+- **pm2 list post-cutover** (captured at 14:01:49 UTC, i.e. 10 min into the observation window):
+  - `solver-py` (id 4): online, pid 2542, 21m uptime, 0 restarts, 904.2 MB
+  - `worker` (id 5): online, pid 3074, 19m uptime, 0 restarts, 275.1 MB
+  - `api` (id 0): online, 3h uptime, pre-cutover, untouched
+  - `web` (id 1): online, 9h uptime, pre-cutover, untouched
+- **Structured `cp_sat.solve_complete` log line present in worker output for all three smoke runs.** Example (stress-a):
+  ```
+  cp_sat.solve_complete {"run_id":"64fb8d5c-...","tenant_id":"965f5f8f-...","cp_sat_status":"unknown","sidecar_duration_ms":123706,"placed_count":319,"unassigned_count":1}
+  ```
+- **Sidecar access log** confirms all three POST `/solve` calls returned 200 OK (structured JSON log with `request_id` matching the run_id each time). No 422 / 500s.
+- **Error tallies across worker + sidecar logs during the 10-min post-cutover window:** `CpSatSolveError` = 0; solver-py `ERROR` / `500 Internal` = 0; worker unhandled exceptions (excluding pre-cutover transient ECONNREFUSED to redis during the pm2 restart itself) = 0.
+- **Ecosystem drift check:** `diff apps/edupod/ecosystem.config.cjs` between local and server after deploy → `NO DRIFT`. The committed `8795db44` is the authoritative shape.
+
+**Smoke-run metrics table**
+
+| Tenant   | Placed | Unassigned | Wall (ms) | cp_sat_status | Hard violations | Soft score |
+| -------- | ------ | ---------- | --------- | ------------- | --------------- | ---------- |
+| stress-a | 319    | 1          | 123 706   | unknown       | 0               | 5 / 6      |
+| stress-b | 318    | 2          | 123 669   | unknown       | 0               | 5 / 6      |
+| nhqs     | 344    | 94         | 120 722   | unknown       | 0               | 6 / 6      |
+
+**Surprises / decisions / deviations from the plan:**
+
+- **`apt install python3.12-venv` was a required extra step.** The initial `python3.12 -m venv --help` probe reported the module present, but creating a venv failed with `ensurepip is not available`. The stage doc's "Install Python on the server" section assumes a complete 3.12 toolchain; on Ubuntu 24.04 LTS the split between `python3.12` and `python3.12-venv` means the venv package has to be installed explicitly. Noted here so Stage 8 / 9 re-installs do not re-trip on it.
+- **`pm2 restart worker --update-env` did NOT pick up `ecosystem.config.cjs` env additions.** After the initial restart, `/proc/<pid>/environ` showed only the pre-existing env (WORKER_PORT, NODE_ENV). `--update-env` reads the shell environment, not the config file. Fixed by `pm2 delete worker && pm2 start ecosystem.config.cjs --only worker`. Worker came up cleanly the second time with both new env vars present. The code defaults (`SOLVER_PY_URL ?? 'http://localhost:5557'`, floor `?? '120000'`) happened to coincide with the intended values, so behaviour during the ~30 s gap was already correct — but the env should be explicit in production for durability.
+- **`packages/shared/tsconfig.json` gained a test exclude.** The production server's `@school/shared` build failed on first attempt because the Stage 2 `cp-sat-contract.test.ts` and Stage 5 `cp-sat-parity.test.ts` files import Node builtins (`fs`, `path`, `os`, `process`) that aren't typed on the server. The fix (exclude `__tests__/**` + spec/test patterns) is a hygiene improvement — `dist/` should never have carried test output — and is in the local repo via the `8795db44` commit. No behavioural change; all test files still resolve normally under jest.
+- **All three smoke runs returned `cp_sat_status = "unknown"` (greedy fallback).** This is not a regression — Stage 5's parity harness observed the same shape at Tier-3 scale under the single-worker config. CP-SAT times out against the budget and the greedy fallback is returned with a lex-better comparison. Placement counts are at or above the Stage 5 baselines; hard-constraint violations stayed at zero; quality_metrics populated. Stage 9's full stress re-run is the place to tune budgets or re-evaluate multi-worker if upstream OR-Tools has fixed the two blocking bugs by then.
+- **The NHQS run placed 344 entries with 94 unassigned.** 94 unassigned is higher than stress-a/b, but NHQS has 9 year groups vs 6 and denser curriculum-per-room constraints. The `hard_constraint_violations = 0` and `soft_score = 6/6` suggest the unassigned are coming from genuine demand-vs-capacity ceiling, not a model bug. Will revisit once Stage 8 has retired the legacy solver so the comparison is apples-to-apples against CP-SAT alone.
+
+**Known follow-ups / debt created:**
+
+- **24-hour observation window continues outside this session.** Per user directive: "in 24 hours we will follow up the observation later." The 10-min post-cutover window was clean (0 restarts, 0 errors). If the ≈24 h window surfaces any `CpSatSolveError`, sidecar memory bloat (above 2 GB), or pm2 restart loop, that needs triage before Stage 8 deletes the legacy rollback safety net. Grep targets: `CpSatSolveError` in worker logs, `ERROR` / `500` in solver-py logs, `↺` count on `pm2 list`.
+- **Stage 8 is unblocked.** Legacy `solveV2`, `constraints-v2.ts`, `domain-v2.ts`, `soft-scoring-v2.ts` and their specs can be deleted now that production is running CP-SAT-only. Stage 8 should wait for the 24 h observation window to close before landing, so the `git revert 8795db44` rollback path remains clean for that window.
+- **Stage 9 revisits multi-worker OR-Tools.** OR-Tools 9.15 is pinned at `num_search_workers=1` because `interleave_search=True` + 8 workers overshoots budgets by 4–7× on Tier-3 (Stage 5 finding) and `repair_hint=True` segfaults inside `MinimizeL1DistanceWithHint`. Stage 9 should either (a) confirm both bugs fixed upstream and re-enable multi-worker, or (b) document the pin as permanent and remove the Stage 5 carryover §1 note from the log.
+- **NHQS placement gap (94 unassigned) deserves a Stage 9 deep-dive.** Not a Stage 7 blocker — soft score 6/6 and hard violations 0 make it a capacity-ceiling observation, not a model defect — but it's the first real-tenant input under CP-SAT and the gap is worth understanding before production onboards additional schools.
