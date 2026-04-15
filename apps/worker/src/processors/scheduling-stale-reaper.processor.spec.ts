@@ -246,30 +246,33 @@ describe('SchedulingStaleReaperJob', () => {
       });
       // Make tenant A's transaction throw, tenant B succeed.
       let txCall = 0;
-      prisma.$transaction.mockImplementation(async (callback: never) => {
-        txCall++;
-        if (txCall === 1) throw new Error('tenant A exploded');
-        const cb = callback as unknown as (tx: {
-          $executeRaw: jest.Mock;
-          schedulingRun: { findMany: jest.Mock; update: jest.Mock };
-        }) => Promise<unknown>;
-        return cb({
-          $executeRaw: jest.fn().mockResolvedValue(undefined),
-          schedulingRun: {
-            findMany: jest.fn().mockResolvedValue([
-              {
-                id: 'stuck-in-b',
-                status: 'running',
-                updated_at: new Date('2026-04-01T11:50:00.000Z'),
-              },
-            ]),
-            update: jest.fn().mockImplementation(({ where, data }) => {
-              prisma.__updates.push({ tenantId: TENANT_B_ID, id: where.id, data });
-              return { id: where.id };
-            }),
-          },
-        });
-      });
+      prisma.$transaction.mockImplementation(
+        async (
+          callback: (tx: {
+            $executeRaw: jest.Mock;
+            schedulingRun: { findMany: jest.Mock; update: jest.Mock };
+          }) => Promise<unknown>,
+        ) => {
+          txCall++;
+          if (txCall === 1) throw new Error('tenant A exploded');
+          return callback({
+            $executeRaw: jest.fn().mockResolvedValue(undefined),
+            schedulingRun: {
+              findMany: jest.fn().mockResolvedValue([
+                {
+                  id: 'stuck-in-b',
+                  status: 'running',
+                  updated_at: new Date('2026-04-01T11:50:00.000Z'),
+                },
+              ]),
+              update: jest.fn().mockImplementation(({ where, data }) => {
+                prisma.__updates.push({ tenantId: TENANT_B_ID, id: where.id, data });
+                return { id: where.id };
+              }),
+            },
+          });
+        },
+      );
 
       const processor = new SchedulingStaleReaperJob(buildMockPrismaClient(prisma));
       const reaped = await processor.reapOnStartup();
