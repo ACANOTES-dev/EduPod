@@ -88,7 +88,7 @@ Each stage appends its own entry here when finished. Use this template exactly:
 ### Stage 1 — Python sidecar scaffold
 
 **Completed:** 2026-04-15
-**Local commit(s):** _to be filled in by the same commit that lands this entry — see `git log` immediately after_
+**Local commit(s):** `a2d6f566` feat(scheduling): scaffold solver-py FastAPI sidecar for CP-SAT migration
 **Deployed to production:** no — Stage 1 is local-only by design; sidecar deploys at Stage 7
 
 **What was delivered:**
