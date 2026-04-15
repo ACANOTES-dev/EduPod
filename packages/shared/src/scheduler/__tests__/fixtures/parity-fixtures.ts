@@ -289,6 +289,189 @@ export function buildTier2StressABaseline(): SolverInputV2 {
   };
 }
 
+// ─── Tier 2 + supervision: Stage 9 carryover §3 ───────────────────────────
+//
+// Same 6-year-group / 10-section / 20-teacher / 11-subject shape as
+// Tier 2 baseline, plus morning-break + lunch supervision slots and a
+// single break group that requires 4 yard supervisors at each. The
+// parity harness uses this to confirm CP-SAT honours supervision
+// assignment without over-subscribing teachers on duty — a dimension
+// absent from the original 7 parity fixtures.
+
+export function buildTier2WithSupervision(): SolverInputV2 {
+  const rng = mulberry32(0xa1 ^ 0x5000);
+
+  // 5 days × 10 period cells: P0 teaching, P1 teaching, P2 teaching,
+  // P3 morning-break (yard), P4 teaching, P5 teaching, P6 lunch-break
+  // (yard), P7 teaching, P8 teaching, P9 teaching.
+  const grid: PeriodSlotV2[] = [];
+  for (let weekday = 0; weekday < 5; weekday++) {
+    const layout: Array<{
+      order: number;
+      startMin: number;
+      durMin: number;
+      kind: 'teach' | 'morning-break' | 'lunch-break';
+    }> = [
+      { order: 0, startMin: 8 * 60, durMin: 45, kind: 'teach' },
+      { order: 1, startMin: 8 * 60 + 45, durMin: 45, kind: 'teach' },
+      { order: 2, startMin: 9 * 60 + 30, durMin: 45, kind: 'teach' },
+      { order: 3, startMin: 10 * 60 + 15, durMin: 20, kind: 'morning-break' },
+      { order: 4, startMin: 10 * 60 + 35, durMin: 45, kind: 'teach' },
+      { order: 5, startMin: 11 * 60 + 20, durMin: 45, kind: 'teach' },
+      { order: 6, startMin: 12 * 60 + 5, durMin: 30, kind: 'lunch-break' },
+      { order: 7, startMin: 12 * 60 + 35, durMin: 45, kind: 'teach' },
+      { order: 8, startMin: 13 * 60 + 20, durMin: 45, kind: 'teach' },
+      { order: 9, startMin: 14 * 60 + 5, durMin: 45, kind: 'teach' },
+    ];
+    for (const s of layout) {
+      const endMin = s.startMin + s.durMin;
+      const fmt = (m: number) =>
+        `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+      grid.push({
+        weekday,
+        period_order: s.order,
+        start_time: fmt(s.startMin),
+        end_time: fmt(endMin),
+        period_type: s.kind === 'teach' ? 'teaching' : 'break_supervision',
+        supervision_mode: s.kind === 'teach' ? 'none' : 'yard',
+        break_group_id: s.kind === 'teach' ? null : 'bg-primary',
+      });
+    }
+  }
+
+  const subjectsAll = [
+    'maths',
+    'english',
+    'science',
+    'history',
+    'geography',
+    'art',
+    'music',
+    'pe',
+    'ict',
+    'religion',
+    'languages',
+  ];
+  const subjectName = (id: string) => id[0]!.toUpperCase() + id.slice(1);
+
+  const yearGroups: YearGroupInput[] = [];
+  let classCounter = 0;
+  for (let yg = 0; yg < 6; yg++) {
+    const sectionCount = yg < 4 ? 2 : 1;
+    const sections: YearGroupInput['sections'] = [];
+    for (let s = 0; s < sectionCount; s++) {
+      sections.push({
+        class_id: `class-${classCounter}`,
+        class_name: `Y${yg + 1}-${String.fromCharCode(65 + s)}`,
+        student_count: 24,
+      });
+      classCounter++;
+    }
+    yearGroups.push({
+      year_group_id: `yg-${yg}`,
+      year_group_name: `Year ${yg + 1}`,
+      sections,
+      period_grid: grid,
+    });
+  }
+
+  const curriculum: CurriculumEntry[] = [];
+  for (let yg = 0; yg < 6; yg++) {
+    for (const subjectId of subjectsAll) {
+      const min =
+        subjectId === 'maths' || subjectId === 'english'
+          ? 5
+          : subjectId === 'science'
+            ? 4
+            : 2 + ((yg + subjectId.length) % 2);
+      curriculum.push({
+        year_group_id: `yg-${yg}`,
+        subject_id: subjectId,
+        subject_name: subjectName(subjectId),
+        min_periods_per_week: min,
+        max_periods_per_day: 2,
+        preferred_periods_per_week: null,
+        requires_double_period: false,
+        double_period_count: null,
+        required_room_type: subjectId === 'science' ? 'lab' : null,
+        preferred_room_id: null,
+        class_id: null,
+      });
+    }
+  }
+
+  const teachers: TeacherInputV2[] = [];
+  for (let i = 0; i < 20; i++) {
+    const k = 1 + Math.floor(rng() * 3);
+    const chosen = pickK(rng, subjectsAll, k);
+    const yearGroupIds = yearGroups.map((y) => y.year_group_id);
+    const competencies = [];
+    for (const subjectId of chosen) {
+      for (const ygId of yearGroupIds) {
+        competencies.push({
+          subject_id: subjectId,
+          year_group_id: ygId,
+          class_id: null,
+        });
+      }
+    }
+    teachers.push({
+      staff_profile_id: `t-${i}`,
+      name: `Teacher ${i}`,
+      competencies,
+      availability: [],
+      preferences: [],
+      max_periods_per_week: 22,
+      max_periods_per_day: 6,
+      max_supervision_duties_per_week: 2,
+    });
+  }
+
+  const rooms: RoomInfoV2[] = [];
+  for (let i = 0; i < 12; i++) {
+    rooms.push({
+      room_id: `room-c${i}`,
+      room_type: 'classroom',
+      capacity: 28,
+      is_exclusive: true,
+    });
+  }
+  for (let i = 0; i < 3; i++) {
+    rooms.push({
+      room_id: `room-l${i}`,
+      room_type: 'lab',
+      capacity: 24,
+      is_exclusive: true,
+    });
+  }
+
+  // Single break group covering all year groups; 4 yard supervisors at
+  // each morning-break + lunch slot (5 weekdays × 2 slots × 4 supervisors
+  // = 40 supervision duties/week against a pool of 20 teachers capped at
+  // 2 duties/week each — exactly saturated, a stress condition for the
+  // supervision modelling).
+  const breakGroups = [
+    {
+      break_group_id: 'bg-primary',
+      name: 'Primary Break',
+      year_group_ids: yearGroups.map((y) => y.year_group_id),
+      required_supervisor_count: 4,
+    },
+  ];
+
+  return {
+    year_groups: yearGroups,
+    curriculum,
+    teachers,
+    rooms,
+    room_closures: [],
+    break_groups: breakGroups,
+    pinned_entries: [],
+    student_overlaps: [],
+    settings: defaultSettings(0, 45),
+  };
+}
+
 // ─── Tier 3: realistic Irish secondary ──────────────────────────────────────
 
 export function buildTier3IrishSecondary(): SolverInputV2 {
@@ -709,6 +892,7 @@ export interface ParityFixture {
 export const PARITY_FIXTURES: ParityFixture[] = [
   { name: 'tier-1-tiny', category: 'tier', build: buildTier1Tiny },
   { name: 'tier-2-stress-a-baseline', category: 'tier', build: buildTier2StressABaseline },
+  { name: 'tier-2-with-supervision', category: 'tier', build: buildTier2WithSupervision },
   { name: 'tier-3-irish-secondary', category: 'tier', build: buildTier3IrishSecondary },
   { name: 'adv-over-demand', category: 'adversarial', build: buildAdvOverDemand },
   { name: 'adv-pin-conflict', category: 'adversarial', build: buildAdvPinConflict },
