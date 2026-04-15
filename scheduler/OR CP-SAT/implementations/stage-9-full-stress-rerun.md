@@ -29,6 +29,61 @@ This stage is mostly **remote API probing + scenario walkthroughs** against the 
 
 ---
 
+## Carryovers from Stage 5 (must address in this stage)
+
+Stage 5 parity testing deferred four items to Stage 9 because they are scale-dependent and need the full stress pack to exercise properly. Do not declare Stage 9 complete without resolving them.
+
+### 1. Port the legacy 1-swap repair pass to the Python greedy
+
+**Context:** Stage 5 Tier 2 (stress-a-shape, 340 lessons) showed CP-SAT 329/340 vs legacy 331/340 — a -0.6 % regression. Diagnosis: Stage 4's greedy in `apps/solver-py/src/solver_py/solver/hints.py` is MRV-only; legacy's greedy has a 1-swap repair pass that can move an already-placed lesson aside to fit a new one. CP-SAT given the MRV greedy as a hint cannot find the swap moves inside a 30 s budget; the greedy floor becomes the ceiling.
+
+**What to do:**
+
+- Read `packages/shared/src/scheduler/solver-v2.ts` — specifically the repair phase after initial greedy placement — and port the 1-swap logic to `apps/solver-py/src/solver_py/solver/hints.py`.
+- Keep the port deterministic (lex-ordered candidate selection; fixed iteration order).
+- Add pytest fixtures that reproduce the Tier 2 regression (pull `packages/shared/src/scheduler/__tests__/fixtures/parity-fixtures.ts` → `tier-2-stress-a-baseline` and run it through the Python greedy directly). Before the port: greedy places 329. After: greedy places 331+. Assert.
+- Re-run the Stage 5 parity harness (`pnpm exec jest --testPathPattern=cp-sat-parity`) and confirm Tier 2 placement is now ≥ legacy. Attach the updated parity report to the Stage 9 completion entry as evidence.
+
+**Do not** attempt to improve the hint via CP-SAT parameter tuning instead — the problem is hint quality at the greedy stage, not search strategy at the solver stage. A tuning workaround is debt.
+
+### 2. Verify the formalised 100 % feasibility benchmark on real stress-a data
+
+**Context:** Stage 5's Tier 2 fixture is a synthetic builder (`parity-fixtures.ts` → `buildTier2StressABaseline`) that matches stress-a's dimensions but is not stress-a's actual seed. PLAN.md formalised stress-a (from `packages/prisma/scripts/stress-seed.ts --mode baseline`) as the 100 % placement benchmark, but that benchmark was never actually measured — both backends in Stage 5 landed below 100 % on the synthetic equivalent, leaving the question open: is stress-a itself 100 % feasible, or does the benchmark need revising?
+
+**What to do:**
+
+- Trigger a solve on the real `stress-a.edupod.app` tenant after running `packages/prisma/scripts/stress-seed.ts --mode baseline --tenant-slug stress-a` to ensure baseline data is present.
+- Record placement ratio, solve duration (median of 5 runs), hard/soft violation counts, deterministic reproducibility.
+- **Expected outcome: CP-SAT places 340/340 in < 10 s.** If it doesn't, investigate in this order:
+  1. Is the stress-seed output actually feasible? Run the Stage 12 pre-solve feasibility sweep against the seeded data (if Stage 12 has shipped by then; if not, do a manual capacity check).
+  2. If feasible, is the 1-swap repair port from §1 enough to close the gap?
+  3. If both hold and we still miss 100 %, update PLAN.md's target-metrics section honestly — the bar stays "≥ legacy + diagnosed," but stress-a drops from "100 % guaranteed feasibility reference" to "well-slack feasibility reference."
+- Whatever the measurement is, publish it verbatim in the completion entry. Do not massage.
+
+### 3. Parity on supervision-heavy fixtures
+
+**Context:** Stage 5's seven fixtures all use `break_groups: []`. Yard-supervision behaviour is exercised by `apps/solver-py/tests/test_solve_supervision.py` and by Wave 1 on legacy, but a parity comparison — the side-by-side legacy-vs-CP-SAT measurement — was never run on supervision-heavy inputs.
+
+**What to do:**
+
+- Add a new fixture to `packages/shared/src/scheduler/__tests__/fixtures/parity-fixtures.ts`: `tier-2-with-supervision` — stress-a-shape plus `break_groups` representing morning break + lunch, with supervision demand distributed across 4-6 staff. Keep deterministic via mulberry32.
+- Re-run the parity harness with the new fixture. CP-SAT must: (a) match or beat legacy on placed count, (b) match or beat on Tier 2 violations, (c) honour supervision assignments without over-subscribing teachers on duty.
+- Append the supervision row to the parity matrix in the completion entry.
+
+### 4. Multi-worker retest — only if OR-Tools fixes the bugs upstream
+
+**Context:** Stage 4 shipped `num_search_workers = 8` + `interleave_search = True` + `repair_hint = True`. Stage 5 found two OR-Tools 9.15 bugs in that config (budget overrun and segfault) and reverted to single-worker. Stage 7 pinned `ortools==9.15.6755`. If Google releases a newer OR-Tools with fixes for both bugs, Stage 9 is the stage where we retest.
+
+**What to do — only if upstream fixes land:**
+
+- Check the OR-Tools release notes for fixes to `interleave_search` budget discipline AND `MinimizeL1DistanceWithHint` segfaulting with `repair_hint`. Both must be fixed; one is not enough.
+- If both fixed: bump `ortools==` in `pyproject.toml`, re-run the full Stage 5 parity harness, confirm zero regression, confirm budget is honoured, confirm no segfault. Re-run Stage 9 scenarios with the new version. If any regression surfaces, roll back the pin.
+- If not fixed: leave `num_search_workers = 1` as-is. Note in the completion entry that the retest was attempted but blocked on upstream.
+
+This item is deliberately gated on an external signal. Do not spend time chasing multi-worker if the bugs are still upstream — single-worker + greedy fallback is correct and ships a valid product.
+
+---
+
 ## Scope — the full re-run
 
 ### Re-run Wave 1 (STRESS-001 → STRESS-075)
@@ -147,7 +202,10 @@ Each stress tenant should already have its baseline data from the original Wave 
 
 - [ ] Wave 4 tracker row for every scenario filled with ✅ PASS / ❌ FAIL.
 - [ ] No ❌ FAIL remaining at time of completion.
-- [ ] Stress-a baseline: 100% placement, < 10s median.
+- [ ] Stress-a baseline: 100% placement, < 10s median (**real stress-a seed per Stage 5 carryover §2, not the synthetic Tier 2 fixture**).
+- [ ] 1-swap repair ported to Python greedy per Stage 5 carryover §1; parity harness re-run shows Tier 2 ≥ legacy.
+- [ ] Supervision-heavy parity fixture added and measured per Stage 5 carryover §3; CP-SAT matches or beats legacy.
+- [ ] Multi-worker retest attempted per Stage 5 carryover §4 — either re-enabled after upstream fix, or documented as still blocked.
 - [ ] Tier 3 synthetic: 100% placement, < 60s.
 - [ ] Determinism under seed confirmed (STRESS-086 passes).
 - [ ] SCHED-017, 025 permanently closed with CP-SAT evidence.

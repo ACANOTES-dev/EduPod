@@ -30,6 +30,41 @@ This stage **is the production deploy**. Lock is mandatory. Treat every command 
 
 ---
 
+## Carryovers from Stage 5 (must address in this stage)
+
+Stage 5 parity testing surfaced three operational items that must be honoured at deploy time. These are not optional — they are the reason Stage 5's single-worker fallback works, and losing any of them reintroduces the failure modes Stage 5 diagnosed.
+
+### 1. Pin the OR-Tools version on the server — do not let pip upgrade it
+
+Stage 5 proved that OR-Tools 9.15 has two production-blocking bugs in our preferred configuration: `interleave_search = True` overshoots `max_time_in_seconds` by 4-7× on Tier-3-scale fixtures, and `repair_hint = True` segfaults inside `MinimizeL1DistanceWithHint`. The workaround is `num_search_workers = 1` (currently set in `apps/solver-py/src/solver_py/solver/solve.py`).
+
+Stage 1 already pinned `ortools==9.15.6755` in `pyproject.toml`. At deploy time you must:
+
+- Use `--no-upgrade` style behaviour on the server `pip install -e .` so pip does not silently upgrade a transitive. Run `.venv/bin/pip freeze | grep ortools` after install and confirm exactly `ortools==9.15.6755`.
+- Add the same `pip freeze` capture to the completion entry as evidence.
+- If a future session is asked to bump OR-Tools, Stage 9's multi-worker retest must be redone first — both bugs have to be confirmed fixed upstream before the configuration can change.
+
+### 2. Client-side HTTP request timeout ≥ 90s
+
+Stage 5 observed that a long-running solve on Tier 3 (230 s wall under the old multi-worker config; 61 s under the current single-worker config) can saturate the sidecar and cause subsequent fetches to queue past short client timeouts. Single-worker + budget discipline fixes this, but the Stage-6 default of `(max_solver_duration_seconds + 30) × 1000` is cutting it close when a tenant has `max_solver_duration_seconds = 60` (90 s total).
+
+At Stage 7:
+
+- In `ecosystem.config.cjs` (worker's env block), set a floor: `CP_SAT_REQUEST_TIMEOUT_FLOOR_MS = 120000` (120 s). Update `cp-sat-client.ts` call site in the worker to use `max(CP_SAT_REQUEST_TIMEOUT_FLOOR_MS, (max_solver_duration_seconds + 60) × 1000)`. If that change requires editing `solver-v2.processor.ts` Stage-6 integration, do it here — Stage 7 is the correct place for deploy-time tuning.
+- Record the chosen timeout in the completion entry.
+
+### 3. Tenant-configurable `max_solver_duration_seconds`
+
+Already in `config_snapshot.settings.max_solver_duration_seconds`. No schema change needed; just confirm the default (60 s today) is the right ceiling given CP-SAT's Tier 3 performance at 61 s wall. Recommend raising the default to 90 s for tenants with > 25 teachers during Stage 7 to avoid budget-edge UNKNOWN verdicts. This is a soft recommendation — adjust only if smoke runs on stress-b or nhqs hit the ceiling.
+
+### 4. Document the single-worker decision in the deploy commit
+
+The Stage 4 completion entry said "deterministic parallel by default" (8 workers + `interleave_search`). Stage 5 reverted to single-worker after finding the two OR-Tools bugs above. Stage 7's deploy commit must explicitly note this so a future session reading the git log does not try to re-enable multi-worker without reading Stage 5's findings first.
+
+Add to the commit body: `Sidecar ships num_search_workers=1 per Stage 5 — OR-Tools 9.15 has budget-overrun and segfault bugs in multi-worker configs. Stage 9 revisits after upstream fix.`
+
+---
+
 ## Scope — the coordinated push
 
 This stage touches several things in one sitting. Do them in the order below. Each step is reversible up to the pm2 restart at the end.
@@ -247,7 +282,9 @@ Total rollback time: ~60 seconds. Legacy `solveV2` is still in the repo (Stage 8
 ## Acceptance criteria
 
 - [ ] Python 3.12 on server.
-- [ ] Sidecar rsynced; venv installed; `ortools` + deps resolved.
+- [ ] Sidecar rsynced; venv installed; `ortools==9.15.6755` confirmed via `pip freeze` (pinned version per Stage 5 findings — do not upgrade).
+- [ ] `CP_SAT_REQUEST_TIMEOUT_FLOOR_MS` set in worker env (≥ 120 000); client uses `max(floor, (budget + 60) × 1000)` per Stage 5 carryover §2.
+- [ ] Single-worker decision documented in deploy commit per Stage 5 carryover §4.
 - [ ] `solver-py` in pm2, status `online`.
 - [ ] Worker env has `SOLVER_PY_URL`; worker restarted with `--update-env`.
 - [ ] End-to-end smoke succeeded on stress-a, stress-b, nhqs.

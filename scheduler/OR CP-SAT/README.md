@@ -8,6 +8,8 @@ Every session working on this effort — human or AI — starts here.
 
 Wave 1 + Wave 2 stress testing demonstrated that the hand-rolled solver leaves **18–22% of curriculum demand unplaced** on the smallest tested tenant (20 teachers, 10 classes, 66 curriculum entries). At realistic Irish-school scale (40–80 teachers, 20–40 classes) the gap is expected to widen further. CP-SAT is an industry-standard engine with provably-optimal behaviour, deterministic output under seeding, and native scaling to thousands of variables. Full rationale in `PLAN.md` → "Why this work exists".
 
+The migration is twelve stages, not eleven. Stages 1–11 swap the solver engine; Stage 12 rebuilds the diagnostics module on top of CP-SAT's formal infeasibility certificates. Both halves are required for the product to be enterprise-grade — school administrators are not optimisation engineers, and an unexplained "97% placed" output is a half-product. Stage 12 is the stage that makes the system genuinely actionable for non-technical users.
+
 ## What to read, in order, before doing anything
 
 1. **`IMPLEMENTATION_LOG.md`** — shared state across sessions. Tells you which stages are complete, which is next, and what previous sessions discovered. **Never skip this.**
@@ -94,5 +96,6 @@ scheduler/OR CP-SAT/
     ├── stage-8-legacy-retire.md
     ├── stage-9-full-stress-rerun.md
     ├── stage-10-contract-reshape.md
-    └── stage-11-orchestration-rebuild.md
+    ├── stage-11-orchestration-rebuild.md
+    └── stage-12-diagnostics-overhaul.md
 ```

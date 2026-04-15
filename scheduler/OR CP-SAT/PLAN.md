@@ -87,6 +87,8 @@ Stage 9: Full stress re-run (Waves 1, 2, 3 against CP-SAT on stress-a/b/c/d; pro
 Stage 10: Contract reshape (SolverInputV2/OutputV2 restructured to CP-SAT-native shape; sidecar + client + result_json consumers updated)
   ↓
 Stage 11: Orchestration rebuild (assembleSolverInput rewritten from scratch against the new contract; scheduler-orchestration cleaned of SCHED-013…028 scar tissue)
+  ↓
+Stage 12: Diagnostics module overhaul (state-of-the-art explainability layer — pre-solve feasibility sweep, CP-SAT IIS extraction, plain-English translation, ranked solutions with quantified impact; pairs with the solver to make the complete enterprise product)
 ```
 
 ### Why sequential
@@ -101,36 +103,72 @@ Stage 11: Orchestration rebuild (assembleSolverInput rewritten from scratch agai
 - Stage 9 validates the cutover — must wait until legacy is gone so the one engine is what's measured.
 - Stage 10 reshapes the contract; doing it before Stage 7 would mean maintaining two contract shapes during the critical migration window.
 - Stage 11 depends on Stage 10's new contract shape. It's the final cleanup.
+- Stage 12 depends on a stable CP-SAT in production (Stage 9 green) and the final contract shape (Stage 11 done) because the diagnostics module consumes both the solver's output and its internal infeasibility certificates. Landing it earlier would mean rebuilding against a shifting target.
+
+### Why diagnostics gets its own stage
+
+A state-of-the-art solver without an equally-capable diagnostics layer is a half-product for the intended audience. School administrators are not optimisation engineers; they cannot read an unassigned-slots list and infer that their only Arabic teacher is over-subscribed. They need the system to say so plainly and show them exactly what to change. The migration is not truly "enterprise-grade" until the explanation layer is at parity with the solver layer. Stage 12 is the stage that gets us there.
 
 ## Stage summary
 
-| Stage | Name                            | Touches                                                                                                                                    | Proven by                                                                                   |
-| ----- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| 1     | Python sidecar scaffold         | New `apps/solver-py/` with `pyproject.toml`, FastAPI, `/health`, Dockerfile                                                                | `curl localhost:5557/health` returns 200 locally                                            |
-| 2     | JSON contract                   | `apps/solver-py/schema/*.py` pydantic models; round-trip fixture                                                                           | pytest round-trips a `SolverInputV2` fixture without data loss                              |
-| 3     | CP-SAT model — hard constraints | `apps/solver-py/solver/*.py` CP-SAT variable + hard constraint builders                                                                    | pytest on 5 fixture inputs; every solution has 0 hard violations OR returns UNSAT cleanly   |
-| 4     | CP-SAT model — soft preferences | `apps/solver-py/solver/soft.py`, scoring function, quality metrics                                                                         | pytest — soft score on fixtures matches or exceeds legacy output                            |
-| 5     | Parity testing                  | `packages/shared/src/scheduler/__tests__/cp-sat-parity.test.ts`; local double-run against legacy                                           | CP-SAT unassigned ≤ legacy unassigned on 3 scale tiers — **this is the cutover gate**       |
-| 6     | Worker IPC integration          | `solver-v2.processor.ts` always calls sidecar; `cp-sat-client.ts`; worker unit tests. No prod deploy yet.                                  | Unit tests pass; local worker hits sidecar; ts + py test suites green                       |
-| 7     | Production cutover              | Atomic deploy — rsync sidecar, `pip install`, add `solver-py` to `ecosystem.config.cjs`, rsync worker change, pm2 restart                  | Sidecar online on prod; every tenant solves via CP-SAT end-to-end                           |
-| 8     | Legacy retire                   | Delete `solver-v2.ts`, `constraints-v2.ts`, `domain-v2.ts`, `soft-scoring-v2.ts`, their specs                                              | Full `turbo test` green post-deletion; worker simpler                                       |
-| 9     | Full stress re-run              | Re-run Wave 1 + Wave 2 + Wave 3 scenarios against CP-SAT backend                                                                           | All scenarios pass; completeness at 100% on realistic input; determinism verified           |
-| 10    | Contract reshape                | `SolverInputV2` / `SolverOutputV2` restructured to CP-SAT-native shape; sidecar pydantic models; client; result_json consumers (UI, apply) | Every consumer of `result_json` works against the new shape; Stage 9 scenarios re-pass      |
-| 11    | Orchestration rebuild           | `scheduler-orchestration.service.assembleSolverInput` rewritten against the new contract; legacy scar tissue removed                       | New orchestration emits the Stage 10 shape; Stage 9 scenarios re-pass; code surface smaller |
+| Stage | Name                            | Touches                                                                                                                                                                            | Proven by                                                                                                                                            |
+| ----- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Python sidecar scaffold         | New `apps/solver-py/` with `pyproject.toml`, FastAPI, `/health`, Dockerfile                                                                                                        | `curl localhost:5557/health` returns 200 locally                                                                                                     |
+| 2     | JSON contract                   | `apps/solver-py/schema/*.py` pydantic models; round-trip fixture                                                                                                                   | pytest round-trips a `SolverInputV2` fixture without data loss                                                                                       |
+| 3     | CP-SAT model — hard constraints | `apps/solver-py/solver/*.py` CP-SAT variable + hard constraint builders                                                                                                            | pytest on 5 fixture inputs; every solution has 0 hard violations OR returns UNSAT cleanly                                                            |
+| 4     | CP-SAT model — soft preferences | `apps/solver-py/solver/soft.py`, scoring function, quality metrics                                                                                                                 | pytest — soft score on fixtures matches or exceeds legacy output                                                                                     |
+| 5     | Parity testing                  | `packages/shared/src/scheduler/__tests__/cp-sat-parity.test.ts`; local double-run against legacy                                                                                   | CP-SAT unassigned ≤ legacy unassigned on 3 scale tiers — **this is the cutover gate**                                                                |
+| 6     | Worker IPC integration          | `solver-v2.processor.ts` always calls sidecar; `cp-sat-client.ts`; worker unit tests. No prod deploy yet.                                                                          | Unit tests pass; local worker hits sidecar; ts + py test suites green                                                                                |
+| 7     | Production cutover              | Atomic deploy — rsync sidecar, `pip install`, add `solver-py` to `ecosystem.config.cjs`, rsync worker change, pm2 restart                                                          | Sidecar online on prod; every tenant solves via CP-SAT end-to-end                                                                                    |
+| 8     | Legacy retire                   | Delete `solver-v2.ts`, `constraints-v2.ts`, `domain-v2.ts`, `soft-scoring-v2.ts`, their specs                                                                                      | Full `turbo test` green post-deletion; worker simpler                                                                                                |
+| 9     | Full stress re-run              | Re-run Wave 1 + Wave 2 + Wave 3 scenarios against CP-SAT backend                                                                                                                   | All scenarios pass; completeness at 100% on realistic input; determinism verified                                                                    |
+| 10    | Contract reshape                | `SolverInputV2` / `SolverOutputV2` restructured to CP-SAT-native shape; sidecar pydantic models; client; result_json consumers (UI, apply)                                         | Every consumer of `result_json` works against the new shape; Stage 9 scenarios re-pass                                                               |
+| 11    | Orchestration rebuild           | `scheduler-orchestration.service.assembleSolverInput` rewritten against the new contract; legacy scar tissue removed                                                               | New orchestration emits the Stage 10 shape; Stage 9 scenarios re-pass; code surface smaller                                                          |
+| 12    | Diagnostics module overhaul     | `SchedulingDiagnosticsService` rebuilt on CP-SAT infeasibility certificates + pre-solve feasibility sweep; Python IIS endpoint; review-page UI; plain-English translation registry | Synthetic infeasible fixtures diagnose root causes within 50 ms; non-technical user test validates every top-5 solution is actionable without jargon |
 
 ## Target metrics — how we know this migration was worth it
 
-After Stage 9 is complete, the solver must demonstrably hit the following on stress-a with the canonical baseline (20 teachers, 10 classes, 66 curriculum entries):
+The migration is measured against **two distinct benchmarks** because the two tenants we test against represent fundamentally different classes of input, and conflating them produces misleading results.
 
-| Metric                         | Legacy TS solver (baseline) | CP-SAT target       |
-| ------------------------------ | --------------------------- | ------------------- |
-| Curriculum placed              | 80%                         | 100%                |
-| Hard constraint violations     | 0                           | 0                   |
-| Solver duration (median)       | 120 s (timeout hit)         | < 10 s              |
-| Deterministic under fixed seed | No (SCHED-025)              | Yes                 |
-| Scale to 80 teachers           | Unproven                    | < 60 s, 100% placed |
+### Benchmark 1 — stress-a: the feasibility reference (100% target)
 
-If any of these miss after Stage 9 we treat the migration as incomplete and debug the model before rollout.
+`stress-a` is seeded by `packages/prisma/scripts/stress-seed.ts --mode baseline` (20 teachers with full competency coverage, 10 classes, 11 subjects, 25 rooms, 40-slot period grid, curriculum at **32 of 40** weekly periods with deliberate slack). It is explicitly designed so that a 100% placement is mathematically guaranteed to exist. Any miss on stress-a is a solver failure, not a data failure.
+
+**This is the fixture we use to prove the solver itself is correct and fast.** Both Stage 5 parity and Stage 9 stress re-runs treat stress-a as the pass/fail gate for the solver's theoretical ceiling.
+
+| Metric                         | Legacy TS solver | CP-SAT target       |
+| ------------------------------ | ---------------- | ------------------- |
+| Curriculum placed              | 80%              | 100%                |
+| Hard constraint violations     | 0                | 0                   |
+| Solver duration (median)       | 120 s (timeout)  | < 10 s              |
+| Deterministic under fixed seed | No (SCHED-025)   | Yes                 |
+| Scale to 80 teachers           | Unproven         | < 60 s, 100% placed |
+
+### Benchmark 2 — nhqs and production tenants: the real-world benchmark (≥ legacy + diagnosed)
+
+`nhqs` and future production tenants are seeded organically by the tenant themselves — curriculum, teachers, competencies, and availability reflect real staffing choices, with no guarantee of mathematical feasibility. A tenant may hire one Arabic teacher for four year groups and demand 30 periods of Arabic per week with only 28 teacher-periods available. No solver can place what doesn't exist.
+
+**Real-world tenants therefore have a different pass criterion:**
+
+| Metric                         | Target                                                                                                                                                 |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Placement completeness         | ≥ legacy solver, AND every unassigned lesson has a diagnosed reason surfaced to the tenant admin                                                       |
+| Hard constraint violations     | 0                                                                                                                                                      |
+| Solver duration (median)       | < 30 s                                                                                                                                                 |
+| Deterministic under fixed seed | Yes                                                                                                                                                    |
+| Feasibility ceiling diagnosis  | Pre-solve diagnostics identify structural infeasibility in < 50 ms; post-solve diagnostics explain any remaining gaps with CP-SAT IIS-based root cause |
+
+The distinction matters because "hit 100% on NHQS" is not a valid success criterion in principle — we do not know a priori that the NHQS data is feasible, and nobody on the team has audited it row by row. Stage 12 exists precisely to make this distinction visible to the tenant: **"97% placed — and here are the 3 structural data issues that block the remaining 3%"** is a far stronger product than "97% placed" with no explanation.
+
+### Combined migration pass criterion
+
+The migration is complete when:
+
+- stress-a hits 100% placement with 0 hard violations in < 10 s, deterministic (Stage 9).
+- All tenants (stress-a/b/c/d + nhqs + any onboarded tenant) hit ≥ legacy placement with every gap diagnosed (Stage 12).
+- No SCHED-### regression surfaces in 7 consecutive days of production traffic (Stage 8 window).
+
+If any of these miss, we treat the migration as incomplete and debug before declaring done.
 
 ## Shared conventions (read once; apply to every stage)
 
@@ -181,9 +219,11 @@ Before pushing any change that touches a NestJS module's `imports`/`exports`/`pr
 
 ## Canonical test tenants
 
-- **stress-a, stress-b, stress-c, stress-d** — clones of NHQS used for the stress suite. Credentials in `E2E/5_operations/Scheduling/STRESS-TEST-PLAN.md` → "Credentials".
-- **nhqs.edupod.app** — the canonical pilot tenant. Login `owner@nhqs.test` / `Password123!`. Flag flip for nhqs happens mid-Stage-8 only after stress-a/b/c/d are all green.
-- Production tenants onboarded after NHQS validates flip without incident.
+- **stress-a** — **the feasibility reference.** Seeded by `packages/prisma/scripts/stress-seed.ts --mode baseline`: 6 year groups (Y7–Y12), 10 classes, 20 teachers with full competency coverage, 11 subjects, 25 rooms, 40-slot period grid, curriculum at 32 of 40 weekly periods with deliberate slack. **Mathematically guaranteed to be 100% placeable.** Any miss here is a solver failure. Used as the pass/fail gate for Stage 5 parity and Stage 9 stress re-run.
+- **stress-b, stress-c, stress-d** — stress-a-shape tenants with scale dials (more teachers, more classes, denser curriculum). Used in Stage 9 to validate the solver scales. Credentials in `E2E/5_operations/Scheduling/STRESS-TEST-PLAN.md` → "Credentials".
+- **nhqs.edupod.app** — **the real-world messy-data benchmark.** Login `owner@nhqs.test` / `Password123!`. Seeded organically during pilot configuration; feasibility of the data is _unknown_ and may include structural issues (subject-demand > qualified-teacher-capacity, under-qualified staff for mandatory subjects, pin conflicts). This tenant proves the migration handles production-shaped input, and Stage 12 diagnostics ensures any gaps are explained rather than swept under a "97% placed" rug.
+- **Optional future addition — a DB-backed Tier 3 fixture tenant** (`csp-tier-3` or similar) promoted from `packages/shared/src/scheduler/__tests__/fixtures/parity-fixtures.ts` → `tier-3-irish-secondary` (30 classes, 60 teachers, 200 curriculum entries, 45 slots). Mathematically feasible like stress-a but closer to a real Irish secondary's scale. Not required for any stage today; mentioned here for when the stress suite needs a bigger feasibility testbed.
+- Production tenants onboarded after NHQS validates the cutover without incident.
 
 ## Risks and mitigations
 
