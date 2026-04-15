@@ -290,9 +290,9 @@ Each failure logged against this plan should be tagged:
 | STRESS-008 | Competency shortage                                | ✅ PASS session-A | 2026-04-15           | -                    |
 | STRESS-009 | Over-constrained locks + preferences               | ✅ PASS session-A | 2026-04-15           | -                    |
 | STRESS-010 | Specialist room bottleneck                         | ⚪ N/A            | 2026-04-15 session-B | -                    |
-| STRESS-011 | Room closures overlapping demand                   | 🟡 session-B      | -                    | -                    |
-| STRESS-012 | Multi-purpose rooms                                | 🟡 session-B      | -                    | -                    |
-| STRESS-013 | Specific-room requirement                          | 🟡 session-B      | -                    | -                    |
+| STRESS-011 | Room closures overlapping demand                   | ✅ PASS           | 2026-04-15 session-B | -                    |
+| STRESS-012 | Multi-purpose rooms                                | ⚪ N/A            | 2026-04-15 session-B | SCHED-018            |
+| STRESS-013 | Specific-room requirement                          | ⚪ N/A            | 2026-04-15 session-B | SCHED-018            |
 | STRESS-014 | Room closure added post-solve                      | ⚪ N/A            | 2026-04-15 session-B | -                    |
 | STRESS-015 | Double-period blocks                               | ❌ FAIL           | 2026-04-15 session-B | SCHED-024            |
 | STRESS-016 | Double-period must not span break                  | ⚪ N/A            | 2026-04-15 session-B | SCHED-024            |
@@ -1767,8 +1767,9 @@ _Pre-req for this category: a solved timetable (from STRESS-002 or STRESS-003) m
 
 Once scenarios begin, append a summary entry per run here (in addition to the per-scenario tracker rows):
 
-| Date | Scenarios run | Pass | Fail | N/A | Notes |
-| ---- | ------------- | ---- | ---- | --- | ----- |
+| Date       | Scenarios run          | Pass | Fail | N/A | Notes                                                                                                                                                                                                                                                                                                             |
+| ---------- | ---------------------- | ---- | ---- | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-04-15 | session-B 010-028 (19) | 9    | 1    | 9   | API-driven (Playwright MCP browser locked); SCHED-024 logged for the 1 fail; 9 N/A documented as solver feature gaps (period-level closures, room-type matching, triple-period blocks, multi-window availability, leave dates) referencing SCHED-018 / SCHED-024 where applicable. Stress-b restored to baseline. |
 
 ---
 

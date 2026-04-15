@@ -40,3 +40,5 @@ This file is the exclusive lock for any server-modifying action taken during the
 2026-04-15 00:58:30 UTC — session-A — released — stress-a reduced to 3 classes + 5 teachers
 2026-04-15 01:02:00 UTC — session-A — acquired — psql restore classes + teachers to active
 2026-04-15 01:02:30 UTC — session-A — released — stress-a restored to full baseline (20t, 10c)
+2026-04-15 02:00:00 UTC — claude-fixer — acquired — deploying SCHED-016 permissions patch to all 4 stress tenants
+2026-04-15 02:05:00 UTC — claude-fixer — released — SCHED-016 permissions granted on all 4 stress tenants; prereqs now ready:true
