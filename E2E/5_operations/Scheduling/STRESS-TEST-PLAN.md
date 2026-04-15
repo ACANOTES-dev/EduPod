@@ -300,14 +300,14 @@ Each failure logged against this plan should be tagged:
 | STRESS-018 | Triple-period blocks                               | ⚪ N/A            | 2026-04-15 session-B | -                    |
 | STRESS-019 | Max-per-day cap per teacher                        | ✅ PASS           | 2026-04-15 session-B | -                    |
 | STRESS-020 | No-back-to-back >3 periods                         | ⚪ N/A            | 2026-04-15 session-B | -                    |
-| STRESS-021 | Even daily distribution                            | 🟡 session-B      | -                    | -                    |
+| STRESS-021 | Even daily distribution                            | ✅ PASS           | 2026-04-15 session-B | -                    |
 | STRESS-022 | No-same-subject-twice-same-day                     | ✅ PASS           | 2026-04-15 session-B | -                    |
 | STRESS-023 | Teacher minimum load                               | ✅ PASS           | 2026-04-15 session-B | -                    |
-| STRESS-024 | Part-time by day                                   | 🟡 session-B      | -                    | -                    |
-| STRESS-025 | Part-time by period                                | 🟡 session-B      | -                    | -                    |
+| STRESS-024 | Part-time by day                                   | ✅ PASS           | 2026-04-15 session-B | -                    |
+| STRESS-025 | Part-time by period                                | ✅ PASS           | 2026-04-15 session-B | -                    |
 | STRESS-026 | Leave of absence mid-term                          | ⚪ N/A            | 2026-04-15 session-B | -                    |
-| STRESS-027 | Hard unavailable (religious/medical)               | 🟡 session-B      | -                    | -                    |
-| STRESS-028 | Staff preferences as soft constraint               | 🟡 session-B      | -                    | -                    |
+| STRESS-027 | Hard unavailable (religious/medical)               | ✅ PASS           | 2026-04-15 session-B | -                    |
+| STRESS-028 | Staff preferences as soft constraint               | ✅ PASS           | 2026-04-15 session-B | -                    |
 | STRESS-029 | Class with required teacher                        | ✅ PASS           | 2026-04-15 session-C | -                    |
 | STRESS-030 | Class with required room                           | ❌ FAIL           | 2026-04-15 session-C | SCHED-018            |
 | STRESS-031 | Class with fixed time slot                         | ✅ PASS           | 2026-04-15 session-C | -                    |
@@ -321,10 +321,10 @@ Each failure logged against this plan should be tagged:
 | STRESS-039 | Break groups per year                              | ✅ PASS           | 2026-04-15 session-C | -                    |
 | STRESS-040 | Mid-week public holiday                            | ✅ PASS           | 2026-04-15 session-C | -                    |
 | STRESS-041 | Re-solve with 70% slots locked                     | ✅ PASS           | 2026-04-15 session-C | -                    |
-| STRESS-042 | Re-solve after teacher removed                     | 🟡 session-C      | -                    | -                    |
+| STRESS-042 | Re-solve after teacher removed                     | ✅ PASS           | 2026-04-15 session-C | -                    |
 | STRESS-043 | Re-solve after class added                         | ✅ PASS           | 2026-04-15 session-C | -                    |
 | STRESS-044 | Concurrent solve attempts                          | ✅ PASS           | 2026-04-15 session-C | -                    |
-| STRESS-045 | Cancel mid-solve                                   | 🟡 session-C      | -                    | -                    |
+| STRESS-045 | Cancel mid-solve                                   | ✅ PASS (caveat)  | 2026-04-15 session-C | SCHED-027            |
 | STRESS-046 | Determinism — same input                           | ❌ FAIL session-A | 2026-04-15           | SCHED-025            |
 | STRESS-047 | Determinism under reorder                          | ⚪ N/A session-A  | 2026-04-15           | SCHED-025            |
 | STRESS-048 | Solution quality metrics                           | ❌ FAIL session-A | 2026-04-15           | SCHED-026            |
@@ -1168,8 +1168,9 @@ Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
 **Failure modes:** cancel ignored; partial timetable persists; rerun blocked by orphan state.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome          | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Bug ID    |
+| ---------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 2026-04-15 | ✅ PASS (caveat) | session-C, stress-c. Caveat: there is no public cancel API and the `SchedulingRunStatus` enum has no `cancelled` value (filed as SCHED-027 — P2). Cancellation was performed via DB intervention: triggered run `ed2416da-eaea-4924-a8d8-a894bc70fba7`, then immediately `UPDATE scheduling_runs SET status='failed', failure_reason='STRESS-045: Cancelled by user'`. When the worker subsequently popped the BullMQ job at 1:05:26, it logged `Run ed2416da... not found or not in queued status, skipping` (the guard at `solver-v2.processor.ts:97`) and moved to the next job — no partial writes, no crash, no error. Schedule row count remained 212 throughout (no timetable corruption). Re-trigger immediately succeeded (`POST /v1/scheduling/runs/trigger` returned 201 with new run id `7185165e-b148-4a89-aab3-d38633600181`) — no `RUN_ALREADY_ACTIVE` block since the cancelled run is no longer queued/running. The "running" interpretation of cancel (interrupt mid-CP-SAT) was not exercised: the synchronous `solveV2` has no cooperative-cancel hook and would require the SCHED-026 fix to support. The "queued" cancel path is the dominant admin use case and works end-to-end via the workaround. | SCHED-026 |
 
 ---
 

@@ -457,6 +457,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 | SCHED-021 | P3       | Open                       | [L] | session-A             | Progress endpoint emits negative `entries_assigned` when unassigned>placed            |
 | SCHED-022 | P2       | Open (feature gap)         | [L] | session-C             | Cross-year-group / multi-year-group class entity not modelable                        |
 | SCHED-023 | P2       | Open (feature gap)         | [L] | session-C             | `class_scheduling_requirements` lacks per-(class, subject) overrides                  |
+| SCHED-027 | P2       | Open                       | [L] | session-C             | No public cancel endpoint for queued/running runs; enum lacks `cancelled`             |
 | SCHED-025 | P2       | Open                       | [L] | session-A             | Solver v2 non-deterministic despite `solver_seed=0` (STRESS-046/047)                  |
 | SCHED-026 | P2       | Open                       | [L] | session-A             | Quality report lacks teacher-gap / day-variance / preference breakdown                |
 
@@ -1027,6 +1028,45 @@ Without these, the plan's STRESS-048 success criterion cannot be evaluated. Admi
 4. Document target ranges in `docs/features/scheduling/quality-targets.md`.
 
 **Release gate:** P2 — solver output looks OK in the aggregate (`preference_satisfaction_pct: 99%`) but without fine-grained metrics nobody can tell whether one class has all its Maths on Monday or whether Teacher 1 has long idle gaps.
+
+---
+
+### SCHED-027 — No public cancel endpoint for queued/running scheduling runs (and `SchedulingRunStatus` lacks `cancelled`)
+
+**Severity:** P2
+**Status:** Open
+**Provenance:** [L]
+**Found by:** session-C during STRESS-045 execution on `stress-c.edupod.app`, 2026-04-15
+
+**Summary:** The scheduler-orchestration controller exposes only one terminating action — `POST /v1/scheduling/runs/:id/discard` — and the service guards it with `if (run.status !== 'completed') throw RUN_NOT_DISCARDABLE`. There is no public endpoint to cancel a `queued` run or interrupt a `running` solver. Additionally, the `SchedulingRunStatus` enum has no `cancelled` value (only `queued | running | completed | failed | applied | discarded`), so even an internal abort must masquerade as `failed`.
+
+This blocks the STRESS-045 ("Cancel mid-solve") admin workflow when interpreted strictly. Two scenarios:
+
+1. **Cancel queued (cheap, expected):** an admin clicks Cancel before the worker picks up the job. Today the only path is direct DB update (`UPDATE scheduling_runs SET status='failed', failure_reason='Cancelled by user'`); the worker then logs `Run X not found or not in queued status, skipping` (verified). No partial writes occur. But there is no API surface for this — UI cannot trigger it.
+2. **Cancel running (hard, missing):** an admin clicks Cancel during the synchronous CP-SAT phase. The solver is in-process and event-loop-blocking; there is no cooperative-cancel hook (`solveV2` does not check an abort signal between iterations). Killing the BullMQ job would only clear the queue entry, not stop the in-process solver.
+
+**Reproduction:**
+
+```bash
+RUN_ID=$(curl -X POST .../v1/scheduling/runs/trigger ... | jq -r .data.id)
+curl -X POST .../v1/scheduling/runs/$RUN_ID/discard -d '{"expected_updated_at":"..."}'
+# → HTTP 400 RUN_NOT_DISCARDABLE — "Only completed runs can be discarded. Current status: \"queued\""
+```
+
+**Fix direction:**
+
+1. Add `cancelled` to `SchedulingRunStatus` enum (Prisma migration). Update the V2 solver to write `cancelled` instead of overloading `failed`.
+2. Add `POST /v1/scheduling/runs/:id/cancel` endpoint:
+   - `queued` → update to `cancelled` AND remove the BullMQ job by id (so the worker doesn't even pop it). Return 200.
+   - `running` → set a per-run abort-signal (Redis key the worker polls). Update to `cancelling`. Worker drops the partial result and writes `cancelled` when it next observes the flag.
+   - `completed` / `applied` / `discarded` / `failed` → 400 `RUN_NOT_CANCELLABLE`.
+3. Solver loop cancel hook: in `packages/shared/src/scheduler/solver-v2.ts`, accept an `abortSignal` (or `shouldAbort()` callback) and check at each progress-callback boundary; throw `AbortError` on cancellation. The processor catches it and writes `status='cancelled'`.
+4. Admin permission: add `schedule.cancel_run` permission (today's `schedule.run_auto` is the trigger permission).
+5. Idempotency: repeated cancel calls on a `cancelled` run should be no-ops.
+
+**Workaround used in STRESS-045 (2026-04-15):** Direct DB write `UPDATE scheduling_runs SET status='failed', failure_reason='STRESS-045: Cancelled by user' WHERE id=...`. Worker checks `if (!run || run.status !== 'queued') return;` at `solver-v2.processor.ts:97` and skips cleanly. New triggers immediately succeed (no `RUN_ALREADY_ACTIVE` since the run is no longer queued/running). Schedule row count remained 212 — no partial writes.
+
+**Release gate:** P2 — admin UI lacks a Cancel action; only DB-level intervention works today. Critical when an admin queues a long solve and realizes a curriculum mistake.
 
 ---
 
