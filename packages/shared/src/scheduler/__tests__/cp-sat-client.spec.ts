@@ -170,4 +170,72 @@ describe('solveViaCpSat', () => {
     }).catch((e) => e);
     expect(err).toBeInstanceOf(CpSatSolveError);
   });
+
+  // Stage 9.5.1 post-close amendment — fire-and-forget DELETE on abort.
+  it('fires DELETE /solve/{requestId} when AbortError is raised, before rethrowing', async () => {
+    const calls: Array<{ url: string; method: string }> = [];
+    jest.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      const method = (init as RequestInit | undefined)?.method ?? 'GET';
+      calls.push({ url, method });
+      if (method === 'POST') {
+        // The POST /solve resolves only when the caller's AbortController fires.
+        return new Promise((_resolve, reject) => {
+          const signal = (init as RequestInit)?.signal as AbortSignal | undefined;
+          signal?.addEventListener('abort', () => {
+            reject(new DOMException('The operation was aborted.', 'AbortError'));
+          });
+        });
+      }
+      // The DELETE /solve/{id} resolves immediately; the sidecar returns 200 /
+      // `{cancelled: true}` but the client ignores the body.
+      return Promise.resolve(
+        new Response(JSON.stringify({ cancelled: true, request_id: 'run-xyz' }), {
+          status: 200,
+        }),
+      );
+    });
+
+    await expect(
+      solveViaCpSat(minimalInput(), {
+        baseUrl: BASE_URL,
+        timeoutMs: 20,
+        requestId: 'run-xyz',
+      }),
+    ).rejects.toMatchObject({
+      code: 'CP_SAT_UNREACHABLE',
+    });
+
+    // Let the fire-and-forget DELETE microtask settle before asserting.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const deleteCall = calls.find((c) => c.method === 'DELETE');
+    expect(deleteCall).toBeDefined();
+    expect(deleteCall?.url).toBe(`${BASE_URL}/solve/run-xyz`);
+  });
+
+  it('does NOT fire DELETE when AbortError fires without a requestId', async () => {
+    const calls: Array<{ url: string; method: string }> = [];
+    jest.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      const method = (init as RequestInit | undefined)?.method ?? 'GET';
+      calls.push({ url, method });
+      return new Promise((_resolve, reject) => {
+        const signal = (init as RequestInit)?.signal as AbortSignal | undefined;
+        signal?.addEventListener('abort', () => {
+          reject(new DOMException('The operation was aborted.', 'AbortError'));
+        });
+      });
+    });
+
+    await expect(
+      solveViaCpSat(minimalInput(), { baseUrl: BASE_URL, timeoutMs: 20 }),
+    ).rejects.toMatchObject({ code: 'CP_SAT_UNREACHABLE' });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // POST was the only call — DELETE was skipped because requestId was absent.
+    expect(calls.filter((c) => c.method === 'DELETE')).toHaveLength(0);
+    expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1);
+  });
 });

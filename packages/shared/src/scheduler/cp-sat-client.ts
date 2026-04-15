@@ -16,6 +16,15 @@
  * timeout was set higher. We pass an explicit undici Agent that scales
  * its timeouts with the caller's ``timeoutMs`` so the 3600 s ceiling is
  * actually reachable end-to-end.
+ *
+ * Stage 9.5.1 post-close amendment: when the AbortController fires
+ * (client-side timeout), fire a fire-and-forget
+ * ``DELETE {baseUrl}/solve/{requestId}`` so the sidecar's in-process
+ * registry flips the cancel flag and the solver halts cooperatively
+ * on its next CP-SAT solution callback. Without this hook the sidecar
+ * keeps computing the abandoned solve to completion, blocking the
+ * next request (the concrete NHQS smoke failure mode that filed this
+ * amendment).
  */
 import { Agent } from 'undici';
 
@@ -83,6 +92,18 @@ export async function solveViaCpSat(
       // Transport-level failures: AbortError (timeout) and TypeError (DNS /
       // connection refused / TLS) both surface as CP_SAT_UNREACHABLE so the
       // worker can retry-or-fail without trying to distinguish them.
+      //
+      // Before rethrowing, fire a fire-and-forget DELETE so the sidecar
+      // frees its in-process cancel slot — otherwise the abandoned solve
+      // keeps burning CPU + memory until it naturally finishes, blocking
+      // any subsequent request. Only meaningful when ``requestId`` is set
+      // (sidecar's registry is keyed on it); omit otherwise. Errors on
+      // the DELETE are swallowed: the sidecar may have crashed, the
+      // request may already be complete, or the id may never have been
+      // registered — any of which is already the outcome we want.
+      if (opts.requestId) {
+        void cancelSolve(opts.baseUrl, opts.requestId);
+      }
       const message = err instanceof Error ? err.message : 'Unknown CP-SAT transport error';
       throw new CpSatSolveError('CP_SAT_UNREACHABLE', message, 0);
     }
@@ -102,5 +123,37 @@ export async function solveViaCpSat(
     await dispatcher.close().catch(() => {
       /* dispatcher already closed — non-fatal */
     });
+  }
+}
+
+/**
+ * Fire a best-effort cancel at the sidecar's cooperative-cancel endpoint.
+ *
+ * Intentionally fire-and-forget: the caller has already given up on the
+ * solve (AbortController fired), so we don't block the error path
+ * waiting for the DELETE to complete. A 5 s ceiling is plenty — the
+ * sidecar's handler just sets a threading.Event and returns immediately.
+ *
+ * All outcomes are swallowed — 404 (unknown id / already-completed), 200
+ * (flag raised), transport errors (sidecar down) — because none of them
+ * change what the caller does next.
+ */
+async function cancelSolve(baseUrl: string, requestId: string): Promise<void> {
+  const cancelController = new AbortController();
+  const cancelTimer = setTimeout(() => cancelController.abort(), 5_000);
+  try {
+    await fetch(`${baseUrl}/solve/${encodeURIComponent(requestId)}`, {
+      method: 'DELETE',
+      signal: cancelController.signal,
+    });
+  } catch (err) {
+    // Best-effort path: the caller has already given up on the solve,
+    // so whether the sidecar is dead, mid-restart, or the request isn't
+    // registered anymore doesn't change what happens next. We surface
+    // the failure at warn level (not error) so operators can still grep
+    // post-mortem without the log being flagged as a real incident.
+    console.warn('[cp-sat-client.cancelSolve] best-effort DELETE failed', err);
+  } finally {
+    clearTimeout(cancelTimer);
   }
 }

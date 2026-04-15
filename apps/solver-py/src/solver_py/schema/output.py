@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from solver_py.schema.input import PreferenceType
 
 CpSatStatus = Literal["optimal", "feasible", "infeasible", "unknown"]
-EarlyStopReason = Literal["stagnation", "gap", "not_triggered"]
+EarlyStopReason = Literal["stagnation", "gap", "cancelled", "not_triggered"]
 
 
 class _Strict(BaseModel):

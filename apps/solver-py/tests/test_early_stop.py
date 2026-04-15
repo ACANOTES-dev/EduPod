@@ -23,6 +23,7 @@ test box. The defaults remain the production values (8 s stagnation,
 from __future__ import annotations
 
 import os
+import threading
 from collections.abc import Iterator
 
 import pytest
@@ -381,6 +382,56 @@ def test_callback_unit_gap_logic_via_subclass() -> None:
     assert probe._stop_called is True
     assert probe.triggered is True
     assert probe.reason == "gap"
+
+
+def test_callback_unit_cancel_flag_halts_before_other_triggers() -> None:
+    """Stage 9.5.1 post-close amendment — cancel_flag set on the callback
+    halts the search on the next solution regardless of objective state."""
+
+    class _Probe(EarlyStopCallback):
+        def __init__(self, flag: threading.Event) -> None:
+            super().__init__(
+                greedy_hint_score=999_999,
+                stagnation_seconds=999,
+                gap_threshold=0.0,  # would never fire
+                min_runtime_seconds=999,  # would never fire
+                cancel_flag=flag,
+            )
+            self._fake_wall = 0.0
+            self._fake_obj: float = 0.0
+            self._stop_called = False
+
+        @property
+        def wall_time(self) -> float:  # type: ignore[override]
+            return self._fake_wall
+
+        @property
+        def objective_value(self) -> float:  # type: ignore[override]
+            return self._fake_obj
+
+        def stop_search(self) -> None:  # type: ignore[override]
+            self._stop_called = True
+
+    flag = threading.Event()
+    probe = _Probe(flag)
+
+    # Flag not set → callback runs normal logic and doesn't halt (the
+    # other triggers are all configured to never fire).
+    probe._fake_wall = 0.5
+    probe._fake_obj = 100
+    probe.OnSolutionCallback()
+    assert probe._stop_called is False
+    assert probe.triggered is False
+    assert probe.reason == "not_triggered"
+
+    # Caller sets the flag → next callback halts with reason='cancelled'.
+    flag.set()
+    probe._fake_wall = 0.8
+    probe._fake_obj = 200
+    probe.OnSolutionCallback()
+    assert probe._stop_called is True
+    assert probe.triggered is True
+    assert probe.reason == "cancelled"
 
 
 if __name__ == "__main__":

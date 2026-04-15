@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -71,8 +72,19 @@ class _SolveResult:
     output: SolverOutputV2
 
 
-def solve(input_payload: SolverInputV2) -> SolverOutputV2:
-    """Solve a ``SolverInputV2`` and return a ``SolverOutputV2``."""
+def solve(
+    input_payload: SolverInputV2,
+    cancel_flag: threading.Event | None = None,
+) -> SolverOutputV2:
+    """Solve a ``SolverInputV2`` and return a ``SolverOutputV2``.
+
+    ``cancel_flag`` is plumbed through the Stage 9.5.1 post-close amendment:
+    when the sidecar receives ``DELETE /solve/{request_id}`` it sets the
+    event, and ``EarlyStopCallback`` cooperatively halts the CP-SAT search
+    on its next solution callback. A cancelled solve still returns a valid
+    ``SolverOutputV2`` — greedy fallback plus whatever CP-SAT found before
+    the halt — with ``early_stop_reason='cancelled'``.
+    """
     start = time.perf_counter()
 
     slots = enumerate_slots(input_payload)
@@ -135,12 +147,26 @@ def solve(input_payload: SolverInputV2) -> SolverOutputV2:
         min_runtime_seconds=float(
             os.environ.get("CP_SAT_EARLY_STOP_MIN_RUNTIME_SECONDS", "2")
         ),
+        cancel_flag=cancel_flag,
     )
 
     status = solver.solve(built.model, callback)
     duration_ms = int(round((time.perf_counter() - start) * 1000))
     early_stop_triggered: bool = callback.triggered
     early_stop_reason: EarlyStopReason = callback.reason
+    # Budget-bound fallback: if cancel arrived during the solve but the
+    # callback never fired (CP-SAT never found a feasible, so no solution
+    # callbacks), still stamp the output with ``reason='cancelled'`` so the
+    # caller can see the sidecar acknowledged the cancel even though it
+    # couldn't halt CP-SAT mid-budget. The greedy output below is still
+    # a valid schedule — the cancel is metadata, not a failure.
+    if (
+        not early_stop_triggered
+        and cancel_flag is not None
+        and cancel_flag.is_set()
+    ):
+        early_stop_triggered = True
+        early_stop_reason = "cancelled"
     # ``time_saved_ms`` is the budget remaining when we halted. 0 when the
     # callback didn't fire OR when the solver ran past budget (negative
     # clamped to 0).
