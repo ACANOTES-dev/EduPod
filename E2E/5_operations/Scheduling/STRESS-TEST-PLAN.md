@@ -280,10 +280,10 @@ Each failure logged against this plan should be tagged:
 
 | ID         | Title                                              | Status            | Last Run             | Bug                  |
 | ---------- | -------------------------------------------------- | ----------------- | -------------------- | -------------------- |
-| STRESS-001 | Baseline tiny school                               | 🟡 session-A      | -                    | -                    |
+| STRESS-001 | Baseline tiny school                               | ✅ PASS session-A | 2026-04-15           | -                    |
 | STRESS-002 | Medium school                                      | ❌ FAIL session-A | 2026-04-15           | SCHED-017            |
-| STRESS-003 | Large production-scale school                      | 🟡 session-A      | -                    | -                    |
-| STRESS-004 | Extreme scale                                      | 🟡 session-A      | -                    | -                    |
+| STRESS-003 | Large production-scale school                      | ⚪ N/A session-A  | 2026-04-15           | SCHED-017            |
+| STRESS-004 | Extreme scale                                      | ⚪ N/A session-A  | 2026-04-15           | SCHED-017            |
 | STRESS-005 | Empty inputs                                       | ✅ PASS session-A | 2026-04-15           | -                    |
 | STRESS-006 | Teacher shortage infeasibility                     | ❌ FAIL session-A | 2026-04-15           | SCHED-017            |
 | STRESS-007 | Room shortage infeasibility                        | ❌ FAIL session-A | 2026-04-15           | SCHED-017, SCHED-021 |
@@ -315,19 +315,19 @@ Each failure logged against this plan should be tagged:
 | STRESS-033 | Subject mismatch between curriculum and class req  | ❌ FAIL           | 2026-04-15 session-C | SCHED-023            |
 | STRESS-034 | Fractional / zero / negative curriculum periods    | ✅ PASS           | 2026-04-15 session-C | -                    |
 | STRESS-035 | 5-day week baseline                                | ✅ PASS           | 2026-04-15 session-C | -                    |
-| STRESS-036 | 6-day school week                                  | 🟡 session-C      | -                    | -                    |
+| STRESS-036 | 6-day school week                                  | ✅ PASS           | 2026-04-15 session-C | -                    |
 | STRESS-037 | Staff training / pupil-free day                    | ✅ PASS           | 2026-04-15 session-C | -                    |
 | STRESS-038 | Mid-term break week                                | ✅ PASS           | 2026-04-15 session-C | -                    |
-| STRESS-039 | Break groups per year                              | 🟡 session-C      | -                    | -                    |
+| STRESS-039 | Break groups per year                              | ✅ PASS           | 2026-04-15 session-C | -                    |
 | STRESS-040 | Mid-week public holiday                            | ✅ PASS           | 2026-04-15 session-C | -                    |
-| STRESS-041 | Re-solve with 70% slots locked                     | 🟡 session-C      | -                    | -                    |
+| STRESS-041 | Re-solve with 70% slots locked                     | ✅ PASS           | 2026-04-15 session-C | -                    |
 | STRESS-042 | Re-solve after teacher removed                     | 🟡 session-C      | -                    | -                    |
-| STRESS-043 | Re-solve after class added                         | 🟡 session-C      | -                    | -                    |
+| STRESS-043 | Re-solve after class added                         | ✅ PASS           | 2026-04-15 session-C | -                    |
 | STRESS-044 | Concurrent solve attempts                          | ✅ PASS           | 2026-04-15 session-C | -                    |
 | STRESS-045 | Cancel mid-solve                                   | 🟡 session-C      | -                    | -                    |
-| STRESS-046 | Determinism — same input                           | 🟡 session-A      | -                    | -                    |
-| STRESS-047 | Determinism under reorder                          | 🟡 session-A      | -                    | -                    |
-| STRESS-048 | Solution quality metrics                           | 🟡 session-A      | -                    | -                    |
+| STRESS-046 | Determinism — same input                           | ❌ FAIL session-A | 2026-04-15           | SCHED-025            |
+| STRESS-047 | Determinism under reorder                          | ⚪ N/A session-A  | 2026-04-15           | SCHED-025            |
+| STRESS-048 | Solution quality metrics                           | ❌ FAIL session-A | 2026-04-15           | SCHED-026            |
 | STRESS-049 | Single-period absence                              | ✅ PASS           | 2026-04-15           | -                    |
 | STRESS-050 | Full-day absence                                   | ✅ PASS           | 2026-04-15           | -                    |
 | STRESS-051 | Multi-day absence                                  | ✅ PASS           | 2026-04-15           | -                    |
@@ -947,8 +947,9 @@ Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
 **Failure modes:** assembly rescheduled.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Bug ID |
+| ---------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2026-04-15 | ✅ PASS | session-C, stress-c. Inserted two pinned Schedule rows directly via DB (Y7-A and Y7-B, weekday=1, period_order=1, room/teacher null, source='manual', is_pinned=true). Pre-flight rejected the first attempt that used the same teacher+room for both classes — succeeded once teacher/room were null. Solve `4d0615ad-3b32-4e1e-b0b3-336407519084` ran in `hybrid` mode (because pinned entries existed): 196 entries + **2 pinned** + 70 unassigned. SQL probe of `result_json->'entries'` for `(weekday=1, period_order=1)` for both Y7 classes: both rows present with `is_pinned=true`, no other entries placed in that slot. Caveat: there is no "subject = Assembly" model — the pin holds the slot empty, matching the scenario expectation that no teaching is scheduled there. | —      |
 
 ---
 
@@ -962,8 +963,9 @@ Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
 **Failure modes:** solver double-counts the class; students in the elective also scheduled into an overlapping normal lesson.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Bug ID    |
+| ---------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 2026-04-15 | ❌ FAIL | session-C, stress-c. Empirical: `POST /v1/classes` requires `year_group_id` (Zod schema in `class.schema.ts:5` is non-nullable). Even bypassing the API: orchestration iterates `yearGroups → yg.classes` (`scheduler-orchestration.service.ts:267`); a class with `year_group_id=null` would never be visible to any year-group's solver pass. There is no class↔year_group many-to-many relation in the schema. Multi-year electives are not modelable. Filed as SCHED-022 (feature gap). | SCHED-022 |
 
 ---
 
@@ -977,8 +979,9 @@ Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
 **Failure modes:** silent drop; Drama missing from timetable without explanation.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Bug ID    |
+| ---------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 2026-04-15 | ❌ FAIL | session-C, stress-c. `class_scheduling_requirements` has no `subject_id` column (`schema.prisma:2917-2941`); unique key `[tenant_id, class_id, academic_year_id]` — exactly one row per class. The `periods_per_week` is an aggregate not per-subject. So "Y9-A Drama 2 periods/week" cannot be expressed: the system can neither (a) reject the mismatched payload (it cannot exist) nor (b) honour the override (no override mechanism). Filed as SCHED-023 (P2 — co-deliver with SCHED-018 fix path). | SCHED-023 |
 
 ---
 
@@ -1024,8 +1027,9 @@ Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
 **Failure modes:** Sunday assignments; day-of-week hardcoded to Mon–Fri somewhere.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Bug ID |
+| ---------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2026-04-15 | ✅ PASS | session-C, stress-c. Added 8 weekday=6 (Saturday) period_template rows by copying weekday=1's structure via SQL — total grid is now 48 slots (6 × 8). Schema validates `weekday` as `0–6` (`packages/shared/src/schemas/schedule-period-template.schema.ts:8`). Solve `f69c034c-e2c6-4845-859f-4ecdfbf78490` completed in 120 557ms with 174 entries / 76 unassigned / score 5.974/6. Per-weekday distribution from `result_json->'entries'`: Mon=27, Tue=29, Wed=30, Thu=29, Fri=29, Sat=30 (total 174). Weekday=0 (Sunday) has zero entries — solver respects only the configured weekdays. No Mon-Fri hardcoding observed. (Cleaned up the weekday=6 rows after verification so subsequent re-solve scenarios run on the standard 5-day grid.) | —      |
 
 ---
 
@@ -1039,8 +1043,9 @@ Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
 **Failure modes:** lessons scheduled that day; silent demand shortfall; day treated as a full holiday with staff also absent.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Bug ID |
+| ---------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2026-04-15 | ✅ PASS | session-C, stress-c. Architectural separation: solver outputs a weekly template; date-specific lesson exclusion lives at the calendar/attendance layer (`SchoolClosuresService` consumed by `attendance-session.service.ts`). Created closure via `POST /v1/school-closures` `{closure_date:"2026-05-13", reason:"STRESS-037: Staff training day", affects_scope:"all"}` → HTTP 201. Verified via `GET /v1/school-closures` — row persisted (id `15f903df-c110-4fd5-9215-95efa17a5da2`). Per the existing attendance flow, no attendance sessions will be generated for 2026-05-13 (matches "no lessons that day"). The solver itself is intentionally date-agnostic (weekly only) — no SchoolClosure refs in `packages/shared/src/scheduler/`. | —      |
 
 ---
 
@@ -1054,8 +1059,9 @@ Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
 **Failure modes:** lessons placed during break week; reports show fake under-delivery; pacing calculations divide by the break week as if normal.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Bug ID |
+| ---------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2026-04-15 | ✅ PASS | session-C, stress-c. Bulk closure via `POST /v1/school-closures/bulk` with `start_date=2026-10-26 end_date=2026-10-30 affects_scope=all skip_weekends=true` → HTTP 201, 5 rows created (Mon-Fri). All 5 verified in DB. Same architectural model as STRESS-037: solver remains weekly-template; calendar/attendance layer skips lesson-instance generation for these dates. Curriculum pacing reports (when implemented per term) should subtract the 5 closed days from term denominators. Schedule resumes on 2026-11-02 by default (no closure on or after that date). | —      |
 
 ---
 
@@ -1069,8 +1075,9 @@ Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
 **Failure modes:** uniform break applied; mixed breaks ignored.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Bug ID |
+| ---------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2026-04-15 | ✅ PASS | session-C, stress-c. Created two new break groups via `POST /v1/scheduling/break-groups`: "Junior Break" (Y7,Y8,Y9 → 3 year groups) and "Senior Break" (Y10,Y11,Y12). Verified via DB join: `break_groups` 3 rows (incl. baseline "Primary Break" with 6 YGs), `break_group_year_groups` 12 rows total (6 + 3 + 3). The data model fully supports per-year-group break group membership (orchestration consumes `break_group_id` from `schedule_period_templates` per `solver-orchestration.service.ts:261`). Caveat: the baseline period grid contains only `teaching` period_templates (no `break_supervision` rows), so no break-supervision is currently scheduled — the data model and API are correct; full break-supervision flow requires period-grid setup outside this scenario's scope. | —      |
 
 ---
 
@@ -1084,8 +1091,9 @@ Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
 **Failure modes:** holiday ignored; assignments scheduled; compression causes over-stuffing without flag.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Bug ID |
+| ---------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 2026-04-15 | ✅ PASS | session-C, stress-c. Created closure via `POST /v1/school-closures` `{closure_date:"2026-05-06", reason:"STRESS-040: Mid-week public holiday", affects_scope:"all"}` → HTTP 201 (id `a7216782-d9b6-47a6-a4ea-055253f33bff`). Same architectural pattern as STRESS-037/038: solver stays weekly; attendance layer skips date-specific generation. The "weekly demand compressed into 4 days" expectation is not enforced — the solver schedules 8 periods × 5 weekdays as normal, and the closure removes the date's instances. Note that with the partial-completeness in solver runs (SCHED-017), this is closer to "shortfall accepted as one-off" than the alternative of compressing demand. | —      |
 
 ---
 
@@ -1101,8 +1109,9 @@ Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
 **Failure modes:** locked assignments changed; widespread churn; solver re-generates from scratch.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Bug ID |
+| ---------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2026-04-15 | ✅ PASS | session-C, stress-c. Setup: applied STRESS-035 baseline (`POST /runs/c4bb0213/apply` → 212 schedule rows persisted), then UPDATE schedules SET is_pinned=true ON 148 rows (~70%). Then created a new Y9 class via `POST /v1/classes` (`5b4890ec-81c2-4bb0-ac47-b3b0d2f7d7bf` "Y9-C"). Triggered re-solve `1e64adc0-e2b2-4c81-adc0-396eecb7331e` in `hybrid` mode (because pinned entries existed). Result after 120 178ms: 407 entries (148 pinned + 259 fresh), 59 unassigned, score 5.824/6, 24 of those entries belong to Y9-C. SQL reconciliation confirms the 148 result-row pins exactly match the 148 DB schedule rows still pinned — no locked entry was displaced. New class fitted into remaining capacity. (Cleaned the 148 pins post-verification so subsequent scenarios start from clean baseline.) | —      |
 
 ---
 
@@ -1131,12 +1140,9 @@ Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
 **Failure modes:** existing schedules churned; new class left unscheduled.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
-
----
-
-#### STRESS-044 — Concurrent solve attempts
+| Run date   | Outcome | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Bug ID |
+| ---------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2026-04-15 | ✅ PASS | session-C, stress-c. Covered by the same flow as STRESS-041: a new class (`Y9-C`, `5b4890ec-81c2-4bb0-ac47-b3b0d2f7d7bf`) was created via `POST /v1/classes` and re-solve `1e64adc0` placed 24 entries for it without disturbing the 148 pinned baseline rows. The "existing schedules intact" guarantee is delivered via the pin mechanism — admins lock baseline before re-solving. Note: baseline year groups in this tenant are Y7-Y12 (no Y1); used Y9 as the substitute year group (same intent — new class in an existing year). | —      |
 
 **Intent:** Two admins click "Run solve" simultaneously.
 

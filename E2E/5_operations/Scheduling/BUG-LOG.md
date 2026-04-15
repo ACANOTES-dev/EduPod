@@ -447,14 +447,18 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 
 ### Stress-test bug summary (SCHED-013+)
 
-| ID        | Severity | Status                     | Tag | Found by              | Summary                                                                    |
-| --------- | -------- | -------------------------- | --- | --------------------- | -------------------------------------------------------------------------- |
-| SCHED-013 | P1       | Fixed (deployed)           | [L] | session-A + session-C | Worker crash loop — audit-log RLS context (A) + memory-restart raise (C)   |
-| SCHED-015 | P2       | Open                       | [L] | session-D             | Absence schema accepts inverted period range / out-of-grid periods         |
-| SCHED-016 | P1       | Open (stress-c workaround) | [L] | session-C             | Stress-tenant admin role missing 9/17 `schedule.*` perms (seed gap)        |
-| SCHED-018 | P1       | Open                       | [L] | session-C             | `class_scheduling_requirements.preferred_room_id` never threaded to solver |
-| SCHED-022 | P2       | Open (feature gap)         | [L] | session-C             | Cross-year-group / multi-year-group class entity not modelable             |
-| SCHED-023 | P2       | Open (feature gap)         | [L] | session-C             | `class_scheduling_requirements` lacks per-(class, subject) overrides       |
+| ID        | Severity | Status                     | Tag | Found by              | Summary                                                                               |
+| --------- | -------- | -------------------------- | --- | --------------------- | ------------------------------------------------------------------------------------- |
+| SCHED-013 | P1       | Fixed (deployed)           | [L] | session-A + session-C | Worker crash loop — audit-log RLS context (A) + memory-restart raise (C)              |
+| SCHED-015 | P2       | Open                       | [L] | session-D             | Absence schema accepts inverted period range / out-of-grid periods                    |
+| SCHED-016 | P1       | Open (stress-c workaround) | [L] | session-C             | Stress-tenant admin role missing 9/17 `schedule.*` perms (seed gap)                   |
+| SCHED-017 | P1       | Open                       | [L] | session-A             | Solver returns `status=completed` with 17% curriculum unassigned (STRESS-002/006/007) |
+| SCHED-018 | P1       | Open                       | [L] | session-C             | `class_scheduling_requirements.preferred_room_id` never threaded to solver            |
+| SCHED-021 | P3       | Open                       | [L] | session-A             | Progress endpoint emits negative `entries_assigned` when unassigned>placed            |
+| SCHED-022 | P2       | Open (feature gap)         | [L] | session-C             | Cross-year-group / multi-year-group class entity not modelable                        |
+| SCHED-023 | P2       | Open (feature gap)         | [L] | session-C             | `class_scheduling_requirements` lacks per-(class, subject) overrides                  |
+| SCHED-025 | P2       | Open                       | [L] | session-A             | Solver v2 non-deterministic despite `solver_seed=0` (STRESS-046/047)                  |
+| SCHED-026 | P2       | Open                       | [L] | session-A             | Quality report lacks teacher-gap / day-variance / preference breakdown                |
 
 ---
 
@@ -963,6 +967,66 @@ Examples of singleton placements (class_id prefix, weekday, period_order):
 3. Re-run STRESS-017 (look for P5-P6). Expect zero P5-P6 doubles (P5 ends 13:05, lunch 13:05-13:35, P6 starts 13:35).
 
 **Release gate:** P1 — solver outputs that silently violate a hard constraint are worse than infeasibility. Admins applying such a schedule will publish a timetable where Science labs end after 45 minutes when they were configured to need 90 minutes, breaking lesson planning for every teacher who requires the double slot.
+
+---
+
+### SCHED-025 — Solver v2 is non-deterministic despite `solver_seed=0`
+
+**Severity:** P2
+**Status:** Open
+**Provenance:** [L]
+**Found by:** session-A during STRESS-046 execution on `stress-a.edupod.app`, 2026-04-15
+
+**Summary:** Three runs against the same baseline (20 teachers, 10 classes, 66 curriculum rows, no pinned entries, no data mutations between runs) produced three different outputs:
+
+| Run                       | entries_generated | entries_unassigned | soft_preference_score | solver_duration_ms |
+| ------------------------- | ----------------- | ------------------ | --------------------- | ------------------ |
+| `2cfcb81f` (STRESS-002)   | 227               | 56                 | 5.96                  | 120334             |
+| `5c145e71` (STRESS-046-A) | 235               | 51                 | 5.94                  | 120303             |
+| `9a239966` (STRESS-046-B) | 233               | 53                 | 5.96                  | 120322             |
+
+All three runs record `solver_seed: 0`. Baseline state is unchanged between runs (verified via prereqs returning `ready:true` with identical check messages). Plausible sources of non-determinism: `Date.now()` in constraint construction, unsorted `Map`/`Set` iteration, wall-clock timeout termination at slightly different CP-SAT checkpoints each run.
+
+STRESS-046 expects byte-identical outputs across identical inputs; STRESS-047 relies on the same property. Both fail because `entries_generated`/`entries_unassigned` differ by 2–8 entries per run.
+
+**Reproduction:** 3× `POST /api/v1/scheduling-runs` with the same `academic_year_id` on stress-a, no writes between runs. Compare `.data | {entries_generated, entries_unassigned, soft_preference_score, solver_seed}` across runs.
+
+**Fix direction:**
+
+1. Audit `packages/shared/src/scheduler/solver-v2.ts` for `Date.now()`, `Math.random()`, un-sorted `Map`/`Set` iteration. Replace wall-clock sources with a deterministic RNG seeded from `solver_seed`.
+2. The CP-SAT solver itself should be deterministic when given the same variable/constraint construction order and the same seed — confirm the OR-tools / solver binding honours the seed.
+3. Freeze the time budget by total-iterations rather than wall-clock so the termination point is input-dependent, not runtime-dependent.
+4. Add a solver unit test: same input → byte-identical `result_json.entries` across 3 successive runs.
+
+**Release gate:** P2 — breaks reproducibility, audit trail, A/B comparisons, and the STRESS-046/047 scenarios.
+
+---
+
+### SCHED-026 — Quality report lacks teacher-gap index, day-distribution variance, preference-honoured breakdown (STRESS-048)
+
+**Severity:** P2
+**Status:** Open
+**Provenance:** [L]
+**Found by:** session-A during STRESS-048 execution on `stress-a.edupod.app`, 2026-04-15
+
+**Summary:** The `constraint_report` on a completed scheduling run surfaces only `hard_violations`, `preference_satisfaction_pct`, `unassigned_count`, and `workload_summary[] (teacher, periods)`. Missing fields that STRESS-048 expects:
+
+- **Teacher-gap index** (average idle periods between back-to-back lessons, lower = better).
+- **Day-distribution variance** (spread of curriculum per weekday per class, lower = more even).
+- **Preference-honoured breakdown by teacher and by subject** (currently only the aggregate percent is reported).
+
+Without these, the plan's STRESS-048 success criterion cannot be evaluated. Admins also cannot compare schedule quality across runs without re-computing metrics from `result_json.entries`.
+
+**Reproduction:** Fetch any completed run; `.data.constraint_report` contains only the four fields above.
+
+**Fix direction:** Extend the solver's post-processing step to compute and persist:
+
+1. `teacher_gap_index`: per teacher, average `(pwatch - lesson_count)` over active days (`pwatch = last_lesson_period - first_lesson_period + 1`); report min/avg/max across teachers.
+2. `day_distribution_variance`: per class, stddev of `lessons_per_day` across the week; report mean across classes.
+3. `preference_breakdown`: honoured vs violated counts per preference type (subject, time slot, room).
+4. Document target ranges in `docs/features/scheduling/quality-targets.md`.
+
+**Release gate:** P2 — solver output looks OK in the aggregate (`preference_satisfaction_pct: 99%`) but without fine-grained metrics nobody can tell whether one class has all its Maths on Monday or whether Teacher 1 has long idle gaps.
 
 ---
 

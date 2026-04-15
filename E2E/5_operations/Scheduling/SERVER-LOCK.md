@@ -36,3 +36,7 @@ This file is the exclusive lock for any server-modifying action taken during the
 2026-04-15 00:52:15 UTC — session-A — released — rooms restored
 2026-04-15 00:46:06 UTC — session-D — acquired — deploying SCHED-015 absence period_to validation fix
 2026-04-15 00:49:18 UTC — session-D — released — SCHED-015 deployed + verified on stress-d (HTTP 400 on inverted range, HTTP 201 on valid)
+2026-04-15 00:58:00 UTC — session-A — acquired — psql archive extra teachers + classes for STRESS-001 tiny setup
+2026-04-15 00:58:30 UTC — session-A — released — stress-a reduced to 3 classes + 5 teachers
+2026-04-15 01:02:00 UTC — session-A — acquired — psql restore classes + teachers to active
+2026-04-15 01:02:30 UTC — session-A — released — stress-a restored to full baseline (20t, 10c)
