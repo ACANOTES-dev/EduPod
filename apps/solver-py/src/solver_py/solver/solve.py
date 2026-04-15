@@ -27,6 +27,7 @@ from ortools.sat.python import cp_model
 
 from solver_py.schema import (
     ConstraintSummary,
+    CpSatStatus,
     PinnedEntryV2,
     PreferenceSatisfaction,
     SolverAssignmentV2,
@@ -72,9 +73,7 @@ def solve(input_payload: SolverInputV2) -> SolverOutputV2:
 
     slots = enumerate_slots(input_payload)
     lessons = build_lessons(input_payload)
-    legal, legal_by_lesson, diagnostics = build_legal_assignments(
-        input_payload, lessons, slots
-    )
+    legal, legal_by_lesson, diagnostics = build_legal_assignments(input_payload, lessons, slots)
     built = build_model(input_payload, lessons, slots, legal, legal_by_lesson)
     soft = build_soft_constraints(
         built.model,
@@ -148,6 +147,7 @@ def solve(input_payload: SolverInputV2) -> SolverOutputV2:
         diagnostics,
         duration_ms,
         soft,
+        cp_sat_status="unknown",
     )
 
     if status == cp_model.UNKNOWN:
@@ -157,6 +157,7 @@ def solve(input_payload: SolverInputV2) -> SolverOutputV2:
         # this guarantees a valid output even when CP-SAT punts.
         return greedy_output
 
+    cpsat_status: CpSatStatus = "optimal" if status == cp_model.OPTIMAL else "feasible"
     cpsat_output = _build_solution_output(
         input_payload,
         lessons,
@@ -169,15 +170,21 @@ def solve(input_payload: SolverInputV2) -> SolverOutputV2:
         diagnostics,
         duration_ms,
         soft,
+        cp_sat_status=cpsat_status,
     )
 
     # CP-SAT can occasionally land on a solution with fewer placed lessons
     # than the greedy seed (the soft objective trades a placement for a
     # local soft win). Always return the lex-better of the two:
-    # (placed_count desc, score desc).
+    # (placed_count desc, score desc). When we fall back to greedy, the
+    # status reported is still what CP-SAT itself returned — callers can
+    # see the solver finished but the greedy placement was preferred.
     cpsat_key = (len(cpsat_output.entries), cpsat_output.score)
     greedy_key = (len(greedy_output.entries), greedy_output.score)
-    return cpsat_output if cpsat_key >= greedy_key else greedy_output
+    if cpsat_key >= greedy_key:
+        return cpsat_output
+    greedy_output.cp_sat_status = cpsat_status
+    return greedy_output
 
 
 def _pinned_to_assignments(
@@ -252,6 +259,7 @@ def _build_infeasible_output(
             tier1_violations=0, tier2_violations=0, tier3_violations=0
         ),
         quality_metrics=build_quality_metrics(input_payload, pinned_assignments, []),
+        cp_sat_status="infeasible",
     )
 
 
@@ -267,6 +275,7 @@ def _build_solution_output(
     diagnostics: dict[int, str],
     duration_ms: int,
     soft: SoftBuildOutput,
+    cp_sat_status: CpSatStatus,
 ) -> SolverOutputV2:
     from solver_py.solver.model import BuiltModel
 
@@ -349,9 +358,7 @@ def _build_solution_output(
                 "(no compatible (slot, teacher, room) survives the aggregate constraints)",
             )
         else:
-            reason = diagnostics.get(
-                lesson_idx, "No legal (slot, teacher, room) tuple available"
-            )
+            reason = diagnostics.get(lesson_idx, "No legal (slot, teacher, room) tuple available")
         unassigned.append(
             UnassignedSlotV2(
                 year_group_id=lesson.year_group_id,
@@ -374,6 +381,7 @@ def _build_solution_output(
             tier1_violations=0, tier2_violations=0, tier3_violations=0
         ),
         quality_metrics=build_quality_metrics(input_payload, entries, per_entry_satisfaction),
+        cp_sat_status=cp_sat_status,
     )
 
 
@@ -387,6 +395,7 @@ def _build_greedy_output(
     diagnostics: dict[int, str],
     duration_ms: int,
     soft: SoftBuildOutput,
+    cp_sat_status: CpSatStatus,
 ) -> SolverOutputV2:
     """Translate the greedy hint into a full ``SolverOutputV2``.
 
@@ -460,6 +469,7 @@ def _build_greedy_output(
             tier1_violations=0, tier2_violations=0, tier3_violations=0
         ),
         quality_metrics=build_quality_metrics(input_payload, entries, []),
+        cp_sat_status=cp_sat_status,
     )
 
 
@@ -560,9 +570,7 @@ def _assign_rooms(
                 continue
             chosen = rid
             break
-        if chosen is not None and not any(
-            chosen in pool for pool in nonexclusive_by_type.values()
-        ):
+        if chosen is not None and not any(chosen in pool for pool in nonexclusive_by_type.values()):
             used.add((chosen, tg))
         assignments[la_idx] = chosen
         if (
@@ -668,7 +676,8 @@ def _score_even_spread(input_payload: SolverInputV2, entries: list[SolverAssignm
             continue
         for section in yg.sections:
             section_entries = [
-                e for e in entries
+                e
+                for e in entries
                 if e.class_id == section.class_id and e.subject_id == curriculum.subject_id
             ]
             if not section_entries:
@@ -732,7 +741,8 @@ def _score_room_consistency(
             continue
         for section in yg.sections:
             section_entries = [
-                e for e in entries
+                e
+                for e in entries
                 if e.class_id == section.class_id and e.subject_id == curriculum.subject_id
             ]
             if not section_entries:
@@ -749,10 +759,7 @@ def _score_workload_balance(
     if len(input_payload.teachers) <= 1:
         return 1.0
     counts = [
-        sum(
-            1 for e in entries
-            if e.teacher_staff_id == t.staff_profile_id and not e.is_supervision
-        )
+        sum(1 for e in entries if e.teacher_staff_id == t.staff_profile_id and not e.is_supervision)
         for t in input_payload.teachers
     ]
     mean = sum(counts) / len(counts)

@@ -1,11 +1,25 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
 import { Job } from 'bullmq';
 
-jest.mock('../../../../../packages/shared/src/scheduler', () => ({
-  solveV2: jest.fn(),
-}));
+jest.mock('../../../../../packages/shared/src/scheduler', () => {
+  class CpSatSolveError extends Error {
+    constructor(
+      public readonly code: string,
+      message: string,
+      public readonly status: number,
+      public readonly details?: unknown,
+    ) {
+      super(message);
+      this.name = 'CpSatSolveError';
+    }
+  }
+  return {
+    solveViaCpSat: jest.fn(),
+    CpSatSolveError,
+  };
+});
 
-import { solveV2 } from '../../../../../packages/shared/src/scheduler';
+import { CpSatSolveError, solveViaCpSat } from '../../../../../packages/shared/src/scheduler';
 
 import {
   SCHEDULING_SOLVE_V2_JOB,
@@ -79,10 +93,10 @@ function buildJob(
 }
 
 describe('SchedulingSolverV2Processor', () => {
-  const mockSolveV2 = jest.mocked(solveV2);
+  const mockSolveViaCpSat = jest.mocked(solveViaCpSat);
 
   beforeEach(() => {
-    mockSolveV2.mockReturnValue({
+    mockSolveViaCpSat.mockResolvedValue({
       constraint_summary: { tier1_violations: 2 },
       duration_ms: 1234,
       entries: [
@@ -92,6 +106,7 @@ describe('SchedulingSolverV2Processor', () => {
       max_score: 100,
       score: 87,
       unassigned: [{ id: 'unassigned-1' }],
+      cp_sat_status: 'feasible',
     } as never);
   });
 
@@ -136,7 +151,7 @@ describe('SchedulingSolverV2Processor', () => {
     await processor.process(buildJob());
 
     expect(mockTx.schedulingRun.update).not.toHaveBeenCalled();
-    expect(mockSolveV2).not.toHaveBeenCalled();
+    expect(mockSolveViaCpSat).not.toHaveBeenCalled();
   });
 
   it('should skip runs already in a terminal status (e.g. cancelled/completed)', async () => {
@@ -161,7 +176,7 @@ describe('SchedulingSolverV2Processor', () => {
     await processor.process(buildJob());
 
     expect(mockTx.schedulingRun.update).not.toHaveBeenCalled();
-    expect(mockSolveV2).not.toHaveBeenCalled();
+    expect(mockSolveViaCpSat).not.toHaveBeenCalled();
   });
 
   // SCHED-029 (STRESS-081): if BullMQ stall-retry fires after a prior worker
@@ -195,7 +210,7 @@ describe('SchedulingSolverV2Processor', () => {
         failure_reason: expect.stringContaining('Worker crashed mid-solve'),
       },
     });
-    expect(mockSolveV2).not.toHaveBeenCalled();
+    expect(mockSolveViaCpSat).not.toHaveBeenCalled();
   });
 
   it('should run the solver, apply the stored seed, and persist the completed run result', async () => {
@@ -212,14 +227,16 @@ describe('SchedulingSolverV2Processor', () => {
       where: { id: RUN_ID },
       data: { status: 'running' },
     });
-    expect(mockSolveV2).toHaveBeenCalledWith(
+    expect(mockSolveViaCpSat).toHaveBeenCalledWith(
       expect.objectContaining({
         settings: expect.objectContaining({
           solver_seed: 123,
         }),
       }),
       expect.objectContaining({
-        onProgress: expect.any(Function),
+        baseUrl: expect.stringMatching(/^http/),
+        timeoutMs: expect.any(Number),
+        requestId: RUN_ID,
       }),
     );
     expect(mockTx.schedulingRun.updateMany).toHaveBeenCalledWith({
@@ -235,6 +252,15 @@ describe('SchedulingSolverV2Processor', () => {
             { id: 'entry-2', is_pinned: true },
           ],
           unassigned: [{ id: 'unassigned-1' }],
+          // Stage 6 observability meta — persisted alongside entries so Stage 7's
+          // observation window and Stage 12's diagnostics can read the signal
+          // without a cross-table join.
+          meta: {
+            cp_sat_status: 'feasible',
+            sidecar_duration_ms: 1234,
+            placed_count: 2,
+            unassigned_count: 1,
+          },
         }),
         soft_preference_max: 100,
         soft_preference_score: 87,
@@ -250,13 +276,14 @@ describe('SchedulingSolverV2Processor', () => {
   });
 
   it('should mark the run as completed when every slot is placed (zero unassigned)', async () => {
-    mockSolveV2.mockReturnValueOnce({
+    mockSolveViaCpSat.mockResolvedValueOnce({
       constraint_summary: { tier1_violations: 0 },
       duration_ms: 500,
       entries: [{ id: 'entry-1', is_pinned: false }],
       max_score: 100,
       score: 100,
       unassigned: [],
+      cp_sat_status: 'optimal',
     } as never);
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
@@ -297,13 +324,14 @@ describe('SchedulingSolverV2Processor', () => {
     );
 
     // Return empty unassigned so the finalStatus would have been 'completed'
-    mockSolveV2.mockReturnValue({
+    mockSolveViaCpSat.mockResolvedValue({
       constraint_summary: { tier1_violations: 0 },
       duration_ms: 1200,
       entries: [{ id: 'entry-1', is_pinned: false }],
       max_score: 100,
       score: 87,
       unassigned: [],
+      cp_sat_status: 'optimal',
     } as never);
 
     await processor.process(buildJob());
@@ -323,9 +351,7 @@ describe('SchedulingSolverV2Processor', () => {
       mockPrisma as never,
       { process: jest.fn() } as never,
     );
-    mockSolveV2.mockImplementation(() => {
-      throw new Error('solver exploded');
-    });
+    mockSolveViaCpSat.mockRejectedValue(new Error('solver exploded'));
 
     await expect(processor.process(buildJob())).rejects.toThrow('solver exploded');
 
@@ -337,6 +363,31 @@ describe('SchedulingSolverV2Processor', () => {
       data: {
         failure_reason: 'solver exploded',
         status: 'failed',
+      },
+    });
+  });
+
+  // Stage 6: sidecar unreachable / sidecar errors surface as CpSatSolveError.
+  // The worker prefixes the error code so operators can bucket failures by
+  // grep'ing ``failure_reason`` in ``scheduling_runs``.
+  it('should mark the run as failed with CP-SAT error code when the sidecar throws', async () => {
+    const mockTx = buildMockTx();
+    const mockPrisma = buildMockPrisma(mockTx);
+    const processor = new SchedulingSolverV2Processor(
+      mockPrisma as never,
+      { process: jest.fn() } as never,
+    );
+    mockSolveViaCpSat.mockRejectedValue(
+      new CpSatSolveError('CP_SAT_UNREACHABLE', 'fetch failed', 0),
+    );
+
+    await expect(processor.process(buildJob())).rejects.toThrow('fetch failed');
+
+    expect(mockTx.schedulingRun.update).toHaveBeenCalledWith({
+      where: { id: RUN_ID },
+      data: {
+        status: 'failed',
+        failure_reason: 'CP_SAT_UNREACHABLE: fetch failed',
       },
     });
   });

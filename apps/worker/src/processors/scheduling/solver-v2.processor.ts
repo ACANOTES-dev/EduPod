@@ -3,7 +3,7 @@ import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { solveV2 } from '../../../../../packages/shared/src/scheduler';
+import { CpSatSolveError, solveViaCpSat } from '../../../../../packages/shared/src/scheduler';
 import type { SolverInputV2 } from '../../../../../packages/shared/src/scheduler';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, type TenantJobPayload } from '../../base/tenant-aware-job';
@@ -55,7 +55,14 @@ export class SchedulingSolverV2Processor extends WorkerHost {
     try {
       await solverJob.execute(job.data);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown solver v2 error';
+      // CpSatSolveError carries a code (CP_SAT_UNREACHABLE, INTERNAL_ERROR, …);
+      // prefix it so operators can bucket failures by grep'ing failure_reason.
+      const message =
+        err instanceof CpSatSolveError
+          ? `${err.code}: ${err.message}`
+          : err instanceof Error
+            ? err.message
+            : 'Unknown solver v2 error';
       this.logger.error(`Solver v2 failed for run ${job.data.run_id}: ${message}`);
       try {
         // RLS is enabled on scheduling_runs, so the update must run inside a
@@ -172,23 +179,31 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
       `Starting solver v2 for run ${run_id}: ${configSnapshot.year_groups.length} year groups, ${configSnapshot.curriculum.length} curriculum entries, ${configSnapshot.teachers.length} teachers`,
     );
 
-    let lastExtend = Date.now();
+    // CP-SAT runs inside the sidecar; we have no per-phase progress callback
+    // any more, so keep the BullMQ lock alive on a plain interval. The
+    // sidecar's budget is ``max_solver_duration_seconds`` and the HTTP cap
+    // below gives it +30 s for round-trip + presolve. Clearing the interval
+    // on both success and failure keeps the Node process from hanging after
+    // the job resolves.
     const EXTEND_INTERVAL_MS = 60_000;
+    const extendTimer = setInterval(() => {
+      this.job.extendLock(this.job.token!, 300_000).catch((extendErr) => {
+        this.logger.warn(`Failed to extend lock for run ${data.run_id}: ${extendErr}`);
+      });
+    }, EXTEND_INTERVAL_MS);
 
-    const result = solveV2(configSnapshot, {
-      onProgress: (assigned, total, phase) => {
-        this.logger.debug(`Solver v2 progress: ${assigned}/${total} (${phase})`);
-
-        // Extend BullMQ lock to prevent stall detection during long solves
-        if (Date.now() - lastExtend >= EXTEND_INTERVAL_MS) {
-          this.job.extendLock(this.job.token!, 300_000).catch((extendErr) => {
-            this.logger.warn(`Failed to extend lock for run ${data.run_id}: ${extendErr}`);
-          });
-          lastExtend = Date.now();
-          this.logger.debug(`Extended job lock for solver run ${data.run_id}`);
-        }
-      },
-    });
+    const sidecarUrl = process.env.SOLVER_PY_URL ?? 'http://localhost:5557';
+    const timeoutMs = (configSnapshot.settings.max_solver_duration_seconds + 30) * 1000;
+    let result;
+    try {
+      result = await solveViaCpSat(configSnapshot, {
+        baseUrl: sidecarUrl,
+        timeoutMs,
+        requestId: run_id,
+      });
+    } finally {
+      clearInterval(extendTimer);
+    }
 
     // 5. Save results.
     //
@@ -204,6 +219,24 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     // `partial` value we can distinguish genuine infeasibility from
     // time-limited partial solves — until then the stricter `failed` surface
     // is safer than a false `completed`.
+    // Stage 6 observability meta — surfaced on ``result_json.meta`` so Stage 7's
+    // observation window and Stage 12's diagnostics have a durable signal per
+    // run without joining across tables. ``cp_sat_status`` is the sidecar's
+    // own solver state; ``sidecar_duration_ms`` is the time reported *by* the
+    // sidecar (CPU-bound solve), distinct from any HTTP overhead the worker
+    // sees. ``placed_count`` / ``unassigned_count`` duplicate the row-level
+    // columns for convenience when inspecting the JSON directly.
+    const placedCount = result.entries.length;
+    const unassignedCount = result.unassigned.length;
+    const cpSatStatus = result.cp_sat_status ?? 'unknown';
+    const sidecarDurationMs = result.duration_ms;
+    const meta = {
+      cp_sat_status: cpSatStatus,
+      sidecar_duration_ms: sidecarDurationMs,
+      placed_count: placedCount,
+      unassigned_count: unassignedCount,
+    };
+
     const resultJson = {
       entries: result.entries,
       unassigned: result.unassigned,
@@ -217,9 +250,22 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
       overrides_applied: configSnapshot.overrides_applied
         ? [...configSnapshot.overrides_applied]
         : [],
+      meta,
     };
 
-    const unassignedCount = result.unassigned.length;
+    // One structured log line per solve — captured by pm2 / journald and
+    // grep-able by ``run_id`` or ``cp_sat_status`` during the Stage 7
+    // observation window.
+    this.logger.log(
+      `cp_sat.solve_complete ${JSON.stringify({
+        run_id,
+        tenant_id,
+        cp_sat_status: cpSatStatus,
+        sidecar_duration_ms: sidecarDurationMs,
+        placed_count: placedCount,
+        unassigned_count: unassignedCount,
+      })}`,
+    );
     const finalStatus = unassignedCount === 0 ? 'completed' : 'failed';
     const failureReason =
       unassignedCount === 0

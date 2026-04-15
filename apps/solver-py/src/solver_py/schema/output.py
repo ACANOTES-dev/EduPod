@@ -5,9 +5,13 @@ Authoritative TypeScript source: ``packages/shared/src/scheduler/types-v2.ts``.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from solver_py.schema.input import PreferenceType
+
+CpSatStatus = Literal["optimal", "feasible", "infeasible", "unknown"]
 
 
 class _Strict(BaseModel):
@@ -77,3 +81,7 @@ class SolverOutputV2(_Strict):
     duration_ms: int
     constraint_summary: ConstraintSummary
     quality_metrics: QualityMetricsV2 | None = None
+    # Observability signal surfaced by the worker to ``scheduling_runs.result_json.meta``
+    # and the per-solve log line. ``unknown`` means CP-SAT timed out and the greedy
+    # fallback was returned (see ``_build_greedy_output``).
+    cp_sat_status: CpSatStatus = "feasible"

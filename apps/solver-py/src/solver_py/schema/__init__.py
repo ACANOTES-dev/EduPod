@@ -33,6 +33,7 @@ from solver_py.schema.input import (
 )
 from solver_py.schema.output import (
     ConstraintSummary,
+    CpSatStatus,
     PreferenceBreakdownEntry,
     PreferenceSatisfaction,
     QualityMetricRange,
@@ -47,6 +48,7 @@ __all__ = [
     "ClassRoomOverride",
     "ClassSubjectOverrideAudit",
     "ConstraintSummary",
+    "CpSatStatus",
     "CurriculumEntry",
     "GlobalSoftWeights",
     "PeriodSlotV2",

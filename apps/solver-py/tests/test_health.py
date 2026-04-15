@@ -40,6 +40,8 @@ def test_solve_returns_200_with_solver_output_envelope() -> None:
     assert "unassigned" in body
     assert "constraint_summary" in body
     assert isinstance(body["duration_ms"], int)
+    # Stage 6 observability contract — every response carries a CP-SAT status.
+    assert body["cp_sat_status"] in {"optimal", "feasible", "infeasible", "unknown"}
     # The pinned class-A maths cell passes through.
     assert any(e["is_pinned"] for e in body["entries"])
     # Remaining curriculum demand can't fit the 1-slot teaching grid.

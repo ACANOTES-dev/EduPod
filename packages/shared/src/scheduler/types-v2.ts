@@ -254,6 +254,16 @@ export interface QualityMetricsV2 {
   }>;
 }
 
+/**
+ * CP-SAT solver status surfaced by the Python sidecar. Observability signal
+ * the worker persists to ``scheduling_runs.result_json.meta`` and logs per
+ * solve so Stage 7's observation window and Stage 12's diagnostics can see
+ * whether CP-SAT proved optimality, returned a feasible (non-optimal)
+ * solution, proved infeasibility, or timed out and the greedy fallback was
+ * returned instead.
+ */
+export type CpSatStatus = 'optimal' | 'feasible' | 'infeasible' | 'unknown';
+
 export interface SolverOutputV2 {
   entries: SolverAssignmentV2[];
   unassigned: UnassignedSlotV2[];
@@ -268,6 +278,10 @@ export interface SolverOutputV2 {
   };
   /** Optional quality metrics — emitted by the main solver path (SCHED-026). */
   quality_metrics?: QualityMetricsV2;
+  /** CP-SAT solver status — see ``CpSatStatus``. Legacy `solveV2` callers
+   *  never set this; it is optional on the wire so legacy output stays
+   *  structurally compatible until Stage 8 removes the legacy path. */
+  cp_sat_status?: CpSatStatus;
 }
 
 // ─── Validation Types ───────────────────────────────────────────────────────
