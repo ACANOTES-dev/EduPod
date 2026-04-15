@@ -57,6 +57,12 @@ class _State:
     rooms_used_at_tg: dict[tuple[str | None, int], int]
     chosen_la_by_lesson: dict[int, int]
     chosen_by_pair: dict[int, tuple[int, int]]
+    # Weekdays already used by the same (class, subject) — STRESS-021
+    # / Stage 9 day-spread port. When a lesson has multiple legal
+    # candidates, prefer those on weekdays not yet consumed by the
+    # same (class, subject) pair. Mirrors the legacy TS solver's
+    # ``scoreEvenSpreadV2`` bias without touching the CP-SAT model.
+    class_subject_days_used: dict[tuple[str, str], set[int]]
 
 
 def greedy_assign(
@@ -93,6 +99,7 @@ def greedy_assign(
         rooms_used_at_tg=defaultdict(int),
         chosen_la_by_lesson={},
         chosen_by_pair={},
+        class_subject_days_used=defaultdict(set),
     )
 
     _absorb_pinned_load(
@@ -214,12 +221,37 @@ def _try_place(
     exclusive_by_type: dict[str, int],
     has_nonexclusive_by_type: dict[str, bool],
 ) -> bool:
-    """Try to place ``lesson_idx`` using the first legal candidate; commit if found."""
+    """Try to place ``lesson_idx`` using the first legal candidate; commit if found.
+
+    Candidate ordering (STRESS-021 day-spread fix):
+
+    1. Primary key: weekday **not yet used** by this (class, subject) —
+       spreads a 5-period subject across distinct days rather than
+       clustering on 2-3 days. Mirrors the legacy TS solver's
+       ``scoreEvenSpreadV2`` bias without touching the CP-SAT model.
+    2. Secondary key: input order (``la_idx`` ascending) — preserves
+       determinism and matches the pre-fix behaviour for single-period
+       subjects where day-spread is vacuous.
+
+    Follower lessons of a committed double-period pair are forced onto a
+    specific ``(slot, teacher)`` in ``_is_legal``, so the ordering is
+    only honoured when it doesn't violate the anchor pairing.
+    """
     if lesson_idx in state.chosen_la_by_lesson:
         return False
     lesson = lessons[lesson_idx]
     candidates = legal_by_lesson.get(lesson_idx, [])
-    for la_idx in candidates:
+    if not candidates:
+        return False
+
+    key = (lesson.class_id, lesson.subject_id)
+    used_days = state.class_subject_days_used.get(key, set())
+    ordered = sorted(
+        candidates,
+        key=lambda la: (1 if slot_by_id[legal[la].slot_id].weekday in used_days else 0, la),
+    )
+
+    for la_idx in ordered:
         if _is_legal(
             la_idx,
             lesson,
@@ -329,6 +361,7 @@ def _commit(
     state.teacher_day_count[(teacher_idx, slot.weekday)] += 1
     state.subject_class_day_count[(lesson.class_id, lesson.subject_id, slot.weekday)] += 1
     state.rooms_used_at_tg[(lesson.required_room_type, tg)] += 1
+    state.class_subject_days_used[(lesson.class_id, lesson.subject_id)].add(slot.weekday)
 
 
 def _rollback(
@@ -353,6 +386,12 @@ def _rollback(
     day_key = (lesson.class_id, lesson.subject_id, slot.weekday)
     state.subject_class_day_count[day_key] -= 1
     state.rooms_used_at_tg[(lesson.required_room_type, tg)] -= 1
+    # Keep class_subject_days_used accurate: remove the weekday only when
+    # no other placement of this (class, subject) pair remains on that day.
+    if state.subject_class_day_count[day_key] <= 0:
+        state.class_subject_days_used[(lesson.class_id, lesson.subject_id)].discard(
+            slot.weekday
+        )
 
     # Double-period anchor: if this lesson was the anchor for its pair,
     # drop the pair entry so the pair can be re-anchored elsewhere.

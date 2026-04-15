@@ -545,14 +545,15 @@ model Tenant {
   scheduling_runs               SchedulingRun[]
 
   // P4B-v2 Relations
-  curriculum_requirements          CurriculumRequirement[]
-  class_subject_requirements       ClassSubjectRequirement[]
-  teacher_competencies             TeacherCompetency[]
-  substitute_teacher_competencies  SubstituteTeacherCompetency[]
-  break_groups                     BreakGroup[]
-  break_group_year_groups          BreakGroupYearGroup[]
-  room_closures                    RoomClosure[]
-  teacher_scheduling_configs       TeacherSchedulingConfig[]
+  curriculum_requirements         CurriculumRequirement[]
+  class_subject_requirements      ClassSubjectRequirement[]
+  class_year_group_links          ClassYearGroupLink[]
+  teacher_competencies            TeacherCompetency[]
+  substitute_teacher_competencies SubstituteTeacherCompetency[]
+  break_groups                    BreakGroup[]
+  break_group_year_groups         BreakGroupYearGroup[]
+  room_closures                   RoomClosure[]
+  teacher_scheduling_configs      TeacherSchedulingConfig[]
 
   // P5 Relations
   grading_scales              GradingScale[]
@@ -1586,7 +1587,7 @@ model Household {
   students           Student[]
 
   // Admissions relations
-  applications          Application[]            @relation("HouseholdApplications")
+  applications Application[] @relation("HouseholdApplications")
 
   // P6 Relations
   fee_assignments       HouseholdFeeAssignment[]
@@ -1886,12 +1887,12 @@ model StaffProfile {
   teacher_scheduling_configs      TeacherSchedulingConfig[]
 
   // Scheduling World-Class Relations
-  teacher_absences          TeacherAbsence[]
-  nominated_for_absences    TeacherAbsence[]     @relation("nominated_substitute")
-  substitution_records      SubstitutionRecord[] @relation("substitute_staff")
-  substitution_offers       SubstitutionOffer[]  @relation("offer_candidate")
-  leave_requests            LeaveRequest[]
-  exam_invigilations        ExamInvigilation[]   @relation("exam_invigilator")
+  teacher_absences       TeacherAbsence[]
+  nominated_for_absences TeacherAbsence[]     @relation("nominated_substitute")
+  substitution_records   SubstitutionRecord[] @relation("substitute_staff")
+  substitution_offers    SubstitutionOffer[]  @relation("offer_candidate")
+  leave_requests         LeaveRequest[]
+  exam_invigilations     ExamInvigilation[]   @relation("exam_invigilator")
 
   // Behaviour Management Relations
   bh_incident_participants BehaviourIncidentParticipant[] @relation("bh_participant_staff")
@@ -2363,6 +2364,9 @@ model YearGroup {
   subject_period_weights SubjectPeriodWeight[] @relation("SubjectPeriodWeightYearGroup")
   period_year_weights    PeriodYearWeight[]    @relation("PeriodYearWeightYearGroup")
 
+  // SCHED-022: cross-year-group class visibility.
+  class_links ClassYearGroupLink[]
+
   @@unique([tenant_id, name], name: "idx_year_groups_tenant_name")
   @@index([tenant_id], name: "idx_year_groups_tenant")
   @@map("year_groups")
@@ -2486,10 +2490,37 @@ model Class {
   teacher_competencies            TeacherCompetency[]
   substitute_teacher_competencies SubstituteTeacherCompetency[]
 
+  // SCHED-022: additional year-group links for cross-year-group classes.
+  year_group_links ClassYearGroupLink[]
+
   @@unique([tenant_id, name, academic_year_id], name: "idx_classes_tenant_name_year")
   @@index([tenant_id, academic_year_id], name: "idx_classes_tenant_year")
   @@index([tenant_id, status], name: "idx_classes_tenant_status")
   @@map("classes")
+}
+
+// SCHED-022: junction table allowing a class to be marked as belonging to
+// additional year groups beyond its primary ``Class.year_group_id``. Used
+// by admin UI / reports to surface a class under every year group it
+// serves (e.g. a mixed Y10+Y11 Advanced Music elective). Scheduling uses
+// the primary year_group_id for period-grid selection; cross-year student
+// conflicts are already handled via ``class_enrolments`` → solver
+// ``student_overlaps`` regardless of this junction.
+model ClassYearGroupLink {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String   @db.Uuid
+  class_id      String   @db.Uuid
+  year_group_id String   @db.Uuid
+  created_at    DateTime @default(now()) @db.Timestamptz()
+
+  tenant       Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity Class     @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  year_group   YearGroup @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, class_id, year_group_id], name: "idx_class_year_group_links_unique")
+  @@index([tenant_id, class_id], name: "idx_class_year_group_links_class")
+  @@index([tenant_id, year_group_id], name: "idx_class_year_group_links_year_group")
+  @@map("class_year_group_links")
 }
 
 model ClassStaff {

@@ -504,6 +504,16 @@ def _assign_rooms(
             # the admin layer.
             nonexclusive_by_type[room.room_type].append(room.room_id)
 
+    # SCHED-018 / STRESS-030 fix:
+    # Orchestration emits ``ClassRoomOverride`` rows with ``subject_id=null``
+    # (class_scheduling_requirements is a class-level table — it doesn't
+    # have a subject_id column; the override applies to every subject for
+    # that class). The override lookup below tries the subject-specific
+    # key first (for any future sibling table that does carry subject_id),
+    # then falls back to the class-wildcard entry — ``(class_id, None)``.
+    # Before this fix the lookup used ``(lesson.class_id, lesson.subject_id)``
+    # exclusively, so the wildcard entry was silently ignored and every
+    # class-level preferred-room rule was dropped on the floor.
     overrides: dict[tuple[str, str | None], str] = {}
     for ovr in input_payload.class_room_overrides or []:
         if ovr.preferred_room_id is None:
@@ -544,7 +554,11 @@ def _assign_rooms(
                 continue
 
         candidate_rooms: list[str] = []
-        preferred = overrides.get((lesson.class_id, lesson.subject_id)) or lesson.preferred_room_id
+        preferred = (
+            overrides.get((lesson.class_id, lesson.subject_id))
+            or overrides.get((lesson.class_id, None))
+            or lesson.preferred_room_id
+        )
         if lesson.required_room_type is None:
             type_pool = [rid for pool in rooms_by_type.values() for rid in pool]
             ne_pool = [rid for pool in nonexclusive_by_type.values() for rid in pool]

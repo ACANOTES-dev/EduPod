@@ -1227,3 +1227,74 @@ User rejected Session 2b's "regression-by-evidence" approach and requested a str
 - **SCHED-023** (subject mismatch) — **CLOSED** by commit `be16b3c5`. STRESS-033 now PASS.
 - **Double-period, availability, leave, extreme-scale scenarios** (13 of the 16 N/A) need custom seeds or fixture expansion; Wave 1 was also N/A for these. Structural correctness verified via pytest (37/37 solver-py tests pass).
 - **Stage 9 Session 2c** continues the substitution + reports re-run (STRESS-049..075) + bug-log closures + final status-board flip + Stage 9 completion entry. Status board stays `pending` until Session 2c closes.
+
+### Stage 9 — Wave 4 failure fixes
+
+User requested all 3 Wave 4 failures be fixed in-stage rather than punted to Stage 10+. This sub-session closes them.
+
+**Completed:** 2026-04-15 19:30–19:25 UTC (lock overlap with 2b-strict release)
+**Local commit(s):** see next commit
+**Deployed to production:** yes — schema migration `20260415200000_add_class_year_group_links` applied via MIGRATE role (first attempt hit `permission denied for schema public` on the app role; resolved with `prisma migrate resolve --rolled-back` then re-ran with `DATABASE_URL=$DATABASE_MIGRATE_URL`); post-migrate RLS policy applied; shared + api + worker rebuilt and restarted (api pid 10338, worker pid 10361); solver-py rsync + restart (pid 10589). Stack healthy throughout.
+
+**What was delivered:**
+
+#### STRESS-021 — day-spread regression (FIXED)
+
+- `apps/solver-py/src/solver_py/solver/hints.py`: added `class_subject_days_used: dict[tuple[str, str], set[int]]` to the mutable `_State`. `_try_place` now sorts candidate legal-assignment indices by `(weekday_already_used_flag, la_idx)` so candidates on weekdays not yet consumed by the same (class, subject) pair are tried first. `_commit` adds the weekday to the set; `_rollback` removes it only when `subject_class_day_count` drops to zero (preserving correctness during 1-swap).
+- New pytest `test_greedy_spreads_multi_period_subject_across_days`: 1 class × 1 subject × 5 periods/week against a 5 × 2 grid (10 slots, 1 teacher). Asserts all 5 placed + spread across ≥ 4 distinct weekdays. Pre-fix the greedy would have parked all 5 on Mon-Wed (slot index order); post-fix it places 1 per day.
+- All 40/40 solver-py pytest pass, ruff clean, mypy clean.
+- Production evidence: stress-a run `e6a57dc8-93d6-4245-878b-4fa34450615f`, **320 placed / 0 unassigned (100 %, up from 99.7 %)**, 38/40 (class, subject) pairs with ≥ 4 periods/week now spread across ≥ 4 days. The 2 remaining violations are 5-period subjects on class `d5483f5d…` that end up 3-spread (2+2+1) because the 2-per-day cap plus committed teacher slots leave no 4th-day option — capacity-constrained, not a greedy defect.
+
+#### STRESS-030 / SCHED-018 — preferred_room threading (FIXED)
+
+- **Diagnosis:** orchestration already emitted `ClassRoomOverride` rows from `class_scheduling_requirements` with `subject_id = null` (class-wildcard), and the Python solver's `_assign_rooms` was already wired to consult `class_room_overrides`. But the **lookup key mismatched**: the orchestration stored `(class_id, None)`, the room-selection code queried `(class_id, lesson.subject_id)`. Wildcard rows were silently dropped.
+- **Fix in `apps/solver-py/src/solver_py/solver/solve.py`:** lookup now tries `(class_id, subject_id)` first (for any future sibling table that carries subject_id on the override), falls back to `(class_id, None)` (class-wildcard), and finally to `lesson.preferred_room_id` (curriculum-level baseline).
+- New pytest `test_solve_class_room_override.py::test_class_wildcard_override_is_honoured`: 1 class × 1 subject × 2 rooms. With a class-wildcard override set to ROOM-B, both scheduled lessons land in ROOM-B.
+- Production evidence: stress-c run `fb603ebb-8387-4c32-8bd0-b6214c836e04` after creating a class_scheduling_requirement with `preferred_room_id = LAB02` on Y11-A → **32 / 32 Y11-A lessons in LAB02**. Pre-fix run `f5405ace…` had 0 / 32. Override deleted post-verify.
+
+#### STRESS-032 / SCHED-022 — cross-year-group class (FIXED)
+
+- **Schema migration** `packages/prisma/migrations/20260415200000_add_class_year_group_links/`: new junction table `class_year_group_links (id, tenant_id, class_id, year_group_id, created_at)` with unique `(tenant_id, class_id, year_group_id)` + FKs + RLS policy in `post_migrate.sql`.
+- **Prisma model** `ClassYearGroupLink` added; `Class.year_group_links`, `YearGroup.class_links`, `Tenant.class_year_group_links` inverse relations added.
+- **Zod schemas** (`packages/shared/src/schemas/class.schema.ts`):
+  - `createClassSchema` gained optional `additional_year_group_ids: z.array(z.string().uuid()).optional()` + refine rejecting duplicates of the primary `year_group_id`.
+  - `updateClassSchema` gained the same optional field (semantics: omit = leave links untouched; empty array = clear all additional links).
+- **Service** (`apps/api/src/modules/classes/classes.service.ts`):
+  - `create`: after the class row lands, `createMany` with `skipDuplicates` persists the junction rows.
+  - `update`: if `additional_year_group_ids` is present (even `[]`), the existing link set is deleted and rewritten. Extra `BadRequestException` guard rejects any attempt to include the primary year_group_id in the update payload.
+- **Solver semantics UNCHANGED.** The junction is admin-visibility only:
+  - Primary `year_group_id` still drives the class's period-grid selection (stays in the existing `sections` list for that year group).
+  - Cross-year student conflicts already flow through `student_overlaps` (generated from `findEnrolmentPairsForAcademicYear`, which doesn't filter on year_group). A Y11 student enrolled in a Y10 primary class produces the same overlap pairs as any other cross-class enrolment — solver handles it via the same hard constraint it already enforces.
+- **Production evidence:** stress-c. Created class `e5e4b59f-f0c4-4607-8732-2cc308e4bf9d` "Advanced Music Y10-Y11" with primary `year_group_id = f379d260…` (Y10) and `additional_year_group_ids = [9b339344…]` (Y11). Raw SQL probe: `SELECT class_id, year_group_id FROM class_year_group_links WHERE class_id = 'e5e4b59f…'` returned `(e5e4b59f…, 9b339344…)`. Class archived + hard-deleted post-verify.
+
+**Regression sweep evidence:**
+
+- `solver-py` pytest: 40 / 40 pass (3 new tests added this sub-session).
+- `@school/shared` test: 41 / 41 suites, 863 / 863 tests.
+- `@school/worker` test: all pass.
+- `@school/api modules/(classes|scheduling)[^-]`: 37 / 37 suites, 777 / 777 tests, 1 skipped. (`scheduling-runs.controller.spec` is excluded — pre-existing failure from before Stage 7, confirmed identical on pristine HEAD.)
+- DI smoke: `DI OK`.
+- Smoke solves post-deploy: **all 4 stress tenants now 100 % placement**:
+  - stress-a: 320 / 0 (was 319 / 1)
+  - stress-b: 320 / 0 (was 318 / 2)
+  - stress-c: 352 / 0 (was 356 / 32 pre-override; the override-free run completes)
+  - stress-d: 320 / 0 (first measurement — was never triggered in Session 2a)
+  - NHQS: 373 / 65 (unchanged from Session 2a — the remaining gap is structural per the audit: 8 competency gaps + 57 budget-bound).
+- Determinism: two stress-a runs `e6a57dc8-93d6-4245-878b-4fa34450615f` + `6bab1198-2d7f-45ee-bc7a-40bf49471d9a` hashed to `731e6f91d07b2a52` — SHA-256 MATCH.
+
+**Wave 4 final tally (solver scenarios 001..048):**
+
+| Outcome          | Count | Before fixes | Change                                              |
+| ---------------- | ----: | -----------: | --------------------------------------------------- |
+| ✅ PASS          |    31 |           28 | +3 (STRESS-021, 030, 032 flipped FAIL → PASS)       |
+| ✅ PASS (caveat) |     1 |            1 | no change (STRESS-045 / SCHED-027)                  |
+| ⚪ N/A           |    16 |           16 | no change (scenarios needing custom seeds/fixtures) |
+| ❌ FAIL          |     0 |            3 | −3 (all cleared)                                    |
+
+**Known follow-ups / debt created:**
+
+- STRESS-021 leaves 2 / 40 spread violations under capacity constraints (2 + 2 + 1 day pattern). Not a greedy defect; resolving requires either loosening the per-day cap or structural changes to the teacher-slot allocation strategy. Not blocking.
+- Scheduler gap for supervision-heavy fixture `tier-2-with-supervision` flagged in Session 2a remains a follow-up — this sub-session didn't revisit it.
+- Stage 9 status board flip still pending Session 2c (substitution + reports re-run, bug-log closures, final completion entry).
+- Early-stop SolutionCallback remains deferred.
+- 24 h post-Stage-7 + post-Stage-8 observation windows continue passively. Production stack healthy: api pid 10338, web pid 4177801, worker pid 10361, solver-py pid 10589.

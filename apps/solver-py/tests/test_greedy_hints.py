@@ -116,6 +116,53 @@ def test_greedy_is_stable_on_minimal_feasible_input() -> None:
     assert placed == total == 2
 
 
+def test_greedy_spreads_multi_period_subject_across_days() -> None:
+    """STRESS-021 regression guard: a 5-period subject should land on 4+
+    distinct weekdays when capacity allows, not cluster into 2-3 days.
+
+    Setup: 1 class, 1 subject requiring 5 periods/week, 1 teacher fully
+    available, 5 weekdays × 2 periods/day = 10 slots. The greedy has
+    genuine freedom to place 5 lessons anywhere — without the day-spread
+    bias it would park all 5 on Mon-Wed because candidate index order
+    enumerates slot 0 (Mon P0), slot 1 (Mon P1), slot 2 (Tue P0), …
+    """
+    grid = build_period_grid(weekdays=5, periods_per_day=2)
+    inp = build_input(
+        year_groups=[
+            {
+                "year_group_id": "yg-1",
+                "year_group_name": "Year 1",
+                "sections": [
+                    {"class_id": "C1", "class_name": "Y1-A", "student_count": 20}
+                ],
+                "period_grid": grid,
+            }
+        ],
+        curriculum=[curriculum_entry(subject_id="maths", min_periods=5, max_per_day=2)],
+        teachers=[
+            teacher(
+                staff_id="T1",
+                competencies=[competency(subject_id="maths")],
+                max_per_week=20,
+                max_per_day=2,
+            )
+        ],
+    )
+    slots = enumerate_slots(inp)
+    lessons = build_lessons(inp)
+    legal, legal_by_lesson, _ = build_legal_assignments(inp, lessons, slots)
+    chosen = greedy_assign(inp, lessons, slots, legal, legal_by_lesson)
+
+    # Recover which weekdays got used by any chosen la_idx.
+    slot_by_id = {s.slot_id: s for s in slots}
+    weekdays_used = {slot_by_id[legal[la].slot_id].weekday for la in chosen}
+    assert len(chosen) == 5, f"expected 5 placements, got {len(chosen)}"
+    assert len(weekdays_used) >= 4, (
+        f"day-spread failure: maths placed across {sorted(weekdays_used)} "
+        f"({len(weekdays_used)} days) — STRESS-021 expects ≥ 4 days"
+    )
+
+
 def test_greedy_determinism_same_input_same_placements() -> None:
     """Repeated calls on identical input must return identical ``la_idx`` sets."""
     grid = build_period_grid(weekdays=5, periods_per_day=4)

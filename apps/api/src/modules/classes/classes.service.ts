@@ -131,6 +131,21 @@ export class ClassesService {
           },
         });
 
+        // SCHED-022: persist additional year-group links. Zod has already
+        // rejected payloads that duplicate the primary year_group_id;
+        // here we only need to write the rows. ``createMany`` with
+        // ``skipDuplicates`` keeps the call idempotent if an admin re-POSTs.
+        if (dto.additional_year_group_ids && dto.additional_year_group_ids.length > 0) {
+          await db.classYearGroupLink.createMany({
+            data: dto.additional_year_group_ids.map((ygId) => ({
+              tenant_id: tenantId,
+              class_id: newClass.id,
+              year_group_id: ygId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+
         if (dto.status === 'active' && dto.year_group_id) {
           if (isFirstForPair) {
             await this.autoPromotionService.onYearGroupActivated(db, {
@@ -300,10 +315,40 @@ export class ClassesService {
           updateData.max_capacity = dto.max_capacity;
         }
 
-        return db.class.update({
+        const result = await db.class.update({
           where: { id },
           data: updateData,
         });
+
+        // SCHED-022: if the payload includes ``additional_year_group_ids``
+        // (even an empty array), replace the whole set — delete all
+        // existing link rows for this class, then insert the new ones.
+        // Omitting the field leaves the current links untouched.
+        if (dto.additional_year_group_ids !== undefined) {
+          const primaryYgId = dto.year_group_id ?? result.year_group_id;
+          const filtered = dto.additional_year_group_ids.filter((ygId) => ygId !== primaryYgId);
+          if (filtered.length !== dto.additional_year_group_ids.length) {
+            throw new BadRequestException({
+              code: 'ADDITIONAL_YEAR_GROUP_CONFLICT',
+              message: 'additional_year_group_ids must not include the primary year_group_id',
+            });
+          }
+          await db.classYearGroupLink.deleteMany({
+            where: { tenant_id: tenantId, class_id: id },
+          });
+          if (filtered.length > 0) {
+            await db.classYearGroupLink.createMany({
+              data: filtered.map((ygId) => ({
+                tenant_id: tenantId,
+                class_id: id,
+                year_group_id: ygId,
+              })),
+              skipDuplicates: true,
+            });
+          }
+        }
+
+        return result;
       });
 
       // Invalidate preview cache
