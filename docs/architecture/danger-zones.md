@@ -907,3 +907,56 @@ Google Fonts are loaded via CDN `<link>` tags inside each template's `<head>`. P
 
 - `apps/api/src/modules/inbox/conversations/conversations.service.ts` — `handleBroadcastReply`
 - `apps/api/src/modules/inbox/policy/messaging-policy.service.ts` — the double-check
+
+## DZ-Scheduling-1: TenantAwareJob Outer Transaction Leaks For Long-Running Processors
+
+**Risk**: A processor that extends `TenantAwareJob` and does its DB writes via `this.prisma.$transaction(...)` internally (ignoring the passed `_tx`) silently holds an **idle outer Prisma transaction** for the full `processJob` duration. When that duration exceeds the base class's default `transactionTimeoutMs` (5 min), Prisma errors on commit with `Transaction already closed: A commit cannot be executed on an expired transaction`, and the job looks like it "failed" even though the actual work succeeded. The failure path can overwrite successful inner writes with a misleading error message.
+
+**Location**:
+
+- Base class: `apps/worker/src/base/tenant-aware-job.ts` — wraps `processJob` in `prisma.$transaction(...)` with default `timeout: 5 * 60_000` ms.
+- Known-affected processor: `apps/worker/src/processors/scheduling/solver-v2.processor.ts` — solver runs up to 3600 s; mitigated by overriding `transactionTimeoutMs` to 3780 s.
+
+**Status**: MITIGATED for the scheduler (Stage 9.5.1 post-close amendment, commit `fd4b1351`). Pattern is still a trap for any future long-running processor.
+
+**How the trap works**:
+
+1. `TenantAwareJob.execute` opens a `prisma.$transaction(async tx => processJob(data, tx), {timeout: ...})`.
+2. Inside `processJob`, the subclass decides to use `this.prisma.$transaction(...)` (a separate pool connection) instead of the passed `tx` — sometimes intentionally, to release row locks between steps, sometimes by accident.
+3. The outer `tx` now holds a pool connection idle for the full `processJob` duration — waiting for the final implicit commit at the end of the callback.
+4. If `processJob` runs longer than `transactionTimeoutMs`, Prisma cancels the outer transaction. When the callback finally returns, `prisma.$transaction`'s implicit commit fails: `"Transaction already closed: A commit cannot be executed on an expired transaction. The timeout for this transaction was 300000 ms, however <N> ms passed since the start of the transaction."`
+5. The processor's own catch block (if any) then "handles" the error — typically by writing `status: 'failed', failure_reason: <the Prisma error>` — **overwriting whatever result its own inner short txns already wrote**.
+
+**Why it's non-obvious**:
+
+- The inner short-txn pattern _looks_ like it correctly sidesteps long transactions (which is why it's used — to avoid row-locks during CPU-bound work). It does, but only for the inner writes; the outer wrapper transaction is still open doing nothing.
+- The bug is invisible until `processJob` crosses the outer timeout. The scheduler's case was masked pre-Stage-9.5.1 because every NHQS attempt at 600 s budget failed at transport / sidecar level before reaching the worker's commit step. Once those were fixed, the latent outer-txn timeout surfaced immediately.
+
+**Mitigation pattern**:
+
+For any processor whose max `processJob` duration can exceed 5 min, override `transactionTimeoutMs` in the subclass:
+
+```typescript
+class MyLongRunningJob extends TenantAwareJob<MyPayload> {
+  // Override if processJob can exceed the 5-min default. Calibrate to
+  // (max_work_duration + network/write buffer).
+  protected override readonly transactionTimeoutMs: number = 3780 * 1000;
+  // ...
+}
+```
+
+**Better long-term fix (filed as Stage 9.5.1 amendment follow-up #7)**:
+
+Refactor `SchedulingSolverV2Job` to **not extend `TenantAwareJob`** at all. Every DB write already uses its own short transaction; the outer wrapper is functionally load-bearing only for tenant-id / user-id validation, which can be inlined in the processor. That eliminates the idle outer transaction entirely. Apply the same refactor to any other processor that uses the inner-short-txn pattern.
+
+**How to detect this trap in a new processor**:
+
+1. Read the subclass's `processJob`. Grep for `this.prisma.$transaction`.
+2. Grep for `_tx` in the signature. If it's prefixed-underscore (unused), and the body opens its own transactions, this processor is at risk.
+3. Sanity-check: could `processJob` take longer than 5 min in any production scenario? If yes, override `transactionTimeoutMs` with a calibrated ceiling. If no, document the upper bound so a future change doesn't silently cross it.
+
+**Code pointers**:
+
+- `apps/worker/src/base/tenant-aware-job.ts` — base class + `transactionTimeoutMs` override hook.
+- `apps/worker/src/processors/scheduling/solver-v2.processor.ts` — reference mitigation (3780 s ceiling).
+- `scheduler/OR CP-SAT/IMPLEMENTATION_LOG.md` Stage 9.5.1 post-close amendment — full incident writeup with the two NHQS smoke runs that surfaced it.

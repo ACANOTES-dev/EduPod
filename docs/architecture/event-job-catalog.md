@@ -371,8 +371,9 @@ Missing any one of those leaves “approved but not actually executed” items i
 
 - `scheduling:solve-v2`
 - `scheduling:reap-stale-runs`
-- **Sources**: scheduling solve actions for `solve-v2`
-- **Current dispatch path note**: no active enqueue or repeatable registration was found in the current repo search for `scheduling:reap-stale-runs`
+- **Sources**: `SchedulingRunsService.triggerRun` enqueues `scheduling:solve-v2` after a `POST /v1/scheduling/runs/trigger`. `scheduling:reap-stale-runs` is registered as a minute-interval cron in `CronSchedulerService` (SCHED-029) and also runs on worker startup via the `SchedulingStaleReaperJob`.
+- **Out-of-band cancellation path** (Stage 9.5.1 post-close amendment): `scheduling:solve-v2` jobs POST a `SolverInputV2` to the CP-SAT sidecar at `POST {SOLVER_PY_URL}/solve` with an `X-Request-Id` header matching the `run_id`. When the worker's `AbortController` fires (HTTP timeout reached), `packages/shared/src/scheduler/cp-sat-client.ts` issues a **fire-and-forget** `DELETE {SOLVER_PY_URL}/solve/{run_id}` before rethrowing `CP_SAT_UNREACHABLE`. The sidecar's in-process registry (keyed on the request id) raises a `threading.Event` cancel flag; `EarlyStopCallback` halts CP-SAT on its next solution callback with `early_stop_reason="cancelled"`. Without this hook an abandoned solve keeps computing to completion and blocks the next request — which is the exact failure mode NHQS smoke reproduced during Stage 9.5.1. Operators debugging a stuck solve can also fire the DELETE manually against the sidecar URL.
+- **Cross-module note**: the worker's outer `TenantAwareJob` transaction has a raised timeout ceiling (3780 s) to avoid Prisma `Transaction already closed` errors at long budget settings — see `docs/architecture/danger-zones.md` → DZ-Scheduling-1.
 
 ### `search-sync`
 
