@@ -460,6 +460,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 | SCHED-027 | P2       | Open                       | [L] | session-C             | No public cancel endpoint for queued/running runs; enum lacks `cancelled`             |
 | SCHED-025 | P2       | Open                       | [L] | session-A             | Solver v2 non-deterministic despite `solver_seed=0` (STRESS-046/047)                  |
 | SCHED-026 | P2       | Open                       | [L] | session-A             | Quality report lacks teacher-gap / day-variance / preference breakdown                |
+| SCHED-028 | P2       | Fixed (deployed)           | [L] | wave2-session         | Archived teachers still fed into solver when stale competency rows exist (STRESS-076) |
 
 ---
 
@@ -1106,6 +1107,58 @@ Follow-ups explicitly NOT in this pass: triple/higher period blocks per-override
 - follow-up commits for `sync-missing-permissions.ts` + worker `quality_metrics` persistence
 
 **Deploy**: rsync to `/opt/edupod/app/apps/{api,worker}`, `/opt/edupod/app/packages/{shared,prisma/scripts}`, server-side `pnpm build` for shared/api/worker, pm2 restart api + worker. API 493MB / Worker 363MB post-start, no restart loops. SERVER-LOCK.md carries the acquire/release entries.
+
+---
+
+## Wave 2 — 2026-04-15 (wave2-session)
+
+Ran Phase 5b cross-tenant / data-integrity scenarios against stress-a + stress-b.
+
+**STRESS-076 — Teacher archival while assigned to substitution.** PARTIAL PASS on current behaviour, GAP fixed and redeployed as SCHED-028 below. The API has no hard-delete for staff (only PATCH `employment_status`); archival is a status flip with no cascade. The substitution picker (`GET /v1/scheduling/teachers`) correctly hides archived teachers via `findActiveStaff`. The gap: `scheduler-orchestration.service.ts::assembleSolverInput` loaded teacher profiles via `findByIds` without filtering on `employment_status`, so stale competency rows for an archived teacher would still be fed to the solver. Fixed — see SCHED-028.
+
+**STRESS-077 — Class deletion while scheduled.** PASS by design. Classes have no hard-delete endpoint (only `PATCH /v1/classes/:id/status`). Transitioning a class to `inactive` triggers `schedulesService.endDateForClass` — future schedules are end-dated cleanly. Timetable reads (`scheduling-read.facade.ts:275/296`) already filter by `class_entity.status = 'active'`, so archived classes disappear from displays. No orphan timetable rows, no ghost references.
+
+**STRESS-078 — Room deletion while in use.** PASS. `DELETE /v1/rooms/:id` checks `schedulesReadFacade.countByRoom` and throws `ROOM_IN_USE` (HTTP 409) if any schedule references the room. Other FKs (`room_closures` cascade, `class_subject_requirements.preferred_room_id` SetNull, `classes.homeroom_id` SetNull) are safe.
+
+**STRESS-079 — RLS cross-tenant isolation.** PASS. Tenant B's JWT hitting tenant A's resource IDs on stress-b.edupod.app returned 404 for every probe:
+
+- `GET /v1/classes/:A_id` → 404 `CLASS_NOT_FOUND`
+- `GET /v1/staff-profiles/:A_id` → 404 `STAFF_PROFILE_NOT_FOUND`
+- `GET /v1/rooms/:A_id` → 404 `ROOM_NOT_FOUND`
+- `GET /v1/academic-years/:A_id` → 404 `ACADEMIC_YEAR_NOT_FOUND`
+- `GET /v1/scheduling/runs?academic_year_id=:A_year` → 200 `{data:[], total:0}`
+- `GET /v1/scheduling/absences?academic_year_id=:A_year` → 200 `{data:[], total:0}`
+- `GET /v1/scheduling/substitutions?academic_year_id=:A_year` → 200 `{data:[], total:0}`
+
+Independent counts confirm scoping: stress-a rooms=24 vs stress-b rooms=25; stress-a years=2 vs stress-b years=1. No cross-tenant leakage observed.
+
+**STRESS-080 — Academic year rollover mid-scenario.** PASS by design. Year status transitions are enforced by `VALID_STATUS_TRANSITIONS` (`planned` → `active` → `closed`). `updateStatus` only writes the enum; it does not cascade-delete or silently null downstream records. `TeacherAbsence` carries no `academic_year_id` column — absences are year-agnostic and survive by not being tied to the year entity at all. Schedules, runs, and substitutions that reference `academic_year_id` remain queryable because nothing deletes them when the year closes. No migration job runs on rollover that could blend years.
+
+**Wave 2 bug tally:** 1 new bug found (SCHED-028), fixed + deployed in the same pass. RLS verified clean. No regressions introduced to any prior scenario.
+
+---
+
+### SCHED-028 — Archived teachers still fed to solver when stale competency rows exist
+
+**Severity:** P2
+**Status:** Fixed (deployed)
+**Provenance:** [L] — found during STRESS-076 walkthrough on 2026-04-15
+**Found by:** wave2-session
+
+**Summary:** `scheduler-orchestration.service.ts::assembleSolverInput` built `teacherIds` from `teacherCompetency` rows, then hydrated names via `staffProfileReadFacade.findByIds` without filtering by `employment_status`. If an admin archived a teacher via `PATCH /v1/staff-profiles/:id` with `employment_status = 'inactive'` while the teacher still had competency rows, the solver would continue scheduling them (the substitution picker filter in `findActiveStaff` did not protect the solver path).
+
+**Fix:**
+
+- `scheduler-orchestration.service.ts:404-430` — after `findByIds` returns, build an `activeTeacherIds` Set filtering on `employment_status === 'active'`. Filter `teacherIds` and `staffNameMap` through that Set so archived teachers never land in the `TeacherInputV2[]` emitted to the solver.
+- Regression tests added in `scheduler-orchestration.service.spec.ts` under the `assembleSolverInput` suite: (1) when `findByIds` returns an empty array the teacher is dropped entirely (replaces the old "fallback to UUID as name" test, which was accidentally papering over missing-profile cases), (2) when the profile returns with `employment_status: 'inactive'`, the teacher is dropped.
+- Existing fixture `id: 'staff-1'` mocks updated to include `employment_status: 'active'` so green tests continue to produce the active teacher.
+
+**Out of scope for this fix:**
+
+- Auto-removing competency rows when a teacher is archived. The rows remain so that re-activating the teacher restores their scheduling ability without reconfiguring; the orchestration-layer filter is the correct enforcement point.
+- Blocking the archive PATCH when the teacher has pending substitutions. The spec (STRESS-076) allows either "block" or "cleanly reassign" — we chose neither-block-nor-reassign because the live board + picker filter already make archived teachers inert for future solves, and blocking archival would make it hard to clean up staff who have left.
+
+**Deploy:** rsync of `apps/api/src/modules/scheduling/scheduler-orchestration.service.{ts,spec.ts}` to `/opt/edupod/app/apps/api`, server-side `pnpm --filter @school/api build`, `pm2 restart api`. No worker or web changes needed.
 
 ---
 

@@ -46,3 +46,5 @@ This file is the exclusive lock for any server-modifying action taken during the
 2026-04-15 03:10:00 UTC — claude-fixer — released — batch fix deployed (SCHED-016/017/018/019/020/021/024/025/026/027 all verified on stress-a). Sync-missing-permissions + create-stress-tenants re-run granted 70 additional permissions to admin on all 4 stress tenants. Solver run 3c30129d correctly reports status=failed with explicit shortage reason (47 slots), entries_assigned clamped to 193 (positive), no negative values.
 2026-04-15 03:50:00 UTC — claude-fixer — acquired — deploying SCHED-023 (new class_subject_requirements table + module + frontend)
 2026-04-15 04:15:00 UTC — claude-fixer — released — SCHED-023 deployed end-to-end (migration applied, API + worker + web built, override create/list/delete + solver integration + overrides_applied audit all verified on stress-c).
+
+2026-04-15 08:08:00 UTC — wave2-session — acquired — Wave 2 stress-test run: STRESS-076/077/078/079/080 cross-tenant + data-integrity scenarios

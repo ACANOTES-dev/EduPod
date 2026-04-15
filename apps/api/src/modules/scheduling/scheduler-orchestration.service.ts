@@ -404,16 +404,25 @@ export class SchedulerOrchestrationService {
     // ─── Build teacher inputs ────────────────────────────────────────────────
 
     // Get unique teacher IDs from competencies
-    const teacherIds = [...new Set(teacherCompetencies.map((tc) => tc.staff_profile_id))];
+    const competencyTeacherIds = [...new Set(teacherCompetencies.map((tc) => tc.staff_profile_id))];
 
-    // Get teacher names
+    // Load profiles and drop anyone whose employment_status is not 'active'.
+    // Archived/inactive teachers may still have stale competency rows, but the
+    // solver must not assign them to classes.
     const staffProfiles =
-      teacherIds.length > 0
-        ? await this.staffProfileReadFacade.findByIds(tenantId, teacherIds)
+      competencyTeacherIds.length > 0
+        ? await this.staffProfileReadFacade.findByIds(tenantId, competencyTeacherIds)
         : [];
 
+    const activeTeacherIds = new Set(
+      staffProfiles.filter((sp) => sp.employment_status === 'active').map((sp) => sp.id),
+    );
+    const teacherIds = competencyTeacherIds.filter((id) => activeTeacherIds.has(id));
+
     const staffNameMap = new Map(
-      staffProfiles.map((sp) => [sp.id, `${sp.user.first_name} ${sp.user.last_name}`.trim()]),
+      staffProfiles
+        .filter((sp) => activeTeacherIds.has(sp.id))
+        .map((sp) => [sp.id, `${sp.user.first_name} ${sp.user.last_name}`.trim()]),
     );
 
     const configMap = new Map(teacherConfigs.map((tc) => [tc.staff_profile_id, tc]));

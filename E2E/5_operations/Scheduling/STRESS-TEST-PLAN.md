@@ -355,11 +355,11 @@ Each failure logged against this plan should be tagged:
 | STRESS-073 | Fairness boundary (CV 0.2/0.4/0.6)                 | ⚪ DEFERRED       | 2026-04-15           | setup⁷               |
 | STRESS-074 | Single-teacher fairness degenerate                 | ✅ PASS           | 2026-04-15           | empty⁸               |
 | STRESS-075 | CSV export at scale                                | ⚪ DEFERRED       | 2026-04-15           | setup⁹               |
-| STRESS-076 | Teacher deleted while assigned to substitution     | ⏳ Not Run        | -                    | -                    |
-| STRESS-077 | Class deleted while scheduled                      | ⏳ Not Run        | -                    | -                    |
-| STRESS-078 | Room deleted while in use                          | ⏳ Not Run        | -                    | -                    |
-| STRESS-079 | RLS — tenant B cannot see tenant A's substitutions | ⏳ Not Run        | -                    | -                    |
-| STRESS-080 | Academic year rollover mid-scenario                | ⏳ Not Run        | -                    | -                    |
+| STRESS-076 | Teacher deleted while assigned to substitution     | ✅ PASS           | 2026-04-15 wave2     | SCHED-028 (fixed)    |
+| STRESS-077 | Class deleted while scheduled                      | ✅ PASS           | 2026-04-15 wave2     | -                    |
+| STRESS-078 | Room deleted while in use                          | ✅ PASS           | 2026-04-15 wave2     | -                    |
+| STRESS-079 | RLS — tenant B cannot see tenant A's substitutions | ✅ PASS           | 2026-04-15 wave2     | -                    |
+| STRESS-080 | Academic year rollover mid-scenario                | ✅ PASS           | 2026-04-15 wave2     | -                    |
 | STRESS-081 | BullMQ worker crash mid-solve                      | ⏳ Not Run        | -                    | -                    |
 | STRESS-082 | Redis unavailable at enqueue                       | ⏳ Not Run        | -                    | -                    |
 | STRESS-083 | Solve timeout enforcement                          | ⏳ Not Run        | -                    | -                    |

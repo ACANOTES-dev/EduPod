@@ -1045,7 +1045,11 @@ describe('SchedulerOrchestrationService', () => {
 
       const staffProfileFacade = module.get(StaffProfileReadFacade);
       (staffProfileFacade.findByIds as jest.Mock).mockResolvedValue([
-        { id: 'staff-1', user: { first_name: 'Alice', last_name: 'Brown' } },
+        {
+          id: 'staff-1',
+          employment_status: 'active',
+          user: { first_name: 'Alice', last_name: 'Brown' },
+        },
       ]);
 
       const roomsFacade = module.get(RoomsReadFacade);
@@ -1301,7 +1305,11 @@ describe('SchedulerOrchestrationService', () => {
 
       const staffProfileFacade = module.get(StaffProfileReadFacade);
       (staffProfileFacade.findByIds as jest.Mock).mockResolvedValue([
-        { id: 'staff-1', user: { first_name: 'Alice', last_name: 'Brown' } },
+        {
+          id: 'staff-1',
+          employment_status: 'active',
+          user: { first_name: 'Alice', last_name: 'Brown' },
+        },
       ]);
 
       const roomsFacade = module.get(RoomsReadFacade);
@@ -1383,7 +1391,7 @@ describe('SchedulerOrchestrationService', () => {
       expect(teacher.max_supervision_duties_per_week).toBe(3);
     });
 
-    it('should fallback to teacherId as name when staff profile not found', async () => {
+    it('should drop teachers whose staff profile is missing (deleted) from solver input', async () => {
       setupAssembleData();
 
       const staffProfileFacade = module.get(StaffProfileReadFacade);
@@ -1391,7 +1399,28 @@ describe('SchedulerOrchestrationService', () => {
 
       const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
 
-      expect(input.teachers[0]!.name).toBe('staff-1');
+      // No matching active profile → teacher filtered out entirely rather than
+      // fed to the solver as a UUID-named ghost.
+      expect(input.teachers).toHaveLength(0);
+    });
+
+    it('should drop archived (employment_status != active) teachers from solver input', async () => {
+      setupAssembleData();
+
+      // Stale competency row survives when a teacher is archived; the orchestration
+      // layer must filter them out so the solver never assigns archived staff.
+      const staffProfileFacade = module.get(StaffProfileReadFacade);
+      (staffProfileFacade.findByIds as jest.Mock).mockResolvedValue([
+        {
+          id: 'staff-1',
+          employment_status: 'inactive',
+          user: { first_name: 'Alice', last_name: 'Brown' },
+        },
+      ]);
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.teachers).toHaveLength(0);
     });
 
     it('should use null defaults when no teacher scheduling config exists', async () => {
