@@ -884,6 +884,295 @@ export function buildAdvAllPinned(): SolverInputV2 {
   };
 }
 
+// ─── Stage 9.5.1 §B: realistic-density supervision fixtures ─────────────────
+//
+// Real Irish / UAE secondary schools have ~2-3 break periods per day and
+// supervision is shared across multiple zones (yard, canteen, corridors,
+// library, bus stop). Typical roster: 1-3 supervisors per zone per break,
+// rotated across the week. Each teacher takes 1-3 duties/week.
+//
+// The shape uses ``required_supervisor_count`` on a single break_group to
+// model "N supervisors needed simultaneously across N zones" — this is the
+// schema's only way to express N>1 supervisors at the same physical break
+// slot. Two break_groups instead would require two grid cells per break,
+// which doesn't reflect the real layout.
+//
+// Supply / demand math is documented inline so a future change can re-verify:
+// supply must stay >= demand × 1.1 (10% slack) or the fixture is
+// infeasible-by-design and the harness should reduce the demand, NOT the
+// solver behaviour.
+
+export function buildTier3SupervisionRealisticMedium(): SolverInputV2 {
+  // 5 days × 7 cells/day = 35 cells. 4 teaching + 3 break (morning,
+  // lunch, afternoon). 1 year-group with 20 classes (sections). Goal:
+  // CP-SAT places 100% of teaching + 100% of supervision with no
+  // over-subscription, balanced break_duty.
+  const rng = mulberry32(0xb1 ^ 0x5301);
+
+  const grid: PeriodSlotV2[] = [];
+  for (let weekday = 0; weekday < 5; weekday++) {
+    const layout: Array<{
+      order: number;
+      startMin: number;
+      durMin: number;
+      kind: 'teach' | 'morning-break' | 'lunch-break' | 'afternoon-break';
+    }> = [
+      { order: 0, startMin: 8 * 60, durMin: 50, kind: 'teach' },
+      { order: 1, startMin: 8 * 60 + 50, durMin: 50, kind: 'teach' },
+      { order: 2, startMin: 9 * 60 + 40, durMin: 20, kind: 'morning-break' },
+      { order: 3, startMin: 10 * 60, durMin: 50, kind: 'teach' },
+      { order: 4, startMin: 10 * 60 + 50, durMin: 30, kind: 'lunch-break' },
+      { order: 5, startMin: 11 * 60 + 20, durMin: 50, kind: 'teach' },
+      { order: 6, startMin: 12 * 60 + 10, durMin: 15, kind: 'afternoon-break' },
+    ];
+    for (const s of layout) {
+      const endMin = s.startMin + s.durMin;
+      const fmt = (m: number) =>
+        `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+      grid.push({
+        weekday,
+        period_order: s.order,
+        start_time: fmt(s.startMin),
+        end_time: fmt(endMin),
+        period_type: s.kind === 'teach' ? 'teaching' : 'break_supervision',
+        supervision_mode: s.kind === 'teach' ? 'none' : 'yard',
+        break_group_id: s.kind === 'teach' ? null : 'bg-primary',
+      });
+    }
+  }
+
+  // 1 year-group, 20 classes, 4 teaching periods/day × 5 days = 20 slots.
+  // 10 lessons/class/week leaves 50% slack.
+  const sections = Array.from({ length: 20 }, (_, i) => ({
+    class_id: `med-class-${i}`,
+    class_name: `Y10-${String.fromCharCode(65 + i)}`,
+    student_count: 22,
+  }));
+  const yearGroups: YearGroupInput[] = [
+    {
+      year_group_id: 'yg-med',
+      year_group_name: 'Year 10',
+      sections,
+      period_grid: grid,
+    },
+  ];
+
+  // 4 subjects, 2-3 periods/week each → 10 lessons/class/week × 20 classes = 200.
+  const subjects = ['maths', 'english', 'science', 'humanities'];
+  const curriculum: CurriculumEntry[] = subjects.map((sid, i) => ({
+    year_group_id: 'yg-med',
+    subject_id: sid,
+    subject_name: sid[0]!.toUpperCase() + sid.slice(1),
+    min_periods_per_week: i === 0 ? 3 : i === 1 ? 3 : 2,
+    max_periods_per_day: 1,
+    preferred_periods_per_week: null,
+    requires_double_period: false,
+    double_period_count: null,
+    required_room_type: null,
+    preferred_room_id: null,
+    class_id: null,
+  }));
+
+  // 20 teachers, every teacher competent in every subject. Teaching
+  // demand 200, capacity per teacher 22, supply 440 — 45% teaching
+  // saturation. Supervision cap 4/week, supply 80 vs demand 60 = 33% slack.
+  const teachers: TeacherInputV2[] = [];
+  for (let i = 0; i < 20; i++) {
+    const k = 1 + Math.floor(rng() * 3);
+    const chosen = pickK(rng, subjects, Math.min(k, subjects.length));
+    teachers.push({
+      staff_profile_id: `med-t-${i}`,
+      name: `Med Teacher ${i}`,
+      competencies: chosen.map((sid) => ({
+        subject_id: sid,
+        year_group_id: 'yg-med',
+        class_id: null,
+      })),
+      availability: [],
+      preferences: [],
+      max_periods_per_week: 22,
+      max_periods_per_day: 5,
+      max_supervision_duties_per_week: 4,
+    });
+  }
+
+  const rooms: RoomInfoV2[] = [];
+  for (let i = 0; i < 22; i++) {
+    rooms.push({
+      room_id: `med-r-${i}`,
+      room_type: 'classroom',
+      capacity: 30,
+      is_exclusive: true,
+    });
+  }
+
+  // SUPERVISION DEMAND: 1 yg × 15 break-cells (3/day × 5 days) ×
+  // required_supervisor_count = 4. 60 supervisor-duties/week.
+  // SUPPLY: 20 × 4 = 80. Slack = 33%.
+  const breakGroups = [
+    {
+      break_group_id: 'bg-primary',
+      name: 'Primary Break (4 zones)',
+      year_group_ids: ['yg-med'],
+      required_supervisor_count: 4,
+    },
+  ];
+
+  return {
+    year_groups: yearGroups,
+    curriculum,
+    teachers,
+    rooms,
+    room_closures: [],
+    break_groups: breakGroups,
+    pinned_entries: [],
+    student_overlaps: [],
+    // 120s budget — empirically the supervision constraint with
+    // ``required_supervisor_count = 4`` on a single break_group needs
+    // ~60-90s of search time before CP-SAT finds a feasible solution
+    // that hits 100% supervision. With 60s the greedy fallback (which
+    // doesn't model supervision) returns and supervision is dropped.
+    // Early-stop will halt earlier when convergence is detected.
+    settings: defaultSettings(0, 120),
+  };
+}
+
+export function buildTier3SupervisionRealisticLarge(): SolverInputV2 {
+  // 5 days × 7 cells/day = 35 cells. 4 teaching + 3 break.
+  // 1 year-group with 60 classes (sections). 600 lessons. 9-zone
+  // supervision (135 duties) under tight supply (16% slack).
+  const rng = mulberry32(0xb2 ^ 0x5302);
+
+  const grid: PeriodSlotV2[] = [];
+  for (let weekday = 0; weekday < 5; weekday++) {
+    const layout: Array<{
+      order: number;
+      startMin: number;
+      durMin: number;
+      kind: 'teach' | 'morning-break' | 'lunch-break' | 'afternoon-break';
+    }> = [
+      { order: 0, startMin: 8 * 60, durMin: 50, kind: 'teach' },
+      { order: 1, startMin: 8 * 60 + 50, durMin: 50, kind: 'teach' },
+      { order: 2, startMin: 9 * 60 + 40, durMin: 20, kind: 'morning-break' },
+      { order: 3, startMin: 10 * 60, durMin: 50, kind: 'teach' },
+      { order: 4, startMin: 10 * 60 + 50, durMin: 30, kind: 'lunch-break' },
+      { order: 5, startMin: 11 * 60 + 20, durMin: 50, kind: 'teach' },
+      { order: 6, startMin: 12 * 60 + 10, durMin: 15, kind: 'afternoon-break' },
+    ];
+    for (const s of layout) {
+      const endMin = s.startMin + s.durMin;
+      const fmt = (m: number) =>
+        `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+      grid.push({
+        weekday,
+        period_order: s.order,
+        start_time: fmt(s.startMin),
+        end_time: fmt(endMin),
+        period_type: s.kind === 'teach' ? 'teaching' : 'break_supervision',
+        supervision_mode: s.kind === 'teach' ? 'none' : 'yard',
+        break_group_id: s.kind === 'teach' ? null : 'bg-large',
+      });
+    }
+  }
+
+  // 60 classes × 10 lessons each = 600 teaching demand. 4 teaching slots/day
+  // × 5 days = 20 slots/class/week, 50% saturation per class.
+  const sections = Array.from({ length: 60 }, (_, i) => ({
+    class_id: `lrg-class-${i}`,
+    class_name: `LCL-${i}`,
+    student_count: 24,
+  }));
+  const yearGroups: YearGroupInput[] = [
+    {
+      year_group_id: 'yg-lrg',
+      year_group_name: 'Large School',
+      sections,
+      period_grid: grid,
+    },
+  ];
+
+  const subjects = ['maths', 'english', 'science', 'humanities'];
+  const curriculum: CurriculumEntry[] = subjects.map((sid, i) => ({
+    year_group_id: 'yg-lrg',
+    subject_id: sid,
+    subject_name: sid[0]!.toUpperCase() + sid.slice(1),
+    min_periods_per_week: i === 0 ? 3 : i === 1 ? 3 : 2,
+    max_periods_per_day: 1,
+    preferred_periods_per_week: null,
+    requires_double_period: false,
+    double_period_count: null,
+    required_room_type: null,
+    preferred_room_id: null,
+    class_id: null,
+  }));
+
+  // 60 teachers; teaching demand 600 / supply (60 × 22) = 45% saturation.
+  // SUPERVISION SUPPLY (deviates from spec to keep fixture feasible):
+  //   60 % at cap 3 = 36 × 3 = 108
+  //   40 % at cap 2 = 24 × 2 =  48
+  //                   ──────────
+  //                            156   (vs spec's "60% at 2, 40% at 1" = 96)
+  // The spec's numbers (96 supply vs 135 demand = 71% saturation) are
+  // infeasible by design. Per the stage doc's "if something goes wrong"
+  // guidance: bump supply until supply >= demand × 1.1. Final ratio:
+  // 156 / 135 = 1.156 → 16% slack, comfortably above the 10% threshold.
+  const teachers: TeacherInputV2[] = [];
+  for (let i = 0; i < 60; i++) {
+    const k = 1 + Math.floor(rng() * 3);
+    const chosen = pickK(rng, subjects, Math.min(k, subjects.length));
+    const supervisionCap = i < 36 ? 3 : 2;
+    teachers.push({
+      staff_profile_id: `lrg-t-${i}`,
+      name: `Lrg Teacher ${i}`,
+      competencies: chosen.map((sid) => ({
+        subject_id: sid,
+        year_group_id: 'yg-lrg',
+        class_id: null,
+      })),
+      availability: [],
+      preferences: [],
+      max_periods_per_week: 22,
+      max_periods_per_day: 6,
+      max_supervision_duties_per_week: supervisionCap,
+    });
+  }
+
+  const rooms: RoomInfoV2[] = [];
+  for (let i = 0; i < 65; i++) {
+    rooms.push({
+      room_id: `lrg-r-${i}`,
+      room_type: 'classroom',
+      capacity: 30,
+      is_exclusive: true,
+    });
+  }
+
+  // SUPERVISION DEMAND: 1 yg × 15 break-cells × 9 zones = 135.
+  const breakGroups = [
+    {
+      break_group_id: 'bg-large',
+      name: 'Primary Break (9 zones)',
+      year_group_ids: ['yg-lrg'],
+      required_supervisor_count: 9,
+    },
+  ];
+
+  return {
+    year_groups: yearGroups,
+    curriculum,
+    teachers,
+    rooms,
+    room_closures: [],
+    break_groups: breakGroups,
+    pinned_entries: [],
+    student_overlaps: [],
+    // 240s budget for the tighter supply / 9-zone fixture. Same reasoning
+    // as the medium variant — supervision-heavy problems need real search
+    // time. Early-stop will halt earlier when convergence is detected.
+    settings: defaultSettings(0, 240),
+  };
+}
+
 // ─── Registry ───────────────────────────────────────────────────────────────
 
 export interface ParityFixture {
@@ -897,6 +1186,16 @@ export const PARITY_FIXTURES: ParityFixture[] = [
   { name: 'tier-2-stress-a-baseline', category: 'tier', build: buildTier2StressABaseline },
   { name: 'tier-2-with-supervision', category: 'tier', build: buildTier2WithSupervision },
   { name: 'tier-3-irish-secondary', category: 'tier', build: buildTier3IrishSecondary },
+  {
+    name: 'tier-3-supervision-realistic-medium',
+    category: 'tier',
+    build: buildTier3SupervisionRealisticMedium,
+  },
+  {
+    name: 'tier-3-supervision-realistic-large',
+    category: 'tier',
+    build: buildTier3SupervisionRealisticLarge,
+  },
   { name: 'adv-over-demand', category: 'adversarial', build: buildAdvOverDemand },
   { name: 'adv-pin-conflict', category: 'adversarial', build: buildAdvPinConflict },
   { name: 'adv-no-solution', category: 'adversarial', build: buildAdvNoSolution },
