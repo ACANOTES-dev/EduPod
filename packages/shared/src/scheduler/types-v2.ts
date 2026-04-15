@@ -264,6 +264,16 @@ export interface QualityMetricsV2 {
  */
 export type CpSatStatus = 'optimal' | 'feasible' | 'infeasible' | 'unknown';
 
+/**
+ * Reason the Stage 9.5.1 ``EarlyStopCallback`` halted the search. ``gap``
+ * means the relative objective-to-best-bound gap closed below the
+ * configured threshold; ``stagnation`` means CP-SAT matched the greedy
+ * floor and stopped finding improvements; ``not_triggered`` means the
+ * callback didn't intervene (CP-SAT terminated on its own — INFEASIBLE,
+ * MODEL_INVALID, or budget-exhaust).
+ */
+export type EarlyStopReason = 'stagnation' | 'gap' | 'not_triggered';
+
 export interface SolverOutputV2 {
   entries: SolverAssignmentV2[];
   unassigned: UnassignedSlotV2[];
@@ -280,6 +290,17 @@ export interface SolverOutputV2 {
   quality_metrics?: QualityMetricsV2;
   /** CP-SAT solver status — see ``CpSatStatus``. */
   cp_sat_status?: CpSatStatus;
+  /**
+   * Stage 9.5.1 §A early-stop telemetry. ``early_stop_triggered=true``
+   * + ``early_stop_reason='gap'|'stagnation'`` means the callback halted
+   * the solver before the budget was exhausted. ``time_saved_ms`` is the
+   * budget remaining at halt — 0 when the callback didn't fire.
+   * Optional during the deploy window so worker code can run against
+   * sidecars at older versions.
+   */
+  early_stop_triggered?: boolean;
+  early_stop_reason?: EarlyStopReason;
+  time_saved_ms?: number;
 }
 
 // ─── Validation Types ───────────────────────────────────────────────────────

@@ -237,15 +237,27 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     // sidecar (CPU-bound solve), distinct from any HTTP overhead the worker
     // sees. ``placed_count`` / ``unassigned_count`` duplicate the row-level
     // columns for convenience when inspecting the JSON directly.
+    //
+    // Stage 9.5.1 §E adds ``early_stop_triggered`` / ``early_stop_reason`` /
+    // ``time_saved_ms`` — when the EarlyStopCallback halted the solver before
+    // the budget was exhausted, these are the durable signal that the larger
+    // budget ceiling raised in §D didn't waste compute. Falsy defaults keep
+    // the meta block well-formed against older sidecar responses.
     const placedCount = result.entries.length;
     const unassignedCount = result.unassigned.length;
     const cpSatStatus = result.cp_sat_status ?? 'unknown';
     const sidecarDurationMs = result.duration_ms;
+    const earlyStopTriggered = result.early_stop_triggered ?? false;
+    const earlyStopReason = result.early_stop_reason ?? 'not_triggered';
+    const timeSavedMs = result.time_saved_ms ?? 0;
     const meta = {
       cp_sat_status: cpSatStatus,
       sidecar_duration_ms: sidecarDurationMs,
       placed_count: placedCount,
       unassigned_count: unassignedCount,
+      early_stop_triggered: earlyStopTriggered,
+      early_stop_reason: earlyStopReason,
+      time_saved_ms: timeSavedMs,
     };
 
     const resultJson = {
@@ -275,6 +287,9 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
         sidecar_duration_ms: sidecarDurationMs,
         placed_count: placedCount,
         unassigned_count: unassignedCount,
+        early_stop_triggered: earlyStopTriggered,
+        early_stop_reason: earlyStopReason,
+        time_saved_ms: timeSavedMs,
       })}`,
     );
     const finalStatus = unassignedCount === 0 ? 'completed' : 'failed';

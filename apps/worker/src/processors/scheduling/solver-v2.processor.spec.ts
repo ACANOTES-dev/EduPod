@@ -254,12 +254,17 @@ describe('SchedulingSolverV2Processor', () => {
           unassigned: [{ id: 'unassigned-1' }],
           // Stage 6 observability meta — persisted alongside entries so Stage 7's
           // observation window and Stage 12's diagnostics can read the signal
-          // without a cross-table join.
+          // without a cross-table join. Stage 9.5.1 §E adds the
+          // ``early_stop_*`` + ``time_saved_ms`` fields; spec uses default
+          // values when the sidecar response carries none of them.
           meta: {
             cp_sat_status: 'feasible',
             sidecar_duration_ms: 1234,
             placed_count: 2,
             unassigned_count: 1,
+            early_stop_triggered: false,
+            early_stop_reason: 'not_triggered',
+            time_saved_ms: 0,
           },
         }),
         soft_preference_max: 100,
