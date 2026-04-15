@@ -42,3 +42,5 @@ This file is the exclusive lock for any server-modifying action taken during the
 2026-04-15 01:02:30 UTC — session-A — released — stress-a restored to full baseline (20t, 10c)
 2026-04-15 02:00:00 UTC — claude-fixer — acquired — deploying SCHED-016 permissions patch to all 4 stress tenants
 2026-04-15 02:05:00 UTC — claude-fixer — released — SCHED-016 permissions granted on all 4 stress tenants; prereqs now ready:true
+2026-04-15 02:55:00 UTC — claude-fixer — acquired — deploying SCHED-016/017/018/019/020/021/024/025/026/027 batch fix
+2026-04-15 03:10:00 UTC — claude-fixer — released — batch fix deployed (SCHED-016/017/018/019/020/021/024/025/026/027 all verified on stress-a). Sync-missing-permissions + create-stress-tenants re-run granted 70 additional permissions to admin on all 4 stress tenants. Solver run 3c30129d correctly reports status=failed with explicit shortage reason (47 slots), entries_assigned clamped to 193 (positive), no negative values.

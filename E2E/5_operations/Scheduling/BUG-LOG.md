@@ -1070,4 +1070,31 @@ curl -X POST .../v1/scheduling/runs/$RUN_ID/discard -d '{"expected_updated_at":"
 
 ---
 
+## Resolution — 2026-04-15 (stress-test batch)
+
+Ten open bugs fixed and deployed to production. All four stress tenants smoke-verified. Regression tests: scheduling suites 150/151 passing (1 pre-existing skip), worker solver-v2 processor spec 6/6, shared scheduler suite 61/61.
+
+- **SCHED-016** Fixed — `packages/prisma/scripts/create-stress-tenants.ts` now grants every non-platform permission to the admin role, and a new one-off `sync-missing-permissions.ts` upserted the 82 permissions that existed in the seed file but were missing from the production DB (including `schedule.manage_substitutions`, `schedule.view_reports`, `schedule.manage_exams`, `schedule.manage_scenarios`, `schedule.view_personal_timetable`). Stress-tenant admins now have 103 permissions each. Verified via `POST /api/v1/scheduling/runs/prerequisites` → `{ready:true, missing:[]}`.
+- **SCHED-017** Fixed — `apps/worker/src/processors/scheduling/solver-v2.processor.ts` now writes `status=failed` with an explicit `failure_reason` enumerating up to the first 20 unplaceable slots whenever the solver leaves any curriculum demand unassigned. Only zero-unassigned runs qualify as `completed`. Verified on stress-a run `3c30129d`: status=failed, 47 slots unassigned, reason field populated.
+- **SCHED-018** Fixed — `scheduler-orchestration.service.ts::assembleSolverInput` now loads `class_scheduling_requirements` and threads a `class_room_overrides` array into `SolverInputV2`. `solver-v2.ts` scores matches with `+20` (vs `+10` for the year-group-wide `CurriculumEntry.preferred_room_id`), so class-level intent wins on tie. `ClassRoomOverride` added to `types-v2.ts`.
+- **SCHED-019** Fixed — `substitution.service.ts::findEligibleSubstitutes` now filters out candidates with an active absence covering the target date+period; `createAbsence` → new `revokeOverlappingPendingOffers` revokes any pending offers the newly-absent teacher holds for overlapping lessons.
+- **SCHED-020** Fixed — `getTodayBoard` Prisma query now filters `substitution_records` by `status NOT IN ('revoked','declined')` so the staffroom display only shows active covers.
+- **SCHED-021** Fixed — `scheduling-runs.service.ts::getProgress` clamps `entries_assigned` to `max(0, placed - unassigned)` and additionally exposes raw `entries_placed` / `entries_unassigned` counters. UIs can render honest progress without ever dipping negative.
+- **SCHED-024** Fixed — `solver-v2.ts` post-processor `demoteIsolatedDoubles` scans the final assignment set for isolated singletons of `requires_double_period` subjects and moves them from `entries` to `unassigned` with a specific reason ("Isolated singleton for a double-period-required subject (SCHED-024)"). Combined with SCHED-017, the run now reports `failed` instead of silently publishing a schedule that violates the double-period hard constraint. Pairing-aware variable generation to raise the success ratio is tracked as follow-up.
+- **SCHED-025** Fixed (partial) — `solver-v2.ts` seed fallback is now `0` instead of `Date.now()`, so identical inputs with no explicit `solver_seed` produce identical variable/domain-ordering. Eliminating wall-clock timeout as the residual source of non-determinism (switching to iteration-count termination) is tracked as follow-up; for solves that complete within the time budget, determinism holds now.
+- **SCHED-026** Fixed — `SolverOutputV2.quality_metrics` added (optional) containing `teacher_gap_index`, `day_distribution_variance`, and `preference_breakdown`. Computed by `buildQualityMetrics()` in solver-v2.ts. Worker persists the metrics inside `result_json.quality_metrics`.
+- **SCHED-027** Fixed — `POST /v1/scheduling/runs/:id/cancel` added via `scheduler-orchestration.controller.cancelRun` → `scheduler-orchestration.service.cancelRun`. Both `queued` and `running` runs can be cancelled; any other status returns `RUN_NOT_CANCELLABLE`. Verified: 404 with code `SCHEDULING_RUN_NOT_FOUND` for unknown ids; known runs transition cleanly.
+
+**SCHED-023 — Deferred**. The class-subject requirements feature gap needs a new Prisma model (`class_subject_requirements`) with a migration, full CRUD API, bulk endpoint, and solver merge path. Scope exceeds a correctness bug sprint; re-queued for a dedicated scheduling flexibility workstream. The primary user-facing workaround (class-level `preferred_room_id` from `class_scheduling_requirements`) is now honoured via SCHED-018, which covers the common "this class uses this room" case.
+
+**Commits**:
+
+- `1f58dde6 fix(scheduling): resolve 10 stress-test bugs across solver, substitution, and admin permissions`
+- `575d11ad docs(scheduling): update stress-test tracker + session-B harness`
+- follow-up commits for `sync-missing-permissions.ts` + worker `quality_metrics` persistence
+
+**Deploy**: rsync to `/opt/edupod/app/apps/{api,worker}`, `/opt/edupod/app/packages/{shared,prisma/scripts}`, server-side `pnpm build` for shared/api/worker, pm2 restart api + worker. API 493MB / Worker 363MB post-start, no restart loops. SERVER-LOCK.md carries the acquire/release entries.
+
+---
+
 **End of Bug Log.**

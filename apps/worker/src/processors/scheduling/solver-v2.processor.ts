@@ -157,6 +157,10 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     const resultJson = {
       entries: result.entries,
       unassigned: result.unassigned,
+      // SCHED-026: surface quality metrics (gap index, day variance, preference
+      // breakdown) so admins can compare runs and auditors have durable
+      // evidence of schedule shape.
+      quality_metrics: result.quality_metrics ?? null,
     };
 
     const unassignedCount = result.unassigned.length;
