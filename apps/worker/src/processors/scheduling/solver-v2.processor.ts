@@ -161,6 +161,12 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
       // breakdown) so admins can compare runs and auditors have durable
       // evidence of schedule shape.
       quality_metrics: result.quality_metrics ?? null,
+      // SCHED-023: persist the class-subject override audit so admins can see
+      // which classes deviated from the year-group curriculum. Array copy
+      // rather than reference to keep the snapshot immutable.
+      overrides_applied: configSnapshot.overrides_applied
+        ? [...configSnapshot.overrides_applied]
+        : [],
     };
 
     const unassignedCount = result.unassigned.length;

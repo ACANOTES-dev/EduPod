@@ -123,6 +123,8 @@ describe('SchedulerOrchestrationService — branch coverage', () => {
   let mockPrisma: {
     schedulePeriodTemplate: { findMany: jest.Mock };
     curriculumRequirement: { findMany: jest.Mock };
+    classSchedulingRequirement: { findMany: jest.Mock };
+    classSubjectRequirement: { findMany: jest.Mock };
     teacherCompetency: { findMany: jest.Mock };
     teacherSchedulingConfig: { findMany: jest.Mock };
     breakGroup: { findMany: jest.Mock };
@@ -135,6 +137,8 @@ describe('SchedulerOrchestrationService — branch coverage', () => {
     mockPrisma = {
       schedulePeriodTemplate: { findMany: jest.fn().mockResolvedValue([]) },
       curriculumRequirement: { findMany: jest.fn().mockResolvedValue([]) },
+      classSchedulingRequirement: { findMany: jest.fn().mockResolvedValue([]) },
+      classSubjectRequirement: { findMany: jest.fn().mockResolvedValue([]) },
       teacherCompetency: { findMany: jest.fn().mockResolvedValue([]) },
       teacherSchedulingConfig: { findMany: jest.fn().mockResolvedValue([]) },
       breakGroup: { findMany: jest.fn().mockResolvedValue([]) },

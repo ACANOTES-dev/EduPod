@@ -188,6 +188,7 @@ export class SchedulerOrchestrationService {
       classEnrolments,
       tenantSettings,
       classRequirements,
+      classSubjectRequirements,
     ] = await Promise.all([
       // Year groups with active classes and student counts
       this.academicReadFacade.findYearGroupsWithClassesAndCounts(tenantId, academicYearId),
@@ -259,6 +260,17 @@ export class SchedulerOrchestrationService {
           required_room_type: true,
         },
       }),
+
+      // SCHED-023: per-(class, subject) curriculum overrides. Loaded alongside
+      // curriculum requirements; the merge step below decides which entries
+      // the solver sees (year-group baseline vs class-specific override).
+      this.prisma.classSubjectRequirement.findMany({
+        where: { tenant_id: tenantId, academic_year_id: academicYearId },
+        include: {
+          class_entity: { select: { year_group_id: true } },
+          subject: { select: { name: true } },
+        },
+      }),
     ]);
 
     // ─── Build year_groups with period grids ─────────────────────────────────
@@ -291,7 +303,41 @@ export class SchedulerOrchestrationService {
       };
     });
 
-    // ─── Build curriculum entries ────────────────────────────────────────────
+    // ─── Build curriculum entries (with SCHED-023 class-subject overrides) ───
+    //
+    // Strategy: produce one year-group baseline entry per (year_group, subject)
+    // for every class that does NOT have an override, PLUS one class-specific
+    // entry per (class, subject) override. The solver's variable generator
+    // (domain-v2.ts) consults `curriculum.class_id` to know which entry is
+    // authoritative for each section.
+    //
+    // Policy on year-group / override mismatch is tenant-configurable via
+    // `scheduling.strict_class_subject_override`. When strict is false
+    // (default) the override silently wins and is recorded in the run's
+    // audit trail (`overrides_applied`). When strict is true, any override
+    // whose periods_per_week differs from the year-group baseline (or that
+    // references a subject with no year-group curriculum at all) is treated
+    // as a pre-flight failure and aborts the run.
+    const tenantSettingsBlob =
+      (tenantSettings?.settings as Record<string, unknown> | null | undefined) ?? null;
+    const schedulingSettings =
+      (tenantSettingsBlob?.scheduling as Record<string, unknown> | undefined) ?? undefined;
+    const strictMismatch =
+      (schedulingSettings?.['strict_class_subject_override'] as boolean | undefined) ?? false;
+
+    const curriculumByYgSubject = new Map<string, (typeof curriculumReqs)[number]>();
+    for (const cr of curriculumReqs) {
+      curriculumByYgSubject.set(`${cr.year_group_id}::${cr.subject_id}`, cr);
+    }
+
+    const overridesApplied: Array<{
+      class_id: string;
+      subject_id: string;
+      baseline_periods: number | null;
+      override_periods: number;
+      reason: 'class_subject_override';
+    }> = [];
+    const strictViolations: string[] = [];
 
     const curriculum: CurriculumEntry[] = curriculumReqs.map((cr) => ({
       year_group_id: cr.year_group_id,
@@ -302,9 +348,58 @@ export class SchedulerOrchestrationService {
       preferred_periods_per_week: cr.preferred_periods_per_week,
       requires_double_period: cr.requires_double_period,
       double_period_count: cr.double_period_count,
-      required_room_type: null, // Could be extended in future
-      preferred_room_id: null, // Could be extended in future
+      required_room_type: null,
+      preferred_room_id: null,
+      class_id: null,
     }));
+
+    for (const override of classSubjectRequirements) {
+      const ygId = override.class_entity?.year_group_id;
+      if (!ygId) continue; // class without a year group — ignore (floating)
+      const baseline = curriculumByYgSubject.get(`${ygId}::${override.subject_id}`);
+
+      if (
+        strictMismatch &&
+        (!baseline || baseline.min_periods_per_week !== override.periods_per_week)
+      ) {
+        strictViolations.push(
+          baseline
+            ? `class ${override.class_id} ${override.subject?.name ?? override.subject_id}: override says ${override.periods_per_week} periods/week, year-group curriculum says ${baseline.min_periods_per_week}`
+            : `class ${override.class_id} ${override.subject?.name ?? override.subject_id}: override defines a subject absent from year-group curriculum`,
+        );
+        continue;
+      }
+
+      curriculum.push({
+        year_group_id: ygId,
+        subject_id: override.subject_id,
+        subject_name: override.subject?.name ?? 'Subject',
+        min_periods_per_week: override.periods_per_week,
+        max_periods_per_day: override.max_periods_per_day ?? baseline?.max_periods_per_day ?? 1,
+        preferred_periods_per_week: baseline?.preferred_periods_per_week ?? null,
+        requires_double_period: override.requires_double_period,
+        double_period_count: override.double_period_count,
+        required_room_type: override.required_room_type ?? null,
+        preferred_room_id: override.preferred_room_id ?? null,
+        class_id: override.class_id,
+      });
+      overridesApplied.push({
+        class_id: override.class_id,
+        subject_id: override.subject_id,
+        baseline_periods: baseline?.min_periods_per_week ?? null,
+        override_periods: override.periods_per_week,
+        reason: 'class_subject_override',
+      });
+    }
+
+    if (strictMismatch && strictViolations.length > 0) {
+      throw new BadRequestException({
+        code: 'CLASS_SUBJECT_OVERRIDE_MISMATCH',
+        message:
+          'One or more class-subject overrides conflict with the year-group curriculum and the tenant has opted into strict mismatch rejection.',
+        details: { violations: strictViolations },
+      });
+    }
 
     // ─── Build teacher inputs ────────────────────────────────────────────────
 
@@ -481,6 +576,7 @@ export class SchedulerOrchestrationService {
       pinned_entries: pinnedEntries,
       student_overlaps: studentOverlaps,
       class_room_overrides: classRoomOverrides,
+      overrides_applied: overridesApplied,
       settings,
     };
   }

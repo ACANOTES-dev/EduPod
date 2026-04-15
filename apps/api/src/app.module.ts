@@ -20,6 +20,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { BehaviourModule } from './modules/behaviour/behaviour.module';
 import { ChildProtectionModule } from './modules/child-protection/child-protection.module';
 import { ClassRequirementsModule } from './modules/class-requirements/class-requirements.module';
+import { ClassSubjectRequirementsModule } from './modules/class-subject-requirements/class-subject-requirements.module';
 import { ClassesModule } from './modules/classes/classes.module';
 import { CommunicationsModule } from './modules/communications/communications.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
@@ -145,6 +146,7 @@ import { WebsiteModule } from './modules/website/website.module';
     EngagementModule,
     PeriodGridModule,
     ClassRequirementsModule,
+    ClassSubjectRequirementsModule,
     StaffAvailabilityModule,
     StaffPreferencesModule,
     SchedulingRunsModule,
