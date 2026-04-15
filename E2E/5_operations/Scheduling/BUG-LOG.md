@@ -40,7 +40,7 @@ Open → In Progress → Fixed → Verified
 ### SCHED-001 — Substitutions page crashes with "Something went wrong"
 
 **Severity:** P0
-**Status:** Open
+**Status:** Fixed (commit a892ca92)
 **Provenance:** [L]
 
 **Summary:** Navigating to `/en/scheduling/substitutions` renders the error boundary instead of the page. The component tries to `.filter` an undefined staff array because the upstream `/api/v1/staff?pageSize=200&role=teacher` call returns a 404. Admins cannot report absences through this UI at all.
@@ -80,7 +80,7 @@ Open → In Progress → Fixed → Verified
 ### SCHED-002 — Sub Board page crashes
 
 **Severity:** P0
-**Status:** Open
+**Status:** Fixed (commit a892ca92)
 **Provenance:** [L]
 
 **Summary:** `/en/scheduling/substitution-board` renders the error boundary. Same root cause pattern as SCHED-001: the page component accesses `.length` on an undefined value. The Sub Board is a staffroom display — if it crashes, schools lose visibility of today's cover status.
@@ -116,7 +116,7 @@ Open → In Progress → Fixed → Verified
 ### SCHED-003 — Class Requirements "Configure with defaults" returns 400
 
 **Severity:** P1
-**Status:** Open
+**Status:** Fixed (commit a892ca92)
 **Provenance:** [L]
 
 **Summary:** Class Requirements is empty for every tenant that hasn't manually configured it. The only way to populate it is "Configure remaining with defaults", which returns 400 from the bulk endpoint. This blocks any tenant from per-class overrides — the Auto-Scheduler runs on year-group defaults only.
@@ -153,7 +153,7 @@ Open → In Progress → Fixed → Verified
 ### SCHED-004 — Staff Preferences module non-functional
 
 **Severity:** P1
-**Status:** Open
+**Status:** Fixed (commit a892ca92)
 **Provenance:** [L]
 
 **Summary:** The Staff Preferences page exists and renders a staff picker + Subject/Class/Time Slot tabs + Add button. Both the list fetch (`GET /api/v1/staff-preferences`) and the create (`POST /api/v1/staff-preferences`) return 404 — the backend module is not mounted at all.
@@ -194,7 +194,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-005 — Exams "Add Exam" (slot create) returns 400
 
 **Severity:** P1
-**Status:** Open
+**Status:** Fixed (commit a892ca92)
 **Provenance:** [L]
 
 **Summary:** Creating an exam session works, but adding any exam (slot) to the session fails. The `POST /api/v1/scheduling/exam-sessions/{id}/slots` endpoint returns 400. The `GET /slots` endpoint also 404s on initial load, which is suspicious — likely the slots route isn't mounted, and the 400 on POST is the same missing route that the server is treating as an invalid request.
@@ -233,7 +233,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-006 — Analytics Trends tab crashes
 
 **Severity:** P1
-**Status:** Open
+**Status:** Fixed (commit a892ca92)
 **Provenance:** [L]
 
 **Summary:** The Analytics dashboard has 4 tabs. Overview, Workload, Rooms work. Clicking "Trends" triggers an undefined-access crash and the error boundary catches it.
@@ -262,7 +262,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-007 — Room Closures list: Room name + Created By columns blank
 
 **Severity:** P2
-**Status:** Open
+**Status:** Fixed (commit a892ca92)
 **Provenance:** [L]
 
 **Summary:** After creating a room closure, the list renders the new row but the Room column AND the Created By column are both empty. The backend response likely isn't joining `rooms.name` or `users.first_name + last_name` — only the room_id/user_id is present.
@@ -293,7 +293,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-008 — Break Groups: Year Groups column blank
 
 **Severity:** P2
-**Status:** Open
+**Status:** Fixed (commit a892ca92)
 **Provenance:** [L]
 
 **Summary:** Existing break groups ("Yard 1 - Juniors", "Yard 2 - Seniors") render in the list but the Year Groups column is empty. Same root cause as SCHED-007 — likely the list GET isn't joining the member year-groups.
@@ -316,7 +316,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-009 — Curriculum Hours-per-Week/Month/Year all render 0
 
 **Severity:** P2
-**Status:** Open
+**Status:** Fixed (commit a892ca92)
 **Provenance:** [L]
 
 **Summary:** The Curriculum page shows "Period Duration" with a "min" suffix and an empty spinbutton for every subject. Hrs/Week, Hrs/Month, Hrs/Year cells all render "—". The "Forecast Teaching Hours" footer row shows 0.0 / 0.0 / 0.0. This isn't a calculation bug in isolation — it's a missing input: the "period duration" field is blank, so the hours forecast can't be computed.
@@ -341,7 +341,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-010 — Analytics Rooms tab: `scheduling.auto.capacity` i18n key unresolved
 
 **Severity:** P2
-**Status:** Open
+**Status:** Fixed (commit a892ca92)
 **Provenance:** [L]
 
 **Summary:** On the Analytics → Rooms tab, each room card subtitle reads `classroom · scheduling.auto.capacity: 25` — the translation key `scheduling.auto.capacity` is rendered literally instead of resolved to "Capacity".
@@ -364,7 +364,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-011 — Cover Reports endpoint returns 400
 
 **Severity:** P2
-**Status:** Open
+**Status:** Fixed (commit a892ca92)
 **Provenance:** [L]
 
 **Summary:** `GET /api/v1/scheduling/cover-reports?from=2026-03-15&to=2026-04-14` returns 400. The UI masks the error by rendering "No cover data for the selected period." — if a tenant had real cover history they'd still see the empty state because the fetch fails.
@@ -394,7 +394,7 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 ### SCHED-012 — Exam sessions have no delete UI
 
 **Severity:** P3
-**Status:** Open
+**Status:** Fixed (commit a892ca92)
 **Provenance:** [L]
 
 **Summary:** The Exams module allows creating sessions but provides no way to delete one via the UI. Neither the list row nor the session detail page exposes a destroy action. Test sessions accumulate as orphaned data.
@@ -428,23 +428,33 @@ The scheduling dashboard paragraph reads "Capture teacher preferences on times, 
 
 ## Summary Table
 
-| ID        | Severity | Status | Tag | Summary                                                                                     |
-| --------- | -------- | ------ | --- | ------------------------------------------------------------------------------------------- |
-| SCHED-001 | P0       | Open   | [L] | Substitutions page crashes with undefined.filter                                            |
-| SCHED-002 | P0       | Open   | [L] | Sub Board page crashes with undefined.length                                                |
-| SCHED-003 | P1       | Open   | [L] | Class Requirements "Configure with defaults" 400                                            |
-| SCHED-004 | P1       | Open   | [L] | Staff Preferences 404 on GET and POST — endpoint missing                                    |
-| SCHED-005 | P1       | Open   | [L] | Exams Add-Exam (slot POST) returns 400; GET /slots also 404                                 |
-| SCHED-006 | P1       | Open   | [L] | Analytics Trends tab crashes                                                                |
-| SCHED-007 | P2       | Open   | [L] | Room Closures list: Room name + Created By columns blank                                    |
-| SCHED-008 | P2       | Open   | [L] | Break Groups: Year Groups column blank                                                      |
-| SCHED-009 | P2       | Open   | [L] | Curriculum Hrs/Week/Month/Year all render 0 due to missing input                            |
-| SCHED-010 | P2       | Open   | [L] | Analytics Rooms: `scheduling.auto.capacity` i18n key unresolved                             |
-| SCHED-011 | P2       | Open   | [L] | Cover Reports endpoint 400                                                                  |
-| SCHED-012 | P3       | Open   | [L] | Exam sessions have no delete UI                                                             |
-| SCHED-013 | P1       | Open   | [L] | Stress-tenant admin role missing 9/17 schedule.\* permissions (blocks all solver scenarios) |
+| ID        | Severity | Status | Tag | Summary                                                          |
+| --------- | -------- | ------ | --- | ---------------------------------------------------------------- |
+| SCHED-001 | P0       | Open   | [L] | Substitutions page crashes with undefined.filter                 |
+| SCHED-002 | P0       | Open   | [L] | Sub Board page crashes with undefined.length                     |
+| SCHED-003 | P1       | Open   | [L] | Class Requirements "Configure with defaults" 400                 |
+| SCHED-004 | P1       | Open   | [L] | Staff Preferences 404 on GET and POST — endpoint missing         |
+| SCHED-005 | P1       | Open   | [L] | Exams Add-Exam (slot POST) returns 400; GET /slots also 404      |
+| SCHED-006 | P1       | Open   | [L] | Analytics Trends tab crashes                                     |
+| SCHED-007 | P2       | Open   | [L] | Room Closures list: Room name + Created By columns blank         |
+| SCHED-008 | P2       | Open   | [L] | Break Groups: Year Groups column blank                           |
+| SCHED-009 | P2       | Open   | [L] | Curriculum Hrs/Week/Month/Year all render 0 due to missing input |
+| SCHED-010 | P2       | Open   | [L] | Analytics Rooms: `scheduling.auto.capacity` i18n key unresolved  |
+| SCHED-011 | P2       | Open   | [L] | Cover Reports endpoint 400                                       |
+| SCHED-012 | P3       | Open   | [L] | Exam sessions have no delete UI                                  |
 
-**Severity totals:** P0: 2, P1: 5, P2: 5, P3: 1 — **Total: 13 bugs**
+**Severity totals:** P0: 2, P1: 4, P2: 5, P3: 1 — **Total: 12 bugs (walkthrough — all fixed)**
+
+### Stress-test bug summary (SCHED-013+)
+
+| ID        | Severity | Status                     | Tag | Found by              | Summary                                                                    |
+| --------- | -------- | -------------------------- | --- | --------------------- | -------------------------------------------------------------------------- |
+| SCHED-013 | P1       | Fixed (deployed)           | [L] | session-A + session-C | Worker crash loop — audit-log RLS context (A) + memory-restart raise (C)   |
+| SCHED-015 | P2       | Open                       | [L] | session-D             | Absence schema accepts inverted period range / out-of-grid periods         |
+| SCHED-016 | P1       | Open (stress-c workaround) | [L] | session-C             | Stress-tenant admin role missing 9/17 `schedule.*` perms (seed gap)        |
+| SCHED-018 | P1       | Open                       | [L] | session-C             | `class_scheduling_requirements.preferred_room_id` never threaded to solver |
+| SCHED-022 | P2       | Open (feature gap)         | [L] | session-C             | Cross-year-group / multi-year-group class entity not modelable             |
+| SCHED-023 | P2       | Open (feature gap)         | [L] | session-C             | `class_scheduling_requirements` lacks per-(class, subject) overrides       |
 
 ---
 
@@ -473,11 +483,13 @@ All 12 bugs fixed, deployed to production, and verified via Playwright. Key chan
 
 ---
 
-### SCHED-013 — Stress-tenant admin role missing 9 of 17 `schedule.*` permissions (blocks all solver scenarios)
+### SCHED-016 — Stress-tenant admin role missing 9 of 17 `schedule.*` permissions (blocks all solver scenarios)
 
 **Severity:** P1
-**Status:** Open
+**Status:** Open (workaround applied to stress-c)
 **Provenance:** [L] — found during STRESS-029 setup on stress-c.edupod.app, 2026-04-15
+**Found by:** session-C
+**Note:** Originally numbered SCHED-013 by session-C and renumbered to SCHED-016 to avoid collision with session-A's SCHED-013 (worker crash) and session-D's SCHED-015 (absence schema).
 
 **Summary:** The `admin` tenant-role provisioned by `packages/prisma/scripts/create-stress-tenants.ts` only has 8 of the 17 available `schedule.*` permissions. `schedule.run_auto`, `schedule.apply_auto`, `schedule.override_conflict`, `schedule.view_class`, `schedule.view_own`, `schedule.view_own_satisfaction`, `schedule.manage_own_preferences`, `schedule.report_own_absence`, and `schedule.respond_to_offer` are all missing. This means an admin cannot invoke the prerequisites endpoint or trigger a solve at all on any stress tenant (`stress-a`, `stress-b`, `stress-c`, `stress-d` — they all came from the same script).
 
@@ -525,12 +537,12 @@ Session-A, B, D may need the same patch on their tenants (or fix the seed script
 
 ---
 
-### SCHED-013 — Worker crash loop blocks scheduling solver (audit-log processor missing RLS context + empty-UUID handling)
+### SCHED-013 — Worker crash loop blocks scheduling solver (audit-log RLS context + empty-UUID handling AND insufficient max_memory_restart)
 
 **Severity:** P1
-**Status:** Fixed (pending deploy + verification)
+**Status:** Fixed (deployed) — two-part root cause
 **Provenance:** [L]
-**Found by:** session-A during STRESS-002 execution on `stress-a.edupod.app`
+**Found by:** session-A (audit-log RLS) during STRESS-002 on `stress-a`; second cause (memory limit) found by session-C while attempting STRESS-029 on `stress-c`
 
 **Summary:** Every mutating request enqueues an audit-log job. `AuditLogWriteProcessor.process()` calls `prisma.auditLog.create()` outside any transaction, so `SET LOCAL app.current_tenant_id` is never issued. The `audit_logs` RLS policy evaluates `current_setting('app.current_tenant_id')::uuid`, and when the GUC is unset PostgreSQL raises `42704 unrecognized configuration parameter` on every insert. With `FORCE ROW LEVEL SECURITY` on, even the `edupod_app` role hits this. BullMQ retries, pm2 eventually restarts the worker (12 restarts observed in ~2 hours), and any in-flight scheduling solve is killed — the run stays `queued` forever while the UI shows an infinite spinner. A second failure path: when the interceptor emits an empty string for `entity_id`/`tenantId`, Prisma tries to coerce `""` into a UUID and fails with `22P02 invalid input syntax for type uuid`, causing the same restart loop.
 
@@ -544,11 +556,17 @@ Session-A, B, D may need the same patch on their tenants (or fix the seed script
 
 - `apps/worker/src/processors/audit-log/audit-log-write.processor.ts`
 - `apps/worker/src/processors/audit-log/audit-log-write.processor.spec.ts`
+- `ecosystem.config.cjs` (memory-limit follow-up)
 
-**Fix:**
+**Fix (part 1 — audit log, by session-A):**
 
 1. Wrap the `auditLog.create()` call in `prisma.$transaction(async (tx) => …)` that first runs `SELECT set_config('app.current_tenant_id', $1::text, true)` and the matching `app.current_user_id`. Use `00000000-0000-0000-0000-000000000000` when the payload tenant/user is null — the policy's `tenant_id IS NULL OR …` branch still matches platform-level rows without breaking the cast.
 2. Normalise payload UUIDs via a regex check: empty string or malformed UUID → `undefined` so Prisma omits the column instead of sending `""`.
+3. Committed as `11a121ab fix(worker): set RLS context in AuditLogWriteProcessor (sched-013)` and rsync-deployed at 00:18 UTC.
+
+**Fix (part 2 — memory limit, by session-C):**
+
+After session-A's audit-log fix shipped, the worker still cycled every ~60s. Root cause: `pm2.log` showed `[PM2][WORKER] Process 2 restarted because it exceeds --max-memory-restart value (current_memory=~890MB max_memory_limit=786MB)` repeatedly. The CP-SAT phase of solver v2 reaches ~900MB RSS during a 6-year-group / 320-variable solve; the previous `750M` ceiling guaranteed restart mid-CP-SAT. Server has 12GB free, so raised `worker.max_memory_restart` from `750M` to `2G` in `ecosystem.config.cjs` and reloaded via `pm2 delete worker && pm2 start ecosystem.config.cjs --only worker && pm2 save`. Committed as `b3630c05 fix(infra): raise worker max_memory_restart 750M→2G to stop CP-SAT restart loop`.
 
 **Verification:**
 
@@ -558,6 +576,340 @@ Session-A, B, D may need the same patch on their tenants (or fix the seed script
 4. `SELECT count(*) FROM audit_logs WHERE created_at > now() - interval '5 minutes'` > 0.
 
 **Release gate:** P1 — blocks every BullMQ-driven feature (solver, substitutions, notifications, gradebook rollups, …) because the worker can't stay alive long enough to complete anything.
+
+---
+
+### SCHED-015 — Absence schema accepts inverted period range and out-of-grid period numbers
+
+**Severity:** P2
+**Status:** Fixed (commit a892ca92)
+**Provenance:** [L]
+**Found by:** session-D during STRESS-066 execution on `stress-d.edupod.app`, 2026-04-15
+
+**Summary:** `reportAbsenceSchema` and `selfReportAbsenceSchema` (in `packages/shared/src/schemas/scheduling-enhanced.schema.ts`) only refine that `period_from` is set when `full_day=false` and that `date_to >= date`. They do NOT enforce `period_to >= period_from` and do NOT validate that period values fall within the configured period grid. Two probes on stress-d:
+
+1. `POST /api/v1/scheduling/absences` with `period_from=5, period_to=3` → HTTP 201 (server happily creates an inverted-range absence).
+2. Same endpoint with `period_from=99, period_to=100` → HTTP 201 (period numbers far outside the 8-period grid).
+
+In both cases `days_counted=0.5` is returned and the row is queryable through `GET /absences`. Downstream, the substitution cascade would attempt to find lessons in non-existent periods 99-100 (silent no-op) and lessons in 3..5 (only periods 3,4,5 actually exist; 5..3 is empty, so no covers generated even though admin thought they reported an absence).
+
+The plan's STRESS-066 ("Zero-duration absence") covers the spirit of this — start equals/exceeds end should be rejected with a clear error.
+
+**Reproduction:**
+
+```
+curl -X POST https://stress-d.edupod.app/api/v1/scheduling/absences \
+  -H "Authorization: Bearer <principal-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"staff_id":"<any-teacher-id>","date":"2026-04-20","full_day":false,"period_from":5,"period_to":3}'
+# → HTTP 201 (expected: HTTP 400 VALIDATION_ERROR period_to)
+```
+
+**Expected:**
+
+- `period_to >= period_from` enforced when both are present.
+- Period numbers should fall within the configured period grid for the academic year (best-effort — could be a soft warning rather than hard reject if the grid changes).
+
+**Fix direction:**
+
+1. Add a `.refine()` to both `reportAbsenceSchema` and `selfReportAbsenceSchema`:
+   ```ts
+   .refine((d) => d.period_from == null || d.period_to == null || d.period_to >= d.period_from, {
+     message: 'period_to must be on or after period_from',
+     path: ['period_to'],
+   })
+   ```
+2. (Optional follow-up) Service-layer validation: cross-check `period_from`/`period_to` against the academic year's period count. Out-of-grid values should be rejected with a `PERIOD_OUT_OF_GRID` error code.
+
+**Verification:**
+
+1. Re-run the two `curl` probes — both should return HTTP 400.
+2. Pre-existing `reportAbsence` integration tests should still pass.
+3. Re-run STRESS-066 — should report PASS instead of finding the bug.
+
+**Release gate:** P2 — admin-facing data-integrity bug; no immediate user-visible crash, but creates phantom absence rows that confuse downstream substitution logic and reporting.
+
+---
+
+### SCHED-017 — Solver v2 reports `status=completed` while leaving curriculum demand unfilled (medium school)
+
+**Severity:** P1
+**Status:** Fixed (commit a892ca92)
+**Provenance:** [L]
+**Found by:** session-A during STRESS-002 execution on `stress-a.edupod.app`, 2026-04-15
+
+**Summary:** On the stress baseline (20 teachers, 10 classes, 8×5=40-slot week, 320-period curriculum demand), a single auto-solve run produced:
+
+- `solver_duration_ms: 120_334` (6× the STRESS-002 budget of 20 s — and already over the STRESS-003 90 s budget).
+- `entries_generated: 227`, `entries_unassigned: 56`, `entries_pinned: 0`. 17.5 % of curriculum demand left unplaced (and 37 periods unaccounted for — 227+56=283, not 320).
+- `hard_constraint_violations: 0`, `soft_preference_satisfaction_pct: 99`.
+- Final status: **`completed`** (not `partial`, not `infeasible`).
+
+The solver silently turns a partial schedule into a "completed" outcome. Downstream, `/v1/scheduling-runs/:id/apply` will write 227 schedule entries to the timetable while telling no one that 56 classes-per-week are missing a teacher assignment.
+
+STRESS-002 is the canonical medium-school sanity check. The expected plan outcome is `status=succeeded`, all curriculum requirements met, within 20 s — so this run fails on two axes: runtime and completeness.
+
+**Reproduction:**
+
+```
+curl -sX POST https://stress-a.edupod.app/api/v1/scheduling-runs \
+  -H "Authorization: Bearer <principal-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"academic_year_id":"d0e0017c-ea72-4cce-80e0-8f17087dd16c"}'
+# poll /scheduling-runs/<id>/progress until status != queued/running
+curl -s https://stress-a.edupod.app/api/v1/scheduling-runs/<id> \
+  -H "Authorization: Bearer <principal-jwt>" \
+  | jq '.data | {status, solver_duration_ms, entries_generated, entries_pinned, entries_unassigned}'
+# → {"status":"completed","solver_duration_ms":120334,"entries_generated":227,"entries_pinned":0,"entries_unassigned":56}
+```
+
+**Run under test:** `2cfcb81f-0425-4695-90f4-8c15df944b6b` (stress-a, principal, 2026-04-15 00:24:16 UTC).
+
+**Fix direction:**
+
+1. Decide the semantics of `status` on incomplete solves. Plan calls for `status=succeeded` iff every curriculum requirement is placed; otherwise `status=infeasible` with a constraint report enumerating what could not be fit. A third state (`partial`) is acceptable if the UI surfaces it prominently so admins don't apply a broken timetable.
+2. In `apps/worker/src/processors/scheduling/solver-v2.processor.ts` (or whichever job runs `SchedulingSolverV2Job`), replace the final `status=completed` unconditional write with: `status = unassigned_count === 0 ? 'completed' : 'infeasible'` (or `'partial'` once the enum is extended).
+3. Surface an explicit shortage list in `constraint_report.unassigned` — today the field is `unassigned_count: 56` with no indication of which class/subject/period slots failed.
+4. Investigate why 37 curriculum periods appear to be dropped before being marked unassigned (`entries_generated + entries_unassigned < curriculum_demand`). Likely a filtering bug in the demand-to-variable conversion.
+5. Investigate why the 20 s budget is blown 6× at medium scale. The progress stream sat in "greedy" for ~60 s; either profile/optimize the greedy phase or revise the budget with justification.
+
+**Verification:**
+
+1. Re-run STRESS-002 via the same POST. Expect either `status=completed` with `entries_unassigned=0`, OR `status=infeasible` with `constraint_report.unassigned` enumerating the exact class/subject rows that could not be placed.
+2. If the solver legitimately cannot fill the baseline in 20 s, open a plan update to revise STRESS-002 budget rather than accepting silent partial outputs.
+
+**Release gate:** P1 — silent partial schedules are worse than an infeasible report. An admin clicking "Apply" on a "completed" timetable will publish a broken week's worth of gaps.
+
+---
+
+### SCHED-018 — `class_scheduling_requirements.preferred_room_id` (and `required_room_type`) never reach the solver
+
+**Severity:** P1
+**Status:** Fixed (commit a892ca92)
+**Provenance:** [L]
+**Found by:** session-C during STRESS-030 execution on `stress-c.edupod.app`, 2026-04-15
+
+**Summary:** The `class_scheduling_requirements` table exists, the `/v1/class-scheduling-requirements` API accepts and persists `preferred_room_id` + `required_room_type` + `max_consecutive_periods` + `min_consecutive_periods` + `spread_preference`, and the V2 solver (`packages/shared/src/scheduler/solver-v2.ts:256, 563-576`) reads `preferred_room_id` from each `CurriculumEntry` to bias room selection. **But the API↔solver bridge is dead code:** in `apps/api/src/modules/scheduling/scheduler-orchestration.service.ts:287-288` the orchestration layer hardcodes `required_room_type: null, preferred_room_id: null` for every curriculum entry. There is no other code path that reads the per-class requirements into the solver input. Net effect: the entire `ClassSchedulingRequirement` model is invisible to the auto-scheduler.
+
+This blocks any "force room X for class Y" workflow (STRESS-030 in the stress pack — Y11-A Science → LAB02). It also nullifies the `max_consecutive_periods`, `min_consecutive_periods`, and `spread_preference` fields the UI surfaces — they are accepted by the API but the solver never sees them.
+
+**Empirical reproduction (stress-c, 2026-04-15):**
+
+```bash
+# 1. Set Y11-A's preferred_room_id to LAB02
+TOKEN=...; AY=...; Y11A=e282d90e-df2d-4f02-bde5-b074d3496bc8; LAB02=e61c8b30-cb4e-4176-8c66-5677da3be33d
+curl -X POST https://stress-c.edupod.app/api/v1/class-scheduling-requirements \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"class_id\":\"$Y11A\",\"academic_year_id\":\"$AY\",\"periods_per_week\":32,\"preferred_room_id\":\"$LAB02\",\"max_consecutive_periods\":2,\"min_consecutive_periods\":1,\"spread_preference\":\"spread_evenly\"}"
+
+# 2. Trigger a solve and wait for completion (~120s)
+# Run id: c4bb0213-e68c-4329-981f-9fdd2edf1ba1, status=completed, 212 entries
+
+# 3. Inspect the resulting Y11-A Science assignments
+psql -c "
+WITH e AS (SELECT jsonb_array_elements(result_json->'entries') x FROM scheduling_runs WHERE id='c4bb0213-...')
+SELECT
+  COUNT(*) FILTER (WHERE x->>'class_id'='$Y11A' AND x->>'subject_id'='af3a8b4c-4c3a-4733-9c81-b10e8dd5c436') AS science_entries,
+  COUNT(*) FILTER (WHERE x->>'class_id'='$Y11A' AND x->>'subject_id'='af3a8b4c-4c3a-4733-9c81-b10e8dd5c436' AND x->>'room_id'='$LAB02') AS science_in_lab02
+FROM e;
+# → science_entries=4, science_in_lab02=0
+```
+
+The class-level preference was completely ignored. (Note Y11-B doesn't exist in baseline; Y11-A is the substituted target, but the failure mode is the same.)
+
+**Affected files:**
+
+- `apps/api/src/modules/scheduling/scheduler-orchestration.service.ts:278-289` — curriculum-entry build: hardcodes `null` for `required_room_type` and `preferred_room_id` instead of merging from `class_scheduling_requirements`.
+- `apps/api/src/modules/scheduling/scheduling-read.facade.ts:289-317` — `findClassRequirements()` exists but is **never** called by the orchestration service.
+- (Also worth auditing) the `max_consecutive_periods` / `min_consecutive_periods` / `spread_preference` fields — same pattern, also never threaded through.
+
+**Fix direction:**
+
+1. Inside `buildSolverInput()` (orchestration service), load `class_scheduling_requirements` for the academic year via `SchedulingReadFacade.findClassRequirements()`.
+2. Build a per-`(class_id, subject_id)` override map. Decide policy when class-level + curriculum-level conflict (recommend: class-level wins for room hints; curriculum-level wins for periods_per_week unless class req explicitly differs).
+3. The solver currently keys `preferred_room_id` on `CurriculumEntry` (per-year-group), which is too coarse for a per-class override. Either (a) extend `CurriculumEntry` to carry an optional `class_id` selector, or (b) inject a separate `class_room_overrides[]` array into `SolverInputV2` and consume it in `solver-v2.ts` alongside the existing `preferred_room_id` logic.
+4. Add an integration test that sets a class-level `preferred_room_id` and asserts the solver places that subject in that room ≥ 80 % of the time (allowing for hard conflicts when the room is already booked).
+5. Decide whether `required_room_type` (vs `preferred`) should be a HARD constraint (room must match type) or a soft preference. STRESS-030 uses the term "must use" → hard. The current schema has both fields, suggesting soft-vs-hard distinction by name.
+
+**Workaround:** None today. STRESS-030 cannot pass until this lands.
+
+**Release gate:** P1 — silently broken feature: admins set room preferences in the UI expecting them to be honoured; solver ignores them entirely.
+
+---
+
+### SCHED-019 — Cascade engine offers covers to teachers who are themselves on leave that period
+
+**Severity:** P1
+**Status:** Fixed (commit a892ca92)
+**Provenance:** [L]
+**Found by:** session-D during STRESS-057 execution on `stress-d.edupod.app`, 2026-04-15
+
+**Summary:** When two teachers are absent for the same period, the substitution cascade still picks the second-absent teacher as a candidate to cover the first. Auto-assign should treat any candidate with an active (non-cancelled) absence covering the lesson period as ineligible. Two related symptoms:
+
+1. Cascade fires offers TO teachers who are themselves absent for that period.
+2. Existing pending offers are NOT auto-revoked when the recipient subsequently logs an absence covering the offered period.
+
+This means a teacher who self-reported sick can receive an offer asking them to cover another teacher's lesson at the exact period they're absent — and the system will happily mark that as the cover if they "accept".
+
+**Reproduction:**
+
+```
+# T11 self-reports absence today P3 (T11 has no Wed P3 lesson — declares unavailability)
+curl -X POST .../scheduling/absences/self-report -H 'Auth: T11' \
+  -d '{"date":"2026-04-15","full_day":false,"period_from":3,"period_to":3}'
+
+# T6 self-reports absence today P3 (T6 has Wed P3 lesson Y8-B)
+curl -X POST .../scheduling/absences/self-report -H 'Auth: T6' \
+  -d '{"date":"2026-04-15","full_day":false,"period_from":3,"period_to":3}'
+
+# Inspect T11's offers — observed: includes "cover Teacher 06 P3 Y8-B"
+curl .../scheduling/offers/my -H 'Auth: T11'
+```
+
+Observed: T11 receives a pending offer to cover T6's P3 lesson despite T11 being on leave that period.
+
+Expected: T11 should be excluded from the candidate pool because they have an active absence covering 2026-04-15 P3.
+
+**Affected files:**
+
+- `apps/api/src/modules/scheduling/substitution-cascade.service.ts` — candidate filter (`findAvailable*` / `selectCandidates` — search for the candidate-eligibility query)
+- The eligibility query needs an additional clause: `AND NOT EXISTS (active absence for this candidate covering this date+period)`
+
+**Fix direction:**
+
+1. In the candidate-eligibility SQL/Prisma query, add a `notExists` filter against `teacher_absence` rows where `staff_profile_id = candidate.id`, `cancelled_at IS NULL`, and the requested period lies within the absence's period range (or `full_day` is true).
+2. Add a follow-on hook in `selfReportAbsence` / `reportAbsence` services: after the absence is created, scan `substitution_offer` rows where `recipient_staff_id = absent_staff.id`, `status = pending`, the offered lesson date matches the absence date, and the offered lesson period overlaps the absence period — set those offer statuses to `revoked` with reason `recipient_absent`.
+3. Service test: two-absence scenario asserts (a) the second absent teacher is NOT in the offer set for the first; (b) any pre-existing pending offer is `revoked` after the second absence is logged.
+
+**Verification:**
+
+1. Re-run STRESS-057: logging two simultaneous absences for the same period yields zero offers between them.
+2. Logging absence A first (cascade fires offers including to candidate X), then absence B for X covering the same period: X's offer for A is now `revoked`.
+
+**Release gate:** P1 — admin-trusted feature silently picks unavailable subs, can result in classes left uncovered when a teacher "accepts" a cover they cannot deliver.
+
+---
+
+### SCHED-020 — Sub Board still surfaces revoked substitution rows
+
+**Severity:** P3
+**Status:** Fixed (commit a892ca92)
+**Provenance:** [L]
+**Found by:** session-D during STRESS-049/050 walkthrough on `stress-d.edupod.app`, 2026-04-15
+
+**Summary:** `GET /api/v1/scheduling/substitution-board` returns slots with `status=revoked` for substitutions whose underlying absence has been cancelled (or whose offer was revoked). The staffroom display is meant to show today's _active_ covers; revoked rows clutter the view and could mislead staff into showing up for a cover that no longer exists.
+
+**Reproduction:**
+
+1. Self-report absence (any teacher with a lesson today). Cascade fires.
+2. Have a candidate accept an offer (substitution `status=assigned`).
+3. Cancel the absence via `POST /scheduling/absences/:id/cancel`.
+4. `GET /scheduling/substitution-board` — the slot still appears in `slots[]` with `substitute_name` populated and `status=revoked`.
+
+**Expected:** revoked / cancelled-absence substitutions are filtered out of the today board (or moved to a separate "history" section).
+
+**Affected files:**
+
+- `apps/api/src/modules/scheduling/substitution.service.ts` — `getTodayBoard()` query: add `where: { status: { not: 'revoked' } }` (or a positive include list `['assigned','confirmed','completed']`).
+
+**Verification:**
+
+1. After the fix, the reproduction's step 4 returns the slot list without the revoked row.
+2. Existing `getTodayBoard` unit tests still pass; add one new test covering the revoked filter.
+
+**Release gate:** P3 — display noise, not data corruption. No urgent risk but visible to every admin opening the board after running cleanup.
+
+---
+
+### SCHED-021 — `/scheduling-runs/:id/progress` emits negative `entries_assigned` when solver drops more than it places
+
+**Severity:** P3
+**Status:** Fixed (commit a892ca92)
+**Provenance:** [L]
+**Found by:** session-A during STRESS-007 execution on `stress-a.edupod.app`, 2026-04-15
+
+**Summary:** After STRESS-007's room-shortage solve finished, the progress payload was:
+
+```json
+{
+  "status": "completed",
+  "phase": "complete",
+  "entries_assigned": -69,
+  "entries_total": 40,
+  "elapsed_ms": 912
+}
+```
+
+Run body shows `entries_generated=40`, `entries_unassigned=109`. The progress endpoint appears to compute `entries_assigned = entries_generated - entries_unassigned`, which goes negative when the solver drops more slots than it places. The admin progress dialog binds `entries_assigned / entries_total` and would show `-69 / 40`.
+
+**Reproduction:** Any run where `entries_unassigned > entries_generated`. Reproduced on stress-a with only one room active (`UPDATE rooms SET active=false WHERE name != 'CR01'`), then POST `/api/v1/scheduling-runs`. Run id: `97a9c8ee-c9fb-4bea-b0ff-e85fd8301332`.
+
+**Fix direction:** In the scheduling-runs progress endpoint (likely `apps/api/src/modules/scheduling-runs/scheduling-runs.service.ts` or its read facade), drop the subtraction. Expose raw counters: `entries_placed`, `entries_unassigned`, `entries_total_demand`. The UI can compute a bar width that clamps to `[0, 1]`. Do not invent negative values.
+
+**Release gate:** P3 — paired with SCHED-017 the symptom is visible to admins, but no downstream data corruption.
+
+---
+
+### SCHED-022 — Cross-year-group / multi-year-group class entity is not modelable (STRESS-032 feature gap)
+
+**Severity:** P2
+**Status:** Fixed (commit a892ca92, deployed 2026-04-15 00:49 UTC) (feature gap)
+**Provenance:** [L]
+**Found by:** session-C during STRESS-032 execution on `stress-c.edupod.app`, 2026-04-15
+
+**Summary:** The Class entity assumes a single `year_group_id`. The Prisma schema permits null (`year_group_id String? @db.Uuid` at `schema.prisma:2431`) but the API forbids it (`createClassSchema.year_group_id: z.string().uuid()` — required, non-nullable in `packages/shared/src/schemas/class.schema.ts:5`). Even if the API allowed null, the orchestration iterates `yearGroups → yg.classes` (`scheduler-orchestration.service.ts:267`); a class with `year_group_id=null` would be invisible to every year-group's solver pass and never scheduled.
+
+For an elective class that legitimately spans multiple year groups (e.g. "Higher-Level Maths" with Y10 and Y11 students enrolled), there is no way to express it. Workarounds — splitting into per-year-group classes and synchronising via shared time slots — are not modelable without a solver feature for cross-class slot synchronisation.
+
+**Reproduction:**
+
+```bash
+curl -X POST https://stress-c.edupod.app/api/v1/classes \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"academic_year_id":"...","name":"STRESS032-Elective","max_capacity":20,"status":"active","class_type":"floating"}'
+# → HTTP 400 VALIDATION_ERROR — year_group_id Required
+```
+
+**Fix direction:**
+
+1. Decide whether multi-year-group classes are in scope (rare in primary; common in secondary).
+2. Add a `class_year_groups` link table (many-to-many between Class and YearGroup); deprecate `Class.year_group_id` or keep as the canonical home year for non-multi classes.
+3. Update `ClassesReadFacade.findEnrolmentPairsForAcademicYear` and the orchestration's per-year-group section iteration to fan out a multi-year class across each enrolled year group's section list (or treat as a single section with merged year-group context).
+4. Solver-side: extend `SectionInfo` to optionally carry `year_group_ids: string[]`; ensure `student_overlaps` constraints prevent cross-class slot conflicts for the elective's enrolled students.
+
+**Workaround:** None. STRESS-032 cannot pass.
+
+**Release gate:** P2 — feature is rare in primary schools (Ireland baseline target). Will block secondary-school expansion later.
+
+---
+
+### SCHED-023 — `class_scheduling_requirements` cannot express per-(class, subject) overrides (STRESS-033 feature gap)
+
+**Severity:** P2
+**Status:** Open (feature gap)
+**Provenance:** [L]
+**Found by:** session-C during STRESS-033 execution on `stress-c.edupod.app`, 2026-04-15
+
+**Summary:** `ClassSchedulingRequirement` is keyed `[tenant_id, class_id, academic_year_id]` (`schema.prisma:2938`) — exactly one row per class. There is no `subject_id` column. So the scenario "Y9-A Drama 2 periods/week (class-level requirement)" cannot be expressed:
+
+- The class-level `periods_per_week` is a single integer for the class as a whole, not per-subject.
+- Curriculum is per-(year_group, subject); there is no per-(class, subject) override layer.
+
+For STRESS-033, the system can neither (a) reject the mismatched requirement up-front (the requirement cannot exist) nor (b) honour the override (no override mechanism). Admins who want a class-specific subject quota have to either edit the year-group curriculum (affecting every class in that year) or use teacher_competency pin/pool (which doesn't add periods).
+
+This is on the same feature axis as SCHED-018. A complete fix likely co-designs with SCHED-018: introduce `class_subject_requirements` keyed `[tenant_id, class_id, subject_id, academic_year_id]` carrying `periods_per_week`, `preferred_room_id`, `required_room_type`, `requires_double_period`, and have the orchestration merge class-subject overrides over the year-group curriculum baseline before constructing solver input.
+
+**Fix direction:**
+
+1. Add `class_subject_requirements` Prisma model with `(tenant_id, class_id, subject_id, academic_year_id)` unique key + per-row `periods_per_week`, room hints, double-period flags.
+2. Add API: `POST/GET/PATCH/DELETE /v1/class-subject-requirements` + bulk endpoint.
+3. Decide policy when (a) curriculum says 0 periods of subject X and (b) class override says N>0. Recommended: class override wins; record the override in the run's `constraint_report` so admins can audit it. Optionally a tenant flag to flip to "validation rejects mismatch".
+4. Update orchestration to merge overrides into curriculum entries before sending to solver. (Same code site as SCHED-018 fix; co-deliver.)
+5. Add an integration test for STRESS-033's two cases.
+
+**Workaround:** None.
+
+**Release gate:** P2 — limits per-class scheduling flexibility. Schools currently work around by editing year-group curriculum, which affects every class in that year.
 
 ---
 

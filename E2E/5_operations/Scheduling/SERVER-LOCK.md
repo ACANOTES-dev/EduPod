@@ -18,3 +18,21 @@ This file is the exclusive lock for any server-modifying action taken during the
 2026-04-15 10:00:00 UTC — session-B — acquired — reset stress-b baseline for scenarios 010-028
 2026-04-15 10:00:10 UTC — session-B — released — blocked on Playwright MCP browser lock; no server changes made
 2026-04-15 00:04:30 UTC — session-A — acquired — inspecting worker for stuck queued scheduling run
+2026-04-15 00:18:15 UTC — session-A — released — SCHED-013 deploy verified (worker up 48s post-fix, no new audit-log errors)
+
+2026-04-15 00:23:00 UTC — session-C — acquired — raise worker max_memory_restart 750M→2G to stop CP-SAT-induced restart loop (SCHED-013 follow-up)
+2026-04-15 00:24:00 UTC — session-C — released — worker reloaded with max_memory_restart=2G; uptime stable
+2026-04-15 00:35:00 UTC — session-A — acquired — psql DELETE irish teacher_competencies on stress-a for STRESS-008
+2026-04-15 00:35:20 UTC — session-A — released — psql DELETE complete (21 rows)
+2026-04-15 00:37:00 UTC — session-A — acquired — psql restore irish teacher_competencies after STRESS-008
+2026-04-15 00:37:30 UTC — session-A — released — psql restore complete
+2026-04-15 00:41:00 UTC — session-A — acquired — psql mutate science competencies for STRESS-006 (keep only teacher_1)
+2026-04-15 00:41:15 UTC — session-A — released — science competency delete done
+2026-04-15 00:45:00 UTC — session-A — acquired — psql restore science competencies
+2026-04-15 00:45:30 UTC — session-A — released — science restored
+2026-04-15 00:48:00 UTC — session-A — acquired — psql archive rooms for STRESS-007 (leave only CR01)
+2026-04-15 00:49:00 UTC — session-A — released — 23 rooms deactivated, 1 remains
+2026-04-15 00:52:00 UTC — session-A — acquired — psql restore rooms active=true
+2026-04-15 00:52:15 UTC — session-A — released — rooms restored
+2026-04-15 00:46:06 UTC — session-D — acquired — deploying SCHED-015 absence period_to validation fix
+2026-04-15 00:49:18 UTC — session-D — released — SCHED-015 deployed + verified on stress-d (HTTP 400 on inverted range, HTTP 201 on valid)
