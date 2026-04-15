@@ -278,9 +278,7 @@ export interface SolverOutputV2 {
   };
   /** Optional quality metrics — emitted by the main solver path (SCHED-026). */
   quality_metrics?: QualityMetricsV2;
-  /** CP-SAT solver status — see ``CpSatStatus``. Legacy `solveV2` callers
-   *  never set this; it is optional on the wire so legacy output stays
-   *  structurally compatible until Stage 8 removes the legacy path. */
+  /** CP-SAT solver status — see ``CpSatStatus``. */
   cp_sat_status?: CpSatStatus;
 }
 

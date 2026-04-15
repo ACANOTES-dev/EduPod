@@ -1,4 +1,3 @@
-import { findAdjacentBreaks } from './constraints-v2';
 import type {
   SolverInputV2,
   SolverAssignmentV2,
@@ -8,12 +7,42 @@ import type {
   PeriodSlotV2,
 } from './types-v2';
 
+// ─── Adjacent Break Info ────────────────────────────────────────────────────
+
+interface AdjacentBreak {
+  slot: PeriodSlotV2;
+  direction: 'before' | 'after';
+}
+
+function findAdjacentBreaks(
+  periodGrid: PeriodSlotV2[],
+  weekday: number,
+  periodOrder: number,
+): AdjacentBreak[] {
+  const result: AdjacentBreak[] = [];
+  const daySlots = periodGrid
+    .filter((p) => p.weekday === weekday)
+    .sort((a, b) => a.period_order - b.period_order);
+
+  const currentIdx = daySlots.findIndex((s) => s.period_order === periodOrder);
+  if (currentIdx === -1) return result;
+
+  const nextSlot = daySlots[currentIdx + 1];
+  if (nextSlot && nextSlot.supervision_mode === 'classroom_previous') {
+    result.push({ slot: nextSlot, direction: 'after' });
+  }
+
+  const prevSlot = daySlots[currentIdx - 1];
+  if (prevSlot && prevSlot.supervision_mode === 'classroom_next') {
+    result.push({ slot: prevSlot, direction: 'before' });
+  }
+
+  return result;
+}
+
 // ─── Internal Helpers ────────────────────────────────────────────────────────
 
-function getYearGroupGrid(
-  input: SolverInputV2,
-  yearGroupId: string,
-): PeriodSlotV2[] {
+function getYearGroupGrid(input: SolverInputV2, yearGroupId: string): PeriodSlotV2[] {
   const yg = input.year_groups.find((y) => y.year_group_id === yearGroupId);
   return yg?.period_grid ?? [];
 }
@@ -23,16 +52,10 @@ function getSlot(
   weekday: number,
   periodOrder: number,
 ): PeriodSlotV2 | undefined {
-  return grid.find(
-    (p) => p.weekday === weekday && p.period_order === periodOrder,
-  );
+  return grid.find((p) => p.weekday === weekday && p.period_order === periodOrder);
 }
 
-function cellKey(
-  yearGroupId: string,
-  weekday: number,
-  periodOrder: number,
-): string {
+function cellKey(yearGroupId: string, weekday: number, periodOrder: number): string {
   return `${yearGroupId}:${weekday}:${periodOrder}`;
 }
 
@@ -91,10 +114,7 @@ function checkTier1TeacherDoubleBooking(
         if (!aSlot || !bSlot) continue;
 
         // Time overlap
-        if (
-          aSlot.start_time < bSlot.end_time &&
-          bSlot.start_time < aSlot.end_time
-        ) {
+        if (aSlot.start_time < bSlot.end_time && bSlot.start_time < aSlot.end_time) {
           const pairKey = [
             `${a.year_group_id}:${a.weekday}:${a.period_order}`,
             `${b.year_group_id}:${b.weekday}:${b.period_order}`,
@@ -104,9 +124,7 @@ function checkTier1TeacherDoubleBooking(
 
           if (!flagged.has(pairKey)) {
             flagged.add(pairKey);
-            const teacher = input.teachers.find(
-              (t) => t.staff_profile_id === a.teacher_staff_id,
-            );
+            const teacher = input.teachers.find((t) => t.staff_profile_id === a.teacher_staff_id);
             violations.push(
               makeViolation(
                 1,
@@ -150,9 +168,7 @@ function checkTier2TeacherAvailability(
   for (const a of assignments) {
     if (!a.teacher_staff_id) continue;
 
-    const teacher = input.teachers.find(
-      (t) => t.staff_profile_id === a.teacher_staff_id,
-    );
+    const teacher = input.teachers.find((t) => t.staff_profile_id === a.teacher_staff_id);
     if (!teacher || teacher.availability.length === 0) continue;
 
     const grid = getYearGroupGrid(input, a.year_group_id);
@@ -175,9 +191,7 @@ function checkTier2TeacherAvailability(
       }
     }
 
-    const dayAvail = teacher.availability.filter(
-      (av) => av.weekday === a.weekday,
-    );
+    const dayAvail = teacher.availability.filter((av) => av.weekday === a.weekday);
     if (dayAvail.length === 0) {
       violations.push(
         makeViolation(
@@ -200,9 +214,7 @@ function checkTier2TeacherAvailability(
       continue;
     }
 
-    const covered = dayAvail.some(
-      (av) => av.from <= effectiveStart && av.to >= effectiveEnd,
-    );
+    const covered = dayAvail.some((av) => av.from <= effectiveStart && av.to >= effectiveEnd);
     if (!covered) {
       violations.push(
         makeViolation(
@@ -237,20 +249,16 @@ function checkTier2TeacherCompetency(
   for (const a of assignments) {
     if (!a.teacher_staff_id || !a.subject_id || a.is_supervision) continue;
 
-    const teacher = input.teachers.find(
-      (t) => t.staff_profile_id === a.teacher_staff_id,
-    );
+    const teacher = input.teachers.find((t) => t.staff_profile_id === a.teacher_staff_id);
     if (!teacher) continue;
 
     const hasCompetency = teacher.competencies.some(
-      (c) =>
-        c.subject_id === a.subject_id && c.year_group_id === a.year_group_id,
+      (c) => c.subject_id === a.subject_id && c.year_group_id === a.year_group_id,
     );
 
     if (!hasCompetency) {
       const curriculum = input.curriculum.find(
-        (c) =>
-          c.year_group_id === a.year_group_id && c.subject_id === a.subject_id,
+        (c) => c.year_group_id === a.year_group_id && c.subject_id === a.subject_id,
       );
       violations.push(
         makeViolation(
@@ -285,9 +293,7 @@ function checkTier2SubjectMinFrequency(
   const violations: ConstraintViolation[] = [];
 
   for (const curriculum of input.curriculum) {
-    const yg = input.year_groups.find(
-      (y) => y.year_group_id === curriculum.year_group_id,
-    );
+    const yg = input.year_groups.find((y) => y.year_group_id === curriculum.year_group_id);
     if (!yg) continue;
 
     for (const section of yg.sections) {
@@ -342,9 +348,7 @@ function checkTier2SubjectMaxPerDay(
   const violations: ConstraintViolation[] = [];
 
   for (const curriculum of input.curriculum) {
-    const yg = input.year_groups.find(
-      (y) => y.year_group_id === curriculum.year_group_id,
-    );
+    const yg = input.year_groups.find((y) => y.year_group_id === curriculum.year_group_id);
     if (!yg) continue;
 
     for (const section of yg.sections) {
@@ -434,8 +438,7 @@ function checkTier2TeacherWeeklyLoad(
     if (teacher.max_periods_per_week === null) continue;
 
     const weeklyEntries = assignments.filter(
-      (a) =>
-        a.teacher_staff_id === teacher.staff_profile_id && !a.is_supervision,
+      (a) => a.teacher_staff_id === teacher.staff_profile_id && !a.is_supervision,
     );
 
     if (weeklyEntries.length > teacher.max_periods_per_week) {
@@ -494,10 +497,7 @@ function checkTier2RoomDoubleBooking(
 
         if (!aSlot || !bSlot) continue;
 
-        if (
-          aSlot.start_time < bSlot.end_time &&
-          bSlot.start_time < aSlot.end_time
-        ) {
+        if (aSlot.start_time < bSlot.end_time && bSlot.start_time < aSlot.end_time) {
           const pairKey = [
             `${a.year_group_id}:${a.weekday}:${a.period_order}`,
             `${b.year_group_id}:${b.weekday}:${b.period_order}`,
@@ -546,8 +546,7 @@ function checkTier2RoomTypeMismatch(
     if (!a.room_id || !a.subject_id || a.is_supervision) continue;
 
     const curriculum = input.curriculum.find(
-      (c) =>
-        c.year_group_id === a.year_group_id && c.subject_id === a.subject_id,
+      (c) => c.year_group_id === a.year_group_id && c.subject_id === a.subject_id,
     );
     if (!curriculum || !curriculum.required_room_type) continue;
 
@@ -595,10 +594,7 @@ function checkTier2BreakSupervisionUnderstaffed(
 
     for (const yg of input.year_groups) {
       for (const slot of yg.period_grid) {
-        if (
-          slot.supervision_mode === 'yard' &&
-          slot.break_group_id === bg.break_group_id
-        ) {
+        if (slot.supervision_mode === 'yard' && slot.break_group_id === bg.break_group_id) {
           const key = `${slot.weekday}:${slot.period_order}`;
           if (!breakSlots.has(key)) {
             breakSlots.set(key, {
@@ -651,9 +647,7 @@ function checkTier2ClassroomBreakTeacherMissing(
 
   for (const yg of input.year_groups) {
     const classroomBreaks = yg.period_grid.filter(
-      (p) =>
-        p.supervision_mode === 'classroom_previous' ||
-        p.supervision_mode === 'classroom_next',
+      (p) => p.supervision_mode === 'classroom_previous' || p.supervision_mode === 'classroom_next',
     );
 
     for (const breakSlot of classroomBreaks) {
@@ -663,9 +657,7 @@ function checkTier2ClassroomBreakTeacherMissing(
           .filter((p) => p.weekday === breakSlot.weekday)
           .sort((a, b) => a.period_order - b.period_order);
 
-        const breakIdx = daySlots.findIndex(
-          (s) => s.period_order === breakSlot.period_order,
-        );
+        const breakIdx = daySlots.findIndex((s) => s.period_order === breakSlot.period_order);
         if (breakIdx === -1) continue;
 
         let adjacentTeachingSlot: PeriodSlotV2 | undefined;
@@ -767,10 +759,7 @@ function checkTier2StudentOverlap(
 
         if (!aSlot || !bSlot) continue;
 
-        if (
-          aSlot.start_time < bSlot.end_time &&
-          bSlot.start_time < aSlot.end_time
-        ) {
+        if (aSlot.start_time < bSlot.end_time && bSlot.start_time < aSlot.end_time) {
           const pairKey = [
             `${a.class_id}:${a.weekday}:${a.period_order}`,
             `${b.class_id}:${b.weekday}:${b.period_order}`,
@@ -818,9 +807,7 @@ function checkTier2MaxConsecutive(
   const violations: ConstraintViolation[] = [];
 
   for (const curriculum of input.curriculum) {
-    const yg = input.year_groups.find(
-      (y) => y.year_group_id === curriculum.year_group_id,
-    );
+    const yg = input.year_groups.find((y) => y.year_group_id === curriculum.year_group_id);
     if (!yg) continue;
 
     const maxConsecutive = curriculum.max_periods_per_day;
@@ -896,9 +883,7 @@ function checkTier2MinConsecutive(
   for (const curriculum of input.curriculum) {
     if (!curriculum.requires_double_period) continue;
 
-    const yg = input.year_groups.find(
-      (y) => y.year_group_id === curriculum.year_group_id,
-    );
+    const yg = input.year_groups.find((y) => y.year_group_id === curriculum.year_group_id);
     if (!yg) continue;
 
     for (const section of yg.sections) {
@@ -1000,9 +985,7 @@ function checkTier3TeacherTimeSlotPreferences(
   const violations: ConstraintViolation[] = [];
 
   for (const teacher of input.teachers) {
-    const timePrefs = teacher.preferences.filter(
-      (p) => p.preference_type === 'time_slot',
-    );
+    const timePrefs = teacher.preferences.filter((p) => p.preference_type === 'time_slot');
 
     for (const pref of timePrefs) {
       const payload = pref.preference_payload as {
@@ -1018,16 +1001,10 @@ function checkTier3TeacherTimeSlotPreferences(
       );
 
       const matching = teacherAssignments.filter((a) => {
-        if (
-          payload.weekday !== undefined &&
-          a.weekday !== payload.weekday
-        ) {
+        if (payload.weekday !== undefined && a.weekday !== payload.weekday) {
           return false;
         }
-        if (
-          payload.period_order !== undefined &&
-          a.period_order !== payload.period_order
-        ) {
+        if (payload.period_order !== undefined && a.period_order !== payload.period_order) {
           return false;
         }
         return true;
@@ -1083,9 +1060,7 @@ function checkTier3SubjectPreferredFrequency(
       continue;
     }
 
-    const yg = input.year_groups.find(
-      (y) => y.year_group_id === curriculum.year_group_id,
-    );
+    const yg = input.year_groups.find((y) => y.year_group_id === curriculum.year_group_id);
     if (!yg) continue;
 
     for (const section of yg.sections) {
@@ -1134,9 +1109,7 @@ function checkTier3EvenSubjectSpread(
   const SPREAD_THRESHOLD = 0.5;
 
   for (const curriculum of input.curriculum) {
-    const yg = input.year_groups.find(
-      (y) => y.year_group_id === curriculum.year_group_id,
-    );
+    const yg = input.year_groups.find((y) => y.year_group_id === curriculum.year_group_id);
     if (!yg) continue;
 
     for (const section of yg.sections) {
@@ -1158,11 +1131,9 @@ function checkTier3EvenSubjectSpread(
       const n = sectionAssignments.length;
       const k = counts.length;
       const mean = n / k;
-      const variance =
-        counts.reduce((sum, c) => sum + Math.pow(c - mean, 2), 0) / k;
+      const variance = counts.reduce((sum, c) => sum + Math.pow(c - mean, 2), 0) / k;
       const maxVariance = Math.pow(n, 2);
-      const spreadScore =
-        maxVariance === 0 ? 1 : Math.max(0, 1 - variance / maxVariance);
+      const spreadScore = maxVariance === 0 ? 1 : Math.max(0, 1 - variance / maxVariance);
 
       if (spreadScore < SPREAD_THRESHOLD) {
         violations.push(
@@ -1258,16 +1229,14 @@ function checkTier3WorkloadImbalance(
 
   const counts = input.teachers.map(
     (t) =>
-      assignments.filter(
-        (a) => a.teacher_staff_id === t.staff_profile_id && !a.is_supervision,
-      ).length,
+      assignments.filter((a) => a.teacher_staff_id === t.staff_profile_id && !a.is_supervision)
+        .length,
   );
 
   const mean = counts.reduce((s, c) => s + c, 0) / counts.length;
   if (mean === 0) return violations;
 
-  const variance =
-    counts.reduce((s, c) => s + Math.pow(c - mean, 2), 0) / counts.length;
+  const variance = counts.reduce((s, c) => s + Math.pow(c - mean, 2), 0) / counts.length;
   const stdDev = Math.sqrt(variance);
   const cv = stdDev / mean;
 
@@ -1297,10 +1266,7 @@ function checkTier3BreakDutyImbalance(
   const dutyCounts = new Map<string, number>();
   for (const a of supervisionAssignments) {
     if (a.teacher_staff_id) {
-      dutyCounts.set(
-        a.teacher_staff_id,
-        (dutyCounts.get(a.teacher_staff_id) ?? 0) + 1,
-      );
+      dutyCounts.set(a.teacher_staff_id, (dutyCounts.get(a.teacher_staff_id) ?? 0) + 1);
     }
   }
 
@@ -1310,8 +1276,7 @@ function checkTier3BreakDutyImbalance(
   const mean = counts.reduce((s, c) => s + c, 0) / counts.length;
   if (mean === 0) return violations;
 
-  const variance =
-    counts.reduce((s, c) => s + Math.pow(c - mean, 2), 0) / counts.length;
+  const variance = counts.reduce((s, c) => s + Math.pow(c - mean, 2), 0) / counts.length;
   const stdDev = Math.sqrt(variance);
   const cv = stdDev / mean;
 
@@ -1338,9 +1303,7 @@ function checkTier3RoomNotPreferred(
   for (const curriculum of input.curriculum) {
     if (!curriculum.preferred_room_id) continue;
 
-    const yg = input.year_groups.find(
-      (y) => y.year_group_id === curriculum.year_group_id,
-    );
+    const yg = input.year_groups.find((y) => y.year_group_id === curriculum.year_group_id);
     if (!yg) continue;
 
     for (const section of yg.sections) {
@@ -1383,11 +1346,7 @@ function checkTier3RoomNotPreferred(
 
 // ─── Health Score ────────────────────────────────────────────────────────────
 
-function computeHealthScore(
-  tier1Count: number,
-  tier2Count: number,
-  tier3Count: number,
-): number {
+function computeHealthScore(tier1Count: number, tier2Count: number, tier3Count: number): number {
   const raw = 100 - tier1Count * 20 - tier2Count * 5 - tier3Count * 1;
   return Math.max(0, Math.min(100, raw));
 }
@@ -1440,23 +1399,15 @@ export function validateSchedule(
   violations.push(...checkTier2TeacherWeeklyLoad(input, assignments));
   violations.push(...checkTier2RoomDoubleBooking(input, assignments));
   violations.push(...checkTier2RoomTypeMismatch(input, assignments));
-  violations.push(
-    ...checkTier2BreakSupervisionUnderstaffed(input, assignments),
-  );
-  violations.push(
-    ...checkTier2ClassroomBreakTeacherMissing(input, assignments),
-  );
+  violations.push(...checkTier2BreakSupervisionUnderstaffed(input, assignments));
+  violations.push(...checkTier2ClassroomBreakTeacherMissing(input, assignments));
   violations.push(...checkTier2StudentOverlap(input, assignments));
   violations.push(...checkTier2MaxConsecutive(input, assignments));
   violations.push(...checkTier2MinConsecutive(input, assignments));
 
   // ── Tier 3 ──
-  violations.push(
-    ...checkTier3TeacherTimeSlotPreferences(input, assignments),
-  );
-  violations.push(
-    ...checkTier3SubjectPreferredFrequency(input, assignments),
-  );
+  violations.push(...checkTier3TeacherTimeSlotPreferences(input, assignments));
+  violations.push(...checkTier3SubjectPreferredFrequency(input, assignments));
   violations.push(...checkTier3EvenSubjectSpread(input, assignments));
   violations.push(...checkTier3TeacherGaps(input, assignments));
   violations.push(...checkTier3WorkloadImbalance(input, assignments));

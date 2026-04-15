@@ -1,10 +1,11 @@
 /**
- * Stage 5 parity fixtures — three scale tiers + four adversarial cases.
+ * CP-SAT regression fixtures — three scale tiers + four adversarial cases.
+ * (Originally Stage 5 parity fixtures; legacy solver retired in Stage 8.)
  *
- * Each builder returns a fully-formed ``SolverInputV2`` so the parity
- * harness (``cp-sat-parity.test.ts``) can hand the same byte-identical
- * payload to ``solveV2`` and to the CP-SAT sidecar (``POST /solve``)
- * with no further transformation.
+ * Each builder returns a fully-formed ``SolverInputV2`` so the regression
+ * harness (``cp-sat-regression.test.ts``) can hand the same byte-identical
+ * payload to the CP-SAT sidecar (``POST /solve``) with no further
+ * transformation.
  *
  * Builders are deterministic — no ``Math.random`` calls. A seeded
  * ``mulberry32`` produces the synthetic teacher / curriculum

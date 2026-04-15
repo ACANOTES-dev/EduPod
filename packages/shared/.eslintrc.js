@@ -1,7 +1,7 @@
 module.exports = {
   extends: [require.resolve('@school/eslint-config')],
   parserOptions: {
-    project: './tsconfig.json',
+    project: './tsconfig.eslint.json',
     tsconfigRootDir: __dirname,
   },
   root: true,
