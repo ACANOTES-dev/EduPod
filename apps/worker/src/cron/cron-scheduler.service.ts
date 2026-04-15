@@ -46,6 +46,7 @@ import { PARENT_DAILY_DIGEST_JOB } from '../processors/notifications/parent-dail
 import { PASTORAL_CRON_DISPATCH_OVERDUE_JOB } from '../processors/pastoral/pastoral-cron-dispatch.processor';
 import { REGULATORY_DEADLINE_CHECK_JOB } from '../processors/regulatory/deadline-check.processor';
 import { REGULATORY_TUSLA_THRESHOLD_SCAN_JOB } from '../processors/regulatory/tusla-threshold-scan.processor';
+import { SCHEDULING_REAP_STALE_JOB } from '../processors/scheduling-stale-reaper.processor';
 import { ANOMALY_SCAN_JOB } from '../processors/security/anomaly-scan.processor';
 import { BREACH_DEADLINE_JOB } from '../processors/security/breach-deadline.processor';
 import { CLEANUP_PARTICIPATION_TOKENS_JOB } from '../processors/wellbeing/cleanup-participation-tokens.processor';
@@ -78,6 +79,7 @@ export class CronSchedulerService implements OnModuleInit {
     @InjectQueue(QUEUE_NAMES.PASTORAL) private readonly pastoralQueue: Queue,
     @InjectQueue(QUEUE_NAMES.ADMISSIONS) private readonly admissionsQueue: Queue,
     @InjectQueue(QUEUE_NAMES.FINANCE) private readonly financeQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.SCHEDULING) private readonly schedulingQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -100,6 +102,28 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerMonitoringCronJobs();
     await this.registerCanaryCronJobs();
     await this.registerFinanceCronJobs();
+    await this.registerSchedulingCronJobs();
+  }
+
+  // ─── Scheduling ────────────────────────────────────────────────────────────
+  //
+  // SCHED-029 (STRESS-081): the stale-run reaper was shipped but never wired
+  // to a cron. A worker crash mid-solve would therefore leave the DB row in
+  // 'running' forever, blocking the tenant from triggering again via
+  // RUN_ALREADY_ACTIVE. Register the reaper every minute so stale-running
+  // rows reach a terminal state within max_solver_duration_seconds + ~2 min.
+  private async registerSchedulingCronJobs(): Promise<void> {
+    await this.schedulingQueue.add(
+      SCHEDULING_REAP_STALE_JOB,
+      {},
+      {
+        repeat: { pattern: '* * * * *' },
+        jobId: `cron:${SCHEDULING_REAP_STALE_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${SCHEDULING_REAP_STALE_JOB} (every minute)`);
   }
 
   private async registerFinanceCronJobs(): Promise<void> {

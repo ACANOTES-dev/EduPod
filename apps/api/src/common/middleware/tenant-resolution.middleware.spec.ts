@@ -609,26 +609,52 @@ describe('TenantResolutionMiddleware', () => {
       expect(next).toHaveBeenCalledTimes(1);
     });
 
-    it('returns 500 when tenant resolution throws', async () => {
+    // SCHED-030 (STRESS-082): Redis failures on the cache layer must not
+    // 500 every API request. The middleware now degrades to a direct DB
+    // lookup so requests continue to land on their handlers even when the
+    // Redis container is down or restarting.
+    it('falls back to the DB when Redis GET fails and still resolves the tenant', async () => {
       const req = buildRequest();
       const res = buildResponse();
 
       mockRedisClient.get.mockRejectedValueOnce(new Error('boom'));
+      (runWithRlsContext as jest.Mock).mockImplementation(async (_prisma, _ctx, cb) =>
+        cb({
+          tenantDomain: { findFirst: jest.fn().mockResolvedValue(ACTIVE_DOMAIN_RECORD) },
+        }),
+      );
+      mockRedisClient.setex.mockRejectedValueOnce(new Error('still down'));
 
       await middleware.use(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({
-        error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' },
-      });
-      expect(next).not.toHaveBeenCalled();
+      expect(req.tenantContext).toEqual(TENANT_CONTEXT);
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(res.status).not.toHaveBeenCalledWith(500);
     });
 
-    it('returns 500 when tenant resolution throws a non-Error value', async () => {
+    it('falls back to the DB when Redis rejects with a non-Error value', async () => {
       const req = buildRequest();
       const res = buildResponse();
 
       mockRedisClient.get.mockRejectedValueOnce('boom');
+      (runWithRlsContext as jest.Mock).mockImplementation(async (_prisma, _ctx, cb) =>
+        cb({
+          tenantDomain: { findFirst: jest.fn().mockResolvedValue(ACTIVE_DOMAIN_RECORD) },
+        }),
+      );
+
+      await middleware.use(req, res, next);
+
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(res.status).not.toHaveBeenCalledWith(500);
+    });
+
+    it('still returns 500 when a non-Redis failure occurs (e.g. DB exception)', async () => {
+      const req = buildRequest();
+      const res = buildResponse();
+
+      mockRedisClient.get.mockResolvedValueOnce(null);
+      (runWithRlsContext as jest.Mock).mockRejectedValueOnce(new Error('db down'));
 
       await middleware.use(req, res, next);
 

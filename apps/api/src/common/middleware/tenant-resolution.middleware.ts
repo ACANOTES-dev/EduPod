@@ -62,15 +62,14 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       try {
         const hostname = this.getRequestHostname(req);
         const isProxyHostname = this.isProxyHostname(hostname);
-        const client = this.redis.getClient();
         const cacheKey = `tenant_domain:${hostname}`;
-        const cached = await client.get(cacheKey);
+        const cached = await this.safeRedisGet(cacheKey);
 
         if (cached) {
           const tenantContext: TenantContext = JSON.parse(cached);
 
-          // Check suspension flag
-          const suspended = await client.get(`tenant:${tenantContext.tenant_id}:suspended`);
+          // Check suspension flag (best effort — Redis failure falls through).
+          const suspended = await this.safeRedisGet(`tenant:${tenantContext.tenant_id}:suspended`);
           if (suspended) {
             return res.status(403).json({
               error: {
@@ -100,7 +99,7 @@ export class TenantResolutionMiddleware implements NestMiddleware {
               default_locale: domainRecord.tenant.default_locale,
               timezone: domainRecord.tenant.timezone,
             };
-            await client.setex(cacheKey, 60, JSON.stringify(tenantContext));
+            await this.safeRedisSetex(cacheKey, 60, JSON.stringify(tenantContext));
             const mutableReq = req as unknown as { tenantContext: TenantContext };
             mutableReq.tenantContext = tenantContext;
           } else {
@@ -129,16 +128,20 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       const hostname = this.getRequestHostname(req);
       const isProxyHostname = this.isProxyHostname(hostname);
 
-      // Check Redis cache first
-      const client = this.redis.getClient();
+      // Check Redis cache first. SCHED-030 (STRESS-082): Redis outages used
+      // to 500 every API request via the outer catch. Treat cache-layer
+      // failures as cache misses so the middleware degrades to DB lookups
+      // rather than taking the whole API offline.
       const cacheKey = `tenant_domain:${hostname}`;
-      const cached = await client.get(cacheKey);
+      const cached = await this.safeRedisGet(cacheKey);
 
       if (cached) {
         const tenantContext: TenantContext = JSON.parse(cached);
 
-        // Check suspension flag
-        const suspended = await client.get(`tenant:${tenantContext.tenant_id}:suspended`);
+        // Check suspension flag. Missing / Redis-down → fall through to the
+        // DB-level tenant.status check below, which is the authoritative
+        // source anyway; the Redis flag is only a fast-path optimisation.
+        const suspended = await this.safeRedisGet(`tenant:${tenantContext.tenant_id}:suspended`);
         if (suspended) {
           return res.status(403).json({
             error: {
@@ -197,8 +200,8 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       }
 
       if (tenant.status === 'suspended') {
-        // Set Redis flag for quick checks on subsequent requests
-        await client.set(`tenant:${tenant.id}:suspended`, 'true');
+        // Set Redis flag for quick checks on subsequent requests (best effort).
+        await this.safeRedisSet(`tenant:${tenant.id}:suspended`, 'true');
         return res.status(403).json({
           error: {
             code: 'TENANT_SUSPENDED',
@@ -216,8 +219,9 @@ export class TenantResolutionMiddleware implements NestMiddleware {
         timezone: tenant.timezone,
       };
 
-      // Cache for 60 seconds
-      await client.setex(cacheKey, 60, JSON.stringify(tenantContext));
+      // Cache for 60 seconds (best effort — ignore Redis failures so the API
+      // keeps serving when the cache layer is down).
+      await this.safeRedisSetex(cacheKey, 60, JSON.stringify(tenantContext));
 
       const mutableReq = req as unknown as { tenantContext: TenantContext };
       mutableReq.tenantContext = tenantContext;
@@ -267,9 +271,8 @@ export class TenantResolutionMiddleware implements NestMiddleware {
     const normalised = slug.trim().toLowerCase();
     if (!normalised || normalised.length > 100) return null;
 
-    const client = this.redis.getClient();
     const cacheKey = `tenant_slug:${normalised}`;
-    const cached = await client.get(cacheKey);
+    const cached = await this.safeRedisGet(cacheKey);
     if (cached) {
       return JSON.parse(cached) as TenantContext;
     }
@@ -288,7 +291,7 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       timezone: tenant.timezone,
     };
 
-    await client.setex(cacheKey, 60, JSON.stringify(tenantContext));
+    await this.safeRedisSetex(cacheKey, 60, JSON.stringify(tenantContext));
     return tenantContext;
   }
 
@@ -313,10 +316,9 @@ export class TenantResolutionMiddleware implements NestMiddleware {
 
       if (!decoded.tenant_id || decoded.type !== 'access') return null;
 
-      // Check Redis cache for this tenant
-      const client = this.redis.getClient();
+      // Check Redis cache for this tenant (cache failure → fall through).
       const tenantCacheKey = `tenant:${decoded.tenant_id}`;
-      const cachedTenant = await client.get(tenantCacheKey);
+      const cachedTenant = await this.safeRedisGet(tenantCacheKey);
 
       if (cachedTenant) {
         return JSON.parse(cachedTenant) as TenantContext;
@@ -330,7 +332,7 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       if (!tenant || tenant.status === 'archived') return null;
 
       if (tenant.status === 'suspended') {
-        await client.set(`tenant:${tenant.id}:suspended`, 'true');
+        await this.safeRedisSet(`tenant:${tenant.id}:suspended`, 'true');
         return null;
       }
 
@@ -343,12 +345,48 @@ export class TenantResolutionMiddleware implements NestMiddleware {
         timezone: tenant.timezone,
       };
 
-      // Cache for 60 seconds
-      await client.setex(tenantCacheKey, 60, JSON.stringify(tenantContext));
+      // Cache for 60 seconds (best effort).
+      await this.safeRedisSetex(tenantCacheKey, 60, JSON.stringify(tenantContext));
 
       return tenantContext;
     } catch {
       return null;
+    }
+  }
+
+  // ─── Redis helpers (SCHED-030) ──────────────────────────────────────────────
+  //
+  // When Redis is unavailable (outage, restart, network blip), the cache
+  // layer should behave as if every lookup missed rather than crashing every
+  // API request. These wrappers catch connection / timeout failures from
+  // ioredis, log once per failure class, and return null (or true for sets).
+  // The caller then falls through to the authoritative Postgres read.
+
+  private async safeRedisGet(key: string): Promise<string | null> {
+    try {
+      return await this.redis.getClient().get(key);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.warn(`Redis GET failed for key ${key}; falling back to DB: ${err.message}`);
+      return null;
+    }
+  }
+
+  private async safeRedisSet(key: string, value: string): Promise<void> {
+    try {
+      await this.redis.getClient().set(key, value);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.warn(`Redis SET failed for key ${key} (best effort): ${err.message}`);
+    }
+  }
+
+  private async safeRedisSetex(key: string, ttl: number, value: string): Promise<void> {
+    try {
+      await this.redis.getClient().setex(key, ttl, value);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.warn(`Redis SETEX failed for key ${key} (best effort): ${err.message}`);
     }
   }
 }

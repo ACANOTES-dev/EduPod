@@ -1106,10 +1106,11 @@ describe('SchedulerOrchestrationService', () => {
       expect(result.status).toBe('queued');
       expect(result.mode).toBe('auto');
       expect(result.academic_year_id).toBe(AY_ID);
-      expect(mockQueue.add).toHaveBeenCalledWith('scheduling:solve-v2', {
-        tenant_id: TENANT_ID,
-        run_id: RUN_ID,
-      });
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        'scheduling:solve-v2',
+        { tenant_id: TENANT_ID, run_id: RUN_ID },
+        expect.objectContaining({ attempts: 1 }),
+      );
     });
 
     it('should create a solver run in hybrid mode when pinned entries exist', async () => {
@@ -1180,6 +1181,32 @@ describe('SchedulerOrchestrationService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             solver_seed: null,
+          }),
+        }),
+      );
+    });
+
+    // SCHED-030 (STRESS-082): if Redis is unavailable at enqueue, the DB row
+    // committed above must NOT be left stranded in 'queued' — that would
+    // block the tenant from any future trigger via RUN_ALREADY_ACTIVE.
+    // Instead, the service marks it failed and surfaces HTTP 503 so the
+    // admin can retry cleanly.
+    it('should mark the run failed and throw ServiceUnavailable when queue.add fails', async () => {
+      setupPassingPrerequisites();
+      mockTx.schedulingRun.update.mockResolvedValue({ id: RUN_ID, status: 'failed' });
+      (mockQueue.add as jest.Mock).mockRejectedValueOnce(new Error('ECONNREFUSED 127.0.0.1:6379'));
+
+      await expect(service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'QUEUE_UNAVAILABLE' }),
+        status: 503,
+      });
+
+      expect(mockTx.schedulingRun.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: RUN_ID },
+          data: expect.objectContaining({
+            status: 'failed',
+            failure_reason: expect.stringContaining('Queue unavailable'),
           }),
         }),
       );

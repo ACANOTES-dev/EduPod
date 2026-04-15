@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 import { runWithRlsContext } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../../modules/prisma/prisma.service';
@@ -26,11 +26,37 @@ import { RedisService } from '../../modules/redis/redis.service';
 @Injectable()
 export class PermissionCacheService {
   private readonly CACHE_TTL = 60; // seconds
+  private readonly logger = new Logger(PermissionCacheService.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
   ) {}
+
+  // SCHED-030 (STRESS-082): Redis GET/SETEX failures must not take down the
+  // permission check. When the cache layer is unavailable, fall through to
+  // the authoritative Postgres read.
+
+  private async safeRedisGet(key: string): Promise<string | null> {
+    try {
+      return await this.redis.getClient().get(key);
+    } catch (err) {
+      this.logger.warn(
+        `Redis GET failed for key ${key}; falling back to DB: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return null;
+    }
+  }
+
+  private async safeRedisSetex(key: string, ttl: number, value: string): Promise<void> {
+    try {
+      await this.redis.getClient().setex(key, ttl, value);
+    } catch (err) {
+      this.logger.warn(
+        `Redis SETEX failed for key ${key} (best effort): ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
 
   // ─── Owner bypass ───────────────────────────────────────────────────────────
   // Three role_keys grant unrestricted access: school_owner, school_principal,
@@ -50,10 +76,9 @@ export class PermissionCacheService {
    * assignments change rarely.
    */
   async isOwner(membershipId: string): Promise<boolean> {
-    const client = this.redis.getClient();
     const cacheKey = `owner:${membershipId}`;
 
-    const cached = await client.get(cacheKey);
+    const cached = await this.safeRedisGet(cacheKey);
     if (cached !== null) {
       return cached === '1';
     }
@@ -72,7 +97,7 @@ export class PermissionCacheService {
     );
 
     const isOwner = ownerRole !== null;
-    await client.setex(cacheKey, 300, isOwner ? '1' : '0');
+    await this.safeRedisSetex(cacheKey, 300, isOwner ? '1' : '0');
     return isOwner;
   }
 
@@ -80,10 +105,9 @@ export class PermissionCacheService {
 
   /** Return cached permission keys for a membership, loading from DB on cache miss (TTL: 60s). */
   async getPermissions(membershipId: string): Promise<string[]> {
-    const client = this.redis.getClient();
     const cacheKey = `permissions:${membershipId}`;
 
-    const cached = await client.get(cacheKey);
+    const cached = await this.safeRedisGet(cacheKey);
     if (cached) {
       return JSON.parse(cached);
     }
@@ -115,7 +139,7 @@ export class PermissionCacheService {
     }
 
     const permissions = Array.from(permissionKeys);
-    await client.setex(cacheKey, this.CACHE_TTL, JSON.stringify(permissions));
+    await this.safeRedisSetex(cacheKey, this.CACHE_TTL, JSON.stringify(permissions));
 
     return permissions;
   }

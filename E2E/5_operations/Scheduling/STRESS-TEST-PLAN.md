@@ -360,9 +360,9 @@ Each failure logged against this plan should be tagged:
 | STRESS-078 | Room deleted while in use                          | ✅ PASS           | 2026-04-15 wave2     | -                    |
 | STRESS-079 | RLS — tenant B cannot see tenant A's substitutions | ✅ PASS           | 2026-04-15 wave2     | -                    |
 | STRESS-080 | Academic year rollover mid-scenario                | ✅ PASS           | 2026-04-15 wave2     | -                    |
-| STRESS-081 | BullMQ worker crash mid-solve                      | ⏳ Not Run        | -                    | -                    |
-| STRESS-082 | Redis unavailable at enqueue                       | ⏳ Not Run        | -                    | -                    |
-| STRESS-083 | Solve timeout enforcement                          | ⏳ Not Run        | -                    | -                    |
+| STRESS-081 | BullMQ worker crash mid-solve                      | ✅ PASS wave3     | 2026-04-15           | SCHED-029 (fixed)    |
+| STRESS-082 | Redis unavailable at enqueue                       | ✅ PASS wave3     | 2026-04-15           | SCHED-030 (fixed)    |
+| STRESS-083 | Solve timeout enforcement                          | ✅ PASS wave3     | 2026-04-15           | -                    |
 
 Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
 
@@ -1728,8 +1728,10 @@ _Pre-req for this category: a solved timetable (from STRESS-002 or STRESS-003) m
 
 **Failure modes:** job stuck "Running" forever; partial timetable saved; tenant locked out of future solves.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome            | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Bug ID    |
+| ---------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 2026-04-15 | ❌ FAIL (pre-fix)  | Triggered run `524a08e1` on stress-a, `pm2 restart worker` at ~13s into solve. Old worker killed at progress 100/320. New worker started cleanly but never picked up the stalled job. BullMQ lock expired but the job stayed pinned in the `active` list (stall-detect did not move it). 6 min later, DB row still `running`, admin's next trigger returned `RUN_ALREADY_ACTIVE`. Root causes: (1) `SchedulingStaleReaperJob` existed but was never wired to a cron; (2) processor Step-1 guard silently no-ops on retry. | SCHED-029 |
+| 2026-04-15 | ✅ PASS (post-fix) | Re-triggered run `a57bb42e`, pm2 restart mid-solve. New worker's `onApplicationBootstrap` reaper scanned for stuck rows, marked `a57bb42e` as `failed` with reason "Worker crashed or restarted mid-run — reaped on worker startup (SCHED-029)". Terminal state reached within 1s of worker startup. Immediate re-trigger succeeded — new queued run accepted (no `RUN_ALREADY_ACTIVE`).                                                                                                                                  | SCHED-029 |
 
 ---
 
@@ -1743,8 +1745,12 @@ _Pre-req for this category: a solved timetable (from STRESS-002 or STRESS-003) m
 
 **Failure modes:** 500 with stack trace; orphan scheduling-run row with no job behind it.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome                   | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                         | Bug ID    |
+| ---------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 2026-04-15 | ❌ FAIL (pre-fix, 1st)    | `docker stop edupod-redis-1`, trigger → HTTP 500 `INTERNAL_ERROR` from the tenant-resolution middleware (ioredis GET timed out + uncaught). Request never reached the handler. No orphan row (trigger never committed), but response shape was wrong.                                                                                                                                                                                         | SCHED-030 |
+| 2026-04-15 | ❌ FAIL (pre-fix, 2nd)    | After fixing the tenant-resolution middleware to degrade on Redis loss, trigger hit the permission guard (also Redis-backed) → same 500. Fixed `PermissionCacheService` the same way.                                                                                                                                                                                                                                                         | SCHED-030 |
+| 2026-04-15 | ❌ FAIL (pre-fix, 3rd)    | With both cache layers degraded, the trigger handler ran, committed a `scheduling_runs` row (status `queued`), and then `queue.add` hung behind ioredis' default retry/backoff until the edge proxy returned 504. When Redis came back ~50s later, the queued job actually got delivered and a worker ran it — no orphan row in the "nobody processes it" sense, but UX was a 504.                                                            | SCHED-030 |
+| 2026-04-15 | ✅ PASS (post-fix, final) | Capped `queue.add` at 5s with `Promise.race`. `docker stop edupod-redis-1`, trigger → HTTP 503 `QUEUE_UNAVAILABLE` in ~5s, row `af93032a` written as `failed` with reason "Queue unavailable at enqueue — job not accepted (Scheduling queue enqueue timed out after 5000ms (Redis likely unavailable))". No orphan queued row. `docker start edupod-redis-1`, immediate re-trigger succeeded (new run `7f955a66` went straight to `queued`). | SCHED-030 |
 
 ---
 
@@ -1758,8 +1764,9 @@ _Pre-req for this category: a solved timetable (from STRESS-002 or STRESS-003) m
 
 **Failure modes:** job runs indefinitely; no timeout; worker OOM-killed silently.
 
-| Run date | Outcome | Notes | Bug ID |
-| -------- | ------- | ----- | ------ |
+| Run date   | Outcome | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Bug ID |
+| ---------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 2026-04-15 | ✅ PASS | Trigger on stress-a with `max_solver_duration_seconds: 10`. Run `851789ad` → `solver_duration_ms: 10241` (~10.2s, within the bound), `status: failed`, `entries_generated: 38`, `entries_unassigned: 109`, `failure_reason` enumerates unplaced slots. Cross-check with `max_solver_duration_seconds: 15`: run `cee0fab1` → `duration_ms: 15381`, `entries_generated: 51`, `entries_unassigned: 100`. Solver honours the configured bound proportionally; terminal state is honest. No reason-surfaced `status: 'timeout'` enum value (today we reuse `failed` with a specific reason), which is consistent with the SCHED-027 note that a dedicated `timeout` status is a future-enum addition. | -      |
 
 ---
 
@@ -1767,9 +1774,10 @@ _Pre-req for this category: a solved timetable (from STRESS-002 or STRESS-003) m
 
 Once scenarios begin, append a summary entry per run here (in addition to the per-scenario tracker rows):
 
-| Date       | Scenarios run          | Pass | Fail | N/A | Notes                                                                                                                                                                                                                                                                                                             |
-| ---------- | ---------------------- | ---- | ---- | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-04-15 | session-B 010-028 (19) | 9    | 1    | 9   | API-driven (Playwright MCP browser locked); SCHED-024 logged for the 1 fail; 9 N/A documented as solver feature gaps (period-level closures, room-type matching, triple-period blocks, multi-window availability, leave dates) referencing SCHED-018 / SCHED-024 where applicable. Stress-b restored to baseline. |
+| Date       | Scenarios run          | Pass | Fail | N/A | Notes                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------- | ---------------------- | ---- | ---- | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-04-15 | session-B 010-028 (19) | 9    | 1    | 9   | API-driven (Playwright MCP browser locked); SCHED-024 logged for the 1 fail; 9 N/A documented as solver feature gaps (period-level closures, room-type matching, triple-period blocks, multi-window availability, leave dates) referencing SCHED-018 / SCHED-024 where applicable. Stress-b restored to baseline.                                                                                                             |
+| 2026-04-15 | wave3 081-083 (3)      | 3    | 0    | 0   | Phase 6 worker/Redis/timeout, solo session on stress-a. Two new P1/P2 bugs found and fixed: SCHED-029 (worker-crash → stuck 'running' → tenant locked out; fixed via startup reaper + cron + processor crash-retry path) and SCHED-030 (Redis outage → 500 cascade through tenant + permission caches + 60s enqueue hang; fixed via graceful-degrade wrappers + 5s enqueue timeout + row-cleanup on failure). No regressions. |
 
 ---
 

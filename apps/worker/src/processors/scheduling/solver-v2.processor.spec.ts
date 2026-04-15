@@ -125,7 +125,49 @@ describe('SchedulingSolverV2Processor', () => {
     ).rejects.toThrow('missing tenant_id');
   });
 
-  it('should skip runs that are missing or not queued', async () => {
+  it('should skip runs that are missing', async () => {
+    const mockTx = buildMockTx({ run: null });
+    const mockPrisma = buildMockPrisma(mockTx);
+    const processor = new SchedulingSolverV2Processor(
+      mockPrisma as never,
+      { process: jest.fn() } as never,
+    );
+
+    await processor.process(buildJob());
+
+    expect(mockTx.schedulingRun.update).not.toHaveBeenCalled();
+    expect(mockSolveV2).not.toHaveBeenCalled();
+  });
+
+  it('should skip runs already in a terminal status (e.g. cancelled/completed)', async () => {
+    const mockTx = buildMockTx({
+      run: {
+        config_snapshot: {
+          curriculum: [],
+          settings: { solver_seed: null },
+          teachers: [],
+          year_groups: [],
+        },
+        solver_seed: null,
+        status: 'completed',
+      },
+    });
+    const mockPrisma = buildMockPrisma(mockTx);
+    const processor = new SchedulingSolverV2Processor(
+      mockPrisma as never,
+      { process: jest.fn() } as never,
+    );
+
+    await processor.process(buildJob());
+
+    expect(mockTx.schedulingRun.update).not.toHaveBeenCalled();
+    expect(mockSolveV2).not.toHaveBeenCalled();
+  });
+
+  // SCHED-029 (STRESS-081): if BullMQ stall-retry fires after a prior worker
+  // crashed mid-solve, the row is left in 'running'. Treat as crash recovery:
+  // mark failed with a clear reason and exit, rather than silently no-opping.
+  it('should mark a run as failed when it is found in running status (BullMQ crash-retry)', async () => {
     const mockTx = buildMockTx({
       run: {
         config_snapshot: {
@@ -146,7 +188,13 @@ describe('SchedulingSolverV2Processor', () => {
 
     await processor.process(buildJob());
 
-    expect(mockTx.schedulingRun.update).not.toHaveBeenCalled();
+    expect(mockTx.schedulingRun.update).toHaveBeenCalledWith({
+      where: { id: RUN_ID },
+      data: {
+        status: 'failed',
+        failure_reason: expect.stringContaining('Worker crashed mid-solve'),
+      },
+    });
     expect(mockSolveV2).not.toHaveBeenCalled();
   });
 

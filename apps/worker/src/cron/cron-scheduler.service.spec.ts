@@ -69,6 +69,7 @@ function buildService() {
   const pastoralQueue = buildQueue();
   const admissionsQueue = buildQueue();
   const financeQueue = buildQueue();
+  const schedulingQueue = buildQueue();
 
   return {
     admissionsQueue,
@@ -85,6 +86,7 @@ function buildService() {
     pastoralQueue,
     regulatoryQueue,
     securityQueue,
+    schedulingQueue,
     service: new CronSchedulerService(
       behaviourQueue,
       gradebookQueue,
@@ -101,6 +103,7 @@ function buildService() {
       pastoralQueue,
       admissionsQueue,
       financeQueue,
+      schedulingQueue,
     ),
     wellbeingQueue,
   };

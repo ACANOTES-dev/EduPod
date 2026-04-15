@@ -103,21 +103,57 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     //                 a conditional `updateMany` respects a prior cancel.
 
     // ─── Step 1: claim the run ────────────────────────────────────────────
-    const run = await this.prisma.$transaction(async (tx) => {
+    //
+    // SCHED-029 (STRESS-081): if BullMQ stall-detection eventually re-queues
+    // a job whose previous worker crashed mid-solve, the DB row will be in
+    // 'running' status (Step 1 committed before the crash). Treat that as
+    // crash recovery: mark the row 'failed' and exit cleanly so the tenant
+    // is unblocked rather than silently no-opping.
+    const claim = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenant_id}::text, true)`;
       const row = await tx.schedulingRun.findFirst({ where: { id: run_id } });
-      if (!row || row.status !== 'queued') {
-        return null;
+      if (!row) {
+        return { row: null as null, outcome: 'missing' as const };
       }
-      await tx.schedulingRun.update({
-        where: { id: run_id },
-        data: { status: 'running' },
-      });
-      return row;
+      if (row.status === 'queued') {
+        await tx.schedulingRun.update({
+          where: { id: run_id },
+          data: { status: 'running' },
+        });
+        return { row, outcome: 'claimed' as const };
+      }
+      if (row.status === 'running') {
+        await tx.schedulingRun.update({
+          where: { id: run_id },
+          data: {
+            status: 'failed',
+            failure_reason: 'Worker crashed mid-solve — BullMQ retry reaped the run (SCHED-029)',
+          },
+        });
+        return { row, outcome: 'crash-retry' as const };
+      }
+      return { row, outcome: 'terminal' as const };
     });
 
+    if (claim.outcome === 'missing') {
+      this.logger.warn(`Run ${run_id} not found, skipping`);
+      return;
+    }
+    if (claim.outcome === 'terminal') {
+      this.logger.warn(`Run ${run_id} already in terminal status "${claim.row?.status}", skipping`);
+      return;
+    }
+    if (claim.outcome === 'crash-retry') {
+      this.logger.warn(
+        `Run ${run_id} was left in 'running' by a prior worker — marked failed and skipped`,
+      );
+      return;
+    }
+
+    // TS narrowing: 'claimed' implies row is non-null (queued branch path).
+    const run = claim.row;
     if (!run) {
-      this.logger.warn(`Run ${run_id} not found or not in queued status, skipping`);
+      this.logger.warn(`Run ${run_id} unexpectedly null after claim, skipping`);
       return;
     }
 

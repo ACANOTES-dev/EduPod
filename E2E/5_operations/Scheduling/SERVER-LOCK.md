@@ -52,3 +52,6 @@ This file is the exclusive lock for any server-modifying action taken during the
 
 2026-04-15 08:32:00 UTC — wave2-session — acquired — fixing SCHED-027 cancel transaction timeout regression surfaced by Wave 2 smoke test
 2026-04-15 08:52:00 UTC — wave2-session — released — SCHED-027 re-fix deployed (cancel lock_timeout + worker transaction split). Mid-solve cancel verified on stress-a run 7ee28040: admin 200 response, worker discarded results cleanly at 8:48:06, final state failed/Cancelled-by-user/no result write. All Wave 1 + Wave 2 fixes green. Ready for Wave 3.
+
+2026-04-15 09:22:30 UTC — wave3-session — acquired — Wave 3 stress-test: STRESS-081/082/083 worker + Redis + timeout scenarios on stress-a
+2026-04-15 10:08:20 UTC — wave3-session — released — Wave 3 complete. SCHED-029 fix (startup reaper + cron + processor crash-retry) deployed. SCHED-030 fix (enqueue timeout + DB cleanup + tenant-middleware & permission-cache Redis graceful degradation) deployed. STRESS-081/082/083 all PASS. Redis restart at 10:04:39 completed cleanly, container up.

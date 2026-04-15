@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
@@ -657,11 +658,67 @@ export class SchedulerOrchestrationService {
       });
     })) as unknown as { id: string; status: string; created_at: Date };
 
-    // Enqueue the solver job
-    await this.schedulingQueue.add('scheduling:solve-v2', {
-      tenant_id: tenantId,
-      run_id: run.id,
-    });
+    // Enqueue the solver job.
+    //
+    // SCHED-030 (STRESS-082): the DB row is committed by the RLS transaction
+    // above. If Redis is unreachable when we try to enqueue, the row would be
+    // left stranded in `queued` forever, blocking any future trigger via the
+    // `RUN_ALREADY_ACTIVE` guard. Treat queue-enqueue failure as a
+    // transactional rollback: mark the row failed with a clear reason and
+    // surface HTTP 503 so the admin can retry.
+    //
+    // Cap the enqueue at a short timeout so BullMQ's default retry/backoff
+    // (which can spin for ~60s on a dead connection) doesn't wedge the admin
+    // request until the edge proxy times it out with a 504.
+    const ENQUEUE_TIMEOUT_MS = 5_000;
+    try {
+      await Promise.race([
+        this.schedulingQueue.add(
+          'scheduling:solve-v2',
+          { tenant_id: tenantId, run_id: run.id },
+          { attempts: 1, removeOnComplete: 50, removeOnFail: 200 },
+        ),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error(
+                  `Scheduling queue enqueue timed out after ${ENQUEUE_TIMEOUT_MS}ms (Redis likely unavailable)`,
+                ),
+              ),
+            ENQUEUE_TIMEOUT_MS,
+          ),
+        ),
+      ]);
+    } catch (enqueueErr) {
+      const message = enqueueErr instanceof Error ? enqueueErr.message : 'Unknown enqueue error';
+      this.logger.error(
+        `Failed to enqueue solver v2 run ${run.id}: ${message}. Marking run as failed.`,
+      );
+      try {
+        await prismaWithRls.$transaction(async (tx) => {
+          const db = tx as unknown as PrismaService;
+          await db.schedulingRun.update({
+            where: { id: run.id },
+            data: {
+              status: 'failed',
+              failure_reason: `Queue unavailable at enqueue — job not accepted (${message})`,
+            },
+          });
+        });
+      } catch (cleanupErr) {
+        // If we can't even clean the row up, log but still surface the original
+        // unavailability to the admin — the row will be handled by the stale
+        // reaper.
+        this.logger.error(
+          `Failed to mark run ${run.id} as failed after enqueue error: ${cleanupErr}`,
+        );
+      }
+      throw new ServiceUnavailableException({
+        code: 'QUEUE_UNAVAILABLE',
+        message: 'Scheduling queue is unavailable. Please try again in a moment.',
+      });
+    }
 
     this.logger.log(`Enqueued solver v2 run ${run.id} for academic year ${academicYearId}`);
 

@@ -1228,4 +1228,97 @@ Before Wave 3 starts, verified the three fixes deployed in the Wave 2 session + 
 
 ---
 
+## Wave 3 — 2026-04-15 (wave3-session)
+
+Ran Phase 6 worker/infrastructure scenarios (STRESS-081 BullMQ worker crash mid-solve, STRESS-082 Redis unavailable at enqueue, STRESS-083 solve timeout enforcement) solo on stress-a. Two new bugs found and fixed end-to-end in the same pass.
+
+**STRESS-081 — BullMQ worker crash mid-solve.** FAIL on initial run → fixed as SCHED-029 → PASS on verification. Triggered run `524a08e1`, `pm2 restart worker` at ~13s into the solve. Old worker killed at progress 100/320. New worker came up clean but the BullMQ job stayed pinned in the `active` list (lock TTL=-2, but stall-detect never moved it in the 6+ minutes I waited). The DB row stayed `running`, and any subsequent trigger on the same AY hit `RUN_ALREADY_ACTIVE`. Root cause: the stale-reaper job existed but was never wired to a cron; and the processor's Step-1 guard treats `status='running'` on retry as a silent skip. After the fix, re-trigger `a57bb42e` reached terminal state within 1s of worker restart (startup reaper caught it), and the admin's next trigger accepted cleanly.
+
+**STRESS-082 — Redis unavailable at enqueue.** FAIL on three progressively deeper pre-fix runs → fixed as SCHED-030 → PASS on the final run. Root cause is layered: the tenant-resolution middleware, the permission cache, and the BullMQ enqueue path all hard-depended on Redis, so a `docker stop edupod-redis-1` cascaded through every request as HTTP 500 (or, once the first two were fixed, a 60s hang that edge-504'd). After the layered fix, trigger returns HTTP 503 `QUEUE_UNAVAILABLE` in ~5s, the DB row is marked `failed` with a reason enumerating the enqueue timeout, no orphan `queued` row is left behind, and an immediate retrigger (after Redis comes back) succeeds cleanly.
+
+**STRESS-083 — Solve timeout enforcement.** PASS on first run. `max_solver_duration_seconds: 10` → run `851789ad` ended with `solver_duration_ms: 10241` (10.2s, within the bound), `status: failed`, `entries_generated: 38`, `entries_unassigned: 109`, `failure_reason` enumerates the unplaced slots. Cross-check at 15s: run `cee0fab1` → `duration_ms: 15381`. Solver honours the bound proportionally and surfaces partial state honestly. No code change needed. Note: today the timeout path reuses `status: 'failed'` with a specific reason rather than a dedicated `'timeout'` enum value — that's a future-enum addition (per the SCHED-027 note), not a correctness issue.
+
+**Wave 3 bug tally:** 2 new bugs found, both fixed + deployed + re-verified on stress-a in the same pass. No regressions to Wave 1 / Wave 2 fixes (full re-run of the affected Jest suites passes: API scheduler-orchestration + tenant-resolution + permission-cache (138 passed, 1 skipped pre-existing); Worker solver-v2 processor + scheduling-stale-reaper + cron-scheduler (22 passed)).
+
+---
+
+### SCHED-029 — Worker crash mid-solve leaves `scheduling_runs` stuck in `running`, locking the tenant out
+
+**Severity:** P1
+**Status:** Fixed (deployed)
+**Provenance:** [L] — found during STRESS-081 walkthrough on 2026-04-15
+**Found by:** wave3-session
+
+**Summary:** When the worker process is killed (pm2 restart, OOM kill, crash) while a solve is mid-flight, the `scheduling_runs` row stays pinned in `status = 'running'` indefinitely. Admin can no longer trigger a new solve for the same academic year because `findActiveRun` still returns the stuck row, and `triggerSolverRun` responds with HTTP 409 `RUN_ALREADY_ACTIVE`. Evidence from stress-a run `524a08e1`: pm2 killed the worker at 09:24:17; six minutes later the DB row was still `running`, the BullMQ job was still in Redis's `active` list with the lock-TTL already expired to `-2`, and the stall-detect never moved it back to `wait`. Root causes were two architectural gaps working in combination:
+
+1. `SchedulingStaleReaperJob` exists in `apps/worker/src/processors/scheduling-stale-reaper.processor.ts` with a sensible `reapStaleRuns()` routine, but `CronSchedulerService` never registers a repeatable job for it. So there was no ongoing cleanup path at all.
+2. Even if BullMQ had delivered a stall-retry, the solver-v2 processor's Step-1 guard (`row.status !== 'queued'`) treats any non-queued status as a silent no-op and exits cleanly, which ALSO marks the BullMQ job complete — permanently losing the ability to recover.
+
+Additionally, the processor's `findMany`/`update` on `scheduling_runs` (an RLS-forced table) was written to run outside a tenant context, so a cron-driven invocation of the reaper would have thrown `invalid input syntax for type uuid: ""` the first time it fired.
+
+**Fix:**
+
+- `apps/worker/src/processors/scheduling-stale-reaper.processor.ts` — rewrote the service:
+  - Implements `OnApplicationBootstrap.onApplicationBootstrap()` to call a new `reapOnStartup()` method. On worker boot, any row in `queued` or `running` status that is older than a 30s grace window is marked `failed` with reason "Worker crashed or restarted mid-run — reaped on worker startup (SCHED-029)". Safe because no process is solving yet when the hook runs — any such row is leftover from a predecessor.
+  - Kept the cron-driven `process(job)` entrypoint (`SCHEDULING_REAP_STALE_JOB`). Threshold tightened from `max_solver_duration_seconds * 2` to `max_solver_duration_seconds + 60s`, so an admin-observable ceiling is max-duration + ~2 minutes.
+  - All reaper queries now iterate over active tenants (via `prisma.tenant.findMany` — `tenants` has no RLS) and run the per-tenant scheduling-run lookup inside its own `$transaction` with `set_config('app.current_tenant_id', tenantId, true)`, mirroring the `CrossTenantSystemJob` pattern used by the other cross-tenant workers. This is required because `scheduling_runs` has FORCE RLS.
+  - Per-tenant failures are caught so one tenant's problem cannot stop the rest.
+- `apps/worker/src/cron/cron-scheduler.service.ts` — injects `@InjectQueue(QUEUE_NAMES.SCHEDULING)` and registers `SCHEDULING_REAP_STALE_JOB` with `repeat: { pattern: '* * * * *' }`, `jobId: 'cron:scheduling:reap-stale-runs'`, `removeOnComplete: 10`, `removeOnFail: 50`.
+- `apps/worker/src/cron/cron-scheduler.service.spec.ts` — constructor now takes a 16th `schedulingQueue` parameter; updated.
+- `apps/worker/src/processors/scheduling/solver-v2.processor.ts` — Step-1 claim block now discriminates three cases: `queued` → claim normally; `running` → treat as a BullMQ crash-retry, mark `failed` with reason "Worker crashed mid-solve — BullMQ retry reaped the run (SCHED-029)" and exit; any other terminal status → skip. This is defence in depth for the startup reaper: if BullMQ does eventually deliver a stall-retry after a crash, the processor does the right thing rather than silently no-opping.
+
+**Regression tests:** 8 in `scheduling-stale-reaper.processor.spec.ts` (cron path, per-tenant thresholds, startup reaper single-tenant + multi-tenant + fresh-row-safe + bootstrap hook + failure-swallow + per-tenant failure isolation) and 2 in `solver-v2.processor.spec.ts` (terminal-status skip, running-status crash-retry mark-failed).
+
+**Production verification (stress-a, 2026-04-15):**
+
+- Run `a57bb42e-e2df-4852-8120-002da2f2decf`: triggered at 09:46:17, `pm2 restart worker` at 09:46:35 while solver was at `100/320 (greedy)`. New worker came up at 09:47:11, startup reaper immediately marked the row `failed` with the SCHED-029 reason. `GET /scheduling/runs/<id>` returned `status: failed` at 09:47:20 (9s after restart).
+- Immediate re-trigger succeeded — new run `817bb178` created with `status: queued` and no `RUN_ALREADY_ACTIVE` guard trip.
+- Worker log at 09:46:02: `Registered repeatable cron: scheduling:reap-stale-runs (every minute)`.
+- Worker log at 09:46:02: `Startup reaper complete: 0 run(s) reaped.` (clean-start case).
+
+**Deploy:** rsync `apps/api/src/` + `apps/worker/src/` to `/opt/edupod/app/apps/{api,worker}`, server-side `pnpm --filter @school/api build` + `pnpm --filter @school/worker build`, `pm2 restart api worker`. `SERVER-LOCK.md` carries the bracketed acquire/release entries for the wave3-session.
+
+---
+
+### SCHED-030 — Redis outage cascades API-wide as HTTP 500 / 504, and trigger leaves an orphan `queued` row
+
+**Severity:** P1
+**Status:** Fixed (deployed)
+**Provenance:** [L] — found during STRESS-082 walkthrough on 2026-04-15
+**Found by:** wave3-session
+
+**Summary:** When Redis becomes unavailable (outage, container restart, network blip), the API is not gracefully degraded — every request hard-fails at the first Redis-dependent layer. The scheduling trigger path has a specific compounding issue on top: the `scheduling_runs` row is created in Postgres BEFORE `BullMQ.queue.add` is called, so even once the middleware layers are made Redis-tolerant, a Redis outage at the exact moment of `queue.add` leaves a DB row stranded in `queued` with no BullMQ job behind it — and `findActiveRun` then blocks every future trigger via `RUN_ALREADY_ACTIVE`. Three observable failure modes seen during this scenario:
+
+1. Redis `GET` in `TenantResolutionMiddleware` throws `MaxRetriesPerRequestError` → outer `catch` returns HTTP 500 `INTERNAL_ERROR`. Every API request is affected, not just scheduling.
+2. After fixing (1), Redis `GET` in `PermissionCacheService.isOwner` / `.getPermissions` (called from `PermissionGuard`) throws the same → HTTP 500 from the guard path.
+3. After fixing (1) and (2), the trigger handler now reaches `schedulingQueue.add`, which internally retries the Redis connection with exponential backoff for ~60s before surfacing the error. The edge proxy (nginx/Cloudflare) 504s the request first. If Redis happens to come back within that window, the orphan `queued` row is silently picked up by the worker and the admin gets a 504 for a run that actually kicks off.
+
+**Fix:**
+
+- `apps/api/src/common/middleware/tenant-resolution.middleware.ts` — wrap every `redis.getClient().get` / `.setex` / `.set` call in a new private trio `safeRedisGet` / `safeRedisSet` / `safeRedisSetex`. On Redis failure, `safeRedisGet` logs once at `warn` and returns `null` (treat as cache miss), while the set variants log and no-op. The caller then falls through to the authoritative Postgres lookup (`findDomainRecord`, `findUnique`, etc.), which keeps serving requests.
+- `apps/api/src/common/services/permission-cache.service.ts` — same treatment: `safeRedisGet` / `safeRedisSetex` wrappers around the `owner:` and `permissions:` cache reads/writes. The guard chain (`isOwner` → `getPermissions`) now degrades to direct DB lookups on cache failure.
+- `apps/api/src/modules/scheduling/scheduler-orchestration.service.ts::triggerSolverRun`:
+  - Wrap `schedulingQueue.add(...)` in `Promise.race` against a 5-second timeout, so BullMQ's internal retry/backoff can't wedge the admin request until the edge 504s. If the race rejects (either a real connection error or the timeout), enter the catch path.
+  - In the catch path, issue a follow-up RLS transaction that updates the just-committed `scheduling_runs` row to `status: 'failed'` with `failure_reason: "Queue unavailable at enqueue — job not accepted (<underlying error>)"`. This leaves the row in a terminal state so the tenant is not locked out of future triggers.
+  - Throw `ServiceUnavailableException` with `{ code: 'QUEUE_UNAVAILABLE', message: 'Scheduling queue is unavailable. Please try again in a moment.' }` (HTTP 503).
+  - Also pass explicit `{ attempts: 1, removeOnComplete: 50, removeOnFail: 200 }` to `schedulingQueue.add` so the scheduling queue uses the same retry / retention policy at the producer side that the worker registers (previously only the worker-side default applied).
+
+**Regression tests:** 3 updated in `tenant-resolution.middleware.spec.ts` (Redis GET failure → DB fallback; non-Error Redis failure → DB fallback; non-Redis failure like DB down → still 500); 1 new in `scheduler-orchestration.service.spec.ts` (`mockQueue.add` rejects → trigger throws 503 with `QUEUE_UNAVAILABLE`, `scheduling_runs` row is updated to `failed` with reason starting with "Queue unavailable"); the existing happy-path trigger test updated to match the new 3-arg `queue.add(name, data, opts)` signature.
+
+**Out of scope for this fix:**
+
+- Applying the same `safeRedis*` wrappers to every service in the app that reads Redis (auth session, rate-limit, audit interceptor). STRESS-082 only exercises the trigger path; any remaining Redis-fragile callers will surface in their own stress tests. The pattern is now in place for them to adopt.
+- A dedicated health-gate for Redis that short-circuits requests before any middleware runs. The existing `/health` endpoint covers DB; extending it to Redis is a separate observability improvement.
+
+**Production verification (stress-a, 2026-04-15):**
+
+- `docker stop edupod-redis-1`. Trigger → HTTP 503 `{"error":{"code":"QUEUE_UNAVAILABLE","message":"Scheduling queue is unavailable. Please try again in a moment."}}` in ~5s (capped by the enqueue timeout).
+- DB row `af93032a-4b35-4ab1-b65e-c152765d4c26` exists with `status: failed`, `failure_reason: "Queue unavailable at enqueue — job not accepted (Scheduling queue enqueue timed out after 5000ms (Redis likely unavailable))"`. No row left in `queued`.
+- `docker start edupod-redis-1`. Immediate re-trigger succeeded — new run `7f955a66-c565-4000-b979-84914969d52b` created with `status: queued`.
+- API log sequence: `Redis GET failed for key tenant_domain:stress-a.edupod.app; falling back to DB`, `Redis SETEX failed for key ... (best effort)`, handler continues, enqueue times out, catch block marks row failed, 503 response. No 500s.
+
+**Deploy:** rsync `apps/api/src/` to `/opt/edupod/app/apps/api`, server-side `pnpm --filter @school/api build`, `pm2 restart api`. `SERVER-LOCK.md` carries the bracketed acquire/release entries for the wave3-session.
+
+---
+
 **End of Bug Log.**
