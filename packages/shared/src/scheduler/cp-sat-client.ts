@@ -7,7 +7,18 @@
  * knows about the wire format — every error path funnels through
  * ``CpSatSolveError`` so callers can surface a single structured failure
  * reason on the ``scheduling_runs`` row.
+ *
+ * Stage 9.5.1 §D follow-up: Node's undici fetch defaults
+ * ``headersTimeout`` and ``bodyTimeout`` to 5 minutes each. The sidecar
+ * blocks on ``solver.solve()`` for up to ``max_solver_duration_seconds``,
+ * so any tenant budget > 240 s caused the worker to abort with
+ * ``CP_SAT_UNREACHABLE: fetch failed`` even though the AbortController
+ * timeout was set higher. We pass an explicit undici Agent that scales
+ * its timeouts with the caller's ``timeoutMs`` so the 3600 s ceiling is
+ * actually reachable end-to-end.
  */
+import { Agent } from 'undici';
+
 import type { SolverInputV2, SolverOutputV2 } from './types-v2';
 
 export interface CpSatClientOptions {
@@ -42,6 +53,15 @@ export async function solveViaCpSat(
 ): Promise<SolverOutputV2> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
+  // Scale undici's per-request timeouts with the caller's ``timeoutMs``.
+  // Defaults are 5 min each; without this any solve > 240 s aborts before
+  // the AbortController's higher ceiling fires (Stage 9.5.1 NHQS smoke
+  // surfaced this — sidecar took 601 s, worker errored at 5 min).
+  const dispatcher = new Agent({
+    headersTimeout: opts.timeoutMs,
+    bodyTimeout: opts.timeoutMs,
+    connectTimeout: 30_000,
+  });
   try {
     let res: Response;
     try {
@@ -53,7 +73,12 @@ export async function solveViaCpSat(
         },
         body: JSON.stringify(input),
         signal: controller.signal,
-      });
+        // Cast: Node's web-spec fetch types don't expose the Node-only
+        // ``dispatcher`` field, but undici picks it up at runtime. This
+        // is the documented Node-fetch escape hatch for per-request
+        // dispatcher overrides.
+        dispatcher,
+      } as Parameters<typeof fetch>[1] & { dispatcher: Agent });
     } catch (err) {
       // Transport-level failures: AbortError (timeout) and TypeError (DNS /
       // connection refused / TLS) both surface as CP_SAT_UNREACHABLE so the
@@ -74,5 +99,8 @@ export async function solveViaCpSat(
     return (await res.json()) as SolverOutputV2;
   } finally {
     clearTimeout(timer);
+    await dispatcher.close().catch(() => {
+      /* dispatcher already closed — non-fatal */
+    });
   }
 }
