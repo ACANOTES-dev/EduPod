@@ -133,6 +133,15 @@ function defaultSettings(seed: number, maxSeconds: number): SolverSettingsV2 {
 
 // ─── Shared subject registry ─────────────────────────────────────────────────
 
+// Room-type assignment reflects real Irish-school practice: only
+// foundational Science (Y7-Y9) books labs for every period. Senior
+// specialist sciences (biology / chemistry / physics) split theory and
+// practical — in real timetables theory runs in ordinary classrooms,
+// lab is booked separately for experimental sessions. Modelling every
+// senior-science period as lab-required structurally oversubscribes
+// labs and blocks placement, which is not a solver performance
+// finding — it's a fixture design error. The per-room-type guardrail
+// below now catches this kind of mistake.
 const subjectCatalog = [
   { id: 'english', name: 'English', roomType: null as string | null },
   { id: 'maths', name: 'Mathematics', roomType: null },
@@ -140,9 +149,9 @@ const subjectCatalog = [
   { id: 'history', name: 'History', roomType: null },
   { id: 'geography', name: 'Geography', roomType: null },
   { id: 'science', name: 'Science', roomType: 'lab' },
-  { id: 'biology', name: 'Biology', roomType: 'lab' },
-  { id: 'chemistry', name: 'Chemistry', roomType: 'lab' },
-  { id: 'physics', name: 'Physics', roomType: 'lab' },
+  { id: 'biology', name: 'Biology', roomType: null },
+  { id: 'chemistry', name: 'Chemistry', roomType: null },
+  { id: 'physics', name: 'Physics', roomType: null },
   { id: 'pe', name: 'Physical Education', roomType: 'gym' },
   { id: 'art', name: 'Art', roomType: 'art' },
   { id: 'music', name: 'Music', roomType: 'music' },
@@ -166,31 +175,100 @@ interface CurriculumSpec {
   periodsPerWeek: number;
 }
 
-// ─── Guardrail: ensure supply ≥ demand × 1.1 ─────────────────────────────────
+// ─── Guardrails: per-resource feasibility checks ────────────────────────────
 
 /**
- * Each competency entry = 1 teacher × 1 subject × 1 year-group competency.
- * Supply of periods per week is ``teachers × max_periods_per_week``; demand
- * is ``classes × sum(periods/week per subject)``. The guardrail is a coarse
- * upper bound — it doesn't try to solve feasibility, just prevents
- * obviously-under-supplied fixtures.
+ * Three-layer feasibility check.
+ *
+ *   1. **Aggregate teacher supply** — total teacher-period capacity ≥
+ *      1.10 × total lesson demand. Catches gross under-supply.
+ *   2. **Per-subject teacher supply** — teachers competent in subject X
+ *      must collectively cover ≥ 1.10 × demand for subject X. Catches
+ *      specialist bottlenecks (e.g. only 6 Irish teachers for 126 Irish
+ *      periods where the aggregate ratio looks healthy).
+ *   3. **Per-room-type supply** — rooms of each required type have
+ *      ≥ 1.10 × the demand from lessons needing that type. Catches
+ *      structural bottlenecks on labs / gyms / IT / art / music. This
+ *      layer was added after Stage 9.5.2's first tier-4 matrix produced
+ *      74 unassigned science/physics lessons purely because lab demand
+ *      (222) exceeded lab supply (135) — a fixture error, not a solver
+ *      finding.
+ *
+ * Stage 9.5.2 measures solver performance; the guardrails exist so a
+ * benchmark run never conflates "solver can't place X" with "fixture
+ * has no valid placement for X".
  */
 function assertFeasibleSupply(input: SolverInputV2, label: string): void {
-  const totalDemand = input.curriculum.reduce(
-    (sum, c) =>
-      sum +
-      c.min_periods_per_week *
-        (input.year_groups.find((y) => y.year_group_id === c.year_group_id)?.sections.length ?? 0),
-    0,
-  );
+  const sectionsByYg = new Map(input.year_groups.map((y) => [y.year_group_id, y.sections.length]));
+
+  const computeDemand = (predicate: (c: CurriculumEntry) => boolean): number =>
+    input.curriculum
+      .filter(predicate)
+      .reduce(
+        (sum, c) => sum + c.min_periods_per_week * (sectionsByYg.get(c.year_group_id) ?? 0),
+        0,
+      );
+
+  // Layer 1 — aggregate.
+  const totalDemand = computeDemand(() => true);
   const totalSupply = input.teachers.reduce((sum, t) => sum + (t.max_periods_per_week ?? 20), 0);
-  const ratio = totalSupply / Math.max(totalDemand, 1);
-  if (ratio < 1.1) {
+  const aggregateRatio = totalSupply / Math.max(totalDemand, 1);
+  if (aggregateRatio < 1.1) {
     throw new Error(
-      `[${label}] supply/demand ratio ${ratio.toFixed(2)} < 1.10. ` +
-        `Supply=${totalSupply}, demand=${totalDemand}. ` +
-        `Generator must widen teacher caps or reduce demand to meet the feasibility guardrail.`,
+      `[${label}] aggregate supply/demand ratio ${aggregateRatio.toFixed(2)} < 1.10. ` +
+        `Supply=${totalSupply}, demand=${totalDemand}.`,
     );
+  }
+
+  // Layer 2 — per-subject teacher supply.
+  const subjectsInCurriculum = new Set(input.curriculum.map((c) => c.subject_id));
+  for (const sid of subjectsInCurriculum) {
+    const demand = computeDemand((c) => c.subject_id === sid);
+    // Supply = sum over teachers competent in this subject of
+    // (max_periods_per_week / number_of_distinct_subjects_competent),
+    // so a multi-subject teacher isn't double-counted across subjects.
+    const supply = input.teachers.reduce((acc, t) => {
+      const subjectsCompetent = new Set(t.competencies.map((c) => c.subject_id));
+      if (!subjectsCompetent.has(sid)) return acc;
+      return acc + (t.max_periods_per_week ?? 20) / Math.max(subjectsCompetent.size, 1);
+    }, 0);
+    const ratio = supply / Math.max(demand, 1);
+    if (ratio < 1.1) {
+      throw new Error(
+        `[${label}] per-subject ratio for "${sid}" is ${ratio.toFixed(2)} < 1.10. ` +
+          `Supply ≈ ${supply.toFixed(0)}, demand = ${demand}. ` +
+          `Widen competency coverage or reduce subject demand.`,
+      );
+    }
+  }
+
+  // Layer 3 — per-room-type supply for lessons that require a room type.
+  const slotsPerRoom = input.year_groups[0]?.period_grid.length ?? 0;
+  const roomsByType = new Map<string, number>();
+  const closedRoomIds = new Set(input.room_closures.map((c) => c.room_id));
+  for (const r of input.rooms) {
+    if (closedRoomIds.has(r.room_id)) continue;
+    // Non-exclusive rooms (halls, gyms) can host multiple groups at the
+    // same time-group; ×2 is a conservative bound without modelling the
+    // actual parallel-capacity semantics.
+    const count = roomsByType.get(r.room_type) ?? 0;
+    roomsByType.set(r.room_type, count + (r.is_exclusive ? 1 : 2));
+  }
+  const requiredRoomTypes = new Set(
+    input.curriculum.map((c) => c.required_room_type).filter((t): t is string => t !== null),
+  );
+  for (const rt of requiredRoomTypes) {
+    const demand = computeDemand((c) => c.required_room_type === rt);
+    const roomCount = roomsByType.get(rt) ?? 0;
+    const supply = roomCount * slotsPerRoom;
+    const ratio = supply / Math.max(demand, 1);
+    if (ratio < 1.1) {
+      throw new Error(
+        `[${label}] per-room-type ratio for "${rt}" is ${ratio.toFixed(2)} < 1.10. ` +
+          `Rooms of type "${rt}" = ${roomCount} × ${slotsPerRoom} slots = ${supply} supply, ` +
+          `demand = ${demand}. Add more rooms of that type or reduce required_room_type demand.`,
+      );
+    }
   }
 }
 
@@ -317,10 +395,15 @@ export function buildTier4IrishSecondaryLarge(seed: number): SolverInputV2 {
       max_supervision_duties_per_week: 3,
     });
   };
-  // Cores
+  // Cores. English and Maths at 10 each sit exactly at the 1.10 ratio
+  // floor; leaves a little headroom on top and still matches real-school
+  // staffing where core-subject departments are the largest.
   for (let i = 0; i < 10; i++) makeSpecialist(`en-${i}`, ['english'], yearGroupIds);
   for (let i = 0; i < 10; i++) makeSpecialist(`ma-${i}`, ['maths'], yearGroupIds);
-  for (let i = 0; i < 6; i++) makeSpecialist(`ir-${i}`, ['irish'], yearGroupIds);
+  // Irish — 8 (not 6) so the per-subject guardrail's 1.10 floor is met.
+  // Irish is mandatory across all 6 years in Irish schools so demand is
+  // 126 periods; 8 × 22 = 176 → ratio 1.40.
+  for (let i = 0; i < 8; i++) makeSpecialist(`ir-${i}`, ['irish'], yearGroupIds);
   // Sciences
   for (let i = 0; i < 5; i++) makeSpecialist(`sci-${i}`, ['science'], juniorYgIds);
   for (let i = 0; i < 4; i++) makeSpecialist(`bi-${i}`, ['biology'], seniorYgIds);
@@ -328,9 +411,16 @@ export function buildTier4IrishSecondaryLarge(seed: number): SolverInputV2 {
   for (let i = 0; i < 4; i++) makeSpecialist(`ph-${i}`, ['physics'], seniorYgIds);
   // Languages
   for (let i = 0; i < 6; i++) makeSpecialist(`fr-${i}`, ['french'], seniorYgIds);
-  // Humanities/arts generalists — each covers 2-3 subjects across years
-  const generalistPool: SubjectId[] = ['history', 'geography', 'pe', 'art', 'religion', 'business'];
-  for (let i = 0; i < 31; i++) {
+  // PE specialists — dedicated, since PE demand (76) is highest among
+  // generalist-pool subjects and the rng-mix pattern below doesn't
+  // reliably allocate enough competencies to cover it. 5 × 22 = 110 →
+  // ratio 1.45.
+  for (let i = 0; i < 5; i++) makeSpecialist(`pe-${i}`, ['pe'], yearGroupIds);
+  // Humanities/arts generalists — each covers 2-3 subjects across years,
+  // rng-mixed over the remaining pool. PE intentionally removed from the
+  // pool (see above) so its coverage isn't left to rng.
+  const generalistPool: SubjectId[] = ['history', 'geography', 'art', 'religion', 'business'];
+  for (let i = 0; i < 24; i++) {
     const k = 2 + Math.floor(rng() * 2);
     const subjs = pickK(rng, generalistPool, k);
     makeSpecialist(`gen-${i}`, subjs, yearGroupIds);
@@ -548,23 +638,31 @@ export function buildTier5MultiCampusLarge(seed: number): SolverInputV2 {
   };
   for (let i = 0; i < 20; i++) mk(`en-${i}`, ['english'], yearGroupIds);
   for (let i = 0; i < 20; i++) mk(`ma-${i}`, ['maths'], yearGroupIds);
-  for (let i = 0; i < 10; i++) mk(`ir-${i}`, ['irish'], yearGroupIds);
+  // Irish — 12 (not 10) so the 231-period demand passes the 1.10 ratio
+  // floor. 12 × 22 = 264 → 1.14×.
+  for (let i = 0; i < 12; i++) mk(`ir-${i}`, ['irish'], yearGroupIds);
   for (let i = 0; i < 10; i++) mk(`sci-${i}`, ['science'], juniorYgIds);
   for (let i = 0; i < 8; i++) mk(`bi-${i}`, ['biology'], seniorYgIds);
   for (let i = 0; i < 8; i++) mk(`ch-${i}`, ['chemistry'], seniorYgIds);
   for (let i = 0; i < 8; i++) mk(`ph-${i}`, ['physics'], seniorYgIds);
   for (let i = 0; i < 10; i++) mk(`fr-${i}`, ['french'], seniorYgIds);
   for (let i = 0; i < 10; i++) mk(`sp-${i}`, ['spanish'], seniorYgIds);
+  // PE specialists — dedicated. PE demand (82) is highest in the
+  // generalist pool and rng-picking doesn't reliably cover it. Same
+  // pattern as tier-4.
+  for (let i = 0; i < 8; i++) mk(`pe-${i}`, ['pe'], yearGroupIds);
+  // Humanities/arts/music generalists. PE removed from the pool (see
+  // above). Count reduced from 56 to 46 to compensate for +2 Irish and
+  // +8 PE so total specialists stays at 160.
   const generalistPool: SubjectId[] = [
     'history',
     'geography',
-    'pe',
     'art',
     'music',
     'religion',
     'business',
   ];
-  for (let i = 0; i < 56; i++) {
+  for (let i = 0; i < 46; i++) {
     const k = 2 + Math.floor(rng() * 2);
     mk(`gen-${i}`, pickK(rng, generalistPool, k), yearGroupIds);
   }
@@ -705,14 +803,29 @@ export function buildTier6CollegeLevel(seed: number): SolverInputV2 {
   // class-count-anchored baseline here — see the totalDemand sum further
   // down.
 
-  // Target demand: ~3200 lessons / 130 classes ≈ 25 periods/class/week.
-  // Module-style delivery: 12 modules per year, each 2 periods/week = 24
-  // (+1 lifted as a 3-period intensive module per year = 25 total).
+  // Target demand: ~3200 lessons / 130 classes = ~24 periods/class/week.
+  // Module-style delivery: 12 modules per year, each 2 periods/week = 24.
   //
-  // Modules are drawn from the subject catalog — we use its first 18 subjects
-  // (or the whole list for Y3) to give year-dependent granularity matching
-  // the spec's "35 modules". Shuffled with rng per year group.
-  const modulesAll = subjectCatalog.map((s) => s.id);
+  // Earlier drafts of this generator set one module per year to 3
+  // periods (an "intensive"), aiming for ~25 periods/class. That caused
+  // rng-dependent concentration: when the same subject happened to be
+  // the intensive in multiple years, its demand spiked above per-room
+  // and per-subject-teacher capacity, failing the feasibility guardrail
+  // for some seeds. Uniform 2 periods × 12 modules is slightly below
+  // the spec's ~25 target but 24×130=3120 still clears the "3000+"
+  // bar and is robust to any seed.
+  //
+  // Modules are drawn from a tier-6 specific subset, shuffled per year
+  // group. We exclude subjects whose required room type has scarce
+  // supply at tier-6 scale (art / music / pe / it), because the rng
+  // can otherwise put a specialty subject in all 3 year groups and
+  // blow the per-room-type feasibility guardrail. Keeping the pool to
+  // classroom-friendly subjects + lab-requiring sciences matches
+  // typical college-level module catalogs anyway (modules like
+  // "creative writing" happen in classrooms).
+  const modulesAll: SubjectId[] = subjectCatalog
+    .filter((s) => !(['art', 'music', 'pe', 'it'] as const).includes(s.id as never))
+    .map((s) => s.id);
   const curriculum: CurriculumEntry[] = [];
   for (let yg = 0; yg < 3; yg++) {
     const moduleCount = 12;
@@ -720,8 +833,7 @@ export function buildTier6CollegeLevel(seed: number): SolverInputV2 {
     for (let i = 0; i < shuffled.length; i++) {
       const sid = shuffled[i]!;
       const subj = subjectCatalog.find((x) => x.id === sid)!;
-      // One "intensive" module per year at 3 periods; the rest at 2.
-      const periodsPerWeek = i === 0 ? 3 : 2;
+      const periodsPerWeek = 2;
       curriculum.push({
         year_group_id: `t6-yg-${yg}`,
         subject_id: sid,
@@ -741,6 +853,11 @@ export function buildTier6CollegeLevel(seed: number): SolverInputV2 {
   // 180 lecturers. Each spans 1-2 modules across 1-3 year groups.
   const yearGroupIds = yearGroups.map((y) => y.year_group_id);
   const teachers: TeacherInputV2[] = [];
+  // College lecturers often carry more weekly contact than secondary
+  // teachers because modules are smaller-group and shorter-form. 24
+  // periods/week gives the allocation loop below enough slack to cover
+  // every curriculum subject past the 1.10 per-subject guardrail when
+  // 3200-lesson demand spans ~22 subjects.
   const mk = (id: string, subjectIds: SubjectId[], ygIds: string[]) => {
     teachers.push({
       staff_profile_id: `t6-t-${id}`,
@@ -750,36 +867,56 @@ export function buildTier6CollegeLevel(seed: number): SolverInputV2 {
       ),
       availability: [],
       preferences: [],
-      max_periods_per_week: 20,
+      max_periods_per_week: 24,
       max_periods_per_day: 6,
       max_supervision_duties_per_week: null, // colleges don't do yard duty
     });
   };
-  // 180 lecturers. Cover every subject × year combination with redundancy
-  // ≥ 1.5 to satisfy the feasibility guardrail. We walk the
-  // (subject × year_group) product deterministically with rng-driven selection.
-  const ygSubjectPairs: Array<[string, SubjectId]> = [];
-  for (const ygId of yearGroupIds) {
-    const curriculumForYg = curriculum.filter((c) => c.year_group_id === ygId);
-    for (const c of curriculumForYg) {
-      ygSubjectPairs.push([ygId, c.subject_id as SubjectId]);
+  // 180 lecturers, allocated by actual per-subject demand.
+  //
+  // The rng-driven module selection earlier produces a different demand
+  // profile per subject per year (e.g. IT intensive in yg0 + regular in
+  // yg1 → 218 periods total). A uniform "2 specialists per
+  // (yg × module) pair" pattern consistently under-supplied the
+  // highest-demand subjects because those specialists only cover one yg
+  // each. Instead, count per-subject demand across ALL yearGroups, then
+  // allocate `ceil(demand × 1.15 / max_periods_per_week)` specialists
+  // to that subject, each competent across every yg in which the
+  // subject appears. The 1.15 factor is the guardrail's 1.10 floor
+  // plus a safety margin for small-demand subjects where ceil()
+  // rounding has the largest effect.
+  const demandBySubject = new Map<SubjectId, number>();
+  const ygsBySubject = new Map<SubjectId, Set<string>>();
+  for (const c of curriculum) {
+    const sid = c.subject_id as SubjectId;
+    const sections =
+      yearGroups.find((y) => y.year_group_id === c.year_group_id)?.sections.length ?? 0;
+    demandBySubject.set(sid, (demandBySubject.get(sid) ?? 0) + c.min_periods_per_week * sections);
+    let set = ygsBySubject.get(sid);
+    if (!set) {
+      set = new Set();
+      ygsBySubject.set(sid, set);
     }
+    set.add(c.year_group_id);
   }
 
-  // Round-robin assignment: each (ygId, subject) pair gets at least 2 distinct
-  // teachers. 36 pairs (3 yg × 12 modules) × 2 = 72 specialist teachers. The
-  // remaining 108 lecturers take up to 2 distinct modules.
+  const teacherMaxPerWeek = 24;
   let tcount = 0;
-  for (let pass = 0; pass < 2; pass++) {
-    for (const [ygId, sid] of ygSubjectPairs) {
-      mk(`specialist-${tcount}`, [sid], [ygId]);
+  for (const [sid, demand] of demandBySubject.entries()) {
+    const requiredCount = Math.max(1, Math.ceil((demand * 1.15) / teacherMaxPerWeek));
+    const ygsForSubject = Array.from(ygsBySubject.get(sid) ?? []);
+    for (let i = 0; i < requiredCount && teachers.length < 180; i++) {
+      mk(`specialist-${tcount}`, [sid], ygsForSubject);
       tcount++;
     }
   }
-  // Fill the rest: generalists covering 2 modules each across 1-2 years.
+  // Any remaining slots go to multi-subject generalists. Drawing only
+  // from curriculum modules so we never spend a teacher slot on a
+  // subject that doesn't appear in the curriculum.
+  const curriculumModules: SubjectId[] = Array.from(demandBySubject.keys());
   while (teachers.length < 180) {
     const k = 1 + Math.floor(rng() * 2);
-    const moduleSubset = pickK(rng, modulesAll, k);
+    const moduleSubset = pickK(rng, curriculumModules, k);
     const ygSubset = pickK(rng, yearGroupIds, 1 + Math.floor(rng() * 2));
     mk(`gen-${teachers.length}`, moduleSubset, ygSubset);
   }

@@ -4397,7 +4397,7 @@
       "preferred_periods_per_week": null,
       "requires_double_period": false,
       "double_period_count": null,
-      "required_room_type": "lab",
+      "required_room_type": null,
       "preferred_room_id": null,
       "class_id": null
     },
@@ -4410,7 +4410,7 @@
       "preferred_periods_per_week": null,
       "requires_double_period": false,
       "double_period_count": null,
-      "required_room_type": "lab",
+      "required_room_type": null,
       "preferred_room_id": null,
       "class_id": null
     },
@@ -4423,7 +4423,7 @@
       "preferred_periods_per_week": null,
       "requires_double_period": false,
       "double_period_count": null,
-      "required_room_type": "lab",
+      "required_room_type": null,
       "preferred_room_id": null,
       "class_id": null
     },
@@ -4527,7 +4527,7 @@
       "preferred_periods_per_week": null,
       "requires_double_period": false,
       "double_period_count": null,
-      "required_room_type": "lab",
+      "required_room_type": null,
       "preferred_room_id": null,
       "class_id": null
     },
@@ -4540,7 +4540,7 @@
       "preferred_periods_per_week": null,
       "requires_double_period": false,
       "double_period_count": null,
-      "required_room_type": "lab",
+      "required_room_type": null,
       "preferred_room_id": null,
       "class_id": null
     },
@@ -4553,7 +4553,7 @@
       "preferred_periods_per_week": null,
       "requires_double_period": false,
       "double_period_count": null,
-      "required_room_type": "lab",
+      "required_room_type": null,
       "preferred_room_id": null,
       "class_id": null
     },
@@ -4657,7 +4657,7 @@
       "preferred_periods_per_week": null,
       "requires_double_period": false,
       "double_period_count": null,
-      "required_room_type": "lab",
+      "required_room_type": null,
       "preferred_room_id": null,
       "class_id": null
     },
@@ -4670,7 +4670,7 @@
       "preferred_periods_per_week": null,
       "requires_double_period": false,
       "double_period_count": null,
-      "required_room_type": "lab",
+      "required_room_type": null,
       "preferred_room_id": null,
       "class_id": null
     },
@@ -4683,7 +4683,7 @@
       "preferred_periods_per_week": null,
       "requires_double_period": false,
       "double_period_count": null,
-      "required_room_type": "lab",
+      "required_room_type": null,
       "preferred_room_id": null,
       "class_id": null
     },
@@ -4787,7 +4787,7 @@
       "preferred_periods_per_week": null,
       "requires_double_period": false,
       "double_period_count": null,
-      "required_room_type": "lab",
+      "required_room_type": null,
       "preferred_room_id": null,
       "class_id": null
     },
@@ -4800,7 +4800,7 @@
       "preferred_periods_per_week": null,
       "requires_double_period": false,
       "double_period_count": null,
-      "required_room_type": "lab",
+      "required_room_type": null,
       "preferred_room_id": null,
       "class_id": null
     },
@@ -4813,7 +4813,7 @@
       "preferred_periods_per_week": null,
       "requires_double_period": false,
       "double_period_count": null,
-      "required_room_type": "lab",
+      "required_room_type": null,
       "preferred_room_id": null,
       "class_id": null
     },
@@ -7172,6 +7172,98 @@
       "max_supervision_duties_per_week": 3
     },
     {
+      "staff_profile_id": "t5-t-ir-10",
+      "name": "Teacher ir-10",
+      "competencies": [
+        {
+          "subject_id": "irish",
+          "year_group_id": "t5-yg-0",
+          "class_id": null
+        },
+        {
+          "subject_id": "irish",
+          "year_group_id": "t5-yg-1",
+          "class_id": null
+        },
+        {
+          "subject_id": "irish",
+          "year_group_id": "t5-yg-2",
+          "class_id": null
+        },
+        {
+          "subject_id": "irish",
+          "year_group_id": "t5-yg-3",
+          "class_id": null
+        },
+        {
+          "subject_id": "irish",
+          "year_group_id": "t5-yg-4",
+          "class_id": null
+        },
+        {
+          "subject_id": "irish",
+          "year_group_id": "t5-yg-5",
+          "class_id": null
+        },
+        {
+          "subject_id": "irish",
+          "year_group_id": "t5-yg-6",
+          "class_id": null
+        }
+      ],
+      "availability": [],
+      "preferences": [],
+      "max_periods_per_week": 22,
+      "max_periods_per_day": 6,
+      "max_supervision_duties_per_week": 3
+    },
+    {
+      "staff_profile_id": "t5-t-ir-11",
+      "name": "Teacher ir-11",
+      "competencies": [
+        {
+          "subject_id": "irish",
+          "year_group_id": "t5-yg-0",
+          "class_id": null
+        },
+        {
+          "subject_id": "irish",
+          "year_group_id": "t5-yg-1",
+          "class_id": null
+        },
+        {
+          "subject_id": "irish",
+          "year_group_id": "t5-yg-2",
+          "class_id": null
+        },
+        {
+          "subject_id": "irish",
+          "year_group_id": "t5-yg-3",
+          "class_id": null
+        },
+        {
+          "subject_id": "irish",
+          "year_group_id": "t5-yg-4",
+          "class_id": null
+        },
+        {
+          "subject_id": "irish",
+          "year_group_id": "t5-yg-5",
+          "class_id": null
+        },
+        {
+          "subject_id": "irish",
+          "year_group_id": "t5-yg-6",
+          "class_id": null
+        }
+      ],
+      "availability": [],
+      "preferences": [],
+      "max_periods_per_week": 22,
+      "max_periods_per_day": 6,
+      "max_supervision_duties_per_week": 3
+    },
+    {
       "staff_profile_id": "t5-t-sci-0",
       "name": "Teacher sci-0",
       "competencies": [
@@ -8796,6 +8888,374 @@
       "max_supervision_duties_per_week": 3
     },
     {
+      "staff_profile_id": "t5-t-pe-0",
+      "name": "Teacher pe-0",
+      "competencies": [
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-0",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-1",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-2",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-3",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-4",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-5",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-6",
+          "class_id": null
+        }
+      ],
+      "availability": [],
+      "preferences": [],
+      "max_periods_per_week": 22,
+      "max_periods_per_day": 6,
+      "max_supervision_duties_per_week": 3
+    },
+    {
+      "staff_profile_id": "t5-t-pe-1",
+      "name": "Teacher pe-1",
+      "competencies": [
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-0",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-1",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-2",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-3",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-4",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-5",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-6",
+          "class_id": null
+        }
+      ],
+      "availability": [],
+      "preferences": [],
+      "max_periods_per_week": 22,
+      "max_periods_per_day": 6,
+      "max_supervision_duties_per_week": 3
+    },
+    {
+      "staff_profile_id": "t5-t-pe-2",
+      "name": "Teacher pe-2",
+      "competencies": [
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-0",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-1",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-2",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-3",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-4",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-5",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-6",
+          "class_id": null
+        }
+      ],
+      "availability": [],
+      "preferences": [],
+      "max_periods_per_week": 22,
+      "max_periods_per_day": 6,
+      "max_supervision_duties_per_week": 3
+    },
+    {
+      "staff_profile_id": "t5-t-pe-3",
+      "name": "Teacher pe-3",
+      "competencies": [
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-0",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-1",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-2",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-3",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-4",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-5",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-6",
+          "class_id": null
+        }
+      ],
+      "availability": [],
+      "preferences": [],
+      "max_periods_per_week": 22,
+      "max_periods_per_day": 6,
+      "max_supervision_duties_per_week": 3
+    },
+    {
+      "staff_profile_id": "t5-t-pe-4",
+      "name": "Teacher pe-4",
+      "competencies": [
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-0",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-1",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-2",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-3",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-4",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-5",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-6",
+          "class_id": null
+        }
+      ],
+      "availability": [],
+      "preferences": [],
+      "max_periods_per_week": 22,
+      "max_periods_per_day": 6,
+      "max_supervision_duties_per_week": 3
+    },
+    {
+      "staff_profile_id": "t5-t-pe-5",
+      "name": "Teacher pe-5",
+      "competencies": [
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-0",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-1",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-2",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-3",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-4",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-5",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-6",
+          "class_id": null
+        }
+      ],
+      "availability": [],
+      "preferences": [],
+      "max_periods_per_week": 22,
+      "max_periods_per_day": 6,
+      "max_supervision_duties_per_week": 3
+    },
+    {
+      "staff_profile_id": "t5-t-pe-6",
+      "name": "Teacher pe-6",
+      "competencies": [
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-0",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-1",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-2",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-3",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-4",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-5",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-6",
+          "class_id": null
+        }
+      ],
+      "availability": [],
+      "preferences": [],
+      "max_periods_per_week": 22,
+      "max_periods_per_day": 6,
+      "max_supervision_duties_per_week": 3
+    },
+    {
+      "staff_profile_id": "t5-t-pe-7",
+      "name": "Teacher pe-7",
+      "competencies": [
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-0",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-1",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-2",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-3",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-4",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-5",
+          "class_id": null
+        },
+        {
+          "subject_id": "pe",
+          "year_group_id": "t5-yg-6",
+          "class_id": null
+        }
+      ],
+      "availability": [],
+      "preferences": [],
+      "max_periods_per_week": 22,
+      "max_periods_per_day": 6,
+      "max_supervision_duties_per_week": 3
+    },
+    {
       "staff_profile_id": "t5-t-gen-0",
       "name": "Teacher gen-0",
       "competencies": [
@@ -9067,37 +9527,37 @@
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -9218,37 +9678,37 @@
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -9264,37 +9724,37 @@
       "name": "Teacher gen-4",
       "competencies": [
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -9334,37 +9794,37 @@
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -9693,107 +10153,107 @@
       "name": "Teacher gen-8",
       "competencies": [
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -9809,72 +10269,72 @@
       "name": "Teacher gen-9",
       "competencies": [
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "history",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -9925,37 +10385,37 @@
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "music",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "music",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "music",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "music",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "music",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "music",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "music",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -10006,37 +10466,37 @@
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -10168,37 +10628,37 @@
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -10284,37 +10744,37 @@
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -10411,37 +10871,37 @@
       "name": "Teacher gen-16",
       "competencies": [
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -10481,37 +10941,37 @@
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -10527,37 +10987,37 @@
       "name": "Teacher gen-17",
       "competencies": [
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -10597,37 +11057,37 @@
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -10678,37 +11138,37 @@
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -10759,37 +11219,37 @@
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -10956,37 +11416,37 @@
       "name": "Teacher gen-21",
       "competencies": [
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -11026,37 +11486,37 @@
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -11072,37 +11532,37 @@
       "name": "Teacher gen-22",
       "competencies": [
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -11234,72 +11694,37 @@
       "name": "Teacher gen-24",
       "competencies": [
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
+          "subject_id": "business",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -11335,6 +11760,41 @@
         },
         {
           "subject_id": "art",
+          "year_group_id": "t5-yg-6",
+          "class_id": null
+        },
+        {
+          "subject_id": "geography",
+          "year_group_id": "t5-yg-0",
+          "class_id": null
+        },
+        {
+          "subject_id": "geography",
+          "year_group_id": "t5-yg-1",
+          "class_id": null
+        },
+        {
+          "subject_id": "geography",
+          "year_group_id": "t5-yg-2",
+          "class_id": null
+        },
+        {
+          "subject_id": "geography",
+          "year_group_id": "t5-yg-3",
+          "class_id": null
+        },
+        {
+          "subject_id": "geography",
+          "year_group_id": "t5-yg-4",
+          "class_id": null
+        },
+        {
+          "subject_id": "geography",
+          "year_group_id": "t5-yg-5",
+          "class_id": null
+        },
+        {
+          "subject_id": "geography",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -11466,72 +11926,72 @@
       "name": "Teacher gen-26",
       "competencies": [
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -11547,72 +12007,37 @@
       "name": "Teacher gen-27",
       "competencies": [
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "business",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
+          "subject_id": "business",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -11648,6 +12073,41 @@
         },
         {
           "subject_id": "geography",
+          "year_group_id": "t5-yg-6",
+          "class_id": null
+        },
+        {
+          "subject_id": "art",
+          "year_group_id": "t5-yg-0",
+          "class_id": null
+        },
+        {
+          "subject_id": "art",
+          "year_group_id": "t5-yg-1",
+          "class_id": null
+        },
+        {
+          "subject_id": "art",
+          "year_group_id": "t5-yg-2",
+          "class_id": null
+        },
+        {
+          "subject_id": "art",
+          "year_group_id": "t5-yg-3",
+          "class_id": null
+        },
+        {
+          "subject_id": "art",
+          "year_group_id": "t5-yg-4",
+          "class_id": null
+        },
+        {
+          "subject_id": "art",
+          "year_group_id": "t5-yg-5",
+          "class_id": null
+        },
+        {
+          "subject_id": "art",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -11663,72 +12123,72 @@
       "name": "Teacher gen-28",
       "competencies": [
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "music",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "music",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "music",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "music",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "music",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "music",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "music",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -11744,72 +12204,72 @@
       "name": "Teacher gen-29",
       "competencies": [
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "geography",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "art",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "art",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "art",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "art",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "art",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "art",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "geography",
+          "subject_id": "art",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -12046,37 +12506,37 @@
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -12092,37 +12552,37 @@
       "name": "Teacher gen-32",
       "competencies": [
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -12162,37 +12622,37 @@
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "business",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "business",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "business",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "business",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "business",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "business",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "business",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -12243,72 +12703,72 @@
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -12359,37 +12819,37 @@
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -12440,37 +12900,37 @@
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -12486,37 +12946,37 @@
       "name": "Teacher gen-36",
       "competencies": [
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "art",
+          "subject_id": "music",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -12637,37 +13097,37 @@
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -12683,37 +13143,37 @@
       "name": "Teacher gen-38",
       "competencies": [
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "pe",
+          "subject_id": "art",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -12915,72 +13375,72 @@
       "name": "Teacher gen-40",
       "competencies": [
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "music",
+          "subject_id": "religion",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "music",
           "year_group_id": "t5-yg-0",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "music",
           "year_group_id": "t5-yg-1",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "music",
           "year_group_id": "t5-yg-2",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "music",
           "year_group_id": "t5-yg-3",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "music",
           "year_group_id": "t5-yg-4",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "music",
           "year_group_id": "t5-yg-5",
           "class_id": null
         },
         {
-          "subject_id": "religion",
+          "subject_id": "music",
           "year_group_id": "t5-yg-6",
           "class_id": null
         },
@@ -13491,1061 +13951,6 @@
         },
         {
           "subject_id": "business",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        }
-      ],
-      "availability": [],
-      "preferences": [],
-      "max_periods_per_week": 22,
-      "max_periods_per_day": 6,
-      "max_supervision_duties_per_week": 3
-    },
-    {
-      "staff_profile_id": "t5-t-gen-46",
-      "name": "Teacher gen-46",
-      "competencies": [
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        }
-      ],
-      "availability": [],
-      "preferences": [],
-      "max_periods_per_week": 22,
-      "max_periods_per_day": 6,
-      "max_supervision_duties_per_week": 3
-    },
-    {
-      "staff_profile_id": "t5-t-gen-47",
-      "name": "Teacher gen-47",
-      "competencies": [
-        {
-          "subject_id": "music",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "music",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "music",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "music",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "music",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "music",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "music",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        }
-      ],
-      "availability": [],
-      "preferences": [],
-      "max_periods_per_week": 22,
-      "max_periods_per_day": 6,
-      "max_supervision_duties_per_week": 3
-    },
-    {
-      "staff_profile_id": "t5-t-gen-48",
-      "name": "Teacher gen-48",
-      "competencies": [
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        }
-      ],
-      "availability": [],
-      "preferences": [],
-      "max_periods_per_week": 22,
-      "max_periods_per_day": 6,
-      "max_supervision_duties_per_week": 3
-    },
-    {
-      "staff_profile_id": "t5-t-gen-49",
-      "name": "Teacher gen-49",
-      "competencies": [
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        }
-      ],
-      "availability": [],
-      "preferences": [],
-      "max_periods_per_week": 22,
-      "max_periods_per_day": 6,
-      "max_supervision_duties_per_week": 3
-    },
-    {
-      "staff_profile_id": "t5-t-gen-50",
-      "name": "Teacher gen-50",
-      "competencies": [
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        }
-      ],
-      "availability": [],
-      "preferences": [],
-      "max_periods_per_week": 22,
-      "max_periods_per_day": 6,
-      "max_supervision_duties_per_week": 3
-    },
-    {
-      "staff_profile_id": "t5-t-gen-51",
-      "name": "Teacher gen-51",
-      "competencies": [
-        {
-          "subject_id": "business",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "business",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "business",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "business",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "business",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "business",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "business",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        }
-      ],
-      "availability": [],
-      "preferences": [],
-      "max_periods_per_week": 22,
-      "max_periods_per_day": 6,
-      "max_supervision_duties_per_week": 3
-    },
-    {
-      "staff_profile_id": "t5-t-gen-52",
-      "name": "Teacher gen-52",
-      "competencies": [
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        }
-      ],
-      "availability": [],
-      "preferences": [],
-      "max_periods_per_week": 22,
-      "max_periods_per_day": 6,
-      "max_supervision_duties_per_week": 3
-    },
-    {
-      "staff_profile_id": "t5-t-gen-53",
-      "name": "Teacher gen-53",
-      "competencies": [
-        {
-          "subject_id": "music",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "music",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "music",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "music",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "music",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "music",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "music",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        }
-      ],
-      "availability": [],
-      "preferences": [],
-      "max_periods_per_week": 22,
-      "max_periods_per_day": 6,
-      "max_supervision_duties_per_week": 3
-    },
-    {
-      "staff_profile_id": "t5-t-gen-54",
-      "name": "Teacher gen-54",
-      "competencies": [
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "art",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "pe",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        }
-      ],
-      "availability": [],
-      "preferences": [],
-      "max_periods_per_week": 22,
-      "max_periods_per_day": 6,
-      "max_supervision_duties_per_week": 3
-    },
-    {
-      "staff_profile_id": "t5-t-gen-55",
-      "name": "Teacher gen-55",
-      "competencies": [
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "geography",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "religion",
-          "year_group_id": "t5-yg-6",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-0",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-1",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-2",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-3",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-4",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
-          "year_group_id": "t5-yg-5",
-          "class_id": null
-        },
-        {
-          "subject_id": "history",
           "year_group_id": "t5-yg-6",
           "class_id": null
         }
@@ -15179,1043 +14584,1043 @@
   "pinned_entries": [
     {
       "schedule_id": "t5-pin-0",
-      "class_id": "t5-class-16",
-      "subject_id": "art",
-      "year_group_id": "t5-yg-1",
+      "class_id": "t5-class-1",
+      "subject_id": "science",
+      "year_group_id": "t5-yg-0",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-53",
-      "weekday": 0,
-      "period_order": 0
+      "teacher_staff_id": "t5-t-sci-2",
+      "weekday": 3,
+      "period_order": 6
     },
     {
       "schedule_id": "t5-pin-1",
-      "class_id": "t5-class-88",
-      "subject_id": "physics",
-      "year_group_id": "t5-yg-6",
+      "class_id": "t5-class-42",
+      "subject_id": "chemistry",
+      "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ph-4",
-      "weekday": 3,
-      "period_order": 1
+      "teacher_staff_id": "t5-t-ch-1",
+      "weekday": 2,
+      "period_order": 5
     },
     {
       "schedule_id": "t5-pin-2",
-      "class_id": "t5-class-8",
-      "subject_id": "pe",
-      "year_group_id": "t5-yg-0",
+      "class_id": "t5-class-72",
+      "subject_id": "french",
+      "year_group_id": "t5-yg-5",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-31",
+      "teacher_staff_id": "t5-t-fr-1",
       "weekday": 4,
       "period_order": 0
     },
     {
       "schedule_id": "t5-pin-3",
-      "class_id": "t5-class-27",
-      "subject_id": "music",
-      "year_group_id": "t5-yg-2",
+      "class_id": "t5-class-80",
+      "subject_id": "irish",
+      "year_group_id": "t5-yg-5",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-13",
-      "weekday": 1,
-      "period_order": 1
+      "teacher_staff_id": "t5-t-ir-3",
+      "weekday": 4,
+      "period_order": 6
     },
     {
       "schedule_id": "t5-pin-4",
-      "class_id": "t5-class-38",
-      "subject_id": "art",
-      "year_group_id": "t5-yg-2",
+      "class_id": "t5-class-1",
+      "subject_id": "music",
+      "year_group_id": "t5-yg-0",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-39",
-      "weekday": 4,
-      "period_order": 7
+      "teacher_staff_id": "t5-t-gen-16",
+      "weekday": 3,
+      "period_order": 2
     },
     {
       "schedule_id": "t5-pin-5",
-      "class_id": "t5-class-90",
-      "subject_id": "spanish",
-      "year_group_id": "t5-yg-6",
+      "class_id": "t5-class-7",
+      "subject_id": "science",
+      "year_group_id": "t5-yg-0",
       "room_id": null,
-      "teacher_staff_id": "t5-t-sp-4",
+      "teacher_staff_id": "t5-t-sci-7",
       "weekday": 3,
-      "period_order": 3
+      "period_order": 1
     },
     {
       "schedule_id": "t5-pin-6",
-      "class_id": "t5-class-58",
-      "subject_id": "irish",
-      "year_group_id": "t5-yg-4",
+      "class_id": "t5-class-17",
+      "subject_id": "maths",
+      "year_group_id": "t5-yg-1",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ir-6",
-      "weekday": 2,
-      "period_order": 5
+      "teacher_staff_id": "t5-t-ma-0",
+      "weekday": 4,
+      "period_order": 0
     },
     {
       "schedule_id": "t5-pin-7",
+      "class_id": "t5-class-93",
+      "subject_id": "chemistry",
+      "year_group_id": "t5-yg-6",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-ch-1",
+      "weekday": 2,
+      "period_order": 7
+    },
+    {
+      "schedule_id": "t5-pin-8",
+      "class_id": "t5-class-41",
+      "subject_id": "physics",
+      "year_group_id": "t5-yg-3",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-ph-0",
+      "weekday": 3,
+      "period_order": 8
+    },
+    {
+      "schedule_id": "t5-pin-9",
+      "class_id": "t5-class-45",
+      "subject_id": "english",
+      "year_group_id": "t5-yg-3",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-en-3",
+      "weekday": 4,
+      "period_order": 2
+    },
+    {
+      "schedule_id": "t5-pin-10",
+      "class_id": "t5-class-18",
+      "subject_id": "art",
+      "year_group_id": "t5-yg-1",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-gen-35",
+      "weekday": 4,
+      "period_order": 8
+    },
+    {
+      "schedule_id": "t5-pin-11",
+      "class_id": "t5-class-66",
+      "subject_id": "french",
+      "year_group_id": "t5-yg-4",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-fr-3",
+      "weekday": 3,
+      "period_order": 6
+    },
+    {
+      "schedule_id": "t5-pin-12",
       "class_id": "t5-class-36",
       "subject_id": "irish",
       "year_group_id": "t5-yg-2",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ir-4",
-      "weekday": 3,
-      "period_order": 5
-    },
-    {
-      "schedule_id": "t5-pin-8",
-      "class_id": "t5-class-38",
-      "subject_id": "maths",
-      "year_group_id": "t5-yg-2",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ma-13",
-      "weekday": 2,
-      "period_order": 5
-    },
-    {
-      "schedule_id": "t5-pin-9",
-      "class_id": "t5-class-55",
-      "subject_id": "chemistry",
-      "year_group_id": "t5-yg-4",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ch-4",
-      "weekday": 4,
-      "period_order": 7
-    },
-    {
-      "schedule_id": "t5-pin-10",
-      "class_id": "t5-class-58",
-      "subject_id": "religion",
-      "year_group_id": "t5-yg-4",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-gen-27",
-      "weekday": 0,
-      "period_order": 7
-    },
-    {
-      "schedule_id": "t5-pin-11",
-      "class_id": "t5-class-20",
-      "subject_id": "irish",
-      "year_group_id": "t5-yg-1",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ir-5",
-      "weekday": 4,
-      "period_order": 9
-    },
-    {
-      "schedule_id": "t5-pin-12",
-      "class_id": "t5-class-84",
-      "subject_id": "chemistry",
-      "year_group_id": "t5-yg-6",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ch-5",
-      "weekday": 0,
-      "period_order": 0
-    },
-    {
-      "schedule_id": "t5-pin-13",
-      "class_id": "t5-class-71",
-      "subject_id": "english",
-      "year_group_id": "t5-yg-5",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-en-6",
-      "weekday": 2,
-      "period_order": 6
-    },
-    {
-      "schedule_id": "t5-pin-14",
-      "class_id": "t5-class-53",
-      "subject_id": "irish",
-      "year_group_id": "t5-yg-3",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ir-3",
-      "weekday": 2,
-      "period_order": 6
-    },
-    {
-      "schedule_id": "t5-pin-15",
-      "class_id": "t5-class-8",
-      "subject_id": "maths",
-      "year_group_id": "t5-yg-0",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ma-13",
-      "weekday": 2,
+      "teacher_staff_id": "t5-t-ir-7",
+      "weekday": 1,
       "period_order": 4
     },
     {
-      "schedule_id": "t5-pin-16",
-      "class_id": "t5-class-78",
-      "subject_id": "physics",
-      "year_group_id": "t5-yg-5",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ph-6",
-      "weekday": 3,
-      "period_order": 5
-    },
-    {
-      "schedule_id": "t5-pin-17",
-      "class_id": "t5-class-62",
-      "subject_id": "physics",
+      "schedule_id": "t5-pin-13",
+      "class_id": "t5-class-59",
+      "subject_id": "spanish",
       "year_group_id": "t5-yg-4",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ph-5",
-      "weekday": 3,
+      "teacher_staff_id": "t5-t-sp-5",
+      "weekday": 1,
       "period_order": 7
     },
     {
-      "schedule_id": "t5-pin-18",
-      "class_id": "t5-class-93",
-      "subject_id": "french",
-      "year_group_id": "t5-yg-6",
+      "schedule_id": "t5-pin-14",
+      "class_id": "t5-class-46",
+      "subject_id": "business",
+      "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-fr-2",
-      "weekday": 3,
+      "teacher_staff_id": "t5-t-gen-25",
+      "weekday": 0,
+      "period_order": 5
+    },
+    {
+      "schedule_id": "t5-pin-15",
+      "class_id": "t5-class-62",
+      "subject_id": "english",
+      "year_group_id": "t5-yg-4",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-en-14",
+      "weekday": 2,
+      "period_order": 9
+    },
+    {
+      "schedule_id": "t5-pin-16",
+      "class_id": "t5-class-50",
+      "subject_id": "biology",
+      "year_group_id": "t5-yg-3",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-bi-6",
+      "weekday": 4,
+      "period_order": 0
+    },
+    {
+      "schedule_id": "t5-pin-17",
+      "class_id": "t5-class-43",
+      "subject_id": "chemistry",
+      "year_group_id": "t5-yg-3",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-ch-7",
+      "weekday": 1,
+      "period_order": 8
+    },
+    {
+      "schedule_id": "t5-pin-18",
+      "class_id": "t5-class-53",
+      "subject_id": "maths",
+      "year_group_id": "t5-yg-3",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-ma-0",
+      "weekday": 2,
       "period_order": 1
     },
     {
       "schedule_id": "t5-pin-19",
-      "class_id": "t5-class-84",
-      "subject_id": "religion",
-      "year_group_id": "t5-yg-6",
+      "class_id": "t5-class-64",
+      "subject_id": "irish",
+      "year_group_id": "t5-yg-4",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-32",
+      "teacher_staff_id": "t5-t-ir-7",
       "weekday": 0,
-      "period_order": 7
+      "period_order": 4
     },
     {
       "schedule_id": "t5-pin-20",
-      "class_id": "t5-class-71",
-      "subject_id": "maths",
-      "year_group_id": "t5-yg-5",
+      "class_id": "t5-class-34",
+      "subject_id": "music",
+      "year_group_id": "t5-yg-2",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ma-12",
+      "teacher_staff_id": "t5-t-gen-22",
       "weekday": 1,
-      "period_order": 7
+      "period_order": 5
     },
     {
       "schedule_id": "t5-pin-21",
       "class_id": "t5-class-28",
-      "subject_id": "irish",
+      "subject_id": "geography",
       "year_group_id": "t5-yg-2",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ir-1",
+      "teacher_staff_id": "t5-t-gen-19",
+      "weekday": 0,
+      "period_order": 5
+    },
+    {
+      "schedule_id": "t5-pin-22",
+      "class_id": "t5-class-65",
+      "subject_id": "spanish",
+      "year_group_id": "t5-yg-4",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-sp-5",
+      "weekday": 2,
+      "period_order": 7
+    },
+    {
+      "schedule_id": "t5-pin-23",
+      "class_id": "t5-class-76",
+      "subject_id": "french",
+      "year_group_id": "t5-yg-5",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-fr-7",
+      "weekday": 2,
+      "period_order": 6
+    },
+    {
+      "schedule_id": "t5-pin-24",
+      "class_id": "t5-class-80",
+      "subject_id": "business",
+      "year_group_id": "t5-yg-5",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-gen-5",
+      "weekday": 3,
+      "period_order": 6
+    },
+    {
+      "schedule_id": "t5-pin-25",
+      "class_id": "t5-class-26",
+      "subject_id": "maths",
+      "year_group_id": "t5-yg-1",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-ma-14",
       "weekday": 4,
       "period_order": 0
     },
     {
-      "schedule_id": "t5-pin-22",
-      "class_id": "t5-class-23",
-      "subject_id": "english",
-      "year_group_id": "t5-yg-1",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-en-19",
-      "weekday": 3,
-      "period_order": 0
-    },
-    {
-      "schedule_id": "t5-pin-23",
-      "class_id": "t5-class-53",
-      "subject_id": "french",
+      "schedule_id": "t5-pin-26",
+      "class_id": "t5-class-51",
+      "subject_id": "irish",
       "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-fr-2",
-      "weekday": 1,
-      "period_order": 7
-    },
-    {
-      "schedule_id": "t5-pin-24",
-      "class_id": "t5-class-36",
-      "subject_id": "pe",
-      "year_group_id": "t5-yg-2",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-gen-22",
-      "weekday": 2,
-      "period_order": 7
-    },
-    {
-      "schedule_id": "t5-pin-25",
-      "class_id": "t5-class-57",
-      "subject_id": "english",
-      "year_group_id": "t5-yg-4",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-en-15",
-      "weekday": 1,
-      "period_order": 2
-    },
-    {
-      "schedule_id": "t5-pin-26",
-      "class_id": "t5-class-18",
-      "subject_id": "english",
-      "year_group_id": "t5-yg-1",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-en-17",
-      "weekday": 1,
-      "period_order": 9
-    },
-    {
-      "schedule_id": "t5-pin-27",
-      "class_id": "t5-class-64",
-      "subject_id": "business",
-      "year_group_id": "t5-yg-4",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-gen-6",
+      "teacher_staff_id": "t5-t-ir-8",
       "weekday": 0,
-      "period_order": 1
-    },
-    {
-      "schedule_id": "t5-pin-28",
-      "class_id": "t5-class-33",
-      "subject_id": "maths",
-      "year_group_id": "t5-yg-2",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ma-0",
-      "weekday": 2,
       "period_order": 3
     },
     {
-      "schedule_id": "t5-pin-29",
-      "class_id": "t5-class-8",
-      "subject_id": "science",
-      "year_group_id": "t5-yg-0",
+      "schedule_id": "t5-pin-27",
+      "class_id": "t5-class-58",
+      "subject_id": "maths",
+      "year_group_id": "t5-yg-4",
       "room_id": null,
-      "teacher_staff_id": "t5-t-sci-4",
+      "teacher_staff_id": "t5-t-ma-1",
       "weekday": 1,
-      "period_order": 0
+      "period_order": 9
+    },
+    {
+      "schedule_id": "t5-pin-28",
+      "class_id": "t5-class-17",
+      "subject_id": "pe",
+      "year_group_id": "t5-yg-1",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-pe-0",
+      "weekday": 0,
+      "period_order": 7
+    },
+    {
+      "schedule_id": "t5-pin-29",
+      "class_id": "t5-class-88",
+      "subject_id": "religion",
+      "year_group_id": "t5-yg-6",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-gen-38",
+      "weekday": 3,
+      "period_order": 3
     },
     {
       "schedule_id": "t5-pin-30",
-      "class_id": "t5-class-80",
-      "subject_id": "physics",
-      "year_group_id": "t5-yg-5",
+      "class_id": "t5-class-18",
+      "subject_id": "geography",
+      "year_group_id": "t5-yg-1",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ph-7",
+      "teacher_staff_id": "t5-t-gen-29",
       "weekday": 3,
-      "period_order": 9
+      "period_order": 5
     },
     {
       "schedule_id": "t5-pin-31",
-      "class_id": "t5-class-39",
-      "subject_id": "art",
+      "class_id": "t5-class-35",
+      "subject_id": "irish",
       "year_group_id": "t5-yg-2",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-39",
-      "weekday": 3,
-      "period_order": 9
+      "teacher_staff_id": "t5-t-ir-2",
+      "weekday": 0,
+      "period_order": 3
     },
     {
       "schedule_id": "t5-pin-32",
-      "class_id": "t5-class-58",
+      "class_id": "t5-class-70",
       "subject_id": "biology",
-      "year_group_id": "t5-yg-4",
+      "year_group_id": "t5-yg-5",
       "room_id": null,
-      "teacher_staff_id": "t5-t-bi-6",
-      "weekday": 3,
+      "teacher_staff_id": "t5-t-bi-7",
+      "weekday": 0,
       "period_order": 3
     },
     {
       "schedule_id": "t5-pin-33",
-      "class_id": "t5-class-8",
-      "subject_id": "geography",
-      "year_group_id": "t5-yg-0",
+      "class_id": "t5-class-89",
+      "subject_id": "spanish",
+      "year_group_id": "t5-yg-6",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-44",
-      "weekday": 1,
-      "period_order": 4
+      "teacher_staff_id": "t5-t-sp-1",
+      "weekday": 4,
+      "period_order": 0
     },
     {
       "schedule_id": "t5-pin-34",
-      "class_id": "t5-class-85",
-      "subject_id": "english",
-      "year_group_id": "t5-yg-6",
+      "class_id": "t5-class-19",
+      "subject_id": "history",
+      "year_group_id": "t5-yg-1",
       "room_id": null,
-      "teacher_staff_id": "t5-t-en-0",
-      "weekday": 2,
+      "teacher_staff_id": "t5-t-gen-9",
+      "weekday": 0,
       "period_order": 4
     },
     {
       "schedule_id": "t5-pin-35",
-      "class_id": "t5-class-5",
-      "subject_id": "maths",
+      "class_id": "t5-class-0",
+      "subject_id": "geography",
       "year_group_id": "t5-yg-0",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ma-15",
-      "weekday": 3,
-      "period_order": 7
+      "teacher_staff_id": "t5-t-gen-1",
+      "weekday": 2,
+      "period_order": 3
     },
     {
       "schedule_id": "t5-pin-36",
-      "class_id": "t5-class-78",
-      "subject_id": "physics",
-      "year_group_id": "t5-yg-5",
+      "class_id": "t5-class-51",
+      "subject_id": "business",
+      "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ph-4",
-      "weekday": 4,
-      "period_order": 9
+      "teacher_staff_id": "t5-t-gen-45",
+      "weekday": 2,
+      "period_order": 7
     },
     {
       "schedule_id": "t5-pin-37",
-      "class_id": "t5-class-94",
-      "subject_id": "biology",
+      "class_id": "t5-class-86",
+      "subject_id": "business",
       "year_group_id": "t5-yg-6",
       "room_id": null,
-      "teacher_staff_id": "t5-t-bi-3",
+      "teacher_staff_id": "t5-t-gen-43",
       "weekday": 4,
       "period_order": 7
     },
     {
       "schedule_id": "t5-pin-38",
-      "class_id": "t5-class-30",
-      "subject_id": "history",
-      "year_group_id": "t5-yg-2",
+      "class_id": "t5-class-63",
+      "subject_id": "biology",
+      "year_group_id": "t5-yg-4",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-13",
-      "weekday": 4,
+      "teacher_staff_id": "t5-t-bi-2",
+      "weekday": 1,
       "period_order": 7
     },
     {
       "schedule_id": "t5-pin-39",
-      "class_id": "t5-class-78",
-      "subject_id": "french",
+      "class_id": "t5-class-68",
+      "subject_id": "physics",
       "year_group_id": "t5-yg-5",
       "room_id": null,
-      "teacher_staff_id": "t5-t-fr-8",
-      "weekday": 3,
-      "period_order": 6
+      "teacher_staff_id": "t5-t-ph-3",
+      "weekday": 2,
+      "period_order": 2
     },
     {
       "schedule_id": "t5-pin-40",
-      "class_id": "t5-class-11",
-      "subject_id": "music",
-      "year_group_id": "t5-yg-0",
+      "class_id": "t5-class-66",
+      "subject_id": "irish",
+      "year_group_id": "t5-yg-4",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-32",
+      "teacher_staff_id": "t5-t-ir-5",
       "weekday": 0,
-      "period_order": 4
+      "period_order": 5
     },
     {
       "schedule_id": "t5-pin-41",
-      "class_id": "t5-class-75",
-      "subject_id": "chemistry",
-      "year_group_id": "t5-yg-5",
+      "class_id": "t5-class-0",
+      "subject_id": "science",
+      "year_group_id": "t5-yg-0",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ch-1",
-      "weekday": 4,
-      "period_order": 9
+      "teacher_staff_id": "t5-t-sci-7",
+      "weekday": 0,
+      "period_order": 6
     },
     {
       "schedule_id": "t5-pin-42",
-      "class_id": "t5-class-57",
-      "subject_id": "physics",
-      "year_group_id": "t5-yg-4",
+      "class_id": "t5-class-78",
+      "subject_id": "spanish",
+      "year_group_id": "t5-yg-5",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ph-3",
+      "teacher_staff_id": "t5-t-sp-9",
       "weekday": 2,
-      "period_order": 5
+      "period_order": 9
     },
     {
       "schedule_id": "t5-pin-43",
-      "class_id": "t5-class-62",
-      "subject_id": "business",
-      "year_group_id": "t5-yg-4",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-gen-43",
-      "weekday": 0,
-      "period_order": 1
-    },
-    {
-      "schedule_id": "t5-pin-44",
-      "class_id": "t5-class-11",
-      "subject_id": "irish",
-      "year_group_id": "t5-yg-0",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ir-8",
-      "weekday": 3,
-      "period_order": 3
-    },
-    {
-      "schedule_id": "t5-pin-45",
-      "class_id": "t5-class-15",
-      "subject_id": "history",
-      "year_group_id": "t5-yg-1",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-gen-55",
-      "weekday": 3,
-      "period_order": 1
-    },
-    {
-      "schedule_id": "t5-pin-46",
-      "class_id": "t5-class-8",
-      "subject_id": "history",
-      "year_group_id": "t5-yg-0",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-gen-55",
-      "weekday": 0,
-      "period_order": 8
-    },
-    {
-      "schedule_id": "t5-pin-47",
-      "class_id": "t5-class-54",
-      "subject_id": "maths",
-      "year_group_id": "t5-yg-4",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ma-6",
-      "weekday": 2,
-      "period_order": 2
-    },
-    {
-      "schedule_id": "t5-pin-48",
-      "class_id": "t5-class-43",
-      "subject_id": "maths",
-      "year_group_id": "t5-yg-3",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ma-18",
-      "weekday": 2,
-      "period_order": 6
-    },
-    {
-      "schedule_id": "t5-pin-49",
-      "class_id": "t5-class-63",
-      "subject_id": "chemistry",
-      "year_group_id": "t5-yg-4",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ch-2",
-      "weekday": 1,
-      "period_order": 0
-    },
-    {
-      "schedule_id": "t5-pin-50",
-      "class_id": "t5-class-62",
-      "subject_id": "business",
-      "year_group_id": "t5-yg-4",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-gen-3",
-      "weekday": 0,
-      "period_order": 2
-    },
-    {
-      "schedule_id": "t5-pin-51",
-      "class_id": "t5-class-50",
+      "class_id": "t5-class-53",
       "subject_id": "religion",
       "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-51",
-      "weekday": 0,
-      "period_order": 7
-    },
-    {
-      "schedule_id": "t5-pin-52",
-      "class_id": "t5-class-52",
-      "subject_id": "business",
-      "year_group_id": "t5-yg-3",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-gen-12",
-      "weekday": 2,
-      "period_order": 0
-    },
-    {
-      "schedule_id": "t5-pin-53",
-      "class_id": "t5-class-70",
-      "subject_id": "biology",
-      "year_group_id": "t5-yg-5",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-bi-3",
-      "weekday": 3,
-      "period_order": 6
-    },
-    {
-      "schedule_id": "t5-pin-54",
-      "class_id": "t5-class-51",
-      "subject_id": "french",
-      "year_group_id": "t5-yg-3",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-fr-1",
-      "weekday": 3,
-      "period_order": 2
-    },
-    {
-      "schedule_id": "t5-pin-55",
-      "class_id": "t5-class-92",
-      "subject_id": "biology",
-      "year_group_id": "t5-yg-6",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-bi-6",
-      "weekday": 2,
-      "period_order": 6
-    },
-    {
-      "schedule_id": "t5-pin-56",
-      "class_id": "t5-class-0",
-      "subject_id": "irish",
-      "year_group_id": "t5-yg-0",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ir-9",
-      "weekday": 4,
-      "period_order": 8
-    },
-    {
-      "schedule_id": "t5-pin-57",
-      "class_id": "t5-class-74",
-      "subject_id": "biology",
-      "year_group_id": "t5-yg-5",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-bi-3",
+      "teacher_staff_id": "t5-t-gen-38",
       "weekday": 1,
-      "period_order": 0
+      "period_order": 9
     },
     {
-      "schedule_id": "t5-pin-58",
-      "class_id": "t5-class-15",
-      "subject_id": "science",
-      "year_group_id": "t5-yg-1",
+      "schedule_id": "t5-pin-44",
+      "class_id": "t5-class-46",
+      "subject_id": "irish",
+      "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-sci-6",
+      "teacher_staff_id": "t5-t-ir-8",
       "weekday": 2,
-      "period_order": 2
+      "period_order": 9
     },
     {
-      "schedule_id": "t5-pin-59",
-      "class_id": "t5-class-94",
-      "subject_id": "english",
-      "year_group_id": "t5-yg-6",
+      "schedule_id": "t5-pin-45",
+      "class_id": "t5-class-37",
+      "subject_id": "pe",
+      "year_group_id": "t5-yg-2",
       "room_id": null,
-      "teacher_staff_id": "t5-t-en-14",
-      "weekday": 4,
-      "period_order": 8
+      "teacher_staff_id": "t5-t-pe-4",
+      "weekday": 3,
+      "period_order": 7
     },
     {
-      "schedule_id": "t5-pin-60",
-      "class_id": "t5-class-87",
+      "schedule_id": "t5-pin-46",
+      "class_id": "t5-class-69",
       "subject_id": "spanish",
+      "year_group_id": "t5-yg-5",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-sp-4",
+      "weekday": 4,
+      "period_order": 1
+    },
+    {
+      "schedule_id": "t5-pin-47",
+      "class_id": "t5-class-83",
+      "subject_id": "french",
       "year_group_id": "t5-yg-6",
       "room_id": null,
-      "teacher_staff_id": "t5-t-sp-3",
-      "weekday": 4,
-      "period_order": 8
-    },
-    {
-      "schedule_id": "t5-pin-61",
-      "class_id": "t5-class-5",
-      "subject_id": "english",
-      "year_group_id": "t5-yg-0",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-en-1",
-      "weekday": 0,
-      "period_order": 7
-    },
-    {
-      "schedule_id": "t5-pin-62",
-      "class_id": "t5-class-19",
-      "subject_id": "irish",
-      "year_group_id": "t5-yg-1",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ir-3",
-      "weekday": 4,
-      "period_order": 7
-    },
-    {
-      "schedule_id": "t5-pin-63",
-      "class_id": "t5-class-86",
-      "subject_id": "irish",
-      "year_group_id": "t5-yg-6",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ir-9",
-      "weekday": 2,
+      "teacher_staff_id": "t5-t-fr-4",
+      "weekday": 1,
       "period_order": 5
     },
     {
-      "schedule_id": "t5-pin-64",
-      "class_id": "t5-class-68",
-      "subject_id": "business",
-      "year_group_id": "t5-yg-5",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-gen-1",
-      "weekday": 4,
-      "period_order": 7
-    },
-    {
-      "schedule_id": "t5-pin-65",
-      "class_id": "t5-class-43",
-      "subject_id": "physics",
+      "schedule_id": "t5-pin-48",
+      "class_id": "t5-class-46",
+      "subject_id": "french",
       "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ph-6",
+      "teacher_staff_id": "t5-t-fr-0",
+      "weekday": 3,
+      "period_order": 8
+    },
+    {
+      "schedule_id": "t5-pin-49",
+      "class_id": "t5-class-25",
+      "subject_id": "english",
+      "year_group_id": "t5-yg-1",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-en-12",
+      "weekday": 4,
+      "period_order": 3
+    },
+    {
+      "schedule_id": "t5-pin-50",
+      "class_id": "t5-class-38",
+      "subject_id": "maths",
+      "year_group_id": "t5-yg-2",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-ma-12",
+      "weekday": 0,
+      "period_order": 4
+    },
+    {
+      "schedule_id": "t5-pin-51",
+      "class_id": "t5-class-13",
+      "subject_id": "english",
+      "year_group_id": "t5-yg-0",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-en-3",
+      "weekday": 3,
+      "period_order": 5
+    },
+    {
+      "schedule_id": "t5-pin-52",
+      "class_id": "t5-class-81",
+      "subject_id": "french",
+      "year_group_id": "t5-yg-5",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-fr-5",
       "weekday": 0,
       "period_order": 1
     },
     {
-      "schedule_id": "t5-pin-66",
-      "class_id": "t5-class-2",
+      "schedule_id": "t5-pin-53",
+      "class_id": "t5-class-17",
+      "subject_id": "science",
+      "year_group_id": "t5-yg-1",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-sci-4",
+      "weekday": 0,
+      "period_order": 1
+    },
+    {
+      "schedule_id": "t5-pin-54",
+      "class_id": "t5-class-67",
+      "subject_id": "french",
+      "year_group_id": "t5-yg-4",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-fr-3",
+      "weekday": 3,
+      "period_order": 4
+    },
+    {
+      "schedule_id": "t5-pin-55",
+      "class_id": "t5-class-4",
       "subject_id": "geography",
       "year_group_id": "t5-yg-0",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-52",
-      "weekday": 4,
-      "period_order": 4
-    },
-    {
-      "schedule_id": "t5-pin-67",
-      "class_id": "t5-class-86",
-      "subject_id": "english",
-      "year_group_id": "t5-yg-6",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-en-19",
-      "weekday": 0,
-      "period_order": 4
-    },
-    {
-      "schedule_id": "t5-pin-68",
-      "class_id": "t5-class-88",
-      "subject_id": "physics",
-      "year_group_id": "t5-yg-6",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ph-3",
+      "teacher_staff_id": "t5-t-gen-4",
       "weekday": 3,
-      "period_order": 7
+      "period_order": 8
     },
     {
-      "schedule_id": "t5-pin-69",
-      "class_id": "t5-class-9",
-      "subject_id": "maths",
-      "year_group_id": "t5-yg-0",
+      "schedule_id": "t5-pin-56",
+      "class_id": "t5-class-14",
+      "subject_id": "history",
+      "year_group_id": "t5-yg-1",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ma-11",
-      "weekday": 0,
-      "period_order": 4
+      "teacher_staff_id": "t5-t-gen-0",
+      "weekday": 3,
+      "period_order": 9
     },
     {
-      "schedule_id": "t5-pin-70",
+      "schedule_id": "t5-pin-57",
+      "class_id": "t5-class-81",
+      "subject_id": "chemistry",
+      "year_group_id": "t5-yg-5",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-ch-3",
+      "weekday": 4,
+      "period_order": 8
+    },
+    {
+      "schedule_id": "t5-pin-58",
       "class_id": "t5-class-3",
-      "subject_id": "music",
+      "subject_id": "art",
       "year_group_id": "t5-yg-0",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-44",
-      "weekday": 2,
-      "period_order": 7
+      "teacher_staff_id": "t5-t-gen-35",
+      "weekday": 0,
+      "period_order": 3
     },
     {
-      "schedule_id": "t5-pin-71",
+      "schedule_id": "t5-pin-59",
       "class_id": "t5-class-59",
-      "subject_id": "business",
+      "subject_id": "physics",
       "year_group_id": "t5-yg-4",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-23",
-      "weekday": 2,
-      "period_order": 7
+      "teacher_staff_id": "t5-t-ph-5",
+      "weekday": 3,
+      "period_order": 6
     },
     {
-      "schedule_id": "t5-pin-72",
-      "class_id": "t5-class-11",
-      "subject_id": "maths",
-      "year_group_id": "t5-yg-0",
+      "schedule_id": "t5-pin-60",
+      "class_id": "t5-class-29",
+      "subject_id": "music",
+      "year_group_id": "t5-yg-2",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ma-4",
+      "teacher_staff_id": "t5-t-gen-16",
+      "weekday": 4,
+      "period_order": 3
+    },
+    {
+      "schedule_id": "t5-pin-61",
+      "class_id": "t5-class-65",
+      "subject_id": "english",
+      "year_group_id": "t5-yg-4",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-en-17",
       "weekday": 0,
       "period_order": 2
     },
     {
-      "schedule_id": "t5-pin-73",
-      "class_id": "t5-class-68",
-      "subject_id": "physics",
+      "schedule_id": "t5-pin-62",
+      "class_id": "t5-class-81",
+      "subject_id": "spanish",
       "year_group_id": "t5-yg-5",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ph-0",
-      "weekday": 1,
-      "period_order": 5
+      "teacher_staff_id": "t5-t-sp-3",
+      "weekday": 2,
+      "period_order": 3
     },
     {
-      "schedule_id": "t5-pin-74",
-      "class_id": "t5-class-0",
-      "subject_id": "pe",
+      "schedule_id": "t5-pin-63",
+      "class_id": "t5-class-6",
+      "subject_id": "maths",
       "year_group_id": "t5-yg-0",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-ma-10",
+      "weekday": 0,
+      "period_order": 3
+    },
+    {
+      "schedule_id": "t5-pin-64",
+      "class_id": "t5-class-22",
+      "subject_id": "music",
+      "year_group_id": "t5-yg-1",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-gen-40",
+      "weekday": 4,
+      "period_order": 0
+    },
+    {
+      "schedule_id": "t5-pin-65",
+      "class_id": "t5-class-77",
+      "subject_id": "business",
+      "year_group_id": "t5-yg-5",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-gen-43",
+      "weekday": 2,
+      "period_order": 7
+    },
+    {
+      "schedule_id": "t5-pin-66",
+      "class_id": "t5-class-72",
+      "subject_id": "maths",
+      "year_group_id": "t5-yg-5",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-ma-0",
+      "weekday": 2,
+      "period_order": 0
+    },
+    {
+      "schedule_id": "t5-pin-67",
+      "class_id": "t5-class-69",
+      "subject_id": "irish",
+      "year_group_id": "t5-yg-5",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-ir-11",
+      "weekday": 2,
+      "period_order": 2
+    },
+    {
+      "schedule_id": "t5-pin-68",
+      "class_id": "t5-class-58",
+      "subject_id": "religion",
+      "year_group_id": "t5-yg-4",
       "room_id": null,
       "teacher_staff_id": "t5-t-gen-33",
       "weekday": 1,
       "period_order": 2
     },
     {
-      "schedule_id": "t5-pin-75",
-      "class_id": "t5-class-57",
-      "subject_id": "chemistry",
-      "year_group_id": "t5-yg-4",
+      "schedule_id": "t5-pin-69",
+      "class_id": "t5-class-53",
+      "subject_id": "business",
+      "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ch-7",
+      "teacher_staff_id": "t5-t-gen-43",
+      "weekday": 0,
+      "period_order": 8
+    },
+    {
+      "schedule_id": "t5-pin-70",
+      "class_id": "t5-class-68",
+      "subject_id": "chemistry",
+      "year_group_id": "t5-yg-5",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-ch-0",
       "weekday": 1,
+      "period_order": 5
+    },
+    {
+      "schedule_id": "t5-pin-71",
+      "class_id": "t5-class-24",
+      "subject_id": "maths",
+      "year_group_id": "t5-yg-1",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-ma-17",
+      "weekday": 0,
+      "period_order": 5
+    },
+    {
+      "schedule_id": "t5-pin-72",
+      "class_id": "t5-class-52",
+      "subject_id": "religion",
+      "year_group_id": "t5-yg-3",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-gen-0",
+      "weekday": 1,
+      "period_order": 0
+    },
+    {
+      "schedule_id": "t5-pin-73",
+      "class_id": "t5-class-53",
+      "subject_id": "business",
+      "year_group_id": "t5-yg-3",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-gen-32",
+      "weekday": 2,
+      "period_order": 5
+    },
+    {
+      "schedule_id": "t5-pin-74",
+      "class_id": "t5-class-73",
+      "subject_id": "english",
+      "year_group_id": "t5-yg-5",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-en-2",
+      "weekday": 3,
       "period_order": 1
     },
     {
-      "schedule_id": "t5-pin-76",
-      "class_id": "t5-class-37",
-      "subject_id": "history",
-      "year_group_id": "t5-yg-2",
+      "schedule_id": "t5-pin-75",
+      "class_id": "t5-class-48",
+      "subject_id": "english",
+      "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-52",
-      "weekday": 3,
+      "teacher_staff_id": "t5-t-en-11",
+      "weekday": 1,
+      "period_order": 9
+    },
+    {
+      "schedule_id": "t5-pin-76",
+      "class_id": "t5-class-80",
+      "subject_id": "french",
+      "year_group_id": "t5-yg-5",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-fr-4",
+      "weekday": 2,
       "period_order": 8
     },
     {
       "schedule_id": "t5-pin-77",
-      "class_id": "t5-class-37",
-      "subject_id": "geography",
-      "year_group_id": "t5-yg-2",
+      "class_id": "t5-class-73",
+      "subject_id": "english",
+      "year_group_id": "t5-yg-5",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-50",
-      "weekday": 3,
-      "period_order": 9
+      "teacher_staff_id": "t5-t-en-2",
+      "weekday": 4,
+      "period_order": 1
     },
     {
       "schedule_id": "t5-pin-78",
-      "class_id": "t5-class-59",
-      "subject_id": "english",
-      "year_group_id": "t5-yg-4",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-en-16",
-      "weekday": 4,
-      "period_order": 8
-    },
-    {
-      "schedule_id": "t5-pin-79",
-      "class_id": "t5-class-21",
-      "subject_id": "history",
+      "class_id": "t5-class-17",
+      "subject_id": "art",
       "year_group_id": "t5-yg-1",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-29",
-      "weekday": 1,
-      "period_order": 3
-    },
-    {
-      "schedule_id": "t5-pin-80",
-      "class_id": "t5-class-94",
-      "subject_id": "physics",
-      "year_group_id": "t5-yg-6",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-ph-4",
-      "weekday": 3,
-      "period_order": 3
-    },
-    {
-      "schedule_id": "t5-pin-81",
-      "class_id": "t5-class-2",
-      "subject_id": "pe",
-      "year_group_id": "t5-yg-0",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-gen-35",
-      "weekday": 1,
+      "teacher_staff_id": "t5-t-gen-22",
+      "weekday": 0,
       "period_order": 5
     },
     {
-      "schedule_id": "t5-pin-82",
-      "class_id": "t5-class-23",
+      "schedule_id": "t5-pin-79",
+      "class_id": "t5-class-42",
       "subject_id": "english",
+      "year_group_id": "t5-yg-3",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-en-5",
+      "weekday": 0,
+      "period_order": 7
+    },
+    {
+      "schedule_id": "t5-pin-80",
+      "class_id": "t5-class-22",
+      "subject_id": "geography",
       "year_group_id": "t5-yg-1",
       "room_id": null,
-      "teacher_staff_id": "t5-t-en-7",
-      "weekday": 4,
+      "teacher_staff_id": "t5-t-gen-17",
+      "weekday": 1,
+      "period_order": 4
+    },
+    {
+      "schedule_id": "t5-pin-81",
+      "class_id": "t5-class-25",
+      "subject_id": "irish",
+      "year_group_id": "t5-yg-1",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-ir-7",
+      "weekday": 3,
+      "period_order": 4
+    },
+    {
+      "schedule_id": "t5-pin-82",
+      "class_id": "t5-class-93",
+      "subject_id": "biology",
+      "year_group_id": "t5-yg-6",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-bi-5",
+      "weekday": 3,
       "period_order": 5
     },
     {
       "schedule_id": "t5-pin-83",
-      "class_id": "t5-class-64",
-      "subject_id": "biology",
-      "year_group_id": "t5-yg-4",
+      "class_id": "t5-class-92",
+      "subject_id": "french",
+      "year_group_id": "t5-yg-6",
       "room_id": null,
-      "teacher_staff_id": "t5-t-bi-1",
-      "weekday": 3,
-      "period_order": 4
+      "teacher_staff_id": "t5-t-fr-8",
+      "weekday": 1,
+      "period_order": 0
     },
     {
       "schedule_id": "t5-pin-84",
-      "class_id": "t5-class-33",
-      "subject_id": "maths",
-      "year_group_id": "t5-yg-2",
+      "class_id": "t5-class-92",
+      "subject_id": "irish",
+      "year_group_id": "t5-yg-6",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ma-14",
-      "weekday": 0,
+      "teacher_staff_id": "t5-t-ir-3",
+      "weekday": 2,
       "period_order": 5
     },
     {
       "schedule_id": "t5-pin-85",
-      "class_id": "t5-class-28",
-      "subject_id": "pe",
+      "class_id": "t5-class-32",
+      "subject_id": "music",
       "year_group_id": "t5-yg-2",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-31",
+      "teacher_staff_id": "t5-t-gen-28",
       "weekday": 4,
-      "period_order": 1
+      "period_order": 5
     },
     {
       "schedule_id": "t5-pin-86",
-      "class_id": "t5-class-10",
-      "subject_id": "maths",
-      "year_group_id": "t5-yg-0",
+      "class_id": "t5-class-34",
+      "subject_id": "english",
+      "year_group_id": "t5-yg-2",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ma-19",
-      "weekday": 4,
-      "period_order": 3
+      "teacher_staff_id": "t5-t-en-6",
+      "weekday": 0,
+      "period_order": 6
     },
     {
       "schedule_id": "t5-pin-87",
-      "class_id": "t5-class-48",
-      "subject_id": "biology",
+      "class_id": "t5-class-50",
+      "subject_id": "maths",
       "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-bi-4",
-      "weekday": 2,
-      "period_order": 6
+      "teacher_staff_id": "t5-t-ma-19",
+      "weekday": 3,
+      "period_order": 0
     },
     {
       "schedule_id": "t5-pin-88",
-      "class_id": "t5-class-83",
-      "subject_id": "maths",
-      "year_group_id": "t5-yg-6",
+      "class_id": "t5-class-45",
+      "subject_id": "physics",
+      "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ma-1",
-      "weekday": 1,
-      "period_order": 1
+      "teacher_staff_id": "t5-t-ph-5",
+      "weekday": 3,
+      "period_order": 3
     },
     {
       "schedule_id": "t5-pin-89",
-      "class_id": "t5-class-27",
-      "subject_id": "geography",
-      "year_group_id": "t5-yg-2",
+      "class_id": "t5-class-43",
+      "subject_id": "biology",
+      "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-55",
-      "weekday": 4,
-      "period_order": 6
+      "teacher_staff_id": "t5-t-bi-1",
+      "weekday": 2,
+      "period_order": 1
     },
     {
       "schedule_id": "t5-pin-90",
-      "class_id": "t5-class-9",
-      "subject_id": "irish",
-      "year_group_id": "t5-yg-0",
+      "class_id": "t5-class-63",
+      "subject_id": "biology",
+      "year_group_id": "t5-yg-4",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ir-0",
-      "weekday": 4,
+      "teacher_staff_id": "t5-t-bi-7",
+      "weekday": 0,
       "period_order": 7
     },
     {
       "schedule_id": "t5-pin-91",
-      "class_id": "t5-class-26",
-      "subject_id": "pe",
+      "class_id": "t5-class-21",
+      "subject_id": "maths",
       "year_group_id": "t5-yg-1",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-24",
+      "teacher_staff_id": "t5-t-ma-16",
       "weekday": 3,
-      "period_order": 7
+      "period_order": 1
     },
     {
       "schedule_id": "t5-pin-92",
-      "class_id": "t5-class-90",
-      "subject_id": "chemistry",
-      "year_group_id": "t5-yg-6",
+      "class_id": "t5-class-40",
+      "subject_id": "history",
+      "year_group_id": "t5-yg-2",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ch-5",
+      "teacher_staff_id": "t5-t-gen-11",
       "weekday": 2,
-      "period_order": 7
+      "period_order": 3
     },
     {
       "schedule_id": "t5-pin-93",
-      "class_id": "t5-class-13",
-      "subject_id": "art",
-      "year_group_id": "t5-yg-0",
+      "class_id": "t5-class-61",
+      "subject_id": "business",
+      "year_group_id": "t5-yg-4",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-39",
-      "weekday": 4,
-      "period_order": 2
+      "teacher_staff_id": "t5-t-gen-18",
+      "weekday": 0,
+      "period_order": 1
     },
     {
       "schedule_id": "t5-pin-94",
-      "class_id": "t5-class-87",
-      "subject_id": "chemistry",
-      "year_group_id": "t5-yg-6",
+      "class_id": "t5-class-1",
+      "subject_id": "science",
+      "year_group_id": "t5-yg-0",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ch-4",
-      "weekday": 2,
-      "period_order": 4
-    },
-    {
-      "schedule_id": "t5-pin-95",
-      "class_id": "t5-class-34",
-      "subject_id": "music",
-      "year_group_id": "t5-yg-2",
-      "room_id": null,
-      "teacher_staff_id": "t5-t-gen-2",
+      "teacher_staff_id": "t5-t-sci-9",
       "weekday": 0,
       "period_order": 5
     },
     {
-      "schedule_id": "t5-pin-96",
-      "class_id": "t5-class-34",
-      "subject_id": "history",
-      "year_group_id": "t5-yg-2",
+      "schedule_id": "t5-pin-95",
+      "class_id": "t5-class-67",
+      "subject_id": "english",
+      "year_group_id": "t5-yg-4",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-46",
+      "teacher_staff_id": "t5-t-en-17",
+      "weekday": 3,
+      "period_order": 2
+    },
+    {
+      "schedule_id": "t5-pin-96",
+      "class_id": "t5-class-68",
+      "subject_id": "maths",
+      "year_group_id": "t5-yg-5",
+      "room_id": null,
+      "teacher_staff_id": "t5-t-ma-14",
       "weekday": 4,
       "period_order": 7
     },
     {
       "schedule_id": "t5-pin-97",
-      "class_id": "t5-class-60",
-      "subject_id": "spanish",
-      "year_group_id": "t5-yg-4",
+      "class_id": "t5-class-73",
+      "subject_id": "religion",
+      "year_group_id": "t5-yg-5",
       "room_id": null,
-      "teacher_staff_id": "t5-t-sp-1",
-      "weekday": 4,
+      "teacher_staff_id": "t5-t-gen-33",
+      "weekday": 3,
       "period_order": 4
     },
     {
       "schedule_id": "t5-pin-98",
-      "class_id": "t5-class-25",
-      "subject_id": "geography",
-      "year_group_id": "t5-yg-1",
+      "class_id": "t5-class-76",
+      "subject_id": "maths",
+      "year_group_id": "t5-yg-5",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-31",
-      "weekday": 3,
-      "period_order": 9
+      "teacher_staff_id": "t5-t-ma-18",
+      "weekday": 4,
+      "period_order": 8
     },
     {
       "schedule_id": "t5-pin-99",
-      "class_id": "t5-class-33",
-      "subject_id": "geography",
-      "year_group_id": "t5-yg-2",
+      "class_id": "t5-class-22",
+      "subject_id": "music",
+      "year_group_id": "t5-yg-1",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-43",
-      "weekday": 0,
+      "teacher_staff_id": "t5-t-gen-13",
+      "weekday": 2,
       "period_order": 4
     },
     {
       "schedule_id": "t5-pin-100",
-      "class_id": "t5-class-17",
-      "subject_id": "geography",
-      "year_group_id": "t5-yg-1",
+      "class_id": "t5-class-48",
+      "subject_id": "biology",
+      "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-40",
-      "weekday": 0,
-      "period_order": 5
+      "teacher_staff_id": "t5-t-bi-1",
+      "weekday": 2,
+      "period_order": 9
     },
     {
       "schedule_id": "t5-pin-101",
-      "class_id": "t5-class-2",
-      "subject_id": "geography",
-      "year_group_id": "t5-yg-0",
+      "class_id": "t5-class-41",
+      "subject_id": "biology",
+      "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-gen-29",
-      "weekday": 3,
-      "period_order": 2
+      "teacher_staff_id": "t5-t-bi-7",
+      "weekday": 2,
+      "period_order": 5
     },
     {
       "schedule_id": "t5-pin-102",
-      "class_id": "t5-class-69",
-      "subject_id": "biology",
+      "class_id": "t5-class-78",
+      "subject_id": "french",
       "year_group_id": "t5-yg-5",
       "room_id": null,
-      "teacher_staff_id": "t5-t-bi-7",
-      "weekday": 1,
-      "period_order": 6
+      "teacher_staff_id": "t5-t-fr-8",
+      "weekday": 2,
+      "period_order": 7
     },
     {
       "schedule_id": "t5-pin-103",
-      "class_id": "t5-class-47",
-      "subject_id": "maths",
+      "class_id": "t5-class-43",
+      "subject_id": "irish",
       "year_group_id": "t5-yg-3",
       "room_id": null,
-      "teacher_staff_id": "t5-t-ma-6",
-      "weekday": 2,
-      "period_order": 8
+      "teacher_staff_id": "t5-t-ir-9",
+      "weekday": 4,
+      "period_order": 5
     }
   ],
   "student_overlaps": [],
