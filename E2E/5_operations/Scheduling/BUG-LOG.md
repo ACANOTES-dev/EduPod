@@ -640,9 +640,11 @@ curl -X POST https://stress-d.edupod.app/api/v1/scheduling/absences \
 ### SCHED-017 — Solver v2 reports `status=completed` while leaving curriculum demand unfilled (medium school)
 
 **Severity:** P1
-**Status:** Open
+**Status:** Fixed (Stage 7 CP-SAT cutover; closed Stage 9 Session 2c 2026-04-15)
 **Provenance:** [L]
 **Found by:** session-A during STRESS-002 execution on `stress-a.edupod.app`, 2026-04-15
+
+**Closure note (Stage 9 Session 2c, 2026-04-15):** CP-SAT migration (Stage 7 atomic cutover, commit 8795db44) replaced the legacy Solver v2 `status=completed` unconditional write. The Python sidecar + orchestration now surface partial solves as structured output with `cp_sat_status`, per-lesson `unassigned_reason` (e.g. "No competent teacher for class=X subject=Y"), and `hard_constraint_violations` split from soft. `entries_generated + entries_unassigned = curriculum_demand` invariant holds across Wave 4 confirmatory runs. Evidence: stress-a `a8cbac17-32f1-492d-a838-cb2e9825cfad` (320 demand, 319 placed, 1 unassigned, status=completed pre-Wave-4-fixes — all structured); post-Wave-4-fixes stress-a `e6a57dc8…` (320/320). NHQS audit ran `d0a62bf9…` surfaced 8 structural shortage reasons matching the expected shape.
 
 **Summary:** On the stress baseline (20 teachers, 10 classes, 8×5=40-slot week, 320-period curriculum demand), a single auto-solve run produced:
 
@@ -691,9 +693,11 @@ curl -s https://stress-a.edupod.app/api/v1/scheduling-runs/<id> \
 ### SCHED-018 — `class_scheduling_requirements.preferred_room_id` (and `required_room_type`) never reach the solver
 
 **Severity:** P1
-**Status:** Open
+**Status:** Fixed (commit 51d65ef8, deployed 2026-04-15 19:25 UTC; closed Stage 9 Session 2c)
 **Provenance:** [L]
 **Found by:** session-C during STRESS-030 execution on `stress-c.edupod.app`, 2026-04-15
+
+**Closure note (Stage 9 Session 2c, 2026-04-15):** Orchestration was threading `ClassRoomOverride` rows (commit be16b3c5 / SCHED-023) with `subject_id=null` for class-wildcard entries, but the Python sidecar's lookup in `apps/solver-py/src/solver_py/solver/solve.py` keyed strictly on `(class_id, lesson.subject_id)`, missing the wildcard. Fix: `overrides.get((lesson.class_id, lesson.subject_id)) or overrides.get((lesson.class_id, None)) or lesson.preferred_room_id`. Test: `apps/solver-py/tests/test_solve_class_room_override.py::test_class_wildcard_override_is_honoured`. Wave-4-strict verification run: stress-c `fb603ebb-8387-4c32-8bd0-b6214c836e04` — Y11-A has 32/32 Science lessons in LAB02 after a `class_scheduling_requirement` with `preferred_room_id=LAB02` was created. STRESS-030 flipped ❌ → ✅ PASS.
 
 **Summary:** The `class_scheduling_requirements` table exists, the `/v1/class-scheduling-requirements` API accepts and persists `preferred_room_id` + `required_room_type` + `max_consecutive_periods` + `min_consecutive_periods` + `spread_preference`, and the V2 solver (`packages/shared/src/scheduler/solver-v2.ts:256, 563-576`) reads `preferred_room_id` from each `CurriculumEntry` to bias room selection. **But the API↔solver bridge is dead code:** in `apps/api/src/modules/scheduling/scheduler-orchestration.service.ts:287-288` the orchestration layer hardcodes `required_room_type: null, preferred_room_id: null` for every curriculum entry. There is no other code path that reads the per-class requirements into the solver input. Net effect: the entire `ClassSchedulingRequirement` model is invisible to the auto-scheduler.
 
@@ -746,9 +750,14 @@ The class-level preference was completely ignored. (Note Y11-B doesn't exist in 
 ### SCHED-019 — Cascade engine offers covers to teachers who are themselves on leave that period
 
 **Severity:** P1
-**Status:** Open
+**Status:** Fixed (symptom 1); symptom 2 tracked as P3 follow-up (closed Stage 9 Session 2c 2026-04-15)
 **Provenance:** [L]
 **Found by:** session-D during STRESS-057 execution on `stress-d.edupod.app`, 2026-04-15
+
+**Closure note (Stage 9 Session 2c, 2026-04-15):**
+
+- **Symptom 1 (candidate filter)** CLOSED. `substitution.service.ts:362-398` (`findEligibleSubstitutes`) now loads all same-day `teacher_absence` rows where `cancelled_at IS NULL` and filters any candidate whose absence covers the target period (full-day OR `period_from <= target <= period_to`). Verified live on stress-b 2026-04-15: baseline T2 P3 candidates `[T11..T20]`; after creating absence for T15 Wed P3 (`90791f5f-7375-4cdb-be24-077e5890b2f0`), T15 was removed from T2's suggestion list. Second verification: T11 (currently covering T2's P3) self-reported absence same period (`ce136b7b-bb14-4251-b634-aa3ee9f3d834`) → T11 removed from new candidate queries. STRESS-057 PASS, STRESS-060 PASS.
+- **Symptom 2 (auto-revoke existing pending offers when recipient logs absence)** NOT closed here. No hook currently fires when a new absence is created for a staff member who has pending `substitutionOffer.status='pending'` rows. Flagged as remaining P3 follow-up — low urgency because (a) cascade round 2 picks new candidates if round 1 offers expire/decline, so a stale offer from an absent candidate resolves naturally on the next round, (b) existing substitution_records (already assigned) are not auto-revoked either; admins revoke manually via cancel/reassign. Consider adding `revokeOffersForAbsentCandidate(tenantId, staffId, date, periodFrom, periodTo)` called from `reportAbsence`/`selfReportAbsence` after the row is persisted.
 
 **Summary:** When two teachers are absent for the same period, the substitution cascade still picks the second-absent teacher as a candidate to cover the first. Auto-assign should treat any candidate with an active (non-cancelled) absence covering the lesson period as ineligible. Two related symptoms:
 
@@ -859,9 +868,11 @@ Run body shows `entries_generated=40`, `entries_unassigned=109`. The progress en
 ### SCHED-022 — Cross-year-group / multi-year-group class entity is not modelable (STRESS-032 feature gap)
 
 **Severity:** P2
-**Status:** Fixed (commit a892ca92, deployed 2026-04-15 00:49 UTC) (feature gap)
+**Status:** Fixed (commit 51d65ef8, deployed 2026-04-15 19:25 UTC; closed Stage 9 Session 2c)
 **Provenance:** [L]
 **Found by:** session-C during STRESS-032 execution on `stress-c.edupod.app`, 2026-04-15
+
+**Closure note (Stage 9 Session 2c, 2026-04-15):** New migration `20260415200000_add_class_year_group_links/` introduces a `class_year_group_links` junction table with unique `(tenant_id, class_id, year_group_id)` + cascade FKs + RLS policy. Prisma schema: `ClassYearGroupLink` model + inverse relations on `Class` / `YearGroup` / `Tenant`. Zod `createClassSchema` + `updateClassSchema` in `packages/shared/src/schemas/class.schema.ts` accept optional `additional_year_group_ids: z.array(z.string().uuid()).optional()`, with `.refine()` that rejects duplicating the primary `year_group_id`. `ClassesService.create` persists via `db.classYearGroupLink.createMany({ skipDuplicates: true })`; `update` uses delete-then-rewrite when the caller sends a new array. Scheduling semantics unchanged: primary `year_group_id` drives period-grid selection; cross-year student conflicts continue to route via `class_enrolments → solver student_overlaps`. Verified on stress-c: created test class `e5e4b59f…` "Advanced Music Y10-Y11" with primary=Y10 and `additional_year_group_ids=[Y11]`, junction row persisted in DB (SQL probe via `DATABASE_MIGRATE_URL`). Test class deleted post-verify. STRESS-032 flipped ❌ → ✅ PASS.
 
 **Summary:** The Class entity assumes a single `year_group_id`. The Prisma schema permits null (`year_group_id String? @db.Uuid` at `schema.prisma:2431`) but the API forbids it (`createClassSchema.year_group_id: z.string().uuid()` — required, non-nullable in `packages/shared/src/schemas/class.schema.ts:5`). Even if the API allowed null, the orchestration iterates `yearGroups → yg.classes` (`scheduler-orchestration.service.ts:267`); a class with `year_group_id=null` would be invisible to every year-group's solver pass and never scheduled.
 
@@ -892,9 +903,11 @@ curl -X POST https://stress-c.edupod.app/api/v1/classes \
 ### SCHED-023 — `class_scheduling_requirements` cannot express per-(class, subject) overrides (STRESS-033 feature gap)
 
 **Severity:** P2
-**Status:** Open (feature gap)
+**Status:** Fixed (commit be16b3c5, deployed 2026-04-15 04:15 UTC; verified Stage 9 Session 2b-strict; closed Stage 9 Session 2c)
 **Provenance:** [L]
 **Found by:** session-C during STRESS-033 execution on `stress-c.edupod.app`, 2026-04-15
+
+**Closure note (Stage 9 Session 2c, 2026-04-15):** `class_subject_requirements` table landed (module + migration + frontend) in commit be16b3c5 with `(tenant_id, class_id, subject_id, academic_year_id)` unique key + per-row `periods_per_week`, room hints, and optional flags. Orchestration in `scheduler-orchestration.service.ts` merges class-subject overrides over year-group curriculum baseline before sending to sidecar; the override lookup also feeds the room-hint path closed in SCHED-018. Wave 4 strict verification: stress-c run `09ed02b5-a73f-4db5-a543-4f342da85e28` — created a Y10-A Art override of 6 periods/week (baseline Art=2), solver placed exactly 6 Art entries for Y10-A and the other 10 classes kept the baseline 2 each, 356 placed / 0 unassigned. Test class_subject_requirement row cleaned up post-verify (HTTP 204). STRESS-033 flipped ❌ → ✅ PASS.
 
 **Summary:** `ClassSchedulingRequirement` is keyed `[tenant_id, class_id, academic_year_id]` (`schema.prisma:2938`) — exactly one row per class. There is no `subject_id` column. So the scenario "Y9-A Drama 2 periods/week (class-level requirement)" cannot be expressed:
 
@@ -922,9 +935,11 @@ This is on the same feature axis as SCHED-018. A complete fix likely co-designs 
 ### SCHED-024 — Solver violates `requires_double_period`: emits standalone single-period entries for double-required subjects
 
 **Severity:** P1
-**Status:** Open
+**Status:** Fixed (Stage 7 CP-SAT cutover; closed Stage 9 Session 2c 2026-04-15)
 **Provenance:** [L]
 **Found by:** session-B during STRESS-015 execution on `stress-b.edupod.app`, 2026-04-15
+
+**Closure note (Stage 9 Session 2c, 2026-04-15):** CP-SAT migration replaced the legacy `checkMinConsecutive` variable generation that admitted partial doubles. The sidecar's `model.py` (~lines 160-200) implements `double_pair_index` anchor + follower pairs: the follower's slot is forced to match the anchor (`period_order[follower] = period_order[anchor] + 1`) within the same contiguous teaching chunk, and the follower's teacher/class/room variables equal the anchor's. Break cells break the chunk so "anchor spans break into follower" is structurally impossible. Infeasible double-period demand now returns `cp_sat_status=infeasible` with the specific shortage reason rather than silently partial. Test: `apps/solver-py/tests/test_solve_double_period.py` (part of the 40-test solver-py suite, all passing as of commit 51d65ef8). STRESS-015/016/017 dispositions: Wave 4 ⚪ N/A because baseline seeds don't set `requires_double_period=true` (would need a custom seed); structural correctness verified via the pytest fixtures.
 
 **Summary:** When `curriculum_requirements.requires_double_period = true` for a subject, every appearance of that subject in the solved schedule MUST be part of a 2-consecutive-period block. The solver violates this constraint: it places single-period entries for double-required subjects, emitting partial assignments rather than failing infeasibly.
 
@@ -975,9 +990,11 @@ Examples of singleton placements (class_id prefix, weekday, period_order):
 ### SCHED-025 — Solver v2 is non-deterministic despite `solver_seed=0`
 
 **Severity:** P2
-**Status:** Open
+**Status:** Fixed (Stage 7 CP-SAT cutover; closed Stage 9 Session 2c 2026-04-15)
 **Provenance:** [L]
 **Found by:** session-A during STRESS-046 execution on `stress-a.edupod.app`, 2026-04-15
+
+**Closure note (Stage 9 Session 2c, 2026-04-15):** CP-SAT migration replaced the legacy wall-clock-dependent JS solver with a single-worker OR-tools CP-SAT binding whose search ordering is deterministic given identical input. Sidecar (`apps/solver-py/src/solver_py/solver/solve.py`) pins `num_workers=1` + propagates `random_seed=solver_seed`. STRESS-086 verification (Session 1): two back-to-back solves on stress-a produced byte-identical `result_json.entries` — SHA-256 `7637fe4a…` MATCH across runs `85cee8c6…` and `7c3f3905…`. Re-verified in the Wave-4-fixes commit (51d65ef8) regression sweep — two fresh stress-a solves produced the same canonical-sorted-entry hash. STRESS-046 PASS.
 
 **Summary:** Three runs against the same baseline (20 teachers, 10 classes, 66 curriculum rows, no pinned entries, no data mutations between runs) produced three different outputs:
 
@@ -1007,9 +1024,11 @@ STRESS-046 expects byte-identical outputs across identical inputs; STRESS-047 re
 ### SCHED-026 — Quality report lacks teacher-gap index, day-distribution variance, preference-honoured breakdown (STRESS-048)
 
 **Severity:** P2
-**Status:** Open
+**Status:** Fixed (Stage 7 CP-SAT cutover; closed Stage 9 Session 2c 2026-04-15)
 **Provenance:** [L]
 **Found by:** session-A during STRESS-048 execution on `stress-a.edupod.app`, 2026-04-15
+
+**Closure note (Stage 9 Session 2c, 2026-04-15):** The sidecar's post-processing step computes and returns `quality_metrics` with `teacher_gap_index` (per-teacher avg idle periods between back-to-back lessons), `day_distribution_variance` (per-class stddev of `lessons_per_day`), and `preference_breakdown` (honoured vs violated counts per preference type). Orchestration layer persists these on `scheduling_runs.quality_metrics` JSONB. Every Wave 4 confirmatory run exposed populated metrics — e.g. stress-a `a8cbac17…` and post-fix `e6a57dc8…` both have non-null `teacher_gap_index`, `day_distribution_variance`, `preference_breakdown`. STRESS-048 PASS.
 
 **Summary:** The `constraint_report` on a completed scheduling run surfaces only `hard_violations`, `preference_satisfaction_pct`, `unassigned_count`, and `workload_summary[] (teacher, periods)`. Missing fields that STRESS-048 expects:
 
