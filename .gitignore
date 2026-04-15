@@ -79,6 +79,16 @@ yarn-debug.log*
 yarn-error.log*
 
 # ============================================================
+# PYTHON (solver-py sidecar)
+# ============================================================
+apps/solver-py/.venv/
+apps/solver-py/**/__pycache__/
+apps/solver-py/**/*.egg-info/
+apps/solver-py/.pytest_cache/
+apps/solver-py/.mypy_cache/
+apps/solver-py/.ruff_cache/
+
+# ============================================================
 # MISC
 # ============================================================
 *.pid
