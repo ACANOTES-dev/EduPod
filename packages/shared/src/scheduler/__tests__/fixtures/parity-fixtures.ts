@@ -1173,6 +1173,25 @@ export function buildTier3SupervisionRealisticLarge(): SolverInputV2 {
   };
 }
 
+// ─── Stage 9.5.2 tier-4 CI addition ────────────────────────────────────────
+//
+// Tier-4 is a 50-class / 80-teacher / ~1100-lesson fixture. Full-budget
+// runs happen via ``benchmark_scale.py`` during Stage 9.5.2 measurements;
+// for CI we only want a smoke-sized run (60 s budget) so the solver-py
+// CI job stays under its 15-min timeout. We defer to the real generator
+// in ``tier-4-5-6-generators.ts`` and only override the solver budget
+// here. Tier-5 and tier-6 are intentionally excluded from CI — the spec
+// treats them as nightly / on-demand.
+
+import { buildTier4IrishSecondaryLarge } from './tier-4-5-6-generators';
+
+function buildTier4CiSmoke(): SolverInputV2 {
+  const full = buildTier4IrishSecondaryLarge(0);
+  // Shorter budget for CI; the measurement matrix runs separately.
+  full.settings.max_solver_duration_seconds = 60;
+  return full;
+}
+
 // ─── Registry ───────────────────────────────────────────────────────────────
 
 export interface ParityFixture {
@@ -1196,6 +1215,8 @@ export const PARITY_FIXTURES: ParityFixture[] = [
     category: 'tier',
     build: buildTier3SupervisionRealisticLarge,
   },
+  // Stage 9.5.2 addition: scale-proof tier-4 at a CI-sized budget.
+  { name: 'tier-4-irish-secondary-large-ci', category: 'tier', build: buildTier4CiSmoke },
   { name: 'adv-over-demand', category: 'adversarial', build: buildAdvOverDemand },
   { name: 'adv-pin-conflict', category: 'adversarial', build: buildAdvPinConflict },
   { name: 'adv-no-solution', category: 'adversarial', build: buildAdvNoSolution },
