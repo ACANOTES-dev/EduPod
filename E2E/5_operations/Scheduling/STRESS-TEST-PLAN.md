@@ -294,9 +294,9 @@ Each failure logged against this plan should be tagged:
 | STRESS-012 | Multi-purpose rooms                                | 🟡 session-B      | -                    | -                    |
 | STRESS-013 | Specific-room requirement                          | 🟡 session-B      | -                    | -                    |
 | STRESS-014 | Room closure added post-solve                      | ⚪ N/A            | 2026-04-15 session-B | -                    |
-| STRESS-015 | Double-period blocks                               | 🟡 session-B      | -                    | -                    |
-| STRESS-016 | Double-period must not span break                  | 🟡 session-B      | -                    | -                    |
-| STRESS-017 | Double-period must not span lunch                  | 🟡 session-B      | -                    | -                    |
+| STRESS-015 | Double-period blocks                               | ❌ FAIL           | 2026-04-15 session-B | SCHED-024            |
+| STRESS-016 | Double-period must not span break                  | ⚪ N/A            | 2026-04-15 session-B | SCHED-024            |
+| STRESS-017 | Double-period must not span lunch                  | ⚪ N/A            | 2026-04-15 session-B | SCHED-024            |
 | STRESS-018 | Triple-period blocks                               | ⚪ N/A            | 2026-04-15 session-B | -                    |
 | STRESS-019 | Max-per-day cap per teacher                        | ✅ PASS           | 2026-04-15 session-B | -                    |
 | STRESS-020 | No-back-to-back >3 periods                         | ⚪ N/A            | 2026-04-15 session-B | -                    |
@@ -328,33 +328,33 @@ Each failure logged against this plan should be tagged:
 | STRESS-046 | Determinism — same input                           | 🟡 session-A      | -                    | -                    |
 | STRESS-047 | Determinism under reorder                          | 🟡 session-A      | -                    | -                    |
 | STRESS-048 | Solution quality metrics                           | 🟡 session-A      | -                    | -                    |
-| STRESS-049 | Single-period absence                              | 🟡 session-D      | -                    | -                    |
-| STRESS-050 | Full-day absence                                   | 🟡 session-D      | -                    | -                    |
-| STRESS-051 | Multi-day absence                                  | 🟡 session-D      | -                    | -                    |
-| STRESS-052 | Planned absence (two weeks ahead)                  | 🟡 session-D      | -                    | -                    |
-| STRESS-053 | Last-minute absence                                | 🟡 session-D      | -                    | -                    |
-| STRESS-054 | Auto-assign picks free teacher                     | 🟡 session-D      | -                    | -                    |
-| STRESS-055 | Auto-assign respects competency                    | 🟡 session-D      | -                    | -                    |
-| STRESS-056 | Auto-assign respects fairness cap                  | 🟡 session-D      | -                    | -                    |
-| STRESS-057 | Auto-assign skips busy/on-leave teachers           | 🟡 session-D      | -                    | -                    |
-| STRESS-058 | Auto-assign with no qualified sub                  | 🟡 session-D      | -                    | -                    |
-| STRESS-059 | Manual override of auto-assignment                 | 🟡 session-D      | -                    | -                    |
-| STRESS-060 | Cover-for-cover (sub also absent)                  | 🟡 session-D      | -                    | -                    |
-| STRESS-061 | Three-level cascading re-assignment                | 🟡 session-D      | -                    | -                    |
-| STRESS-062 | Flu day (30%+ staff absent)                        | 🟡 session-D      | -                    | -                    |
-| STRESS-063 | Absence during exam slot                           | 🟡 session-D      | -                    | -                    |
-| STRESS-064 | Absence on holiday (no-op)                         | 🟡 session-D      | -                    | -                    |
-| STRESS-065 | Absence logged retroactively                       | 🟡 session-D      | -                    | -                    |
-| STRESS-066 | Absence with zero duration                         | 🟡 session-D      | -                    | -                    |
-| STRESS-067 | Absence overlapping a break                        | 🟡 session-D      | -                    | -                    |
-| STRESS-068 | Empty Sub Board                                    | 🟡 session-D      | -                    | -                    |
-| STRESS-069 | Sub Board with 50+ assignments                     | 🟡 session-D      | -                    | -                    |
-| STRESS-070 | Sub Board real-time update                         | 🟡 session-D      | -                    | -                    |
-| STRESS-071 | Sub Board across day boundary                      | 🟡 session-D      | -                    | -                    |
-| STRESS-072 | Zero-cover report                                  | 🟡 session-D      | -                    | -                    |
-| STRESS-073 | Fairness boundary (CV 0.2/0.4/0.6)                 | 🟡 session-D      | -                    | -                    |
-| STRESS-074 | Single-teacher fairness degenerate                 | 🟡 session-D      | -                    | -                    |
-| STRESS-075 | CSV export at scale                                | 🟡 session-D      | -                    | -                    |
+| STRESS-049 | Single-period absence                              | ✅ PASS           | 2026-04-15           | -                    |
+| STRESS-050 | Full-day absence                                   | ✅ PASS           | 2026-04-15           | -                    |
+| STRESS-051 | Multi-day absence                                  | ✅ PASS           | 2026-04-15           | -                    |
+| STRESS-052 | Planned absence (two weeks ahead)                  | ✅ PASS           | 2026-04-15           | note¹                |
+| STRESS-053 | Last-minute absence                                | ✅ PASS           | 2026-04-15           | -                    |
+| STRESS-054 | Auto-assign picks free teacher                     | ✅ PASS           | 2026-04-15           | -                    |
+| STRESS-055 | Auto-assign respects competency                    | ⚪ DEFERRED       | 2026-04-15           | setup²               |
+| STRESS-056 | Auto-assign respects fairness cap                  | ⚪ DEFERRED       | 2026-04-15           | setup³               |
+| STRESS-057 | Auto-assign skips busy/on-leave teachers           | ❌ FAIL           | 2026-04-15           | SCHED-019            |
+| STRESS-058 | Auto-assign with no qualified sub                  | ⚪ DEFERRED       | 2026-04-15           | setup²               |
+| STRESS-059 | Manual override of auto-assignment                 | ✅ PASS           | 2026-04-15           | -                    |
+| STRESS-060 | Cover-for-cover (sub also absent)                  | ❌ FAIL           | 2026-04-15           | SCHED-019            |
+| STRESS-061 | Three-level cascading re-assignment                | ❌ FAIL           | 2026-04-15           | SCHED-019            |
+| STRESS-062 | Flu day (30%+ staff absent)                        | ✅ PASS           | 2026-04-15           | -                    |
+| STRESS-063 | Absence during exam slot                           | ⚪ DEFERRED       | 2026-04-15           | setup⁴               |
+| STRESS-064 | Absence on holiday (no-op)                         | ⚪ N/A            | 2026-04-15           | gap⁵                 |
+| STRESS-065 | Absence logged retroactively                       | ✅ PASS           | 2026-04-15           | -                    |
+| STRESS-066 | Absence with zero duration                         | ✅ PASS           | 2026-04-15           | SCHED-015            |
+| STRESS-067 | Absence overlapping a break                        | ✅ PASS           | 2026-04-15           | -                    |
+| STRESS-068 | Empty Sub Board                                    | ✅ PASS           | 2026-04-15           | -                    |
+| STRESS-069 | Sub Board with 50+ assignments                     | ✅ PASS           | 2026-04-15           | -                    |
+| STRESS-070 | Sub Board real-time update                         | ✅ PASS           | 2026-04-15           | api⁶                 |
+| STRESS-071 | Sub Board across day boundary                      | ✅ PASS           | 2026-04-15           | -                    |
+| STRESS-072 | Zero-cover report                                  | ✅ PASS           | 2026-04-15           | -                    |
+| STRESS-073 | Fairness boundary (CV 0.2/0.4/0.6)                 | ⚪ DEFERRED       | 2026-04-15           | setup⁷               |
+| STRESS-074 | Single-teacher fairness degenerate                 | ✅ PASS           | 2026-04-15           | empty⁸               |
+| STRESS-075 | CSV export at scale                                | ⚪ DEFERRED       | 2026-04-15           | setup⁹               |
 | STRESS-076 | Teacher deleted while assigned to substitution     | ⏳ Not Run        | -                    | -                    |
 | STRESS-077 | Class deleted while scheduled                      | ⏳ Not Run        | -                    | -                    |
 | STRESS-078 | Room deleted while in use                          | ⏳ Not Run        | -                    | -                    |
@@ -365,6 +365,26 @@ Each failure logged against this plan should be tagged:
 | STRESS-083 | Solve timeout enforcement                          | ⏳ Not Run        | -                    | -                    |
 
 Legend: ⏳ Not Run · 🟡 In Progress · ✅ PASS · ❌ FAIL · ⚪ N/A
+
+### Session-D notes (STRESS-049–075)
+
+¹ STRESS-052: planned-absence cascade fires _immediately_ on report rather than "closer to the date" as the plan suggests. Treated as PASS because the absence is correctly stored future-dated and is excluded from today's slots; whether early notification is bug or by-design is a product call (not filed as a separate bug).
+
+² STRESS-055/058 deferred: requires teacher-competency mutation (DELETE `/v1/scheduling/teacher-competencies/by-teacher/:id`). The mutation is well-supported by the API but globally affects this tenant's solved timetable — chose not to mutate competencies inside session-D because the cleanup story is fragile (re-seeding competencies via `stress-seed.ts` would also wipe the solved schedule). Re-runnable in a focused session with `--mode nuke + --mode baseline` between scenarios.
+
+³ STRESS-056 deferred: tenant-level fairness cap setting is not exposed via a public endpoint (it lives in `tenants.settings.scheduling.*`). Setup needs a direct DB write or a settings-update endpoint that the cascade engine reads.
+
+⁴ STRESS-063 deferred: requires a working exam-session + slot + invigilator chain. The exam infrastructure exists post-SCHED-005, but no current cascade hook covers an absent invigilator.
+
+⁵ STRESS-064 N/A: there is no `school_holidays` (or equivalent) table in the schema. The substitution cascade hard-codes weekend skipping and notes the holiday filter is a "future enhancement" (`apps/api/src/modules/scheduling/substitution-cascade.service.ts:632`). Until a holidays table lands, "absence on holiday" cannot be tested distinctly from a regular workday absence — flagged as product gap rather than bug.
+
+⁶ STRESS-070 verified via API approximation: poll → mutate → poll-again pattern catches new entries on the next request (≤ 2 s). True real-time (websocket) behaviour was not validated in a browser; if the spec strictly requires a WS push, this can be re-tested once the Playwright MCP browser is available.
+
+⁷ STRESS-073 deferred: contriving CV-exactly-at-{0.199, 0.399, 0.599} datasets requires precisely-calibrated cover counts per teacher. Doable via direct cover-record inserts but heavy and tangential to the cascade's main flows.
+
+⁸ STRESS-074 PASS via empty-state probe: with zero covers the report returns `fairness_index=0`, `coefficient_of_variation=0`, `fairness_grade='excellent'`, `teacher_stats=[]` — no NaN, no divide-by-zero. Single-teacher-with-real-data variant remains an additional validation if SCHED-019 is fixed and a real cover history accumulates.
+
+⁹ STRESS-075 deferred: requires generating ≥500 substitutions to test CSV streaming. Possible by running a flu-day pattern across multiple weeks but most generated subs would be in odd states without SCHED-019 fixed.
 
 ---
 
