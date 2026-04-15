@@ -23,20 +23,20 @@
 
 ## Status board
 
-| #   | Stage                              | Status     | Owner (session/date) | Notes                                                                                                                                                            |
-| --- | ---------------------------------- | ---------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Python sidecar scaffold            | `complete` | 2026-04-15           | FastAPI scaffold; /health 200, /solve stub 501; ruff + mypy + pytest green                                                                                       |
-| 2   | JSON contract                      | `complete` | 2026-04-15           | pydantic v2 mirror of types-v2.ts; round-trip + TS contract test green                                                                                           |
-| 3   | CP-SAT model — hard constraints    | `complete` | 2026-04-15           | per-cell BoolVars; all 16 hard constraints + supervision; 18 pytest tests                                                                                        |
-| 4   | CP-SAT model — soft preferences    | `complete` | 2026-04-15           | soft objective + quality_metrics; realistic baseline 252/260 in 5s budget                                                                                        |
-| 5   | Parity testing (cutover gate)      | `complete` | 2026-04-15           | 7 fixtures; CP-SAT +20% placement on Tier 3, -0.6% on Tier 2 (structural)                                                                                        |
-| 6   | Worker IPC integration             | `complete` | 2026-04-15           | worker always calls sidecar; cp_sat_status + sidecar_duration_ms + placed/unassigned counts logged per solve and persisted on `result_json.meta`                 |
-| 7   | Production cutover (atomic deploy) | `complete` | 2026-04-15           | solver-py pm2 app live on 127.0.0.1:5557; worker env has SOLVER_PY_URL + CP_SAT_REQUEST_TIMEOUT_FLOOR_MS; smoke on stress-a/stress-b/nhqs all PASS; 0 errors     |
-| 8   | Legacy retire                      | `pending`  | —                    | —                                                                                                                                                                |
-| 9   | Full stress re-run                 | `pending`  | —                    | —                                                                                                                                                                |
-| 10  | Contract reshape                   | `pending`  | —                    | —                                                                                                                                                                |
-| 11  | Orchestration rebuild              | `pending`  | —                    | —                                                                                                                                                                |
-| 12  | Diagnostics module overhaul        | `pending`  | —                    | state-of-the-art explainability; pre-solve feasibility + CP-SAT IIS + plain-English translator + what-if sim; pairs with solver for the enterprise-grade product |
+| #   | Stage                              | Status     | Owner (session/date) | Notes                                                                                                                                                                                                                                                                                 |
+| --- | ---------------------------------- | ---------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Python sidecar scaffold            | `complete` | 2026-04-15           | FastAPI scaffold; /health 200, /solve stub 501; ruff + mypy + pytest green                                                                                                                                                                                                            |
+| 2   | JSON contract                      | `complete` | 2026-04-15           | pydantic v2 mirror of types-v2.ts; round-trip + TS contract test green                                                                                                                                                                                                                |
+| 3   | CP-SAT model — hard constraints    | `complete` | 2026-04-15           | per-cell BoolVars; all 16 hard constraints + supervision; 18 pytest tests                                                                                                                                                                                                             |
+| 4   | CP-SAT model — soft preferences    | `complete` | 2026-04-15           | soft objective + quality_metrics; realistic baseline 252/260 in 5s budget                                                                                                                                                                                                             |
+| 5   | Parity testing (cutover gate)      | `complete` | 2026-04-15           | 7 fixtures; CP-SAT +20% placement on Tier 3, -0.6% on Tier 2 (structural)                                                                                                                                                                                                             |
+| 6   | Worker IPC integration             | `complete` | 2026-04-15           | worker always calls sidecar; cp_sat_status + sidecar_duration_ms + placed/unassigned counts logged per solve and persisted on `result_json.meta`                                                                                                                                      |
+| 7   | Production cutover (atomic deploy) | `complete` | 2026-04-15           | solver-py pm2 app live on 127.0.0.1:5557; worker env has SOLVER_PY_URL + CP_SAT_REQUEST_TIMEOUT_FLOOR_MS; smoke on stress-a/stress-b/nhqs all PASS; 0 errors                                                                                                                          |
+| 8   | Legacy retire                      | `complete` | 2026-04-15           | 5898 lines of legacy TS solver deleted (solver-v2 / constraints-v2 / domain-v2 + specs); resolveTeacherCandidates extracted to teacher-candidates.ts; worker restart + stress-a smoke 319/1/123.7s matches Stage 7 baseline exactly; sidecar path confirmed via cp_sat.solve_complete |
+| 9   | Full stress re-run                 | `pending`  | —                    | —                                                                                                                                                                                                                                                                                     |
+| 10  | Contract reshape                   | `pending`  | —                    | —                                                                                                                                                                                                                                                                                     |
+| 11  | Orchestration rebuild              | `pending`  | —                    | —                                                                                                                                                                                                                                                                                     |
+| 12  | Diagnostics module overhaul        | `pending`  | —                    | state-of-the-art explainability; pre-solve feasibility + CP-SAT IIS + plain-English translator + what-if sim; pairs with solver for the enterprise-grade product                                                                                                                      |
 
 ## Parallelisation
 
@@ -798,3 +798,70 @@ heuristics.fixed_search != nullptr`); (b) `interleave_search = True` blows
 - **Stage 8 is unblocked.** Legacy `solveV2`, `constraints-v2.ts`, `domain-v2.ts`, `soft-scoring-v2.ts` and their specs can be deleted now that production is running CP-SAT-only. Stage 8 should wait for the 24 h observation window to close before landing, so the `git revert 8795db44` rollback path remains clean for that window.
 - **Stage 9 revisits multi-worker OR-Tools.** OR-Tools 9.15 is pinned at `num_search_workers=1` because `interleave_search=True` + 8 workers overshoots budgets by 4–7× on Tier-3 (Stage 5 finding) and `repair_hint=True` segfaults inside `MinimizeL1DistanceWithHint`. Stage 9 should either (a) confirm both bugs fixed upstream and re-enable multi-worker, or (b) document the pin as permanent and remove the Stage 5 carryover §1 note from the log.
 - **NHQS placement gap (94 unassigned) deserves a Stage 9 deep-dive.** Not a Stage 7 blocker — soft score 6/6 and hard violations 0 make it a capacity-ceiling observation, not a model defect — but it's the first real-tenant input under CP-SAT and the gap is worth understanding before production onboards additional schools.
+
+### Stage 8 — Legacy retire
+
+**Completed:** 2026-04-15
+**Local commit(s):** `5c640db8` refactor(scheduling): retire legacy typescript solver (cp-sat is the only engine)
+**Deployed to production:** yes — 2026-04-15 15:22 UTC, worker restart only (pm2 id 5, pid 6566). solver-py untouched.
+
+**What was delivered:**
+
+- **5 898 lines of legacy TypeScript solver deleted** from `packages/shared/src/scheduler/`:
+  - `solver-v2.ts` (1 503 lines), `constraints-v2.ts` (972), `domain-v2.ts` (653)
+  - specs: `solver-v2.test.ts` (666), `stress-test.test.ts` (1 697), `pin-pool-resolution.test.ts` (281), `class-subject-override.test.ts` (126)
+- **`index.ts` cleaned.** `solveV2`, `SolverOptionsV2`, `checkHardConstraintsV2` removed. Only types-v2 + validation + cp-sat-client + teacher-candidates remain on the public surface.
+- **`resolveTeacherCandidates` + `getTeacherAssignmentMode` extracted** to a new `teacher-candidates.ts` file — the API's `teacher-competencies.service.ts` depends on this for its coverage report, so it had to survive. 63 lines, scheduler-agnostic, no longer trapped inside a solver internals file.
+- **`cp-sat-parity.test.ts` repurposed → `cp-sat-regression.test.ts`.** Legacy backend calls removed; same deterministic fixtures (`parity-fixtures.ts`), CP-SAT-only harness. Skips cleanly when the sidecar isn't reachable (local + CI).
+- **`validation.ts` kept.** Its Tier-1/2 violation detector is shape-agnostic — the API's `scheduler-orchestration.service` + `scheduler-validation.service` call it on CP-SAT output too. The tiny `findAdjacentBreaks` helper (previously imported from constraints-v2.ts; validation was the last remaining caller after domain-v2 went) was inlined into validation.ts.
+- **`types-v2.ts` comment cleaned.** `CpSatStatus` no longer describes itself as "optional so legacy output stays structurally compatible" — the legacy path is gone.
+- **ESLint config for `@school/shared`** now points at a new `tsconfig.eslint.json` (includes test files). Stage 7's `tsconfig.json` exclude of tests (so `dist/` stays clean) had left ESLint unable to parse test files it was asked to lint. The separate config also resolves 43 pre-existing `parserOptions.project` errors on SEN specs that have been silently failing lint for months.
+- **Shared package now 2 477 lines total (scheduler + tests).** Down from ~8 395 lines pre-Stage-8 — a 70 % reduction in that subtree.
+
+**Files changed (high level):**
+
+- Deleted: 7 files in `packages/shared/src/scheduler/` and its `__tests__/`.
+- Created: `packages/shared/src/scheduler/teacher-candidates.ts`, `packages/shared/src/scheduler/__tests__/cp-sat-regression.test.ts`, `packages/shared/tsconfig.eslint.json`.
+- Modified: `packages/shared/src/scheduler/{index.ts, types-v2.ts, validation.ts, __tests__/fixtures/parity-fixtures.ts}`, `packages/shared/.eslintrc.js`, `E2E/5_operations/Scheduling/SERVER-LOCK.md`.
+- Net diff: **+342 / −6 320** on commit `5c640db8`.
+
+**Tests added / updated:**
+
+- unit (TS): 0 added; 1 repurposed (`cp-sat-parity.test.ts` → `cp-sat-regression.test.ts`, legacy backend removed). 4 legacy-only spec files deleted.
+- unit (Python): no change.
+- parity / regression: parity test removed; regression test runs the same 7 fixtures against CP-SAT alone.
+
+**Test results (local, pre-commit):**
+
+- `@school/shared` tests: **41/41 suites pass, 863/863 tests pass** (lint clean, type-check clean, build clean).
+- `@school/worker` tests: **119/119 suites pass, 900/900 tests pass** (type-check clean).
+- `apps/api modules/scheduling`: **30/30 suites pass, 587/587 tests pass**.
+- DI smoke (`Test.createTestingModule({ imports: [AppModule] }).compile()`): `DI OK`.
+- Pre-existing API type / test failures (admissions, notification-templates, finance, pdf, gdpr, audit-log, api-surface baseline drift) confirmed **identical on pristine HEAD** — unrelated to Stage 8.
+
+**Production deploy evidence:**
+
+- rsync `packages/shared/` → `root@46.62.244.139:/opt/edupod/app/packages/shared/` with the mandatory CLAUDE.md excludes. `chown -R edupod:edupod` after.
+- `pnpm --filter @school/shared build` + `pnpm --filter @school/worker build` clean (both as `edupod` via `sudo -u edupod`).
+- `pm2 restart worker --update-env`: worker pm2 id 5 restarted, pid 6566, uptime 0s at restart moment, status `online`. NestApplication successfully started; stale-run reaper ran (0 reaped).
+- Post-restart `pm2 list`: worker 364 MB, solver-py untouched (pid 2542, 102 m uptime, 904 MB, 0 restarts).
+- **Stress-a smoke run `a60fe396-abe0-4e98-b911-e38e7f46ab58`**: 319 placed / 1 unassigned / 123 718 ms. Matches Stage 7 baseline **exactly** (stress-a / 319 / 1 / 123.7 s). `cp_sat.solve_complete` event fired with `cp_sat_status=unknown` (greedy fallback per Stage 5 finding), `sidecar_duration_ms=123718`. Sidecar path confirmed live; no code change to the worker's solver-v2.processor.ts code path — only the dead legacy imports came out.
+
+**SCHED-### bug-log closures:**
+
+Stage 8's scope document (`implementations/stage-8-legacy-retire.md` § E) calls for closing SCHED-017 / 018 / 024 / 025 and re-verifying SCHED-026. **Not done in this session.** The user's directive was to proceed with the code deletion + deploy; the bug-log closure loop requires Stage 9's full stress re-run on stress-a/b/c/d to gather the run-ID evidence Stage 8 E demands. Deferred to Stage 9 and noted below. The deletions themselves are complete and independent of that evidence.
+
+**Surprises / decisions / deviations from the plan:**
+
+- **`resolveTeacherCandidates` had to be preserved.** The stage plan's "Keep" list only mentions types-v2, cp-sat-client, validation, and the CP-SAT parity test. It missed that the API's `teacher-competencies.service.ts` imports `resolveTeacherCandidates` for its coverage-preview endpoint — an external caller of a function that lived inside a file slated for deletion. Extracted to a dedicated `teacher-candidates.ts` rather than keeping domain-v2 alive for one utility. Cleaner long-term; no API-surface change.
+- **`findAdjacentBreaks` inlined into validation.ts** rather than kept as its own helper. It's ~30 lines, validation.ts was the only remaining caller (domain-v2 also used it but domain-v2 was being deleted), and a separate module for a single callee is overkill.
+- **ESLint config change wasn't in the plan.** The Stage 7 tsconfig test-file exclude (so dist/ wouldn't ship tests) had the side-effect of breaking ESLint's parser project for test files. This only bit now because Stage 8 is the first commit to _add_ new test files after Stage 7. Fixed with a dedicated `tsconfig.eslint.json` that includes tests without polluting the build.
+- **`turbo` was not used.** Ran `pnpm --filter @school/shared {lint,type-check,build,test}` and `pnpm --filter @school/worker {type-check,test}` directly. `turbo lint` + `turbo type-check` + `turbo test` across the whole repo would have run into the same pre-existing failures I verified against pristine HEAD (finance/pdf/admissions/etc.). The per-package commands gave the same signal with less noise; all packages my change touches are green.
+- **User skipped the 24 h observation window.** Stage 8's prerequisites required `Stage 7 complete and stable for ≥ 7 days` (as written) or ≥ 24 h (as we'd agreed mid-session). User elected to ship ~1 h 40 m after cutover and spot-check the 24 h mark independently tomorrow. Documented here so the delta from the plan is traceable.
+
+**Known follow-ups / debt created:**
+
+- **SCHED-### bug-log closures deferred to Stage 9.** Specifically SCHED-017 / 018 / 024 / 025 and SCHED-026 re-verification; see `implementations/stage-8-legacy-retire.md` § E. Stage 9's full stress re-run will produce the per-tenant run IDs the bug-log entries need to cite as closure evidence.
+- **24 h post-Stage-8 observation continues passively.** User will spot-check at the 24 h mark. If `CpSatSolveError` > 0 or solver-py memory drifts above 1.5 GB, rollback is `git revert 5c640db8` + rsync + restart — but the live scheduler call path is unchanged by this commit (only dead code was removed), so a Stage-8-induced regression is structurally very unlikely.
+- **`apps/worker/src/processors/scheduling/solver-v2.processor.ts` still called `solver-v2.processor.ts`.** Naming lag — the processor's filename predates the CP-SAT rename. Not renamed in Stage 8 to keep git history + pm2 path stable; a follow-up can do that as part of Stage 10/11 (contract reshape + orchestration rebuild) when more of that directory churns.
+- **`cp-sat-regression.test.ts` currently skips in CI.** The sidecar isn't reachable from GitHub Actions; the test falls through `status: skipped` and passes trivially. Worth giving it a real CI slot (dockerised sidecar, or a matrix job) during Stage 9 so it stops being a no-op.
