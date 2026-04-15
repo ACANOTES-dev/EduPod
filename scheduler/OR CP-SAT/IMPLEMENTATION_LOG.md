@@ -1503,6 +1503,62 @@ User requested all 3 Wave 4 failures be fixed in-stage rather than punted to Sta
 - `e2c63a39` — feat: raise solver budget ceiling to 3600s per tenant
 - `29745547` — feat: early-stop telemetry in result_json.meta + solve_complete log
 - `4164128f` — fix: override undici headersTimeout/bodyTimeout + add undici to worker deps (NHQS smoke surfaced this)
-- `<this commit>` — Stage 9.5.1 completion entry + status-board flip
+- `b9e72115` — docs: stage 9.5.1 completion entry + status-board flip
+- `68242d47` — feat: cooperative cancellation for cp-sat sidecar (9.5.1 amendment)
+- `fd4b1351` — fix: raise worker txn timeout for long-budget solves (9.5.1)
+- `<this commit>` — docs: stage 9.5.1 post-close amendment subsection
 
 **Stage 9.5.1 is complete. Status board now reflects reality.**
+
+#### Post-close amendment — cooperative cancellation (2026-04-15)
+
+**Why this amendment exists:** Stage 9.5.1 closed with known follow-up #5 (P2): the sidecar is single-threaded, synchronous, and has no request-queue-with-cancellation, so an abandoned /solve keeps computing and blocks the next request. NHQS @ 600 s smoke demonstrated this — attempt 3 (`b9668956`) got only ~2 min of actual sidecar time because the sidecar was still completing abandoned `f0518647`. Closing this gap makes the budget-ceiling raise from §D actually usable end-to-end.
+
+**Scope (reduced — Part 2 deferred, see "Part 2 deferred" below):**
+
+- Sidecar `POST /solve` is now an async handler; the CPU-bound `solve()` runs via `asyncio.to_thread(...)`. Validated via throw-away concurrent-pytest that CP-SAT's Python binding on ortools 9.15.6755 releases the GIL inside `solver.Solve()` (two parallel solves: wall ≈ max, not sum). So the asyncio event loop stays responsive during the solve and `DELETE /solve/{id}` can fire concurrently.
+- In-process registry: `_inflight: dict[str, threading.Event]`, guarded by `threading.Lock()`. Keyed on the caller-supplied `X-Request-Id`; falls back to a UUID when the header is absent. Registered at POST entry, unregistered in the `finally` block of every exit path (success, `SolveError`, unhandled exception).
+- `DELETE /solve/{request_id}`: returns 404 `UNKNOWN_REQUEST_ID` for an unknown id (never registered / already completed / never existed); for a matching id sets the event's flag and returns 200 `{cancelled: true, request_id}` immediately. The actual CP-SAT halt happens cooperatively on the next solution callback inside the worker thread.
+- `asyncio.Semaphore(1)` caps concurrency at 1: Tier-3 peaks at ~700-950 MB RSS vs pm2's 2 GB `max_memory_restart`, so two concurrent solves would risk OOM. Lifting the cap requires Part 2's memory estimator.
+- `EarlyStopCallback`: accepts `cancel_flag: threading.Event | None`; checks `cancel_flag.is_set()` first in `OnSolutionCallback` so cancel trumps stagnation/gap triggers. `EarlyStopReason` literal gains `"cancelled"` (Python + TypeScript mirrors). Stamped on every output path via the shared `_stamp_early_stop` helper.
+- `solve.py` budget-bound fallback: if cancel arrived but CP-SAT never found feasible (so no solution callbacks ever fired), solve.py post-stamps `reason='cancelled'` after `solver.solve()` returns. Cancelled solves still return a valid `SolverOutputV2` — greedy fallback + whatever CP-SAT placed pre-halt — so admins don't see half-garbage.
+- Worker client `cp-sat-client.ts`: when the `AbortController` fires, a fire-and-forget `DELETE ${baseUrl}/solve/${requestId}` goes out before rethrowing `CP_SAT_UNREACHABLE`. 5 s ceiling on the DELETE; failures surface at `console.warn` level (best-effort path, not retry-worthy). Gated on `opts.requestId` being set.
+
+**Tests added:**
+
+- `apps/solver-py/tests/test_cancel.py` (NEW): 5 pytest fixtures via `httpx.AsyncClient` + `ASGITransport` — FastAPI app runs in-process so integration tests don't need a live uvicorn:
+  - `test_cancel_halts_inflight_solve` — DELETE during active solve produces `early_stop_reason='cancelled'`, halt lands in ≤ 10 s.
+  - `test_cancel_unknown_id_returns_404` — 404 + `UNKNOWN_REQUEST_ID`, no registry mutation.
+  - `test_cancel_after_completion_returns_404` — late DELETE on a completed solve returns 404 cleanly.
+  - `test_concurrent_posts_are_serialised` — two POSTs against `asyncio.Semaphore(1)` both complete successfully.
+  - `test_async_refactor_preserves_determinism` — two non-cancelled sequential solves return byte-identical output (strip `duration_ms` + `time_saved_ms`).
+- `apps/solver-py/tests/test_early_stop.py`: +1 unit test on a direct callback subclass asserting `cancel_flag.set()` flips the next `OnSolutionCallback` to `triggered=True / reason='cancelled'` even when stagnation + gap thresholds are configured to never fire.
+- `packages/shared/src/scheduler/__tests__/cp-sat-client.spec.ts`: +2 tests — DELETE fires on `AbortError` when `requestId` set (URL asserted to be `${baseUrl}/solve/${requestId}`); DELETE skipped when `requestId` absent.
+
+**Verification (local):**
+
+- solver-py: `pytest` 58 / 58 PASS (was 52 + 1 extended = 53 + 5 new in test_cancel = 58 total; includes the throw-away GIL-release probe run as a standalone script, not bundled). `ruff check src/ tests/` clean. `mypy`: pre-existing "py.typed marker missing" warning confirmed on pristine HEAD — not from this amendment.
+- `@school/shared`: 41 suites / 867 tests PASS (865 → 867 with 2 new cp-sat-client tests). `tsc --noEmit` clean.
+- `@school/worker`: 119 suites / 900 tests PASS. `tsc --noEmit` clean.
+- API DI smoke: `DI OK`.
+
+**Verification (production smoke — NHQS @ 600 s re-smoke, 2 runs):**
+
+- **First attempt, run `18cce701-246f-4bd4-9495-434bd9db1360`** (triggered 22:35:34 UTC). Sidecar restarted fresh at 22:34:56 UTC (pid 27814), worker fresh at 22:34:55 UTC (pid 27842). No abandoned prior-solve blocking the queue — confirming the amendment's core deliverable. Sidecar completed in 600993 ms with `cp_sat_status="feasible"`, placed 373 / unassigned 65 (first proof that CP-SAT improved on greedy at NHQS scale in-budget). BUT the run wrote `status="failed"` with `failure_reason="Transaction API error: Transaction already closed: A commit cannot be executed on an expired transaction. The timeout for this transaction was 300000 ms, however 601136 ms passed since the start of the transaction."` — the worker's outer `TenantAwareJob` Prisma transaction timed out at 300 s (the 5-min default) while the solve ran 601 s. Because `SchedulingSolverV2Job.processJob` uses `this.prisma.$transaction(...)` for every DB write (steps 1 + 3) and ignores the outer `_tx`, the wrapper transaction sat idle holding a pool connection for the full solve and failed on commit. The processor's outer catch then overwrote the successful solver write with the Prisma error. **This is a latent bug that was masked pre-amendment because NHQS never completed a clean sidecar solve at 600 s — all three pre-amendment attempts failed at transport/sidecar level before the worker's txn-commit path.**
+- **Txn-timeout fix** (commit `fd4b1351`): `SchedulingSolverV2Job` overrides `transactionTimeoutMs` to 3780 s = 3600 s max budget + 60 s HTTP slack (matches the `(budget + 60) × 1000` HTTP timeout formula) + 120 s presolve / write buffer. Worker rebuilt + pm2 restarted (new pid 28635) at 22:50 UTC.
+- **Second attempt, run `40b9f25e-4f44-4985-b83f-0d9fdaaf4e30`** (triggered 22:50:52 UTC, completed 23:00:53 UTC → 10 min 1 s end-to-end). **Terminal state is now clean**: `status="failed"` with `failure_reason="Solver left 65 curriculum slots unplaced. First: {year_group_id…}; …"` — the Stage 6 strict-classification reason (65 unassigned > 0 is "failed" under the no-partial-apply rule). Meta block: `cp_sat_status="feasible"`, `early_stop_triggered=false`, `early_stop_reason="not_triggered"`, `sidecar_duration_ms=600953`, `time_saved_ms=0`. `hard_constraint_violations=0`, `soft_preference_score=6/6`. **373 placed / 65 unassigned — consistent with Session 2a's NHQS audit finding (8 structural competency-gap + 57 budget-bound). The 2026-04-15 P3 item "NHQS at longer budgets" stays open until Stage 9.5.2's scale-proof measurements.**
+- `DELETE /solve/bogus-probe-id` probe pre-first-trigger: 404 with `UNKNOWN_REQUEST_ID` as designed. `/health`: 200. pm2 stable throughout both runs (solver-py pid 27814 uptime > 25 m across both triggers with 0 new restarts; worker 27842 → 28635 rotated once for the txn-fix deploy, held steady at restart count 783 throughout the second run).
+- **Bonus finding**: CP-SAT reached `feasible` status on NHQS at 600 s — pre-stage-9.5.1 Stage 7 runs were all `unknown` / greedy fallback at 120 s. The §D budget ceiling raise is doing real work now that the pipeline (undici + txn timeout + cooperative cancel) lets it.
+
+**Part 2 — deferred (new follow-ups filed in place of the now-closed item #5):**
+
+6. **Concurrent-solves + memory-aware admission control** (P2, size: 1 stage). The `asyncio.Semaphore(1)` cap serialises every solve through a single pm2 process. Desired: a configurable `SOLVER_PY_MAX_CONCURRENT_SOLVES` (env var), paired with a `psutil.Process().memory_info().rss + estimated_peak < max_memory_restart` admission check that returns 503 `SIDECAR_OVERLOADED` rather than OOM-killing the process. Optional 202/poll contract (`POST /solve` → 202 + `status_url`, worker polls) if multi-tenant parallel solves become a real workload. Requires Stage 9.5.2's scale-proof data to pick a non-guessed concurrency cap. pm2 config may need `max_memory_restart` raised or a multi-process uvicorn with worker-per-solve.
+7. **`SchedulingSolverV2Job` should not extend `TenantAwareJob`** (P3, size: small refactor). The amendment raises `transactionTimeoutMs` to 3780 s as a pragmatic fix, but the outer transaction is functionally useless — every DB operation in `processJob` uses its own `this.prisma.$transaction(...)`. The outer wrapper only provides tenant-id / user-id validation (which can be inlined in the processor) and holds an idle pool connection for the full solve. Refactor target: have the processor validate tenant-id directly and drop the `TenantAwareJob` extension so no idle transaction is held at all. Orthogonal to correctness — just efficiency + cleanliness. Filed separately because the 3780 s override is stable for the forseeable scale.
+
+**Cumulative Stage 9.5.1 amendment commit chain (additive to main stage chain above):**
+
+- `68242d47` — feat: cooperative cancellation for cp-sat sidecar (9.5.1 amendment)
+- `fd4b1351` — fix: raise worker txn timeout for long-budget solves (9.5.1)
+- `<amendment-docs commit>` — docs: stage 9.5.1 post-close amendment subsection
+
+**Stage 9.5.1 amendment is complete. Status board row 9.5.1 stays `complete` — amendment extends, does not reopen.**
