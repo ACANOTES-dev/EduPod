@@ -139,7 +139,12 @@ export const schedulingSettingsSchema = z.object({
   teacherWeeklyMaxPeriods: z.number().int().nullable().default(null),
   autoSchedulerEnabled: z.boolean().default(true),
   requireApprovalForNonPrincipal: z.boolean().default(true),
-  maxSolverDurationSeconds: z.number().int().min(1).default(120),
+  // Stage 9.5.1 §D — ceiling raised from 600 s to 3600 s (1 hour).
+  // Default unchanged at 120 s; existing tenants are unaffected unless
+  // they explicitly opt up. EarlyStopCallback halts the solver when
+  // convergence is detected so a raised ceiling does not mean longer
+  // wall time for easy cases.
+  maxSolverDurationSeconds: z.number().int().min(1).max(3600).default(120),
   preferenceWeights: z
     .object({
       low: z.number().int().min(0).default(1),

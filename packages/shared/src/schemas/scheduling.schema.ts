@@ -304,10 +304,16 @@ export type CreatePeriodTemplateV2Dto = z.infer<typeof createPeriodTemplateV2Sch
 
 // ─── Solver Execution ───────────────────────────────────────────────────────
 
+// Stage 9.5.1 §D — budget ceiling raised from 600 s to 3600 s. The
+// EarlyStopCallback (Stage 9.5.1 §A) halts CP-SAT when convergence
+// is detected, so a higher ceiling no longer means longer wall time
+// for easy cases — only that hard cases get the headroom they need.
+// Default stays at 120 s; tenants raise via this knob or the
+// per-tenant ``schedulingSettings.maxSolverDurationSeconds``.
 export const triggerSolverRunSchema = z.object({
   academic_year_id: z.string().uuid(),
   solver_seed: z.number().int().nullable().optional(),
-  max_solver_duration_seconds: z.number().int().min(10).max(600).default(120),
+  max_solver_duration_seconds: z.number().int().min(10).max(3600).default(120),
 });
 
 export type TriggerSolverRunDto = z.infer<typeof triggerSolverRunSchema>;
