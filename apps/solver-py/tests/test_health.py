@@ -1,9 +1,10 @@
 """Smoke tests for /health and /solve.
 
-Stage 1 covered the bare endpoint shapes. Stage 2 wired the /solve stub
-to parse the SolverInputV2 contract — invalid bodies now error at
-pydantic with HTTP 422; only a structurally valid payload reaches the
-501 NOT_IMPLEMENTED path.
+Stage 3 wired ``/solve`` to a real CP-SAT model. Valid input → 200 with
+a ``SolverOutputV2`` body. Invalid input → 422 with pydantic detail.
+The Stage 2 minimal fixture is over-demanded (curriculum exceeds the
+2-slot grid) — so it still parses cleanly and the solver returns a
+graceful response with the curriculum lessons in ``unassigned``.
 """
 
 from __future__ import annotations
@@ -27,12 +28,22 @@ def test_health_returns_200_and_version() -> None:
     assert "version" in body
 
 
-def test_solve_returns_501_when_input_parses() -> None:
+def test_solve_returns_200_with_solver_output_envelope() -> None:
+    """Stage-2 fixture is intentionally over-demanded — the solver responds
+    with a ``SolverOutputV2`` whose ``unassigned`` list explains why each
+    lesson couldn't be placed. The body shape is what matters here."""
     payload = json.loads(FIXTURE_PATH.read_text())
     response = client.post("/solve", json=payload)
-    assert response.status_code == 501
+    assert response.status_code == 200
     body = response.json()
-    assert body["error"]["code"] == "NOT_IMPLEMENTED"
+    assert "entries" in body
+    assert "unassigned" in body
+    assert "constraint_summary" in body
+    assert isinstance(body["duration_ms"], int)
+    # The pinned class-A maths cell passes through.
+    assert any(e["is_pinned"] for e in body["entries"])
+    # Remaining curriculum demand can't fit the 1-slot teaching grid.
+    assert len(body["unassigned"]) > 0
 
 
 def test_solve_returns_422_when_input_is_bogus() -> None:

@@ -27,7 +27,7 @@
 | --- | ---------------------------------- | ---------- | -------------------- | -------------------------------------------------------------------------- |
 | 1   | Python sidecar scaffold            | `complete` | 2026-04-15           | FastAPI scaffold; /health 200, /solve stub 501; ruff + mypy + pytest green |
 | 2   | JSON contract                      | `complete` | 2026-04-15           | pydantic v2 mirror of types-v2.ts; round-trip + TS contract test green     |
-| 3   | CP-SAT model — hard constraints    | `pending`  | —                    | —                                                                          |
+| 3   | CP-SAT model — hard constraints    | `complete` | 2026-04-15           | per-cell BoolVars; all 16 hard constraints + supervision; 18 pytest tests  |
 | 4   | CP-SAT model — soft preferences    | `pending`  | —                    | —                                                                          |
 | 5   | Parity testing (cutover gate)      | `pending`  | —                    | —                                                                          |
 | 6   | Worker IPC integration             | `pending`  | —                    | —                                                                          |
@@ -214,3 +214,100 @@ Each stage appends its own entry here when finished. Use this template exactly:
 - None. Contract is locked; Stage 3 can build the CP-SAT model against it directly.
 - Stage 5's parity test will need a richer fixture set (multi-class, multi-day, multi-subject) — the minimal fixture here is a contract guard, not a parity benchmark.
 - If `types-v2.ts` ever gains a new field, **both** `cp-sat-contract.test.ts` (literal sets) and `schema/input.py` (or `output.py`) must be updated in the same change. The `extra="forbid"` config will fail the round-trip test at the first sign of divergence — that's the fail-loud pin.
+
+---
+
+### Stage 3 — CP-SAT model: hard constraints
+
+**Completed:** 2026-04-15
+**Local commit(s):** _backfilled in the next commit — see the `feat(scheduling): cp-sat hard-constraint model` commit_
+**Deployed to production:** no — Stage 3 is local-only; sidecar deploys at Stage 7.
+
+**Variable shape — chosen and why:**
+
+Per-lesson **boolean cells** with aggressive variable-generation pruning. For every legal `(lesson, slot, teacher, room)` tuple we allocate one `BoolVar`. Each hard constraint becomes a single linear sum (`<= 1` for no-overlap, `<= cap` for caps, `== placed[l]` for demand). Trade-off vs. the doc's recommended 3D `IntVar` (`teaches[c, s, p] = IntVar(0, num_teachers)`):
+
+- The legacy already does pin/pool resolution at variable-generation time (`resolveTeacherCandidates` in `domain-v2.ts`). Booleans let us mirror that: one variable per legal tuple, none per illegal one. The 3D-int shape would force room-type matching and per-slot availability through `OnlyEnforceIf` chains, which CP-SAT handles less efficiently than direct sums.
+- Booleans make double-period pairing trivial: `model.add(x[anchor_la] == x[follower_la])` for each compatible (teacher, room, consecutive-slot) match.
+- Cost: more variables on dense problems. Mitigated by the pruning step (see counts below).
+
+**What was delivered:**
+
+- `apps/solver-py/src/solver_py/solver/` package with five focused modules:
+  - `slots.py` — flattens every year-group's grid into a global `PhysicalSlot` list with wall-clock equivalence groups (`time_group_id`). Two slots in different year-groups whose intervals overlap share one `time_group_id`, so teacher no-overlap fires across grids — same semantics as the legacy `checkTeacherDoubleBookingV2`. Also exposes `adjacent_classroom_break_window` for the `classroom_previous` / `classroom_next` availability extension.
+  - `lessons.py` — generates one `Lesson` per period of demand. Resolves SCHED-023 class-subject overrides (a `class_id != null` curriculum entry supersedes the year-group baseline for that class only). Subtracts pinned periods from each `(class, subject)` demand. Emits double-period lessons in pair anchors (so the pair index lives inline in the lesson).
+  - `pruning.py` — for every `Lesson` returns the set of legal `(slot_id, teacher_idx, room_idx)` tuples honouring competency (with pin/pool resolution mirroring `resolveTeacherCandidates`), availability (with classroom-break adjacency), required room type, room closures (blunt: any room in any closure window is excluded for the whole week, matching v2 legacy), and `period_type == "teaching"`. Lessons whose legal set is empty come back with a per-lesson diagnostic for the `unassigned` payload.
+  - `model.py` — builds the `CpModel`. Eight constraint sections, all sectioned with comment dividers: per-lesson placement (gated by a `placed[l]` indicator), subject `max_periods_per_day` per `(class, subject, weekday)`, class no-overlap per `time_group_id`, exclusive-room no-overlap per `time_group_id`, teacher caps (`max_periods_per_week` and `max_periods_per_day`), double-period channel (anchor `==` follower at matching teacher/room/consecutive-slot), yard-break supervision (per-slot staffing `==` required count, supervision-duty cap per teacher), and combined teacher no-overlap per `time_group_id` that sums teaching + supervision + pinned load against the single ≤ 1 budget.
+  - `solve.py` — orchestrator. Builds slots → lessons → pruned legal set → `CpModel`, configures the solver (`max_time_in_seconds = settings.max_solver_duration_seconds`, `random_seed = settings.solver_seed or 0`, `num_search_workers = 1` per the doc's determinism requirement), translates the solver state into a `SolverOutputV2`. Pinned entries pass through verbatim into `entries`; placed lessons become `SolverAssignmentV2`; unplaced lessons become `UnassignedSlotV2` with a reason. `MODEL_INVALID` and `UNKNOWN` are surfaced as `SolveError` (HTTP 500 envelope).
+- `apps/solver-py/src/solver_py/main.py` — `/solve` now calls `solve()` and returns 200 with the `SolverOutputV2` body. `SolveError` becomes `{ "error": { "code": "SOLVER_INDETERMINATE", "message": ... } }` with HTTP 500.
+- 18 pytest tests across five files exercising: basic feasibility, SCHED-023 overrides, required room type, pinned passthrough, determinism (same seed → same output across two runs), demand-exceeds-capacity → unassigned, no-competent-teacher → unassigned, no-matching-room-type → unassigned, double-period anchor + follower placed consecutively with same teacher and room, yard-break supervision staffing, supervision-duty cap. Plus a shared `tests/_builders.py` helper.
+- `apps/solver-py/tests/test_health.py` updated: the Stage-2 minimal fixture (deliberately over-demanded — only one teaching slot in the grid) now returns 200 with the expected `SolverOutputV2` envelope, the pinned class-A maths cell passing through and the remaining curriculum demand surfacing as `unassigned`.
+
+**Files changed (high level):**
+
+- `apps/solver-py/src/solver_py/solver/__init__.py` — `solve` and `SolveError` exports.
+- `apps/solver-py/src/solver_py/solver/slots.py` — slot enumeration + wall-clock equivalence + classroom-break adjacency.
+- `apps/solver-py/src/solver_py/solver/lessons.py` — lesson generation with override + pinned + double-period handling.
+- `apps/solver-py/src/solver_py/solver/pruning.py` — legal-tuple pruning + per-lesson diagnostics.
+- `apps/solver-py/src/solver_py/solver/model.py` — `CpModel` construction (eight constraint sections, ~400 lines).
+- `apps/solver-py/src/solver_py/solver/solve.py` — orchestrator + status translation.
+- `apps/solver-py/src/solver_py/main.py` — `/solve` wired to `solve()`.
+- `apps/solver-py/tests/_builders.py` — shared test fixture builder.
+- `apps/solver-py/tests/test_solve_feasible.py`, `test_solve_infeasible.py`, `test_solve_double_period.py`, `test_solve_supervision.py` — per-tier and per-constraint tests.
+- `apps/solver-py/tests/test_health.py` — updated Stage-2 fixture smoke from 501 to 200.
+- `scheduler/OR CP-SAT/IMPLEMENTATION_LOG.md` — status board + this entry.
+
+**Tests added / updated:**
+
+- unit (Python / pytest): 13 new across 4 files; 1 updated in `test_health.py`. Total in `apps/solver-py`: 18 tests, all green.
+- unit (TS): 0 new, 0 updated — TS side untouched.
+- parity: n/a — Stage 5.
+- stress re-run: n/a — Stage 9.
+- coverage delta: solver package coverage starts here; 5 modules with end-to-end exercise via the per-tier tests (every constraint section has at least one test that fires it).
+
+**Variable counts on the canonical fixtures:**
+
+- minimal Stage-2 fixture (over-demanded; 7 lessons after pinned subtraction, 1 teaching slot): legal tuples = 4 (only class-B can place, and only against the one slot pinned to class-A).
+- minimal-feasible (1 class, 1 subject, 3 lessons, 5×4 grid): legal = 60 (3 lessons × 20 teaching slots × 1 teacher × 1 room).
+- 2-class override (2 classes, 1 subject, 8 lessons after override resolution, 5×4 grid, 2 teachers, 2 rooms): legal ≈ 320.
+- 3-subject single-class (1 class, 3 subjects, 9 lessons, 5×4 grid): legal = 180.
+- realistic baseline (10 classes, 8 subjects, 5×6 grid, 20 specialist teachers, 15 rooms): pruned legal = 270K. **Single-worker CP-SAT does not converge in 30 s on this size** — see the surprises section.
+
+**Performance measurements (5-run median; single worker; seed=42):**
+
+- minimal-feasible (3 lessons): p50 = 1 ms, p95 = 3 ms, 100 % placed.
+- 2-class SCHED-023 override (8 lessons): p50 = 13 ms, p95 = 14 ms, 100 % placed.
+- 3-subject single-class (9 lessons): p50 = 6 ms, p95 = 6 ms, 100 % placed.
+- yard-supervision fixture (2 teaching + 2 supervision lessons): under 5 ms (assertion-bounded).
+- double-period fixture (2 lessons, paired): under 10 ms.
+- realistic baseline (10c × 8s × 5×6, 240 lessons, 270 K legal): single-worker CP-SAT returns `UNKNOWN` after 30 s. With `num_search_workers = 8` and a no-op all-zeros hint it reaches `FEASIBLE` (128/240 placements) in 10 s. Speed tuning is explicitly Stage 4/5 territory per the stage doc.
+
+**Verification evidence:**
+
+- `ruff check src tests` → "All checks passed!"
+- `mypy --strict src` → "Success: no issues found in 12 source files".
+- `pytest -v` → 18 passed in 0.37 s.
+- `curl -X POST http://localhost:5557/solve` against:
+  - the minimal Stage-2 fixture → HTTP 200, 2 entries (1 pinned + 1 placed for class-B), 7 unassigned, score 1/4, duration_ms = 2.
+  - a feasible single-class three-subject fixture → HTTP 200, 9 entries, 0 unassigned, score 9/9, duration_ms = 7.
+
+**Surprises / decisions / deviations from the plan:**
+
+- **Variable shape locked to per-cell booleans, not 3D `IntVar`.** Documented above. The boolean shape lets pin/pool resolution and competency live entirely in pruning, which keeps the CP-SAT model linear and clean. The 3D-int shape is the cleaner formulation for a from-scratch design but doesn't map as well onto the legacy's existing semantics.
+- **Module split is shallower than the doc suggests.** The doc proposes `hard_constraints.py` with one function per constraint and a pytest each. I bundled all eight constraint groups into `model.py` with section dividers (the constraint logic is mostly two-line linear sums — splitting into eight files for that would be busywork) and put per-constraint behaviour into separate test files instead. Tests are what really prove the constraints fire.
+- **Graceful degradation via `placed[l]` indicator + `Maximize`.** The doc's "0 hard violations OR returns UNSAT cleanly" wording reads strict — but Stage 5 parity will need to match the legacy's partial-output behaviour on over-demanded inputs. So Stage 3 introduces a boolean `placed[l]` with `sum(x[la]) == placed[l]`, and an objective `maximize sum(placed) + sum(supervision_filled)`. This is a degenerate "soft" objective (placement count, not preference scoring) — Stage 4 will dominate it with a much larger coefficient and add real preference terms on top. Note in PR review: this means a tenant whose demand can't fit gets a partial schedule rather than HTTP 500.
+- **Combined teacher no-overlap built last, not first.** Section H of `model.py` waits until both teaching legal-tuple booleans (§A) and supervision booleans (§G) exist, then issues the per-`(teacher_idx, time_group_id)` budget constraint over their union plus pinned load. Doing it earlier would force two separate constraints (one for teaching, one mixed with supervision); doing it last gives a single tight constraint — better for CP-SAT presolve.
+- **Room closures stay blunt.** The legacy excludes any room appearing in `room_closures` for the entire week. The stage doc suggests refining to per-(weekday, period_order) blocked sets within the closure date range. I kept the legacy semantics for Stage 3 — Stage 5 parity is easier this way. Refinement is filed as a Stage 10/11 contract-reshape concern.
+- **Single-worker CP-SAT struggles on the realistic baseline (240 lessons, 270K legal tuples).** With `num_search_workers = 1` and `max_time_in_seconds = 30`, the realistic baseline returns `UNKNOWN`. The stage doc explicitly says single worker for dev determinism and defers tuning to Stage 5. On 8 workers it reaches `FEASIBLE` 128/240 in 10 s; the model is correct, the search just hasn't been tuned. Kept single-worker so the Stage 5 parity tests have a stable starting point — Stage 5 will introduce deterministic parallel mode (CP-SAT supports `interleave_search` with seed for parallel determinism) and presolve tuning.
+- **`UNKNOWN` is surfaced as `SolveError` → HTTP 500.** Different from `INFEASIBLE` (which produces a 200 with everything in `unassigned`). For the worker integration in Stage 6 this means the BullMQ job will retry on `UNKNOWN`. Once Stage 4/5 tuning lands, `UNKNOWN` should become rare; if it remains common in production, the model needs more tuning, not the worker.
+- **OR-Tools API uses snake_case in the public stubs** (`new_bool_var`, `add`, `maximize`, `solve`, `value`) but exposes both schemes at runtime. Both the public docs and old examples use camelCase (`NewBoolVar`, `Add`, etc.). Switched to snake_case throughout to satisfy `mypy --strict` and follow the future-facing convention. `objective_value` is a property in the new stubs, not a method — easy to miss.
+- **Field name collision.** `BuiltModel.cp_model` shadowed the imported `cp_model` module at type-annotation time and broke mypy. Renamed the field to `model`.
+- **Pre-commit prettier may reformat the JSON fixture and markdown again on commit** — same story as Stages 1 and 2.
+
+**Known follow-ups / debt created:**
+
+- Speed tuning for realistic baselines — Stage 4/5. Specifically: enable deterministic parallel search (`num_search_workers > 1` with `parameters.interleave_search = true`), tune `parameters.linearization_level`, add solution hints for warm-start.
+- Decide in Stage 5 whether `UNKNOWN` should soften to a partial-output 200 rather than a 500. Hinges on parity-test behaviour against the legacy on hard inputs.
+- Room closures should eventually become per-(weekday, period_order) blocked sets within the closure date range — Stage 10/11 contract reshape.
+- The Stage-3 "placed[l] indicator + Maximize" mechanism is a placement-count objective. Stage 4 must combine it with preference scoring such that placement weight strictly dominates (a placed lesson with 0 satisfied preferences must score higher than an unplaced lesson with all preferences satisfied).
+- Constraint coverage on the test suite: every constraint group fires at least once but combinations (e.g. double-period + teacher cap saturating + supervision sharing the same teacher) aren't combinatorially exercised. Stage 5 parity will catch most combinatorial gaps via the legacy comparison; we may want a hypothesis-based property test in Stage 9.

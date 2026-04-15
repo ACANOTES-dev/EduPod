@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from solver_py import __version__
 from solver_py.config import settings
 from solver_py.schema import SolverInputV2
+from solver_py.solver import SolveError, solve
 
 
 class _JsonLogFormatter(logging.Formatter):
@@ -108,7 +109,7 @@ async def health() -> dict[str, str]:
 
 
 @app.post("/solve")
-async def solve(payload: SolverInputV2) -> JSONResponse:
+async def solve_endpoint(payload: SolverInputV2) -> JSONResponse:
     logger.info(
         "received solve request",
         extra={
@@ -121,12 +122,27 @@ async def solve(payload: SolverInputV2) -> JSONResponse:
             "break_groups": len(payload.break_groups),
         },
     )
-    return JSONResponse(
-        status_code=501,
-        content={
-            "error": {
-                "code": "NOT_IMPLEMENTED",
-                "message": "CP-SAT modelling lands in stage 3; input parsed cleanly.",
-            }
+    try:
+        result = solve(payload)
+    except SolveError as exc:
+        logger.exception("solver could not decide")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": {"code": "SOLVER_INDETERMINATE", "message": str(exc)},
+            },
+        )
+    logger.info(
+        "solve complete",
+        extra={
+            "entries": len(result.entries),
+            "unassigned": len(result.unassigned),
+            "score": result.score,
+            "max_score": result.max_score,
+            "duration_ms": result.duration_ms,
         },
+    )
+    return JSONResponse(
+        status_code=200,
+        content=result.model_dump(mode="json"),
     )
