@@ -220,7 +220,7 @@ Each stage appends its own entry here when finished. Use this template exactly:
 ### Stage 3 — CP-SAT model: hard constraints
 
 **Completed:** 2026-04-15
-**Local commit(s):** _backfilled in the next commit — see the `feat(scheduling): cp-sat hard-constraint model` commit_
+**Local commit(s):** `3d28cf21` feat(scheduling): cp-sat hard-constraint model for solver sidecar
 **Deployed to production:** no — Stage 3 is local-only; sidecar deploys at Stage 7.
 
 **Variable shape — chosen and why:**
