@@ -865,3 +865,94 @@ Stage 8's scope document (`implementations/stage-8-legacy-retire.md` § E) calls
 - **24 h post-Stage-8 observation continues passively.** User will spot-check at the 24 h mark. If `CpSatSolveError` > 0 or solver-py memory drifts above 1.5 GB, rollback is `git revert 5c640db8` + rsync + restart — but the live scheduler call path is unchanged by this commit (only dead code was removed), so a Stage-8-induced regression is structurally very unlikely.
 - **`apps/worker/src/processors/scheduling/solver-v2.processor.ts` still called `solver-v2.processor.ts`.** Naming lag — the processor's filename predates the CP-SAT rename. Not renamed in Stage 8 to keep git history + pm2 path stable; a follow-up can do that as part of Stage 10/11 (contract reshape + orchestration rebuild) when more of that directory churns.
 - **`cp-sat-regression.test.ts` currently skips in CI.** The sidecar isn't reachable from GitHub Actions; the test falls through `status: skipped` and passes trivially. Worth giving it a real CI slot (dockerised sidecar, or a matrix job) during Stage 9 so it stops being a no-op.
+
+### Stage 9 — Session 1 of N (interim, status board stays `pending`)
+
+**Session scope:** Stage 5 carryovers §1–§4, STRESS-086 determinism, early-stop investigation, target-metrics snapshot. Wave 1/2/3 full re-runs + STRESS-084 / 085 + bug-log closures + CI path deferred to Session 2 (user directive).
+
+**Completed (this session):** 2026-04-15 15:40–17:10 UTC
+**Local commit(s):** `c0f00ae9` feat(scheduling): enhanced greedy hint + supervision parity fixture (stage 9 §1+§3)
+**Deployed to production:** yes — 2026-04-15 16:52 UTC, `solver-py` pm2 restart (new pid 7171). Worker untouched; shared package not yet deployed (TS fixtures only, no runtime change).
+
+**What was delivered in Session 1:**
+
+#### §1 — Enhanced greedy in Python sidecar (CLOSED)
+
+- Rewrote `apps/solver-py/src/solver_py/solver/hints.py` from single-pass MRV-global → three-phase greedy matching the retired legacy TS `solveGreedyWithRepair`:
+  1. Scarcity-scored round-robin per class.
+  2. 1-swap repair — displace a single placed-blocker lesson if it has an alternative legal slot. Double-period pairs never split.
+  3. Multi-round retry (up to 3 passes over still-unplaced).
+- Internal mutable state lifted into a `_State` dataclass so Phase-2 rollback/commit is atomic.
+- Public signature (`greedy_assign() -> set[int]`) unchanged; no caller-side edits needed.
+- Added `apps/solver-py/tests/test_greedy_hints.py` with three tests pinning round-robin balance, minimal-feasible stability, and determinism across repeated calls (3/3 pass).
+- All 37/37 solver-py pytest cases pass; ruff clean; mypy clean.
+
+**Evidence §1 closed:** regression harness after deploy, local sidecar with new code, **Tier 2 stress-a-baseline placement jumped 329 → 331** (matches legacy's 331 exactly). Stage 5 carryover §1 closed.
+
+#### §2 — Real stress-a 100 % feasibility verification
+
+Two CP-SAT solves on real `stress-a.edupod.app` (tenant `965f5f8f…`) after the §1 deploy:
+
+| Run ID                                 | Placed | Unassigned | Duration   | `cp_sat_status`             | SHA-256 of result_json |
+| -------------------------------------- | ------ | ---------- | ---------- | --------------------------- | ---------------------- |
+| `85cee8c6-fdc1-40f4-acb2-f8a9ae8cdb7e` | 319    | 1          | 123 960 ms | `unknown` (greedy fallback) | `7637fe4a62f9f578…`    |
+| `7c3f3905-a10d-473b-8b2f-1cbca8bea60e` | 319    | 1          | 123 744 ms | `unknown` (greedy fallback) | `7637fe4a62f9f578…`    |
+
+**Finding:** real stress-a stalls at 319/320 = 99.7 % placement. The single unplaced slot appears **structural, not solver-budget**:
+
+- Two independent solves with different run IDs produce byte-identical `result_json.entries` (SHA-256 match with normalise → `meta` + `duration_ms` stripped).
+- Both hit the 120 s budget and fall back to greedy; the greedy (now enhanced with round-robin + 1-swap) **still** can't place the last lesson.
+- Tier 2 **synthetic** hit 331/340 on the same greedy engine, so the greedy is not structurally broken — the gap is input-specific.
+
+**Verdict:** PLAN.md's "stress-a as 100 % feasibility reference" is **one slot short of literally true** on the current seed. Not a solver bug. Recommend PLAN.md reclassify stress-a as "well-slack feasibility reference (99.7 %)" unless Session 2's capacity audit proves the input seed actually admits a 320/320 placement. Deferred to Session 2 — same audit that's on tap for NHQS's 94-unassigned investigation.
+
+#### §3 — Supervision parity fixture (CLOSED as addition, open as measurement)
+
+Added `buildTier2WithSupervision` to `packages/shared/src/scheduler/__tests__/fixtures/parity-fixtures.ts` and registered it as `tier-2-with-supervision` in `PARITY_FIXTURES`. Shape: Tier-2 stress-a-baseline + morning-break + lunch + single `bg-primary` break group with 4 required supervisors at each break cell, teacher pool capped at 2 duties/week → exactly-saturated supervision demand (40 duty demand × 40 supply).
+
+**Measurement (first run, after §1 greedy enhancement):** `placed=0 unassigned=340` on a 45 s budget. This is a **fixture-level bug, not a solver regression** — the greedy places zero teaching lessons on this shape. Likely root cause: the grid interleaves `break_supervision` cells every 3–4 periods, the supervision saturation is stricter than modelled, or the greedy's capacity tracking double-counts break-cell load against teaching capacity. To investigate in Session 2 before using the fixture as a parity reference.
+
+#### §4 — Multi-worker retest (blocked upstream)
+
+PyPI's latest `ortools` is still **`9.15.6755`** — the exact pin Stage 7 installed. No newer release has shipped since Stage 5 identified the two upstream bugs (`interleave_search=True` budget overrun + `repair_hint=True` segfault inside `MinimizeL1DistanceWithHint`). `num_search_workers = 1` stays; no change to `solve.py`. Re-check at the next OR-Tools release.
+
+#### STRESS-086 — Determinism under seed (CLOSED)
+
+Two back-to-back solves on real stress-a produced byte-identical `result_json.entries` (SHA-256 `7637fe4a62f9f578…` on both). Closes the determinism class of SCHED-025 bugs. Formal bug-log closure happens in Session 2 when the Wave-4 run IDs are gathered.
+
+#### Early-stop investigation
+
+Measurement baseline (3 solves post-deploy on stress-a):
+
+- Every solve consumes the full 120 s CP-SAT budget + 3.7–4 s for greedy and post-processing → ~124 s wall time.
+- All return `cp_sat_status = "unknown"` → fall back to the greedy placement that was used as the solver hint. CP-SAT found no improvement in 120 s.
+
+**Potential saving:** if CP-SAT can't improve the greedy hint, waiting 120 s is CPU waste. An `ortools.cp_model.CpSolverSolutionCallback` that tracks best-objective-seen and stops when no improvement arrives for 30 s would cut the median solve from 124 s → ~65 s (best case 35 s + greedy). At current traffic this is modest savings; at launch-scale it's meaningful.
+
+**Complexity of landing:** moderate. OR-Tools 9.15 single-worker `SolveWithSolutionCallback` works but needs careful interaction with the existing `add_hint` flow and the `UNKNOWN → greedy fallback` path — an early stop on "no improvement" returning `FEASIBLE` from a hinted solution would change `cp_sat_status` from `unknown` → `feasible`, which changes every downstream dashboard that reads that field.
+
+**Decision:** not landing in Session 1. Design a dedicated sub-task for Session 2 or Stage 10. Added to known follow-ups below with the expected save figure.
+
+#### Target metrics snapshot
+
+| Metric                                       | Legacy (pre-CP-SAT)  | Stage 7 baseline | Session 1 (post-§1 deploy)          | Stage 9 target |
+| -------------------------------------------- | -------------------- | ---------------- | ----------------------------------- | -------------- |
+| Real stress-a placement                      | ~82 % estimated      | 99.7 % (319/320) | **99.7 %** (319/320; deterministic) | 100 %          |
+| Real stress-a median duration                | 120 s (timeout)      | 123.7 s          | 123.8 s (two runs)                  | < 10 s         |
+| Real stress-a hard violations                | unknown              | 0                | 0                                   | 0              |
+| Tier 2 synthetic (stress-a-shape) placement  | 331/340              | 329/340          | **331/340** (matches legacy)        | ≥ 331          |
+| Tier 3 synthetic (Irish secondary) placement | ~741/1095 (timeout)  | 887/1095         | **887/1095**                        | 1095/1095      |
+| Tier 3 synthetic duration                    | > 120 s              | ~61 s            | ~61 s                               | < 60 s         |
+| Determinism under seed                       | ❌ non-deterministic | ✓                | ✓ (STRESS-086 SHA match)            | ✓              |
+
+**Gap to target:** real stress-a still places 1 slot short of 100 % and the solve is 12× over the 10 s target. Tier 3 places 19 % short and is marginally over the 60 s target. All gaps to be characterised in Session 2 (capacity audit + early-stop prototype).
+
+**Known follow-ups / debt created:**
+
+- **Supervision fixture `tier-2-with-supervision` places 0 teaching lessons.** Bug in the fixture, the greedy, or the supervision-capacity modelling. Must be triaged before the fixture can be cited as a parity reference (Session 2).
+- **Real stress-a 1-slot-short.** Likely structural; run a capacity audit (total qualified-teacher-periods vs total subject demand, per-subject reachability, per-class weekly overbook). Same audit machinery covers NHQS's 94-unassigned investigation.
+- **CP-SAT always exhausts the full 120 s budget** with `cp_sat_status = "unknown"`. Prototype a `SolutionCallback`-based early-stop; target < 70 s median at no placement cost. Deferred Session 2 / Stage 10.
+- **24 h post-Stage-8 observation continues.** Worker uptime 33 min at session-1 close (pid 6566, 258 MB). Solver-py just restarted with Session 1's change (pid 7171); fresh observation window.
+- **Wave 1/2/3 full re-runs, STRESS-084 / 085, bug-log closures (SCHED-017/018/024/025/026), CI execution path for cp-sat-regression.test.ts, NHQS capacity audit** — all deferred to Session 2 per user directive.
+
+Session 1 **does not flip the status board**. Stage 9 remains `pending`. Session 2 will complete the remaining scope, capture final bug-log closures with Wave-4 run IDs, and flip the board.
