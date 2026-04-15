@@ -378,7 +378,15 @@ export default function RequirementsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('auto.requirements')} description={t('auto.requirementsDesc')} />
+      <PageHeader
+        title={t('auto.requirements')}
+        description={t('auto.requirementsDesc')}
+        actions={
+          <Button variant="outline" asChild>
+            <a href="./requirements/subject-overrides">{t('subjectOverrides.goToOverrides')}</a>
+          </Button>
+        }
+      />
 
       {/* Empty-state / purpose banner — shown when nothing configured */}
       {totalClasses > 0 && configuredCount === 0 && (
