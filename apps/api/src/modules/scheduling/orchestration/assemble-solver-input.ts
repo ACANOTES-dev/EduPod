@@ -156,7 +156,7 @@ export async function assembleSolverInput(
 
   // ─── Settings ─────────────────────────────────────────────────────────
 
-  const maxDuration = (data.tenantSettings?.maxSolverDurationSeconds as number | undefined) ?? 120;
+  const maxDuration = (data.tenantSettings?.maxSolverDurationSeconds as number | undefined) ?? 3600;
 
   // ─── Constraint snapshot ──────────────────────────────────────────────
 

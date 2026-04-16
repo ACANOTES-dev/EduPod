@@ -139,12 +139,16 @@ export const schedulingSettingsSchema = z.object({
   teacherWeeklyMaxPeriods: z.number().int().nullable().default(null),
   autoSchedulerEnabled: z.boolean().default(true),
   requireApprovalForNonPrincipal: z.boolean().default(true),
-  // Stage 9.5.1 §D — ceiling raised from 600 s to 3600 s (1 hour).
-  // Default unchanged at 120 s; existing tenants are unaffected unless
-  // they explicitly opt up. EarlyStopCallback halts the solver when
-  // convergence is detected so a raised ceiling does not mean longer
-  // wall time for easy cases.
-  maxSolverDurationSeconds: z.number().int().min(1).max(3600).default(120),
+  // Stage 9.5.1 §D raised the ceiling from 600 s to 3600 s. The default
+  // was later aligned with that ceiling (2026-04-16) so a brand-new
+  // tenant gets the full 1-hour budget available immediately. This is
+  // safe because EarlyStopCallback halts CP-SAT as soon as the solver
+  // reaches first-feasible and either plateaus (stagnation) or closes
+  // the relative gap — runs that converge quickly still finish quickly;
+  // only genuinely hard inputs consume more wall time. An existing-
+  // tenants migration bumped stored 120 s values to 3600 s at the same
+  // time so behaviour is consistent platform-wide.
+  maxSolverDurationSeconds: z.number().int().min(1).max(3600).default(3600),
   preferenceWeights: z
     .object({
       low: z.number().int().min(0).default(1),

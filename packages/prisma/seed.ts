@@ -102,7 +102,7 @@ const DEFAULT_SETTINGS = {
     teacherWeeklyMaxPeriods: null,
     autoSchedulerEnabled: true,
     requireApprovalForNonPrincipal: true,
-    maxSolverDurationSeconds: 120,
+    maxSolverDurationSeconds: 3600,
     preferenceWeights: { low: 1, medium: 2, high: 3 },
     globalSoftWeights: {
       evenSubjectSpread: 2,

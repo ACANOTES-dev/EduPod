@@ -543,7 +543,7 @@ export default function GeneralSettingsPage() {
             label={t('maxSolverDurationSeconds')}
             description={t('maxSolverDurationSecondsDesc')}
             value={settings.scheduling.maxSolverDurationSeconds}
-            onChange={(v) => updateSection('scheduling', { maxSolverDurationSeconds: v ?? 120 })}
+            onChange={(v) => updateSection('scheduling', { maxSolverDurationSeconds: v ?? 3600 })}
             min={1}
           />
 

@@ -1577,7 +1577,7 @@ describe('SchedulerOrchestrationService', () => {
 
       const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
 
-      expect(input.settings.max_solver_duration_seconds).toBe(120);
+      expect(input.settings.max_solver_duration_seconds).toBe(3600);
       expect(input.settings.preference_weights.low).toBe(1);
       expect(input.settings.preference_weights.medium).toBe(2);
       expect(input.settings.preference_weights.high).toBe(3);

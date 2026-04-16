@@ -575,7 +575,7 @@ export class SchedulerOrchestrationService {
     const globalWeights = (settingsObj.globalSoftWeights as Record<string, number>) ?? {};
 
     const settings: SolverSettingsV2 = {
-      max_solver_duration_seconds: (settingsObj.maxSolverDurationSeconds as number) ?? 120,
+      max_solver_duration_seconds: (settingsObj.maxSolverDurationSeconds as number) ?? 3600,
       preference_weights: {
         low: prefWeights.low ?? 1,
         medium: prefWeights.medium ?? 2,

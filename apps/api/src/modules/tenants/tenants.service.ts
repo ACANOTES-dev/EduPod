@@ -83,7 +83,11 @@ const DEFAULT_SETTINGS = {
     teacherWeeklyMaxPeriods: null,
     autoSchedulerEnabled: true,
     requireApprovalForNonPrincipal: true,
-    maxSolverDurationSeconds: 120,
+    // 1-hour ceiling (Stage 9.5.1 §D). EarlyStopCallback halts the solver
+    // at first-feasible + stagnation/gap-closure, so convergent runs
+    // still finish quickly — only genuinely hard inputs use more wall
+    // time. Aligns with schedulingSettingsSchema.default (tenant.schema.ts).
+    maxSolverDurationSeconds: 3600,
     preferenceWeights: { low: 1, medium: 2, high: 3 },
     globalSoftWeights: {
       evenSubjectSpread: 2,
