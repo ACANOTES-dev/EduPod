@@ -110,13 +110,22 @@ export default function ReportCardsClassPage() {
   const [loadFailed, setLoadFailed] = React.useState(false);
   const [notFound, setNotFound] = React.useState(false);
   const [permissionDenied, setPermissionDenied] = React.useState(false);
+  const [showRankBadges, setShowRankBadges] = React.useState(false);
 
-  // Load period options once
+  // Load period options + tenant settings once
   React.useEffect(() => {
     let cancelled = false;
-    apiClient<ListResponse<PeriodOption>>('/api/v1/academic-periods?pageSize=50')
-      .then((res) => {
-        if (!cancelled) setPeriods(res.data ?? []);
+    Promise.all([
+      apiClient<ListResponse<PeriodOption>>('/api/v1/academic-periods?pageSize=50'),
+      apiClient<{ data: { settings_json: { show_top_rank_badge?: boolean } } }>(
+        '/api/v1/report-card-tenant-settings',
+        { silent: true },
+      ).catch(() => null),
+    ])
+      .then(([periodsRes, settingsRes]) => {
+        if (cancelled) return;
+        setPeriods(periodsRes.data ?? []);
+        setShowRankBadges(settingsRes?.data?.settings_json?.show_top_rank_badge ?? false);
       })
       .catch((err) => {
         console.error('[ReportCardsClassPage]', err);
@@ -330,7 +339,7 @@ export default function ReportCardsClassPage() {
                               <span className="truncate">
                                 {student.first_name} {student.last_name}
                               </span>
-                              {rank != null && rank >= 1 && rank <= 3 && (
+                              {showRankBadges && rank != null && rank >= 1 && rank <= 3 && (
                                 <span
                                   className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-300"
                                   aria-label={tm('topRankBadge', { rank })}

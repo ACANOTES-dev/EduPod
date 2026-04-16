@@ -81,26 +81,26 @@ describe('ReportCardAnalyticsService — getDashboard', () => {
     expect(result.revised).toBe(5);
     expect(result.pending_approval).toBe(3);
     expect(result.period_id).toBe(PERIOD_ID);
-    // 30 published / 40 students = 75%
-    expect(result.completion_rate).toBe(75);
+    // 30 published / 50 total = 60%
+    expect(result.completion_rate).toBe(60);
     // 20 with comment / 30 published = 66.67%
     expect(result.comment_fill_rate).toBeCloseTo(66.67, 1);
   });
 
-  it('should return completion_rate 0 when there are no active students', async () => {
+  it('should return completion_rate 100 when all cards are published', async () => {
     mockPrisma.reportCard.count
-      .mockResolvedValueOnce(5)
-      .mockResolvedValueOnce(5)
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(5);
+      .mockResolvedValueOnce(5) // total
+      .mockResolvedValueOnce(5) // published
+      .mockResolvedValueOnce(0) // draft
+      .mockResolvedValueOnce(0) // revised
+      .mockResolvedValueOnce(5); // publishedWithComment
 
     mockPrisma.reportCardApproval.count.mockResolvedValue(0);
-    mockClassesFacade.countEnrolmentsGeneric.mockResolvedValue(0); // no active students
 
     const result = await service.getDashboard(TENANT_ID, PERIOD_ID);
 
-    expect(result.completion_rate).toBe(0);
+    // 5 published / 5 total = 100%
+    expect(result.completion_rate).toBe(100);
   });
 
   it('should return comment_fill_rate 0 when no report cards are published', async () => {

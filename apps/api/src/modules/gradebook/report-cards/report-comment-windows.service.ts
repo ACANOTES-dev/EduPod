@@ -75,6 +75,21 @@ export class ReportCommentWindowsService {
     return this.prisma.reportCommentWindow.findFirst({
       where: { tenant_id: tenantId, status: 'open' },
       orderBy: { opens_at: 'desc' },
+      select: {
+        id: true,
+        tenant_id: true,
+        academic_period_id: true,
+        academic_year_id: true,
+        opens_at: true,
+        closes_at: true,
+        status: true,
+        opened_by_user_id: true,
+        closed_at: true,
+        instructions: true,
+        created_at: true,
+        updated_at: true,
+        // Deliberately omit closed_by_user_id — internal audit field
+      },
     });
   }
 

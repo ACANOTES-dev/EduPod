@@ -130,13 +130,10 @@ export class ReportCardAnalyticsService {
       }),
     ]);
 
-    // Count students who have published report cards for this period
-    const activeStudents = periodId
-      ? await this.classesReadFacade.countEnrolmentsGeneric(tenantId, { status: 'active' })
-      : 0;
-
-    const completionRate =
-      activeStudents > 0 ? Math.round((published / activeStudents) * 10000) / 100 : 0;
+    // Completion rate = published / total generated (not enrolled students).
+    // Both the dashboard snapshot and the full analytics page display this
+    // value — using the same denominator (total) keeps them consistent.
+    const completionRate = total > 0 ? Math.round((published / total) * 10000) / 100 : 0;
 
     const commentFillRate =
       published > 0 ? Math.round((publishedWithComment / published) * 10000) / 100 : 0;

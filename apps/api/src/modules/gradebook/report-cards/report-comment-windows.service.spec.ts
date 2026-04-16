@@ -141,10 +141,12 @@ describe('ReportCommentWindowsService', () => {
       mockPrisma.reportCommentWindow.findFirst.mockResolvedValue(baseWindow);
       const result = await service.findActive(TENANT_ID);
       expect(result).toEqual(baseWindow);
-      expect(mockPrisma.reportCommentWindow.findFirst).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID, status: 'open' },
-        orderBy: { opens_at: 'desc' },
-      });
+      expect(mockPrisma.reportCommentWindow.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenant_id: TENANT_ID, status: 'open' },
+          orderBy: { opens_at: 'desc' },
+        }),
+      );
     });
 
     it('should return null when no window is open', async () => {

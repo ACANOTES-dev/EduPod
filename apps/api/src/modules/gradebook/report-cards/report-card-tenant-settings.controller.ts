@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Patch,
@@ -68,6 +69,7 @@ export class ReportCardTenantSettingsController {
   @Post('principal-signature')
   @RequiresPermission('report_cards.manage')
   @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'private, no-store')
   @UseInterceptors(
     createFileInterceptor({
       allowedMimes: SIGNATURE_MIMES,

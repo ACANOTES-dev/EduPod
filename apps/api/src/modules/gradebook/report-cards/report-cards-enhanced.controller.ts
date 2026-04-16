@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -69,7 +70,9 @@ import { ReportCardsService } from './report-cards.service';
 export class ReportCardVerificationController {
   constructor(private readonly verificationService: ReportCardVerificationService) {}
 
+  // GET /v1/verify/:token — public endpoint, CDN-cacheable on 200
   @Get('verify/:token')
+  @Header('Cache-Control', 'public, max-age=300')
   async verify(@Param('token') token: string) {
     return this.verificationService.verify(token);
   }

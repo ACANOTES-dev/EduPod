@@ -481,12 +481,15 @@ export class ReportCardTeacherRequestsService {
       },
     );
 
+    // Resolve the requester's name for a human-friendly banner instead of a raw UUID
+    const requesterName = await this.resolveUserDisplayName(request.requested_by_user_id);
+
     const window = await this.commentWindowsService.open(tenantId, actor.userId, {
       academic_period_id: request.academic_period_id,
       academic_year_id: request.academic_year_id,
       opens_at: opensAt.toISOString(),
       closes_at: closesAt.toISOString(),
-      instructions: `Opened in response to teacher request #${request.id}`,
+      instructions: `Opened in response to ${requesterName}'s request`,
       homeroom_assignments: priorAssignments,
     });
 
@@ -506,6 +509,7 @@ export class ReportCardTeacherRequestsService {
     opensAt: Date,
     closesAt: Date,
   ): Promise<string> {
+    const requesterName = await this.resolveUserDisplayName(request.requested_by_user_id);
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
@@ -560,7 +564,7 @@ export class ReportCardTeacherRequestsService {
             closes_at: closesAt,
             closed_at: null,
             closed_by_user_id: null,
-            instructions: `Reopened in response to teacher request #${request.id}`,
+            instructions: `Reopened in response to ${requesterName}'s request`,
           },
         });
         return existingFullYear.id;
@@ -575,7 +579,7 @@ export class ReportCardTeacherRequestsService {
           closes_at: closesAt,
           status: 'open',
           opened_by_user_id: actor.userId,
-          instructions: `Opened in response to full-year teacher request #${request.id}`,
+          instructions: `Opened in response to ${requesterName}'s request`,
         },
       });
       return created.id;
@@ -711,5 +715,18 @@ export class ReportCardTeacherRequestsService {
         source_entity_id: request.id,
       },
     ]);
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  private async resolveUserDisplayName(userId: string): Promise<string> {
+    try {
+      const users = await this.authReadFacade.findUsersByIds([userId]);
+      const user = users[0];
+      if (user) return `${user.first_name} ${user.last_name}`.trim();
+    } catch (err) {
+      this.logger.warn(`Failed to resolve display name for user ${userId}: ${err}`);
+    }
+    return 'a teacher';
   }
 }
