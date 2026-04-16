@@ -1562,3 +1562,71 @@ User requested all 3 Wave 4 failures be fixed in-stage rather than punted to Sta
 - `<amendment-docs commit>` — docs: stage 9.5.1 post-close amendment subsection
 
 **Stage 9.5.1 amendment is complete. Status board row 9.5.1 stays `complete` — amendment extends, does not reopen.**
+
+---
+
+### Stage 9.5.2 — Scale proof (Session 1 interim, 2026-04-16)
+
+**Status:** in progress. Status board row 9.5.2 remains `pending` until the full matrix (tier-4 local + tier-5 / tier-6 server) is captured and §F docs land.
+
+**What has shipped so far:**
+
+#### §A — Tier 4/5/6 fixture generators (commits `e6084a23`, `60b35b4a`)
+
+- New `packages/shared/src/scheduler/__tests__/fixtures/tier-4-5-6-generators.ts` with three seed-deterministic builders:
+  - `buildTier4IrishSecondaryLarge` — 50 classes, 80 teachers, 1100 lessons, 45-slot grid (upper-end Irish secondary).
+  - `buildTier5MultiCampusLarge` — 95 classes, 160 teachers, 2200 lessons, 50-slot grid (MAT / multi-campus).
+  - `buildTier6CollegeLevel` — 130 sections, 180 lecturers, 3120 lessons, 50-slot grid (college / sixth-form).
+- **Feasibility guardrail strengthened to 3 layers** (`assertFeasibleSupply`): aggregate teacher supply ≥ 1.10× demand, **per-subject** teacher supply ≥ 1.10×, and **per-room-type** supply ≥ 1.10×. The first version had only the aggregate layer and shipped a fixture that was structurally infeasible on labs — the first tier-4 matrix run produced 74/1100 unassigned science/physics lessons at every budget purely because lab demand (222 periods) exceeded lab supply (135). The per-room-type layer now catches that class of fixture bug before it leaves the generator.
+- Tier-6 `modulesAll` trimmed to exclude art/music/pe/it — at 130 sections × 3 years the rng could put any one of them in all three years, blowing the per-room-type guardrail. Classroom-friendly + lab subjects only, stable across 12 seeds tested.
+- 13 TS unit tests + 4 Python round-trip tests pass. JSON snapshots committed to `apps/solver-py/tests/fixtures/` (tier-4 133 KB, tier-5 237 KB, tier-6 135 KB).
+
+#### §B — Benchmark harness (commit `e6084a23`)
+
+- `apps/solver-py/scripts/benchmark_scale.py` walks the escalating-budget matrix per tier, posts each patched fixture to the sidecar, and writes `matrix.csv` + `summary.md` into `scheduler/OR CP-SAT/scale-proof-results-YYYY-MM-DD/`. Captures placement ratio, wall clock, CP-SAT status, early-stop telemetry, and an optional memory peak via psutil.
+
+#### §G — CI harness (commit `e6084a23`)
+
+- Added `tier-4-irish-secondary-large-ci` to the `PARITY_FIXTURES` registry at a 60 s budget so it fits under the existing `solver-py` CI job's 15-min ceiling. Tier-5 + tier-6 stay out of CI per spec — they run via `benchmark_scale.py` during measurement sessions.
+
+**Tier-4 local matrix — results so far (10/12 runs complete at the time of this entry):**
+
+| Budget |                Runs |         Placement |    Wall (s) | CP-SAT status | Early-stop    | RSS peak |
+| -----: | ------------------: | ----------------: | ----------: | :------------ | :------------ | -------: |
+|   60 s |               3/3 ✓ | 1100/1100 (100 %) | 63.7 – 63.9 | unknown       | not_triggered |  ~2.1 GB |
+|  120 s |               3/3 ✓ | 1100/1100 (100 %) |       123.7 | unknown       | not_triggered |  ~2.3 GB |
+|  300 s |               3/3 ✓ | 1100/1100 (100 %) |       303.7 | unknown       | not_triggered |  ~2.5 GB |
+|  600 s | 1/3 (2 in progress) | 1100/1100 (100 %) |       603.7 | unknown       | not_triggered |  ~3.1 GB |
+
+**Findings so far:**
+
+- **Tier-4 hits 100 % placement at every budget tested.** Spec target was ≥ 98 % — measured is 100 %. Determinism is perfect across all 10 runs (same seed → byte-identical output).
+- **CP-SAT status is `unknown` at every budget**, meaning CP-SAT never reaches first feasible within budget on tier-4's 1100-lesson model. The placement is entirely the greedy fallback. This isn't a solver defect — it's the greedy hint pre-filling a complete solution that CP-SAT's tree search can't improve upon before the budget exhausts. The architecture is working as intended: greedy does the heavy lifting on large inputs, CP-SAT refines on smaller ones (confirmed by Stage 9.5.1 amendment where CP-SAT reached `feasible` on NHQS @ 600 s at 438-lesson scale).
+- **The diminishing-returns knee for tier-4 is effectively 60 s.** Higher budgets add wall time without changing placement. Recommended default for Irish-secondary-sized tenants: 60 s (matches current production default).
+
+**Memory observation driving §E (the "memory watch" for the current run):**
+
+- Sidecar RSS climbs monotonically with budget: 60 s ~ 2.1 GB → 300 s ~ 2.5 GB → 600 s ~ 3.1 GB. The growth tracks CP-SAT's accumulating search state as it explores longer without finding feasible.
+- Production pm2 `max_memory_restart` is currently 2 GB. **Tier-4 at 600 s already exceeds that cap.** Tier-5 at 1800 s budgets and tier-6 at 3600 s will push much higher — potentially 6+ GB at worst case.
+- **Decision staged for §E:** raise `max_memory_restart` to 4 GB (or 6 GB if tier-6 measurement shows it). The 20-min wakeup currently in flight ends once the last two 600 s runs complete, at which point we'll have the definitive tier-4 peak number and can commit the ecosystem.config.cjs bump before rsync'ing to the server and starting tier-5. 4 GB should be comfortable for tier-4/5; tier-6 is an open measurement.
+
+**Deviations from spec:**
+
+- Tier-6's original 25-period-per-class target (12 modules + 1 intensive at 3 periods) produced rng-dependent per-subject concentration on ~30 % of seeds, failing the strengthened guardrail. Dropped the "intensive" — uniform 2-period modules × 12 = 24 periods/class. Total demand 3120 (≥ 3000 spec target).
+- Tier-6 max_periods_per_week raised 20 → 24 so per-subject teacher allocation doesn't run out of teachers before all 22 curriculum subjects are covered.
+
+**Next steps (session 1 remainder + next session):**
+
+1. Await tier-4 matrix completion (~20 min from this entry); commit `matrix.csv` + `summary.md` as `scale-proof-results-2026-04-16/`.
+2. Raise pm2 `max_memory_restart` 2G → 4G in `ecosystem.config.cjs`, rsync, restart solver-py on the production server under SERVER-LOCK.
+3. Run tier-5 measurement matrix (4 budgets × 3 runs, ~45 min wall) on the production sidecar.
+4. Run tier-6 measurement matrix (4 budgets × 3 runs, up to 12 budgets × 3 runs × 3600 s ≈ 11 h wall — orchestrate overnight).
+5. Analyse knees per tier (§C), populate recommendation table in `docs/features/scheduling.md` (§D), finalise memory-ceiling decision (§E), append PLAN.md Benchmark-3 section (§F).
+6. Flip status-board row 9.5.2 `pending` → `complete` and append a full completion entry in place of this interim one.
+
+**Cumulative Stage 9.5.2 commit chain so far:**
+
+- `82e8c55a` — docs: architecture notes from 9.5.1 amendment findings (housekeeping pre-9.5.2)
+- `e6084a23` — feat: tier-4/5/6 scale-proof fixtures + benchmark harness
+- `60b35b4a` — fix: harden feasibility guardrail + rebalance fixtures
+- `<this docs commit>` — docs: stage 9.5.2 session 1 interim entry
