@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- scheduling review page: timetable grid + diagnostics panel */
 'use client';
 
 import {
@@ -81,34 +82,53 @@ interface RunReview {
 }
 
 type DiagnosticSeverity = 'critical' | 'high' | 'medium' | 'info';
-type DiagnosticCategory =
-  | 'teacher_supply_shortage'
-  | 'workload_cap_hit'
-  | 'availability_pinch'
-  | 'unassigned_slots';
 type SolutionEffort = 'quick' | 'medium' | 'long';
+type FeasibilityVerdict = 'feasible' | 'infeasible' | 'tight';
 
 interface Solution {
-  label: string;
+  id: string;
+  headline: string;
   detail: string;
   effort: SolutionEffort;
+  impact?: {
+    would_unblock_periods: number;
+    would_unblock_percentage: number;
+    confidence: 'high' | 'medium' | 'low';
+  };
+  link?: { href: string; label: string };
+  // Legacy compat
+  label?: string;
   href?: string;
 }
 
 interface Diagnostic {
   id: string;
   severity: DiagnosticSeverity;
-  category: DiagnosticCategory;
-  title: string;
-  description: string;
+  category: string;
+  headline?: string;
+  title?: string;
+  detail?: string;
+  description?: string;
   solutions: Solution[];
   affected: {
     subject?: { id: string; name: string };
     year_group?: { id: string; name: string };
     classes?: Array<{ id: string; name: string }>;
     teachers?: Array<{ id: string; name: string }>;
+    rooms?: Array<{ id: string; name: string }>;
+  };
+  quantified_impact?: {
+    blocked_periods: number;
+    blocked_percentage: number;
   };
   metrics?: Record<string, number>;
+}
+
+interface WhyNot100 {
+  structural: number;
+  pin_conflict: number;
+  budget_bound: number;
+  total_unplaced: number;
 }
 
 interface DiagnosticsResult {
@@ -119,8 +139,21 @@ interface DiagnosticsResult {
     high_issues: number;
     medium_issues: number;
     can_proceed: boolean;
+    feasibility_verdict?: FeasibilityVerdict | null;
+    structural_blockers?: number;
+    budget_bound?: number;
+    pin_conflict?: number;
   };
   diagnostics: Diagnostic[];
+  feasibility?: {
+    verdict: FeasibilityVerdict;
+    ceiling: {
+      total_demand_periods: number;
+      total_qualified_teacher_periods: number;
+      slack_periods: number;
+    };
+  };
+  why_not_100?: WhyNot100;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -230,12 +263,21 @@ function DiagnosticCard({ d, locale }: { d: Diagnostic; locale: string }) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="text-sm font-semibold text-text-primary leading-tight">{d.title}</h4>
+              <h4 className="text-sm font-semibold text-text-primary leading-tight">
+                {d.headline || d.title}
+              </h4>
               <Badge variant={theme.badge} className="text-[10px] uppercase tracking-wide">
                 {theme.label}
               </Badge>
+              {d.quantified_impact && d.quantified_impact.blocked_periods > 0 && (
+                <span className="text-[10px] font-mono text-text-tertiary">
+                  {d.quantified_impact.blocked_periods} period(s)
+                </span>
+              )}
             </div>
-            <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">{d.description}</p>
+            <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">
+              {d.detail || d.description}
+            </p>
           </div>
         </div>
 
@@ -260,7 +302,9 @@ function DiagnosticCard({ d, locale }: { d: Diagnostic; locale: string }) {
                       </span>
                       <div className="flex-1 min-w-0 space-y-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-xs font-medium text-text-primary">{s.label}</p>
+                          <p className="text-xs font-medium text-text-primary">
+                            {s.headline || s.label}
+                          </p>
                           <span
                             className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${effortTheme.className}`}
                           >
@@ -271,9 +315,9 @@ function DiagnosticCard({ d, locale }: { d: Diagnostic; locale: string }) {
                         <p className="text-[11px] text-text-secondary leading-relaxed">
                           {s.detail}
                         </p>
-                        {s.href && (
+                        {(s.link?.href || s.href) && (
                           <a
-                            href={`/${locale}${s.href}`}
+                            href={`/${locale}${s.link?.href || s.href}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-[11px] font-medium text-brand hover:underline"
@@ -342,6 +386,193 @@ function DiagnosticCard({ d, locale }: { d: Diagnostic; locale: string }) {
 
 // ─── Diagnostics panel ────────────────────────────────────────────────────────
 
+// ─── Verdict banner (§G) ──────────────────────────────────────────────────────
+
+function VerdictBanner({ result }: { result: DiagnosticsResult }) {
+  const verdict = result.summary.feasibility_verdict;
+  const total = result.summary.total_unassigned_periods;
+
+  if (total === 0) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-emerald-200 dark:border-emerald-700/40 bg-emerald-50/60 dark:bg-emerald-900/10 px-4 py-3">
+        <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+            100% placed
+          </p>
+          <p className="text-xs text-emerald-700/80 dark:text-emerald-400/70">
+            Every required period has a valid slot. The solver confirmed no better placement exists.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (verdict === 'infeasible') {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-red-200 dark:border-red-700/40 bg-red-50/60 dark:bg-red-900/10 px-4 py-3">
+        <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-red-800 dark:text-red-300">
+            {total} period(s) cannot be placed
+          </p>
+          <p className="text-xs text-red-700/80 dark:text-red-400/70">
+            Structural issues prevent scheduling. Fix the items below, then re-run.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (verdict === 'tight') {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-amber-200 dark:border-amber-700/40 bg-amber-50/60 dark:bg-amber-900/10 px-4 py-3">
+        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+            Tight fit — {total} period(s) at risk
+          </p>
+          <p className="text-xs text-amber-700/80 dark:text-amber-400/70">
+            The solver placed most periods, but some subjects are close to capacity.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Default: unassigned but no feasibility verdict (e.g., V2 legacy runs)
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-amber-200 dark:border-amber-700/40 bg-amber-50/60 dark:bg-amber-900/10 px-4 py-3">
+      <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+      <div>
+        <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+          {total} period(s) unplaced
+        </p>
+        <p className="text-xs text-amber-700/80 dark:text-amber-400/70">
+          See diagnostics below for recommended fixes.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Top-5 solutions card (§G) ──────────────────────────────────────────────
+
+function TopSolutionsCard({ diagnostics }: { diagnostics: Diagnostic[]; locale: string }) {
+  // Collect all solutions across diagnostics, ranked by impact
+  const allSolutions: Array<Solution & { parentCategory: string }> = [];
+  for (const d of diagnostics) {
+    for (const s of d.solutions) {
+      allSolutions.push({ ...s, parentCategory: d.category });
+    }
+  }
+
+  // Sort by would_unblock_periods desc, then effort asc
+  const effortOrder: Record<string, number> = { quick: 0, medium: 1, long: 2 };
+  allSolutions.sort((a, b) => {
+    const impactA = a.impact?.would_unblock_periods ?? 0;
+    const impactB = b.impact?.would_unblock_periods ?? 0;
+    if (impactB !== impactA) return impactB - impactA;
+    return (effortOrder[a.effort] ?? 1) - (effortOrder[b.effort] ?? 1);
+  });
+
+  const top5 = allSolutions.slice(0, 5);
+  if (top5.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-brand/20 bg-brand/5 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Lightbulb className="h-4 w-4 text-brand" />
+        <h4 className="text-sm font-semibold text-text-primary">Top fixes</h4>
+      </div>
+      <div className="space-y-2">
+        {top5.map((s, i) => {
+          const effort = EFFORT_THEME[s.effort];
+          const EffortIcon = effort.icon;
+          const displayLabel = s.headline || s.label || '';
+          const displayHref = s.link?.href || s.href;
+          return (
+            <div
+              key={s.id ?? i}
+              className="flex items-start gap-3 rounded-lg border border-border bg-surface px-3 py-2.5"
+            >
+              <div className="flex items-center justify-center rounded-full bg-brand/10 text-brand h-7 w-7 shrink-0 text-xs font-bold">
+                {s.impact?.would_unblock_periods ?? '?'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-text-primary truncate">
+                    {displayLabel}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${effort.className}`}
+                  >
+                    <EffortIcon className="h-2.5 w-2.5" />
+                    {effort.label}
+                  </span>
+                </div>
+                <p className="text-[11px] text-text-tertiary mt-0.5 line-clamp-2">{s.detail}</p>
+                {displayHref && (
+                  <a
+                    href={displayHref}
+                    className="inline-flex items-center gap-1 text-[11px] text-brand hover:underline mt-1"
+                  >
+                    Fix it <ArrowUpRight className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Why not 100% explainer (§G) ────────────────────────────────────────────
+
+function WhyNot100Explainer({ whyNot }: { whyNot: WhyNot100 }) {
+  if (whyNot.total_unplaced === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-border bg-surface-secondary/40 p-4 space-y-3">
+      <h4 className="text-sm font-semibold text-text-primary">Why not 100%?</h4>
+      <p className="text-xs text-text-secondary">
+        Of your {whyNot.total_unplaced} unplaced period(s):
+      </p>
+      <div className="space-y-2">
+        {whyNot.structural > 0 && (
+          <div className="flex items-center gap-2 text-xs">
+            <div className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
+            <span className="text-text-primary font-medium">{whyNot.structural}</span>
+            <span className="text-text-secondary">
+              blocked by data structure (add or change config)
+            </span>
+          </div>
+        )}
+        {whyNot.pin_conflict > 0 && (
+          <div className="flex items-center gap-2 text-xs">
+            <div className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+            <span className="text-text-primary font-medium">{whyNot.pin_conflict}</span>
+            <span className="text-text-secondary">blocked by conflicting pins (review pins)</span>
+          </div>
+        )}
+        {whyNot.budget_bound > 0 && (
+          <div className="flex items-center gap-2 text-xs">
+            <div className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+            <span className="text-text-primary font-medium">{whyNot.budget_bound}</span>
+            <span className="text-text-secondary">
+              within solver budget but not yet placed (extend budget or retry)
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main DiagnosticsPanel ────────────────────────────────────────────────────
+
 function DiagnosticsPanel({ result, locale }: { result: DiagnosticsResult; locale: string }) {
   const [mediumExpanded, setMediumExpanded] = React.useState(false);
 
@@ -387,6 +618,14 @@ function DiagnosticsPanel({ result, locale }: { result: DiagnosticsResult; local
       </div>
 
       <div className="p-4 space-y-4">
+        {/* Verdict banner */}
+        <VerdictBanner result={result} />
+
+        {/* Top-5 solutions */}
+        {result.diagnostics.length > 0 && (
+          <TopSolutionsCard diagnostics={result.diagnostics} locale={locale} />
+        )}
+
         {result.diagnostics.length === 0 ? (
           <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
             <CheckCircle2 className="h-4 w-4" />
@@ -440,6 +679,9 @@ function DiagnosticsPanel({ result, locale }: { result: DiagnosticsResult; local
             )}
           </>
         )}
+
+        {/* Why not 100%? */}
+        {result.why_not_100 && <WhyNot100Explainer whyNot={result.why_not_100} />}
       </div>
     </div>
   );
