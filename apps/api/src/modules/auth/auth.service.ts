@@ -297,7 +297,7 @@ export class AuthService {
   async refresh(
     refreshToken: string,
     requestedTenantId?: string | null,
-  ): Promise<{ access_token: string }> {
+  ): Promise<{ access_token: string; refresh_token: string }> {
     // 1. Verify refresh token
     let payload: RefreshTokenPayload;
     try {
@@ -407,7 +407,7 @@ export class AuthService {
       7 * 24 * 60 * 60,
     );
 
-    // 6. Issue new access token
+    // 6. Issue new access token and rotated refresh token
     const accessToken = this.signAccessToken({
       sub: user.id,
       email: user.email,
@@ -415,7 +415,12 @@ export class AuthService {
       membership_id: session.membership_id,
     });
 
-    return { access_token: accessToken };
+    const newRefreshToken = this.signRefreshToken({
+      sub: user.id,
+      session_id: session.session_id,
+    });
+
+    return { access_token: accessToken, refresh_token: newRefreshToken };
   }
 
   async logout(sessionId: string, userId: string): Promise<void> {

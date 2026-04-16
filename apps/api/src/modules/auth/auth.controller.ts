@@ -102,7 +102,11 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Req() req: Request, @CurrentTenant() tenantContext: TenantContext | null) {
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @CurrentTenant() tenantContext: TenantContext | null,
+  ) {
     const refreshToken = req.cookies?.refresh_token as string | undefined;
 
     if (!refreshToken) {
@@ -112,7 +116,17 @@ export class AuthController {
     }
 
     const result = await this.authService.refresh(refreshToken, tenantContext?.tenant_id);
-    return result;
+
+    // RC-C019: Rotate refresh token — set the new token as an httpOnly cookie
+    res.cookie('refresh_token', result.refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/api/v1/auth/refresh',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    return { access_token: result.access_token };
   }
 
   @Post('logout')

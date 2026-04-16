@@ -1,6 +1,9 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import {
+  BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
@@ -281,6 +284,24 @@ export class ReportCardGenerationService {
   }
 
   async generateBulkDrafts(tenantId: string, classId: string, periodId: string) {
+    // RC-C013: Per-tenant rate limit — max 10 generation runs per hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentRunCount = await this.prisma.reportCardBatchJob.count({
+      where: {
+        tenant_id: tenantId,
+        created_at: { gte: oneHourAgo },
+      },
+    });
+    if (recentRunCount >= 10) {
+      throw new HttpException(
+        {
+          code: 'GENERATION_RATE_LIMIT_EXCEEDED',
+          message: 'Maximum 10 generation runs per hour. Please wait before starting another run.',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     const enrolments = (await this.classesReadFacade.findEnrolmentsGeneric(
       tenantId,
       { class_id: classId, status: 'active' },
@@ -289,6 +310,17 @@ export class ReportCardGenerationService {
 
     if (enrolments.length === 0) {
       return { data: [], skipped: 0, generated: 0 };
+    }
+
+    // RC-C030: Enforce a 300-card cap per generation run to prevent worker OOM
+    const MAX_CARDS_PER_RUN = 300;
+    if (enrolments.length > MAX_CARDS_PER_RUN) {
+      throw new BadRequestException({
+        error: {
+          code: 'GENERATION_LIMIT_EXCEEDED',
+          message: `This class has ${enrolments.length} students, which exceeds the ${MAX_CARDS_PER_RUN}-card limit per generation run. Please generate report cards in smaller batches by selecting specific year groups or classes.`,
+        },
+      });
     }
 
     const studentIds = enrolments.map((enrolment) => enrolment.student_id);
@@ -669,6 +701,24 @@ export class ReportCardGenerationService {
   ): Promise<{ batch_job_id: string }> {
     if (!this.templateService || !this.tenantSettingsService || !this.generationQueue) {
       throw new Error('ReportCardGenerationService is not wired for generateRun');
+    }
+
+    // RC-C013: Per-tenant rate limit — max 10 generation runs per hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentRunCount = await this.prisma.reportCardBatchJob.count({
+      where: {
+        tenant_id: tenantId,
+        created_at: { gte: oneHourAgo },
+      },
+    });
+    if (recentRunCount >= 10) {
+      throw new HttpException(
+        {
+          code: 'GENERATION_RATE_LIMIT_EXCEEDED',
+          message: 'Maximum 10 generation runs per hour. Please wait before starting another run.',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     // Resolve period/year combination. The helper validates that exactly

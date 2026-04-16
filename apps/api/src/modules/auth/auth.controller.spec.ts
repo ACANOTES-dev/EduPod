@@ -511,27 +511,38 @@ describe('AuthController', () => {
 
   describe('AuthController -- refresh', () => {
     it('should call refresh with cookie token and return new access token', async () => {
-      const expected = { access_token: 'new-at' };
+      const expected = { access_token: 'new-at', refresh_token: 'new-rt' };
       service.refresh.mockResolvedValue(expected);
 
       const req = buildMockRequest({ cookies: { refresh_token: 'rt-cookie' } });
-      const result = await controller.refresh(req, mockTenantContext);
+      const res = buildMockResponse();
+      const result = await controller.refresh(req, res, mockTenantContext);
 
       expect(service.refresh).toHaveBeenCalledWith('rt-cookie', TENANT_ID);
-      expect(result).toBe(expected);
+      expect(result).toEqual({ access_token: 'new-at' });
+      expect(res.cookie).toHaveBeenCalledWith(
+        'refresh_token',
+        'new-rt',
+        expect.objectContaining({
+          httpOnly: true,
+          path: '/api/v1/auth/refresh',
+        }),
+      );
     });
 
     it('should throw UnauthorizedException when no refresh token cookie present', async () => {
       const req = buildMockRequest({ cookies: {} });
+      const res = buildMockResponse();
 
-      await expect(controller.refresh(req, null)).rejects.toThrow(UnauthorizedException);
+      await expect(controller.refresh(req, res, null)).rejects.toThrow(UnauthorizedException);
       expect(service.refresh).not.toHaveBeenCalled();
     });
 
     it('should throw UnauthorizedException with MISSING_REFRESH_TOKEN code', async () => {
       const req = buildMockRequest({ cookies: {} });
+      const res = buildMockResponse();
 
-      await expect(controller.refresh(req, null)).rejects.toMatchObject({
+      await expect(controller.refresh(req, res, null)).rejects.toMatchObject({
         response: {
           error: expect.objectContaining({ code: 'MISSING_REFRESH_TOKEN' }),
         },
@@ -540,10 +551,11 @@ describe('AuthController', () => {
 
     it('should throw UnauthorizedException when cookies object is undefined', async () => {
       const req = buildMockRequest();
+      const res = buildMockResponse();
       // Remove cookies entirely
       delete (req as unknown as Record<string, unknown>).cookies;
 
-      await expect(controller.refresh(req, null)).rejects.toThrow(UnauthorizedException);
+      await expect(controller.refresh(req, res, null)).rejects.toThrow(UnauthorizedException);
     });
   });
 

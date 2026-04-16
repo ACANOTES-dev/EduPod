@@ -36,6 +36,7 @@ function buildMockPrisma() {
     periodGradeSnapshot: { findMany: jest.fn() },
     assessment: { findMany: jest.fn() },
     reportCard: { findMany: jest.fn() },
+    reportCardBatchJob: { count: jest.fn().mockResolvedValue(0) },
   };
 }
 
@@ -589,7 +590,7 @@ function buildV2Prisma() {
       create: jest.fn(),
       findFirst: jest.fn(),
       findMany: jest.fn(),
-      count: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
     },
   };
 }

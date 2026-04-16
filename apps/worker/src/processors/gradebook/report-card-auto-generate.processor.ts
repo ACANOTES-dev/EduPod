@@ -21,6 +21,10 @@ export const REPORT_CARD_AUTO_GENERATE_JOB = 'report-cards:auto-generate';
 export class ReportCardAutoGenerateProcessor {
   private readonly logger = new Logger(ReportCardAutoGenerateProcessor.name);
 
+  // RC-C029: In-memory circuit breaker — skip tenants after 3 consecutive failures
+  private readonly failureCountByTenant = new Map<string, number>();
+  private static readonly CIRCUIT_BREAKER_THRESHOLD = 3;
+
   constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(_job: Job): Promise<void> {
@@ -34,8 +38,27 @@ export class ReportCardAutoGenerateProcessor {
     let totalGenerated = 0;
 
     for (const tenant of tenants) {
-      const generated = await this.processForTenant(tenant.id, tenant.default_locale);
-      totalGenerated += generated;
+      // RC-C029: Skip tenants that have tripped the circuit breaker
+      const failures = this.failureCountByTenant.get(tenant.id) ?? 0;
+      if (failures >= ReportCardAutoGenerateProcessor.CIRCUIT_BREAKER_THRESHOLD) {
+        this.logger.warn(
+          `Skipping tenant ${tenant.id} — circuit breaker open after ${failures} consecutive failures`,
+        );
+        continue;
+      }
+
+      try {
+        const generated = await this.processForTenant(tenant.id, tenant.default_locale);
+        totalGenerated += generated;
+        // Reset on success
+        this.failureCountByTenant.delete(tenant.id);
+      } catch (err) {
+        const newCount = failures + 1;
+        this.failureCountByTenant.set(tenant.id, newCount);
+        this.logger.error(
+          `Tenant ${tenant.id} auto-generate failed (${newCount}/${ReportCardAutoGenerateProcessor.CIRCUIT_BREAKER_THRESHOLD}): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
 
     this.logger.log(
