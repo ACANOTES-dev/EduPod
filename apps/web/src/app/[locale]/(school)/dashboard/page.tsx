@@ -199,7 +199,8 @@ export default function DashboardPage() {
   if (roleKeys.includes('student')) {
     // Redirect to dedicated student dashboard route
     if (typeof window !== 'undefined') {
-      const locale = user.memberships?.[0]?.tenant?.default_locale ?? 'en';
+      const tenant = user.memberships?.[0]?.tenant as { default_locale?: string } | undefined;
+      const locale = tenant?.default_locale ?? 'en';
       window.location.href = `/${locale}/dashboard/student`;
     }
     return null;

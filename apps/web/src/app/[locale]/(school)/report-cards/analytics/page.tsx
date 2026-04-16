@@ -16,9 +16,16 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { toast } from 'sonner';
 
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
+import {
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  toast,
+} from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
@@ -93,7 +100,7 @@ export default function ReportCardAnalyticsPage() {
   const { roleKeys } = useRoleCheck();
 
   const isAdmin = React.useMemo(
-    () => roleKeys.some((role) => ADMIN_ROLES.includes(role)),
+    () => roleKeys.some((role) => (ADMIN_ROLES as readonly string[]).includes(role)),
     [roleKeys],
   );
 

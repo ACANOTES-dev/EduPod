@@ -175,7 +175,7 @@ export default function StudentDashboardPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <StatusBadge variant="success">{trc('statusPublished')}</StatusBadge>
+                  <StatusBadge status="success">{trc('statusPublished')}</StatusBadge>
                   <Button
                     variant="ghost"
                     size="sm"
