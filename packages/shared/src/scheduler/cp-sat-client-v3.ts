@@ -64,6 +64,80 @@ export async function solveViaCpSatV3(
   }
 }
 
+// ─── Diagnose client (Stage 12 §B) ──────────────────────────────────────────
+
+export interface DiagnoseOptions {
+  baseUrl: string;
+  timeoutMs?: number;
+  requestId?: string;
+}
+
+export interface DiagnoseResult {
+  subsets: Array<{
+    lessons: Array<{ lesson_id: string; class_id: string; subject_id: string }>;
+    blocking_constraints: Array<{
+      type: string;
+      detail: string;
+      teacher_id?: string;
+      teacher_ids?: string[];
+      subject_id?: string;
+      room_type?: string;
+      shortfall_periods?: number;
+    }>;
+  }>;
+  timed_out: boolean;
+  duration_ms: number;
+}
+
+export async function diagnoseViaCpSat(
+  input: SolverInputV3,
+  output: SolverOutputV3,
+  opts: DiagnoseOptions,
+): Promise<DiagnoseResult> {
+  const timeoutMs = opts.timeoutMs ?? 30_000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const dispatcher = new Agent({
+    headersTimeout: timeoutMs,
+    bodyTimeout: timeoutMs,
+    connectTimeout: 10_000,
+  });
+  try {
+    let res: Response;
+    try {
+      res = await fetch(`${opts.baseUrl}/diagnose`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(opts.requestId ? { 'X-Request-Id': opts.requestId } : {}),
+        },
+        body: JSON.stringify({ input, output, max_subsets: 8 }),
+        signal: controller.signal,
+        dispatcher,
+      } as Parameters<typeof fetch>[1] & { dispatcher: Agent });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown CP-SAT transport error';
+      throw new CpSatSolveError('CP_SAT_UNREACHABLE', message, 0);
+    }
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      const errBody = (body as { error?: { code?: string; message?: string } }).error;
+      throw new CpSatSolveError(
+        errBody?.code ?? 'CP_SAT_ERROR',
+        errBody?.message ?? `Sidecar /diagnose returned ${res.status}`,
+        res.status,
+        body,
+      );
+    }
+    return (await res.json()) as DiagnoseResult;
+  } finally {
+    clearTimeout(timer);
+    await dispatcher.close().catch(() => {
+      /* dispatcher already closed — non-fatal */
+    });
+  }
+}
+
 async function cancelSolveV3(baseUrl: string, requestId: string): Promise<void> {
   const cancelController = new AbortController();
   const cancelTimer = setTimeout(() => cancelController.abort(), 5_000);

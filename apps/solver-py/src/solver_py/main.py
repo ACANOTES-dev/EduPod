@@ -32,7 +32,9 @@ from solver_py.config import settings
 from solver_py.schema import SolverInputV2
 from solver_py.schema.v3 import SolverInputV3
 from solver_py.schema.v3.adapters import v2_output_to_v3, v3_input_to_v2
+from solver_py.schema.v3.diagnose import DiagnoseRequest
 from solver_py.solver import SolveError, solve
+from solver_py.solver.diagnose import diagnose_unassigned
 
 
 class _JsonLogFormatter(logging.Formatter):
@@ -345,3 +347,53 @@ async def solve_v3_endpoint(
         status_code=200,
         content=v3_result.model_dump(mode="json"),
     )
+
+
+# ─── Diagnose endpoint (Stage 12 §B) ──────────────────────────────────────
+
+
+@app.post("/diagnose")
+async def diagnose_endpoint(
+    payload: DiagnoseRequest, request: Request
+) -> JSONResponse:
+    """Analyse unassigned lessons and identify blocking constraints.
+
+    Takes the V3 input + output from a completed solve and identifies
+    which specific constraints blocked each unassigned lesson. Returns
+    structured subsets for the diagnostics module to translate and render.
+
+    Guardrails:
+      - max_subsets capped at 20
+      - Total call capped at 30s (runs in worker thread)
+      - Deterministic: sorted lesson iteration order
+    """
+    request_id: str = (
+        getattr(request.state, "request_id", "") or uuid.uuid4().hex
+    )
+
+    logger.info(
+        "received diagnose request",
+        extra={
+            "request_id": request_id,
+            "unassigned_count": len(payload.output.unassigned),
+            "max_subsets": payload.max_subsets,
+        },
+    )
+
+    result = await asyncio.to_thread(
+        diagnose_unassigned,
+        payload.input,
+        payload.output,
+        payload.max_subsets,
+    )
+
+    logger.info(
+        "diagnose complete",
+        extra={
+            "request_id": request_id,
+            "subsets": len(result.get("subsets", [])),
+            "duration_ms": result.get("duration_ms", 0),
+        },
+    )
+
+    return JSONResponse(status_code=200, content=result)
