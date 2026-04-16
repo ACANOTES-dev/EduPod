@@ -51,7 +51,8 @@
     "updated": "Updated successfully",
     "deleting": "Deleting...",
     "unknown": "Unknown",
-    "on": "on"
+    "on": "on",
+    "showingRange": "Showing {start}–{end} of {total}"
   },
   "nav": {
     "home": "Home",
@@ -2871,7 +2872,19 @@
     "graduated": "Graduated",
     "withdrawn": "Withdrawn",
     "allStatuses": "All Statuses",
-    "searchStudents": "Search students..."
+    "searchStudents": "Search students...",
+    "subtitle": "Manage student records and enrolments",
+    "emptyStateDescription": "Register a new family using the wizard, or add a student from an existing household.",
+    "columnName": "Name",
+    "columnStudentNumber": "Student #",
+    "columnYearGroup": "Year Group",
+    "columnStatus": "Status",
+    "columnHousehold": "Household",
+    "statusActive": "Active",
+    "statusApplicant": "Applicant",
+    "statusWithdrawn": "Withdrawn",
+    "statusGraduated": "Graduated",
+    "statusArchived": "Archived"
   },
   "households": {
     "title": "Households",

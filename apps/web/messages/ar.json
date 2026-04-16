@@ -44,14 +44,15 @@
     "errorBoundaryDescription": "حدث خطأ غير متوقع. يمكنك المحاولة مرة أخرى أو العودة إلى لوحة التحكم.",
     "errorBoundaryRetry": "حاول مرة أخرى",
     "eGMath": "[AR] e.g. MATH",
-    "nextPage": "[AR] Next page",
-    "previousPage": "[AR] Previous page",
+    "nextPage": "الصفحة التالية",
+    "previousPage": "الصفحة السابقة",
     "status": "الحالة",
     "created": "تم الإنشاء بنجاح",
     "updated": "تم التحديث بنجاح",
     "deleting": "جارٍ الحذف...",
     "unknown": "غير معروف",
-    "on": "في"
+    "on": "في",
+    "showingRange": "عرض {start}–{end} من {total}"
   },
   "nav": {
     "home": "الرئيسية",
@@ -2863,7 +2864,19 @@
     "graduated": "تخرج",
     "withdrawn": "منسحب",
     "allStatuses": "جميع الحالات",
-    "searchStudents": "بحث students..."
+    "searchStudents": "البحث عن الطلاب...",
+    "subtitle": "إدارة سجلات الطلاب والتسجيل",
+    "emptyStateDescription": "سجّل أسرة جديدة باستخدام المعالج، أو أضف طالباً من أسرة موجودة.",
+    "columnName": "الاسم",
+    "columnStudentNumber": "رقم الطالب",
+    "columnYearGroup": "المرحلة الدراسية",
+    "columnStatus": "الحالة",
+    "columnHousehold": "الأسرة",
+    "statusActive": "نشط",
+    "statusApplicant": "مقدّم طلب",
+    "statusWithdrawn": "منسحب",
+    "statusGraduated": "متخرج",
+    "statusArchived": "مؤرشف"
   },
   "households": {
     "title": "الأسر",

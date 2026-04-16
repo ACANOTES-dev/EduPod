@@ -18,7 +18,6 @@ import {
   toast,
 } from '@school/ui';
 
-
 import { DataTable } from '@/components/data-table';
 import { EntityLink } from '@/components/entity-link';
 import { PageHeader } from '@/components/page-header';
@@ -32,7 +31,6 @@ import {
   generateExcel,
   generatePdf,
 } from './_components/export-utils';
-
 
 interface YearGroup {
   id: string;
@@ -191,7 +189,7 @@ export default function StudentsPage() {
   const columns = [
     {
       key: 'full_name',
-      header: 'Name',
+      header: t('columnName'),
       render: (row: Student) => (
         <EntityLink
           entityType="student"
@@ -203,30 +201,30 @@ export default function StudentsPage() {
     },
     {
       key: 'student_number',
-      header: 'Student #',
+      header: t('columnStudentNumber'),
       render: (row: Student) => (
         <span className="font-mono text-xs text-text-secondary">{row.student_number}</span>
       ),
     },
     {
       key: 'year_group',
-      header: 'Year Group',
+      header: t('columnYearGroup'),
       render: (row: Student) => (
         <span className="text-text-secondary">{row.year_group?.name ?? '—'}</span>
       ),
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('columnStatus'),
       render: (row: Student) => (
         <StatusBadge status={statusVariantMap[row.status]} dot>
-          {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+          {t(`status${row.status.charAt(0).toUpperCase() + row.status.slice(1)}`)}
         </StatusBadge>
       ),
     },
     {
       key: 'household',
-      header: 'Household',
+      header: t('columnHousehold'),
       render: (row: Student) =>
         row.household ? (
           <EntityLink
@@ -298,13 +296,17 @@ export default function StudentsPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('title')}
-        description="Manage student records and enrolments"
+        description={t('subtitle')}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => openExportModal('xlsx')}>
-              <FileSpreadsheet className="me-2 h-4 w-4" />{t('excel')}</Button>
+              <FileSpreadsheet className="me-2 h-4 w-4" />
+              {t('excel')}
+            </Button>
             <Button variant="outline" size="sm" onClick={() => openExportModal('pdf')}>
-              <Download className="me-2 h-4 w-4" />{tCommon('pdfFormat')}</Button>
+              <Download className="me-2 h-4 w-4" />
+              {tCommon('pdfFormat')}
+            </Button>
           </div>
         }
       />
@@ -313,7 +315,7 @@ export default function StudentsPage() {
         <EmptyState
           icon={GraduationCap}
           title={t('noStudentsYet')}
-          description="Register a new family using the wizard, or add a student from an existing household."
+          description={t('emptyStateDescription')}
         />
       ) : (
         <DataTable
