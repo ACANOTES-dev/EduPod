@@ -93,7 +93,10 @@ interface UnassignedEntry {
   class_id: string;
   subject_id: string;
   year_group_id: string;
-  periods_remaining: number;
+  /** V2: number of remaining periods. V3: absent (each row = 1 lesson). */
+  periods_remaining?: number;
+  /** V3 only: sequential lesson index. */
+  lesson_index?: number;
   reason: string;
 }
 
@@ -149,8 +152,9 @@ export class SchedulingDiagnosticsService {
       ? (snapshot['teachers'] as SnapshotTeacher[])
       : [];
 
+    // V3 unassigned rows represent 1 lesson each (no periods_remaining field).
     const totalUnassignedPeriods = unassigned.reduce(
-      (sum, u) => sum + (u.periods_remaining ?? 0),
+      (sum, u) => sum + (u.periods_remaining ?? 1),
       0,
     );
 
@@ -297,7 +301,7 @@ export class SchedulingDiagnosticsService {
       if (impliedLoad <= maxFeasible) continue; // not a supply problem
 
       const additionalTeachersNeeded = Math.max(1, Math.ceil(demand / maxFeasible) - supply);
-      const unassignedPeriods = group.reduce((sum, u) => sum + (u.periods_remaining ?? 0), 0);
+      const unassignedPeriods = group.reduce((sum, u) => sum + (u.periods_remaining ?? 1), 0);
       const subjectName = ctx.subjectNameById.get(subjectId) ?? subjectId;
       const ygName = ctx.yearGroupNameById.get(yearGroupId) ?? yearGroupId;
       const affectedClasses = [...new Set(group.map((u) => u.class_id))].map((id) => ({
@@ -459,7 +463,7 @@ export class SchedulingDiagnosticsService {
         return sum + perTeacher;
       }, 0);
 
-      const unassignedPeriods = group.reduce((sum, u) => sum + (u.periods_remaining ?? 0), 0);
+      const unassignedPeriods = group.reduce((sum, u) => sum + (u.periods_remaining ?? 1), 0);
       if (unassignedPeriods === 0) continue;
       // Flag when total availability is below the unplaced demand by a clear
       // margin — otherwise the root cause is likely class-conflict, not
@@ -534,7 +538,7 @@ export class SchedulingDiagnosticsService {
 
       const subjectName = ctx.subjectNameById.get(subjectId) ?? subjectId;
       const ygName = ctx.yearGroupNameById.get(yearGroupId) ?? yearGroupId;
-      const unassignedPeriods = group.reduce((sum, u) => sum + (u.periods_remaining ?? 0), 0);
+      const unassignedPeriods = group.reduce((sum, u) => sum + (u.periods_remaining ?? 1), 0);
       const affectedClasses = [...new Set(group.map((u) => u.class_id))].map((id) => ({
         id,
         name: ctx.classNameById.get(id) ?? id,

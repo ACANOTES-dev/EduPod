@@ -42,11 +42,16 @@ export interface SchedulingResultEntry {
 
 export interface SchedulingUnassignedSlot {
   class_id: string;
-  periods_remaining: number;
+  /** V2: aggregate count. V3: absent (each row = 1 lesson; use lesson_index). */
+  periods_remaining?: number;
+  /** V3 only: sequential lesson index. */
+  lesson_index?: number;
   reason: string;
 }
 
 export interface SchedulingResultJson {
+  /** Stage 10: 'v2' (default/untagged) or 'v3'. Consumers branch on this. */
+  result_schema_version?: 'v2' | 'v3';
   entries: SchedulingResultEntry[];
   unassigned: SchedulingUnassignedSlot[];
 }

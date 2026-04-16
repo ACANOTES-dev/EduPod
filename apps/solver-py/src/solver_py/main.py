@@ -30,6 +30,8 @@ from fastapi.responses import JSONResponse
 from solver_py import __version__
 from solver_py.config import settings
 from solver_py.schema import SolverInputV2
+from solver_py.schema.v3 import SolverInputV3
+from solver_py.schema.v3.adapters import v2_output_to_v3, v3_input_to_v2
 from solver_py.solver import SolveError, solve
 
 
@@ -258,4 +260,88 @@ async def cancel_solve_endpoint(request_id: str) -> JSONResponse:
     return JSONResponse(
         status_code=200,
         content={"cancelled": True, "request_id": request_id},
+    )
+
+
+# ─── V3 endpoint (Stage 10) ─────────────────────────────────────────────────
+
+
+@app.post("/v3/solve")
+async def solve_v3_endpoint(
+    payload: SolverInputV3, request: Request
+) -> JSONResponse:
+    """Solve a scheduling instance using the V3 contract.
+
+    Internally converts V3 input → V2, runs the existing solver, then
+    converts V2 output → V3. The V3 contract is CP-SAT-native: integer
+    period indices, split demand/preferences, required solve_status and
+    early-stop fields, objective_breakdown, room_assignment_source.
+
+    Stage 11 will have assembleSolverInput emit V3 directly; at that
+    point this adapter path becomes the only path and /solve (V2) is
+    deprecated.
+    """
+    request_id: str = (
+        getattr(request.state, "request_id", "") or uuid.uuid4().hex
+    )
+    cancel_flag = threading.Event()
+    with _inflight_lock:
+        _inflight[request_id] = cancel_flag
+
+    logger.info(
+        "received v3 solve request",
+        extra={
+            "request_id": request_id,
+            "classes": len(payload.classes),
+            "teachers": len(payload.teachers),
+            "demand_entries": len(payload.demand),
+            "period_slots": len(payload.period_slots),
+            "pinned_entries": len(payload.pinned),
+            "rooms": len(payload.rooms),
+            "break_groups": len(payload.break_groups),
+        },
+    )
+
+    # Convert V3 → V2 for the existing solver pipeline
+    v2_input = v3_input_to_v2(payload)
+
+    try:
+        async with _solve_semaphore:
+            try:
+                v2_result = await asyncio.to_thread(
+                    solve, v2_input, cancel_flag
+                )
+            except SolveError as exc:
+                logger.exception("solver could not decide (v3)")
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "error": {
+                            "code": "SOLVER_INDETERMINATE",
+                            "message": str(exc),
+                        },
+                    },
+                )
+    finally:
+        with _inflight_lock:
+            _inflight.pop(request_id, None)
+
+    # Convert V2 output → V3
+    v3_result = v2_output_to_v3(v2_result, payload)
+
+    logger.info(
+        "v3 solve complete",
+        extra={
+            "request_id": request_id,
+            "solve_status": v3_result.solve_status,
+            "entries": len(v3_result.entries),
+            "unassigned": len(v3_result.unassigned),
+            "soft_score": v3_result.soft_score,
+            "soft_max_score": v3_result.soft_max_score,
+            "duration_ms": v3_result.duration_ms,
+        },
+    )
+    return JSONResponse(
+        status_code=200,
+        content=v3_result.model_dump(mode="json"),
     )

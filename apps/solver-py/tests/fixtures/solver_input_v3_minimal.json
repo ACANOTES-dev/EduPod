@@ -1,0 +1,145 @@
+{
+  "period_slots": [
+    {
+      "index": 0,
+      "year_group_id": "yg-1",
+      "weekday": 0,
+      "period_order": 0,
+      "start_time": "08:00",
+      "end_time": "08:45",
+      "period_type": "teaching",
+      "supervision_mode": "none",
+      "break_group_id": null
+    },
+    {
+      "index": 1,
+      "year_group_id": "yg-1",
+      "weekday": 0,
+      "period_order": 1,
+      "start_time": "08:45",
+      "end_time": "09:00",
+      "period_type": "break_supervision",
+      "supervision_mode": "yard",
+      "break_group_id": "bg-1"
+    }
+  ],
+  "classes": [
+    {
+      "class_id": "class-A",
+      "class_name": "Y1-A",
+      "year_group_id": "yg-1",
+      "year_group_name": "Year 1",
+      "student_count": 20
+    },
+    {
+      "class_id": "class-B",
+      "class_name": "Y1-B",
+      "year_group_id": "yg-1",
+      "year_group_name": "Year 1",
+      "student_count": null
+    }
+  ],
+  "subjects": [{ "subject_id": "maths", "subject_name": "Maths" }],
+  "teachers": [
+    {
+      "staff_profile_id": "t1",
+      "name": "Teacher One",
+      "competencies": [
+        { "subject_id": "maths", "year_group_id": "yg-1", "class_id": null },
+        { "subject_id": "maths", "year_group_id": "yg-1", "class_id": "class-A" }
+      ],
+      "availability": [{ "weekday": 0, "from": "08:00", "to": "12:00" }],
+      "max_periods_per_week": 25,
+      "max_periods_per_day": 6,
+      "max_supervision_duties_per_week": 5
+    }
+  ],
+  "rooms": [{ "room_id": "room-1", "room_type": "lab", "capacity": 30, "is_exclusive": true }],
+  "room_closures": [{ "room_id": "room-1", "date_from": "2026-04-01", "date_to": "2026-04-02" }],
+  "break_groups": [
+    {
+      "break_group_id": "bg-1",
+      "name": "Morning yard",
+      "year_group_ids": ["yg-1"],
+      "required_supervisor_count": 1
+    }
+  ],
+  "demand": [
+    {
+      "class_id": "class-A",
+      "subject_id": "maths",
+      "periods_per_week": 5,
+      "max_per_day": 2,
+      "required_doubles": 1,
+      "required_room_type": "lab"
+    },
+    {
+      "class_id": "class-B",
+      "subject_id": "maths",
+      "periods_per_week": 3,
+      "max_per_day": 2,
+      "required_doubles": 0,
+      "required_room_type": null
+    }
+  ],
+  "preferences": {
+    "class_preferences": [
+      {
+        "class_id": "class-A",
+        "subject_id": "maths",
+        "preferred_periods_per_week": null,
+        "preferred_room_id": "room-1"
+      },
+      {
+        "class_id": "class-B",
+        "subject_id": "maths",
+        "preferred_periods_per_week": 4,
+        "preferred_room_id": null
+      }
+    ],
+    "teacher_preferences": [
+      {
+        "id": "pref-1",
+        "teacher_staff_id": "t1",
+        "preference_type": "subject",
+        "preference_payload": { "subject_id": "maths", "wants": true },
+        "priority": "high"
+      }
+    ],
+    "global_weights": {
+      "even_subject_spread": 1,
+      "minimise_teacher_gaps": 1,
+      "room_consistency": 1,
+      "workload_balance": 1,
+      "break_duty_balance": 1
+    },
+    "preference_weights": { "low": 1, "medium": 3, "high": 5 }
+  },
+  "pinned": [
+    {
+      "schedule_id": "pin-1",
+      "class_id": "class-A",
+      "subject_id": "maths",
+      "period_index": 0,
+      "teacher_staff_id": "t1",
+      "room_id": "room-1"
+    }
+  ],
+  "student_overlaps": [{ "class_id_a": "class-A", "class_id_b": "class-B" }],
+  "settings": {
+    "max_solver_duration_seconds": 10,
+    "solver_seed": 0
+  },
+  "constraint_snapshot": [
+    {
+      "type": "class_subject_override",
+      "description": "class-A maths overridden from 3 to 5 periods/week",
+      "details": {
+        "class_id": "class-A",
+        "subject_id": "maths",
+        "baseline_periods": 3,
+        "override_periods": 5
+      }
+    }
+  ]
+}

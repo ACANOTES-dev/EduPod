@@ -287,6 +287,10 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     };
 
     const resultJson = {
+      // Stage 10: tag every persisted run so consumers can branch on the
+      // schema version. All runs produced by this worker are V2 until
+      // Stage 11 switches to solveViaCpSatV3.
+      result_schema_version: 'v2' as const,
       entries: result.entries,
       unassigned: result.unassigned,
       // SCHED-026: surface quality metrics (gap index, day variance, preference

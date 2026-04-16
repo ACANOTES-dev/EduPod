@@ -755,8 +755,11 @@ export class SchedulerOrchestrationService {
       });
     }
 
-    // Parse result
+    // Parse result — branch on result_schema_version (Stage 10).
+    // All current runs are v2 (or untagged → treated as v2).
+    // Stage 11 will start producing v3 runs.
     const resultJson = run.result_json as {
+      result_schema_version?: 'v2' | 'v3';
       entries: SolverAssignmentV2[];
       unassigned: unknown[];
     } | null;
