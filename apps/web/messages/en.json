@@ -52,7 +52,8 @@
     "deleting": "Deleting...",
     "unknown": "Unknown",
     "on": "on",
-    "showingRange": "Showing {start}–{end} of {total}"
+    "showingRange": "Showing {start}–{end} of {total}",
+    "fetchError": "Failed to load data. Please try again."
   },
   "nav": {
     "home": "Home",

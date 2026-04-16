@@ -52,7 +52,8 @@
     "deleting": "جارٍ الحذف...",
     "unknown": "غير معروف",
     "on": "في",
-    "showingRange": "عرض {start}–{end} من {total}"
+    "showingRange": "عرض {start}–{end} من {total}",
+    "fetchError": "فشل تحميل البيانات. يرجى المحاولة مرة أخرى."
   },
   "nav": {
     "home": "الرئيسية",

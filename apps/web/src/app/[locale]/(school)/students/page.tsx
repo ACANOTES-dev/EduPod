@@ -155,6 +155,7 @@ export default function StudentsPage() {
       setTotal(res.meta.total);
     } catch (err) {
       console.error('[StudentsPage]', err);
+      toast.error(tCommon('fetchError'));
       setStudents([]);
       setTotal(0);
     } finally {
