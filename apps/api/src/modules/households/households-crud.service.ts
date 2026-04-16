@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import type { CreateHouseholdDto, UpdateHouseholdDto } from '@school/shared';
@@ -317,6 +317,13 @@ export class HouseholdsCrudService {
 
   // ─── Update Status ────────────────────────────────────────────────────────
 
+  // ─── Status transition map ────────────────────────────────────────────────
+  private static readonly VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
+    active: ['inactive', 'archived'],
+    inactive: ['active', 'archived'],
+    archived: [], // archived is terminal — prevents merge-source revival
+  };
+
   async updateStatus(tenantId: string, id: string, status: string) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -332,6 +339,16 @@ export class HouseholdsCrudService {
           error: {
             code: 'HOUSEHOLD_NOT_FOUND',
             message: `Household with id "${id}" not found`,
+          },
+        });
+      }
+
+      const allowed = HouseholdsCrudService.VALID_STATUS_TRANSITIONS[existing.status] ?? [];
+      if (!allowed.includes(status)) {
+        throw new BadRequestException({
+          error: {
+            code: 'INVALID_STATUS_TRANSITION',
+            message: `Cannot transition household from "${existing.status}" to "${status}"`,
           },
         });
       }

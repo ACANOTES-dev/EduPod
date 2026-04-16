@@ -725,6 +725,14 @@ describe('HouseholdsService — updateStatus', () => {
       NotFoundException,
     );
   });
+
+  it('should throw BadRequestException when transitioning from archived to active', async () => {
+    mockRlsTx.household.findFirst.mockResolvedValue({ ...baseHousehold, status: 'archived' });
+
+    await expect(service.updateStatus(TENANT_ID, HOUSEHOLD_ID, 'active')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
 });
 
 // ─── Tests: addEmergencyContact ───────────────────────────────────────────────
