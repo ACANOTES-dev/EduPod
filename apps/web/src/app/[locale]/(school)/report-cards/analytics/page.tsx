@@ -144,12 +144,17 @@ export default function ReportCardAnalyticsPage() {
       const dashboardPromise = apiClient<{ data: AnalyticsSummary }>(
         `/api/v1/report-cards/analytics/dashboard${qsSuffix}`,
       );
-      const comparisonPromise =
-        periodId !== ALL_PERIODS
-          ? apiClient<{ data: ClassComparisonItem[] }>(
-              `/api/v1/report-cards/analytics/class-comparison${qsSuffix}`,
-            )
-          : Promise.resolve({ data: [] as ClassComparisonItem[] });
+      // Always fetch class-comparison. When "all periods" is selected, use
+      // the 'full_year' sentinel so the backend returns full-year report cards.
+      const comparisonParams = new URLSearchParams();
+      if (periodId !== ALL_PERIODS) {
+        comparisonParams.set('academic_period_id', periodId);
+      } else {
+        comparisonParams.set('academic_period_id', 'full_year');
+      }
+      const comparisonPromise = apiClient<{ data: ClassComparisonItem[] }>(
+        `/api/v1/report-cards/analytics/class-comparison?${comparisonParams.toString()}`,
+      );
 
       const [dashboardResult, comparisonResult] = await Promise.allSettled([
         dashboardPromise,
