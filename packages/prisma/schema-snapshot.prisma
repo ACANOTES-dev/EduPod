@@ -317,6 +317,7 @@ enum SchedulingRunStatus {
   failed
   applied
   discarded
+  blocked
 }
 
 enum SupervisionMode {
@@ -2942,6 +2943,9 @@ model SchedulingRun {
   solver_duration_ms         Int?
   solver_seed                BigInt?
   failure_reason             String?             @db.Text
+  feasibility_report         Json?               @db.JsonB
+  diagnostics_refined_report Json?               @db.JsonB
+  diagnostics_computed_at    DateTime?           @db.Timestamptz()
   created_by_user_id         String              @db.Uuid
   applied_by_user_id         String?             @db.Uuid
   applied_at                 DateTime?           @db.Timestamptz()
