@@ -811,13 +811,13 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 | RC-C010 | P1       | Verified | C      | findAll() lacks student-scope branch                               |
 | RC-C011 | P1       | Blocked  | C      | Snapshot immutability not enforced at DB                           |
 | RC-C012 | P2       | Verified | C      | No token revocation endpoint                                       |
-| RC-C013 | P2       | Blocked  | C      | No per-tenant bulk-generate rate limit                             |
+| RC-C013 | P2       | Verified | C      | No per-tenant bulk-generate rate limit                             |
 | RC-C014 | P2       | Blocked  | C      | AI draft synchronous in controller                                 |
-| RC-C015 | P2       | Blocked  | C      | Mass-assignment uneven across PATCH                                |
+| RC-C015 | P2       | Verified | C      | Mass-assignment uneven across PATCH                                |
 | RC-C016 | P2       | Verified | C      | Missing Cache-Control on signature upload                          |
 | RC-C017 | P2       | Blocked  | C      | Audit log gaps on bulk ops                                         |
-| RC-C018 | P2       | Blocked  | C      | Permission cache TTL too long                                      |
-| RC-C019 | P1       | Blocked  | C      | No JWT refresh rotation                                            |
+| RC-C018 | P2       | Verified | C      | Permission cache TTL too long                                      |
+| RC-C019 | P1       | Verified | C      | No JWT refresh rotation                                            |
 | RC-C020 | P1       | Verified | C      | AI base URL tenant-configurable → SSRF                             |
 | RC-C021 | P3       | Open     | C      | Unfinalise-after-window-close inconsistent                         |
 | RC-C022 | P3       | Open     | C      | Revision chain depth semantics unclear                             |
@@ -827,8 +827,8 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 | RC-C026 | P2       | Blocked  | C      | Bulk op transaction boundaries undocumented                        |
 | RC-C027 | P3       | Verified | C      | No per-channel delivery retry endpoint                             |
 | RC-C028 | P3       | Open     | C      | Library scoping duplicated controller/service                      |
-| RC-C029 | P2       | Blocked  | C      | No per-tenant circuit breaker on auto-generate cron                |
-| RC-C030 | P2       | Open     | C      | No hard cap on mass-report-card-pdf N                              |
+| RC-C029 | P2       | Verified | C      | No per-tenant circuit breaker on auto-generate cron                |
+| RC-C030 | P2       | Verified | C      | No hard cap on mass-report-card-pdf N                              |
 | RC-C031 | P3       | Verified | C      | DLQ replay tooling existence unconfirmed                           |
 | RC-C032 | P3       | Open     | C      | comment_fill_rate deprecated field                                 |
 | RC-C033 | P3       | Open     | C      | Route registration order fragility                                 |
