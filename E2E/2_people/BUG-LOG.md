@@ -146,7 +146,7 @@ Open → In Progress → Fixed → Verified
 ### PEOPLE-003 — Teacher sees full tenant-wide student list (not class-scoped)
 
 **Severity:** P2
-**Status:** Blocked — need input
+**Status:** Won't Fix
 **Assigned:** Claude Opus 4.6 — 2026-04-16
 **Provenance:** [L] + [C] (spec observation T1)
 
@@ -187,7 +187,7 @@ Open → In Progress → Fixed → Verified
 ### PEOPLE-004 — Teacher can export full student roster
 
 **Severity:** P2
-**Status:** Blocked — need input
+**Status:** Won't Fix
 **Assigned:** Claude Opus 4.6 — 2026-04-16
 **Provenance:** [L] + [C] (spec observation T2)
 
@@ -283,7 +283,7 @@ Open → In Progress → Fixed → Verified
 ### PEOPLE-007 — Teacher can see all medical data + allergy report tenant-wide
 
 **Severity:** P2
-**Status:** Blocked — need input
+**Status:** Won't Fix
 **Assigned:** Claude Opus 4.6 — 2026-04-16
 **Provenance:** [C] (spec observations T4, T5)
 
@@ -307,7 +307,7 @@ Open → In Progress → Fixed → Verified
 ### PEOPLE-008 — Staff deactivation does not revoke login access
 
 **Severity:** P2
-**Status:** Blocked — need input
+**Status:** Won't Fix
 **Assigned:** Claude Opus 4.6 — 2026-04-16
 **Provenance:** [C] (spec observation H)
 
@@ -478,8 +478,7 @@ Open → In Progress → Fixed → Verified
 ### PEOPLE-015 — Staff password rotation not enforced
 
 **Severity:** P1
-**Status:** Blocked — need input
-**Assigned:** Claude Opus 4.6 — 2026-04-16
+**Status:** Open
 **Provenance:** [C] (security spec S-A2-1)
 
 **Summary:** No mechanism exists to enforce periodic password changes for staff accounts. All test accounts use `Password123!` and the system does not prompt for rotation.
@@ -500,8 +499,7 @@ Open → In Progress → Fixed → Verified
 ### PEOPLE-016 — Audit log DB grants too broad
 
 **Severity:** P1
-**Status:** Blocked — need input
-**Assigned:** Claude Opus 4.6 — 2026-04-16
+**Status:** Open
 **Provenance:** [C] (security spec S-A8-1)
 
 **Summary:** The application database user has INSERT/UPDATE/DELETE on the `audit_logs` table. Audit logs should be append-only — the app user should have INSERT-only, with UPDATE/DELETE restricted to a separate admin role.
@@ -520,8 +518,7 @@ Open → In Progress → Fixed → Verified
 ### PEOPLE-017 — Shared encryption key across tenants
 
 **Severity:** P1
-**Status:** Blocked — need input
-**Assigned:** Claude Opus 4.6 — 2026-04-16
+**Status:** Open
 **Provenance:** [C] (security spec S-7-1)
 
 **Summary:** Bank detail encryption uses a single `ENCRYPTION_KEY` env var for all tenants. A key compromise exposes all tenants' financial data. Per-tenant keys would limit blast radius.
@@ -606,7 +603,7 @@ Open → In Progress → Fixed → Verified
 ### PEOPLE-021 — Homework tab 403 for teacher on student detail
 
 **Severity:** P3
-**Status:** Blocked — need input
+**Status:** Verified
 **Assigned:** Claude Opus 4.6 — 2026-04-16
 **Provenance:** [L]
 
@@ -636,31 +633,31 @@ Open → In Progress → Fixed → Verified
 
 ## Summary Table
 
-| ID         | Severity | Status               | Tag    | Summary                                                              |
-| ---------- | -------- | -------------------- | ------ | -------------------------------------------------------------------- |
-| PEOPLE-001 | P1       | Verified             | [L]    | Arabic i18n: extensive missing translations on People pages          |
-| PEOPLE-002 | P1       | Verified             | [L]    | Teacher sees Edit + Change Status buttons on student detail          |
-| PEOPLE-003 | P2       | Blocked — need input | [L][C] | Teacher sees full tenant-wide student list (not class-scoped)        |
-| PEOPLE-004 | P2       | Blocked — need input | [L][C] | Teacher can export full student roster                               |
-| PEOPLE-005 | P2       | Verified             | [C]    | Students list silent failure on API error                            |
-| PEOPLE-006 | P2       | Verified             | [C]    | Bank Details tab visible to admin/accounting who lack permission     |
-| PEOPLE-007 | P2       | Blocked — need input | [C]    | Teacher can see all medical data + allergy report tenant-wide        |
-| PEOPLE-008 | P2       | Blocked — need input | [C]    | Staff deactivation does not revoke login access                      |
-| PEOPLE-009 | P3       | Verified             | [L]    | Missing i18n key: staff.fieldUser on staff detail page               |
-| PEOPLE-010 | P3       | Verified             | [L][C] | No "New Household" button on households list                         |
-| PEOPLE-011 | P3       | Verified             | [L][C] | No "Unlink Guardian" button on household guardians tab               |
-| PEOPLE-012 | P3       | Verified             | [C]    | Student re-activation leaves exit_date set and enrolments unrestored |
-| PEOPLE-013 | P2       | Verified             | [C]    | Household status has no state-machine enforcement                    |
-| PEOPLE-014 | P3       | Won't Fix            | [C]    | Search-sync jobs designed but not wired                              |
-| PEOPLE-015 | P1       | Blocked — need input | [C]    | Staff password rotation not enforced                                 |
-| PEOPLE-016 | P1       | Blocked — need input | [C]    | Audit log DB grants too broad                                        |
-| PEOPLE-017 | P1       | Blocked — need input | [C]    | Shared encryption key across tenants                                 |
-| PEOPLE-018 | P3       | Verified             | [C]    | Redis cache key lacks tenant prefix                                  |
-| PEOPLE-019 | P2       | Verified             | [C]    | Household split does not pre-validate parent_ids                     |
-| PEOPLE-020 | P3       | Verified             | [L][C] | Teacher access-denied UX inconsistent                                |
-| PEOPLE-021 | P3       | Blocked — need input | [L]    | Homework tab 403 for teacher on student detail                       |
+| ID         | Severity | Status    | Tag    | Summary                                                                  |
+| ---------- | -------- | --------- | ------ | ------------------------------------------------------------------------ |
+| PEOPLE-001 | P1       | Verified  | [L]    | Arabic i18n: extensive missing translations on People pages              |
+| PEOPLE-002 | P1       | Verified  | [L]    | Teacher sees Edit + Change Status buttons on student detail              |
+| PEOPLE-003 | P2       | Won't Fix | [L][C] | Teacher sees full tenant-wide student list — intentional for emergencies |
+| PEOPLE-004 | P2       | Won't Fix | [L][C] | Teacher can export full student roster — follows PEOPLE-003 decision     |
+| PEOPLE-005 | P2       | Verified  | [C]    | Students list silent failure on API error                                |
+| PEOPLE-006 | P2       | Verified  | [C]    | Bank Details tab visible to admin/accounting who lack permission         |
+| PEOPLE-007 | P2       | Won't Fix | [C]    | Teacher medical data access — intentional, leave as-is                   |
+| PEOPLE-008 | P2       | Won't Fix | [C]    | Staff deactivation doesn't revoke login — by design                      |
+| PEOPLE-009 | P3       | Verified  | [L]    | Missing i18n key: staff.fieldUser on staff detail page                   |
+| PEOPLE-010 | P3       | Verified  | [L][C] | No "New Household" button on households list                             |
+| PEOPLE-011 | P3       | Verified  | [L][C] | No "Unlink Guardian" button on household guardians tab                   |
+| PEOPLE-012 | P3       | Verified  | [C]    | Student re-activation leaves exit_date set and enrolments unrestored     |
+| PEOPLE-013 | P2       | Verified  | [C]    | Household status has no state-machine enforcement                        |
+| PEOPLE-014 | P3       | Won't Fix | [C]    | Search-sync jobs designed but not wired                                  |
+| PEOPLE-015 | P1       | Open      | [C]    | Staff password rotation not enforced                                     |
+| PEOPLE-016 | P1       | Open      | [C]    | Audit log DB grants too broad                                            |
+| PEOPLE-017 | P1       | Open      | [C]    | Shared encryption key across tenants                                     |
+| PEOPLE-018 | P3       | Verified  | [C]    | Redis cache key lacks tenant prefix                                      |
+| PEOPLE-019 | P2       | Verified  | [C]    | Household split does not pre-validate parent_ids                         |
+| PEOPLE-020 | P3       | Verified  | [L][C] | Teacher access-denied UX inconsistent                                    |
+| PEOPLE-021 | P3       | Verified  | [L]    | Homework tab 403 for teacher on student detail                           |
 
-**Totals:** Verified: 12, Blocked — need input: 8, Won't Fix: 1 — **Total: 21 bugs**
+**Totals:** Verified: 13, Won't Fix: 5, Open: 3 — **Total: 21 bugs**
 
 ---
 
