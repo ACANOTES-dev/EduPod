@@ -482,7 +482,7 @@ export class ReportCardTeacherRequestsService {
     );
 
     // Resolve the requester's name for a human-friendly banner instead of a raw UUID
-    const requesterName = await this.resolveUserDisplayName(request.requested_by_user_id);
+    const requesterName = await this.resolveUserDisplayName(tenantId, request.requested_by_user_id);
 
     const window = await this.commentWindowsService.open(tenantId, actor.userId, {
       academic_period_id: request.academic_period_id,
@@ -509,7 +509,7 @@ export class ReportCardTeacherRequestsService {
     opensAt: Date,
     closesAt: Date,
   ): Promise<string> {
-    const requesterName = await this.resolveUserDisplayName(request.requested_by_user_id);
+    const requesterName = await this.resolveUserDisplayName(tenantId, request.requested_by_user_id);
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
@@ -719,10 +719,9 @@ export class ReportCardTeacherRequestsService {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  private async resolveUserDisplayName(userId: string): Promise<string> {
+  private async resolveUserDisplayName(tenantId: string, userId: string): Promise<string> {
     try {
-      const users = await this.authReadFacade.findUsersByIds([userId]);
-      const user = users[0];
+      const user = await this.authReadFacade.findUserSummary(tenantId, userId);
       if (user) return `${user.first_name} ${user.last_name}`.trim();
     } catch (err) {
       this.logger.warn(`Failed to resolve display name for user ${userId}: ${err}`);
