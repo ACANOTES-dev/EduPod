@@ -946,7 +946,7 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   {
     permission_key: 'homework.view_analytics',
     description: 'View homework analytics and load reports',
-    permission_tier: 'admin',
+    permission_tier: 'staff',
   },
   {
     permission_key: 'parent.homework',

@@ -356,6 +356,13 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'leave.submit_request',
       'sen.view',
       'legal.view',
+      // Homework — teachers assign, mark, view analytics
+      'homework.view',
+      'homework.manage',
+      'homework.mark_own',
+      'homework.view_diary',
+      'homework.write_diary',
+      'homework.view_analytics',
       // Inbox — teachers can send (policy engine gates actual audience)
       'inbox.send',
     ],
