@@ -258,12 +258,10 @@ const EFFORT_THEME: Record<SolutionEffort, { label: string; className: string; i
 function PlacementSummaryBanner({
   placed,
   unplaced,
-  preferenceSatisfactionPct,
   hardViolations,
 }: {
   placed: number;
   unplaced: number;
-  preferenceSatisfactionPct: number;
   hardViolations: number;
 }) {
   const t = useTranslations('scheduling.auto.placementSummary');
@@ -343,6 +341,10 @@ function PlacementSummaryBanner({
         />
       </div>
 
+      {/* The banner deliberately omits the soft-preference score to avoid
+          anyone reading "preference score: 100%" as "timetable is 100%
+          complete". Preference satisfaction remains visible, clearly
+          labelled, in the Constraint Report sidebar card below. */}
       <div className="flex flex-wrap items-center gap-3 text-xs text-text-tertiary">
         <span className="inline-flex items-center gap-1.5">
           <span
@@ -354,8 +356,6 @@ function PlacementSummaryBanner({
             ? t('hardAllSatisfied')
             : t('hardViolations', { count: hardViolations })}
         </span>
-        <span className="text-text-tertiary/50">·</span>
-        <span>{t('preferencesScore', { pct: preferenceSatisfactionPct })}</span>
       </div>
     </div>
   );
@@ -378,6 +378,50 @@ function SummaryStat({
       <p className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>{value}</p>
       <p className="text-[11px] text-text-tertiary">{suffix}</p>
     </div>
+  );
+}
+
+// ─── Back-to-timetable floating button ────────────────────────────────────────
+//
+// Appears at bottom-end once the user has scrolled past the timetable grid,
+// so they can jump back up from the diagnostics analysis without a long
+// manual scroll. Uses IntersectionObserver on the ref so it only shows
+// when the grid is off-screen.
+
+function BackToTimetableButton({ targetRef }: { targetRef: React.RefObject<HTMLDivElement> }) {
+  const t = useTranslations('scheduling.auto');
+  const [show, setShow] = React.useState(false);
+
+  React.useEffect(() => {
+    const el = targetRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        // Show once the timetable top has scrolled well past the viewport
+        // top (intersectionRatio ≈ 0 + boundingClientRect.top < 0 means
+        // it's above the fold).
+        setShow(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+      },
+      { threshold: 0.01 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [targetRef]);
+
+  if (!show) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+      aria-label={t('backToTimetable')}
+      className="pointer-events-auto fixed bottom-4 end-4 z-30 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2 text-xs font-medium text-text-primary shadow-lg transition-colors hover:bg-surface-secondary animate-in fade-in-0 slide-in-from-bottom-2"
+    >
+      <ChevronUp className="h-3.5 w-3.5" />
+      {t('backToTimetable')}
+    </button>
   );
 }
 
@@ -712,7 +756,19 @@ function WhyNot100Explainer({ whyNot }: { whyNot: WhyNot100 }) {
 
 // ─── Main DiagnosticsPanel ────────────────────────────────────────────────────
 
-function DiagnosticsPanel({ result, locale }: { result: DiagnosticsResult; locale: string }) {
+function DiagnosticsPanel({
+  result,
+  locale,
+  fullWidth = false,
+}: {
+  result: DiagnosticsResult;
+  locale: string;
+  // When rendered below the timetable grid (not in the 1/4-width sidebar),
+  // `fullWidth` lays the severity cards out in a 2-column responsive grid
+  // so the reading length is compact and the panel doesn't push the rest
+  // of the page for pages of scroll.
+  fullWidth?: boolean;
+}) {
   const [mediumExpanded, setMediumExpanded] = React.useState(false);
 
   const critical = result.diagnostics.filter((d) => d.severity === 'critical');
@@ -721,6 +777,7 @@ function DiagnosticsPanel({ result, locale }: { result: DiagnosticsResult; local
 
   const { total_unassigned_periods, total_unassigned_gaps, critical_issues, high_issues } =
     result.summary;
+  const listGridClass = fullWidth ? 'grid grid-cols-1 lg:grid-cols-2 gap-2' : 'space-y-2';
 
   return (
     <div className="rounded-2xl border border-border bg-surface overflow-hidden">
@@ -773,7 +830,7 @@ function DiagnosticsPanel({ result, locale }: { result: DiagnosticsResult; local
         ) : (
           <>
             {critical.length > 0 && (
-              <section className="space-y-2">
+              <section className={listGridClass}>
                 {critical.map((d) => (
                   <DiagnosticCard key={d.id} d={d} locale={locale} />
                 ))}
@@ -781,7 +838,7 @@ function DiagnosticsPanel({ result, locale }: { result: DiagnosticsResult; local
             )}
 
             {high.length > 0 && (
-              <section className="space-y-2">
+              <section className={listGridClass}>
                 {high.map((d) => (
                   <DiagnosticCard key={d.id} d={d} locale={locale} />
                 ))}
@@ -808,7 +865,7 @@ function DiagnosticsPanel({ result, locale }: { result: DiagnosticsResult; local
                   )}
                 </button>
                 {mediumExpanded && (
-                  <div className="space-y-2">
+                  <div className={listGridClass}>
                     {medium.map((d) => (
                       <DiagnosticCard key={d.id} d={d} locale={locale} />
                     ))}
@@ -1160,6 +1217,12 @@ export default function RunReviewPage() {
   const [dragPayload, setDragPayload] = React.useState<DragPayload | null>(null);
   const [hoverCell, setHoverCell] = React.useState<EmptySlot | null>(null);
 
+  // Ref to the timetable grid — BackToTimetableButton scrolls to it when
+  // the user has dropped well into the diagnostics section below. scroll-mt
+  // on the grid accounts for the fixed morph bar + sub-strip height so the
+  // target lands neatly below the nav instead of being hidden behind it.
+  const timetableRef = React.useRef<HTMLDivElement | null>(null);
+
   React.useEffect(() => {
     setLoading(true);
     Promise.all([
@@ -1451,12 +1514,8 @@ export default function RunReviewPage() {
       )}
 
       <PlacementSummaryBanner
-        placed={
-          data.entries.filter((e) => !e.is_pinned).length +
-          data.entries.filter((e) => e.is_pinned).length
-        }
+        placed={data.entries.length}
         unplaced={report?.unassigned_count ?? diagnostics?.summary.total_unassigned_periods ?? 0}
-        preferenceSatisfactionPct={report?.preference_satisfaction_pct ?? 0}
         hardViolations={report?.hard_violations ?? 0}
       />
 
@@ -1490,7 +1549,7 @@ export default function RunReviewPage() {
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div ref={timetableRef} className="grid grid-cols-1 lg:grid-cols-4 gap-6 scroll-mt-24">
         <div className="lg:col-span-3 space-y-4">
           {/* Class tabs */}
           {classList.length > 0 && (
@@ -1584,10 +1643,6 @@ export default function RunReviewPage() {
             </div>
           </div>
 
-          {diagnostics && diagnostics.diagnostics.length > 0 && (
-            <DiagnosticsPanel result={diagnostics} locale={locale} />
-          )}
-
           {report?.workload_summary && report.workload_summary.length > 0 && (
             <div className="rounded-xl border border-border bg-surface p-4 space-y-2">
               <h3 className="text-sm font-semibold text-text-primary">{t('workloadSummary')}</h3>
@@ -1630,6 +1685,19 @@ export default function RunReviewPage() {
           </div>
         </div>
       </div>
+
+      {/* Timetable Analysis — moved out of the right sidebar (where it made
+          the page scroll for ever) into a full-width section below the
+          grid. Wider layout lets each diagnostic card breathe and the Top
+          Fixes render horizontally. The BackToTimetableButton floats while
+          the user is reading here so they can jump straight back up. */}
+      {diagnostics && diagnostics.diagnostics.length > 0 && (
+        <section className="space-y-4">
+          <DiagnosticsPanel result={diagnostics} locale={locale} fullWidth />
+        </section>
+      )}
+
+      <BackToTimetableButton targetRef={timetableRef} />
 
       <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
         <DialogContent>

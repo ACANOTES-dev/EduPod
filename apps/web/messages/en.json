@@ -5042,6 +5042,7 @@
       "noRuns": "No scheduling runs yet",
       "viewReview": "View / Review",
       "backToSolver": "Back to Solver",
+      "backToTimetable": "Back to timetable",
       "schedulingStatus": "Status",
       "placementSummary": {
         "tier": {
