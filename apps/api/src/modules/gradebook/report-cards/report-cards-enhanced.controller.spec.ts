@@ -578,15 +578,15 @@ describe('ReportCardsEnhancedController — delivery', () => {
   it('should call deliveryService.bulkDeliver', async () => {
     mockDeliveryService.bulkDeliver.mockResolvedValue({ results: [], succeeded: 3, failed: 0 });
 
-    const result = await controller.bulkDeliver(tenantContext, {
+    const result = await controller.bulkDeliver(tenantContext, jwtUser as never, {
       report_card_ids: [REPORT_CARD_ID, 'rc-2', 'rc-3'],
     });
 
-    expect(mockDeliveryService.bulkDeliver).toHaveBeenCalledWith(TENANT_ID, [
-      REPORT_CARD_ID,
-      'rc-2',
-      'rc-3',
-    ]);
+    expect(mockDeliveryService.bulkDeliver).toHaveBeenCalledWith(
+      TENANT_ID,
+      [REPORT_CARD_ID, 'rc-2', 'rc-3'],
+      USER_ID,
+    );
     expect(result).toMatchObject({ succeeded: 3 });
   });
 });

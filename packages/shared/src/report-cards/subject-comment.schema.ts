@@ -15,6 +15,13 @@ export const createSubjectCommentSchema = z
     academic_year_id: z.string().uuid().optional(),
     comment_text: z.string().min(1).max(4000),
     is_ai_draft: z.boolean().optional(),
+    /**
+     * Optimistic-concurrency token: the `updated_at` of the row at the time
+     * the client loaded it. When provided, the server returns 409 if another
+     * author has modified the row since, so the client can show a merge
+     * modal instead of silently overwriting the newer text.
+     */
+    expected_updated_at: z.string().datetime().optional(),
   })
   .refine(
     (data) => {

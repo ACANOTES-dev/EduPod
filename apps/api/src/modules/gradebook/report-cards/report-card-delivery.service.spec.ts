@@ -2,9 +2,15 @@ import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../../common/tests/mock-facades';
+import { AuditLogService } from '../../audit-log/audit-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { ReportCardDeliveryService } from './report-card-delivery.service';
+
+const mockAuditLog = {
+  write: jest.fn().mockResolvedValue(undefined),
+  enqueue: jest.fn().mockResolvedValue(undefined),
+};
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const REPORT_CARD_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -84,6 +90,7 @@ describe('ReportCardDeliveryService — deliver', () => {
         { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
         ReportCardDeliveryService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditLogService, useValue: mockAuditLog },
       ],
     }).compile();
 
@@ -309,6 +316,7 @@ describe('ReportCardDeliveryService — bulkDeliver', () => {
         ...MOCK_FACADE_PROVIDERS,
         ReportCardDeliveryService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditLogService, useValue: mockAuditLog },
       ],
     }).compile();
 
@@ -370,6 +378,7 @@ describe('ReportCardDeliveryService — markViewed', () => {
         ...MOCK_FACADE_PROVIDERS,
         ReportCardDeliveryService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditLogService, useValue: mockAuditLog },
       ],
     }).compile();
 
@@ -423,6 +432,7 @@ describe('ReportCardDeliveryService — getDeliveryStatus', () => {
         ...MOCK_FACADE_PROVIDERS,
         ReportCardDeliveryService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditLogService, useValue: mockAuditLog },
       ],
     }).compile();
 

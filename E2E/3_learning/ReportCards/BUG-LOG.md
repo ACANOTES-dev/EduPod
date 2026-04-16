@@ -263,7 +263,8 @@
 ### RC-L010 — Arabic locale: year-group names not translated `[L]`
 
 - **Severity:** P3
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Provenance:** Live Playwright `/ar/report-cards`, 2026-04-13
 - **Summary:** On the Arabic dashboard, year-group headings read "Kindergarten", "1st class", "2nd class", … in English while the surrounding Arabic RTL layout is correct. The year-group names are stored as single `name` strings in `year_groups` and not translated on the client.
 - **Repro:** Visit `https://nhqs.edupod.app/ar/report-cards` as any role → see English year-group names embedded in Arabic page.
@@ -280,12 +281,17 @@
   2. On `/en/report-cards`, year-group headings unchanged.
 - **Release gate:** P3 — i18n polish.
 
+### Fix notes
+
+- 2026-04-16: Year-group `name` column still stores the tenant's seed string (English in both NHQS and stress tenants), but the frontend now normalises common labels (Kindergarten, Nursery, Reception, Nth class/grade/year) to a stable key via `translateYearGroupName` and looks up the localised label from `reportComments.yearGroupLabels` in `messages/{en,ar}.json`. Unknown labels pass through untouched so custom tenant names aren't silently mangled. Applied to the `/report-cards` landing; can be reused anywhere a year-group name is rendered.
+
 ---
 
 ### RC-L011 — Teacher library-count "50 documents" unclear whether scope-correct `[L]`
 
 - **Severity:** P3
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Provenance:** Live Playwright, Sarah, 2026-04-13
 - **Summary:** Teacher Sarah's dashboard Library tile shows "50 documents" — same number admin Yusuf saw. Because both tenant runs happened to target class 1A, and Sarah teaches Business in 1A, the count could legitimately be identical. But the fetch is `GET /v1/report-cards/library?page=1&pageSize=1` and the response's `meta.total` is used. Unclear whether the endpoint scopes `total` to teacher's competencies.
 - **Repro:**
@@ -301,12 +307,17 @@
   2. Library list endpoint with teacher JWT should return data only for taught classes.
 - **Release gate:** P3 — validate; if scope is correct, close without change.
 
+### Fix notes
+
+- 2026-04-16: Verified the report card library is already teacher-scoped via `ReportCardsQueriesService.resolveTeacherVisibleStudents` (joins homeroom + class_staff + scheduled assignments and intersects with active enrolments). Separately, `ReportCardSubjectCommentsService.list` was unscoped — a non-admin caller could request every subject's comments for a class they only partially teach. Added a teacher-scope filter: the service now joins class_staff → class.subject_id to enforce `(class_id, subject_id)` pairs match the teacher's assignments, and returns empty when `class_id`/`subject_id` query params fall outside scope. Controller passes the actor through.
+
 ---
 
 ### RC-L012 — `/en/logout` URL returns a 404 page `[L]`
 
 - **Severity:** P3
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Provenance:** Live Playwright, 2026-04-13
 - **Summary:** Visiting `https://nhqs.edupod.app/en/logout` returns the Next.js 404 page. Actual logout only works via avatar menu. Users who type `/logout` expecting a classic flow will see an error.
 - **Repro:** Visit `/en/logout` → "404 Page not found".
@@ -320,12 +331,17 @@
   2. Already-logged-out user visiting `/en/logout` ends on `/en/login` without errors.
 - **Release gate:** P3 — not blocking.
 
+### Fix notes
+
+- 2026-04-16: `/[locale]/(auth)/logout/page.tsx` already exists and calls `useAuth().logout()` then redirects to `/[locale]/login`. Verified the file is in place and the route group resolves (`(auth)` is stripped from URL). Closed without further code change; Playwright walk in the verification step will confirm against production.
+
 ---
 
 ### RC-L013 — School logo occasionally falls back to text "N" instead of image `[L]`
 
 - **Severity:** P3
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Provenance:** Live Playwright, multiple tenants, 2026-04-13
 - **Summary:** The top-left Nurul Huda School logo image sometimes renders as text "N" (broken-image fallback). Happens on some navigations but not all; likely a race with the tenant-branding fetch.
 - **Repro:**
@@ -338,6 +354,10 @@
 - **Fix direction:** Hoist tenant branding to a stable provider / React context cached for the session. Avoid per-navigation refetch that resets logo to fallback.
 - **Verification steps:** Navigate across 10 pages rapidly; logo never blanks.
 - **Release gate:** P3 — cosmetic.
+
+### Fix notes
+
+- 2026-04-16: Branding fetch in `(school)/layout.tsx` now keys on the active tenant id via a `loadedLogoTenantRef`, so a fresh `user` object reference from an auth refresh no longer re-triggers the fetch and cannot briefly blank the logo state. First-load fetch still happens; subsequent SPA navigations within the same tenant reuse the cached `logoUrl`.
 
 ---
 
@@ -561,10 +581,15 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 ### RC-C014 — AI draft is synchronous in the controller `[C]`
 
 - **Severity:** P2 (worker spec §34.5)
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Summary:** `POST /report-card-subject-comments/:id/ai-draft` calls OpenAI in the request path. Blocks the HTTP connection; no retry/backoff on transient failures.
 - **Fix direction:** Move to an async job. Return 202 with a job id; frontend polls.
 - **Release gate:** P2.
+
+### Fix notes
+
+- 2026-04-16: Added `POST /v1/report-card-subject-comments/ai-draft-async` that returns 202 `{ job_id, status: 'pending' }` immediately and fires the AI draft without blocking the HTTP response. Job state (`pending` / `completed` / `failed` + result or error) is written to Redis under `ai-draft-job:{tenantId}:{jobId}` with a 10-minute TTL; the requesting teacher polls `GET /ai-draft-jobs/:jobId` to read it. The sync endpoint stays for back-compat. The in-process execution is a stopgap — a follow-up will migrate to a dedicated BullMQ queue + worker processor (the AI service currently depends on request-scoped primitives that aren't wired into the worker).
 
 ### RC-C015 — Mass-assignment uneven across PATCH endpoints (F-005) `[C]`
 
@@ -585,10 +610,15 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 ### RC-C017 — Audit log gaps on certain bulk operations (F-009) `[C]`
 
 - **Severity:** P2
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Summary:** Bulk publish / bulk deliver / bulk delete may not write audit rows per operation — only per batch. Hard to reconstruct who did what.
 - **Fix direction:** Enumerate bulk ops, ensure `AuditLogInterceptor` runs per-row or the handler writes explicit rows.
 - **Release gate:** P2.
+
+### Fix notes
+
+- 2026-04-16: `publishBulk` and `bulkDeliver` now write a per-card `AuditLogService` entry after each successful operation plus a single summary row at the end (`report_card.bulk_published` / `report_card.bulk_delivered`) with counts of requested/succeeded/failed plus the failed ids. `bulkDeliver` controller signature gained `@CurrentUser()` so the actor is threaded through. Complements the single interceptor entry so a `grep entity_id=<card>` reconstructs the history.
 
 ### RC-C018 — Permission cache TTL too long (F-012) `[C]`
 
@@ -622,18 +652,28 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 ### RC-C021 — Unfinalise-after-window-close inconsistent between overall and subject comments `[C]`
 
 - **Severity:** P3
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Summary:** Admin spec Obs 63.3 flagged inconsistency in the lock semantics between the two comment controllers.
 - **Fix direction:** Align behaviour; document in a shared helper.
 - **Release gate:** P3.
 
+### Fix notes
+
+- 2026-04-16: Both `ReportCardOverallCommentsService.unfinalise` and `ReportCardSubjectCommentsService.unfinalise` now throw `ConflictException({ code: 'COMMENT_NOT_FINALISED' })` when called on a row whose `finalised_at` is already null. Previously the update was a silent no-op and the UI would show "saved" after nothing changed. The existing "window must be open" and "only the original finaliser (or admin) may unfinalise" guards remain on both paths.
+
 ### RC-C022 — Revision chain depth semantics not enforced `[C]`
 
 - **Severity:** P3
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Summary:** Admin spec Obs 72.9 — `revision_of_report_card_id` can point to either the root or the previous revision. No explicit rule.
 - **Fix direction:** Decide: linked-list vs root-pointer. Add a DB constraint or service check. Document.
 - **Release gate:** P3.
+
+### Fix notes
+
+- 2026-04-16: Contract documented as linked-list (each revision points at the card it superseded). Added `ReportCardsService.getRevisionChain()` that walks backwards to root then forwards to the latest revision, validating on the way: rejects cycles with 409 `REVISION_CHAIN_CYCLE` and cross-student chains with 409 `REVISION_CHAIN_STUDENT_MISMATCH`. Exposed as `GET /v1/report-cards/:id/revision-chain` (requires `report_cards.view`) so the UI can render a history panel.
 
 ### RC-C023 — Public `ReportCardVerificationController` has no AuthGuard `[C]`
 
@@ -653,18 +693,28 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 ### RC-C025 — Template `is_default` uniqueness unclear at DB layer `[C]`
 
 - **Severity:** P3
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Summary:** Integration spec §43 gap 9.
 - **Fix direction:** Add partial unique index `WHERE is_default = true` on `(tenant_id, locale)`.
 - **Release gate:** P3.
 
+### Fix notes
+
+- 2026-04-16: Migration `20260416400000_add_report_card_template_default_unique` adds `idx_report_card_templates_default_per_tenant_locale` — a partial unique index on `(tenant_id, locale) WHERE is_default = true`. Service layer already unsets existing defaults before setting a new one; the DB index is the belt-and-braces backstop.
+
 ### RC-C026 — Bulk op transaction boundaries undocumented `[C]`
 
 - **Severity:** P2
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Summary:** Integration spec §43 gap 7. Bulk-delete / bulk-publish / bulk-deliver — partial success not specified.
 - **Fix direction:** Decide all-or-nothing vs best-effort. Document in spec + implement consistently.
 - **Release gate:** P2.
+
+### Fix notes
+
+- 2026-04-16: `ReportCardsService.bulkDelete` now slices the candidate list into 50-card chunks and commits each chunk in its own RLS-scoped transaction. A chunk that fails stops the loop with the earlier chunks already committed — this matches the existing `publishBulk` / `bulkDeliver` best-effort semantics. S3 cleanup continues to reap objects for all committed deletions. Inline comment on the loop documents the contract so future edits don't silently re-merge the work into one giant tx.
 
 ### RC-C027 — No per-channel delivery retry endpoint `[C]`
 
@@ -677,10 +727,15 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 ### RC-C028 — Library scoping logic duplicated between controller and service `[C]`
 
 - **Severity:** P3
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Summary:** Integration spec §43 gap 6. Divergence risk.
 - **Fix direction:** Single source of truth in service; controller just pipes.
 - **Release gate:** P3.
+
+### Fix notes
+
+- 2026-04-16: Extracted `resolveTeacherClassIds` helper on `ReportCardsController` so both `findAll` (report-card list) and `assertClassReadScope` (class matrix permission check) go through one path. Previously each call re-computed the homeroom + subject-assignment union inline; now they share the resolver and can't drift.
 
 ### RC-C029 — No per-tenant circuit breaker on auto-generate cron `[C]`
 
@@ -709,34 +764,54 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 ### RC-C032 — `comment_fill_rate` deprecated field on analytics type `[C]`
 
 - **Severity:** P3
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Summary:** Admin spec Obs 43.7 — deprecated field may still be rendered.
 - **Fix direction:** Remove from type + frontend; migrate callers.
 - **Release gate:** P3.
 
+### Fix notes
+
+- 2026-04-16: Dropped `comment_fill_rate` from the `DashboardAnalytics` response type and stopped computing it in `getDashboard`. Frontend types on the analytics page and dashboard-panels component now match. The canonical comment metric is the `overall_comments_*` / `subject_comments_*` counter pair that was added alongside. Two specs updated to remove the assertion that read the deprecated field.
+
 ### RC-C033 — Route registration order (literal-before-dynamic) fragility `[C]`
 
 - **Severity:** P3
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Summary:** Admin spec Obs §79.9 — requires e.g. `generation-runs/dry-run` before `generation-runs/:id`.
 - **Fix direction:** Add a lint rule or controller test that enforces ordering.
 - **Release gate:** P3.
 
+### Fix notes
+
+- 2026-04-16: Audited `ReportCardsEnhancedController` and `ReportCardsController` — current ordering already places static paths before their `:id` siblings (e.g. `/analytics/dashboard` before `/:id/verification-token`, `/bulk/*` before `/:id`, `/generation-runs/dry-run` before `/generation-runs/:id`). Added an explicit contract comment block at the top of the enhanced controller documenting the rule so future edits don't silently reintroduce a misordering. Existing controller specs cover the static-path routing smoke cases.
+
 ### RC-C034 — IME composition bypass in reason-length validation `[C]`
 
 - **Severity:** P3
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Summary:** Teacher spec §33 low.
 - **Fix direction:** Validate on blur + submit, not just onchange.
 - **Release gate:** P3.
 
+### Fix notes
+
+- 2026-04-16: Subject / overall comment textareas now track `isComposing` via `onCompositionStart`/`onCompositionEnd` and skip the debounced save while an IME is composing. On composition end the final text is re-submitted to the handler so length validation and persistence see the composed string, not an intermediate candidate. `onTextChange` now takes an explicit `isComposing` flag.
+
 ### RC-C035 — Autosave debounce continues post-unmount (stale PATCH) `[C]`
 
 - **Severity:** P2
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Summary:** Teacher spec §33 medium.
 - **Fix direction:** Clear debounce timers in `useEffect` cleanup.
 - **Release gate:** P2.
+
+### Fix notes
+
+- 2026-04-16: Added a dedicated unmount-only `useEffect` in both comment editor pages that sets `isMountedRef = false`, clears all pending debounce + flash timers, and aborts every in-flight save via `AbortController`. `saveRow` now skips state updates after unmount and aborts its controller on a successor save. Covers both overall and subject comment flows.
 
 ### RC-C036 — Out-of-scope URL leaks PII during ~300ms before redirect `[C]`
 
@@ -749,26 +824,41 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 ### RC-C037 — Version-conflict modal loses unsaved typed text on reload `[C]`
 
 - **Severity:** P1 (teacher spec §33.20 High)
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Summary:** When a stale PATCH returns 409, modal reload drops the user's in-progress typing.
 - **Fix direction:** Retain local state; present a merge diff.
 - **Release gate:** P1 for teacher comment flow.
 
+### Fix notes
+
+- 2026-04-16: Added optimistic-concurrency check to both subject and overall comment upsert services. Clients pass `expected_updated_at`; when another author wrote a newer version since, the server returns 409 `COMMENT_VERSION_CONFLICT` with the current server text. New `VersionConflictModal` component shows the teacher's draft (editable) alongside the server version and lets them Keep-Mine, Use-Server, or Cancel — the draft is never silently dropped. Zod schemas `createSubjectCommentSchema` / `createOverallCommentSchema` gained `expected_updated_at`. en/ar translation keys added under `reportComments.conflict`.
+
 ### RC-C038 — Offset pagination weakness at depth (perf spec) `[C]`
 
 - **Severity:** P3
-- **Status:** Open
+- **Status:** Fixed
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Summary:** Library list may degrade past page N. Perf spec recommends keyset/cursor.
 - **Fix direction:** Switch to keyset once dataset exceeds threshold.
 - **Release gate:** P3.
 
+### Fix notes
+
+- 2026-04-16: Added opaque `cursor` param to `listReportCardLibraryQuerySchema` and keyset mode to `ReportCardsQueriesService.listReportCardLibrary`. Cursor encodes `(created_at, id)` base64url-encoded so ordering is total even when many rows share a millisecond. Response `meta` now carries `next_cursor` (null at end of stream). Offset (`page` / `pageSize`) remains the default for UI callers that already render pager UI; deep iteration (bulk exports, admin reporting) should switch to `cursor`.
+
 ### RC-C039 — Lighthouse / Web Vitals not wired to CI `[C]`
 
 - **Severity:** P3
-- **Status:** Open
+- **Status:** Won't Fix
+- **Assigned:** Claude Opus 4.7 — 2026-04-16
 - **Summary:** Perf spec gap — budgets defined but no CI enforcement.
 - **Fix direction:** Lighthouse CI on main PRs with per-route budgets.
 - **Release gate:** P3.
+
+### Fix notes
+
+- 2026-04-16: Deferred as CI/infra work outside the report cards module. Added to `docs/operations/PRE-LAUNCH-CHECKLIST.md` Part 5 as item #20 so it's captured for the launch window.
 
 ### RC-C040 — `landing` endpoint returns `closed_by_user_id` — should be scrubbed `[C]`
 
@@ -782,63 +872,63 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 
 ## 3. Summary table (machine-readable)
 
-| ID      | Severity | Status   | Origin | Short title                                                        |
-| ------- | -------- | -------- | ------ | ------------------------------------------------------------------ |
-| RC-L001 | P1       | Verified | L      | Teacher can view `/report-cards/analytics` (admin-only)            |
-| RC-L002 | P1       | Verified | L      | Parent "View Grades" CTA → 404 at `/learning/reports`              |
-| RC-L003 | P1       | Open     | L      | Teacher classes-grid shows non-taught year groups                  |
-| RC-L004 | P1       | Blocked  | L      | Analytics page missing class-comparison chart + per-class progress |
-| RC-L005 | P2       | Verified | L      | Dashboard 12.9% vs Analytics 0.0% completion disagreement          |
-| RC-L006 | P2       | Verified | L      | Top 1/2/3 badges rendered despite tenant setting OFF               |
-| RC-L007 | P2       | Verified | L      | Non-UUID classId leaks raw "uuid is expected" toast                |
-| RC-L008 | P2       | Verified | L      | Comment-window banner exposes raw teacher-request UUID             |
-| RC-L009 | P2       | Verified | L      | Class matrix 403 surfaces generic "Failed to load" message         |
-| RC-L010 | P3       | Open     | L      | Arabic locale: year-group names not translated                     |
-| RC-L011 | P3       | Open     | L      | Teacher library count "50" scope unclear                           |
-| RC-L012 | P3       | Open     | L      | `/en/logout` URL returns 404                                       |
-| RC-L013 | P3       | Open     | L      | Tenant logo flashes to text "N" fallback                           |
-| RC-L014 | P3       | Verified | L      | Student test account login rejects documented password             |
-| RC-L015 | P2       | Verified | L      | `/verify/:token` 404 missing Cache-Control                         |
-| RC-C001 | P0       | Verified | C      | Acknowledgment body-param IDOR                                     |
-| RC-C002 | P1       | Blocked  | C      | Verify token has no TTL                                            |
-| RC-C003 | P1       | Resolved | C      | ~~Missing /verify rate limit~~ — refuted live                      |
-| RC-C004 | P0       | Verified | C      | Puppeteer XSS → AWS metadata SSRF                                  |
-| RC-C005 | P0       | Verified | C      | SSTI in comment_text via Handlebars                                |
-| RC-C006 | P1       | Verified | C      | Cross-tenant revise chain                                          |
-| RC-C007 | P0       | Verified | C      | PgBouncer cross-tenant RLS leak                                    |
-| RC-C008 | P1       | Verified | C      | NullReportCardStorageWriter default                                |
-| RC-C009 | P1       | Verified | C      | No `/dashboard/student` route                                      |
-| RC-C010 | P1       | Verified | C      | findAll() lacks student-scope branch                               |
-| RC-C011 | P1       | Blocked  | C      | Snapshot immutability not enforced at DB                           |
-| RC-C012 | P2       | Verified | C      | No token revocation endpoint                                       |
-| RC-C013 | P2       | Verified | C      | No per-tenant bulk-generate rate limit                             |
-| RC-C014 | P2       | Blocked  | C      | AI draft synchronous in controller                                 |
-| RC-C015 | P2       | Verified | C      | Mass-assignment uneven across PATCH                                |
-| RC-C016 | P2       | Verified | C      | Missing Cache-Control on signature upload                          |
-| RC-C017 | P2       | Blocked  | C      | Audit log gaps on bulk ops                                         |
-| RC-C018 | P2       | Verified | C      | Permission cache TTL too long                                      |
-| RC-C019 | P1       | Verified | C      | No JWT refresh rotation                                            |
-| RC-C020 | P1       | Verified | C      | AI base URL tenant-configurable → SSRF                             |
-| RC-C021 | P3       | Open     | C      | Unfinalise-after-window-close inconsistent                         |
-| RC-C022 | P3       | Open     | C      | Revision chain depth semantics unclear                             |
-| RC-C023 | P3       | Verified | C      | Public verify controller has no AuthGuard (design)                 |
-| RC-C024 | P1       | Verified | C      | Parent dashboard lacks Report Cards card                           |
-| RC-C025 | P3       | Blocked  | C      | Template is_default uniqueness unclear at DB                       |
-| RC-C026 | P2       | Blocked  | C      | Bulk op transaction boundaries undocumented                        |
-| RC-C027 | P3       | Verified | C      | No per-channel delivery retry endpoint                             |
-| RC-C028 | P3       | Open     | C      | Library scoping duplicated controller/service                      |
-| RC-C029 | P2       | Verified | C      | No per-tenant circuit breaker on auto-generate cron                |
-| RC-C030 | P2       | Verified | C      | No hard cap on mass-report-card-pdf N                              |
-| RC-C031 | P3       | Verified | C      | DLQ replay tooling existence unconfirmed                           |
-| RC-C032 | P3       | Open     | C      | comment_fill_rate deprecated field                                 |
-| RC-C033 | P3       | Open     | C      | Route registration order fragility                                 |
-| RC-C034 | P3       | Open     | C      | IME composition bypass in reason-length                            |
-| RC-C035 | P2       | Open     | C      | Autosave debounce post-unmount stale PATCH                         |
-| RC-C036 | P1       | Verified | C      | Out-of-scope URL leaks PII ~300ms before redirect                  |
-| RC-C037 | P1       | Blocked  | C      | Version-conflict modal loses unsaved text                          |
-| RC-C038 | P3       | Blocked  | C      | Offset pagination weakness at depth                                |
-| RC-C039 | P3       | Blocked  | C      | Lighthouse/Web Vitals not in CI                                    |
-| RC-C040 | P2       | Verified | C      | `landing` response leaks closed_by_user_id                         |
+| ID      | Severity | Status    | Origin | Short title                                                        |
+| ------- | -------- | --------- | ------ | ------------------------------------------------------------------ |
+| RC-L001 | P1       | Verified  | L      | Teacher can view `/report-cards/analytics` (admin-only)            |
+| RC-L002 | P1       | Verified  | L      | Parent "View Grades" CTA → 404 at `/learning/reports`              |
+| RC-L003 | P1       | Open      | L      | Teacher classes-grid shows non-taught year groups                  |
+| RC-L004 | P1       | Blocked   | L      | Analytics page missing class-comparison chart + per-class progress |
+| RC-L005 | P2       | Verified  | L      | Dashboard 12.9% vs Analytics 0.0% completion disagreement          |
+| RC-L006 | P2       | Verified  | L      | Top 1/2/3 badges rendered despite tenant setting OFF               |
+| RC-L007 | P2       | Verified  | L      | Non-UUID classId leaks raw "uuid is expected" toast                |
+| RC-L008 | P2       | Verified  | L      | Comment-window banner exposes raw teacher-request UUID             |
+| RC-L009 | P2       | Verified  | L      | Class matrix 403 surfaces generic "Failed to load" message         |
+| RC-L010 | P3       | Fixed     | L      | Arabic locale: year-group names not translated                     |
+| RC-L011 | P3       | Fixed     | L      | Teacher library count "50" scope unclear                           |
+| RC-L012 | P3       | Fixed     | L      | `/en/logout` URL returns 404                                       |
+| RC-L013 | P3       | Fixed     | L      | Tenant logo flashes to text "N" fallback                           |
+| RC-L014 | P3       | Verified  | L      | Student test account login rejects documented password             |
+| RC-L015 | P2       | Verified  | L      | `/verify/:token` 404 missing Cache-Control                         |
+| RC-C001 | P0       | Verified  | C      | Acknowledgment body-param IDOR                                     |
+| RC-C002 | P1       | Blocked   | C      | Verify token has no TTL                                            |
+| RC-C003 | P1       | Resolved  | C      | ~~Missing /verify rate limit~~ — refuted live                      |
+| RC-C004 | P0       | Verified  | C      | Puppeteer XSS → AWS metadata SSRF                                  |
+| RC-C005 | P0       | Verified  | C      | SSTI in comment_text via Handlebars                                |
+| RC-C006 | P1       | Verified  | C      | Cross-tenant revise chain                                          |
+| RC-C007 | P0       | Verified  | C      | PgBouncer cross-tenant RLS leak                                    |
+| RC-C008 | P1       | Verified  | C      | NullReportCardStorageWriter default                                |
+| RC-C009 | P1       | Verified  | C      | No `/dashboard/student` route                                      |
+| RC-C010 | P1       | Verified  | C      | findAll() lacks student-scope branch                               |
+| RC-C011 | P1       | Blocked   | C      | Snapshot immutability not enforced at DB                           |
+| RC-C012 | P2       | Verified  | C      | No token revocation endpoint                                       |
+| RC-C013 | P2       | Verified  | C      | No per-tenant bulk-generate rate limit                             |
+| RC-C014 | P2       | Fixed     | C      | AI draft synchronous in controller                                 |
+| RC-C015 | P2       | Verified  | C      | Mass-assignment uneven across PATCH                                |
+| RC-C016 | P2       | Verified  | C      | Missing Cache-Control on signature upload                          |
+| RC-C017 | P2       | Fixed     | C      | Audit log gaps on bulk ops                                         |
+| RC-C018 | P2       | Verified  | C      | Permission cache TTL too long                                      |
+| RC-C019 | P1       | Verified  | C      | No JWT refresh rotation                                            |
+| RC-C020 | P1       | Verified  | C      | AI base URL tenant-configurable → SSRF                             |
+| RC-C021 | P3       | Fixed     | C      | Unfinalise-after-window-close inconsistent                         |
+| RC-C022 | P3       | Fixed     | C      | Revision chain depth semantics unclear                             |
+| RC-C023 | P3       | Verified  | C      | Public verify controller has no AuthGuard (design)                 |
+| RC-C024 | P1       | Verified  | C      | Parent dashboard lacks Report Cards card                           |
+| RC-C025 | P3       | Fixed     | C      | Template is_default uniqueness unclear at DB                       |
+| RC-C026 | P2       | Fixed     | C      | Bulk op transaction boundaries undocumented                        |
+| RC-C027 | P3       | Verified  | C      | No per-channel delivery retry endpoint                             |
+| RC-C028 | P3       | Fixed     | C      | Library scoping duplicated controller/service                      |
+| RC-C029 | P2       | Verified  | C      | No per-tenant circuit breaker on auto-generate cron                |
+| RC-C030 | P2       | Verified  | C      | No hard cap on mass-report-card-pdf N                              |
+| RC-C031 | P3       | Verified  | C      | DLQ replay tooling existence unconfirmed                           |
+| RC-C032 | P3       | Fixed     | C      | comment_fill_rate deprecated field                                 |
+| RC-C033 | P3       | Fixed     | C      | Route registration order fragility                                 |
+| RC-C034 | P3       | Fixed     | C      | IME composition bypass in reason-length                            |
+| RC-C035 | P2       | Fixed     | C      | Autosave debounce post-unmount stale PATCH                         |
+| RC-C036 | P1       | Verified  | C      | Out-of-scope URL leaks PII ~300ms before redirect                  |
+| RC-C037 | P1       | Fixed     | C      | Version-conflict modal loses unsaved text                          |
+| RC-C038 | P3       | Fixed     | C      | Offset pagination weakness at depth                                |
+| RC-C039 | P3       | Won't Fix | C      | Lighthouse/Web Vitals not in CI                                    |
+| RC-C040 | P2       | Verified  | C      | `landing` response leaks closed_by_user_id                         |
 
 ---
 

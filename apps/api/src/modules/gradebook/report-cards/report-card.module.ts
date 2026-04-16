@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { AcademicsModule } from '../../academics/academics.module';
 import { AiModule } from '../../ai/ai.module';
 import { AttendanceModule } from '../../attendance/attendance.module';
+import { AuditLogModule } from '../../audit-log/audit-log.module';
 import { ClassesModule } from '../../classes/classes.module';
 import { CommunicationsModule } from '../../communications/communications.module';
 import { ConfigurationModule } from '../../configuration/configuration.module';
@@ -58,6 +59,7 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
     AcademicsModule,
     AiModule,
     AttendanceModule,
+    AuditLogModule,
     ClassesModule,
     CommunicationsModule,
     ConfigurationModule,

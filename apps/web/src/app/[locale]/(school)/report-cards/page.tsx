@@ -26,6 +26,7 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
+import { translateYearGroupName } from '@/lib/year-group-name';
 
 import {
   AnalyticsSnapshotPanel,
@@ -95,6 +96,18 @@ export default function ReportCardsDashboardPage() {
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { hasAnyRole } = useRoleCheck();
+  const tYearGroups = useTranslations('reportComments.yearGroupLabels');
+  const translateYearGroup = React.useCallback(
+    (name: string) =>
+      translateYearGroupName(name, (key, fallback) => {
+        try {
+          return tYearGroups(key);
+        } catch {
+          return fallback;
+        }
+      }),
+    [tYearGroups],
+  );
   // B11: teachers see a reduced dashboard — no Generate / Requests /
   // Live run / Settings entry points. Admin-only affordances are hidden
   // rather than disabled, so the page looks coherent for both audiences.
@@ -451,7 +464,7 @@ export default function ReportCardsDashboardPage() {
                   </div>
                   <div>
                     <h3 className="text-base font-semibold text-text-primary">
-                      {group.year_group_name}
+                      {translateYearGroup(group.year_group_name)}
                     </h3>
                     <p className="text-xs text-text-tertiary">
                       {t('classesCount', { count: group.cards.length })}

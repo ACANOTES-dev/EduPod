@@ -1,4 +1,10 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -47,7 +53,7 @@ export class ReportCardSubjectCommentsService {
 
   // ─── Read ─────────────────────────────────────────────────────────────────
 
-  async list(tenantId: string, query: ListSubjectCommentsQuery) {
+  async list(tenantId: string, query: ListSubjectCommentsQuery, actor?: CommentActor) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 50;
     const where: Prisma.ReportCardSubjectCommentWhereInput = { tenant_id: tenantId };
@@ -63,6 +69,39 @@ export class ReportCardSubjectCommentsService {
     if (query.student_id) where.student_id = query.student_id;
     if (query.finalised === true) where.finalised_at = { not: null };
     if (query.finalised === false) where.finalised_at = null;
+
+    // Bug RC-L011: teacher-scope filter. Non-admin actors can only see
+    // comments for (class, subject) pairs where they are actually
+    // assigned. Without this, a math teacher could call
+    // `GET /subject-comments?class_id=X` with no `subject_id` and receive
+    // every subject's comments for that class. Subject lives on the
+    // Class, not on class_staff, so we join the two via class_entity.
+    if (actor && !actor.isAdmin) {
+      const assignments = (await this.classesReadFacade.findClassStaffGeneric(
+        tenantId,
+        { staff_profile: { user_id: actor.userId } },
+        { class_id: true, class_entity: { select: { subject_id: true } } },
+      )) as Array<{ class_id: string; class_entity?: { subject_id: string | null } | null }>;
+
+      const allowedPairs = assignments
+        .map((a) => ({ class_id: a.class_id, subject_id: a.class_entity?.subject_id ?? null }))
+        .filter((a): a is { class_id: string; subject_id: string } => !!a.subject_id);
+      if (allowedPairs.length === 0) {
+        return { data: [], meta: { page, pageSize, total: 0 } };
+      }
+      // Restrict to OR of the (class, subject) pairs the teacher teaches.
+      where.OR = allowedPairs.map((p) => ({
+        class_id: p.class_id,
+        subject_id: p.subject_id,
+      }));
+      // Reject filters that point outside the teacher's scope.
+      if (query.class_id && !allowedPairs.some((p) => p.class_id === query.class_id)) {
+        return { data: [], meta: { page, pageSize, total: 0 } };
+      }
+      if (query.subject_id && !allowedPairs.some((p) => p.subject_id === query.subject_id)) {
+        return { data: [], meta: { page, pageSize, total: 0 } };
+      }
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.reportCardSubjectComment.findMany({
@@ -236,6 +275,35 @@ export class ReportCardSubjectCommentsService {
       const isAiDraft = dto.is_ai_draft ?? false;
 
       if (existing) {
+        // Optimistic concurrency: if the client told us what version it had
+        // when the teacher started editing, make sure nobody else wrote a
+        // different version in between. Same-author overwrites (the teacher
+        // re-saving their own row) are always allowed.
+        if (dto.expected_updated_at) {
+          const expectedMs = Date.parse(dto.expected_updated_at);
+          const actualMs = new Date(existing.updated_at).getTime();
+          const anotherAuthorWrote =
+            existing.author_user_id !== null && existing.author_user_id !== actor.userId;
+          if (
+            !Number.isNaN(expectedMs) &&
+            anotherAuthorWrote &&
+            Math.abs(actualMs - expectedMs) > 1000
+          ) {
+            throw new ConflictException({
+              code: 'COMMENT_VERSION_CONFLICT',
+              message: 'Another author updated this comment since you loaded it.',
+              server: {
+                id: existing.id,
+                comment_text: existing.comment_text,
+                is_ai_draft: existing.is_ai_draft,
+                finalised_at: existing.finalised_at,
+                updated_at: existing.updated_at,
+                author_user_id: existing.author_user_id,
+              },
+            });
+          }
+        }
+
         return db.reportCardSubjectComment.update({
           where: { id: existing.id },
           data: {
@@ -339,6 +407,17 @@ export class ReportCardSubjectCommentsService {
       periodId: existing.academic_period_id,
       yearId: existing.academic_year_id,
     });
+
+    // The row must actually be finalised. Calling unfinalise on a draft
+    // was previously a silent no-op — now it returns a precise 409 so the
+    // UI can surface the reason instead of showing "saved" after nothing
+    // changed.
+    if (existing.finalised_at === null) {
+      throw new ConflictException({
+        code: 'COMMENT_NOT_FINALISED',
+        message: 'This comment is not finalised, so it cannot be unfinalised.',
+      });
+    }
 
     // Only the original finaliser or an admin can unfinalise
     if (!actor.isAdmin && existing.finalised_by_user_id !== actor.userId) {

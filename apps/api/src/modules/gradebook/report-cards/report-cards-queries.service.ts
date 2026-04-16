@@ -696,18 +696,21 @@ export class ReportCardsQueriesService {
     query: ListReportCardLibraryQuery,
   ): Promise<{
     data: ReportCardLibraryRow[];
-    meta: { page: number; pageSize: number; total: number };
+    meta: { page: number; pageSize: number; total: number; next_cursor: string | null };
   }> {
     const { page, pageSize, class_id, year_group_id, academic_period_id, language } = query;
+    const cursor = (query as { cursor?: string }).cursor;
     const academicYearId = (query as { academic_year_id?: string }).academic_year_id;
-    const skip = (page - 1) * pageSize;
+    // Keyset path skips the offset compute; offset path keeps the
+    // traditional (page-1)*pageSize. Bug RC-C038.
+    const skip = cursor ? 0 : (page - 1) * pageSize;
 
     // 1. Resolve teacher scoping (if applicable)
     let scopedStudentIds: string[] | null = null;
     if (!actor.is_admin) {
       scopedStudentIds = await this.resolveTeacherVisibleStudents(tenantId, actor.user_id);
       if (scopedStudentIds.length === 0) {
-        return { data: [], meta: { page, pageSize, total: 0 } };
+        return { data: [], meta: { page, pageSize, total: 0, next_cursor: null } };
       }
     }
 
@@ -757,18 +760,47 @@ export class ReportCardsQueriesService {
         effectiveIds = filteredIds.filter((id) => scopedSet.has(id));
       }
       if (effectiveIds.length === 0) {
-        return { data: [], meta: { page, pageSize, total: 0 } };
+        return { data: [], meta: { page, pageSize, total: 0, next_cursor: null } };
       }
       where.student_id = { in: effectiveIds };
     }
 
+    // Keyset cursor decode: the cursor encodes the last row's
+    // (created_at, id) pair so the next page skips rows that sort earlier.
+    // Using `(created_at, id)` guarantees a total order even when many
+    // rows share the same millisecond. Bug RC-C038.
+    let keysetWhere: Prisma.ReportCardWhereInput | null = null;
+    if (cursor) {
+      try {
+        const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
+        const [createdAtIso, cursorId] = decoded.split('::');
+        const createdAt = createdAtIso ? new Date(createdAtIso) : null;
+        if (createdAt && !Number.isNaN(createdAt.getTime()) && cursorId) {
+          keysetWhere = {
+            OR: [
+              { created_at: { lt: createdAt } },
+              { created_at: createdAt, id: { lt: cursorId } },
+            ],
+          };
+        }
+      } catch (err) {
+        // Invalid cursor falls through to offset mode — caller's problem.
+        this.logger.warn(
+          `[listReportCardLibrary] ignoring malformed cursor: ${(err as Error).message}`,
+        );
+      }
+    }
+    const effectiveWhere: Prisma.ReportCardWhereInput = keysetWhere
+      ? { AND: [where, keysetWhere] }
+      : where;
+
     // 2. Page of report cards with joins
     const [rows, total] = await Promise.all([
       this.prisma.reportCard.findMany({
-        where,
+        where: effectiveWhere,
         skip,
         take: pageSize,
-        orderBy: [{ created_at: 'desc' }],
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
         include: {
           student: {
             select: {
@@ -907,9 +939,22 @@ export class ReportCardsQueriesService {
       }),
     );
 
+    // Next cursor for keyset pagination: encode the last row so the next
+    // page picks up after it. When `rows.length < pageSize` we're at the
+    // end of the stream and return null instead. Bug RC-C038.
+    let nextCursor: string | null = null;
+    if (rows.length === pageSize) {
+      const last = rows[rows.length - 1];
+      if (last) {
+        nextCursor = Buffer.from(`${last.created_at.toISOString()}::${last.id}`, 'utf8').toString(
+          'base64url',
+        );
+      }
+    }
+
     return {
       data,
-      meta: { page, pageSize, total },
+      meta: { page, pageSize, total, next_cursor: nextCursor },
     };
   }
 

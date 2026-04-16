@@ -1,4 +1,10 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -199,6 +205,34 @@ export class ReportCardOverallCommentsService {
       });
 
       if (existing) {
+        // Optimistic concurrency — see subject comments service for the
+        // contract. Same-author re-saves are always allowed; another-author
+        // overwrites without the caller knowing raise 409 and hand back the
+        // server-side text so the UI can show a merge modal.
+        if (dto.expected_updated_at) {
+          const expectedMs = Date.parse(dto.expected_updated_at);
+          const actualMs = new Date(existing.updated_at).getTime();
+          const anotherAuthorWrote =
+            existing.author_user_id !== null && existing.author_user_id !== actor.userId;
+          if (
+            !Number.isNaN(expectedMs) &&
+            anotherAuthorWrote &&
+            Math.abs(actualMs - expectedMs) > 1000
+          ) {
+            throw new ConflictException({
+              code: 'COMMENT_VERSION_CONFLICT',
+              message: 'Another author updated this comment since you loaded it.',
+              server: {
+                id: existing.id,
+                comment_text: existing.comment_text,
+                finalised_at: existing.finalised_at,
+                updated_at: existing.updated_at,
+                author_user_id: existing.author_user_id,
+              },
+            });
+          }
+        }
+
         return db.reportCardOverallComment.update({
           where: { id: existing.id },
           data: {
@@ -296,6 +330,15 @@ export class ReportCardOverallCommentsService {
     };
     await this.windowsService.assertWindowOpen(tenantId, scope);
     await this.assertHomeroomTeacher(tenantId, actor, existing.class_id, scope);
+
+    // Must actually be finalised — see subject-comments unfinalise for
+    // rationale.
+    if (existing.finalised_at === null) {
+      throw new ConflictException({
+        code: 'COMMENT_NOT_FINALISED',
+        message: 'This comment is not finalised, so it cannot be unfinalised.',
+      });
+    }
 
     if (!actor.isAdmin && existing.finalised_by_user_id !== actor.userId) {
       throw new ForbiddenException({

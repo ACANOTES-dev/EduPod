@@ -117,20 +117,32 @@ export class ReportCardsController {
     const isAdmin = await this.hasAnyPermission(user, ['report_cards.manage']);
     if (isAdmin) return;
 
-    const scope = await this.commentWindowsService.getLandingScopeForActor(tenantId, {
-      userId: user.sub,
-      isAdmin: false,
-    });
-    const allowedClassIds = new Set<string>([
-      ...scope.overall_class_ids,
-      ...scope.subject_assignments.map((p) => p.class_id),
-    ]);
+    const allowedClassIds = await this.resolveTeacherClassIds(tenantId, user);
     if (!allowedClassIds.has(classId)) {
       throw new ForbiddenException({
         code: 'CLASS_OUT_OF_SCOPE',
         message: 'You do not teach this class and cannot read its report cards',
       });
     }
+  }
+
+  /**
+   * Bug RC-C028: single source of truth for resolving a teacher's
+   * report-card scope (both homeroom classes and subject-level class
+   * assignments). Every endpoint that needs to scope a non-admin actor
+   * to their own classes should call this helper so the two branches of
+   * the scope stay consistent and we never diverge between the library
+   * list, the comment landing, and the class matrix.
+   */
+  private async resolveTeacherClassIds(tenantId: string, user: JwtPayload): Promise<Set<string>> {
+    const scope = await this.commentWindowsService.getLandingScopeForActor(tenantId, {
+      userId: user.sub,
+      isAdmin: false,
+    });
+    return new Set<string>([
+      ...scope.overall_class_ids,
+      ...scope.subject_assignments.map((p) => p.class_id),
+    ]);
   }
 
   @Post('report-cards/generate')
@@ -160,15 +172,9 @@ export class ReportCardsController {
     // Admins (report_cards.manage or owner bypass) see everything.
     const isAdmin = await this.hasAnyPermission(user, ['report_cards.manage']);
     if (!isAdmin) {
-      // Teacher branch: scope to classes the teacher teaches
-      const scope = await this.commentWindowsService.getLandingScopeForActor(tenant.tenant_id, {
-        userId: user.sub,
-        isAdmin: false,
-      });
-      const allowedClassIds = new Set<string>([
-        ...scope.overall_class_ids,
-        ...scope.subject_assignments.map((p) => p.class_id),
-      ]);
+      // Teacher branch: reuse the shared resolver so this path can't
+      // drift from assertClassReadScope and the landing page. RC-C028.
+      const allowedClassIds = await this.resolveTeacherClassIds(tenant.tenant_id, user);
 
       if (allowedClassIds.size > 0) {
         return this.reportCardsQueriesService.findAll(tenant.tenant_id, {
@@ -382,6 +388,17 @@ export class ReportCardsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.reportCardsService.revise(tenant.tenant_id, id);
+  }
+
+  // GET /v1/report-cards/:id/revision-chain — returns the full linked-list
+  // of revisions (root → latest) for UI history views. Bug RC-C022.
+  @Get('report-cards/:id/revision-chain')
+  @RequiresPermission('report_cards.view')
+  async revisionChain(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.reportCardsService.getRevisionChain(tenant.tenant_id, id);
   }
 
   // POST /v1/report-cards/bulk-delete — MUST be declared before any

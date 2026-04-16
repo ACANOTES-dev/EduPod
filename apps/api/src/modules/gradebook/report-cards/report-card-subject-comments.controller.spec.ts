@@ -7,6 +7,7 @@ import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
 import { MOCK_FACADE_PROVIDERS } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RedisService } from '../../redis/redis.service';
 
 import { ReportCardAiDraftService } from './report-card-ai-draft.service';
 import { ReportCardSubjectCommentsController } from './report-card-subject-comments.controller';
@@ -50,6 +51,15 @@ const mockPermissionCacheService = {
   getPermissions: jest.fn(),
 };
 
+const mockRedisClient = {
+  get: jest.fn(),
+  set: jest.fn().mockResolvedValue('OK'),
+  del: jest.fn().mockResolvedValue(1),
+};
+const mockRedisService = {
+  getClient: jest.fn().mockReturnValue(mockRedisClient),
+};
+
 describe('ReportCardSubjectCommentsController', () => {
   let controller: ReportCardSubjectCommentsController;
 
@@ -74,6 +84,7 @@ describe('ReportCardSubjectCommentsController', () => {
         { provide: ReportCardAiDraftService, useValue: mockAiDraftService },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
         { provide: PrismaService, useValue: {} },
+        { provide: RedisService, useValue: mockRedisService },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -88,13 +99,17 @@ describe('ReportCardSubjectCommentsController', () => {
   });
 
   describe('list', () => {
-    it('delegates to service with query', async () => {
+    it('delegates to service with query and actor', async () => {
       mockCommentsService.list.mockResolvedValue({
         data: [],
         meta: { page: 1, pageSize: 50, total: 0 },
       });
-      await controller.list(tenantContext, { page: 1, pageSize: 50 });
-      expect(mockCommentsService.list).toHaveBeenCalledWith(TENANT_ID, { page: 1, pageSize: 50 });
+      await controller.list(tenantContext, jwtUser, { page: 1, pageSize: 50 });
+      expect(mockCommentsService.list).toHaveBeenCalledWith(
+        TENANT_ID,
+        { page: 1, pageSize: 50 },
+        { userId: USER_ID, isAdmin: false },
+      );
     });
   });
 

@@ -2,6 +2,7 @@
 
 import { Check, RotateCw, Sparkles } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import * as React from 'react';
 
 import { Badge, Button, Textarea } from '@school/ui';
 
@@ -30,7 +31,13 @@ interface SubjectCommentRowProps {
   row: SubjectRowState;
   rowBg: string;
   canEdit: boolean;
-  onTextChange: (row: SubjectRowState, text: string) => void;
+  /**
+   * `isComposing` is true when an IME (Arabic, CJK) composition is in
+   * progress. Parents should update the visible text either way but should
+   * skip scheduling a save until composition ends, so length validation
+   * and persistence see the final composed string.
+   */
+  onTextChange: (row: SubjectRowState, text: string, isComposing: boolean) => void;
   onAiDraft: (row: SubjectRowState) => void;
   onFinalise: (row: SubjectRowState) => void;
   onUnfinalise: (row: SubjectRowState) => void;
@@ -48,6 +55,7 @@ export function SubjectCommentRow({
   onUnfinalise,
 }: SubjectCommentRowProps) {
   const t = useTranslations('reportComments.editor');
+  const isComposingRef = React.useRef(false);
 
   const sparkValues: number[] = [];
   if (row.score != null) sparkValues.push(row.score);
@@ -124,7 +132,19 @@ export function SubjectCommentRow({
 
           <Textarea
             value={row.text}
-            onChange={(e) => onTextChange(row, e.target.value)}
+            onChange={(e) => onTextChange(row, e.target.value, isComposingRef.current)}
+            onCompositionStart={() => {
+              isComposingRef.current = true;
+            }}
+            onCompositionEnd={(e) => {
+              // When IME composition ends, commit the final composed text
+              // so validation and the debounced save see the real user input
+              // rather than an intermediate candidate. Without this, Arabic
+              // / CJK users could type a "short" visual reason that is
+              // actually long enough to trip server-side length limits.
+              isComposingRef.current = false;
+              onTextChange(row, (e.target as HTMLTextAreaElement).value, false);
+            }}
             rows={3}
             readOnly={!canEdit || !!row.finalised_at}
             placeholder={t('placeholder')}

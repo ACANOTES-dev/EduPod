@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import type { ReportCardDelivery } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AuditLogService } from '../../audit-log/audit-log.service';
 import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -14,6 +15,7 @@ export class ReportCardDeliveryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configurationReadFacade: ConfigurationReadFacade,
+    private readonly auditLog: AuditLogService,
   ) {}
   // ─── Deliver to all parents ───────────────────────────────────────────────
 
@@ -122,7 +124,7 @@ export class ReportCardDeliveryService {
 
   // ─── Bulk Deliver ─────────────────────────────────────────────────────────
 
-  async bulkDeliver(tenantId: string, reportCardIds: string[]) {
+  async bulkDeliver(tenantId: string, reportCardIds: string[], userId: string | null = null) {
     const results: Array<{
       report_card_id: string;
       success: boolean;
@@ -138,6 +140,17 @@ export class ReportCardDeliveryService {
           success: true,
           delivered_count: result.delivered_count,
         });
+        // Per-card audit row — supplements the AuditLogInterceptor's single
+        // summary entry for the bulk endpoint.
+        await this.auditLog.write(
+          tenantId,
+          userId,
+          'ReportCard',
+          reportCardId,
+          'report_card.delivered',
+          { source: 'bulk_deliver', delivered_count: result.delivered_count },
+          null,
+        );
       } catch (err) {
         results.push({
           report_card_id: reportCardId,
@@ -149,6 +162,21 @@ export class ReportCardDeliveryService {
 
     const succeeded = results.filter((r) => r.success).length;
     const failed = results.filter((r) => !r.success).length;
+
+    await this.auditLog.write(
+      tenantId,
+      userId,
+      'ReportCard',
+      null,
+      'report_card.bulk_delivered',
+      {
+        requested: reportCardIds.length,
+        succeeded,
+        failed,
+        failed_ids: results.filter((r) => !r.success).map((r) => r.report_card_id),
+      },
+      null,
+    );
 
     return { results, succeeded, failed };
   }

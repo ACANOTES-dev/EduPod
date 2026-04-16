@@ -13,6 +13,13 @@ export const createOverallCommentSchema = z
     academic_period_id: z.string().uuid().nullable().optional(),
     academic_year_id: z.string().uuid().optional(),
     comment_text: z.string().min(1).max(8000),
+    /**
+     * Optimistic-concurrency token — see `createSubjectCommentSchema` for
+     * the contract. If another author updated the row since this value was
+     * captured, the server returns 409 and the client can show a merge
+     * modal instead of clobbering the newer text.
+     */
+    expected_updated_at: z.string().datetime().optional(),
   })
   .refine(
     (data) => {

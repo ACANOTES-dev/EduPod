@@ -80,6 +80,18 @@ export class ReportCardVerificationController {
 
 // ─── Enhanced Report Cards Controller ────────────────────────────────────────
 
+// Route-ordering convention (RC-C033):
+//   Within each @Controller, literal/static paths MUST be registered before
+//   their dynamic :id sibling. For example `/report-cards/bulk/publish` and
+//   `/report-cards/analytics/dashboard` must live above `/report-cards/:id`
+//   and `/report-cards/:id/...`. NestJS registers handlers in source order
+//   and the router walks them first-match-wins; a misordering silently
+//   shadows the static route with a 400 "uuid expected" or 404, depending
+//   on the pipe on the dynamic param.
+//
+//   The companion spec asserts this by probing each static path against
+//   the compiled router; see `report-cards-enhanced.controller.spec.ts`.
+
 @Controller('v1')
 @UseGuards(AuthGuard, PermissionGuard)
 export class ReportCardsEnhancedController {
@@ -515,10 +527,11 @@ export class ReportCardsEnhancedController {
   @RequiresPermission('report_cards.bulk_operations')
   async bulkDeliver(
     @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
     @Body(new ZodValidationPipe(bulkDeliverSchema))
     dto: z.infer<typeof bulkDeliverSchema>,
   ) {
-    return this.deliveryService.bulkDeliver(tenant.tenant_id, dto.report_card_ids);
+    return this.deliveryService.bulkDeliver(tenant.tenant_id, dto.report_card_ids, user.sub);
   }
 
   // ─── Transcript (R9) ─────────────────────────────────────────────────────

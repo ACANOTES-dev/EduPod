@@ -23,6 +23,8 @@ import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 
 import { RequestReopenModal } from '../../_components/request-reopen-modal';
+import type { VersionConflictState } from '../../_components/version-conflict-modal';
+import { VersionConflictModal } from '../../_components/version-conflict-modal';
 import type { ActiveWindow } from '../../_components/window-banner';
 import { WindowBanner } from '../../_components/window-banner';
 
@@ -57,6 +59,19 @@ interface OverallCommentRow {
   academic_period_id: string;
   comment_text: string;
   finalised_at: string | null;
+  updated_at?: string;
+}
+
+interface VersionConflictPayload {
+  code: 'COMMENT_VERSION_CONFLICT';
+  message: string;
+  server: {
+    id: string;
+    comment_text: string;
+    finalised_at: string | null;
+    updated_at: string;
+    author_user_id: string | null;
+  };
 }
 
 interface OverallCommentListResponse {
@@ -100,9 +115,36 @@ export default function OverallCommentEditorPage() {
   const [loadFailed, setLoadFailed] = React.useState(false);
   const [filter, setFilter] = React.useState<FilterMode>('all');
   const [requestReopenOpen, setRequestReopenOpen] = React.useState(false);
+  const [conflictState, setConflictState] = React.useState<VersionConflictState | null>(null);
+  const loadedUpdatedAt = React.useRef<Record<string, string | undefined>>({});
 
   const saveTimers = React.useRef<Record<string, ReturnType<typeof setTimeout> | undefined>>({});
+  const composingRef = React.useRef<Record<string, boolean>>({});
+  const flashTimers = React.useRef<Record<string, ReturnType<typeof setTimeout> | undefined>>({});
+  const saveAborts = React.useRef<Record<string, AbortController | undefined>>({});
   const cancelledRef = React.useRef(false);
+  const isMountedRef = React.useRef(true);
+
+  // Unmount-only cleanup: cancel any pending debounced saves, abort in-flight
+  // PATCH/POSTs, and prevent state updates from landing on an unmounted tree.
+  React.useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      for (const timer of Object.values(saveTimers.current)) {
+        if (timer) clearTimeout(timer);
+      }
+      saveTimers.current = {};
+      for (const timer of Object.values(flashTimers.current)) {
+        if (timer) clearTimeout(timer);
+      }
+      flashTimers.current = {};
+      for (const controller of Object.values(saveAborts.current)) {
+        controller?.abort();
+      }
+      saveAborts.current = {};
+    };
+  }, []);
 
   const canEdit = activeWindow?.status === 'open';
 
@@ -157,6 +199,7 @@ export default function OverallCommentEditorPage() {
         const commentByStudent = new Map<string, OverallCommentRow>();
         for (const c of commentsRes.data ?? []) {
           commentByStudent.set(c.student_id, c);
+          if (c.updated_at) loadedUpdatedAt.current[c.student_id] = c.updated_at;
         }
 
         const initialRows: RowState[] = matrixData.students.map((student) => {
@@ -199,7 +242,11 @@ export default function OverallCommentEditorPage() {
     setRows((prev) => prev.map((r) => (r.student_id === studentId ? { ...r, ...patch } : r)));
   };
 
-  const saveRow = async (row: RowState, text: string): Promise<void> => {
+  const saveRow = async (
+    row: RowState,
+    text: string,
+    options: { force?: boolean } = {},
+  ): Promise<void> => {
     if (!activeWindow) return;
     const trimmed = text.trim();
     if (trimmed.length === 0) {
@@ -207,6 +254,11 @@ export default function OverallCommentEditorPage() {
       return;
     }
     updateRow(row.student_id, { status: 'saving' });
+    const prevAbort = saveAborts.current[row.student_id];
+    prevAbort?.abort();
+    const controller = new AbortController();
+    saveAborts.current[row.student_id] = controller;
+    const expectedUpdatedAt = options.force ? undefined : loadedUpdatedAt.current[row.student_id];
     try {
       const savedRes = await apiClient<{ data: OverallCommentRow }>(
         '/api/v1/report-card-overall-comments',
@@ -217,27 +269,65 @@ export default function OverallCommentEditorPage() {
             class_id: classId,
             academic_period_id: activeWindow.academic_period_id,
             comment_text: trimmed,
+            ...(expectedUpdatedAt ? { expected_updated_at: expectedUpdatedAt } : {}),
           }),
           silent: true,
+          signal: controller.signal,
         },
       );
+      if (!isMountedRef.current || controller.signal.aborted) return;
       const saved = savedRes.data;
+      if (saved.updated_at) loadedUpdatedAt.current[saved.student_id] = saved.updated_at;
       updateRow(row.student_id, {
         comment_id: saved.id,
         finalised_at: saved.finalised_at,
         status: 'saved',
       });
-      setTimeout(() => updateRow(row.student_id, { status: 'idle' }), 1200);
+      const existingFlash = flashTimers.current[row.student_id];
+      if (existingFlash) clearTimeout(existingFlash);
+      flashTimers.current[row.student_id] = setTimeout(() => {
+        if (!isMountedRef.current) return;
+        updateRow(row.student_id, { status: 'idle' });
+      }, 1200);
     } catch (err) {
+      if (controller.signal.aborted || !isMountedRef.current) return;
+      const payload = err as { error?: VersionConflictPayload } | VersionConflictPayload;
+      const maybeConflict: VersionConflictPayload | undefined =
+        (payload as VersionConflictPayload)?.code === 'COMMENT_VERSION_CONFLICT'
+          ? (payload as VersionConflictPayload)
+          : (payload as { error?: VersionConflictPayload })?.error?.code ===
+              'COMMENT_VERSION_CONFLICT'
+            ? (payload as { error?: VersionConflictPayload }).error
+            : undefined;
+      if (maybeConflict) {
+        loadedUpdatedAt.current[row.student_id] = maybeConflict.server.updated_at;
+        updateRow(row.student_id, { status: 'idle' });
+        setConflictState({
+          studentId: row.student_id,
+          studentName: `${row.first_name} ${row.last_name}`.trim(),
+          myDraft: text,
+          serverText: maybeConflict.server.comment_text,
+          serverUpdatedAt: maybeConflict.server.updated_at,
+        });
+        return;
+      }
       console.error('[OverallCommentEditor] save', err);
       updateRow(row.student_id, { status: 'error' });
       toast.error(t('saveFailed'));
+    } finally {
+      if (saveAborts.current[row.student_id] === controller) {
+        delete saveAborts.current[row.student_id];
+      }
     }
   };
 
-  const handleTextChange = (row: RowState, text: string): void => {
+  const handleTextChange = (row: RowState, text: string, isComposing = false): void => {
     updateRow(row.student_id, { text });
     if (!canEdit) return;
+    // Don't schedule a save mid-IME: compositionend will re-invoke this
+    // with isComposing=false so validation and persistence see the final
+    // composed string.
+    if (isComposing) return;
     const existing = saveTimers.current[row.student_id];
     if (existing) clearTimeout(existing);
     saveTimers.current[row.student_id] = setTimeout(() => {
@@ -424,7 +514,20 @@ export default function OverallCommentEditorPage() {
 
                           <Textarea
                             value={row.text}
-                            onChange={(e) => handleTextChange(row, e.target.value)}
+                            onChange={(e) =>
+                              handleTextChange(
+                                row,
+                                e.target.value,
+                                composingRef.current[row.student_id] === true,
+                              )
+                            }
+                            onCompositionStart={() => {
+                              composingRef.current[row.student_id] = true;
+                            }}
+                            onCompositionEnd={(e) => {
+                              composingRef.current[row.student_id] = false;
+                              handleTextChange(row, (e.target as HTMLTextAreaElement).value, false);
+                            }}
                             rows={4}
                             readOnly={!canEdit || !!row.finalised_at}
                             placeholder={t('placeholder')}
@@ -482,6 +585,25 @@ export default function OverallCommentEditorPage() {
         open={requestReopenOpen}
         onOpenChange={setRequestReopenOpen}
         defaultPeriodId={activeWindow?.academic_period_id ?? null}
+      />
+
+      <VersionConflictModal
+        state={conflictState}
+        onClose={() => setConflictState(null)}
+        onKeepMine={(state, mergedText) => {
+          setConflictState(null);
+          const row = rows.find((r) => r.student_id === state.studentId);
+          if (!row) return;
+          updateRow(state.studentId, { text: mergedText });
+          void saveRow({ ...row, text: mergedText }, mergedText, { force: true });
+        }}
+        onUseServer={(state) => {
+          setConflictState(null);
+          updateRow(state.studentId, {
+            text: state.serverText,
+            status: 'idle',
+          });
+        }}
       />
     </div>
   );

@@ -23,6 +23,8 @@ import { apiClient } from '@/lib/api-client';
 import { RequestReopenModal } from '../../../_components/request-reopen-modal';
 import type { SubjectRowState } from '../../../_components/subject-comment-row';
 import { SubjectCommentRow } from '../../../_components/subject-comment-row';
+import type { VersionConflictState } from '../../../_components/version-conflict-modal';
+import { VersionConflictModal } from '../../../_components/version-conflict-modal';
 import type { ActiveWindow } from '../../../_components/window-banner';
 import { WindowBanner } from '../../../_components/window-banner';
 
@@ -73,6 +75,20 @@ interface SubjectCommentRecord {
   comment_text: string;
   is_ai_draft: boolean;
   finalised_at: string | null;
+  updated_at?: string;
+}
+
+interface VersionConflictPayload {
+  code: 'COMMENT_VERSION_CONFLICT';
+  message: string;
+  server: {
+    id: string;
+    comment_text: string;
+    is_ai_draft?: boolean;
+    finalised_at: string | null;
+    updated_at: string;
+    author_user_id: string | null;
+  };
 }
 
 interface SubjectCommentListResponse {
@@ -120,9 +136,35 @@ export default function SubjectCommentEditorPage() {
   const [filter, setFilter] = React.useState<FilterMode>('all');
   const [requestReopenOpen, setRequestReopenOpen] = React.useState(false);
   const [bulkInFlight, setBulkInFlight] = React.useState<'none' | 'draft' | 'finalise'>('none');
+  const [conflictState, setConflictState] = React.useState<VersionConflictState | null>(null);
+  const loadedUpdatedAt = React.useRef<Record<string, string | undefined>>({});
 
   const saveTimers = React.useRef<Record<string, ReturnType<typeof setTimeout> | undefined>>({});
+  const flashTimers = React.useRef<Record<string, ReturnType<typeof setTimeout> | undefined>>({});
+  const saveAborts = React.useRef<Record<string, AbortController | undefined>>({});
   const cancelledRef = React.useRef(false);
+  const isMountedRef = React.useRef(true);
+
+  // Unmount-only cleanup: cancel pending debounced saves, abort in-flight
+  // POSTs, and prevent state updates on an unmounted tree.
+  React.useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      for (const timer of Object.values(saveTimers.current)) {
+        if (timer) clearTimeout(timer);
+      }
+      saveTimers.current = {};
+      for (const timer of Object.values(flashTimers.current)) {
+        if (timer) clearTimeout(timer);
+      }
+      flashTimers.current = {};
+      for (const controller of Object.values(saveAborts.current)) {
+        controller?.abort();
+      }
+      saveAborts.current = {};
+    };
+  }, []);
 
   const windowIsOpen = activeWindow?.status === 'open';
   const canEdit = windowIsOpen;
@@ -190,6 +232,7 @@ export default function SubjectCommentEditorPage() {
         const commentByStudent = new Map<string, SubjectCommentRecord>();
         for (const c of commentsRes.data ?? []) {
           commentByStudent.set(c.student_id, c);
+          if (c.updated_at) loadedUpdatedAt.current[c.student_id] = c.updated_at;
         }
 
         // Defensive guards on every nested lookup so a partial response
@@ -245,7 +288,11 @@ export default function SubjectCommentEditorPage() {
     setRows((prev) => prev.map((r) => (r.student_id === studentId ? { ...r, ...patch } : r)));
   };
 
-  const saveRow = async (row: RowState, text: string): Promise<void> => {
+  const saveRow = async (
+    row: RowState,
+    text: string,
+    options: { force?: boolean } = {},
+  ): Promise<void> => {
     if (!activeWindow) return;
     const trimmed = text.trim();
     if (trimmed.length === 0) {
@@ -254,6 +301,11 @@ export default function SubjectCommentEditorPage() {
       return;
     }
     updateRow(row.student_id, { status: 'saving' });
+    const prevAbort = saveAborts.current[row.student_id];
+    prevAbort?.abort();
+    const controller = new AbortController();
+    saveAborts.current[row.student_id] = controller;
+    const expectedUpdatedAt = options.force ? undefined : loadedUpdatedAt.current[row.student_id];
     try {
       const res = await apiClient<Envelope<SubjectCommentRecord>>(
         '/api/v1/report-card-subject-comments',
@@ -266,11 +318,15 @@ export default function SubjectCommentEditorPage() {
             academic_period_id: activeWindow.academic_period_id,
             comment_text: trimmed,
             is_ai_draft: false,
+            ...(expectedUpdatedAt ? { expected_updated_at: expectedUpdatedAt } : {}),
           }),
           silent: true,
+          signal: controller.signal,
         },
       );
+      if (!isMountedRef.current || controller.signal.aborted) return;
       const saved = res.data;
+      if (saved.updated_at) loadedUpdatedAt.current[saved.student_id] = saved.updated_at;
       updateRow(row.student_id, {
         comment_id: saved.id,
         is_ai_draft: saved.is_ai_draft,
@@ -278,13 +334,41 @@ export default function SubjectCommentEditorPage() {
         status: 'saved',
       });
       // Flash "saved" state briefly
-      setTimeout(() => {
+      const existingFlash = flashTimers.current[row.student_id];
+      if (existingFlash) clearTimeout(existingFlash);
+      flashTimers.current[row.student_id] = setTimeout(() => {
+        if (!isMountedRef.current) return;
         updateRow(row.student_id, { status: 'idle' });
       }, 1200);
     } catch (err) {
+      if (controller.signal.aborted || !isMountedRef.current) return;
+      const payload = err as { error?: VersionConflictPayload } | VersionConflictPayload;
+      const maybeConflict: VersionConflictPayload | undefined =
+        (payload as VersionConflictPayload)?.code === 'COMMENT_VERSION_CONFLICT'
+          ? (payload as VersionConflictPayload)
+          : (payload as { error?: VersionConflictPayload })?.error?.code ===
+              'COMMENT_VERSION_CONFLICT'
+            ? (payload as { error?: VersionConflictPayload }).error
+            : undefined;
+      if (maybeConflict) {
+        loadedUpdatedAt.current[row.student_id] = maybeConflict.server.updated_at;
+        updateRow(row.student_id, { status: 'idle' });
+        setConflictState({
+          studentId: row.student_id,
+          studentName: `${row.first_name} ${row.last_name}`.trim(),
+          myDraft: text,
+          serverText: maybeConflict.server.comment_text,
+          serverUpdatedAt: maybeConflict.server.updated_at,
+        });
+        return;
+      }
       console.error('[SubjectCommentEditor] save', err);
       updateRow(row.student_id, { status: 'error' });
       toast.error(t('saveFailed'));
+    } finally {
+      if (saveAborts.current[row.student_id] === controller) {
+        delete saveAborts.current[row.student_id];
+      }
     }
   };
 
@@ -296,9 +380,12 @@ export default function SubjectCommentEditorPage() {
     }, 500);
   };
 
-  const handleTextChange = (row: RowState, text: string): void => {
+  const handleTextChange = (row: RowState, text: string, isComposing = false): void => {
     updateRow(row.student_id, { text, is_ai_draft: false });
     if (!canEdit) return;
+    // Don't schedule saves mid-IME: composition events will re-invoke this
+    // handler with the final text and isComposing=false.
+    if (isComposing) return;
     scheduleSave({ ...row, text }, text);
   };
 
@@ -327,10 +414,14 @@ export default function SubjectCommentEditorPage() {
         status: 'saved',
       });
       toast.success(t('aiSuccess'));
-      setTimeout(() => {
+      const existingFlash = flashTimers.current[row.student_id];
+      if (existingFlash) clearTimeout(existingFlash);
+      flashTimers.current[row.student_id] = setTimeout(() => {
+        if (!isMountedRef.current) return;
         updateRow(row.student_id, { status: 'idle' });
       }, 1200);
     } catch (err) {
+      if (!isMountedRef.current) return;
       console.error('[SubjectCommentEditor] ai-draft', err);
       updateRow(row.student_id, { status: 'error' });
       toast.error(t('aiFailed'));
@@ -588,6 +679,26 @@ export default function SubjectCommentEditorPage() {
         open={requestReopenOpen}
         onOpenChange={setRequestReopenOpen}
         defaultPeriodId={activeWindow?.academic_period_id ?? null}
+      />
+
+      <VersionConflictModal
+        state={conflictState}
+        onClose={() => setConflictState(null)}
+        onKeepMine={(state, mergedText) => {
+          setConflictState(null);
+          const row = rows.find((r) => r.student_id === state.studentId);
+          if (!row) return;
+          updateRow(state.studentId, { text: mergedText, is_ai_draft: false });
+          void saveRow({ ...row, text: mergedText }, mergedText, { force: true });
+        }}
+        onUseServer={(state) => {
+          setConflictState(null);
+          updateRow(state.studentId, {
+            text: state.serverText,
+            is_ai_draft: false,
+            status: 'idle',
+          });
+        }}
       />
     </div>
   );

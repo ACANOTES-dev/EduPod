@@ -23,7 +23,6 @@ export interface AnalyticsSummary {
    * the new comment system writes elsewhere. Use the overall/subject
    * counters below for the canonical metric.
    */
-  comment_fill_rate: number;
   // Round-2 QA: separate counters for the two comment subsystems. The
   // dashboard renders "n / m finalised" so admins can see at a glance
   // how much commenting work is done before they kick off generation.

@@ -66,9 +66,18 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
     return () => window.removeEventListener('open-registration-wizard', handler);
   }, []);
 
-  // Fetch branding logo for the morph bar (wait for auth so the token is available)
+  // Fetch branding logo once per tenant-session for the morph bar. Bug
+  // RC-L013: the previous implementation re-ran on every `user` reference
+  // change (auth refresh would mint a fresh object), which briefly blanked
+  // the logo during rapid navigation. Keying on `tenant_id` + a "loaded"
+  // ref makes the fetch happen exactly once per tenant, so the logo stays
+  // stable across SPA navigations.
+  const loadedLogoTenantRef = React.useRef<string | null>(null);
+  const activeTenantId = user?.memberships?.[0]?.tenant_id ?? user?.id ?? null;
   React.useEffect(() => {
-    if (!user) return;
+    if (!activeTenantId) return;
+    if (loadedLogoTenantRef.current === activeTenantId) return;
+    loadedLogoTenantRef.current = activeTenantId;
 
     async function fetchLogo() {
       try {
@@ -84,7 +93,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
       }
     }
     void fetchLogo();
-  }, [user]);
+  }, [activeTenantId]);
 
   // Wire global API error toast
   React.useEffect(() => {

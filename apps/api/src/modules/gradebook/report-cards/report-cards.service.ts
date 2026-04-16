@@ -6,6 +6,7 @@ import { PDFDocument } from 'pdf-lib';
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { AcademicReadFacade } from '../../academics/academic-read.facade';
 import { AttendanceReadFacade } from '../../attendance/attendance-read.facade';
+import { AuditLogService } from '../../audit-log/audit-log.service';
 import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
@@ -33,6 +34,7 @@ export class ReportCardsService {
     attendanceReadFacade: AttendanceReadFacade,
     classesReadFacade: ClassesReadFacade,
     private readonly s3Service: S3Service,
+    private readonly auditLog: AuditLogService,
   ) {
     this.studentReadFacade = studentReadFacade;
     this.generationService = new ReportCardGenerationService(
@@ -228,6 +230,124 @@ export class ReportCardsService {
     });
   }
 
+  /**
+   * Walk the full revision chain for a report card.
+   *
+   * The `revision_of_report_card_id` FK is a linked list: each revision
+   * points at the card it superseded. This helper walks backwards from the
+   * given card to the root, then forwards to the latest revision, yielding
+   * the chain ordered from root → latest. It also validates shape
+   * (every non-root link resolves, no cycles, all nodes share the same
+   * student/tenant) so callers can trust the output. Bug RC-C022.
+   */
+  async getRevisionChain(tenantId: string, id: string) {
+    const start = await this.prisma.reportCard.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: {
+        id: true,
+        student_id: true,
+        academic_period_id: true,
+        academic_year_id: true,
+        status: true,
+        revision_of_report_card_id: true,
+        published_at: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
+    if (!start) {
+      throw new NotFoundException({
+        code: 'REPORT_CARD_NOT_FOUND',
+        message: `Report card with id "${id}" not found`,
+      });
+    }
+
+    type ChainNode = typeof start;
+    const seen = new Set<string>([start.id]);
+
+    // Walk backwards to the root.
+    let root: ChainNode = start;
+    while (root.revision_of_report_card_id) {
+      const parent: ChainNode | null = await this.prisma.reportCard.findFirst({
+        where: { id: root.revision_of_report_card_id, tenant_id: tenantId },
+        select: {
+          id: true,
+          student_id: true,
+          academic_period_id: true,
+          academic_year_id: true,
+          status: true,
+          revision_of_report_card_id: true,
+          published_at: true,
+          created_at: true,
+          updated_at: true,
+        },
+      });
+      if (!parent) break;
+      if (seen.has(parent.id)) {
+        throw new ConflictException({
+          code: 'REVISION_CHAIN_CYCLE',
+          message: `Revision chain contains a cycle at "${parent.id}"`,
+        });
+      }
+      if (parent.student_id !== start.student_id) {
+        throw new ConflictException({
+          code: 'REVISION_CHAIN_STUDENT_MISMATCH',
+          message: 'Revision chain crosses students — data integrity error',
+        });
+      }
+      seen.add(parent.id);
+      root = parent;
+    }
+
+    // Walk forwards from root, collecting direct children in order.
+    // Hard cap of 100 to bound the loop even if DB state is corrupt.
+    const MAX_REVISION_CHAIN_DEPTH = 100;
+    const chain: ChainNode[] = [root];
+    let current: ChainNode = root;
+    for (let depth = 0; depth < MAX_REVISION_CHAIN_DEPTH; depth++) {
+      const child: ChainNode | null = await this.prisma.reportCard.findFirst({
+        where: { revision_of_report_card_id: current.id, tenant_id: tenantId },
+        orderBy: { created_at: 'asc' },
+        select: {
+          id: true,
+          student_id: true,
+          academic_period_id: true,
+          academic_year_id: true,
+          status: true,
+          revision_of_report_card_id: true,
+          published_at: true,
+          created_at: true,
+          updated_at: true,
+        },
+      });
+      if (!child) break;
+      if (seen.has(child.id) && child.id !== start.id) {
+        throw new ConflictException({
+          code: 'REVISION_CHAIN_CYCLE',
+          message: `Revision chain contains a cycle at "${child.id}"`,
+        });
+      }
+      seen.add(child.id);
+      chain.push(child);
+      current = child;
+    }
+
+    return {
+      root_id: root.id,
+      chain: chain.map((c, index) => ({
+        id: c.id,
+        status: c.status,
+        revision_index: index,
+        revision_of_report_card_id: c.revision_of_report_card_id,
+        published_at: c.published_at,
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+        is_latest: index === chain.length - 1,
+      })),
+      latest_id: chain[chain.length - 1]?.id ?? root.id,
+    };
+  }
+
   // buildBatchSnapshots and gradeOverview moved to ReportCardsQueriesService (M-16)
 
   /**
@@ -255,6 +375,19 @@ export class ReportCardsService {
       try {
         await this.publish(tenantId, id, userId);
         results.push({ report_card_id: id, success: true });
+        // Per-card audit entry — complements the AuditLogInterceptor's
+        // single summary row for the bulk endpoint. Without this,
+        // reconstructing "who published card X" after a bulk op requires
+        // parsing the summary metadata; with it, a per-card grep works.
+        await this.auditLog.write(
+          tenantId,
+          userId,
+          'ReportCard',
+          id,
+          'report_card.published',
+          { source: 'bulk_publish' },
+          null,
+        );
       } catch (err) {
         results.push({
           report_card_id: id,
@@ -266,6 +399,23 @@ export class ReportCardsService {
 
     const succeeded = results.filter((r) => r.success).length;
     const failed = results.filter((r) => !r.success).length;
+
+    // Summary audit entry — lets operators see the whole batch in one row
+    // while still having the per-card traceability above.
+    await this.auditLog.write(
+      tenantId,
+      userId,
+      'ReportCard',
+      null,
+      'report_card.bulk_published',
+      {
+        requested: reportCardIds.length,
+        succeeded,
+        failed,
+        failed_ids: results.filter((r) => !r.success).map((r) => r.report_card_id),
+      },
+      null,
+    );
 
     return { results, succeeded, failed };
   }
@@ -417,13 +567,23 @@ export class ReportCardsService {
       return { deleted_count: 0 };
     }
 
+    // Chunk the delete into smaller transactions so a 10k-row bulk op
+    // doesn't hold a single Postgres transaction for minutes and trip the
+    // statement_timeout. Each chunk is its own RLS-scoped tx; a chunk that
+    // fails stops the loop but earlier chunks are committed and S3 cleanup
+    // below reaps their objects. Bug RC-C026.
+    const BULK_DELETE_CHUNK_SIZE = 50;
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-    await prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-      await db.reportCard.deleteMany({
-        where: { id: { in: candidates.map((c) => c.id) } },
+    const deletedIds: string[] = [];
+    for (let offset = 0; offset < candidates.length; offset += BULK_DELETE_CHUNK_SIZE) {
+      const chunk = candidates.slice(offset, offset + BULK_DELETE_CHUNK_SIZE);
+      const chunkIds = chunk.map((c) => c.id);
+      await prismaWithRls.$transaction(async (tx) => {
+        const db = tx as unknown as PrismaService;
+        await db.reportCard.deleteMany({ where: { id: { in: chunkIds } } });
       });
-    });
+      deletedIds.push(...chunkIds);
+    }
 
     // Best-effort S3 cleanup — errors are logged but don't fail the call.
     for (const row of candidates) {

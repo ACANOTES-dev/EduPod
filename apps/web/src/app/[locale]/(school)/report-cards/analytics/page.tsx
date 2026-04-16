@@ -44,7 +44,6 @@ interface AnalyticsSummary {
   pending_approval: number;
   completion_rate: number;
   /** @deprecated — see overall/subject counters below. */
-  comment_fill_rate: number;
   overall_comments_finalised: number;
   overall_comments_total: number;
   subject_comments_finalised: number;

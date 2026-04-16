@@ -6,6 +6,7 @@ import {
   MOCK_FACADE_PROVIDERS,
   StudentReadFacade,
 } from '../../../common/tests/mock-facades';
+import { AuditLogService } from '../../audit-log/audit-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { S3Service } from '../../s3/s3.service';
@@ -22,6 +23,11 @@ const mockS3Service = {
   getPresignedUrl: jest.fn().mockResolvedValue('https://signed.example/url'),
   delete: jest.fn().mockResolvedValue(undefined),
   download: jest.fn().mockResolvedValue(Buffer.from('pdf-bytes')),
+};
+
+const mockAuditLog = {
+  write: jest.fn().mockResolvedValue(undefined),
+  enqueue: jest.fn().mockResolvedValue(undefined),
 };
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -132,6 +138,7 @@ describe('ReportCardsQueriesService — findAll', () => {
         ReportCardsQueriesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3Service },
+        { provide: AuditLogService, useValue: mockAuditLog },
       ],
     }).compile();
 
@@ -216,6 +223,7 @@ describe('ReportCardsQueriesService — findOne', () => {
         ReportCardsQueriesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3Service },
+        { provide: AuditLogService, useValue: mockAuditLog },
       ],
     }).compile();
 
@@ -256,6 +264,7 @@ describe('ReportCardsService — update', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: buildMockRedis() },
         { provide: S3Service, useValue: mockS3Service },
+        { provide: AuditLogService, useValue: mockAuditLog },
       ],
     }).compile();
 
@@ -381,6 +390,7 @@ describe('ReportCardsService — publish', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: S3Service, useValue: mockS3Service },
+        { provide: AuditLogService, useValue: mockAuditLog },
       ],
     }).compile();
 
@@ -456,6 +466,7 @@ describe('ReportCardsService — revise', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: buildMockRedis() },
         { provide: S3Service, useValue: mockS3Service },
+        { provide: AuditLogService, useValue: mockAuditLog },
       ],
     }).compile();
 
@@ -513,6 +524,7 @@ describe('ReportCardsService — publishBulk', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: S3Service, useValue: mockS3Service },
+        { provide: AuditLogService, useValue: mockAuditLog },
       ],
     }).compile();
 
@@ -561,6 +573,7 @@ describe('ReportCardsQueriesService — generateTranscript', () => {
         ReportCardsQueriesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3Service },
+        { provide: AuditLogService, useValue: mockAuditLog },
         { provide: StudentReadFacade, useValue: mockStudentFacade },
       ],
     }).compile();
@@ -652,6 +665,7 @@ describe('ReportCardsService — generateBulkDrafts', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: buildMockRedis() },
         { provide: S3Service, useValue: mockS3Service },
+        { provide: AuditLogService, useValue: mockAuditLog },
         { provide: ClassesReadFacade, useValue: mockClassesFacade },
       ],
     }).compile();

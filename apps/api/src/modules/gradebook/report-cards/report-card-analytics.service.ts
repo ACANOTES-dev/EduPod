@@ -14,18 +14,13 @@ export interface ReportCardDashboard {
   revised: number;
   pending_approval: number;
   completion_rate: number;
-  /**
-   * @deprecated Reads `report_cards.teacher_comment` which is the legacy
-   * comment column. The new comment system writes to
-   * report_card_overall_comments / report_card_subject_comments — use the
-   * `_finalised` / `_total` counters below for an accurate metric. Kept on
-   * the response shape so existing consumers don't break.
-   */
-  comment_fill_rate: number;
-  // Round-2 QA: separate counters for the two comment subsystems. Both are
-  // raw counts so the frontend can render "n / m finalised" instead of a
-  // misleading single percentage. _total is the count of comments started
-  // (any state); _finalised is the subset that have been finalised.
+  // Separate counters for the two comment subsystems. Both are raw counts
+  // so the frontend renders "n / m finalised" instead of a misleading
+  // single percentage. _total is the count of comments started (any
+  // state); _finalised is the subset that have been finalised. These
+  // replace the old `comment_fill_rate` field which read the legacy
+  // `report_cards.teacher_comment` column and didn't reflect the new
+  // comment system. Bug RC-C032.
   overall_comments_finalised: number;
   overall_comments_total: number;
   subject_comments_finalised: number;
@@ -87,19 +82,6 @@ export class ReportCardAnalyticsService {
       },
     });
 
-    // Legacy comment_fill_rate: % of published report cards that have a
-    // teacher comment in the deprecated `teacher_comment` column. Round-2
-    // QA found this misleading because the new comment system writes to
-    // separate tables — see overall/subject counters below for the
-    // canonical metric.
-    const publishedWithComment = await this.prisma.reportCard.count({
-      where: {
-        ...where,
-        status: 'published',
-        teacher_comment: { not: null },
-      },
-    });
-
     // Round-2 QA — comment counters from the new tables. Scope by period
     // (or null period for full-year). Counts apply to the comment rows
     // themselves, not the report cards: a teacher can have written 25
@@ -135,9 +117,6 @@ export class ReportCardAnalyticsService {
     // value — using the same denominator (total) keeps them consistent.
     const completionRate = total > 0 ? Math.round((published / total) * 10000) / 100 : 0;
 
-    const commentFillRate =
-      published > 0 ? Math.round((publishedWithComment / published) * 10000) / 100 : 0;
-
     return {
       period_id: periodId ?? null,
       total,
@@ -146,7 +125,6 @@ export class ReportCardAnalyticsService {
       revised,
       pending_approval: pendingApproval,
       completion_rate: completionRate,
-      comment_fill_rate: commentFillRate,
       overall_comments_finalised: overallFinalised,
       overall_comments_total: overallTotal,
       subject_comments_finalised: subjectFinalised,

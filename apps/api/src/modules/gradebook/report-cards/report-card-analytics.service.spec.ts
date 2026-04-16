@@ -67,8 +67,7 @@ describe('ReportCardAnalyticsService — getDashboard', () => {
       .mockResolvedValueOnce(50) // total
       .mockResolvedValueOnce(30) // published
       .mockResolvedValueOnce(15) // draft
-      .mockResolvedValueOnce(5) // revised
-      .mockResolvedValueOnce(20); // publishedWithComment
+      .mockResolvedValueOnce(5); // revised
 
     mockPrisma.reportCardApproval.count.mockResolvedValue(3);
     mockClassesFacade.countEnrolmentsGeneric.mockResolvedValue(40); // active students
@@ -83,8 +82,6 @@ describe('ReportCardAnalyticsService — getDashboard', () => {
     expect(result.period_id).toBe(PERIOD_ID);
     // 30 published / 50 total = 60%
     expect(result.completion_rate).toBe(60);
-    // 20 with comment / 30 published = 66.67%
-    expect(result.comment_fill_rate).toBeCloseTo(66.67, 1);
   });
 
   it('should return completion_rate 100 when all cards are published', async () => {
@@ -92,8 +89,7 @@ describe('ReportCardAnalyticsService — getDashboard', () => {
       .mockResolvedValueOnce(5) // total
       .mockResolvedValueOnce(5) // published
       .mockResolvedValueOnce(0) // draft
-      .mockResolvedValueOnce(0) // revised
-      .mockResolvedValueOnce(5); // publishedWithComment
+      .mockResolvedValueOnce(0); // revised
 
     mockPrisma.reportCardApproval.count.mockResolvedValue(0);
 
@@ -101,22 +97,6 @@ describe('ReportCardAnalyticsService — getDashboard', () => {
 
     // 5 published / 5 total = 100%
     expect(result.completion_rate).toBe(100);
-  });
-
-  it('should return comment_fill_rate 0 when no report cards are published', async () => {
-    mockPrisma.reportCard.count
-      .mockResolvedValueOnce(10)
-      .mockResolvedValueOnce(0) // published = 0
-      .mockResolvedValueOnce(10)
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(0); // publishedWithComment = 0
-
-    mockPrisma.reportCardApproval.count.mockResolvedValue(0);
-    mockClassesFacade.countEnrolmentsGeneric.mockResolvedValue(15);
-
-    const result = await service.getDashboard(TENANT_ID, PERIOD_ID);
-
-    expect(result.comment_fill_rate).toBe(0);
   });
 
   it('should return period_id null when no period is specified', async () => {

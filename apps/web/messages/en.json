@@ -7022,6 +7022,35 @@
       "noCommentsToFinalise": "No comments available to finalise.",
       "noEmptyRows": "No empty rows to draft."
     },
+    "yearGroupLabels": {
+      "kindergarten": "Kindergarten",
+      "nursery": "Nursery",
+      "reception": "Reception",
+      "grade_1": "1st class",
+      "grade_2": "2nd class",
+      "grade_3": "3rd class",
+      "grade_4": "4th class",
+      "grade_5": "5th class",
+      "grade_6": "6th class",
+      "grade_7": "7th class",
+      "grade_8": "8th class",
+      "grade_9": "9th class",
+      "grade_10": "10th class",
+      "grade_11": "11th class",
+      "grade_12": "12th class"
+    },
+    "conflict": {
+      "title": "This comment was edited elsewhere",
+      "description": "Another user saved a different version of {name}'s comment while you were typing. Your draft has been kept — review both and choose.",
+      "myDraftLabel": "Your draft (edit to merge)",
+      "myDraftHint": "Edit freely to combine both versions, then choose Keep mine.",
+      "serverTextLabel": "Latest saved version",
+      "empty": "(empty)",
+      "cancel": "Cancel",
+      "useServer": "Use latest saved",
+      "keepMine": "Keep mine",
+      "resolved": "Conflict resolved."
+    },
     "openWindowModal": {
       "title": "Open comment window",
       "description": "Opening a window allows teachers to write and finalise comments for the selected period.",
