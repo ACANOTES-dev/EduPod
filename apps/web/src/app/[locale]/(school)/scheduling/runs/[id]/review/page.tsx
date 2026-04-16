@@ -22,6 +22,7 @@ import {
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 
 import {
   Badge,
@@ -422,18 +423,44 @@ function BackToTimetableButton({ targetRef }: { targetRef: React.RefObject<HTMLD
     return () => scroller.removeEventListener('scroll', check);
   }, [targetRef]);
 
-  if (!show) return null;
+  if (!show || typeof document === 'undefined') return null;
 
-  return (
+  // Portal to <body> so position:fixed is anchored to the viewport. Inside
+  // the school shell at least one ancestor has a `transform` — which makes
+  // `position: fixed` behave as `position: absolute` inside that ancestor,
+  // and the button ends up parked at 1700 px off-screen when the user
+  // scrolls down. Rendering at the body level sidesteps the transform
+  // containing block entirely.
+  const scrollToTop = () => {
+    const el = targetRef.current;
+    if (!el) return;
+    const scroller = (() => {
+      let node: HTMLElement | null = el.parentElement;
+      while (node) {
+        const overflowY = window.getComputedStyle(node).overflowY;
+        if (overflowY === 'auto' || overflowY === 'scroll') return node;
+        node = node.parentElement;
+      }
+      return null;
+    })();
+    if (scroller) {
+      scroller.scrollTo({ top: Math.max(0, el.offsetTop - 80), behavior: 'smooth' });
+    } else {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  return createPortal(
     <button
       type="button"
-      onClick={() => targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+      onClick={scrollToTop}
       aria-label={t('backToTimetable')}
       className="pointer-events-auto fixed bottom-4 end-4 z-30 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2 text-xs font-medium text-text-primary shadow-lg transition-colors hover:bg-surface-secondary animate-in fade-in-0 slide-in-from-bottom-2"
     >
       <ChevronUp className="h-3.5 w-3.5" />
       {t('backToTimetable')}
-    </button>
+    </button>,
+    document.body,
   );
 }
 
