@@ -395,19 +395,31 @@ function BackToTimetableButton({ targetRef }: { targetRef: React.RefObject<HTMLD
   React.useEffect(() => {
     const el = targetRef.current;
     if (!el) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (!entry) return;
-        // Show once the timetable top has scrolled well past the viewport
-        // top (intersectionRatio ≈ 0 + boundingClientRect.top < 0 means
-        // it's above the fold).
-        setShow(!entry.isIntersecting && entry.boundingClientRect.top < 0);
-      },
-      { threshold: 0.01 },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
+    // The school shell scrolls the `<main>` element, not the window — so a
+    // plain IntersectionObserver tied to the viewport sees the timetable
+    // as permanently visible and the button never appears. Walk up to the
+    // first scrollable ancestor and watch its scroll position against
+    // the timetable's bottom.
+    const scroller = (() => {
+      let node: HTMLElement | null = el.parentElement;
+      while (node) {
+        const overflowY = window.getComputedStyle(node).overflowY;
+        if (overflowY === 'auto' || overflowY === 'scroll') return node;
+        node = node.parentElement;
+      }
+      return null;
+    })();
+    if (!scroller) return;
+    const check = () => {
+      const rect = el.getBoundingClientRect();
+      const scrollerRect = scroller.getBoundingClientRect();
+      // Show once the grid has fully scrolled above the top of the
+      // scroll viewport (bottom < top).
+      setShow(rect.bottom < scrollerRect.top + 40);
+    };
+    scroller.addEventListener('scroll', check, { passive: true });
+    check();
+    return () => scroller.removeEventListener('scroll', check);
   }, [targetRef]);
 
   if (!show) return null;
