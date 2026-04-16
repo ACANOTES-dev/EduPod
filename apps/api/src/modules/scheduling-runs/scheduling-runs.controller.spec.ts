@@ -8,9 +8,11 @@ import { PermissionCacheService } from '../../common/services/permission-cache.s
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { SchedulerOrchestrationService } from '../scheduling/scheduler-orchestration.service';
 import { SchedulingReadFacade } from '../scheduling/scheduling-read.facade';
 import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
 
+import { FeasibilityService } from './feasibility/feasibility.service';
 import { SchedulingApplyService } from './scheduling-apply.service';
 import { SchedulingDiagnosticsService } from './scheduling-diagnostics.service';
 import { SchedulingPrerequisitesService } from './scheduling-prerequisites.service';
@@ -160,6 +162,27 @@ describe('SchedulingRunsController', () => {
         {
           provide: SchedulingSimulationService,
           useValue: { simulate: jest.fn().mockResolvedValue({}) },
+        },
+        {
+          provide: FeasibilityService,
+          useValue: {
+            runFeasibilitySweep: jest.fn().mockResolvedValue({
+              verdict: 'feasible',
+              checks: [],
+              ceiling: {
+                total_demand_periods: 0,
+                total_qualified_teacher_periods: 0,
+                slack_periods: 0,
+              },
+              diagnosed_blockers: [],
+            }),
+          },
+        },
+        {
+          provide: SchedulerOrchestrationService,
+          useValue: {
+            assembleSolverInputV3: jest.fn().mockResolvedValue({}),
+          },
         },
         {
           provide: PermissionCacheService,

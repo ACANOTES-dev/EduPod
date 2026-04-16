@@ -33,7 +33,9 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { SchedulerOrchestrationService } from '../scheduling/scheduler-orchestration.service';
 
+import { FeasibilityService } from './feasibility/feasibility.service';
 import { SchedulingApplyService } from './scheduling-apply.service';
 import { SchedulingDiagnosticsService } from './scheduling-diagnostics.service';
 import { SchedulingPrerequisitesService } from './scheduling-prerequisites.service';
@@ -60,6 +62,8 @@ export class SchedulingRunsController {
     private readonly prerequisitesService: SchedulingPrerequisitesService,
     private readonly diagnosticsService: SchedulingDiagnosticsService,
     private readonly simulationService: SchedulingSimulationService,
+    private readonly feasibilityService: FeasibilityService,
+    private readonly schedulerOrchestration: SchedulerOrchestrationService,
   ) {}
 
   /**
@@ -74,6 +78,27 @@ export class SchedulingRunsController {
     query: z.infer<typeof prerequisitesQuerySchema>,
   ) {
     return this.prerequisitesService.check(tenant.tenant_id, query.academic_year_id);
+  }
+
+  /**
+   * GET /v1/scheduling-runs/feasibility
+   * Pre-solve structural feasibility sweep. Runs 10 deterministic capacity
+   * checks against the assembled solver input (same shape the solver will
+   * see) so the UI can warn the user when 100 % placement is mathematically
+   * impossible before they burn a full solve budget.
+   */
+  @Get('feasibility')
+  @RequiresPermission('schedule.run_auto')
+  async feasibility(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(prerequisitesQuerySchema))
+    query: z.infer<typeof prerequisitesQuerySchema>,
+  ) {
+    const solverInput = await this.schedulerOrchestration.assembleSolverInputV3(
+      tenant.tenant_id,
+      query.academic_year_id,
+    );
+    return this.feasibilityService.runFeasibilitySweep(tenant.tenant_id, solverInput);
   }
 
   /**

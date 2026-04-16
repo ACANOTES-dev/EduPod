@@ -4989,7 +4989,14 @@
       "runMode": "Mode",
       "runCreated": "Created",
       "runDuration": "Duration",
-      "entriesGenerated": "Generated",
+      "runTier": {
+        "complete": "Complete",
+        "partial": "Partial",
+        "incomplete": "Incomplete",
+        "pending": "Running",
+        "crashed": "Crashed"
+      },
+      "entriesGenerated": "Placed / Demand",
       "entriesPinned": "Pinned",
       "entriesUnassigned": "Unassigned",
       "proposedBanner": "PROPOSED — Not Yet Applied",
@@ -5036,6 +5043,29 @@
       "viewReview": "View / Review",
       "backToSolver": "Back to Solver",
       "schedulingStatus": "Status",
+      "feasibility": {
+        "checking": "Checking whether 100% placement is mathematically possible…",
+        "verdict": {
+          "feasible": {
+            "title": "100% placement is mathematically achievable",
+            "subtitle": "Every curriculum period has enough teacher, room, and slot capacity to be placed. The solver should land a complete timetable."
+          },
+          "tight": {
+            "title": "A 100% timetable is possible but tight",
+            "subtitle": "The solver has capacity to place every period, but some bottlenecks mean the run may need the full budget. Review the warnings below before generating."
+          },
+          "infeasible": {
+            "title": "A 100% timetable is not achievable with this data",
+            "subtitle": "The solver will place as many periods as it can, but the hard shortfalls below cannot be resolved by scheduling — they need data changes. You can still generate a partial timetable."
+          }
+        },
+        "totalDemand": "Total weekly demand",
+        "qualifiedSupply": "Teacher supply",
+        "slack": "Capacity slack",
+        "periodsPerWeek": "periods / week",
+        "blockersCount": "{count, plural, =0 {No blockers} one {# blocker to resolve} other {# blockers to resolve}}",
+        "impact": "Blocks approximately {periods} period{periods, plural, =1 {} other {s}} ({pct}% of weekly demand)"
+      },
       "progressWidget": {
         "runningTitle": "Generating timetable",
         "runningSubtitle": "{phase} · {elapsed}",
@@ -5044,6 +5074,20 @@
         "slotsAssigned": "{placed} of {total} slots assigned",
         "completedTitle": "Timetable ready",
         "completedSubtitle": "{placed} of {total} placed in {elapsed}",
+        "terminal": {
+          "complete": {
+            "title": "Timetable ready",
+            "subtitle": "{placed} / {total} periods placed · {elapsed}"
+          },
+          "partial": {
+            "title": "Partial timetable ready",
+            "subtitle": "{placed} / {total} placed · {unplaced} unplaced · {elapsed}"
+          },
+          "incomplete": {
+            "title": "Solver struggled with this data",
+            "subtitle": "Only {placed} / {total} placed · {elapsed} · review the blockers"
+          }
+        },
         "viewReview": "View / Review",
         "failedTitle": "Solver finished with unplaced lessons",
         "failedSubtitle": "Run ended after {elapsed}",

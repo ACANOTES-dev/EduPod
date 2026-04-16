@@ -4981,6 +4981,13 @@
       "runMode": "النمط",
       "runCreated": "تاريخ الإنشاء",
       "runDuration": "المدة",
+      "runTier": {
+        "complete": "مكتمل",
+        "partial": "[AR] Partial",
+        "incomplete": "[AR] Incomplete",
+        "pending": "[AR] Running",
+        "crashed": "[AR] Crashed"
+      },
       "entriesGenerated": "مُولَّد",
       "entriesPinned": "مثبت",
       "entriesUnassigned": "غير مُعيَّن",
@@ -5028,6 +5035,29 @@
       "viewReview": "عرض / مراجعة",
       "backToSolver": "العودة للحلال",
       "schedulingStatus": "الحالة",
+      "feasibility": {
+        "checking": "[AR] Checking whether 100% placement is mathematically possible…",
+        "verdict": {
+          "feasible": {
+            "title": "[AR] 100% placement is mathematically achievable",
+            "subtitle": "[AR] Every curriculum period has enough teacher, room, and slot capacity to be placed. The solver should land a complete timetable."
+          },
+          "tight": {
+            "title": "[AR] A 100% timetable is possible but tight",
+            "subtitle": "[AR] The solver has capacity to place every period, but some bottlenecks mean the run may need the full budget. Review the warnings below before generating."
+          },
+          "infeasible": {
+            "title": "[AR] A 100% timetable is not achievable with this data",
+            "subtitle": "[AR] The solver will place as many periods as it can, but the hard shortfalls below cannot be resolved by scheduling — they need data changes. You can still generate a partial timetable."
+          }
+        },
+        "totalDemand": "[AR] Total weekly demand",
+        "qualifiedSupply": "[AR] Teacher supply",
+        "slack": "[AR] Capacity slack",
+        "periodsPerWeek": "[AR] periods / week",
+        "blockersCount": "[AR] {count, plural, =0 {No blockers} one {# blocker to resolve} other {# blockers to resolve}}",
+        "impact": "[AR] Blocks approximately {periods} period{periods, plural, =1 {} other {s}} ({pct}% of weekly demand)"
+      },
       "progressWidget": {
         "runningTitle": "جارٍ إنشاء الجدول",
         "runningSubtitle": "{phase} · {elapsed}",
@@ -5036,6 +5066,20 @@
         "slotsAssigned": "{placed} من {total} فتحة مُعيَّنة",
         "completedTitle": "الجدول جاهز",
         "completedSubtitle": "تم تعيين {placed} من {total} في {elapsed}",
+        "terminal": {
+          "complete": {
+            "title": "الجدول جاهز",
+            "subtitle": "{placed} / {total} · {elapsed}"
+          },
+          "partial": {
+            "title": "[AR] Partial timetable ready",
+            "subtitle": "[AR] {placed} / {total} placed · {unplaced} unplaced · {elapsed}"
+          },
+          "incomplete": {
+            "title": "[AR] Solver struggled with this data",
+            "subtitle": "[AR] Only {placed} / {total} placed · {elapsed} · review the blockers"
+          }
+        },
         "viewReview": "عرض / مراجعة",
         "failedTitle": "[AR] Solver finished with unplaced lessons",
         "failedSubtitle": "[AR] Run ended after {elapsed}",

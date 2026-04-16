@@ -2,11 +2,29 @@
 
 import { AlertTriangle, CheckCircle2, ChevronRight, Loader2, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { useSolverProgress } from '@/providers/solver-progress-provider';
+
+// Placement-quality tiers.
+//
+// - `complete` (100 %)       — green, everything is in; just review and apply
+// - `partial`  (≥ 50 %)      — amber, most periods placed but some remain
+//                               unplaced (often because of structural data
+//                               shortfalls — see feasibility preview)
+// - `incomplete` (< 50 %)    — red, far too few periods placed; the solver
+//                               essentially could not solve for this data
+export type PlacementTier = 'complete' | 'partial' | 'incomplete';
+
+export function placementTier(placed: number, total: number): PlacementTier {
+  if (total <= 0) return 'incomplete';
+  if (placed >= total) return 'complete';
+  const ratio = placed / total;
+  if (ratio >= 0.5) return 'partial';
+  return 'incomplete';
+}
 
 // Non-obstructive bottom-end widget shown while a scheduling-solver run is
 // active. Persists across page navigation (the provider lives in the school
@@ -28,7 +46,23 @@ export function SolverProgressWidget() {
   const t = useTranslations('scheduling.auto.progressWidget');
   const tCommon = useTranslations('common');
   const params = useParams();
+  const router = useRouter();
   const locale = typeof params?.locale === 'string' ? params.locale : 'en';
+
+  // Auto-navigate to the review page as soon as the solve reaches a terminal
+  // state — the user kicked off the run to see the result, so land them
+  // there. Gated by a ref so the redirect fires exactly once per run and
+  // doesn't trigger again after the user navigates away.
+  const redirectedForRunRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!snapshot || !isTerminal) return;
+    if (redirectedForRunRef.current === snapshot.runId) return;
+    // Skip auto-nav for runs that produced nothing useful (cancelled / zero
+    // placements) — there's nothing for the user to review.
+    if (snapshot.placed <= 0) return;
+    redirectedForRunRef.current = snapshot.runId;
+    router.push(`/${locale}/scheduling/runs/${snapshot.runId}/review`);
+  }, [snapshot, isTerminal, router, locale]);
 
   // Live-updating elapsed timer so the widget never looks stuck while the
   // next poll is pending. Updates once per second.
@@ -51,16 +85,27 @@ export function SolverProgressWidget() {
 
   // ─── Terminal states ──────────────────────────────────────────────────────
   if (snapshot.status === 'completed' || snapshot.status === 'applied') {
+    const tier = placementTier(snapshot.placed, snapshot.total);
+    const tone = tier === 'complete' ? 'success' : tier === 'partial' ? 'info' : 'danger';
+    const title = t(`terminal.${tier}.title`);
+    const subtitle = t(`terminal.${tier}.subtitle`, {
+      placed: snapshot.placed,
+      total: snapshot.total,
+      unplaced: Math.max(0, snapshot.total - snapshot.placed),
+      elapsed,
+    });
     return (
       <WidgetShell
-        tone="success"
-        title={t('completedTitle')}
-        subtitle={t('completedSubtitle', {
-          placed: snapshot.placed,
-          total: snapshot.total,
-          elapsed,
-        })}
-        icon={<CheckCircle2 className="h-4 w-4" />}
+        tone={tone}
+        title={title}
+        subtitle={subtitle}
+        icon={
+          tier === 'complete' ? (
+            <CheckCircle2 className="h-4 w-4" />
+          ) : (
+            <AlertTriangle className="h-4 w-4" />
+          )
+        }
         onDismiss={dismiss}
         dismissLabel={tCommon('close')}
       >

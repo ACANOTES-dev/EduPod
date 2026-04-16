@@ -1,6 +1,8 @@
+/* eslint-disable max-lines -- Auto-Scheduler page: prereqs + feasibility + run history + confirm dialog live together by design */
 'use client';
 
 import {
+  AlertCircle,
   CheckCircle2,
   ChevronRight,
   HelpCircle,
@@ -58,15 +60,45 @@ interface PrerequisitesResponse {
   ready: boolean;
 }
 
+// ─── Feasibility preview types ────────────────────────────────────────────────
+// Mirror the backend `FeasibilityReport` shape. The widget on the auto page
+// only reads verdict, ceiling, and the blockers' headline/detail/quantified
+// impact — the full payload is available if we want to render the "solutions"
+// list in a future pass.
+
+type FeasibilityVerdict = 'feasible' | 'infeasible' | 'tight';
+
+interface FeasibilityBlocker {
+  id: string;
+  check: string;
+  severity: 'critical' | 'high';
+  headline: string;
+  detail: string;
+  quantified_impact: { blocked_periods: number; blocked_percentage: number };
+}
+
+interface FeasibilityReport {
+  verdict: FeasibilityVerdict;
+  checks: Array<{ code: string; passed: boolean }>;
+  ceiling: {
+    total_demand_periods: number;
+    total_qualified_teacher_periods: number;
+    slack_periods: number;
+  };
+  diagnosed_blockers: FeasibilityBlocker[];
+}
+
 interface SchedulingRun {
   id: string;
   status: string;
   mode: string;
   created_at: string;
-  completed_at?: string;
-  assigned_count?: number;
-  unassigned_count?: number;
-  pinned_count?: number;
+  updated_at: string;
+  entries_generated?: number | null;
+  entries_pinned?: number | null;
+  entries_unassigned?: number | null;
+  solver_duration_ms?: number | null;
+  failure_reason?: string | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -81,6 +113,9 @@ export default function AutoSchedulerPage() {
   const [selectedYear, setSelectedYear] = React.useState<string>('');
   const [prerequisites, setPrerequisites] = React.useState<PrerequisitesResponse | null>(null);
   const [prereqLoading, setPrereqLoading] = React.useState(false);
+  const [feasibility, setFeasibility] = React.useState<FeasibilityReport | null>(null);
+  const [feasibilityLoading, setFeasibilityLoading] = React.useState(false);
+  const [feasibilityExpanded, setFeasibilityExpanded] = React.useState(false);
   const [runs, setRuns] = React.useState<SchedulingRun[]>([]);
   const [runsLoading, setRunsLoading] = React.useState(false);
 
@@ -125,6 +160,27 @@ export default function AutoSchedulerPage() {
         return setPrerequisites(null);
       })
       .finally(() => setPrereqLoading(false));
+  }, [selectedYear]);
+
+  // Load the mathematical-feasibility preview whenever the year changes.
+  // Runs the same 10 capacity checks the orchestration would use pre-solve
+  // but without starting the solver, so the user sees up-front whether
+  // 100 % placement is achievable with this data set.
+  React.useEffect(() => {
+    if (!selectedYear) {
+      setFeasibility(null);
+      return;
+    }
+    setFeasibilityLoading(true);
+    apiClient<{ data: FeasibilityReport }>(
+      `/api/v1/scheduling-runs/feasibility?academic_year_id=${selectedYear}`,
+    )
+      .then((res) => setFeasibility(res.data))
+      .catch((err) => {
+        console.error('[SchedulingAutoPage.feasibility]', err);
+        setFeasibility(null);
+      })
+      .finally(() => setFeasibilityLoading(false));
   }, [selectedYear]);
 
   // Load run history
@@ -193,16 +249,55 @@ export default function AutoSchedulerPage() {
   }
 
   function formatDuration(run: SchedulingRun): string {
-    if (!run.completed_at) return '—';
-    const ms = new Date(run.completed_at).getTime() - new Date(run.created_at).getTime();
+    if (run.solver_duration_ms != null) {
+      const secs = Math.round(run.solver_duration_ms / 1000);
+      return secs < 60 ? `${secs}s` : `${Math.round(secs / 60)}m`;
+    }
+    // Fall back to wall time between created + updated if solver_duration_ms
+    // was not written (e.g. the run never finished).
+    const ms = new Date(run.updated_at).getTime() - new Date(run.created_at).getTime();
+    if (!Number.isFinite(ms) || ms <= 0) return '—';
     const secs = Math.round(ms / 1000);
     return secs < 60 ? `${secs}s` : `${Math.round(secs / 60)}m`;
   }
 
-  function statusBadgeVariant(status: string): 'default' | 'secondary' | 'danger' {
-    if (status === 'completed' || status === 'applied') return 'default';
-    if (status === 'failed') return 'danger';
-    return 'secondary';
+  // Tier the badge by placement ratio rather than by raw DB status. A run
+  // with 386 / 432 placed is useful to the admin even if it isn't "100 %";
+  // the old red "failed" badge made partial timetables feel like broken
+  // software when they're really just a data-constraint ceiling.
+  function runPlacementTier(
+    run: SchedulingRun,
+  ): 'complete' | 'partial' | 'incomplete' | 'pending' | 'crashed' {
+    if (run.status === 'queued' || run.status === 'running') return 'pending';
+    if (run.status === 'discarded') return 'incomplete';
+    const placed = run.entries_generated ?? 0;
+    const unplaced = run.entries_unassigned ?? 0;
+    const total = placed + unplaced;
+    // Backend used to mark runs with any unplaced slots as 'failed'; we
+    // now reserve 'failed' for crashes (no placements at all). A 'failed'
+    // status with placed > 0 is a legacy run from before the Stage-10
+    // classification rewrite.
+    if (run.status === 'failed' && total === 0) return 'crashed';
+    if (total <= 0) return 'incomplete';
+    if (placed >= total) return 'complete';
+    return placed / total >= 0.5 ? 'partial' : 'incomplete';
+  }
+
+  function badgeVariantForTier(
+    tier: ReturnType<typeof runPlacementTier>,
+  ): 'default' | 'secondary' | 'danger' | 'success' | 'info' {
+    switch (tier) {
+      case 'complete':
+        return 'success';
+      case 'partial':
+        return 'info';
+      case 'incomplete':
+      case 'crashed':
+        return 'danger';
+      case 'pending':
+      default:
+        return 'secondary';
+    }
   }
 
   return (
@@ -227,6 +322,20 @@ export default function AutoSchedulerPage() {
           </div>
         }
       />
+
+      {/* Feasibility Preview Card — mathematical analysis of whether a
+          100 % placement is achievable with the current data. Does NOT
+          block generation; warns the user when the answer is "no" so they
+          don't wait an hour for a solve that was never going to hit 100 %. */}
+      {selectedYear && (
+        <FeasibilityPreviewCard
+          report={feasibility}
+          loading={feasibilityLoading}
+          expanded={feasibilityExpanded}
+          onToggleExpanded={() => setFeasibilityExpanded((v) => !v)}
+          t={t}
+        />
+      )}
 
       {/* Prerequisites Card */}
       {selectedYear && (
@@ -374,35 +483,45 @@ export default function AutoSchedulerPage() {
                 </tr>
               </thead>
               <tbody>
-                {runs.map((run) => (
-                  <tr key={run.id} className="border-b border-border last:border-b-0">
-                    <td className="px-3 py-2">
-                      <Badge variant={statusBadgeVariant(run.status)}>{run.status}</Badge>
-                    </td>
-                    <td className="px-3 py-2 text-text-secondary capitalize">{run.mode}</td>
-                    <td className="px-3 py-2 text-text-secondary">
-                      {new Date(run.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-3 py-2 text-text-secondary font-mono text-xs">
-                      {formatDuration(run)}
-                    </td>
-                    <td className="px-3 py-2 text-text-secondary">
-                      {run.assigned_count != null ? run.assigned_count : '—'}
-                    </td>
-                    <td className="px-3 py-2">
-                      {run.status === 'completed' && (
-                        <button
-                          type="button"
-                          onClick={() => router.push(`/scheduling/runs/${run.id}/review`)}
-                          className="text-xs text-brand hover:underline flex items-center gap-1"
-                        >
-                          {t('viewReview')}
-                          <ChevronRight className="h-3 w-3 rtl:rotate-180" />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {runs.map((run) => {
+                  const tier = runPlacementTier(run);
+                  const placed = run.entries_generated ?? 0;
+                  const unplaced = run.entries_unassigned ?? 0;
+                  const total = placed + unplaced;
+                  const canReview =
+                    tier === 'complete' ||
+                    tier === 'partial' ||
+                    (tier === 'incomplete' && total > 0);
+                  return (
+                    <tr key={run.id} className="border-b border-border last:border-b-0">
+                      <td className="px-3 py-2">
+                        <Badge variant={badgeVariantForTier(tier)}>{t(`runTier.${tier}`)}</Badge>
+                      </td>
+                      <td className="px-3 py-2 text-text-secondary capitalize">{run.mode}</td>
+                      <td className="px-3 py-2 text-text-secondary">
+                        {new Date(run.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-2 text-text-secondary font-mono text-xs">
+                        {formatDuration(run)}
+                      </td>
+                      <td className="px-3 py-2 text-text-secondary tabular-nums">
+                        {total > 0 ? `${placed} / ${total}` : '—'}
+                      </td>
+                      <td className="px-3 py-2">
+                        {canReview && (
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/scheduling/runs/${run.id}/review`)}
+                            className="text-xs text-brand hover:underline flex items-center gap-1"
+                          >
+                            {t('viewReview')}
+                            <ChevronRight className="h-3 w-3 rtl:rotate-180" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -434,4 +553,167 @@ export default function AutoSchedulerPage() {
           way until the solve is done. */}
     </div>
   );
+}
+
+// ─── Feasibility Preview ──────────────────────────────────────────────────────
+
+function FeasibilityPreviewCard({
+  report,
+  loading,
+  expanded,
+  onToggleExpanded,
+  t,
+}: {
+  report: FeasibilityReport | null;
+  loading: boolean;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  if (loading && !report) {
+    return (
+      <div className="rounded-xl border border-border bg-surface p-6">
+        <div className="flex items-center gap-2 text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>{t('feasibility.checking')}</span>
+        </div>
+      </div>
+    );
+  }
+  if (!report) return null;
+
+  const { verdict, ceiling, diagnosed_blockers: blockers } = report;
+  const tone =
+    verdict === 'feasible'
+      ? { border: 'border-emerald-500/40', bg: 'bg-emerald-500/5', icon: 'text-emerald-600' }
+      : verdict === 'tight'
+        ? { border: 'border-amber-500/40', bg: 'bg-amber-500/5', icon: 'text-amber-600' }
+        : { border: 'border-red-500/40', bg: 'bg-red-500/5', icon: 'text-red-600' };
+
+  const Icon =
+    verdict === 'feasible' ? CheckCircle2 : verdict === 'tight' ? AlertTriangleIcon : XCircle;
+
+  return (
+    <div className={`rounded-xl border p-6 space-y-3 ${tone.border} ${tone.bg}`}>
+      <div className="flex items-start gap-3">
+        <Icon className={`h-5 w-5 mt-0.5 shrink-0 ${tone.icon}`} />
+        <div className="flex-1 min-w-0">
+          <h2 className="text-base font-semibold text-text-primary">
+            {t(`feasibility.verdict.${verdict}.title`)}
+          </h2>
+          <p className="mt-0.5 text-sm text-text-secondary">
+            {t(`feasibility.verdict.${verdict}.subtitle`)}
+          </p>
+        </div>
+      </div>
+
+      {/* Ceiling numbers — the three that tell the whole story */}
+      <div className="grid grid-cols-3 gap-3 rounded-lg border border-border bg-surface p-3">
+        <CeilingStat
+          label={t('feasibility.totalDemand')}
+          value={ceiling.total_demand_periods}
+          suffix={t('feasibility.periodsPerWeek')}
+        />
+        <CeilingStat
+          label={t('feasibility.qualifiedSupply')}
+          value={ceiling.total_qualified_teacher_periods}
+          suffix={t('feasibility.periodsPerWeek')}
+        />
+        <CeilingStat
+          label={t('feasibility.slack')}
+          value={ceiling.slack_periods}
+          suffix={t('feasibility.periodsPerWeek')}
+          negativeIsBad
+        />
+      </div>
+
+      {blockers.length > 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={onToggleExpanded}
+            className="flex items-center gap-1 text-sm font-medium text-text-primary hover:text-brand"
+          >
+            {expanded ? (
+              <ChevronUpIcon className="h-4 w-4" />
+            ) : (
+              <ChevronDownIcon className="h-4 w-4" />
+            )}
+            {t('feasibility.blockersCount', { count: blockers.length })}
+          </button>
+          {expanded && (
+            <ol className="mt-3 space-y-3 text-sm">
+              {blockers.map((b) => (
+                <li key={b.id} className="rounded-lg border border-border bg-surface p-3 space-y-1">
+                  <div className="flex items-start gap-2">
+                    <span
+                      className={`mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full ${
+                        b.severity === 'critical' ? 'bg-red-500' : 'bg-amber-500'
+                      }`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-text-primary">{b.headline}</p>
+                      <p className="mt-0.5 text-xs text-text-secondary leading-relaxed">
+                        {b.detail}
+                      </p>
+                      {b.quantified_impact.blocked_periods > 0 && (
+                        <p className="mt-1 text-xs text-text-tertiary">
+                          {t('feasibility.impact', {
+                            periods: b.quantified_impact.blocked_periods,
+                            pct: b.quantified_impact.blocked_percentage,
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CeilingStat({
+  label,
+  value,
+  suffix,
+  negativeIsBad,
+}: {
+  label: string;
+  value: number;
+  suffix: string;
+  negativeIsBad?: boolean;
+}) {
+  const tone =
+    negativeIsBad && value < 0
+      ? 'text-red-600'
+      : negativeIsBad && value === 0
+        ? 'text-amber-600'
+        : 'text-text-primary';
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-text-tertiary">{label}</p>
+      <p className={`mt-1 text-xl font-semibold tabular-nums ${tone}`}>
+        {value > 0 && negativeIsBad ? '+' : ''}
+        {value}
+      </p>
+      <p className="text-[11px] text-text-tertiary">{suffix}</p>
+    </div>
+  );
+}
+
+// Re-export the lucide icons we need here under local aliases so the
+// component-level import block in the main file stays sorted. Doing them
+// inline here avoids churning the alphabetical import list.
+function AlertTriangleIcon(props: React.SVGProps<SVGSVGElement>) {
+  return <AlertCircle {...props} />;
+}
+function ChevronUpIcon(props: React.SVGProps<SVGSVGElement>) {
+  return <ChevronRight {...props} className={`${props.className ?? ''} -rotate-90`} />;
+}
+function ChevronDownIcon(props: React.SVGProps<SVGSVGElement>) {
+  return <ChevronRight {...props} className={`${props.className ?? ''} rotate-90`} />;
 }

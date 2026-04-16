@@ -310,7 +310,16 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
         time_saved_ms: timeSavedMs,
       })}`,
     );
-    const finalStatus = unassignedCount === 0 ? 'completed' : 'failed';
+    // Whenever the solver produced output (even with unassigned slots) the
+    // run is `completed`. The UI categorises the RESULT into quality tiers
+    // (100 % / partial / incomplete) by looking at placed vs total — so the
+    // DB status only needs to distinguish "solver ran and wrote results"
+    // from "solver crashed / was cancelled". `failed` is now reserved for
+    // hard failures upstream (CP_SAT_UNREACHABLE, module-not-found, explicit
+    // user cancel, etc.) which already flow through the outer `catch`.
+    // `failure_reason` carries the unplaced-slot summary for partial runs so
+    // the review page can surface exactly which demand could not be placed.
+    const finalStatus = 'completed';
     const failureReason =
       unassignedCount === 0
         ? null
