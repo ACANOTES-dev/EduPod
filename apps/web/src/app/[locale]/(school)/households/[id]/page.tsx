@@ -1,6 +1,6 @@
 'use client';
 
-import { Edit, Plus, Pencil, Trash2, AlertTriangle, FileText, Loader2 } from 'lucide-react';
+import { Edit, Plus, Pencil, Trash2, Unlink, AlertTriangle, FileText, Loader2 } from 'lucide-react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -453,6 +453,20 @@ export default function HouseholdHubPage() {
     }
   };
 
+  const handleUnlinkGuardian = async (parentId: string) => {
+    if (!confirm(t('unlinkGuardianConfirm'))) return;
+    try {
+      await apiClient(`/api/v1/households/${id}/parents/${parentId}`, {
+        method: 'DELETE',
+      });
+      toast.success(t('guardianUnlinked'));
+      await fetchHousehold();
+    } catch (err) {
+      console.error('[HouseholdsPage]', err);
+      toast.error(t('failedToUnlinkGuardian'));
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -642,6 +656,13 @@ export default function HouseholdHubPage() {
                   aria-label={t('editGuardian')}
                 >
                   <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => void handleUnlinkGuardian(parent.id)}
+                  className="p-1.5 text-text-tertiary hover:text-danger transition-colors rounded"
+                  aria-label={t('unlinkGuardian')}
+                >
+                  <Unlink className="h-3.5 w-3.5" />
                 </button>
               </div>
             </li>

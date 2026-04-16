@@ -3016,7 +3016,11 @@
     "active": "Active",
     "allStatuses": "All Statuses",
     "searchHouseholds": "Search households...",
-    "subtitle": "Manage family household records"
+    "subtitle": "Manage family household records",
+    "unlinkGuardian": "Unlink Guardian",
+    "unlinkGuardianConfirm": "Are you sure you want to unlink this guardian from the household?",
+    "guardianUnlinked": "Guardian unlinked from household",
+    "failedToUnlinkGuardian": "Failed to unlink guardian"
   },
   "parents": {
     "title": "Parents",

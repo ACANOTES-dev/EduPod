@@ -3008,7 +3008,11 @@
     "active": "نشط",
     "allStatuses": "جميع الحالات",
     "searchHouseholds": "بحث households...",
-    "subtitle": "إدارة سجلات الأسر"
+    "subtitle": "إدارة سجلات الأسر",
+    "unlinkGuardian": "إلغاء ربط ولي الأمر",
+    "unlinkGuardianConfirm": "هل أنت متأكد من إلغاء ربط ولي الأمر بالأسرة؟",
+    "guardianUnlinked": "تم إلغاء ربط ولي الأمر بالأسرة",
+    "failedToUnlinkGuardian": "فشل إلغاء ربط ولي الأمر"
   },
   "parents": {
     "title": "أولياء الأمور",
