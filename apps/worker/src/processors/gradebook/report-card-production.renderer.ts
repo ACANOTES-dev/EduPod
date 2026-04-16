@@ -19,8 +19,16 @@ import type { ReportCardRenderer } from '../report-card-render.contract';
 // mock. Real `puppeteer.Browser` / `puppeteer.Page` satisfy these interfaces
 // structurally.
 
+export interface PuppeteerRequestLike {
+  url(): string;
+  continue(): Promise<void>;
+  abort(reason?: string): Promise<void>;
+}
+
 export interface PuppeteerPageLike {
   setContent(html: string, options?: unknown): Promise<unknown>;
+  setRequestInterception(enabled: boolean): Promise<void>;
+  on(event: string, handler: (req: PuppeteerRequestLike) => void): void;
   pdf(options?: unknown): Promise<Uint8Array>;
   close(): Promise<void>;
 }
