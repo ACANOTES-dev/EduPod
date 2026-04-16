@@ -806,11 +806,11 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 | RC-C005 | P0       | Verified | C      | SSTI in comment_text via Handlebars                                |
 | RC-C006 | P1       | Verified | C      | Cross-tenant revise chain                                          |
 | RC-C007 | P0       | Verified | C      | PgBouncer cross-tenant RLS leak                                    |
-| RC-C008 | P1       | Blocked  | C      | NullReportCardStorageWriter default                                |
-| RC-C009 | P1       | Blocked  | C      | No `/dashboard/student` route                                      |
-| RC-C010 | P1       | Blocked  | C      | findAll() lacks student-scope branch                               |
+| RC-C008 | P1       | Verified | C      | NullReportCardStorageWriter default                                |
+| RC-C009 | P1       | Verified | C      | No `/dashboard/student` route                                      |
+| RC-C010 | P1       | Verified | C      | findAll() lacks student-scope branch                               |
 | RC-C011 | P1       | Blocked  | C      | Snapshot immutability not enforced at DB                           |
-| RC-C012 | P2       | Blocked  | C      | No token revocation endpoint                                       |
+| RC-C012 | P2       | Verified | C      | No token revocation endpoint                                       |
 | RC-C013 | P2       | Blocked  | C      | No per-tenant bulk-generate rate limit                             |
 | RC-C014 | P2       | Blocked  | C      | AI draft synchronous in controller                                 |
 | RC-C015 | P2       | Blocked  | C      | Mass-assignment uneven across PATCH                                |
@@ -825,11 +825,11 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 | RC-C024 | P1       | Verified | C      | Parent dashboard lacks Report Cards card                           |
 | RC-C025 | P3       | Blocked  | C      | Template is_default uniqueness unclear at DB                       |
 | RC-C026 | P2       | Blocked  | C      | Bulk op transaction boundaries undocumented                        |
-| RC-C027 | P3       | Blocked  | C      | No per-channel delivery retry endpoint                             |
+| RC-C027 | P3       | Verified | C      | No per-channel delivery retry endpoint                             |
 | RC-C028 | P3       | Open     | C      | Library scoping duplicated controller/service                      |
 | RC-C029 | P2       | Blocked  | C      | No per-tenant circuit breaker on auto-generate cron                |
 | RC-C030 | P2       | Open     | C      | No hard cap on mass-report-card-pdf N                              |
-| RC-C031 | P3       | Blocked  | C      | DLQ replay tooling existence unconfirmed                           |
+| RC-C031 | P3       | Verified | C      | DLQ replay tooling existence unconfirmed                           |
 | RC-C032 | P3       | Open     | C      | comment_fill_rate deprecated field                                 |
 | RC-C033 | P3       | Open     | C      | Route registration order fragility                                 |
 | RC-C034 | P3       | Open     | C      | IME composition bypass in reason-length                            |
