@@ -103,7 +103,14 @@ module.exports = {
       exec_mode: 'fork',
       instances: 1,
       autorestart: true,
-      max_memory_restart: '2G',
+      // Stage 9.5.2 §E: raised 2G → 4G after the tier-4 measurement
+      // showed RSS climbing monotonically with budget — 600 s budget
+      // peaked at ~3.1 GB locally. Tier-5 (1800 s) and tier-6 (3600 s)
+      // budgets are projected higher. 4 GB gives comfortable headroom
+      // for tier-4/5 and is the entry point for tier-6 measurement; if
+      // tier-6 sustains > 3.5 GB at 3600 s this will be raised again to
+      // 6 G. Server has 12 GB free.
+      max_memory_restart: '4G',
       max_restarts: 10,
       min_uptime: '30s',
       env: {
