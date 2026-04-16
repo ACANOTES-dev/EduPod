@@ -89,6 +89,8 @@ export const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
   },
   { prefix: '/regulatory', roles: ADMIN_ROLES },
 
+  // People hub — visible to any staff role
+  { prefix: '/people', roles: STAFF_ROLES },
   // Staff/admin pages — parents excluded
   {
     prefix: '/students',

@@ -12548,6 +12548,61 @@
   "noApprovalRequests": "No approval requests",
   "pending": "Pending",
   "rejected": "Rejected",
+  "peopleHub": {
+    "title": "People",
+    "description": "Student, staff, and household overview at a glance.",
+    "cardsAria": "People modules",
+    "searchPlaceholder": "Search students, staff, or households…",
+    "searching": "Searching…",
+    "noResults": "No results found. Try a different search.",
+    "kpis": {
+      "activeStudents": "Active Students",
+      "activeStaff": "Active Staff",
+      "activeHouseholds": "Households",
+      "studentTeacherRatio": "Student : Teacher"
+    },
+    "enrollment": {
+      "title": "Class Enrollment",
+      "subtitle": "Active students per year group and class",
+      "yearGroup": "Year Group",
+      "students": "Students",
+      "classes": "Classes",
+      "className": "Class",
+      "enrolled": "Enrolled",
+      "capacity": "Capacity",
+      "utilisation": "Utilisation",
+      "noData": "No year groups set up yet.",
+      "full": "Full",
+      "overCapacity": "Over",
+      "viewAll": "View all classes"
+    },
+    "cards": {
+      "students": {
+        "title": "Students",
+        "description": "View and manage student records, enrolments, and profiles."
+      },
+      "staff": {
+        "title": "Staff",
+        "description": "Manage staff profiles, roles, departments, and employment records."
+      },
+      "households": {
+        "title": "Households",
+        "description": "Manage family groupings, guardians, billing, and emergency contacts."
+      }
+    },
+    "recentStudents": {
+      "title": "Recently Added",
+      "viewAll": "View all students",
+      "noRecent": "No students registered yet."
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "addStudent": "Add New Student",
+      "addStaff": "Add New Staff",
+      "addHousehold": "New Household",
+      "allergyReport": "Allergy Report"
+    }
+  },
   "operationsHub": {
     "title": "Operations",
     "description": "Your command centre for communications, admissions, approvals, and scheduling.",

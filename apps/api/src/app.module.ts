@@ -49,6 +49,7 @@ import { PastoralCheckinsModule } from './modules/pastoral-checkins/pastoral-che
 import { PastoralDsarModule } from './modules/pastoral-dsar/pastoral-dsar.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { PdfRenderingModule } from './modules/pdf-rendering/pdf-rendering.module';
+import { PeopleDashboardModule } from './modules/people-dashboard/people-dashboard.module';
 import { PeriodGridModule } from './modules/period-grid/period-grid.module';
 import { PreferencesModule } from './modules/preferences/preferences.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
@@ -158,6 +159,7 @@ import { WebsiteModule } from './modules/website/website.module';
     TripsModule,
     GdprModule,
     PayrollModule,
+    PeopleDashboardModule,
     CommunicationsModule,
     ParentInquiriesModule,
     WebsiteModule,

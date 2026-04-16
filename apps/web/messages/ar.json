@@ -12539,6 +12539,61 @@
   "noApprovalRequests": "لا توجد طلبات موافقة",
   "pending": "قيد الانتظار",
   "rejected": "مرفوض",
+  "peopleHub": {
+    "title": "الأفراد",
+    "description": "نظرة عامة على الطلاب والموظفين والأسر.",
+    "cardsAria": "أقسام الأفراد",
+    "searchPlaceholder": "البحث في الطلاب أو الموظفين أو الأسر…",
+    "searching": "جارٍ البحث…",
+    "noResults": "لم يتم العثور على نتائج. جرّب بحثاً مختلفاً.",
+    "kpis": {
+      "activeStudents": "الطلاب النشطون",
+      "activeStaff": "الموظفون النشطون",
+      "activeHouseholds": "الأسر",
+      "studentTeacherRatio": "طالب : معلم"
+    },
+    "enrollment": {
+      "title": "توزيع الطلاب على الفصول",
+      "subtitle": "عدد الطلاب النشطين حسب المرحلة والفصل",
+      "yearGroup": "المرحلة الدراسية",
+      "students": "الطلاب",
+      "classes": "الفصول",
+      "className": "الفصل",
+      "enrolled": "المسجلون",
+      "capacity": "السعة",
+      "utilisation": "الاستخدام",
+      "noData": "لم يتم إعداد المراحل الدراسية بعد.",
+      "full": "ممتلئ",
+      "overCapacity": "تجاوز",
+      "viewAll": "عرض جميع الفصول"
+    },
+    "cards": {
+      "students": {
+        "title": "الطلاب",
+        "description": "عرض وإدارة سجلات الطلاب والتسجيل والملفات الشخصية."
+      },
+      "staff": {
+        "title": "الموظفون",
+        "description": "إدارة ملفات الموظفين والأدوار والأقسام وسجلات التوظيف."
+      },
+      "households": {
+        "title": "الأسر",
+        "description": "إدارة تجميعات العائلات وأولياء الأمور والفواتير وجهات الاتصال للطوارئ."
+      }
+    },
+    "recentStudents": {
+      "title": "المضافون مؤخراً",
+      "viewAll": "عرض جميع الطلاب",
+      "noRecent": "لم يتم تسجيل أي طلاب بعد."
+    },
+    "quickActions": {
+      "title": "إجراءات سريعة",
+      "addStudent": "إضافة طالب جديد",
+      "addStaff": "إضافة موظف جديد",
+      "addHousehold": "أسرة جديدة",
+      "allergyReport": "تقرير الحساسية"
+    }
+  },
   "operationsHub": {
     "title": "العمليات",
     "description": "مركز القيادة الخاص بك للمراسلات والقبول والموافقات والجدولة.",

@@ -271,7 +271,9 @@ export const hubConfigs: HubConfig[] = [
   {
     key: 'people',
     labelKey: 'nav.people',
-    basePaths: ['/students', '/staff', '/households'],
+    // /people is the hub landing page — students/staff/households are
+    // sub-pages reached from the dashboard. Listed for active-hub detection.
+    basePaths: ['/people', '/students', '/staff', '/households'],
     roles: STAFF_ROLES,
   },
   {
@@ -396,11 +398,10 @@ export const hubGroupedSubStripConfigs: Record<string, SubStripGroupConfig[]> = 
 };
 
 export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
-  people: [
-    { labelKey: 'nav.students', href: '/students' },
-    { labelKey: 'nav.staff', href: '/staff', roles: ADMIN_ROLES },
-    { labelKey: 'nav.households', href: '/households', roles: ADMIN_ROLES },
-  ],
+  // People intentionally has no sub-strip — the /people dashboard
+  // is the navigation surface for this hub (KPI tiles, class enrollment
+  // breakdown, and categorised module navigation).
+  people: [],
   wellbeing: [
     { labelKey: 'nav.behaviour', href: '/behaviour' },
     { labelKey: 'nav.behaviourIncidents', href: '/behaviour/incidents' },
