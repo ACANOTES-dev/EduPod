@@ -608,4 +608,52 @@ export class StudentReadFacade {
     });
     return result as unknown as Array<Record<string, unknown> & { _count: number }>;
   }
+
+  // ─── Student-user resolution ────────────────────────────────────────────
+
+  /**
+   * Resolve a student record from a user's name within a tenant.
+   * Used by the student dashboard — students don't have a direct user_id
+   * FK; the linkage is by name convention.
+   */
+  async findByUserName(
+    tenantId: string,
+    firstName: string,
+    lastName: string,
+  ): Promise<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    student_number: string | null;
+    class_name: string | null;
+    year_group_name: string | null;
+  } | null> {
+    const student = await this.prisma.student.findFirst({
+      where: {
+        tenant_id: tenantId,
+        first_name: firstName,
+        last_name: lastName,
+        status: 'active',
+      },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        student_number: true,
+        class_homeroom: { select: { name: true } },
+        year_group: { select: { name: true } },
+      },
+    });
+
+    if (!student) return null;
+
+    return {
+      id: student.id,
+      first_name: student.first_name,
+      last_name: student.last_name,
+      student_number: student.student_number,
+      class_name: student.class_homeroom?.name ?? null,
+      year_group_name: student.year_group?.name ?? null,
+    };
+  }
 }

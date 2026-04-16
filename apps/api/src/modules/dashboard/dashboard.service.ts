@@ -11,6 +11,7 @@ import type {
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuthReadFacade } from '../auth/auth-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,7 @@ export class DashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authReadFacade: AuthReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {}
 
   async schoolAdmin(
@@ -363,5 +365,43 @@ export class DashboardService {
     const greeting = buildGreeting(user.first_name);
 
     return { greeting, ...data };
+  }
+
+  // ─── Student Dashboard ──────────────────────────────────────────────────
+
+  async student(tenantId: string, userId: string) {
+    const user = await this.authReadFacade.findUserSummary(tenantId, userId);
+    if (!user) {
+      throw new NotFoundException({
+        error: { code: 'USER_NOT_FOUND', message: 'User not found' },
+      });
+    }
+
+    // Resolve the student record via StudentReadFacade — students don't
+    // have a direct user_id FK, so we match by name within the tenant.
+    const student = await this.studentReadFacade.findByUserName(
+      tenantId,
+      user.first_name,
+      user.last_name,
+    );
+
+    if (!student) {
+      return {
+        greeting: buildGreeting(user.first_name),
+        student_id: null,
+        class_name: null,
+        year_group_name: null,
+      };
+    }
+
+    return {
+      greeting: buildGreeting(user.first_name),
+      student_id: student.id,
+      first_name: student.first_name,
+      last_name: student.last_name,
+      student_number: student.student_number,
+      class_name: student.class_name,
+      year_group_name: student.year_group_name,
+    };
   }
 }

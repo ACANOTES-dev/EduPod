@@ -33,6 +33,16 @@ export class DashboardController {
     return this.dashboardService.parent(tenantContext.tenant_id, user.sub);
   }
 
+  // GET /v1/dashboard/student
+  @Get('student')
+  @RequiresPermission('schedule.view_class')
+  async student(
+    @CurrentTenant() tenantContext: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.dashboardService.student(tenantContext.tenant_id, user.sub);
+  }
+
   @Get('teacher')
   @RequiresPermission('attendance.take')
   async teacher(

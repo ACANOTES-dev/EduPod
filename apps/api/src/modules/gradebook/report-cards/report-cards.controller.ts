@@ -43,7 +43,9 @@ import { AuthGuard } from '../../../common/guards/auth.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
+import { ParentReadFacade } from '../../parents/parent-read.facade';
 import { PdfRenderingService } from '../../pdf-rendering/pdf-rendering.service';
+import { StudentReadFacade } from '../../students/student-read.facade';
 import { TenantReadFacade } from '../../tenants/tenant-read.facade';
 
 import { ReportCardGenerationService } from './report-card-generation.service';
@@ -76,6 +78,8 @@ export class ReportCardsController {
     private readonly generationService: ReportCardGenerationService,
     private readonly permissionCacheService: PermissionCacheService,
     private readonly commentWindowsService: ReportCommentWindowsService,
+    private readonly parentReadFacade: ParentReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {}
 
   // ─── Role helpers (impl 06) ─────────────────────────────────────────────
@@ -156,6 +160,7 @@ export class ReportCardsController {
     // Admins (report_cards.manage or owner bypass) see everything.
     const isAdmin = await this.hasAnyPermission(user, ['report_cards.manage']);
     if (!isAdmin) {
+      // Teacher branch: scope to classes the teacher teaches
       const scope = await this.commentWindowsService.getLandingScopeForActor(tenant.tenant_id, {
         userId: user.sub,
         isAdmin: false,
@@ -164,16 +169,41 @@ export class ReportCardsController {
         ...scope.overall_class_ids,
         ...scope.subject_assignments.map((p) => p.class_id),
       ]);
-      if (allowedClassIds.size === 0) {
-        return {
-          data: [],
-          meta: { page: query.page, pageSize: query.pageSize, total: 0 },
-        };
+
+      if (allowedClassIds.size > 0) {
+        return this.reportCardsQueriesService.findAll(tenant.tenant_id, {
+          ...query,
+          class_ids: Array.from(allowedClassIds),
+        });
       }
-      return this.reportCardsQueriesService.findAll(tenant.tenant_id, {
-        ...query,
-        class_ids: Array.from(allowedClassIds),
-      });
+
+      // Student/parent branch: if the caller is a parent or student user
+      // (no teaching scope), resolve via parent link and show only their
+      // own linked students' published report cards.
+      const parent = await this.parentReadFacade.findByUserId(tenant.tenant_id, user.sub);
+      if (parent) {
+        const linkedStudentIds = await this.studentReadFacade.findStudentIdsByParent(
+          tenant.tenant_id,
+          parent.id,
+        );
+        if (linkedStudentIds.length === 0) {
+          return {
+            data: [],
+            meta: { page: query.page, pageSize: query.pageSize, total: 0 },
+          };
+        }
+        return this.reportCardsQueriesService.findAll(tenant.tenant_id, {
+          ...query,
+          student_ids: linkedStudentIds,
+          status: 'published',
+        });
+      }
+
+      // Fallback: no teaching scope and no parent link — return empty
+      return {
+        data: [],
+        meta: { page: query.page, pageSize: query.pageSize, total: 0 },
+      };
     }
     return this.reportCardsQueriesService.findAll(tenant.tenant_id, query);
   }

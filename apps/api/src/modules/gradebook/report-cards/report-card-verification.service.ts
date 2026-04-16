@@ -55,6 +55,39 @@ export class ReportCardVerificationService {
     return { token };
   }
 
+  // ─── Revoke Tokens ────────────────────────────────────────────────────────
+
+  /**
+   * Delete all verification tokens for a given report card.
+   * Used when a report card is revoked or when tokens need to be invalidated.
+   */
+  async revoke(tenantId: string, reportCardId: string) {
+    const reportCard = await this.prisma.reportCard.findFirst({
+      where: { id: reportCardId, tenant_id: tenantId },
+      select: { id: true },
+    });
+
+    if (!reportCard) {
+      throw new NotFoundException({
+        error: {
+          code: 'REPORT_CARD_NOT_FOUND',
+          message: `Report card "${reportCardId}" not found`,
+        },
+      });
+    }
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const result = await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      return db.reportCardVerificationToken.deleteMany({
+        where: { tenant_id: tenantId, report_card_id: reportCardId },
+      });
+    });
+
+    return { revoked_count: result.count };
+  }
+
   // ─── Verify Token (Public) ────────────────────────────────────────────────
 
   /**

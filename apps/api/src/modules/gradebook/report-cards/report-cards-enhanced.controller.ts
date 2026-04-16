@@ -303,6 +303,17 @@ export class ReportCardsEnhancedController {
     return this.deliveryService.getDeliveryStatus(tenant.tenant_id, id);
   }
 
+  // POST /v1/report-cards/deliveries/:deliveryId/retry — retry a failed delivery
+  @Post('report-cards/deliveries/:deliveryId/retry')
+  @RequiresPermission('report_cards.manage')
+  @HttpCode(HttpStatus.OK)
+  async retryDelivery(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('deliveryId', ParseUUIDPipe) deliveryId: string,
+  ) {
+    return this.deliveryService.retryDelivery(tenant.tenant_id, deliveryId);
+  }
+
   // ─── Custom Fields CRUD (R8) ─────────────────────────────────────────────
 
   @Post('report-cards/custom-fields')
@@ -530,6 +541,17 @@ export class ReportCardsEnhancedController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.verificationService.generateToken(tenant.tenant_id, id);
+  }
+
+  // DELETE /v1/report-cards/:id/verification-token — revoke all tokens
+  @Delete('report-cards/:id/verification-token')
+  @RequiresPermission('report_cards.manage')
+  @HttpCode(HttpStatus.OK)
+  async revokeVerificationToken(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.verificationService.revoke(tenant.tenant_id, id);
   }
 
   // ─── Batch PDF (R6) ──────────────────────────────────────────────────────

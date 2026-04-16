@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { ReportCardDelivery } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -225,6 +225,46 @@ export class ReportCardDeliveryService {
     };
 
     return { summary, deliveries };
+  }
+
+  // ─── Retry Delivery ───────────────────────────────────────────────────────
+
+  /**
+   * Retry a failed delivery by resetting its status to pending_delivery.
+   * Only deliveries with status 'failed' can be retried.
+   */
+  async retryDelivery(tenantId: string, deliveryId: string) {
+    const delivery = await this.prisma.reportCardDelivery.findFirst({
+      where: { id: deliveryId, tenant_id: tenantId },
+    });
+
+    if (!delivery) {
+      throw new NotFoundException({
+        error: {
+          code: 'DELIVERY_NOT_FOUND',
+          message: `Delivery record "${deliveryId}" not found`,
+        },
+      });
+    }
+
+    if (delivery.status !== 'failed') {
+      throw new BadRequestException({
+        error: {
+          code: 'DELIVERY_NOT_FAILED',
+          message: `Only failed deliveries can be retried. Current status: "${delivery.status}"`,
+        },
+      });
+    }
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      return db.reportCardDelivery.update({
+        where: { id: deliveryId },
+        data: { status: 'pending_delivery', sent_at: null },
+      });
+    });
   }
 
   // ─── Private Helpers ─────────────────────────────────────────────────────

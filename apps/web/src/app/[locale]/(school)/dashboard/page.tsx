@@ -196,6 +196,14 @@ export default function DashboardPage() {
   if (!user?.memberships) return null;
   const roleKeys = user.memberships.flatMap((m) => m.roles?.map((r) => r.role_key) ?? []);
 
+  if (roleKeys.includes('student')) {
+    // Redirect to dedicated student dashboard route
+    if (typeof window !== 'undefined') {
+      const locale = user.memberships?.[0]?.tenant?.default_locale ?? 'en';
+      window.location.href = `/${locale}/dashboard/student`;
+    }
+    return null;
+  }
   if (roleKeys.includes('parent')) {
     return <ParentHome schoolName={schoolName} />;
   }

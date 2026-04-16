@@ -26,6 +26,12 @@ interface ListReportCardsParams {
    * to narrow non-admin requests to the teacher's own classes.
    */
   class_ids?: string[];
+  /**
+   * Student/parent scoping: when set, restrict results to report cards
+   * belonging to these specific student IDs. Used by the controller to
+   * scope parent/student users to their own linked students.
+   */
+  student_ids?: string[];
 }
 
 export interface ClassMatrixCell {
@@ -209,14 +215,24 @@ export class ReportCardsQueriesService {
    * Excludes revised by default unless include_revisions=true.
    */
   async findAll(tenantId: string, params: ListReportCardsParams) {
-    const { page, pageSize, student_id, academic_period_id, status, include_revisions, class_ids } =
-      params;
+    const {
+      page,
+      pageSize,
+      student_id,
+      student_ids,
+      academic_period_id,
+      status,
+      include_revisions,
+      class_ids,
+    } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ReportCardWhereInput = { tenant_id: tenantId };
 
     if (student_id) {
       where.student_id = student_id;
+    } else if (student_ids && student_ids.length > 0) {
+      where.student_id = { in: student_ids };
     }
 
     if (academic_period_id) {

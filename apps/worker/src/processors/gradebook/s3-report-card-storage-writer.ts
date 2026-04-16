@@ -38,8 +38,15 @@ export class S3ReportCardStorageWriter implements ReportCardStorageWriter, OnMod
     this.bucket = this.configService.get<string>('S3_BUCKET_NAME');
 
     if (!region || !accessKeyId || !secretAccessKey || !this.bucket) {
+      const nodeEnv = this.configService.get<string>('NODE_ENV');
+      if (nodeEnv !== 'test') {
+        throw new Error(
+          'S3ReportCardStorageWriter: S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, and S3_BUCKET_NAME must all be set. ' +
+            'The worker cannot accept PDF jobs without a configured storage backend.',
+        );
+      }
       this.logger.warn(
-        'S3 env vars are not fully configured — report-card uploads will fail loudly at runtime.',
+        'S3 env vars are not fully configured — running in test mode, uploads will fail at runtime.',
       );
       return;
     }
