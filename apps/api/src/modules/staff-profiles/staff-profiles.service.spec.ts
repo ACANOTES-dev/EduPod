@@ -574,7 +574,7 @@ describe('StaffProfilesService — update', () => {
 
     await service.update(TENANT_ID, STAFF_ID, { job_title: 'Senior Teacher' });
 
-    expect(mockRedis._client.del).toHaveBeenCalledWith(`preview:staff:${STAFF_ID}`);
+    expect(mockRedis._client.del).toHaveBeenCalledWith(`preview:staff:${TENANT_ID}:${STAFF_ID}`);
   });
 
   it('should clear bank_account_number when set to empty', async () => {
@@ -750,7 +750,7 @@ describe('StaffProfilesService — preview', () => {
 
     const result = await service.preview(TENANT_ID, STAFF_ID);
 
-    expect(mockRedis._client.get).toHaveBeenCalledWith(`preview:staff:${STAFF_ID}`);
+    expect(mockRedis._client.get).toHaveBeenCalledWith(`preview:staff:${TENANT_ID}:${STAFF_ID}`);
     expect(result).toEqual(cachedData);
     // RLS should not be called on cache hit
     expect(mockRlsTx.staffProfile.findFirst).not.toHaveBeenCalled();
@@ -767,7 +767,7 @@ describe('StaffProfilesService — preview', () => {
     expect(result.primary_label).toBe('Alice Smith');
     expect(result.status).toBe('active');
     expect(mockRedis._client.set).toHaveBeenCalledWith(
-      `preview:staff:${STAFF_ID}`,
+      `preview:staff:${TENANT_ID}:${STAFF_ID}`,
       expect.any(String),
       'EX',
       30,

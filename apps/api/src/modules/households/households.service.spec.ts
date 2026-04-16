@@ -595,7 +595,9 @@ describe('HouseholdsService — update', () => {
   it('should invalidate preview cache after update', async () => {
     await service.update(TENANT_ID, HOUSEHOLD_ID, { household_name: 'Updated Family' });
 
-    expect(mockRedis._client.del).toHaveBeenCalledWith(`preview:household:${HOUSEHOLD_ID}`);
+    expect(mockRedis._client.del).toHaveBeenCalledWith(
+      `preview:household:${TENANT_ID}:${HOUSEHOLD_ID}`,
+    );
   });
 
   it('should throw NotFoundException when household does not exist', async () => {
@@ -1440,8 +1442,12 @@ describe('HouseholdsService — merge', () => {
     );
 
     // Preview cache invalidated for both
-    expect(mockRedis._client.del).toHaveBeenCalledWith(`preview:household:${SOURCE_ID}`);
-    expect(mockRedis._client.del).toHaveBeenCalledWith(`preview:household:${HOUSEHOLD_ID}`);
+    expect(mockRedis._client.del).toHaveBeenCalledWith(
+      `preview:household:${TENANT_ID}:${SOURCE_ID}`,
+    );
+    expect(mockRedis._client.del).toHaveBeenCalledWith(
+      `preview:household:${TENANT_ID}:${HOUSEHOLD_ID}`,
+    );
   });
 
   it('should skip duplicate parent links during merge', async () => {
@@ -1636,7 +1642,9 @@ describe('HouseholdsService — split', () => {
     );
 
     // Invalidate both caches
-    expect(mockRedis._client.del).toHaveBeenCalledWith(`preview:household:${SOURCE_ID}`);
+    expect(mockRedis._client.del).toHaveBeenCalledWith(
+      `preview:household:${TENANT_ID}:${SOURCE_ID}`,
+    );
 
     expect(result).toBeDefined();
   });
@@ -1827,7 +1835,7 @@ describe('HouseholdsService — preview', () => {
 
     // Should cache with 30s TTL
     expect(mockRedis._client.setex).toHaveBeenCalledWith(
-      `preview:household:${HOUSEHOLD_ID}`,
+      `preview:household:${TENANT_ID}:${HOUSEHOLD_ID}`,
       30,
       expect.any(String),
     );

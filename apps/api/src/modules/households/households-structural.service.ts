@@ -200,8 +200,8 @@ export class HouseholdsStructuralService {
     });
 
     // Invalidate preview cache for affected households
-    await this.invalidatePreviewCache(sourceId);
-    await this.invalidatePreviewCache(targetId);
+    await this.invalidatePreviewCache(tenantId, sourceId);
+    await this.invalidatePreviewCache(tenantId, targetId);
 
     return result;
   }
@@ -351,9 +351,9 @@ export class HouseholdsStructuralService {
     });
 
     // Invalidate preview cache for affected households
-    await this.invalidatePreviewCache(dto.source_household_id);
+    await this.invalidatePreviewCache(tenantId, dto.source_household_id);
     if (result) {
-      await this.invalidatePreviewCache((result as { id: string }).id);
+      await this.invalidatePreviewCache(tenantId, (result as { id: string }).id);
     }
 
     return result;
@@ -362,7 +362,7 @@ export class HouseholdsStructuralService {
   // ─── Preview ──────────────────────────────────────────────────────────────
 
   async preview(tenantId: string, id: string) {
-    const cacheKey = `preview:household:${id}`;
+    const cacheKey = `preview:household:${tenantId}:${id}`;
     const client = this.redis.getClient();
 
     const cached = await client.get(cacheKey);
@@ -448,8 +448,8 @@ export class HouseholdsStructuralService {
     });
   }
 
-  private async invalidatePreviewCache(householdId: string): Promise<void> {
+  private async invalidatePreviewCache(tenantId: string, householdId: string): Promise<void> {
     const client = this.redis.getClient();
-    await client.del(`preview:household:${householdId}`);
+    await client.del(`preview:household:${tenantId}:${householdId}`);
   }
 }

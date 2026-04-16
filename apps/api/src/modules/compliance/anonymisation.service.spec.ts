@@ -264,7 +264,9 @@ describe('AnonymisationService', () => {
         where: { id: { in: ['request-1'] } },
         data: { export_file_key: null },
       });
-      expect(mockPipeline.del).toHaveBeenCalledWith(`preview:staff:${STAFF_PROFILE_ID}`);
+      expect(mockPipeline.del).toHaveBeenCalledWith(
+        `preview:staff:${TENANT_ID}:${STAFF_PROFILE_ID}`,
+      );
       expect(mockPipeline.del).toHaveBeenCalledWith(
         `tenant:${TENANT_ID}:user:${USER_ID}:unread_notifications`,
       );

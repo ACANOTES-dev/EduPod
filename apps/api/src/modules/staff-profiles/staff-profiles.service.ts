@@ -483,7 +483,7 @@ export class StaffProfilesService {
     })) as StaffProfileWithUser;
 
     // Invalidate preview cache
-    await this.redis.getClient().del(`preview:staff:${id}`);
+    await this.redis.getClient().del(`preview:staff:${tenantId}:${id}`);
 
     return this.maskBankDetails(updated);
   }
@@ -553,7 +553,7 @@ export class StaffProfilesService {
    * Return lightweight preview data for a staff profile, cached in Redis for 30s.
    */
   async preview(tenantId: string, id: string): Promise<PreviewResponse> {
-    const cacheKey = `preview:staff:${id}`;
+    const cacheKey = `preview:staff:${tenantId}:${id}`;
     const redisClient = this.redis.getClient();
 
     const cached = await redisClient.get(cacheKey);

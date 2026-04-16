@@ -310,7 +310,7 @@ export class HouseholdsCrudService {
     })) as HouseholdDetail;
 
     // Invalidate preview cache
-    await this.invalidatePreviewCache(id);
+    await this.invalidatePreviewCache(tenantId, id);
 
     return household;
   }
@@ -362,8 +362,8 @@ export class HouseholdsCrudService {
 
   // ─── Private helpers ──────────────────────────────────────────────────────
 
-  private async invalidatePreviewCache(householdId: string): Promise<void> {
+  private async invalidatePreviewCache(tenantId: string, householdId: string): Promise<void> {
     const client = this.redis.getClient();
-    await client.del(`preview:household:${householdId}`);
+    await client.del(`preview:household:${tenantId}:${householdId}`);
   }
 }
