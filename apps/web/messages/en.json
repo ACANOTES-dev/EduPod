@@ -6632,7 +6632,8 @@
       "noStudents": "No students enrolled in this class.",
       "topRankBadge": "Top {rank}",
       "classNotFound": "Class not found.",
-      "loadFailed": "Failed to load the matrix.",
+      "permissionDenied": "You don't have permission to view this class's report cards.",
+      "loadFailed": "Failed to load the matrix. Please try again.",
       "unranked": "—"
     },
     "library": {

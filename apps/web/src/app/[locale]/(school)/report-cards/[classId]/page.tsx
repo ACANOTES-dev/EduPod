@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Library, Medal } from 'lucide-react';
+import { ArrowLeft, Library, Medal, ShieldAlert } from 'lucide-react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -71,6 +71,8 @@ interface ListResponse<T> {
 
 type DisplayMode = 'score' | 'grade';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatCell(cell: MatrixCell | undefined, mode: DisplayMode): string {
@@ -107,6 +109,7 @@ export default function ReportCardsClassPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [loadFailed, setLoadFailed] = React.useState(false);
   const [notFound, setNotFound] = React.useState(false);
+  const [permissionDenied, setPermissionDenied] = React.useState(false);
 
   // Load period options once
   React.useEffect(() => {
@@ -126,11 +129,20 @@ export default function ReportCardsClassPage() {
   // Fetch matrix whenever classId or period changes
   React.useEffect(() => {
     if (!classId) return;
+
+    // Pre-validate UUID format to avoid sending non-UUID params to the API
+    if (!UUID_RE.test(classId)) {
+      setIsLoading(false);
+      setNotFound(true);
+      return;
+    }
+
     let cancelled = false;
     void (async () => {
       setIsLoading(true);
       setLoadFailed(false);
       setNotFound(false);
+      setPermissionDenied(false);
       try {
         const res = await apiClient<{ data: ClassMatrixResponse }>(
           `/api/v1/report-cards/classes/${classId}/matrix?academic_period_id=${periodId}`,
@@ -140,9 +152,10 @@ export default function ReportCardsClassPage() {
         console.error('[ReportCardsClassPage]', err);
         if (!cancelled) {
           setMatrix(null);
-          // Detect 404 from the structured error payload
           const maybeError = err as { code?: string; status?: number };
-          if (maybeError?.code === 'CLASS_NOT_FOUND' || maybeError?.status === 404) {
+          if (maybeError?.status === 403) {
+            setPermissionDenied(true);
+          } else if (maybeError?.code === 'CLASS_NOT_FOUND' || maybeError?.status === 404) {
             setNotFound(true);
           } else {
             setLoadFailed(true);
@@ -248,8 +261,20 @@ export default function ReportCardsClassPage() {
         />
       )}
 
+      {/* Permission denied */}
+      {!isLoading && permissionDenied && (
+        <EmptyState
+          icon={ShieldAlert}
+          title={tm('permissionDenied')}
+          action={{
+            label: t('backToReportCards'),
+            onClick: () => router.push(`/${locale}/report-cards`),
+          }}
+        />
+      )}
+
       {/* Load failure */}
-      {!isLoading && loadFailed && !notFound && (
+      {!isLoading && loadFailed && !notFound && !permissionDenied && (
         <EmptyState icon={ArrowLeft} title={tm('loadFailed')} />
       )}
 
