@@ -5,6 +5,8 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  HelpCircle,
+  Info,
   Loader2,
   Pin,
   Sparkles,
@@ -27,6 +29,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   toast,
 } from '@school/ui';
 
@@ -38,6 +44,7 @@ import { apiClient } from '@/lib/api-client';
 interface AcademicYear {
   id: string;
   name: string;
+  status?: string;
 }
 
 interface PrerequisiteCheck {
@@ -94,10 +101,19 @@ export default function AutoSchedulerPage() {
 
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load academic years on mount
+  // Load academic years on mount; auto-select the active one so the user
+  // doesn't have to manually pick it for every visit.
   React.useEffect(() => {
     apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years')
-      .then((res) => setYears(res.data ?? []))
+      .then((res) => {
+        const list = res.data ?? [];
+        setYears(list);
+        setSelectedYear((current) => {
+          if (current) return current;
+          const active = list.find((y) => y.status === 'active');
+          return active?.id ?? current;
+        });
+      })
       .catch((err) => {
         console.error('[SchedulingAutoPage]', err);
       });
@@ -210,6 +226,27 @@ export default function AutoSchedulerPage() {
   const allPassed = prerequisites?.ready ?? false;
   const modeLabel = t('modeAuto');
 
+  // ─── Tooltip copy ──────────────────────────────────────────────────────────
+  // Each prerequisite check has a short "what" explanation and an actionable
+  // "how to fix" line. Keys returned by the backend are enumerated in
+  // `scheduling-prerequisites.service.ts`.
+  const KNOWN_CHECK_KEYS = new Set([
+    'period_grid_exists',
+    'all_classes_configured',
+    'all_classes_have_teachers',
+    'every_class_subject_has_teacher',
+    'no_pinned_conflicts',
+    'no_pinned_availability_violations',
+  ]);
+
+  function getCheckCopy(checkKey: string): { what: string; fix: string } {
+    const key = KNOWN_CHECK_KEYS.has(checkKey) ? checkKey : 'unknown_check';
+    return {
+      what: t(`checkTooltip.${key}.what`),
+      fix: t(`checkTooltip.${key}.fix`),
+    };
+  }
+
   function formatDuration(run: SchedulingRun): string {
     if (!run.completed_at) return '—';
     const ms = new Date(run.completed_at).getTime() - new Date(run.created_at).getTime();
@@ -260,36 +297,77 @@ export default function AutoSchedulerPage() {
               <span>{t('checkingPrerequisites')}</span>
             </div>
           ) : prerequisites ? (
-            <>
-              {(prerequisites.checks ?? []).map((check) => (
-                <div key={check.key} className="flex items-start gap-3">
-                  {check.passed ? (
-                    <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500 shrink-0" />
-                  ) : (
-                    <XCircle className="h-4 w-4 mt-0.5 text-red-500 shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm text-text-primary">{check.message}</span>
-                  </div>
-                  {!check.passed && check.fix_href && (
-                    <a
-                      href={check.fix_href}
-                      className="flex items-center gap-1 text-xs text-brand hover:underline shrink-0"
+            <TooltipProvider delayDuration={150}>
+              {(prerequisites.checks ?? []).map((check) => {
+                const copy = getCheckCopy(check.key);
+                return (
+                  <div key={check.key} className="flex items-start gap-3">
+                    {check.passed ? (
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500 shrink-0" />
+                    ) : (
+                      <XCircle className="h-4 w-4 mt-0.5 text-red-500 shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0 flex items-start gap-1.5">
+                      <span className="text-sm text-text-primary">{check.message}</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label={t('whatIsThisCheck')}
+                            className="mt-0.5 text-text-tertiary hover:text-text-secondary transition-colors cursor-help shrink-0"
+                          >
+                            <HelpCircle className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs space-y-2 py-2 text-start">
+                          <p className="text-xs leading-relaxed">
+                            <span className="font-semibold">{t('whatItMeans')}:</span> {copy.what}
+                          </p>
+                          {!check.passed && (
+                            <p className="text-xs leading-relaxed">
+                              <span className="font-semibold">{t('howToFix')}:</span> {copy.fix}
+                            </p>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    {!check.passed && check.fix_href && (
+                      <a
+                        href={check.fix_href}
+                        className="flex items-center gap-1 text-xs text-brand hover:underline shrink-0"
+                      >
+                        {t('fix')}
+                        <ChevronRight className="h-3 w-3 rtl:rotate-180" />
+                      </a>
+                    )}
+                    <Badge
+                      variant={check.passed ? 'default' : 'danger'}
+                      className="text-xs shrink-0"
                     >
-                      {t('fix')}
-                      <ChevronRight className="h-3 w-3 rtl:rotate-180" />
-                    </a>
-                  )}
-                  <Badge variant={check.passed ? 'default' : 'danger'} className="text-xs shrink-0">
-                    {check.passed ? 'Pass' : 'Fail'}
-                  </Badge>
-                </div>
-              ))}
+                      {check.passed ? 'Pass' : 'Fail'}
+                    </Badge>
+                  </div>
+                );
+              })}
 
               <div className="pt-3 border-t border-border flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <Pin className="h-3.5 w-3.5 text-text-tertiary" />
                   <span className="text-sm text-text-secondary">{modeLabel}</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={t('whatArePinnedEntries')}
+                        className="text-text-tertiary hover:text-text-secondary transition-colors cursor-help"
+                      >
+                        <Info className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-sm py-2 text-start">
+                      <p className="text-xs leading-relaxed">{t('pinnedEntriesExplainer')}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
                 <Button
                   onClick={() => setConfirmOpen(true)}
@@ -307,7 +385,7 @@ export default function AutoSchedulerPage() {
                   {t('allChecksPassed')}
                 </div>
               )}
-            </>
+            </TooltipProvider>
           ) : (
             <p className="text-sm text-text-secondary">{t('selectAnAcademicYearTo')}</p>
           )}

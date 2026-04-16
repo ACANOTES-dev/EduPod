@@ -5030,6 +5030,41 @@
       "schedulingStatus": "الحالة",
       "selectAnAcademicYearTo": "اختر an academic year to check prerequisites.",
       "fix": "[AR] Fix",
+      "whatItMeans": "ما المقصود",
+      "howToFix": "كيفية الإصلاح",
+      "whatIsThisCheck": "ما هذا الفحص؟",
+      "whatArePinnedEntries": "ما هي الإدخالات المثبتة؟",
+      "pinnedEntriesExplainer": "«تلقائي» يعني أن الحلال سيضع كل درس من الصفر دون قيود يدوية. الإدخال المثبت هو فصل + مادة + معلم + فتحة زمنية محددة يقوم شخص بقفلها مسبقاً، فيحترمها الحلال ويُجدول كل شيء آخر حولها. مع عدم وجود أي إدخالات مثبتة (حالتك الحالية) ستكون هذه دورة تلقائية بالكامل. يمكنك إنشاء تثبيتات من شبكة الحصص إن احتجت فرض درس معين في فتحة معينة.",
+      "checkTooltip": {
+        "period_grid_exists": {
+          "what": "[AR] Your school's weekly teaching timetable must be defined first — which days run, how many periods each day has, and the start/end time of each period.",
+          "fix": "[AR] Go to Scheduling → Period Grid and configure at least one teaching period on one weekday for this academic year."
+        },
+        "all_classes_configured": {
+          "what": "[AR] Every active academic class must have a teaching plan that tells the solver how many periods of each subject it needs per week. This normally comes from the year group's curriculum, with per-class overrides if needed.",
+          "fix": "[AR] Go to Scheduling → Requirements (or Curriculum) and set periods-per-week for each subject for the year groups or classes flagged as missing."
+        },
+        "all_classes_have_teachers": {
+          "what": "[AR] Every academic class must have at least one teacher assigned to it. Without one the solver has no-one to place in front of that class.",
+          "fix": "[AR] Go to People → Classes (or your Classes page) and assign a class teacher to every class flagged as missing a teacher."
+        },
+        "every_class_subject_has_teacher": {
+          "what": "[AR] For each class, every subject in its curriculum needs either a pinned teacher (one specific teacher locked to that class + subject) or at least one pool teacher (someone eligible to teach that subject to that year group). Without either, the solver cannot fill that subject's periods.",
+          "fix": "[AR] Go to Scheduling → Competencies. For each flagged class / subject pair, either add a competency pool entry for the subject + year group, or pin a specific teacher to that class + subject."
+        },
+        "no_pinned_conflicts": {
+          "what": "[AR] Any lessons you have manually pinned cannot overlap in time if they share the same teacher or the same room. Two pins that fight over the same resource at the same time are impossible to satisfy.",
+          "fix": "[AR] Go to Scheduling → Period Grid and review the pinned entries. Unpin one of the conflicting lessons or move it to a different day / period so they no longer clash."
+        },
+        "no_pinned_availability_violations": {
+          "what": "[AR] Every pinned lesson must fall inside the teacher's configured availability window for that weekday. If a teacher is only available on Mondays until noon, a pin at 2pm on Monday is impossible.",
+          "fix": "[AR] Go to Scheduling → Availability. Either widen the teacher's availability window for that day, or move the pinned entry to a time the teacher is available."
+        },
+        "unknown_check": {
+          "what": "[AR] This prerequisite must be satisfied before the solver can run.",
+          "fix": "[AR] Review the message above for details, then update the relevant scheduling configuration."
+        }
+      },
       "checkingPrerequisites": "[AR] Checking prerequisites...",
       "selectYear": "اختر year...",
       "useTheSidebarToConfigure": "[AR] Use the sidebar to configure scheduling: set up the period grid, curriculum requirements, teacher competencies, and more. Once all prerequisites are met, use the Auto Scheduler to generate timetables.",
