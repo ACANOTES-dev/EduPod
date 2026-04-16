@@ -797,7 +797,7 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 | RC-L011 | P3       | Open     | L      | Teacher library count "50" scope unclear                           |
 | RC-L012 | P3       | Open     | L      | `/en/logout` URL returns 404                                       |
 | RC-L013 | P3       | Open     | L      | Tenant logo flashes to text "N" fallback                           |
-| RC-L014 | P3       | Blocked  | L      | Student test account login rejects documented password             |
+| RC-L014 | P3       | Verified | L      | Student test account login rejects documented password             |
 | RC-L015 | P2       | Open     | L      | `/verify/:token` 404 missing Cache-Control                         |
 | RC-C001 | P0       | Verified | C      | Acknowledgment body-param IDOR                                     |
 | RC-C002 | P1       | Blocked  | C      | Verify token has no TTL                                            |
