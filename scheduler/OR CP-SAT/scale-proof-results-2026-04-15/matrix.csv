@@ -1,0 +1,13 @@
+tier,budget_seconds,run_index,seed,status_code,wall_seconds,placed,unassigned,demand,placement_ratio,score,max_score,hard_violations,cp_sat_status,early_stop_triggered,early_stop_reason,time_saved_ms,sidecar_duration_ms,memory_peak_mb,request_id,error_code
+4,60,0,0,200,63.916,1100,0,1100,1.0000,5,5,0,unknown,False,not_triggered,0,63832,,scale-20260415235724-t4-b60-r0,
+4,60,1,0,200,63.693,1100,0,1100,1.0000,5,5,0,unknown,False,not_triggered,0,63623,,scale-20260415235724-t4-b60-r1,
+4,60,2,0,200,63.705,1100,0,1100,1.0000,5,5,0,unknown,False,not_triggered,0,63634,,scale-20260415235724-t4-b60-r2,
+4,120,0,0,200,123.680,1100,0,1100,1.0000,5,5,0,unknown,False,not_triggered,0,123610,,scale-20260415235724-t4-b120-r0,
+4,120,1,0,200,123.680,1100,0,1100,1.0000,5,5,0,unknown,False,not_triggered,0,123610,,scale-20260415235724-t4-b120-r1,
+4,120,2,0,200,123.691,1100,0,1100,1.0000,5,5,0,unknown,False,not_triggered,0,123621,,scale-20260415235724-t4-b120-r2,
+4,300,0,0,200,303.702,1100,0,1100,1.0000,5,5,0,unknown,False,not_triggered,0,303632,,scale-20260415235724-t4-b300-r0,
+4,300,1,0,200,303.750,1100,0,1100,1.0000,5,5,0,unknown,False,not_triggered,0,303680,,scale-20260415235724-t4-b300-r1,
+4,300,2,0,200,303.721,1100,0,1100,1.0000,5,5,0,unknown,False,not_triggered,0,303651,,scale-20260415235724-t4-b300-r2,
+4,600,0,0,200,603.733,1100,0,1100,1.0000,5,5,0,unknown,False,not_triggered,0,603663,,scale-20260415235724-t4-b600-r0,
+4,600,1,0,200,603.700,1100,0,1100,1.0000,5,5,0,unknown,False,not_triggered,0,603629,,scale-20260415235724-t4-b600-r1,
+4,600,2,0,200,603.987,1100,0,1100,1.0000,5,5,0,unknown,False,not_triggered,0,603917,,scale-20260415235724-t4-b600-r2,
