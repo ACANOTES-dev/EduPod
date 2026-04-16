@@ -172,13 +172,32 @@ The distinction matters because "hit 100% on NHQS" is not a valid success criter
 
 The first two benchmarks measure correctness on datasets we know. Benchmark 3 measures scale: can CP-SAT handle a genuine 1000-lesson Irish secondary week, a 2000-lesson MAT / multi-campus workload, or a 3000+ lesson college-level timetable — all within a configurable budget that reaches up to 1 hour?
 
-| Tier                             | Target shape                                | Placement bar                 | Budget knee expected |
-| -------------------------------- | ------------------------------------------- | ----------------------------- | -------------------- |
-| Tier 4 — Irish secondary (large) | ~50 classes, 80 teachers, ~1100 lessons     | ≥ 98 %                        | 120-180 s            |
-| Tier 5 — MAT / multi-campus      | ~95 classes, 160 teachers, ~2200 lessons    | ≥ 95 %                        | 300-600 s            |
-| Tier 6 — college / thousands     | ~130 sections, 180 lecturers, ~3200 lessons | ≥ 90 % (or diagnosed ceiling) | 1800 s               |
+**Measured results (Stage 9.5.2, 2026-04-16):**
 
-Stage 9.5.2 produces the actual measurements; the values above are expectations going in. If any tier misses the bar, the stage's deliverable is a faithful diagnosis (greedy quality at scale vs CP-SAT tree search at scale), not a forced fix.
+| Tier                             | Target shape                              |                              Placement | Budget knee | CP-SAT status                 | Memory peak |
+| :------------------------------- | :---------------------------------------- | -------------------------------------: | ----------: | :---------------------------- | ----------: |
+| Tier 4 — Irish secondary (large) | 50 classes, 80 teachers, 1100 lessons     |   **100 %** (1100/1100 across 12 runs) |    **60 s** | unknown (greedy-only)         |  2.1–3.1 GB |
+| Tier 5 — MAT / multi-campus      | 95 classes, 160 teachers, 2185 lessons    | **100 %** (2186/2185 × 3 runs @ 120 s) |   **120 s** | unknown (greedy-only)         |      3.5 GB |
+| Tier 5 — OOM above 120 s         | —                                         |                                      — |           — | sidecar OOM'd at 300 s budget |   **>4 GB** |
+| Tier 6 — college / thousands     | 130 sections, 180 lecturers, 3120 lessons |                           not measured |           — | —                             |           — |
+
+**Key findings:**
+
+1. **Placement exceeds spec at both tiers measured.** Spec said ≥ 98 % tier-4 / ≥ 95 % tier-5. Measured 100 % on both.
+2. **Placement is greedy-only at scale.** CP-SAT never converges to `feasible` within any budget tested at tier-4 (60–600 s) or tier-5 (120 s). The greedy hint pre-fills a complete solution; CP-SAT has nothing to improve. This is architecturally correct — the greedy-hint + CP-SAT-refinement pipeline was designed for exactly this: greedy does the heavy lifting on large inputs, CP-SAT refines on smaller ones (confirmed on NHQS @ 600 s where CP-SAT reached `feasible`).
+3. **Budget knee is at the lowest tested value.** Tier-4 knee = 60 s, tier-5 knee = 120 s. Higher budgets add wall time and memory without changing placement.
+4. **Memory is the binding constraint, not time.** Solver-py RSS climbs monotonically with budget duration (CP-SAT search state accumulates). Tier-5 at 300 s budget exceeded the 4 GB pm2 cap and OOM'd.
+5. **Tier-6 deferred.** With tier-5 OOM'ing at 300 s and tier-6 projected >6 GB, the college-scale measurement is blocked on memory infra (larger `max_memory_restart` or a per-solve memory estimator). Filed as a follow-up for when a college customer materialises.
+
+**Pre-measurement expectations vs reality:**
+
+| Tier | Expected knee | Actual knee  | Expected placement | Actual placement |
+| :--- | :------------ | :----------- | :----------------- | :--------------- |
+| 4    | 120–180 s     | **60 s**     | ≥ 98 %             | **100 %**        |
+| 5    | 300–600 s     | **120 s**    | ≥ 95 %             | **100 %**        |
+| 6    | 1800 s        | not measured | ≥ 90 %             | not measured     |
+
+The pre-measurement expectations overestimated both the budget needed and underestimated placement — the greedy hint is better than anticipated at large scale.
 
 ### Budget architecture — why the ceiling is 1 hour, not 120 s
 

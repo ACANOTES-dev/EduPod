@@ -1,0 +1,4 @@
+tier,budget_seconds,run_index,seed,status_code,wall_seconds,placed,unassigned,demand,placement_ratio,score,max_score,hard_violations,cp_sat_status,early_stop_triggered,early_stop_reason,time_saved_ms,sidecar_duration_ms,memory_peak_mb,request_id,error_code
+5,120,0,0,200,150.500,2186,0,2185,1.0005,5,5,0,unknown,False,not_triggered,0,150455,,scale-20260416005457-t5-b120-r0,
+5,120,1,0,200,148.700,2186,0,2185,1.0005,5,5,0,unknown,False,not_triggered,0,148647,,scale-20260416005457-t5-b120-r1,
+5,120,2,0,200,149.200,2186,0,2185,1.0005,5,5,0,unknown,False,not_triggered,0,149148,,scale-20260416005457-t5-b120-r2,
