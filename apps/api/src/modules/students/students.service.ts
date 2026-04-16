@@ -441,7 +441,7 @@ export class StudentsService {
     });
 
     // Invalidate preview cache
-    await this.redis.getClient().del(`preview:student:${id}`);
+    await this.redis.getClient().del(`preview:student:${tenantId}:${id}`);
 
     return updated;
   }
@@ -508,10 +508,10 @@ export class StudentsService {
         status: newStatus as StudentStatus,
       };
 
-      if (newStatus === 'withdrawn') {
+      if (newStatus === 'withdrawn' || newStatus === 'graduated') {
         updateData.exit_date = today;
-      } else if (newStatus === 'graduated') {
-        updateData.exit_date = today;
+      } else if (newStatus === 'active') {
+        updateData.exit_date = null;
       }
 
       return db.student.update({
@@ -521,7 +521,7 @@ export class StudentsService {
     });
 
     // Invalidate preview cache
-    await this.redis.getClient().del(`preview:student:${id}`);
+    await this.redis.getClient().del(`preview:student:${tenantId}:${id}`);
 
     return updated;
   }
@@ -530,7 +530,7 @@ export class StudentsService {
    * Lightweight preview data for hover cards. Redis-cached for 30s.
    */
   async preview(tenantId: string, id: string): Promise<PreviewResponse> {
-    const cacheKey = `preview:student:${id}`;
+    const cacheKey = `preview:student:${tenantId}:${id}`;
     const redisClient = this.redis.getClient();
 
     const cached = await redisClient.get(cacheKey);

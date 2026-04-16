@@ -669,7 +669,9 @@ describe('StudentsService — update', () => {
 
     await service.update(TENANT_ID, STUDENT_ID, { first_name: 'Jonathan' });
 
-    expect(mockRedis._client.del).toHaveBeenCalledWith(`preview:student:${STUDENT_ID}`);
+    expect(mockRedis._client.del).toHaveBeenCalledWith(
+      `preview:student:${TENANT_ID}:${STUDENT_ID}`,
+    );
   });
 
   it('should throw NotFoundException when household_id FK not found', async () => {
@@ -788,7 +790,7 @@ describe('StudentsService — preview', () => {
       ]),
     );
     expect(mockRedis._client.set).toHaveBeenCalledWith(
-      `preview:student:${STUDENT_ID}`,
+      `preview:student:${TENANT_ID}:${STUDENT_ID}`,
       expect.any(String),
       'EX',
       30,
