@@ -1,10 +1,8 @@
 'use client';
 
 import {
-  AlertCircle,
   CheckCircle2,
   ChevronRight,
-  Clock,
   HelpCircle,
   Info,
   Loader2,
@@ -38,6 +36,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { useSolverProgress } from '@/providers/solver-progress-provider';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -70,21 +69,13 @@ interface SchedulingRun {
   pinned_count?: number;
 }
 
-interface RunProgress {
-  phase: string;
-  assigned: number;
-  total: number;
-  elapsed_seconds: number;
-  status: string;
-  error?: string;
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AutoSchedulerPage() {
   const t = useTranslations('scheduling.auto');
   const tCommon = useTranslations('common');
   const router = useRouter();
+  const solverProgress = useSolverProgress();
 
   const [years, setYears] = React.useState<AcademicYear[]>([]);
   const [selectedYear, setSelectedYear] = React.useState<string>('');
@@ -94,12 +85,7 @@ export default function AutoSchedulerPage() {
   const [runsLoading, setRunsLoading] = React.useState(false);
 
   const [confirmOpen, setConfirmOpen] = React.useState(false);
-  const [progressOpen, setProgressOpen] = React.useState(false);
-  const [activeRunId, setActiveRunId] = React.useState<string | null>(null);
-  const [progress, setProgress] = React.useState<RunProgress | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
-
-  const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load academic years on mount; auto-select the active one so the user
   // doesn't have to manually pick it for every visit.
@@ -157,36 +143,10 @@ export default function AutoSchedulerPage() {
       .finally(() => setRunsLoading(false));
   }, [selectedYear]);
 
-  // Poll progress
-  React.useEffect(() => {
-    if (!activeRunId) return;
-    pollRef.current = setInterval(async () => {
-      try {
-        // NestJS's global response interceptor wraps responses in `{ data }`.
-        const res = await apiClient<{ data: RunProgress }>(
-          `/api/v1/scheduling-runs/${activeRunId}/progress`,
-        );
-        const prog = res.data;
-        setProgress(prog);
-        if (prog.status === 'completed') {
-          clearInterval(pollRef.current!);
-          setProgressOpen(false);
-          router.push(`/scheduling/runs/${activeRunId}/review`);
-        } else if (prog.status === 'failed') {
-          clearInterval(pollRef.current!);
-          toast.error(prog.error ?? 'Solver failed');
-          setProgressOpen(false);
-          setActiveRunId(null);
-        }
-      } catch (err) {
-        console.error('[SchedulingAutoPage]', err);
-        clearInterval(pollRef.current!);
-        setProgressOpen(false);
-        setActiveRunId(null);
-      }
-    }, 2000);
-    return () => clearInterval(pollRef.current!);
-  }, [activeRunId, router]);
+  // Progress tracking lives in SolverProgressProvider + the bottom-end
+  // SolverProgressWidget — a local center modal would block navigation and
+  // silently cancel the solve on accidental dismissal (both real bugs we
+  // hit pre-Stage-9.5.2 with 3600 s budgets).
 
   async function handleGenerate() {
     setConfirmOpen(false);
@@ -196,9 +156,7 @@ export default function AutoSchedulerPage() {
         method: 'POST',
         body: JSON.stringify({ academic_year_id: selectedYear }),
       });
-      setActiveRunId(res.data.id);
-      setProgress(null);
-      setProgressOpen(true);
+      solverProgress.startTracking(res.data.id);
     } catch (err: unknown) {
       const msg =
         typeof err === 'object' && err !== null && 'error' in err
@@ -208,19 +166,6 @@ export default function AutoSchedulerPage() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  async function handleCancelSolve() {
-    if (!activeRunId) return;
-    clearInterval(pollRef.current!);
-    await apiClient(`/api/v1/scheduling-runs/${activeRunId}/cancel`, { method: 'POST' }).catch(
-      (err) => {
-        console.error('[SchedulingAutoPage]', err);
-      },
-    );
-    setProgressOpen(false);
-    setActiveRunId(null);
-    setProgress(null);
   }
 
   const allPassed = prerequisites?.ready ?? false;
@@ -484,65 +429,9 @@ export default function AutoSchedulerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Progress Modal */}
-      <Dialog
-        open={progressOpen}
-        onOpenChange={(open) => {
-          if (!open) void handleCancelSolve();
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-brand" />
-              {t('solving')}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {progress ? (
-              <>
-                <div className="flex items-center gap-2 text-sm text-text-secondary">
-                  <AlertCircle className="h-4 w-4 text-amber-500" />
-                  <span>{progress.phase}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-text-secondary">
-                    {t('slotsAssigned', {
-                      assigned: progress.assigned,
-                      total: progress.total,
-                    })}
-                  </span>
-                  <div className="flex items-center gap-1 text-text-tertiary">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span className="font-mono text-xs">{progress.elapsed_seconds}s</span>
-                  </div>
-                </div>
-                <div className="w-full bg-surface-secondary rounded-full h-2">
-                  <div
-                    className="bg-brand rounded-full h-2 transition-all duration-300"
-                    style={{
-                      width:
-                        progress.total > 0
-                          ? `${Math.round((progress.assigned / progress.total) * 100)}%`
-                          : '0%',
-                    }}
-                  />
-                </div>
-              </>
-            ) : (
-              <div className="flex items-center gap-2 text-sm text-text-secondary">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t('preparing')}
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCancelSolve}>
-              {t('cancelSolve')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Progress is rendered by <SolverProgressWidget /> in the school
+          layout — it persists across navigation and stays out of the user's
+          way until the solve is done. */}
     </div>
   );
 }
