@@ -21,7 +21,6 @@ import { z } from 'zod';
 
 import type { JwtPayload } from '@school/shared';
 import {
-  acknowledgeReportCardSchema,
   analyticsQuerySchema,
   batchPdfSchema,
   bulkApproveSchema,
@@ -422,27 +421,20 @@ export class ReportCardsEnhancedController {
 
   // ─── Acknowledgment (R13) ────────────────────────────────────────────────
 
+  // POST /v1/report-cards/:id/acknowledge
   @Post('report-cards/:id/acknowledge')
   @RequiresPermission('gradebook.view')
   async acknowledgeReportCard(
     @CurrentTenant() tenant: { tenant_id: string },
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body(new ZodValidationPipe(acknowledgeReportCardSchema))
-    dto: z.infer<typeof acknowledgeReportCardSchema>,
     @Req() req: Request,
   ) {
     const ipAddress =
       (req.headers['x-forwarded-for'] as string | undefined) ??
       req.socket.remoteAddress ??
       undefined;
-    return this.acknowledgmentService.acknowledge(
-      tenant.tenant_id,
-      id,
-      dto.parent_id,
-      user.sub,
-      ipAddress,
-    );
+    return this.acknowledgmentService.acknowledge(tenant.tenant_id, id, user.sub, ipAddress);
   }
 
   @Get('report-cards/:id/acknowledgment-status')

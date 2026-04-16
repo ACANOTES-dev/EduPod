@@ -785,14 +785,12 @@ describe('ReportCardsEnhancedController — acknowledgment', () => {
       tenantContext,
       jwtUser as never,
       REPORT_CARD_ID,
-      { parent_id: 'parent-1' },
       mockReq as never,
     );
 
     expect(mockAcknowledgmentService.acknowledge).toHaveBeenCalledWith(
       TENANT_ID,
       REPORT_CARD_ID,
-      'parent-1',
       USER_ID,
       '1.2.3.4',
     );
@@ -811,14 +809,12 @@ describe('ReportCardsEnhancedController — acknowledgment', () => {
       tenantContext,
       jwtUser as never,
       REPORT_CARD_ID,
-      { parent_id: 'parent-1' },
       mockReq as never,
     );
 
     expect(mockAcknowledgmentService.acknowledge).toHaveBeenCalledWith(
       TENANT_ID,
       REPORT_CARD_ID,
-      'parent-1',
       USER_ID,
       '10.0.0.1',
     );
@@ -836,14 +832,12 @@ describe('ReportCardsEnhancedController — acknowledgment', () => {
       tenantContext,
       jwtUser as never,
       REPORT_CARD_ID,
-      { parent_id: 'parent-1' },
       mockReq as never,
     );
 
     expect(mockAcknowledgmentService.acknowledge).toHaveBeenCalledWith(
       TENANT_ID,
       REPORT_CARD_ID,
-      'parent-1',
       USER_ID,
       undefined,
     );

@@ -6,32 +6,39 @@ import {
 } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { ParentReadFacade } from '../../parents/parent-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class ReportCardAcknowledgmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly parentReadFacade: ParentReadFacade,
+  ) {}
 
   // ─── Acknowledge ──────────────────────────────────────────────────────────
 
   async acknowledge(
     tenantId: string,
     reportCardId: string,
-    parentId: string,
     callerUserId: string,
     ipAddress?: string,
   ) {
-    // Verify caller is the parent being acknowledged (cannot acknowledge on behalf of another parent)
-    if (callerUserId !== parentId) {
+    // Derive the parent record from the caller's user_id — never trust a body param
+    const parent = await this.parentReadFacade.findByUserId(tenantId, callerUserId);
+
+    if (!parent) {
       throw new ForbiddenException({
         error: {
-          code: 'PARENT_MISMATCH',
-          message: 'You can only acknowledge a report card as yourself',
+          code: 'NOT_A_PARENT',
+          message: 'No parent profile is linked to your account',
         },
       });
     }
+
+    const parentId = parent.id;
 
     const reportCard = await this.prisma.reportCard.findFirst({
       where: { id: reportCardId, tenant_id: tenantId },

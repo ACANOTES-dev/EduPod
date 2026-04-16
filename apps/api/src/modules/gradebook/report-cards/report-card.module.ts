@@ -8,6 +8,7 @@ import { ClassesModule } from '../../classes/classes.module';
 import { CommunicationsModule } from '../../communications/communications.module';
 import { ConfigurationModule } from '../../configuration/configuration.module';
 import { GdprModule } from '../../gdpr/gdpr.module';
+import { ParentsModule } from '../../parents/parents.module';
 import { PdfRenderingModule } from '../../pdf-rendering/pdf-rendering.module';
 import { RbacModule } from '../../rbac/rbac.module';
 import { S3Module } from '../../s3/s3.module';
@@ -61,6 +62,7 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
     CommunicationsModule,
     ConfigurationModule,
     GdprModule,
+    ParentsModule,
     PdfRenderingModule,
     RbacModule,
     S3Module,
@@ -132,6 +134,8 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
     // the correct template for a (scope, locale) pair.
     ReportCardTemplateService,
     ReportCardTenantSettingsService,
+    // Exported so the parent gradebook controller can call acknowledge.
+    ReportCardAcknowledgmentService,
     // Exported so impl 05 (teacher requests) can auto-execute approved
     // regeneration requests.
     ReportCardGenerationService,

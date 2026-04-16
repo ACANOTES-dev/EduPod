@@ -2,14 +2,18 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  HttpCode,
+  HttpStatus,
   NotFoundException,
   Param,
   ParseUUIDPipe,
+  Post,
   Query,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { z } from 'zod';
 
 import type { JwtPayload } from '@school/shared';
@@ -28,6 +32,7 @@ import { StudentReadFacade } from '../students/student-read.facade';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { GradesService } from './grades.service';
+import { ReportCardAcknowledgmentService } from './report-cards/report-card-acknowledgment.service';
 import { ReportCardsQueriesService } from './report-cards/report-cards-queries.service';
 import { TranscriptsService } from './transcripts.service';
 
@@ -48,6 +53,7 @@ const parentReportCardsQuerySchema = z.object({
 export class ParentGradebookController {
   constructor(
     private readonly gradesService: GradesService,
+    private readonly acknowledgmentService: ReportCardAcknowledgmentService,
     private readonly reportCardsQueriesService: ReportCardsQueriesService,
     private readonly transcriptsService: TranscriptsService,
     private readonly pdfRenderingService: PdfRenderingService,
@@ -176,6 +182,28 @@ export class ParentGradebookController {
       'Content-Disposition': 'inline; filename="transcript.pdf"',
     });
     res.send(pdfBuffer);
+  }
+
+  // POST /v1/parent/report-cards/:reportCardId/acknowledge
+  @Post('parent/report-cards/:reportCardId/acknowledge')
+  @RequiresPermission('parent.view_grades')
+  @HttpCode(HttpStatus.OK)
+  async acknowledgeReportCard(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('reportCardId', ParseUUIDPipe) reportCardId: string,
+    @Req() req: Request,
+  ) {
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string | undefined) ??
+      req.socket.remoteAddress ??
+      undefined;
+    return this.acknowledgmentService.acknowledge(
+      tenant.tenant_id,
+      reportCardId,
+      user.sub,
+      ipAddress,
+    );
   }
 
   // ─── Private Helpers ────────────────────────────────────────────────────
