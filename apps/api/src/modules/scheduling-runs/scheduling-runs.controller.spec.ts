@@ -12,9 +12,11 @@ import { SchedulingReadFacade } from '../scheduling/scheduling-read.facade';
 import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
 
 import { SchedulingApplyService } from './scheduling-apply.service';
+import { SchedulingDiagnosticsService } from './scheduling-diagnostics.service';
 import { SchedulingPrerequisitesService } from './scheduling-prerequisites.service';
 import { SchedulingRunsController } from './scheduling-runs.controller';
 import { SchedulingRunsService } from './scheduling-runs.service';
+import { SchedulingSimulationService } from './scheduling-simulation.service';
 
 const TENANT: TenantContext = {
   tenant_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -151,6 +153,14 @@ describe('SchedulingRunsController', () => {
         { provide: SchedulingRunsService, useValue: mockRunsService },
         { provide: SchedulingApplyService, useValue: mockApplyService },
         { provide: SchedulingPrerequisitesService, useValue: mockPrerequisitesService },
+        {
+          provide: SchedulingDiagnosticsService,
+          useValue: { analyse: jest.fn().mockResolvedValue({ summary: {}, diagnostics: [] }) },
+        },
+        {
+          provide: SchedulingSimulationService,
+          useValue: { simulate: jest.fn().mockResolvedValue({}) },
+        },
         {
           provide: PermissionCacheService,
           useValue: { getPermissions: jest.fn().mockResolvedValue([]) },

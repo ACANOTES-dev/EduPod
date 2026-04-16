@@ -38,6 +38,8 @@ import { SchedulingApplyService } from './scheduling-apply.service';
 import { SchedulingDiagnosticsService } from './scheduling-diagnostics.service';
 import { SchedulingPrerequisitesService } from './scheduling-prerequisites.service';
 import { SchedulingRunsService } from './scheduling-runs.service';
+import type { SimulationOverride } from './scheduling-simulation.service';
+import { SchedulingSimulationService } from './scheduling-simulation.service';
 
 const listRunsQuerySchema = z.object({
   academic_year_id: z.string().uuid(),
@@ -57,6 +59,7 @@ export class SchedulingRunsController {
     private readonly applyService: SchedulingApplyService,
     private readonly prerequisitesService: SchedulingPrerequisitesService,
     private readonly diagnosticsService: SchedulingDiagnosticsService,
+    private readonly simulationService: SchedulingSimulationService,
   ) {}
 
   /**
@@ -139,6 +142,35 @@ export class SchedulingRunsController {
   @Get(':id/diagnostics')
   @RequiresPermission('schedule.view_auto_reports')
   async getDiagnostics(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.diagnosticsService.analyse(tenant.tenant_id, id);
+  }
+
+  /**
+   * POST /v1/scheduling-runs/:id/diagnostics/simulate
+   * Project the impact of hypothetical overrides without modifying data.
+   */
+  @Post(':id/diagnostics/simulate')
+  @RequiresPermission('schedule.view_auto_reports')
+  @HttpCode(HttpStatus.OK)
+  async simulate(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { overrides: SimulationOverride[] },
+  ) {
+    return this.simulationService.simulate(tenant.tenant_id, id, body.overrides);
+  }
+
+  /**
+   * POST /v1/scheduling-runs/:id/diagnostics/refresh
+   * Force recomputation of the refined diagnostics report.
+   */
+  @Post(':id/diagnostics/refresh')
+  @RequiresPermission('schedule.view_auto_reports')
+  @HttpCode(HttpStatus.OK)
+  async refreshDiagnostics(
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('id', ParseUUIDPipe) id: string,
   ) {
