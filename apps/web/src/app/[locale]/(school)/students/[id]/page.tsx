@@ -21,6 +21,7 @@ import { EntityLink } from '@/components/entity-link';
 import { RecordHub } from '@/components/record-hub';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
+import { useIsAdmin } from '@/lib/use-is-admin';
 
 interface ClassEnrolment {
   id: string;
@@ -99,6 +100,8 @@ export default function StudentHubPage() {
   const t = useTranslations('students');
   const tCommon = useTranslations('common');
   const router = useRouter();
+
+  const isAdmin = useIsAdmin();
 
   const [student, setStudent] = React.useState<Student | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -205,7 +208,7 @@ export default function StudentHubPage() {
 
   const allowedNextStatuses = nextStatuses[student.status] ?? [];
 
-  const actions = (
+  const actions = isAdmin ? (
     <>
       <Button variant="outline" onClick={() => router.push(`/students/${id}/edit`)}>
         <Edit className="me-2 h-4 w-4" />
@@ -230,7 +233,7 @@ export default function StudentHubPage() {
         </DropdownMenu>
       )}
     </>
-  );
+  ) : null;
 
   const metrics = [
     {
