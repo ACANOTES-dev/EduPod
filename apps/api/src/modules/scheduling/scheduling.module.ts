@@ -9,6 +9,7 @@ import { CommunicationsModule } from '../communications/communications.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { GdprModule } from '../gdpr/gdpr.module';
 import { RoomsModule } from '../rooms/rooms.module';
+import { FeasibilityService } from '../scheduling-runs/feasibility/feasibility.service';
 import { StaffAvailabilityModule } from '../staff-availability/staff-availability.module';
 import { StaffPreferencesModule } from '../staff-preferences/staff-preferences.module';
 import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
@@ -94,6 +95,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     ScenarioService,
     SchedulingAnalyticsService,
     SchedulingReadFacade,
+    FeasibilityService,
   ],
   exports: [
     SchedulerOrchestrationService,
@@ -105,6 +107,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     SchedulingReadFacade,
     SubstitutionCascadeService,
     CoverNotificationsService,
+    FeasibilityService,
   ],
 })
 export class SchedulingModule {}

@@ -35,6 +35,7 @@ import { ConfigurationReadFacade } from '../configuration/configuration-read.fac
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomsReadFacade } from '../rooms/rooms-read.facade';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { FeasibilityService } from '../scheduling-runs/feasibility/feasibility.service';
 import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-read.facade';
 import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
 import { StaffPreferencesReadFacade } from '../staff-preferences/staff-preferences-read.facade';
@@ -64,6 +65,7 @@ export class SchedulerOrchestrationService {
     private readonly staffAvailabilityReadFacade: StaffAvailabilityReadFacade,
     private readonly staffPreferencesReadFacade: StaffPreferencesReadFacade,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly feasibilityService: FeasibilityService,
   ) {}
 
   // ─── Check Prerequisites ───────────────────────────────────────────────────
@@ -660,11 +662,58 @@ export class SchedulerOrchestrationService {
       solverInput.settings.max_solver_duration_seconds = settings.max_solver_duration_seconds;
     }
 
+    // ── Pre-solve feasibility sweep (Stage 12 §A) ──────────────────────
+    const feasibilityReport = await this.feasibilityService.runFeasibilitySweep(
+      tenantId,
+      solverInput,
+    );
+
+    if (feasibilityReport.verdict === 'infeasible') {
+      // Block the run before enqueue — save the diagnosis for immediate rendering.
+      const prismaBlocked = createRlsClient(this.prisma, { tenant_id: tenantId });
+      const blockedRun = (await prismaBlocked.$transaction(async (tx) => {
+        const db = tx as unknown as PrismaService;
+        return db.schedulingRun.create({
+          data: {
+            tenant_id: tenantId,
+            academic_year_id: academicYearId,
+            mode: solverInput.pinned.length > 0 ? 'hybrid' : 'auto',
+            status: 'blocked',
+            config_snapshot: JSON.parse(JSON.stringify(solverInput)) as Prisma.InputJsonValue,
+            feasibility_report: JSON.parse(
+              JSON.stringify(feasibilityReport),
+            ) as Prisma.InputJsonValue,
+            failure_reason: 'STRUCTURAL_INFEASIBILITY',
+            solver_seed:
+              solverInput.settings.solver_seed !== null
+                ? BigInt(solverInput.settings.solver_seed)
+                : null,
+            created_by_user_id: userId,
+          },
+        });
+      })) as unknown as { id: string; status: string; created_at: Date };
+
+      this.logger.warn(
+        `Feasibility sweep blocked run ${blockedRun.id}: ` +
+          `${feasibilityReport.diagnosed_blockers.length} blocker(s), verdict=infeasible`,
+      );
+
+      return {
+        id: blockedRun.id,
+        status: 'blocked',
+        mode: solverInput.pinned.length > 0 ? 'hybrid' : ('auto' as const),
+        academic_year_id: academicYearId,
+        created_at: blockedRun.created_at.toISOString(),
+        feasibility_verdict: 'infeasible' as const,
+        blockers: feasibilityReport.diagnosed_blockers.length,
+      };
+    }
+
     // Detect mode
     const pinnedCount = solverInput.pinned.length;
     const mode: 'auto' | 'hybrid' = pinnedCount > 0 ? 'hybrid' : 'auto';
 
-    // Create the run record
+    // Create the run record (feasibility report persisted even on feasible/tight for audit)
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const run = (await prismaWithRls.$transaction(async (tx) => {
@@ -676,6 +725,9 @@ export class SchedulerOrchestrationService {
           mode,
           status: 'queued',
           config_snapshot: JSON.parse(JSON.stringify(solverInput)) as Prisma.InputJsonValue,
+          feasibility_report: JSON.parse(
+            JSON.stringify(feasibilityReport),
+          ) as Prisma.InputJsonValue,
           solver_seed:
             solverInput.settings.solver_seed !== null
               ? BigInt(solverInput.settings.solver_seed)
