@@ -126,18 +126,29 @@ export default function ReportCardsDashboardPage() {
     async function loadInitial() {
       setClassesLoading(true);
       try {
-        const [periodsRes, yearGroupsRes, classesRes, libraryRes, pendingRes] = await Promise.all([
-          apiClient<ListResponse<AcademicPeriodOption>>('/api/v1/academic-periods?pageSize=50'),
-          apiClient<ListResponse<YearGroup>>('/api/v1/year-groups?pageSize=100'),
-          apiClient<ListResponse<ClassRecord>>('/api/v1/classes?pageSize=100'),
-          apiClient<ListResponse<unknown>>('/api/v1/report-cards/library?page=1&pageSize=1', {
-            silent: true,
-          }),
-          apiClient<ListResponse<unknown>>(
-            '/api/v1/report-card-teacher-requests?status=pending&page=1&pageSize=1',
-            { silent: true },
-          ),
-        ]);
+        // Fetch core data in parallel. For teachers, also fetch the landing
+        // scope so we can filter the class grid to taught classes only.
+        const [periodsRes, yearGroupsRes, classesRes, libraryRes, pendingRes, landingRes] =
+          await Promise.all([
+            apiClient<ListResponse<AcademicPeriodOption>>('/api/v1/academic-periods?pageSize=50'),
+            apiClient<ListResponse<YearGroup>>('/api/v1/year-groups?pageSize=100'),
+            apiClient<ListResponse<ClassRecord>>('/api/v1/classes?pageSize=100'),
+            apiClient<ListResponse<unknown>>('/api/v1/report-cards/library?page=1&pageSize=1', {
+              silent: true,
+            }),
+            apiClient<ListResponse<unknown>>(
+              '/api/v1/report-card-teacher-requests?status=pending&page=1&pageSize=1',
+              { silent: true },
+            ),
+            // Landing scope: returns the teacher's allowed class/subject pairs
+            !isAdmin
+              ? apiClient<{
+                  is_admin: boolean;
+                  overall_class_ids: string[];
+                  subject_assignments: Array<{ class_id: string; subject_id: string }>;
+                }>('/api/v1/report-comment-windows/landing', { silent: true }).catch(() => null)
+              : Promise.resolve(null),
+          ]);
 
         if (cancelled) return;
 
@@ -153,6 +164,15 @@ export default function ReportCardsDashboardPage() {
         // Pending teacher requests
         setPendingRequestCount(pendingRes.meta?.total ?? pendingRes.data?.length ?? 0);
 
+        // For teachers, build the set of allowed class IDs from the landing scope
+        let allowedClassIds: Set<string> | null = null;
+        if (!isAdmin && landingRes) {
+          allowedClassIds = new Set<string>([
+            ...landingRes.overall_class_ids,
+            ...landingRes.subject_assignments.map((a) => a.class_id),
+          ]);
+        }
+
         // Classes grouped by year group (same logic as the old landing page)
         const yearGroupInfo = new Map<string, { name: string; order: number }>();
         for (const yg of yearGroupsRes.data ?? []) {
@@ -163,6 +183,8 @@ export default function ReportCardsDashboardPage() {
         for (const cls of classesRes.data ?? []) {
           const studentCount = cls._count?.class_enrolments ?? 0;
           if (studentCount === 0) continue;
+          // Teacher scoping: only include classes the teacher is assigned to
+          if (allowedClassIds && !allowedClassIds.has(cls.id)) continue;
           const ygId = cls.year_group?.id ?? null;
           const ygInfo = ygId ? yearGroupInfo.get(ygId) : null;
           cards.push({
@@ -211,7 +233,8 @@ export default function ReportCardsDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isAdmin is stable after auth loads
+  }, [isAdmin]);
 
   // ─── Analytics snapshot (re-fetch when period changes) ────────────────────
   React.useEffect(() => {
