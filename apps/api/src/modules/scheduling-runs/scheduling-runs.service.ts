@@ -76,10 +76,14 @@ export class SchedulingRunsService {
       });
     }
 
-    // Assemble the full solver input — the worker's solve-v2 processor reads
-    // `config_snapshot` as a `SolverInputV2` directly. A minimal stub would
-    // crash the processor on `configSnapshot.year_groups.length`.
-    const solverInput = await this.schedulerOrchestration.assembleSolverInput(
+    // Assemble the full solver input. The worker's solve-v2 processor reads
+    // `config_snapshot` as a `SolverInputV3` directly — it accesses
+    // `configSnapshot.classes.length`, `configSnapshot.demand.length`, etc.
+    // Using the deprecated V2 assembler here produces a snapshot with
+    // `year_groups` / `curriculum` keys instead of `classes` / `demand`, so
+    // the worker crashes with "Cannot read properties of undefined (reading
+    // 'length')" before it ever reaches the sidecar (SCHED-ran-2026-04-16).
+    const solverInput = await this.schedulerOrchestration.assembleSolverInputV3(
       tenantId,
       dto.academic_year_id,
     );
@@ -89,7 +93,8 @@ export class SchedulingRunsService {
     }
 
     // Auto-detect mode from pinned entries in the assembled input.
-    const mode: 'auto' | 'hybrid' = solverInput.pinned_entries.length > 0 ? 'hybrid' : 'auto';
+    // V3 renamed `pinned_entries` -> `pinned`.
+    const mode: 'auto' | 'hybrid' = solverInput.pinned.length > 0 ? 'hybrid' : 'auto';
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 

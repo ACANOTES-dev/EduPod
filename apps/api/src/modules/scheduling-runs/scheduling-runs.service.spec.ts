@@ -51,14 +51,18 @@ describe('SchedulingRunsService', () => {
     findYearByIdOrThrow: jest.fn().mockResolvedValue(AY_ID),
   };
 
+  // V3 shape (matches what the worker's solve-v2 processor expects).
   const baseSolverInput = () => ({
-    year_groups: [],
-    curriculum: [],
+    period_slots: [],
+    classes: [],
+    subjects: [],
     teachers: [],
     rooms: [],
     room_closures: [],
     break_groups: [],
-    pinned_entries: [] as Array<{ schedule_id: string }>,
+    demand: [],
+    preferences: { prefer: [], avoid: [] },
+    pinned: [] as Array<{ schedule_id: string }>,
     student_overlaps: [],
     settings: {
       max_solver_duration_seconds: 120,
@@ -72,10 +76,11 @@ describe('SchedulingRunsService', () => {
       },
       solver_seed: null as number | null,
     },
+    constraint_snapshot: [],
   });
 
   const mockSchedulerOrchestration = {
-    assembleSolverInput: jest.fn(),
+    assembleSolverInputV3: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -97,7 +102,9 @@ describe('SchedulingRunsService', () => {
     mockTx.schedulingRun.update.mockReset();
     mockSchedulingQueue.add.mockReset().mockResolvedValue({ id: 'job-1' });
     mockAcademicReadFacade.findYearByIdOrThrow.mockResolvedValue(AY_ID);
-    mockSchedulerOrchestration.assembleSolverInput.mockReset().mockResolvedValue(baseSolverInput());
+    mockSchedulerOrchestration.assembleSolverInputV3
+      .mockReset()
+      .mockResolvedValue(baseSolverInput());
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -164,8 +171,8 @@ describe('SchedulingRunsService', () => {
       mockPrisma.academicYear.findFirst.mockResolvedValue({ id: AY_ID });
       mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
       const inputWithPin = baseSolverInput();
-      inputWithPin.pinned_entries.push({ schedule_id: 'pin-1' });
-      mockSchedulerOrchestration.assembleSolverInput.mockResolvedValue(inputWithPin);
+      inputWithPin.pinned.push({ schedule_id: 'pin-1' });
+      mockSchedulerOrchestration.assembleSolverInputV3.mockResolvedValue(inputWithPin);
 
       const createdRun = {
         id: RUN_ID,
