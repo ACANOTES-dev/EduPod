@@ -1785,7 +1785,7 @@
     "title": "Settings",
     "hub": {
       "title": "Settings",
-      "description": "Your school's control centre \u2014 configure every module from one place.",
+      "description": "Your school's control centre — configure every module from one place.",
       "backToSettings": "Back to Settings",
       "schoolIdentity": "School Identity",
       "schoolIdentityDesc": "Logo, colours, and general school configuration.",
@@ -3109,7 +3109,8 @@
     "exportError": "Failed to generate export",
     "presets": "Presets",
     "savePreset": "Save",
-    "presetNamePlaceholder": "Preset name..."
+    "presetNamePlaceholder": "Preset name...",
+    "fieldUser": "User"
   },
   "classAssignments": {
     "title": "Class Assignments",
@@ -5181,7 +5182,6 @@
       "pinMode": "Teacher is locked to this specific class for this subject.",
       "selectYearGroupFirstCompetencies": "Select a year group to configure competencies.",
       "selectClass": "Select class",
-      "selectTeacher": "Select teacher",
       "selectTeacherNone": "— none —",
       "noTeacherForSubject": "Needs a teacher",
       "legendPool": "Pool (year-group)",
@@ -5552,7 +5552,6 @@
     "selectYear": "Select year",
     "inactive": "Inactive",
     "allTypes": "All Types",
-    "selectClass": "Select class",
     "allDays": "All Days",
     "day": "Day",
     "allRooms": "All Rooms",
@@ -12564,7 +12563,7 @@
   },
   "learningHub": {
     "title": "Learning",
-    "description": "Teaching, assessment, and academic progress \u2014 everything that powers the classroom.",
+    "description": "Teaching, assessment, and academic progress — everything that powers the classroom.",
     "cardsAria": "Learning modules",
     "backToLearning": "Back to Learning",
     "cards": {
@@ -12613,7 +12612,7 @@
     },
     "curriculumHub": {
       "title": "Curriculum",
-      "description": "Define what is taught and where \u2014 subjects and their class coverage.",
+      "description": "Define what is taught and where — subjects and their class coverage.",
       "cards": {
         "subjects": {
           "title": "Subjects",
