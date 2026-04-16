@@ -3015,7 +3015,8 @@
     "inactive": "Inactive",
     "active": "Active",
     "allStatuses": "All Statuses",
-    "searchHouseholds": "Search households..."
+    "searchHouseholds": "Search households...",
+    "subtitle": "Manage family household records"
   },
   "parents": {
     "title": "Parents",

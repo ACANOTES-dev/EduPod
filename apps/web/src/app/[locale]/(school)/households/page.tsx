@@ -1,11 +1,12 @@
 'use client';
 
-import { Home, Search } from 'lucide-react';
+import { Home, Plus, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
+  Button,
   Input,
   Select,
   SelectContent,
@@ -188,7 +189,16 @@ export default function HouseholdsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description="Manage family household records" />
+      <PageHeader
+        title={t('title')}
+        description={t('subtitle')}
+        actions={
+          <Button onClick={() => router.push('/households/new')}>
+            <Plus className="me-2 h-4 w-4" />
+            {t('newHousehold')}
+          </Button>
+        }
+      />
 
       {!isLoading && households.length === 0 && !search && statusFilter === 'all' ? (
         <EmptyState

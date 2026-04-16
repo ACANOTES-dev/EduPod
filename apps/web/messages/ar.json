@@ -3007,7 +3007,8 @@
     "inactive": "غير نشط",
     "active": "نشط",
     "allStatuses": "جميع الحالات",
-    "searchHouseholds": "بحث households..."
+    "searchHouseholds": "بحث households...",
+    "subtitle": "إدارة سجلات الأسر"
   },
   "parents": {
     "title": "أولياء الأمور",
