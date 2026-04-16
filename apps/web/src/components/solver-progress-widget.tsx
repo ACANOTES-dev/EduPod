@@ -22,7 +22,10 @@ function formatElapsed(ms: number): string {
 
 export function SolverProgressWidget() {
   const { snapshot, dismiss, cancel, isTerminal } = useSolverProgress();
-  const t = useTranslations('scheduling.progressWidget');
+  // Strings live under scheduling.auto because the widget is specific to
+  // auto-scheduler runs — it's mounted globally so a user who navigates
+  // away still sees progress, but semantically the copy is auto-scoped.
+  const t = useTranslations('scheduling.auto.progressWidget');
   const tCommon = useTranslations('common');
   const params = useParams();
   const locale = typeof params?.locale === 'string' ? params.locale : 'en';
