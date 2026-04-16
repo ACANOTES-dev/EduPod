@@ -788,17 +788,17 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 | RC-L002 | P1       | Verified | L      | Parent "View Grades" CTA → 404 at `/learning/reports`              |
 | RC-L003 | P1       | Open     | L      | Teacher classes-grid shows non-taught year groups                  |
 | RC-L004 | P1       | Blocked  | L      | Analytics page missing class-comparison chart + per-class progress |
-| RC-L005 | P2       | Open     | L      | Dashboard 12.9% vs Analytics 0.0% completion disagreement          |
-| RC-L006 | P2       | Open     | L      | Top 1/2/3 badges rendered despite tenant setting OFF               |
+| RC-L005 | P2       | Verified | L      | Dashboard 12.9% vs Analytics 0.0% completion disagreement          |
+| RC-L006 | P2       | Verified | L      | Top 1/2/3 badges rendered despite tenant setting OFF               |
 | RC-L007 | P2       | Verified | L      | Non-UUID classId leaks raw "uuid is expected" toast                |
-| RC-L008 | P2       | Open     | L      | Comment-window banner exposes raw teacher-request UUID             |
+| RC-L008 | P2       | Verified | L      | Comment-window banner exposes raw teacher-request UUID             |
 | RC-L009 | P2       | Verified | L      | Class matrix 403 surfaces generic "Failed to load" message         |
 | RC-L010 | P3       | Open     | L      | Arabic locale: year-group names not translated                     |
 | RC-L011 | P3       | Open     | L      | Teacher library count "50" scope unclear                           |
 | RC-L012 | P3       | Open     | L      | `/en/logout` URL returns 404                                       |
 | RC-L013 | P3       | Open     | L      | Tenant logo flashes to text "N" fallback                           |
 | RC-L014 | P3       | Verified | L      | Student test account login rejects documented password             |
-| RC-L015 | P2       | Open     | L      | `/verify/:token` 404 missing Cache-Control                         |
+| RC-L015 | P2       | Verified | L      | `/verify/:token` 404 missing Cache-Control                         |
 | RC-C001 | P0       | Verified | C      | Acknowledgment body-param IDOR                                     |
 | RC-C002 | P1       | Blocked  | C      | Verify token has no TTL                                            |
 | RC-C003 | P1       | Resolved | C      | ~~Missing /verify rate limit~~ — refuted live                      |
@@ -814,7 +814,7 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 | RC-C013 | P2       | Blocked  | C      | No per-tenant bulk-generate rate limit                             |
 | RC-C014 | P2       | Blocked  | C      | AI draft synchronous in controller                                 |
 | RC-C015 | P2       | Blocked  | C      | Mass-assignment uneven across PATCH                                |
-| RC-C016 | P2       | Open     | C      | Missing Cache-Control on signature upload                          |
+| RC-C016 | P2       | Verified | C      | Missing Cache-Control on signature upload                          |
 | RC-C017 | P2       | Blocked  | C      | Audit log gaps on bulk ops                                         |
 | RC-C018 | P2       | Blocked  | C      | Permission cache TTL too long                                      |
 | RC-C019 | P1       | Blocked  | C      | No JWT refresh rotation                                            |
@@ -834,11 +834,11 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 | RC-C033 | P3       | Open     | C      | Route registration order fragility                                 |
 | RC-C034 | P3       | Open     | C      | IME composition bypass in reason-length                            |
 | RC-C035 | P2       | Open     | C      | Autosave debounce post-unmount stale PATCH                         |
-| RC-C036 | P1       | Blocked  | C      | Out-of-scope URL leaks PII ~300ms before redirect                  |
+| RC-C036 | P1       | Verified | C      | Out-of-scope URL leaks PII ~300ms before redirect                  |
 | RC-C037 | P1       | Blocked  | C      | Version-conflict modal loses unsaved text                          |
 | RC-C038 | P3       | Blocked  | C      | Offset pagination weakness at depth                                |
 | RC-C039 | P3       | Blocked  | C      | Lighthouse/Web Vitals not in CI                                    |
-| RC-C040 | P2       | Open     | C      | `landing` response leaks closed_by_user_id                         |
+| RC-C040 | P2       | Verified | C      | `landing` response leaks closed_by_user_id                         |
 
 ---
 
