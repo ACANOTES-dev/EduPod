@@ -243,6 +243,28 @@ export class HouseholdsStructuralService {
         });
       }
 
+      // Pre-validate parent_ids belong to the source household
+      if (dto.parent_ids.length > 0) {
+        const linkedParents = await db.householdParent.findMany({
+          where: {
+            household_id: dto.source_household_id,
+            parent_id: { in: dto.parent_ids },
+            tenant_id: tenantId,
+          },
+          select: { parent_id: true },
+        });
+        const linkedIds = new Set(linkedParents.map((lp) => lp.parent_id));
+        const invalidIds = dto.parent_ids.filter((pid) => !linkedIds.has(pid));
+        if (invalidIds.length > 0) {
+          throw new BadRequestException({
+            error: {
+              code: 'INVALID_PARENT_IDS',
+              message: `Parent(s) ${invalidIds.join(', ')} are not linked to source household`,
+            },
+          });
+        }
+      }
+
       // 1. Create new household
       const newHousehold = await db.household.create({
         data: {

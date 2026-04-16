@@ -1590,6 +1590,7 @@ describe('HouseholdsService — split', () => {
       household_id: NEW_HOUSEHOLD_ID,
     });
     mockRlsTx.student.updateMany.mockResolvedValue({ count: 1 });
+    mockRlsTx.householdParent.findMany.mockResolvedValue([{ parent_id: PARENT_ID }]);
     mockRlsTx.householdParent.create.mockResolvedValue({});
     mockRlsTx.household.update.mockResolvedValue({ ...newHH, needs_completion: true });
 
@@ -1665,6 +1666,7 @@ describe('HouseholdsService — split', () => {
       });
     mockRlsTx.household.create.mockResolvedValue(newHH);
     mockRlsTx.householdEmergencyContact.create.mockResolvedValue({});
+    mockRlsTx.householdParent.findMany.mockResolvedValue([{ parent_id: PARENT_ID }]);
     mockRlsTx.household.update.mockResolvedValue({ ...newHH, needs_completion: true });
 
     // Simulate P2002 unique constraint violation when linking parent
@@ -1698,6 +1700,7 @@ describe('HouseholdsService — split', () => {
     mockRlsTx.household.findFirst.mockResolvedValueOnce(sourceHH);
     mockRlsTx.household.create.mockResolvedValue(newHH);
     mockRlsTx.householdEmergencyContact.create.mockResolvedValue({});
+    mockRlsTx.householdParent.findMany.mockResolvedValue([{ parent_id: PARENT_ID }]);
 
     const genericError = new Error('Some other database error');
     mockRlsTx.householdParent.create.mockRejectedValue(genericError);
