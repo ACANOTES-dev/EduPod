@@ -261,6 +261,43 @@ export class SchedulingRunsService {
         supervision_mode: string | null;
       }>
     > = {};
+
+    // V3 snapshot shape: `classes[]` at the top level (was nested under
+    // `year_groups[].sections[]` in V2). Fall back to the V2 path for any
+    // legacy runs created before the V3 switchover.
+    const classesArray = Array.isArray(snapshot['classes'])
+      ? (snapshot['classes'] as Array<Record<string, unknown>>)
+      : [];
+    for (const c of classesArray) {
+      if (typeof c['class_id'] === 'string' && typeof c['class_name'] === 'string') {
+        classMap.set(c['class_id'], c['class_name']);
+        if (typeof c['year_group_id'] === 'string') {
+          classToYearGroup[c['class_id']] = c['year_group_id'];
+        }
+      }
+    }
+
+    // V3 exposes a flat `period_slots[]` keyed by `year_group_id` — group them
+    // back into per-year-group grids for the review UI.
+    const periodSlots = Array.isArray(snapshot['period_slots'])
+      ? (snapshot['period_slots'] as Array<Record<string, unknown>>)
+      : [];
+    for (const p of periodSlots) {
+      const ygId = typeof p['year_group_id'] === 'string' ? p['year_group_id'] : null;
+      if (!ygId) continue;
+      const list = periodGrids[ygId] ?? (periodGrids[ygId] = []);
+      list.push({
+        weekday: Number(p['weekday'] ?? 0),
+        period_order: Number(p['period_order'] ?? 0),
+        start_time: typeof p['start_time'] === 'string' ? p['start_time'] : '',
+        end_time: typeof p['end_time'] === 'string' ? p['end_time'] : '',
+        period_type: typeof p['period_type'] === 'string' ? p['period_type'] : 'teaching',
+        supervision_mode: typeof p['supervision_mode'] === 'string' ? p['supervision_mode'] : null,
+      });
+    }
+
+    // Legacy V2 fallback — harmless when `classes` has already populated the
+    // map; keeps pre-Stage-11 runs readable.
     const yearGroups = Array.isArray(snapshot['year_groups'])
       ? (snapshot['year_groups'] as Array<Record<string, unknown>>)
       : [];
@@ -271,11 +308,13 @@ export class SchedulingRunsService {
         : [];
       for (const s of sections) {
         if (typeof s['class_id'] === 'string' && typeof s['class_name'] === 'string') {
-          classMap.set(s['class_id'], s['class_name']);
-          if (ygId) classToYearGroup[s['class_id']] = ygId;
+          if (!classMap.has(s['class_id'])) {
+            classMap.set(s['class_id'], s['class_name']);
+            if (ygId) classToYearGroup[s['class_id']] = ygId;
+          }
         }
       }
-      if (ygId && Array.isArray(yg['period_grid'])) {
+      if (ygId && Array.isArray(yg['period_grid']) && !periodGrids[ygId]) {
         periodGrids[ygId] = (yg['period_grid'] as Array<Record<string, unknown>>).map((p) => ({
           weekday: Number(p['weekday'] ?? 0),
           period_order: Number(p['period_order'] ?? 0),
@@ -289,11 +328,24 @@ export class SchedulingRunsService {
     }
 
     const subjectMap = new Map<string, string>();
+    // V3: flat `subjects[]`. V2 read names off `curriculum[]`. Accept both.
+    const subjectsArray = Array.isArray(snapshot['subjects'])
+      ? (snapshot['subjects'] as Array<Record<string, unknown>>)
+      : [];
+    for (const s of subjectsArray) {
+      if (typeof s['subject_id'] === 'string' && typeof s['subject_name'] === 'string') {
+        subjectMap.set(s['subject_id'], s['subject_name']);
+      }
+    }
     const curriculum = Array.isArray(snapshot['curriculum'])
       ? (snapshot['curriculum'] as Array<Record<string, unknown>>)
       : [];
     for (const c of curriculum) {
-      if (typeof c['subject_id'] === 'string' && typeof c['subject_name'] === 'string') {
+      if (
+        typeof c['subject_id'] === 'string' &&
+        typeof c['subject_name'] === 'string' &&
+        !subjectMap.has(c['subject_id'])
+      ) {
         subjectMap.set(c['subject_id'], c['subject_name']);
       }
     }
