@@ -10,6 +10,7 @@ import { Button } from '@school/ui';
 import { DataTable } from '@/components/data-table';
 import { RecordHub } from '@/components/record-hub';
 import { apiClient } from '@/lib/api-client';
+import { useIsAdminTier } from '@/lib/use-is-admin';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,7 +57,10 @@ function BankDetailsTab({ staffId }: { staffId: string }) {
   React.useEffect(() => {
     apiClient<BankDetails>(`/api/v1/staff-profiles/${staffId}/bank-details`)
       .then((res) => setData(res))
-      .catch((err) => { console.error('[StaffPage]', err); return setData(null); })
+      .catch((err) => {
+        console.error('[StaffPage]', err);
+        return setData(null);
+      })
       .finally(() => setLoading(false));
   }, [staffId]);
 
@@ -199,6 +203,7 @@ export default function StaffDetailPage() {
   const t = useTranslations('staff');
   const tc = useTranslations('common');
   const router = useRouter();
+  const canViewBankDetails = useIsAdminTier();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
@@ -210,7 +215,10 @@ export default function StaffDetailPage() {
     if (!id) return;
     apiClient<{ data: StaffDetail }>(`/api/v1/staff-profiles/${id}`)
       .then((res) => setStaff(res.data))
-      .catch((err) => { console.error('[StaffPage]', err); return setError(t('loadError')); })
+      .catch((err) => {
+        console.error('[StaffPage]', err);
+        return setError(t('loadError'));
+      })
       .finally(() => setLoading(false));
   }, [id, t]);
 
@@ -248,11 +256,9 @@ export default function StaffDetailPage() {
       label: t('tabClasses'),
       content: <ClassesTab assignments={staff.class_staff ?? []} />,
     },
-    {
-      key: 'bank',
-      label: t('tabBank'),
-      content: <BankDetailsTab staffId={id} />,
-    },
+    ...(canViewBankDetails
+      ? [{ key: 'bank', label: t('tabBank'), content: <BankDetailsTab staffId={id} /> }]
+      : []),
   ];
 
   return (
