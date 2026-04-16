@@ -785,7 +785,7 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 | ID      | Severity | Status   | Origin | Short title                                                        |
 | ------- | -------- | -------- | ------ | ------------------------------------------------------------------ |
 | RC-L001 | P1       | Verified | L      | Teacher can view `/report-cards/analytics` (admin-only)            |
-| RC-L002 | P1       | Blocked  | L      | Parent "View Grades" CTA → 404 at `/learning/reports`              |
+| RC-L002 | P1       | Verified | L      | Parent "View Grades" CTA → 404 at `/learning/reports`              |
 | RC-L003 | P1       | Open     | L      | Teacher classes-grid shows non-taught year groups                  |
 | RC-L004 | P1       | Blocked  | L      | Analytics page missing class-comparison chart + per-class progress |
 | RC-L005 | P2       | Open     | L      | Dashboard 12.9% vs Analytics 0.0% completion disagreement          |
@@ -822,7 +822,7 @@ These are observations from `RELEASE-READINESS.md` and each spec's Observations 
 | RC-C021 | P3       | Open     | C      | Unfinalise-after-window-close inconsistent                         |
 | RC-C022 | P3       | Open     | C      | Revision chain depth semantics unclear                             |
 | RC-C023 | P3       | Verified | C      | Public verify controller has no AuthGuard (design)                 |
-| RC-C024 | P1       | Blocked  | C      | Parent dashboard lacks Report Cards card                           |
+| RC-C024 | P1       | Verified | C      | Parent dashboard lacks Report Cards card                           |
 | RC-C025 | P3       | Blocked  | C      | Template is_default uniqueness unclear at DB                       |
 | RC-C026 | P2       | Blocked  | C      | Bulk op transaction boundaries undocumented                        |
 | RC-C027 | P3       | Blocked  | C      | No per-channel delivery retry endpoint                             |

@@ -98,6 +98,16 @@ export class ReportCardVerificationService {
       });
     }
 
+    // Check token expiry (RC-C002)
+    if (verificationToken.expires_at && new Date() > verificationToken.expires_at) {
+      throw new NotFoundException({
+        error: {
+          code: 'TOKEN_EXPIRED',
+          message: 'This verification token has expired.',
+        },
+      });
+    }
+
     const { report_card, tenant } = verificationToken;
 
     if (report_card.status !== 'published') {

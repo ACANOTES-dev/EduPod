@@ -4589,6 +4589,7 @@ model ReportCardVerificationToken {
   tenant_id      String   @db.Uuid
   report_card_id String   @db.Uuid
   token          String   @unique @db.VarChar(64)
+  expires_at     DateTime @default(dbgenerated("now() + interval '1 year'")) @db.Timestamptz()
   created_at     DateTime @default(now()) @db.Timestamptz()
 
   // Relations
