@@ -635,12 +635,8 @@ export class StudentReadFacade {
         last_name: lastName,
         status: 'active',
       },
-      select: {
-        id: true,
-        first_name: true,
-        last_name: true,
-        student_number: true,
-        class_homeroom: { select: { name: true } },
+      include: {
+        homeroom_class: { select: { name: true } },
         year_group: { select: { name: true } },
       },
     });
@@ -652,7 +648,7 @@ export class StudentReadFacade {
       first_name: student.first_name,
       last_name: student.last_name,
       student_number: student.student_number,
-      class_name: student.class_homeroom?.name ?? null,
+      class_name: student.homeroom_class?.name ?? null,
       year_group_name: student.year_group?.name ?? null,
     };
   }
