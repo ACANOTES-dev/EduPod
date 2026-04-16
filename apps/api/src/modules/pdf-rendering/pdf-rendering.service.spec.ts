@@ -88,8 +88,12 @@ jest.mock('./templates/trip-leader-pack-en.template', () => ({
 const mockPdf = jest.fn().mockResolvedValue(Buffer.from('pdf-bytes'));
 const mockClose = jest.fn().mockResolvedValue(undefined);
 const mockSetContent = jest.fn().mockResolvedValue(undefined);
+const mockSetRequestInterception = jest.fn().mockResolvedValue(undefined);
+const mockOn = jest.fn();
 const mockNewPage = jest.fn().mockResolvedValue({
   setContent: mockSetContent,
+  setRequestInterception: mockSetRequestInterception,
+  on: mockOn,
   pdf: mockPdf,
   close: mockClose,
 });

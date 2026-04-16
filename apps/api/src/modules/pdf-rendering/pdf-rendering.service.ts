@@ -131,6 +131,16 @@ export class PdfRenderingService implements OnModuleDestroy {
     const page = await browser.newPage();
 
     try {
+      // Block all network requests from rendered content to prevent SSRF
+      await page.setRequestInterception(true);
+      page.on('request', (req) => {
+        const url = req.url();
+        if (url.startsWith('data:') || url.startsWith('about:')) {
+          void req.continue();
+        } else {
+          void req.abort('blockedbyclient');
+        }
+      });
       await page.setContent(html, { waitUntil: 'networkidle0', timeout: 5000 });
 
       const pdfBuffer = await page.pdf({
@@ -235,7 +245,13 @@ export class PdfRenderingService implements OnModuleDestroy {
     const puppeteer = await import('puppeteer');
     this.browser = await puppeteer.default.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-web-security',
+        '--disable-features=NetworkService',
+        '--disable-dev-shm-usage',
+      ],
     });
 
     return this.browser;

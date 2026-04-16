@@ -19,7 +19,9 @@ function buildFakeLauncher() {
   const close = jest.fn().mockResolvedValue(undefined);
   const pageClose = jest.fn().mockResolvedValue(undefined);
 
-  const page = { setContent, pdf, close: pageClose } as const;
+  const setRequestInterception = jest.fn().mockResolvedValue(undefined);
+  const on = jest.fn();
+  const page = { setContent, pdf, close: pageClose, setRequestInterception, on } as const;
   const newPage = jest.fn().mockResolvedValue(page);
   const browser = { newPage, close } as const;
 

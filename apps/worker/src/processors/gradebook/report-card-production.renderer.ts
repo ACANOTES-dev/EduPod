@@ -57,7 +57,13 @@ export class DefaultPuppeteerLauncher implements PuppeteerLauncher {
     const puppeteer = await import('puppeteer');
     return puppeteer.default.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-web-security',
+        '--disable-features=NetworkService',
+        '--disable-dev-shm-usage',
+      ],
     });
   }
 }
@@ -223,7 +229,7 @@ export class ProductionReportCardRenderer implements ReportCardRenderer, OnModul
     const source = await loadTemplateSource(designKey);
     const compiled = Handlebars.compile<TemplateViewModel>(source, {
       noEscape: false,
-      strict: false,
+      strict: true,
     });
     const entry: CompiledTemplate = { compiled };
     this.compiledTemplates.set(designKey, entry);
@@ -240,6 +246,19 @@ export class ProductionReportCardRenderer implements ReportCardRenderer, OnModul
     const browser = await this.getBrowser();
     const page = await browser.newPage();
     try {
+      // Block all network requests from rendered content to prevent SSRF
+      // (e.g., <img src="http://169.254.169.254/..."> in user-supplied comments)
+      await page.setRequestInterception(true);
+      page.on('request', (req) => {
+        const url = req.url();
+        // Allow data: URIs (used for embedded images like signatures) and
+        // about:blank. Block everything else.
+        if (url.startsWith('data:') || url.startsWith('about:')) {
+          void req.continue();
+        } else {
+          void req.abort('blockedbyclient');
+        }
+      });
       await page.setContent(html, { waitUntil: 'networkidle0', timeout: 20_000 });
       const rawBuffer = await page.pdf({
         format: 'A4',
