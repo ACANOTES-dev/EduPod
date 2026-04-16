@@ -5043,6 +5043,30 @@
       "viewReview": "View / Review",
       "backToSolver": "Back to Solver",
       "schedulingStatus": "Status",
+      "placementSummary": {
+        "tier": {
+          "complete": {
+            "title": "Timetable complete",
+            "subtitle": "Every curriculum period has been placed. Ready to apply."
+          },
+          "partial": {
+            "title": "Partial timetable",
+            "subtitle": "Most periods placed but some remain unplaced. Review the blockers before applying; see the diagnostics panel for why specific lessons could not fit."
+          },
+          "incomplete": {
+            "title": "Incomplete timetable",
+            "subtitle": "Too many periods remain unplaced to apply this run directly. Review the diagnostics and re-run after widening capacity on the blockers listed."
+          }
+        },
+        "placedPct": "placed",
+        "totalDemand": "Total lesson demand",
+        "placed": "Placed by solver",
+        "remaining": "Remaining unplaced",
+        "periodsPerWeek": "periods / week",
+        "hardAllSatisfied": "Hard constraints: all satisfied",
+        "hardViolations": "Hard constraints: {count, plural, one {# violation} other {# violations}}",
+        "preferencesScore": "Preference score on placed lessons: {pct}% (separate from placement)"
+      },
       "feasibility": {
         "checking": "Checking whether 100% placement is mathematically possible…",
         "verdict": {

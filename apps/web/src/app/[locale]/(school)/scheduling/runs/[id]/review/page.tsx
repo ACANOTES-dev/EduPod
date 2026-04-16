@@ -242,6 +242,145 @@ const EFFORT_THEME: Record<SolutionEffort, { label: string; className: string; i
     },
   };
 
+// ─── Placement summary (top-of-page headline numbers) ────────────────────────
+//
+// Two metrics were previously conflated in the sidebar:
+//   - Placement = "how many curriculum periods did the solver fit?"
+//   - Preference satisfaction = "of the fitted periods, how many honour
+//     soft preferences like teacher gaps, room consistency, etc.?"
+//
+// A run could show "100 % preferences" while still being 46 periods short of
+// demand, which reads as "everything is fine" at a glance. The banner below
+// pulls those apart: demand / placed / remaining are the headline trio,
+// preference satisfaction is a separate smaller pill so it's no longer
+// mistaken for completion.
+
+function PlacementSummaryBanner({
+  placed,
+  unplaced,
+  preferenceSatisfactionPct,
+  hardViolations,
+}: {
+  placed: number;
+  unplaced: number;
+  preferenceSatisfactionPct: number;
+  hardViolations: number;
+}) {
+  const t = useTranslations('scheduling.auto.placementSummary');
+  const total = placed + unplaced;
+  const ratio = total > 0 ? placed / total : 0;
+  const tier: 'complete' | 'partial' | 'incomplete' =
+    total <= 0
+      ? 'incomplete'
+      : placed >= total
+        ? 'complete'
+        : ratio >= 0.5
+          ? 'partial'
+          : 'incomplete';
+
+  const theme = {
+    complete: {
+      border: 'border-emerald-500/40',
+      bg: 'bg-emerald-500/5',
+      icon: CheckCircle2,
+      iconColor: 'text-emerald-600',
+      title: t('tier.complete.title'),
+      subtitle: t('tier.complete.subtitle'),
+    },
+    partial: {
+      border: 'border-amber-500/40',
+      bg: 'bg-amber-500/5',
+      icon: AlertTriangle,
+      iconColor: 'text-amber-600',
+      title: t('tier.partial.title'),
+      subtitle: t('tier.partial.subtitle'),
+    },
+    incomplete: {
+      border: 'border-red-500/40',
+      bg: 'bg-red-500/5',
+      icon: AlertCircle,
+      iconColor: 'text-red-600',
+      title: t('tier.incomplete.title'),
+      subtitle: t('tier.incomplete.subtitle'),
+    },
+  }[tier];
+
+  const Icon = theme.icon;
+  const pct = total > 0 ? Math.round(ratio * 100) : 0;
+
+  return (
+    <div className={`rounded-xl border p-5 space-y-4 ${theme.border} ${theme.bg}`}>
+      <div className="flex items-start gap-3">
+        <Icon className={`h-5 w-5 mt-0.5 shrink-0 ${theme.iconColor}`} />
+        <div className="flex-1 min-w-0">
+          <h2 className="text-base font-semibold text-text-primary">{theme.title}</h2>
+          <p className="mt-0.5 text-sm text-text-secondary">{theme.subtitle}</p>
+        </div>
+        <div className="shrink-0 text-end">
+          <p className="text-2xl font-semibold tabular-nums text-text-primary">{pct}%</p>
+          <p className="text-[10px] uppercase tracking-wide text-text-tertiary">{t('placedPct')}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 rounded-lg border border-border bg-surface p-3">
+        <SummaryStat
+          label={t('totalDemand')}
+          value={total}
+          suffix={t('periodsPerWeek')}
+          tone="text-text-primary"
+        />
+        <SummaryStat
+          label={t('placed')}
+          value={placed}
+          suffix={t('periodsPerWeek')}
+          tone="text-emerald-600"
+        />
+        <SummaryStat
+          label={t('remaining')}
+          value={unplaced}
+          suffix={t('periodsPerWeek')}
+          tone={unplaced > 0 ? 'text-red-600' : 'text-text-primary'}
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 text-xs text-text-tertiary">
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className={`inline-block h-2 w-2 rounded-full ${
+              hardViolations === 0 ? 'bg-emerald-500' : 'bg-red-500'
+            }`}
+          />
+          {hardViolations === 0
+            ? t('hardAllSatisfied')
+            : t('hardViolations', { count: hardViolations })}
+        </span>
+        <span className="text-text-tertiary/50">·</span>
+        <span>{t('preferencesScore', { pct: preferenceSatisfactionPct })}</span>
+      </div>
+    </div>
+  );
+}
+
+function SummaryStat({
+  label,
+  value,
+  suffix,
+  tone,
+}: {
+  label: string;
+  value: number;
+  suffix: string;
+  tone: string;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-text-tertiary">{label}</p>
+      <p className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>{value}</p>
+      <p className="text-[11px] text-text-tertiary">{suffix}</p>
+    </div>
+  );
+}
+
 // ─── Diagnostic card ──────────────────────────────────────────────────────────
 
 function DiagnosticCard({ d, locale }: { d: Diagnostic; locale: string }) {
@@ -1310,6 +1449,16 @@ export default function RunReviewPage() {
           </span>
         </div>
       )}
+
+      <PlacementSummaryBanner
+        placed={
+          data.entries.filter((e) => !e.is_pinned).length +
+          data.entries.filter((e) => e.is_pinned).length
+        }
+        unplaced={report?.unassigned_count ?? diagnostics?.summary.total_unassigned_periods ?? 0}
+        preferenceSatisfactionPct={report?.preference_satisfaction_pct ?? 0}
+        hardViolations={report?.hard_violations ?? 0}
+      />
 
       <PageHeader
         title={`${t('autoScheduler')} — ${t('viewReview')}`}

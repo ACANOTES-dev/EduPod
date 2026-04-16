@@ -5035,6 +5035,30 @@
       "viewReview": "عرض / مراجعة",
       "backToSolver": "العودة للحلال",
       "schedulingStatus": "الحالة",
+      "placementSummary": {
+        "tier": {
+          "complete": {
+            "title": "[AR] Timetable complete",
+            "subtitle": "[AR] Every curriculum period has been placed. Ready to apply."
+          },
+          "partial": {
+            "title": "[AR] Partial timetable",
+            "subtitle": "[AR] Most periods placed but some remain unplaced. Review the blockers before applying; see the diagnostics panel for why specific lessons could not fit."
+          },
+          "incomplete": {
+            "title": "[AR] Incomplete timetable",
+            "subtitle": "[AR] Too many periods remain unplaced to apply this run directly. Review the diagnostics and re-run after widening capacity on the blockers listed."
+          }
+        },
+        "placedPct": "[AR] placed",
+        "totalDemand": "[AR] Total lesson demand",
+        "placed": "[AR] Placed by solver",
+        "remaining": "[AR] Remaining unplaced",
+        "periodsPerWeek": "[AR] periods / week",
+        "hardAllSatisfied": "[AR] Hard constraints: all satisfied",
+        "hardViolations": "[AR] Hard constraints: {count, plural, one {# violation} other {# violations}}",
+        "preferencesScore": "[AR] Preference score on placed lessons: {pct}% (separate from placement)"
+      },
       "feasibility": {
         "checking": "[AR] Checking whether 100% placement is mathematically possible…",
         "verdict": {
