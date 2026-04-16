@@ -6391,6 +6391,7 @@
     "configStandardsLabel": "Standards"
   },
   "reportCards": {
+    "permissionDenied": "You do not have permission to view this page.",
     "title": "Report Cards",
     "overviewTab": "Overview",
     "generateTab": "Report Cards",

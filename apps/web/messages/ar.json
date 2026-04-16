@@ -6383,6 +6383,7 @@
     "configStandardsLabel": "معايير"
   },
   "reportCards": {
+    "permissionDenied": "ليس لديك صلاحية لعرض هذه الصفحة.",
     "title": "بطاقات التقارير",
     "overviewTab": "نظرة عامة",
     "generateTab": "بطاقات التقارير",

@@ -16,11 +16,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { toast } from 'sonner';
 
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
+import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
+import { ADMIN_ROLES } from '@/lib/route-roles';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -88,6 +91,21 @@ export default function ReportCardAnalyticsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const locale = useLocale();
+  const { roleKeys } = useRoleCheck();
+
+  const isAdmin = React.useMemo(
+    () => roleKeys.some((role) => ADMIN_ROLES.includes(role)),
+    [roleKeys],
+  );
+
+  // Redirect non-admins away from analytics.
+  React.useEffect(() => {
+    if (roleKeys.length === 0) return;
+    if (!isAdmin) {
+      toast.error(t('permissionDenied'));
+      router.replace(`/${locale}/report-cards`);
+    }
+  }, [isAdmin, locale, roleKeys.length, router, t]);
 
   // Initial period comes from the URL so navigating in from the dashboard
   // keeps the exact scope the user was looking at. Accepts a UUID or the
