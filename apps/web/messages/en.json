@@ -53,7 +53,8 @@
     "unknown": "Unknown",
     "on": "on",
     "showingRange": "Showing {start}–{end} of {total}",
-    "fetchError": "Failed to load data. Please try again."
+    "fetchError": "Failed to load data. Please try again.",
+    "accessDenied": "You don't have access to that page"
   },
   "nav": {
     "home": "Home",

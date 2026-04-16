@@ -1,7 +1,10 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { toast } from '@school/ui';
 
 import { isAllowedForRoute } from '@/lib/route-roles';
 import type { RoleKey } from '@/lib/route-roles';
@@ -15,6 +18,7 @@ export function RequireRole({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const tc = useTranslations('common');
 
   const userRoleKeys = React.useMemo(() => {
     if (!user?.memberships) return [] as RoleKey[];
@@ -45,6 +49,7 @@ export function RequireRole({ children }: { children: React.ReactNode }) {
         pathWithoutLocale.startsWith('/inbox/oversight') ||
         pathWithoutLocale.startsWith('/inbox/audiences');
       const target = isCommsSurface ? `/${locale}/inbox` : `/${locale}/dashboard`;
+      toast.info(tc('accessDenied'));
       router.replace(target);
     }
   }, [isLoading, user, isAllowed, router, pathname]);
