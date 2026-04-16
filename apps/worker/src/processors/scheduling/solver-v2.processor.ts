@@ -3,8 +3,8 @@ import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { CpSatSolveError, solveViaCpSat } from '../../../../../packages/shared/src/scheduler';
-import type { SolverInputV2 } from '../../../../../packages/shared/src/scheduler';
+import { CpSatSolveError, solveViaCpSatV3 } from '../../../../../packages/shared/src/scheduler';
+import type { SolverInputV3 } from '../../../../../packages/shared/src/scheduler';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, type TenantJobPayload } from '../../base/tenant-aware-job';
 import {
@@ -191,7 +191,7 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     }
 
     // ─── Step 2: run the solver (no DB, no lock) ──────────────────────────
-    const configSnapshot = run.config_snapshot as unknown as SolverInputV2 | null;
+    const configSnapshot = run.config_snapshot as unknown as SolverInputV3 | null;
 
     if (!configSnapshot) {
       throw new Error('No config_snapshot found on scheduling run');
@@ -202,7 +202,7 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     }
 
     this.logger.log(
-      `Starting solver v2 for run ${run_id}: ${configSnapshot.year_groups.length} year groups, ${configSnapshot.curriculum.length} curriculum entries, ${configSnapshot.teachers.length} teachers`,
+      `Starting solver v3 for run ${run_id}: ${configSnapshot.classes.length} classes, ${configSnapshot.demand.length} demand entries, ${configSnapshot.teachers.length} teachers`,
     );
 
     // CP-SAT runs inside the sidecar; we have no per-phase progress callback
@@ -233,7 +233,7 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     const timeoutMs = Math.max(timeoutFloorMs, budgetTimeoutMs);
     let result;
     try {
-      result = await solveViaCpSat(configSnapshot, {
+      result = await solveViaCpSatV3(configSnapshot, {
         baseUrl: sidecarUrl,
         timeoutMs,
         requestId: run_id,
@@ -269,15 +269,16 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     // the budget was exhausted, these are the durable signal that the larger
     // budget ceiling raised in §D didn't waste compute. Falsy defaults keep
     // the meta block well-formed against older sidecar responses.
+    // V3 output fields — all required, no fallback needed.
     const placedCount = result.entries.length;
     const unassignedCount = result.unassigned.length;
-    const cpSatStatus = result.cp_sat_status ?? 'unknown';
+    const solveStatus = result.solve_status;
     const sidecarDurationMs = result.duration_ms;
-    const earlyStopTriggered = result.early_stop_triggered ?? false;
-    const earlyStopReason = result.early_stop_reason ?? 'not_triggered';
-    const timeSavedMs = result.time_saved_ms ?? 0;
+    const earlyStopTriggered = result.early_stop_triggered;
+    const earlyStopReason = result.early_stop_reason;
+    const timeSavedMs = result.time_saved_ms;
     const meta = {
-      cp_sat_status: cpSatStatus,
+      solve_status: solveStatus,
       sidecar_duration_ms: sidecarDurationMs,
       placed_count: placedCount,
       unassigned_count: unassignedCount,
@@ -287,33 +288,20 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     };
 
     const resultJson = {
-      // Stage 10: tag every persisted run so consumers can branch on the
-      // schema version. All runs produced by this worker are V2 until
-      // Stage 11 switches to solveViaCpSatV3.
-      result_schema_version: 'v2' as const,
+      result_schema_version: 'v3' as const,
       entries: result.entries,
       unassigned: result.unassigned,
-      // SCHED-026: surface quality metrics (gap index, day variance, preference
-      // breakdown) so admins can compare runs and auditors have durable
-      // evidence of schedule shape.
-      quality_metrics: result.quality_metrics ?? null,
-      // SCHED-023: persist the class-subject override audit so admins can see
-      // which classes deviated from the year-group curriculum. Array copy
-      // rather than reference to keep the snapshot immutable.
-      overrides_applied: configSnapshot.overrides_applied
-        ? [...configSnapshot.overrides_applied]
-        : [],
+      quality_metrics: result.quality_metrics,
+      objective_breakdown: result.objective_breakdown,
+      constraint_snapshot: result.constraint_snapshot,
       meta,
     };
 
-    // One structured log line per solve — captured by pm2 / journald and
-    // grep-able by ``run_id`` or ``cp_sat_status`` during the Stage 7
-    // observation window.
     this.logger.log(
       `cp_sat.solve_complete ${JSON.stringify({
         run_id,
         tenant_id,
-        cp_sat_status: cpSatStatus,
+        solve_status: solveStatus,
         sidecar_duration_ms: sidecarDurationMs,
         placed_count: placedCount,
         unassigned_count: unassignedCount,
@@ -332,11 +320,6 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
             .join('; ')}${unassignedCount > 20 ? ' …' : ''}`;
 
     // ─── Step 3: persist results (conditional on status='running') ────────
-    // Use `updateMany` with `status: 'running'` so a cancel that landed during
-    // the solve (flipping status to 'failed' with 'Cancelled by user') is not
-    // silently overwritten by this final write. If the cancel won the race,
-    // updateMany returns { count: 0 } and we log + exit without touching the
-    // record.
     const writeResult = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenant_id}::text, true)`;
       return tx.schedulingRun.updateMany({
@@ -345,9 +328,9 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
           status: finalStatus,
           failure_reason: failureReason,
           result_json: JSON.parse(JSON.stringify(resultJson)),
-          hard_constraint_violations: result.constraint_summary.tier1_violations,
-          soft_preference_score: result.score,
-          soft_preference_max: result.max_score,
+          hard_constraint_violations: result.hard_violations,
+          soft_preference_score: result.soft_score,
+          soft_preference_max: result.soft_max_score,
           entries_generated: result.entries.filter((e) => !e.is_pinned).length,
           entries_pinned: result.entries.filter((e) => e.is_pinned).length,
           entries_unassigned: unassignedCount,
@@ -362,13 +345,13 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
 
     if (writeResult.count === 0) {
       this.logger.log(
-        `Solver v2 results for run ${run_id} discarded — run was cancelled while solving`,
+        `Solver v3 results for run ${run_id} discarded — run was cancelled while solving`,
       );
       return;
     }
 
     this.logger.log(
-      `Solver v2 ${finalStatus} for run ${run_id}: ${result.entries.length} entries, ${unassignedCount} unassigned, score ${result.score}/${result.max_score} in ${result.duration_ms}ms`,
+      `Solver v3 ${finalStatus} for run ${run_id}: ${result.entries.length} entries, ${unassignedCount} unassigned, score ${result.soft_score}/${result.soft_max_score} in ${result.duration_ms}ms`,
     );
   }
 }

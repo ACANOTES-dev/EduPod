@@ -11,21 +11,22 @@ import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 
 import type { TriggerSolverRunDto } from '@school/shared';
-import {
-  type SolverInputV2,
-  type YearGroupInput,
-  type CurriculumEntry,
-  type TeacherInputV2,
-  type RoomInfoV2,
-  type RoomClosureInput,
-  type BreakGroupInput,
-  type PinnedEntryV2,
-  type StudentOverlapV2,
-  type PeriodSlotV2,
-  type SolverSettingsV2,
-  type SolverAssignmentV2,
-  validateSchedule,
+import type {
+  BreakGroupInput,
+  CurriculumEntry,
+  PeriodSlotV2,
+  PinnedEntryV2,
+  RoomClosureInput,
+  RoomInfoV2,
+  SolverAssignmentV2,
+  SolverInputV2,
+  SolverInputV3,
+  SolverSettingsV2,
+  StudentOverlapV2,
+  TeacherInputV2,
+  YearGroupInput,
 } from '@school/shared/scheduler';
+import { validateSchedule } from '@school/shared/scheduler';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
@@ -38,6 +39,9 @@ import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-rea
 import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
 import { StaffPreferencesReadFacade } from '../staff-preferences/staff-preferences-read.facade';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
+
+import type { AssemblyFacades } from './orchestration/assemble/load-tenant-data';
+import { assembleSolverInput } from './orchestration/assemble-solver-input';
 
 export interface PrerequisiteResult {
   ready: boolean;
@@ -170,8 +174,31 @@ export class SchedulerOrchestrationService {
     };
   }
 
-  // ─── Assemble Solver Input ─────────────────────────────────────────────────
+  // ─── Assembly facades bundle (Stage 11) ────────────────────────────────────
 
+  private get assemblyFacades(): AssemblyFacades {
+    return {
+      prisma: this.prisma,
+      academicReadFacade: this.academicReadFacade,
+      classesReadFacade: this.classesReadFacade,
+      configurationReadFacade: this.configurationReadFacade,
+      roomsReadFacade: this.roomsReadFacade,
+      schedulesReadFacade: this.schedulesReadFacade,
+      staffAvailabilityReadFacade: this.staffAvailabilityReadFacade,
+      staffPreferencesReadFacade: this.staffPreferencesReadFacade,
+      staffProfileReadFacade: this.staffProfileReadFacade,
+    };
+  }
+
+  // ─── Assemble Solver Input (V3) ───────────────────────────────────────────
+
+  async assembleSolverInputV3(tenantId: string, academicYearId: string): Promise<SolverInputV3> {
+    return assembleSolverInput(this.assemblyFacades, tenantId, academicYearId);
+  }
+
+  // ─── Legacy V2 assembly (kept for backward compat during Stage 11 transition)
+
+  /** @deprecated Stage 11: use assembleSolverInputV3 instead. */
   async assembleSolverInput(tenantId: string, academicYearId: string): Promise<SolverInputV2> {
     // Query all data in parallel
     const [
@@ -622,8 +649,8 @@ export class SchedulerOrchestrationService {
       });
     }
 
-    // Assemble input
-    const solverInput = await this.assembleSolverInput(tenantId, academicYearId);
+    // Assemble V3 input (Stage 11 rebuild)
+    const solverInput = await this.assembleSolverInputV3(tenantId, academicYearId);
 
     // Apply optional settings overrides
     if (settings?.solver_seed !== undefined && settings.solver_seed !== null) {
@@ -634,7 +661,7 @@ export class SchedulerOrchestrationService {
     }
 
     // Detect mode
-    const pinnedCount = solverInput.pinned_entries.length;
+    const pinnedCount = solverInput.pinned.length;
     const mode: 'auto' | 'hybrid' = pinnedCount > 0 ? 'hybrid' : 'auto';
 
     // Create the run record

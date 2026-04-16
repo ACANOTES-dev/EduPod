@@ -14,12 +14,12 @@ jest.mock('../../../../../packages/shared/src/scheduler', () => {
     }
   }
   return {
-    solveViaCpSat: jest.fn(),
+    solveViaCpSatV3: jest.fn(),
     CpSatSolveError,
   };
 });
 
-import { CpSatSolveError, solveViaCpSat } from '../../../../../packages/shared/src/scheduler';
+import { CpSatSolveError, solveViaCpSatV3 } from '../../../../../packages/shared/src/scheduler';
 
 import {
   SCHEDULING_SOLVE_V2_JOB,
@@ -33,10 +33,10 @@ const RUN_ID = '22222222-2222-2222-2222-222222222222';
 function buildMockTx(options?: {
   run?: {
     config_snapshot: {
-      curriculum: unknown[];
+      demand: unknown[];
       settings: { solver_seed: number | null; max_solver_duration_seconds?: number };
       teachers: unknown[];
-      year_groups: unknown[];
+      classes: unknown[];
     } | null;
     solver_seed: bigint | null;
     status: string;
@@ -49,10 +49,10 @@ function buildMockTx(options?: {
         options?.run === undefined
           ? {
               config_snapshot: {
-                curriculum: [{ id: 'curr-1' }, { id: 'curr-2' }, { id: 'curr-3' }],
+                demand: [{ class_id: 'c1' }, { class_id: 'c2' }, { class_id: 'c3' }],
                 settings: { solver_seed: null },
-                teachers: [{ id: 'teacher-1' }, { id: 'teacher-2' }],
-                year_groups: [{ id: 'yg-1' }, { id: 'yg-2' }],
+                teachers: [{ staff_profile_id: 't1' }, { staff_profile_id: 't2' }],
+                classes: [{ class_id: 'c1' }, { class_id: 'c2' }],
               },
               solver_seed: BigInt(123),
               status: 'queued',
@@ -93,20 +93,33 @@ function buildJob(
 }
 
 describe('SchedulingSolverV2Processor', () => {
-  const mockSolveViaCpSat = jest.mocked(solveViaCpSat);
+  const mockSolveV3 = jest.mocked(solveViaCpSatV3);
 
   beforeEach(() => {
-    mockSolveViaCpSat.mockResolvedValue({
-      constraint_summary: { tier1_violations: 2 },
+    mockSolveV3.mockResolvedValue({
+      solve_status: 'FEASIBLE',
+      hard_violations: 2,
       duration_ms: 1234,
       entries: [
         { id: 'entry-1', is_pinned: false },
         { id: 'entry-2', is_pinned: true },
       ],
-      max_score: 100,
-      score: 87,
+      soft_max_score: 100,
+      soft_score: 87,
       unassigned: [{ id: 'unassigned-1' }],
-      cp_sat_status: 'feasible',
+      quality_metrics: {
+        teacher_gap_index: { min: 0, avg: 0, max: 0 },
+        day_distribution_variance: { min: 0, avg: 0, max: 0 },
+        preference_breakdown: [],
+        cp_sat_objective_value: null,
+        greedy_hint_score: 0,
+        cp_sat_improved_on_greedy: false,
+      },
+      objective_breakdown: [],
+      constraint_snapshot: [],
+      early_stop_triggered: false,
+      early_stop_reason: 'not_triggered',
+      time_saved_ms: 0,
     } as never);
   });
 
@@ -151,17 +164,17 @@ describe('SchedulingSolverV2Processor', () => {
     await processor.process(buildJob());
 
     expect(mockTx.schedulingRun.update).not.toHaveBeenCalled();
-    expect(mockSolveViaCpSat).not.toHaveBeenCalled();
+    expect(mockSolveV3).not.toHaveBeenCalled();
   });
 
   it('should skip runs already in a terminal status (e.g. cancelled/completed)', async () => {
     const mockTx = buildMockTx({
       run: {
         config_snapshot: {
-          curriculum: [],
+          demand: [],
           settings: { solver_seed: null },
           teachers: [],
-          year_groups: [],
+          classes: [],
         },
         solver_seed: null,
         status: 'completed',
@@ -176,7 +189,7 @@ describe('SchedulingSolverV2Processor', () => {
     await processor.process(buildJob());
 
     expect(mockTx.schedulingRun.update).not.toHaveBeenCalled();
-    expect(mockSolveViaCpSat).not.toHaveBeenCalled();
+    expect(mockSolveV3).not.toHaveBeenCalled();
   });
 
   // SCHED-029 (STRESS-081): if BullMQ stall-retry fires after a prior worker
@@ -186,10 +199,10 @@ describe('SchedulingSolverV2Processor', () => {
     const mockTx = buildMockTx({
       run: {
         config_snapshot: {
-          curriculum: [],
+          demand: [],
           settings: { solver_seed: null },
           teachers: [],
-          year_groups: [],
+          classes: [],
         },
         solver_seed: null,
         status: 'running',
@@ -210,7 +223,7 @@ describe('SchedulingSolverV2Processor', () => {
         failure_reason: expect.stringContaining('Worker crashed mid-solve'),
       },
     });
-    expect(mockSolveViaCpSat).not.toHaveBeenCalled();
+    expect(mockSolveV3).not.toHaveBeenCalled();
   });
 
   it('should run the solver, apply the stored seed, and persist the completed run result', async () => {
@@ -227,7 +240,7 @@ describe('SchedulingSolverV2Processor', () => {
       where: { id: RUN_ID },
       data: { status: 'running' },
     });
-    expect(mockSolveViaCpSat).toHaveBeenCalledWith(
+    expect(mockSolveV3).toHaveBeenCalledWith(
       expect.objectContaining({
         settings: expect.objectContaining({
           solver_seed: 123,
@@ -258,7 +271,7 @@ describe('SchedulingSolverV2Processor', () => {
           // ``early_stop_*`` + ``time_saved_ms`` fields; spec uses default
           // values when the sidecar response carries none of them.
           meta: {
-            cp_sat_status: 'feasible',
+            solve_status: 'FEASIBLE',
             sidecar_duration_ms: 1234,
             placed_count: 2,
             unassigned_count: 1,
@@ -281,14 +294,27 @@ describe('SchedulingSolverV2Processor', () => {
   });
 
   it('should mark the run as completed when every slot is placed (zero unassigned)', async () => {
-    mockSolveViaCpSat.mockResolvedValueOnce({
-      constraint_summary: { tier1_violations: 0 },
+    mockSolveV3.mockResolvedValueOnce({
+      solve_status: 'OPTIMAL',
+      hard_violations: 0,
       duration_ms: 500,
       entries: [{ id: 'entry-1', is_pinned: false }],
-      max_score: 100,
-      score: 100,
+      soft_max_score: 100,
+      soft_score: 100,
       unassigned: [],
-      cp_sat_status: 'optimal',
+      quality_metrics: {
+        teacher_gap_index: { min: 0, avg: 0, max: 0 },
+        day_distribution_variance: { min: 0, avg: 0, max: 0 },
+        preference_breakdown: [],
+        cp_sat_objective_value: null,
+        greedy_hint_score: 0,
+        cp_sat_improved_on_greedy: false,
+      },
+      objective_breakdown: [],
+      constraint_snapshot: [],
+      early_stop_triggered: false,
+      early_stop_reason: 'not_triggered',
+      time_saved_ms: 0,
     } as never);
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
@@ -329,7 +355,7 @@ describe('SchedulingSolverV2Processor', () => {
     );
 
     // Return empty unassigned so the finalStatus would have been 'completed'
-    mockSolveViaCpSat.mockResolvedValue({
+    mockSolveV3.mockResolvedValue({
       constraint_summary: { tier1_violations: 0 },
       duration_ms: 1200,
       entries: [{ id: 'entry-1', is_pinned: false }],
@@ -356,7 +382,7 @@ describe('SchedulingSolverV2Processor', () => {
       mockPrisma as never,
       { process: jest.fn() } as never,
     );
-    mockSolveViaCpSat.mockRejectedValue(new Error('solver exploded'));
+    mockSolveV3.mockRejectedValue(new Error('solver exploded'));
 
     await expect(processor.process(buildJob())).rejects.toThrow('solver exploded');
 
@@ -380,10 +406,10 @@ describe('SchedulingSolverV2Processor', () => {
     const mockTx = buildMockTx({
       run: {
         config_snapshot: {
-          curriculum: [],
+          demand: [],
           settings: { solver_seed: null, max_solver_duration_seconds: 30 },
           teachers: [],
-          year_groups: [],
+          classes: [],
         },
         solver_seed: null,
         status: 'queued',
@@ -398,7 +424,7 @@ describe('SchedulingSolverV2Processor', () => {
     await processor.process(buildJob());
 
     // budget = (30 + 60) * 1000 = 90 000; floor = 120 000 → floor wins.
-    expect(mockSolveViaCpSat).toHaveBeenCalledWith(
+    expect(mockSolveV3).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ timeoutMs: 120000 }),
     );
@@ -408,10 +434,10 @@ describe('SchedulingSolverV2Processor', () => {
     const mockTx = buildMockTx({
       run: {
         config_snapshot: {
-          curriculum: [],
+          demand: [],
           settings: { solver_seed: null, max_solver_duration_seconds: 120 },
           teachers: [],
-          year_groups: [],
+          classes: [],
         },
         solver_seed: null,
         status: 'queued',
@@ -426,7 +452,7 @@ describe('SchedulingSolverV2Processor', () => {
     await processor.process(buildJob());
 
     // budget = (120 + 60) * 1000 = 180 000; floor = 120 000 → budget wins.
-    expect(mockSolveViaCpSat).toHaveBeenCalledWith(
+    expect(mockSolveV3).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ timeoutMs: 180000 }),
     );
@@ -442,9 +468,7 @@ describe('SchedulingSolverV2Processor', () => {
       mockPrisma as never,
       { process: jest.fn() } as never,
     );
-    mockSolveViaCpSat.mockRejectedValue(
-      new CpSatSolveError('CP_SAT_UNREACHABLE', 'fetch failed', 0),
-    );
+    mockSolveV3.mockRejectedValue(new CpSatSolveError('CP_SAT_UNREACHABLE', 'fetch failed', 0));
 
     await expect(processor.process(buildJob())).rejects.toThrow('fetch failed');
 
