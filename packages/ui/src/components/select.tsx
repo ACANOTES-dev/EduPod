@@ -36,8 +36,13 @@ const SelectContent = React.forwardRef<
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
+      // max-h + overflow-y on Content so long teacher / staff / option lists
+      // stay inside the viewport and become internally scrollable instead of
+      // clipping behind the top nav. `--radix-select-content-available-height`
+      // is the collision-aware height Radix exposes once it has flipped /
+      // positioned the popper.
       className={cn(
-        'relative z-50 min-w-[8rem] overflow-hidden rounded-xl border border-border bg-surface text-text-primary shadow-md animate-in fade-in-80',
+        'relative z-50 max-h-[var(--radix-select-content-available-height)] min-w-[8rem] overflow-y-auto rounded-xl border border-border bg-surface text-text-primary shadow-md animate-in fade-in-80',
         position === 'popper' && 'translate-y-1',
         className,
       )}
@@ -47,7 +52,7 @@ const SelectContent = React.forwardRef<
       <SelectPrimitive.Viewport
         className={cn(
           'p-1',
-          position === 'popper' && 'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]',
+          position === 'popper' && 'w-full min-w-[var(--radix-select-trigger-width)]',
         )}
       >
         {children}
