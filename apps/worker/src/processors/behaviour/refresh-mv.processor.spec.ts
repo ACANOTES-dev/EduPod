@@ -44,10 +44,10 @@ describe('RefreshMVProcessor', () => {
   });
 
   it.each([
-    [REFRESH_MV_STUDENT_SUMMARY_JOB, 'mv_student_behaviour_summary'],
-    [REFRESH_MV_BENCHMARKS_JOB, 'mv_behaviour_benchmarks'],
-    [REFRESH_MV_EXPOSURE_RATES_JOB, 'mv_behaviour_exposure_rates'],
-  ])('should refresh %s', async (jobName, expectedView) => {
+    [REFRESH_MV_STUDENT_SUMMARY_JOB, 'refresh_mv_student_behaviour_summary'],
+    [REFRESH_MV_BENCHMARKS_JOB, 'refresh_mv_behaviour_benchmarks'],
+    [REFRESH_MV_EXPOSURE_RATES_JOB, 'refresh_mv_behaviour_exposure_rates'],
+  ])('should refresh %s via SECURITY DEFINER function', async (jobName, expectedFunction) => {
     const prisma = {
       $executeRaw: jest.fn().mockResolvedValue(undefined),
     };
@@ -56,6 +56,7 @@ describe('RefreshMVProcessor', () => {
     await processor.process(buildJob(jobName));
 
     expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
-    expect(extractSqlText(prisma.$executeRaw.mock.calls[0][0])).toContain(expectedView);
+    const sql = extractSqlText(prisma.$executeRaw.mock.calls[0][0]);
+    expect(sql).toContain(`SELECT ${expectedFunction}()`);
   });
 });

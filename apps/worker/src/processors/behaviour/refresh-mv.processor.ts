@@ -16,6 +16,17 @@ export const REFRESH_MV_EXPOSURE_RATES_JOB = 'behaviour:refresh-mv-exposure-rate
 //
 // Materialised view refresh is a cross-tenant DB-level operation.
 // Extends CrossTenantSystemJob: intentionally no RLS context.
+//
+// The MVs are owned by `edupod_admin` (BYPASSRLS). The worker connects as
+// `edupod_app` (RLS-enforced, not MV owner) — so calling `REFRESH MATERIALIZED
+// VIEW` directly hits two failures:
+//   1. ERROR: must be owner of materialized view ...
+//   2. ERROR: unrecognized configuration parameter "app.current_tenant_id"
+//      (RLS policies on underlying tables require it to be set)
+//
+// We delegate to SECURITY DEFINER functions owned by edupod_admin — see the
+// 20260417120000_fix_mv_refresh_ownership migration. The function runs as
+// edupod_admin inside, satisfying both the ownership and BYPASSRLS checks.
 
 class RefreshStudentSummaryJob extends CrossTenantSystemJob {
   constructor(prisma: PrismaClient) {
@@ -27,9 +38,7 @@ class RefreshStudentSummaryJob extends CrossTenantSystemJob {
     const start = Date.now();
 
     try {
-      await this.prisma.$executeRaw(
-        Prisma.sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_student_behaviour_summary`,
-      );
+      await this.prisma.$executeRaw(Prisma.sql`SELECT refresh_mv_student_behaviour_summary()`);
       this.logger.log(`mv_student_behaviour_summary refreshed in ${Date.now() - start}ms`);
     } catch (error) {
       this.logger.error(
@@ -50,9 +59,7 @@ class RefreshBenchmarksJob extends CrossTenantSystemJob {
     const start = Date.now();
 
     try {
-      await this.prisma.$executeRaw(
-        Prisma.sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_benchmarks`,
-      );
+      await this.prisma.$executeRaw(Prisma.sql`SELECT refresh_mv_behaviour_benchmarks()`);
       this.logger.log(`mv_behaviour_benchmarks refreshed in ${Date.now() - start}ms`);
     } catch (error) {
       this.logger.error(
@@ -73,9 +80,7 @@ class RefreshExposureRatesJob extends CrossTenantSystemJob {
     const start = Date.now();
 
     try {
-      await this.prisma.$executeRaw(
-        Prisma.sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_exposure_rates`,
-      );
+      await this.prisma.$executeRaw(Prisma.sql`SELECT refresh_mv_behaviour_exposure_rates()`);
       this.logger.log(`mv_behaviour_exposure_rates refreshed in ${Date.now() - start}ms`);
     } catch (error) {
       this.logger.error(
