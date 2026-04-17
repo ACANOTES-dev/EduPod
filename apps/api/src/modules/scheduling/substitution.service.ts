@@ -564,6 +564,7 @@ export class SubstitutionService {
             select: {
               id: true,
               status: true,
+              schedule_id: true,
               substitute_staff_id: true,
               substitute: { select: { user: { select: { first_name: true, last_name: true } } } },
             },
@@ -573,26 +574,97 @@ export class SubstitutionService {
       this.prisma.teacherAbsence.count({ where }),
     ]);
 
+    // Build per-absence slots by pulling the teacher's effective schedule for
+    // the absence date. This gives the UI one row per lesson the absent
+    // teacher would have taught, each annotated with its substitution status.
+    const slotsByAbsenceId = new Map<
+      string,
+      Array<{
+        schedule_id: string;
+        period_name: string;
+        period_order: number;
+        subject_name: string;
+        class_name: string;
+        substitute_status: 'unassigned' | 'assigned' | 'confirmed' | 'declined' | 'completed';
+        substitute_name: string | null;
+        substitution_record_id: string | null;
+      }>
+    >();
+
+    for (const absence of data) {
+      const schedules = await this.schedulesReadFacade.findTeacherSchedulesForDate(
+        tenantId,
+        absence.staff_profile_id,
+        absence.absence_date,
+      );
+
+      // Narrow to the absence window when not full-day.
+      const inWindow = (periodOrder: number | null): boolean => {
+        if (absence.full_day) return true;
+        if (periodOrder == null) return false;
+        const from = absence.period_from ?? Number.NEGATIVE_INFINITY;
+        const to = absence.period_to ?? Number.POSITIVE_INFINITY;
+        return periodOrder >= from && periodOrder <= to;
+      };
+
+      const recBySchedule = new Map(absence.substitution_records.map((r) => [r.schedule_id, r]));
+
+      const slots = schedules
+        .filter((s) => inWindow(s.period_order))
+        .map((s) => {
+          const rec = recBySchedule.get(s.id);
+          const status = rec?.status ?? 'unassigned';
+          return {
+            schedule_id: s.id,
+            period_name:
+              s.schedule_period_template?.period_name ??
+              (s.period_order != null ? `P${s.period_order}` : '—'),
+            period_order: s.period_order ?? 0,
+            subject_name: s.class_entity?.subject?.name ?? s.class_entity?.name ?? '—',
+            class_name: s.class_entity?.name ?? '—',
+            substitute_status: status as
+              | 'unassigned'
+              | 'assigned'
+              | 'confirmed'
+              | 'declined'
+              | 'completed',
+            substitute_name: rec?.substitute
+              ? `${rec.substitute.user.first_name} ${rec.substitute.user.last_name}`.trim()
+              : null,
+            substitution_record_id: rec?.id ?? null,
+          };
+        });
+
+      slotsByAbsenceId.set(absence.id, slots);
+    }
+
     return {
-      data: data.map((a) => ({
-        id: a.id,
-        staff_profile_id: a.staff_profile_id,
-        staff_name: `${a.staff_profile.user.first_name} ${a.staff_profile.user.last_name}`.trim(),
-        absence_date: a.absence_date.toISOString().slice(0, 10),
-        full_day: a.full_day,
-        period_from: a.period_from,
-        period_to: a.period_to,
-        reason: a.reason,
-        reported_at: a.reported_at.toISOString(),
-        substitution_count: a.substitution_records.length,
-        substitutions: a.substitution_records.map((sr) => ({
-          id: sr.id,
-          status: sr.status,
-          substitute_staff_id: sr.substitute_staff_id,
-          substitute_name:
-            `${sr.substitute.user.first_name} ${sr.substitute.user.last_name}`.trim(),
-        })),
-      })),
+      data: data.map((a) => {
+        const name = `${a.staff_profile.user.first_name} ${a.staff_profile.user.last_name}`.trim();
+        return {
+          id: a.id,
+          staff_profile_id: a.staff_profile_id,
+          // Keep legacy `staff_name` and expose `teacher_name` alias for the
+          // substitutions UI that renders per absence row.
+          staff_name: name,
+          teacher_name: name,
+          absence_date: a.absence_date.toISOString().slice(0, 10),
+          full_day: a.full_day,
+          period_from: a.period_from,
+          period_to: a.period_to,
+          reason: a.reason,
+          reported_at: a.reported_at.toISOString(),
+          substitution_count: a.substitution_records.length,
+          substitutions: a.substitution_records.map((sr) => ({
+            id: sr.id,
+            status: sr.status,
+            substitute_staff_id: sr.substitute_staff_id,
+            substitute_name:
+              `${sr.substitute.user.first_name} ${sr.substitute.user.last_name}`.trim(),
+          })),
+          slots: slotsByAbsenceId.get(a.id) ?? [],
+        };
+      }),
       meta: { page: query.page, pageSize: query.pageSize, total },
     };
   }

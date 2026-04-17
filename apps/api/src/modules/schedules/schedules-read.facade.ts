@@ -762,6 +762,53 @@ export class SchedulesReadFacade {
    * Find teacher schedule entries for an academic year (teacher_staff_id + weekday + period_order).
    * Used by scheduling dashboard for teacher utilisation and gap analysis.
    */
+  /**
+   * Return the effective schedules a given teacher is on for a specific
+   * calendar date — weekday-matched, respecting effective_start/end_date.
+   * Used by the substitutions page to render one row per lesson the absent
+   * teacher would have taught that day, alongside its cover status.
+   */
+  async findTeacherSchedulesForDate(
+    tenantId: string,
+    staffProfileId: string,
+    date: Date,
+  ): Promise<
+    Array<{
+      id: string;
+      period_order: number | null;
+      schedule_period_template: { period_name: string | null } | null;
+      class_entity: {
+        name: string;
+        subject: { name: string } | null;
+      } | null;
+    }>
+  > {
+    const day = new Date(date);
+    day.setHours(0, 0, 0, 0);
+    const weekday = day.getDay();
+    return this.prisma.schedule.findMany({
+      where: {
+        tenant_id: tenantId,
+        teacher_staff_id: staffProfileId,
+        weekday,
+        effective_start_date: { lte: day },
+        OR: [{ effective_end_date: null }, { effective_end_date: { gte: day } }],
+      },
+      orderBy: [{ period_order: 'asc' }, { start_time: 'asc' }],
+      select: {
+        id: true,
+        period_order: true,
+        schedule_period_template: { select: { period_name: true } },
+        class_entity: {
+          select: {
+            name: true,
+            subject: { select: { name: true } },
+          },
+        },
+      },
+    });
+  }
+
   async findTeacherScheduleEntries(
     tenantId: string,
     academicYearId: string,

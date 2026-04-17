@@ -111,6 +111,7 @@ describe('SubstitutionService', () => {
             findCoreById: jest.fn().mockResolvedValue(null),
             existsById: jest.fn().mockResolvedValue(null),
             findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
+            findTeacherSchedulesForDate: jest.fn().mockResolvedValue([]),
             countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
             findTeacherTimetable: jest.fn().mockResolvedValue([]),
             findClassTimetable: jest.fn().mockResolvedValue([]),
