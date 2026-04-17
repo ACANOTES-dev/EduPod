@@ -2,7 +2,7 @@ import { createDecipheriv } from 'crypto';
 
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 import Stripe from 'stripe';
 
@@ -84,9 +84,50 @@ export class StripeRefundReconciliationProcessor extends WorkerHost {
   private async reconcileTenant(
     tenantId: string,
   ): Promise<{ checked: boolean; driftCount: number }> {
-    const stripeConfig = await this.prisma.tenantStripeConfig.findUnique({
-      where: { tenant_id: tenantId },
+    // tenantStripeConfig and refund both have FORCE ROW LEVEL SECURITY with
+    // policies that cast `app.current_tenant_id` to uuid. Without an
+    // interactive transaction that sets the GUC via set_config, the first
+    // read either errors with "unrecognized configuration parameter" or
+    // with "invalid input syntax for type uuid: \"\"" — both observed in
+    // prod cron runs (same class of bug as SCHED-013, fixed the same way).
+    //
+    // We do the DB reads inside the transaction, then perform the Stripe
+    // API calls and alert logging outside the transaction (no DB
+    // contention, and Stripe calls can take seconds per page).
+    const { stripeConfig, localRefunds } = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(
+        Prisma.sql`SELECT set_config('app.current_tenant_id', ${tenantId}::text, true)`,
+      );
+      const config = await tx.tenantStripeConfig.findUnique({
+        where: { tenant_id: tenantId },
+      });
+      if (!config) {
+        return { stripeConfig: null, localRefunds: [] };
+      }
+      const sinceMs = Date.now() - StripeRefundReconciliationProcessor.LOOKBACK_MS;
+      const refunds = await tx.refund.findMany({
+        where: {
+          tenant_id: tenantId,
+          created_at: { gte: new Date(sinceMs) },
+        },
+        select: {
+          id: true,
+          refund_reference: true,
+          amount: true,
+          status: true,
+          created_at: true,
+          payment: {
+            select: {
+              id: true,
+              external_event_id: true,
+              external_provider: true,
+            },
+          },
+        },
+      });
+      return { stripeConfig: config, localRefunds: refunds };
     });
+
     if (!stripeConfig) {
       // Not an error — tenant just hasn't configured Stripe.
       return { checked: false, driftCount: 0 };
@@ -104,12 +145,14 @@ export class StripeRefundReconciliationProcessor extends WorkerHost {
       return { checked: false, driftCount: 0 };
     }
 
-    const sinceMs = Date.now() - StripeRefundReconciliationProcessor.LOOKBACK_MS;
-    const sinceSeconds = Math.floor(sinceMs / 1000);
+    const sinceSeconds = Math.floor(
+      (Date.now() - StripeRefundReconciliationProcessor.LOOKBACK_MS) / 1000,
+    );
 
     // 1. Pull recent Stripe refunds for this tenant's account. Paginate in
     //    case they have a high volume (unlikely for a school but correctness
-    //    first).
+    //    first). Local refunds for the same window were already loaded in
+    //    the tenant-context transaction above.
     const stripeRefunds: Stripe.Refund[] = [];
     let hasMore = true;
     let startingAfter: string | undefined;
@@ -124,29 +167,6 @@ export class StripeRefundReconciliationProcessor extends WorkerHost {
       startingAfter = page.data[page.data.length - 1]?.id;
       if (!startingAfter) break;
     }
-
-    // 2. Load local refund rows within the same window, joined to payment
-    //    so we can match by payment_intent.
-    const localRefunds = await this.prisma.refund.findMany({
-      where: {
-        tenant_id: tenantId,
-        created_at: { gte: new Date(sinceMs) },
-      },
-      select: {
-        id: true,
-        refund_reference: true,
-        amount: true,
-        status: true,
-        created_at: true,
-        payment: {
-          select: {
-            id: true,
-            external_event_id: true,
-            external_provider: true,
-          },
-        },
-      },
-    });
 
     let driftCount = 0;
 

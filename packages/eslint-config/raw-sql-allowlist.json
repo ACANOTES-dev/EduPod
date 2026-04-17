@@ -408,6 +408,12 @@
       "methods": ["$executeRaw"],
       "category": "rls-infrastructure",
       "reason": "RLS context-setting via set_config() inside each per-tenant transaction of the cross-tenant daily cron — required because academic_periods/class_enrolments/report_cards all have FORCE ROW LEVEL SECURITY with current_setting('app.current_tenant_id')::uuid policies; fixes empty-UUID cast storm observed in prod 2026-04-17."
+    },
+    {
+      "file": "apps/worker/src/processors/finance/stripe-refund-reconciliation.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() inside each per-tenant transaction of the cross-tenant 03:00 UTC cron — required because tenant_stripe_configs and refunds both have FORCE ROW LEVEL SECURITY; fixes same empty-UUID cast storm observed alongside report-card auto-generate in prod 2026-04-17."
     }
   ]
 }
