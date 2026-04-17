@@ -28,6 +28,7 @@ from dataclasses import dataclass
 
 from ortools.sat.python import cp_model
 
+from solver_py.config import settings as _solver_settings
 from solver_py.schema import (
     ConstraintSummary,
     CpSatStatus,
@@ -55,6 +56,13 @@ from solver_py.solver.soft_constraints import (
 from solver_py.solver.telemetry import SolverTelemetry
 
 logger = logging.getLogger(__name__)
+
+# SCHED-041 §B — CP-SAT worker count resolved from env at import time.
+# Pulled out as a module-scope constant so tests can monkey-patch it
+# per-scenario via ``_CP_SAT_NUM_SEARCH_WORKERS`` without re-importing
+# the settings module. Default is 8 (Phase B fix); override to 1 via
+# ``CP_SAT_NUM_SEARCH_WORKERS=1`` if a tenant's memory budget requires.
+_CP_SAT_NUM_SEARCH_WORKERS: int = _solver_settings.CP_SAT_NUM_SEARCH_WORKERS
 
 
 class SolveError(RuntimeError):
@@ -130,18 +138,34 @@ def solve(
     budget_seconds = float(input_payload.settings.max_solver_duration_seconds)
     solver.parameters.max_time_in_seconds = budget_seconds
     solver.parameters.random_seed = input_payload.settings.solver_seed or 0
-    # Single worker keeps the budget honest — ``interleave_search`` with
-    # 8 workers blew through ``max_time_in_seconds`` by 4-7× on Tier 3
-    # parity inputs (each interleaved chunk runs to completion before the
-    # budget is checked, OR-Tools 9.15). With the greedy fallback in
-    # ``_build_greedy_output`` we always have a valid output even when
-    # CP-SAT returns UNKNOWN, so single-worker is the right call:
-    # deterministic, in-budget, and the floor is the greedy hint.
-    solver.parameters.num_search_workers = 1
-    # Note: ``repair_hint = True`` segfaults inside CP-SAT 9.15's
-    # ``MinimizeL1DistanceWithHint`` when ``interleave_search`` is on
-    # (Check failed: heuristics.fixed_search != nullptr). Single-worker
-    # path doesn't trigger that crash either way.
+    # SCHED-041 §B — 8 workers (was 1). Phase A diagnostics proved that
+    # single-worker CP-SAT on NHQS-scale input (393 effective demand ×
+    # ~45k placement vars) never reaches a feasible solution: it burns
+    # the entire budget in LP relaxation (~160k iterations, 0 conflicts,
+    # `improvements_found=0`, `termination=unknown_at_deadline`) and the
+    # user sees only the Python greedy fallback. With 8 workers the LNS
+    # strategies (`graph_var_lns [hint]` is typically the producer) pick
+    # up the greedy hint as their starting neighbourhood and produce
+    # strict improvements over greedy — 53 improvements / 40.2s to first
+    # feasible / 14.8% gap at deadline on the SCHED-041 repro fixture.
+    #
+    # The prior "4-7× deadline overshoot" finding was with
+    # ``interleave_search=true``. Plain ``num_search_workers=8`` (without
+    # interleave_search, which defaults to false) honours
+    # ``max_time_in_seconds`` cleanly on Tier-2/Tier-4 fixtures. See
+    # ``docs/operations/solver-performance-2026-04.md`` for the benchmark
+    # matrix backing this decision.
+    #
+    # The setting is configurable via the ``CP_SAT_NUM_SEARCH_WORKERS``
+    # env var (see ``solver_py.config``) so tenants hitting the pm2
+    # ``max_memory_restart`` ceiling at Tier-5 can fall back to 1 worker
+    # per-deployment without a code change.
+    #
+    # Do NOT set ``repair_hint = True`` alongside multi-worker on CP-SAT
+    # 9.15 — it crashes with ``std::bad_function_call`` (validated in the
+    # SCHED-041 §A experiment matrix on 2026-04-17). Safe to revisit when
+    # OR-Tools upgrades fix the underlying CP-SAT bug.
+    solver.parameters.num_search_workers = _CP_SAT_NUM_SEARCH_WORKERS
 
     # Stage 9.5.1 §A — early-stop callback halts CP-SAT when it stops
     # finding improvements past the greedy floor or when the relative

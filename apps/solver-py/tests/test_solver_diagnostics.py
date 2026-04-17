@@ -430,3 +430,116 @@ def test_solve_with_cancel_flag_and_telemetry_both_populated() -> None:
     diag = telemetry.to_diagnostics()
     assert out.cp_sat_status in ("optimal", "feasible", "infeasible", "unknown")
     assert diag.termination_reason is not None
+
+
+# ─── SCHED-041 §B regression guard ──────────────────────────────────────────
+
+
+def test_multi_worker_default_is_eight_not_one() -> None:
+    """SCHED-041 §B — default ``num_search_workers`` is 8 (Phase B fix).
+
+    This guards against accidental reversion to single-worker, which would
+    reintroduce the SCHED-041 plateau (CP-SAT never finds a feasible on
+    NHQS-scale input). If this fails, Phase A telemetry
+    (termination_reason=unknown_at_deadline, improvements_found=0) will
+    return on production — so the test is a load-bearing invariant.
+    """
+    import importlib
+
+    from solver_py.config import settings
+
+    # ``solver_py.solver.__init__`` re-exports ``solve`` as a function,
+    # which shadows the ``solve`` submodule when accessed via dotted
+    # attribute — go through ``importlib`` to reach the real module.
+    solve_mod = importlib.import_module("solver_py.solver.solve")
+
+    assert settings.CP_SAT_NUM_SEARCH_WORKERS == 8, (
+        "Phase B fix requires CP_SAT_NUM_SEARCH_WORKERS default of 8. "
+        "Single-worker causes SCHED-041 on NHQS-scale inputs."
+    )
+    assert solve_mod._CP_SAT_NUM_SEARCH_WORKERS == 8, (
+        "Module-scope constant must mirror settings default (pinnable "
+        "via monkeypatch in tests that need determinism)."
+    )
+
+
+def test_multi_worker_produces_improvements_past_greedy_on_medium_fixture() -> None:
+    """SCHED-041 §B — on a medium 3-class / 3-subject fixture, multi-worker
+    CP-SAT must either prove optimal OR produce strict improvements past
+    the greedy hint within a 15s budget. A regression to single-worker
+    would be caught by ``improvements_found >= 1`` failing on realistic
+    inputs.
+
+    Why medium and not easy: the easy fixture is trivially closed by
+    CP-SAT's presolve, so there's no observable "multi-worker vs
+    single-worker" behaviour to assert on. Medium is big enough to
+    exercise LNS workers but small enough to close inside CI.
+    """
+    grid = build_period_grid(weekdays=5, periods_per_day=6)
+    year_groups = [
+        {
+            "year_group_id": "yg-1",
+            "year_group_name": "Year 1",
+            "sections": [
+                {"class_id": f"C{i}", "class_name": f"Class {i}", "student_count": 22}
+                for i in range(3)
+            ],
+            "period_grid": grid,
+        }
+    ]
+    payload = build_input(
+        year_groups=year_groups,
+        curriculum=[
+            curriculum_entry(subject_id="maths", min_periods=4),
+            curriculum_entry(subject_id="english", min_periods=4),
+            curriculum_entry(subject_id="science", min_periods=3),
+        ],
+        teachers=[
+            teacher(
+                staff_id=f"T{i}",
+                competencies=[
+                    competency(subject_id="maths"),
+                    competency(subject_id="english"),
+                    competency(subject_id="science"),
+                ],
+                max_per_week=22,
+                max_per_day=5,
+            )
+            for i in range(4)
+        ],
+    )
+    payload.settings.max_solver_duration_seconds = 15
+
+    telemetry = SolverTelemetry()
+    out = solve(payload, telemetry=telemetry)  # type: ignore[arg-type]
+    diag = telemetry.to_diagnostics()
+
+    # Multi-worker was asked for.
+    assert diag.num_search_workers is not None and diag.num_search_workers >= 2, (
+        f"expected multi-worker (Phase B), got num_search_workers="
+        f"{diag.num_search_workers}"
+    )
+
+    # Either CP-SAT proved OPTIMAL (best possible outcome) or it found
+    # at least one solution. SCHED-041's single-worker failure mode
+    # showed ``improvements_found=0`` + ``termination=unknown_at_deadline``
+    # — this assertion rules out that regression.
+    if out.cp_sat_status == "optimal":
+        assert diag.improvements_found >= 1, (
+            "OPTIMAL path must have produced at least one solution callback"
+        )
+    else:
+        # Not OPTIMAL — must at least have a feasible with improvements.
+        assert diag.improvements_found >= 1, (
+            f"SCHED-041 regression guard: single-worker produced "
+            f"improvements_found=0 on NHQS-scale input. Medium fixture "
+            f"must show improvements_found >= 1 on multi-worker. "
+            f"Got termination_reason={diag.termination_reason}, "
+            f"final_objective={diag.final_objective_value}, "
+            f"greedy_hint={diag.greedy_hint_score}"
+        )
+        assert diag.final_objective_value is not None
+        assert diag.termination_reason != "unknown_at_deadline", (
+            "SCHED-041 regression: multi-worker should reach feasibility "
+            "on medium fixture within 15s budget"
+        )

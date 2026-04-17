@@ -1819,13 +1819,50 @@ WHERE cr.tenant_id = '3ba9b02c-0339-49b8-8583-a06e05a32ac5'
 
 ---
 
-### SCHED-041 — CP-SAT solver does not improve on greedy seed within 3600s deadline
+### SCHED-041 — CP-SAT single-worker never finds a feasible solution on NHQS-scale input
 
 **Severity:** P1
-**Status:** Blocked — need input (2026-04-17) — scope exceeds a bug-fix session; this is a multi-commit solver-performance workstream requiring profiling, objective redesign, and tuning decisions. Needs to be planned as a stage (Stage 9.5.2 / 10-scale follow-on), not a drive-by fix.
-**Provenance:** [L] — observed 2026-04-17 PWC across run `f4a87d4c-…` and 3 prior attempts
+**Status:** Diagnosed — Phase A (telemetry) shipped, Phase B (fix) in progress (2026-04-17)
+**Provenance:** [L] — observed 2026-04-17 PWC across run `f4a87d4c-…` and 3 prior attempts; diagnosed via SCHED-041 §A instrumentation on 2026-04-17
 
-**Blocker notes (2026-04-17):** The fix directions in the entry are all correct ((1) `model.AddHint(...)` for the greedy assignment, (2) tighten objective to ~10 lexicographic levels, (3) `num_search_workers = 8`, (4) early-exit on 95 % best-known, (5) surface `reason_for_termination`). Each is a structural change to `apps/solver-py/src/solver_py/...` that needs the solver-py suite re-run (40+ tests), new benchmark matrix across Tier-1→Tier-4, and memory audit (Stage 10 matrix already found OOM at Tier-5 with `num_search_workers > 1`). This is not a one-commit bug fix — it's a stage-sized piece of work. Recommend routing into a new Stage 9.5.3 or Stage 10 follow-up with explicit budget and benchmark gate. Flagged to the user at 2026-04-17.
+**Real diagnosis (2026-04-17, via SCHED-041 §A telemetry):**
+
+The original hypothesis ("CP-SAT returns its initial greedy seed and then makes no further improvement during the next 3,599 seconds") **was wrong**. What actually happens on NHQS-scale input with the production `num_search_workers = 1` config:
+
+- `improvements_found = 0` — CP-SAT never finds **any** feasible solution within the budget
+- `first_solution_objective = None` — the solution callback fires zero times
+- `num_lp_iterations = 159,861`, `num_conflicts = 0` — CP-SAT burns the entire budget in LP relaxation and never reaches conflict-driven search
+- `termination_reason = unknown_at_deadline` — solve_status `UNKNOWN` at budget exhaustion
+- The "386 placed" output users see is entirely from the Python greedy pre-solver via `_build_greedy_output` fallback. CP-SAT itself contributes zero.
+
+The greedy `model.add_hint(...)` wiring was already present at `solve.py:116-118` before this stage. The hint is passed but CP-SAT single-worker doesn't convert it into a validated feasible within the budget — it stays stuck in presolve/LP.
+
+**Phase A fix (shipped 2026-04-17):** Added `SolverTelemetry` / `SolverDiagnosticsV3` structured capture so operators can see this failure mode (`improvements_found`, `first_solution_wall_time_seconds`, `termination_reason`, `num_branches`/`num_conflicts`/`num_lp_iterations`, `response_stats_text`). Persists to `scheduling_runs.solver_diagnostics` JSONB column. Without this, SCHED-041-class bugs are invisible and misdiagnosed — as the original bug log entry proves.
+
+**Phase A validation experiments (2026-04-17):** Same NHQS input, seed 42, 180s budget.
+
+| Config       | num_search_workers | repair_hint | Result                                                                                                                                                                                                                                               |
+| ------------ | ------------------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A (baseline) | 1                  | false       | `improvements_found=0`, `termination=unknown_at_deadline`. CP-SAT never found a feasible.                                                                                                                                                            |
+| B            | 8                  | false       | `improvements_found=53`, first feasible at **40.2s**, final 2,032,249 vs greedy 2,001,410, `termination=feasible_at_deadline`, 392 placed (vs greedy's 386), `solution_info=graph_var_lns [hint]`, `relative_gap=0.148`. **Passes acceptance gate.** |
+| C            | 8                  | true        | `std::bad_function_call` crash at 115s — CP-SAT 9.15 bug, validates existing code comment. Unsafe.                                                                                                                                                   |
+
+**Phase B fix (in progress):** Change `solver.parameters.num_search_workers = 1` → `8` in `apps/solver-py/src/solver_py/solver/solve.py`. That single change resolves SCHED-041 by giving CP-SAT's LNS workers access to the greedy hint, which bypasses the single-worker LP-relaxation trap.
+
+**Fix directions from the original entry — updated disposition:**
+
+1. **Greedy `model.AddHint(...)`** — already wired (`solve.py:116-118` prior to this stage). Not the bug.
+2. **Lexicographic objective** — **dropped.** The telemetry shows CP-SAT IS improving on the objective once multi-worker gets it going (53 improvements, 14.8% gap at deadline). Objective shape isn't the bottleneck. Filed as future work for closing the remaining gap, not gating for this bug.
+3. **`num_search_workers = 8`** — **this is the fix.** Gates remaining: (a) verify no deadline overshoot on Tier-2/3/4 fixtures, (b) memory audit at Tier-5 (existing Stage 10 OOM finding was with `interleave_search=true`, a different config — needs re-measurement under plain `num_search_workers=8`).
+4. **Early-exit at 95% best-known** — **defer.** Existing 0.1% gap callback works correctly; Config B ran the full budget because gap was 14.8%, not within 0.1%. Loosening to 5% would trim typical runs but isn't gating for the bug.
+5. **`reason_for_termination` in `scheduling_runs`** — shipped in Phase A as `scheduling_runs.solver_diagnostics.termination_reason` JSONB field. ✅
+
+**Verification (Playwright):**
+
+1. Deploy Phase B (workers=8).
+2. Trigger NHQS auto-run.
+3. Check `scheduling_runs.solver_diagnostics` — expect `cp_sat_improved_on_greedy=true`, `improvements_found≥1`, `first_solution_wall_time_seconds<60`.
+4. Either solver terminates `OPTIMAL` in <600s OR terminates at deadline with `final_objective_value > greedy_hint_score`.
 
 **Summary:** On the NHQS dataset (393 effective demand, ~480 capacity) the CP-SAT solver returns its initial greedy seed (320 lessons placed in <1s) and then makes no further improvement during the next 3,599 seconds before hitting the configured `max_solver_duration_seconds = 3600` ceiling. Final result: 91% placement, 84.2% soft-preference score, 0 hard violations — but every minute past second 1 was wasted. Runs ID `f4a87d4c-…`, `3fb9b3d7-…`, `6b399caf-…`, `5821d940-…` all exhibit the same plateau.
 

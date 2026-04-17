@@ -259,9 +259,24 @@ async def test_concurrent_posts_are_serialised(client: httpx.AsyncClient) -> Non
 
 
 @pytest.mark.asyncio
-async def test_async_refactor_preserves_determinism(client: httpx.AsyncClient) -> None:
+async def test_async_refactor_preserves_determinism(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Two non-cancelled sequential solves return byte-identical output
-    (strip only the timing fields that naturally drift)."""
+    (strip only the timing fields that naturally drift).
+
+    SCHED-041 §B caveat: CP-SAT multi-worker is non-deterministic. This
+    test pins ``_CP_SAT_NUM_SEARCH_WORKERS=1`` via monkeypatch to validate
+    the async refactor's determinism invariant independently of CP-SAT's
+    multi-worker indeterminacy. Production runs with 8 workers per the
+    Phase B fix.
+    """
+    import importlib
+
+    solve_mod = importlib.import_module("solver_py.solver.solve")
+    monkeypatch.setattr(solve_mod, "_CP_SAT_NUM_SEARCH_WORKERS", 1)
+
     payload = _tiny_payload(max_seconds=5)
 
     async with client:

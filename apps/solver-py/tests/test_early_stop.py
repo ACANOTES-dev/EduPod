@@ -209,10 +209,29 @@ def test_early_stop_b_stagnation_trigger_on_unimprovable_fixture(
 # ─── Fixture C: determinism ──────────────────────────────────────────────────
 
 
-def test_early_stop_c_determinism_byte_identical_across_runs() -> None:
+def test_early_stop_c_determinism_byte_identical_across_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Same input + same seed → byte-identical output across repeated runs.
     EarlyStopCallback uses ``self.WallTime()`` (CP-SAT's internal clock),
-    not ``time.monotonic()`` — so halt points must be reproducible."""
+    not ``time.monotonic()`` — so halt points must be reproducible.
+
+    SCHED-041 §B caveat: Phase B raises production ``num_search_workers``
+    to 8, which removes CP-SAT's byte-level determinism guarantee (each
+    worker races independently; the first to produce an improvement
+    commits it). This test force-pins workers=1 via the module-scope
+    constant so the EarlyStopCallback determinism invariant is still
+    validated. The invariant the test guards is "callback halt points
+    are reproducible", not "multi-worker CP-SAT is reproducible".
+    """
+    import importlib
+
+    # See test_solver_diagnostics.py — solver_py.solver.__init__ shadows
+    # the submodule name, so ``importlib.import_module`` is required to
+    # get at the real module for monkeypatching.
+    solve_mod = importlib.import_module("solver_py.solver.solve")
+    monkeypatch.setattr(solve_mod, "_CP_SAT_NUM_SEARCH_WORKERS", 1)
+
     inp = _easy_fixture(max_seconds=10)
     a = solve(inp).model_dump(mode="json")
     b = solve(inp).model_dump(mode="json")

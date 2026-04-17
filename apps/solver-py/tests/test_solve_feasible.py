@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from collections import Counter
 
+import pytest
+
 from solver_py.solver import solve
 from tests._builders import (
     build_input,
@@ -198,7 +200,26 @@ def test_pinned_entries_pass_through_and_consume_demand() -> None:
 # ─── Tier 5: determinism ──────────────────────────────────────────────────────
 
 
-def test_determinism_same_seed_produces_same_output() -> None:
+def test_determinism_same_seed_produces_same_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """SCHED-041 §B caveat: CP-SAT multi-worker is non-deterministic (each
+    worker races independently). Production runs with ``num_search_workers=8``
+    per Phase B fix, trading determinism for the ability to actually find
+    feasibility on NHQS-scale inputs. This test force-pins workers=1 via
+    the module-scope constant to validate the solver's own determinism
+    guarantee under the single-worker path that the determinism invariant
+    still holds for. The scheduling service records ``solver_seed`` so
+    prod reproduction is still possible when the corresponding seed-1
+    workers=1 debug rerun is invoked from the admin tools.
+    """
+    import importlib
+
+    # See test_solver_diagnostics.py — solver_py.solver.__init__ shadows
+    # the submodule name, so ``importlib.import_module`` is required.
+    solve_mod = importlib.import_module("solver_py.solver.solve")
+    monkeypatch.setattr(solve_mod, "_CP_SAT_NUM_SEARCH_WORKERS", 1)
+
     def make() -> object:
         inp = build_input(
             curriculum=[
