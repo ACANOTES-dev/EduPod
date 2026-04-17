@@ -656,17 +656,17 @@ export default function MyTimetablePage() {
         }
       } else if (mode === 'class' && selectedId && academicYearId) {
         const res = await apiClient<TimetableEntryDto[]>(
-          `/api/v1/scheduling/timetables/class/${selectedId}?academic_year_id=${academicYearId}&week_start=${weekDateIso}`,
+          `/api/v1/timetables/class/${selectedId}?academic_year_id=${academicYearId}&week_start=${weekDateIso}`,
         );
         setData(normalizeTimetableEntries(res ?? [], weekStart, weekEnd));
       } else if (mode === 'teacher' && selectedId && academicYearId) {
         const res = await apiClient<TimetableEntryDto[]>(
-          `/api/v1/scheduling/timetables/teacher/${selectedId}?academic_year_id=${academicYearId}&week_start=${weekDateIso}`,
+          `/api/v1/timetables/teacher/${selectedId}?academic_year_id=${academicYearId}&week_start=${weekDateIso}`,
         );
         setData(normalizeTimetableEntries(res ?? [], weekStart, weekEnd));
       } else if (mode === 'student' && selectedId && academicYearId) {
         const res = await apiClient<TimetableEntryDto[]>(
-          `/api/v1/scheduling/timetables/student/${selectedId}?academic_year_id=${academicYearId}&week_start=${weekDateIso}`,
+          `/api/v1/timetables/student/${selectedId}?academic_year_id=${academicYearId}&week_start=${weekDateIso}`,
         );
         setData(normalizeTimetableEntries(res ?? [], weekStart, weekEnd));
       } else if (mode === 'child' && selectedId) {
