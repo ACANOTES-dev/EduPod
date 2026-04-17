@@ -38,6 +38,7 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { PinToggle } from '@/components/scheduling/pin-toggle';
 import { apiClient } from '@/lib/api-client';
+import { classifySolverFailure } from '@/lib/solver-failure';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,6 +77,7 @@ interface RunReview {
   status: string;
   mode: string;
   updated_at: string;
+  failure_reason?: string | null;
   entries: ReviewEntry[];
   period_grids: Record<string, PeriodSlot[]>;
   class_to_year_group: Record<string, string>;
@@ -1528,6 +1530,39 @@ export default function RunReviewPage() {
         <Button variant="outline" onClick={() => router.back()}>
           {t('backToSolver')}
         </Button>
+      </div>
+    );
+  }
+
+  // Runs that terminated without producing any entries (CP_SAT_UNREACHABLE,
+  // model-invalid, worker crash) would render an empty timetable grid, which
+  // is worse than useless — the user edits constraints that weren't the
+  // cause. Show a dedicated crash state instead.
+  if (data.status === 'failed' && data.entries.length === 0) {
+    const category = classifySolverFailure(data.failure_reason ?? null, 0);
+    const titleKey = `progressWidget.failed.${category}.title`;
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title={`${t('autoScheduler')} — ${t('viewReview')}`}
+          actions={
+            <Button variant="outline" size="sm" onClick={() => router.push('/scheduling/auto')}>
+              <ArrowLeft className="h-4 w-4 me-1.5 rtl:rotate-180" />
+              {t('backToSolver')}
+            </Button>
+          }
+        />
+        <div className="rounded-xl border border-red-200 dark:border-red-700/40 bg-red-50/60 dark:bg-red-900/10 px-6 py-5 space-y-2">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
+            <p className="text-sm font-semibold text-red-800 dark:text-red-300">{t(titleKey)}</p>
+          </div>
+          {data.failure_reason && (
+            <p className="text-xs font-mono leading-snug text-red-900/70 dark:text-red-300/70 ps-8">
+              {data.failure_reason}
+            </p>
+          )}
+        </div>
       </div>
     );
   }

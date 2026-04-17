@@ -14,6 +14,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { classifySolverFailure } from '@/lib/solver-failure';
 import { useSolverProgress } from '@/providers/solver-progress-provider';
 
 // Placement-quality tiers.
@@ -138,20 +139,31 @@ export function SolverProgressWidget() {
   }
 
   if (snapshot.status === 'failed' || snapshot.status === 'discarded') {
+    const category = classifySolverFailure(snapshot.failureReason, snapshot.placed);
     const hasPartial = snapshot.placed > 0;
+
+    // legacyPartial keeps the old "unplaced lessons" copy because those runs
+    // genuinely produced something the user can still review.
+    const { title, subtitle } =
+      category === 'legacyPartial'
+        ? {
+            title: t('failedTitle'),
+            subtitle: t('failedSubtitleWithPlacements', {
+              placed: snapshot.placed,
+              unassigned: snapshot.unassigned,
+              elapsed,
+            }),
+          }
+        : {
+            title: t(`failed.${category}.title`),
+            subtitle: t(`failed.${category}.subtitle`, { elapsed }),
+          };
+
     return (
       <WidgetShell
         tone="danger"
-        title={t('failedTitle')}
-        subtitle={
-          hasPartial
-            ? t('failedSubtitleWithPlacements', {
-                placed: snapshot.placed,
-                unassigned: snapshot.unassigned,
-                elapsed,
-              })
-            : t('failedSubtitle', { elapsed })
-        }
+        title={title}
+        subtitle={subtitle}
         icon={<AlertTriangle className="h-4 w-4" />}
         onDismiss={dismiss}
         dismissLabel={tCommon('close')}

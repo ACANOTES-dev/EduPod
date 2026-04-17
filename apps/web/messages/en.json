@@ -5134,6 +5134,28 @@
         "failedTitle": "Solver finished with unplaced lessons",
         "failedSubtitle": "Run ended after {elapsed}",
         "failedSubtitleWithPlacements": "{placed} placed, {unassigned} unplaced in {elapsed}",
+        "failed": {
+          "serviceUnavailable": {
+            "title": "Solver service unavailable",
+            "subtitle": "We couldn't reach the solver. Retry the run; if this keeps happening, contact support."
+          },
+          "solverError": {
+            "title": "Solver error",
+            "subtitle": "The solver encountered an internal error after {elapsed}. Retry, and contact support if it persists."
+          },
+          "modelInvalid": {
+            "title": "Solver rejected the input",
+            "subtitle": "The snapshot couldn't be processed. Review the run detail for the specific validation error."
+          },
+          "workerCrashed": {
+            "title": "Run didn't finish",
+            "subtitle": "The background worker restarted mid-solve. Retry the run."
+          },
+          "unknown": {
+            "title": "Run failed",
+            "subtitle": "The solver stopped after {elapsed} without producing a timetable."
+          }
+        },
         "viewResults": "View results",
         "cancelButton": "Cancel solve",
         "cancelConfirm": "Stop the solver? Any progress will be discarded.",
