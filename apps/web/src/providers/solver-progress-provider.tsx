@@ -46,6 +46,12 @@ interface SolverProgressContextValue {
   startTracking: (runId: string) => void;
   dismiss: () => void;
   cancel: () => Promise<void>;
+  /**
+   * Cooperative halt — tells the solver to stop polishing and return its
+   * current best solution. Unlike cancel(), the partial result is saved as
+   * a completed run.
+   */
+  stopAndAccept: () => Promise<void>;
   isTerminal: boolean;
 }
 
@@ -205,6 +211,21 @@ export function SolverProgressProvider({ children }: { children: React.ReactNode
     stopPolling();
   }, [pollOnce, stopPolling]);
 
+  const stopAndAccept = React.useCallback(async () => {
+    const current = snapshotRef.current;
+    if (!current) return;
+    try {
+      await apiClient(`/api/v1/scheduling-runs/${current.runId}/stop-and-accept`, {
+        method: 'POST',
+      });
+    } catch (err) {
+      console.error('[SolverProgressProvider.stopAndAccept]', err);
+    }
+    // Do NOT stop polling — the worker may take a few seconds to commit the
+    // partial results, and we want the widget to show the transition from
+    // running → completed as soon as the row updates.
+  }, []);
+
   // Resume tracking on mount if sessionStorage has a live run id.
   React.useEffect(() => {
     const persisted = readPersisted();
@@ -241,9 +262,10 @@ export function SolverProgressProvider({ children }: { children: React.ReactNode
       startTracking,
       dismiss,
       cancel,
+      stopAndAccept,
       isTerminal: snapshot ? isTerminalStatus(snapshot.status) : false,
     }),
-    [snapshot, startTracking, dismiss, cancel],
+    [snapshot, startTracking, dismiss, cancel, stopAndAccept],
   );
 
   return <SolverProgressContext.Provider value={value}>{children}</SolverProgressContext.Provider>;

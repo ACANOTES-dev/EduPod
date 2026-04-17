@@ -512,6 +512,75 @@ export class SchedulingRunsService {
     return this.formatRun(updated as unknown as Record<string, unknown>);
   }
 
+  // ─── Stop the solver and accept its current best solution ────────────────
+  //
+  // Sends DELETE /solve/{runId} to the solver-py sidecar. This sets the
+  // cooperative cancel flag that EarlyStopCallback checks on every CP-SAT
+  // solution callback — on the next fire the solver halts with
+  // reason='cancelled' and returns the best-seen solution so far. The worker
+  // then persists that partial solution as status='completed' via its normal
+  // end-of-solve write path (the worker does NOT distinguish cancelled from
+  // naturally-finished once the solver has returned entries).
+  //
+  // This is the "I'm happy with what I have, stop polishing" action. It's
+  // deliberately NOT destructive: the run row stays 'running' until the
+  // worker commits — we don't race the worker write here, we just poke the
+  // solver. Contrast with /cancel which marks the run as failed and uses a
+  // conditional updateMany in the worker to discard any in-flight results.
+  async stopAndAccept(tenantId: string, id: string) {
+    const run = await this.prisma.schedulingRun.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: { id: true, status: true },
+    });
+
+    if (!run) {
+      throw new NotFoundException({
+        code: 'SCHEDULING_RUN_NOT_FOUND',
+        message: `Scheduling run "${id}" not found`,
+      });
+    }
+
+    if (run.status !== 'running') {
+      throw new BadRequestException({
+        code: 'RUN_NOT_HALTABLE',
+        message:
+          `Cannot stop-and-accept a run with status "${run.status}". ` +
+          `Only actively-running runs can be halted — queued runs haven't started yet, ` +
+          `and terminal runs already have a final result.`,
+      });
+    }
+
+    // Fire the DELETE to solver-py. The sidecar returns 200 immediately once
+    // the cancel flag is raised — the actual CP-SAT halt happens on the next
+    // OnSolutionCallback inside the solver worker thread. We don't await the
+    // worker commit here: the progress poller will see the updated row.
+    const sidecarUrl = process.env.SOLVER_PY_URL ?? 'http://localhost:5557';
+    let sidecarOk = false;
+    try {
+      const res = await fetch(`${sidecarUrl}/solve/${id}`, {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(5000),
+      });
+      sidecarOk = res.ok;
+      if (!res.ok && res.status !== 404) {
+        this.logger.warn(
+          `solver-py DELETE /solve/${id} returned ${res.status} — solver may not halt cleanly`,
+        );
+      }
+    } catch (err) {
+      this.logger.warn(`solver-py DELETE /solve/${id} failed: ${(err as Error).message}`);
+    }
+
+    return {
+      id,
+      requested: true,
+      sidecar_ack: sidecarOk,
+      note:
+        'The solver has been asked to halt and return its current best solution. ' +
+        'Results will appear once the solver finishes writing (usually within a few seconds).',
+    };
+  }
+
   // ─── Add an adjustment to a completed run ─────────────────────────────────
 
   async addAdjustment(tenantId: string, id: string, dto: AddAdjustmentDto) {

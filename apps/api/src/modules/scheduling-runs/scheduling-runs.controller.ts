@@ -217,6 +217,25 @@ export class SchedulingRunsController {
   }
 
   /**
+   * POST /v1/scheduling-runs/:id/stop-and-accept
+   *
+   * Cooperative halt: tells the solver to stop its current search and return
+   * whatever best solution it has so far. The partial result is saved as a
+   * completed run, unlike /cancel which discards everything. Typical use:
+   * the solver is past the first feasible solution and the admin is happy
+   * with the current quality, or doesn't want to wait for further polish.
+   */
+  @Post(':id/stop-and-accept')
+  @RequiresPermission('schedule.run_auto')
+  @HttpCode(HttpStatus.OK)
+  async stopAndAccept(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.runsService.stopAndAccept(tenant.tenant_id, id);
+  }
+
+  /**
    * PATCH /v1/scheduling-runs/:id/adjustments
    * Add a manual adjustment to a completed run.
    */

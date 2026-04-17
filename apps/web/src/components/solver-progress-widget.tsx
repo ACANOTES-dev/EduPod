@@ -1,6 +1,14 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2, ChevronRight, Loader2, Sparkles, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronRight,
+  Hand,
+  Loader2,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -38,8 +46,16 @@ function formatElapsed(ms: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+// Once the solver has been running this long we assume it has reached a first
+// feasible solution (greedy hint typically lands in <1s; CP-SAT's first
+// improvement in <15s on normal fixtures). Used to toggle the "core timetable
+// placed, now improving" banner and surface the Stop-and-accept action.
+// Not a hard guarantee — just a UX hint. The backend stop-and-accept endpoint
+// is safe to call before that too; it just won't have much to return.
+const CORE_SOLUTION_THRESHOLD_MS = 15_000;
+
 export function SolverProgressWidget() {
-  const { snapshot, dismiss, cancel, isTerminal } = useSolverProgress();
+  const { snapshot, dismiss, cancel, stopAndAccept, isTerminal } = useSolverProgress();
   // Strings live under scheduling.auto because the widget is specific to
   // auto-scheduler runs — it's mounted globally so a user who navigates
   // away still sees progress, but semantically the copy is auto-scoped.
@@ -160,11 +176,17 @@ export function SolverProgressWidget() {
   }
 
   // ─── Running / queued state ───────────────────────────────────────────────
+  const isCoreLikelyPlaced =
+    snapshot.status === 'running' && elapsedMs >= CORE_SOLUTION_THRESHOLD_MS;
+
   const phaseLabel = (() => {
     if (snapshot.status === 'queued' || snapshot.phase === 'preparing') {
       return t('phasePreparing');
     }
-    return t('phaseSolving');
+    // Once we're past the core-solution threshold, tell the user the solver
+    // has almost certainly landed an initial timetable and is now polishing
+    // it. This is the UX signal that it's safe to click Stop-and-accept.
+    return isCoreLikelyPlaced ? t('phaseImproving') : t('phaseSolving');
   })();
 
   return (
@@ -188,6 +210,18 @@ export function SolverProgressWidget() {
               }}
             />
           </div>
+        </div>
+      )}
+
+      {/* "Core timetable placed" milestone banner. Shown once elapsed crosses
+          the threshold — it's not a hard guarantee (we don't have a live
+          signal from solver-py) but it lets the user know the solver is past
+          first-feasible and into polishing, which is when Stop-and-accept
+          starts returning useful results. */}
+      {isCoreLikelyPlaced && !confirmingCancel && (
+        <div className="mt-2 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2 text-[11px] leading-snug text-text-secondary">
+          <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-emerald-600" />
+          <span>{t('coreSolutionPlaced')}</span>
         </div>
       )}
 
@@ -215,13 +249,28 @@ export function SolverProgressWidget() {
           </div>
         </div>
       ) : (
-        <button
-          type="button"
-          onClick={() => setConfirmingCancel(true)}
-          className="mt-2 w-full rounded-lg border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-secondary hover:text-text-primary"
-        >
-          {t('cancelButton')}
-        </button>
+        <div className="mt-2 space-y-1.5">
+          {/* Primary action once we're past first-feasible: accept the
+              current best. Disabled until elapsed threshold to avoid
+              halting before the solver has found anything. */}
+          <button
+            type="button"
+            onClick={() => void stopAndAccept()}
+            disabled={!isCoreLikelyPlaced}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            title={!isCoreLikelyPlaced ? t('stopAcceptDisabledHint') : undefined}
+          >
+            <Hand className="h-3 w-3" />
+            {t('stopAcceptButton')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmingCancel(true)}
+            className="w-full rounded-lg border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-secondary hover:text-text-primary"
+          >
+            {t('cancelButton')}
+          </button>
+        </div>
       )}
     </WidgetShell>
   );
