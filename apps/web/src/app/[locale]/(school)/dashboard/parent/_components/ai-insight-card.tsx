@@ -36,10 +36,14 @@ export function AiInsightCard({ students }: AiInsightCardProps) {
     apiClient<InsightResponse>('/api/v1/reports/parent-insights', {
       method: 'POST',
       body: JSON.stringify({ student_ids: ids }),
+      // SCHED-036: background widget call — fall back to placeholder on 404/403.
+      silent: true,
     })
       .then((res) => {
         const map: Record<string, string> = {};
-        res.insights.forEach((i) => { map[i.student_id] = i.summary; });
+        res.insights.forEach((i) => {
+          map[i.student_id] = i.summary;
+        });
         setInsights(map);
       })
       .catch((err) => {
@@ -55,7 +59,7 @@ export function AiInsightCard({ students }: AiInsightCardProps) {
         setInsights(map);
       })
       .finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [students]);
 
   const activeStudents = students.filter((s) => s.status === 'active');
@@ -65,7 +69,9 @@ export function AiInsightCard({ students }: AiInsightCardProps) {
     <section className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50 p-4 sm:p-6">
       <div className="mb-4 flex items-center gap-2">
         <Sparkles className="h-5 w-5 text-violet-600" />
-        <h2 className="text-base font-semibold text-violet-900">{t('parentDashboard.aiInsightTitle')}</h2>
+        <h2 className="text-base font-semibold text-violet-900">
+          {t('parentDashboard.aiInsightTitle')}
+        </h2>
       </div>
       {loading ? (
         <div className="space-y-3">
@@ -79,14 +85,13 @@ export function AiInsightCard({ students }: AiInsightCardProps) {
             const insight = insights[student.student_id];
             if (!insight) return null;
             return (
-              <div
-                key={student.student_id}
-                className="rounded-xl bg-white/70 p-4 shadow-sm"
-              >
+              <div key={student.student_id} className="rounded-xl bg-white/70 p-4 shadow-sm">
                 <p className="mb-1 text-xs font-semibold text-violet-700">
                   {student.first_name} {student.last_name}
                   {student.year_group_name && (
-                    <span className="ms-1 font-normal text-violet-500">· {student.year_group_name}</span>
+                    <span className="ms-1 font-normal text-violet-500">
+                      · {student.year_group_name}
+                    </span>
                   )}
                 </p>
                 <p className="text-sm leading-relaxed text-violet-900">{insight}</p>

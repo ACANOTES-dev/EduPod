@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
 import { HouseholdNumberService } from '../households/household-number.service';
@@ -10,7 +10,10 @@ import { StudentsController } from './students.controller';
 import { StudentsService } from './students.service';
 
 @Module({
-  imports: [AuthModule, ParentsModule, SequenceModule],
+  // SCHED-032 / SCHED-035 — ParentsModule now imports StudentsModule
+  // (to get StudentReadFacade for the parent / student timetable views),
+  // completing the cycle. forwardRef breaks it at the import boundary.
+  imports: [AuthModule, forwardRef(() => ParentsModule), SequenceModule],
   controllers: [StudentsController],
   providers: [StudentsService, StudentReadFacade, HouseholdNumberService],
   exports: [StudentsService, StudentReadFacade],

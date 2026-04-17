@@ -65,6 +65,7 @@ export function ParentHome({ schoolName }: { schoolName: string }) {
       try {
         const dash = await apiClient<{ data: { students: LinkedStudent[] } }>(
           '/api/v1/dashboard/parent',
+          { silent: true }, // SCHED-036
         );
         const studentList = dash.data.students ?? [];
         setStudents(studentList);
@@ -77,6 +78,7 @@ export function ParentHome({ schoolName }: { schoolName: string }) {
           studentIds.map((id) =>
             apiClient<{ data: ParentFinanceResponse } | ParentFinanceResponse>(
               `/api/v1/parent/students/${id}/finances`,
+              { silent: true }, // SCHED-036
             ).catch((err) => {
               console.error('[ParentHome]', err);
               return null;

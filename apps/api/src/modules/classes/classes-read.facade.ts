@@ -382,7 +382,18 @@ export class ClassesReadFacade {
       academic_year_id: academicYearId,
     };
     if (opts?.status) where.status = opts.status as ClassStatus;
-    if (opts?.subjectType) where.subject = { subject_type: opts.subjectType as SubjectType };
+    if (opts?.subjectType) {
+      // SCHED-033 — mirror findActiveAcademicClassesWithYearGroup: homeroom
+      // schools (NHQS and similar primary tenants) have `subject_id IS NULL`
+      // and must still count as "academic". Restricting to
+      // `subject.subject_type = academic` alone zero'd the scheduling-hub
+      // "Total Slots" tile.
+      if (opts.subjectType === 'academic') {
+        where.OR = [{ subject_id: null }, { subject: { subject_type: 'academic' } }];
+      } else {
+        where.subject = { subject_type: opts.subjectType as SubjectType };
+      }
+    }
 
     return this.prisma.class.count({ where });
   }

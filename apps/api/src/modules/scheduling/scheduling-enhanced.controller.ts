@@ -443,7 +443,8 @@ export class SchedulingEnhancedController {
     @CurrentUser() user: JwtPayload,
     @Query(new ZodValidationPipe(timetableQuerySchema)) query: z.infer<typeof timetableQuerySchema>,
   ) {
-    // Resolve staff profile from user
+    // Resolve staff profile from user. Students hit the parent-tier endpoint
+    // (`GET /v1/parent/timetable/self`) instead, delivered under SCHED-032.
     return this.personalTimetableService.getTeacherTimetableByUserId(
       tenant.tenant_id,
       user.sub,

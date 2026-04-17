@@ -92,12 +92,16 @@ export function GradesTab({ students: children }: GradesTabProps) {
   const [compareLoading, setCompareLoading] = React.useState(false);
 
   React.useEffect(() => {
-    apiClient<ListResponse<AcademicPeriod>>('/api/v1/parent/academic-periods')
+    apiClient<ListResponse<AcademicPeriod>>('/api/v1/parent/academic-periods', {
+      silent: true, // SCHED-036: background fetch on mount; swallow 403/404 into empty state.
+    })
       .then((res) => {
         setPeriods(res.data);
         if (res.data.length > 0) setSelectedPeriod(res.data[0]!.id);
       })
-      .catch((err) => { console.error('[GradesTab]', err); });
+      .catch((err) => {
+        console.error('[GradesTab]', err);
+      });
   }, []);
 
   const fetchGrades = React.useCallback(async (studentId: string, periodId: string) => {
@@ -107,6 +111,7 @@ export function GradesTab({ students: children }: GradesTabProps) {
       const params = new URLSearchParams({ student_id: studentId, academic_period_id: periodId });
       const res = await apiClient<{ data: GradesData }>(
         `/api/v1/gradebook/student-grades?${params.toString()}`,
+        { silent: true }, // SCHED-036
       );
       setGradesData(res.data);
     } catch (err) {
@@ -124,6 +129,7 @@ export function GradesTab({ students: children }: GradesTabProps) {
       const params = new URLSearchParams({ student_id: studentId });
       const res = await apiClient<{ data: HistoryReportCard[] }>(
         `/api/v1/parent/report-card-history?${params.toString()}`,
+        { silent: true }, // SCHED-036
       );
       setHistory(res.data);
     } catch (err) {
@@ -282,7 +288,9 @@ export function GradesTab({ students: children }: GradesTabProps) {
                         <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
                           {t('score')}
                         </th>
-                        <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{t('grade')}</th>
+                        <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
+                          {t('grade')}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -412,7 +420,9 @@ export function GradesTab({ students: children }: GradesTabProps) {
                                   <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary">
                                     {t('score')}
                                   </th>
-                                  <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary">{t('grade')}</th>
+                                  <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary">
+                                    {t('grade')}
+                                  </th>
                                 </tr>
                               </thead>
                               <tbody>

@@ -47,6 +47,8 @@
     "nextPage": "الصفحة التالية",
     "previousPage": "الصفحة السابقة",
     "status": "الحالة",
+    "active": "نشط",
+    "subjects": "المواد",
     "created": "تم الإنشاء بنجاح",
     "updated": "تم التحديث بنجاح",
     "deleting": "جارٍ الحذف...",
@@ -873,6 +875,7 @@
     "goodMorning": "صباح الخير، {name}",
     "goodAfternoon": "مساء الخير، {name}",
     "goodEvening": "مساء الخير، {name}",
+    "greeting": "مرحباً، {name}",
     "reportIssue": "الإبلاغ عن مشكلة",
     "allHouseholdsComplete": "جميع الأسر مكتملة.",
     "noAttendanceToday": "لم يتم تسجيل جلسات حضور اليوم.",
@@ -885,6 +888,7 @@
     "pendingReview": "قيد المراجعة",
     "accepted": "مقبول",
     "parentDashboard": {
+      "viewTimetable": "عرض جدولي الأسبوعي",
       "linkedStudents": "أبناؤك",
       "outstandingInvoices": "الفواتير المستحقة",
       "recentAnnouncements": "الإعلانات الأخيرة",
@@ -5680,7 +5684,8 @@
       "selectStudent": "اختر الطالب",
       "period": "الحصة",
       "today": "اليوم",
-      "free": "حصة فراغ"
+      "free": "حصة فراغ",
+      "backToDashboard": "العودة إلى لوحة التحكم"
     },
     "noWorkloadDataAvailable": "لا يوجد workload data متاح",
     "selectYear": "اختر year",
@@ -6507,6 +6512,7 @@
   "reportCards": {
     "permissionDenied": "ليس لديك صلاحية لعرض هذه الصفحة.",
     "title": "بطاقات التقارير",
+    "noReportCards": "لا توجد بطاقات تقارير بعد",
     "overviewTab": "نظرة عامة",
     "generateTab": "بطاقات التقارير",
     "generate": "إنشاء بطاقات التقارير",

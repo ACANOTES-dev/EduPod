@@ -106,3 +106,4 @@ This file is the exclusive lock for any server-modifying action taken during the
 
 2026-04-16 07:00:00 UTC — stage-12 — acquired — Stage 12 diagnostics overhaul: rsync api + worker + shared + web + solver-py + migration. Rebuild all workspaces. pm2 restart api web worker solver-py.
 2026-04-16 07:15:00 UTC — stage-12 — released — Migration applied (enum + 3 columns). All 4 services online: api pid 40046 (54s), solver-py pid 40093 (23s), web pid 40081 (24s), worker pid 40069 (24s). No restart loops. Sidecar /health OK. DB columns verified. Diagnostics panel live.
+2026-04-17 14:00:00 UTC — bug-fix-session — acquired — SCHED-042 investigation + deploy SCHED-031/033/034/035/036 batch

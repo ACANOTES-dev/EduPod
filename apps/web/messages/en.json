@@ -47,6 +47,8 @@
     "nextPage": "Next page",
     "previousPage": "Previous page",
     "status": "Status",
+    "active": "Active",
+    "subjects": "Subjects",
     "created": "Created successfully",
     "updated": "Updated successfully",
     "deleting": "Deleting...",
@@ -874,6 +876,7 @@
     "goodMorning": "Good morning, {name}",
     "goodAfternoon": "Good afternoon, {name}",
     "goodEvening": "Good evening, {name}",
+    "greeting": "Hello, {name}",
     "reportIssue": "Report Issue",
     "allHouseholdsComplete": "All households are complete.",
     "noAttendanceToday": "No attendance sessions recorded today.",
@@ -886,6 +889,7 @@
     "pendingReview": "Pending Review",
     "accepted": "Accepted",
     "parentDashboard": {
+      "viewTimetable": "View my weekly timetable",
       "linkedStudents": "Your Students",
       "outstandingInvoices": "Outstanding Invoices",
       "recentAnnouncements": "Recent Announcements",
@@ -5688,7 +5692,8 @@
       "selectStudent": "Select student",
       "period": "Period",
       "today": "Today",
-      "free": "Free"
+      "free": "Free",
+      "backToDashboard": "Back to dashboard"
     },
     "noWorkloadDataAvailable": "No workload data available",
     "selectYear": "Select year",
@@ -6515,6 +6520,7 @@
   "reportCards": {
     "permissionDenied": "You do not have permission to view this page.",
     "title": "Report Cards",
+    "noReportCards": "No report cards yet",
     "overviewTab": "Overview",
     "generateTab": "Report Cards",
     "generate": "Generate Report Cards",

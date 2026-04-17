@@ -236,6 +236,7 @@ export const PERMISSIONS = {
     submit_inquiry: 'parent.submit_inquiry',
     view_announcements: 'parent.view_announcements',
     view_transcripts: 'parent.view_transcripts',
+    view_timetable: 'parent.view_timetable',
   },
 } as const;
 
@@ -386,6 +387,7 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.parent_portal.submit_inquiry]: 'parent',
   [PERMISSIONS.parent_portal.view_announcements]: 'parent',
   [PERMISSIONS.parent_portal.view_transcripts]: 'parent',
+  [PERMISSIONS.parent_portal.view_timetable]: 'parent',
   [PERMISSIONS.behaviour.appeal]: 'parent',
 };
 
@@ -671,6 +673,7 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.parent_portal.submit_inquiry,
     PERMISSIONS.parent_portal.view_announcements,
     PERMISSIONS.parent_portal.view_transcripts,
+    PERMISSIONS.parent_portal.view_timetable,
     PERMISSIONS.legal.view,
     // Behaviour (parent tier)
     PERMISSIONS.behaviour.appeal,

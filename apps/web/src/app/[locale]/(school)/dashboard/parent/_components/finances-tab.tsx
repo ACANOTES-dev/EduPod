@@ -102,7 +102,7 @@ export function FinancesTab() {
         // Step 1: load linked students via the parent dashboard aggregator
         const dashboardRes = await apiClient<{
           data: { students: Array<{ student_id: string }> };
-        }>('/api/v1/dashboard/parent');
+        }>('/api/v1/dashboard/parent', { silent: true }); // SCHED-036
         const studentIds = (dashboardRes.data.students ?? []).map((s) => s.student_id);
 
         if (studentIds.length === 0) {
@@ -145,6 +145,7 @@ export function FinancesTab() {
           studentIds.map((id) =>
             apiClient<{ data: BackendStudentFinances } | BackendStudentFinances>(
               `/api/v1/parent/students/${id}/finances`,
+              { silent: true }, // SCHED-036
             ).catch((err) => {
               console.error('[FinancesTab]', err);
               return null;

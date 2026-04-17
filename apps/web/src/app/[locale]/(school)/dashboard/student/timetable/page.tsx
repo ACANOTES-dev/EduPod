@@ -1,10 +1,9 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
-
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -19,7 +18,7 @@ interface TimetableCell {
   room_name: string | null;
 }
 
-interface ParentTimetableResponse {
+interface StudentTimetableResponse {
   class_name: string;
   classroom_model: 'fixed_homeroom' | 'free_movement';
   rotation_week_label: string | null;
@@ -28,15 +27,6 @@ interface ParentTimetableResponse {
   weekdays: number[];
   periods: Array<{ order: number; name: string; start_time: string; end_time: string }>;
   cells: TimetableCell[];
-}
-
-interface Child {
-  id: string;
-  name: string;
-}
-
-interface TimetableTabProps {
-  students: Child[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -63,33 +53,28 @@ function subjectColour(subjectName: string): string {
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const WEEKDAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
-export function TimetableTab({ students }: TimetableTabProps) {
+export default function StudentTimetablePage() {
   const t = useTranslations('scheduling.parentTimetable');
-  const [selectedChild, setSelectedChild] = React.useState(students[0]?.id ?? '');
-  const [data, setData] = React.useState<ParentTimetableResponse | null>(null);
-  const [loading, setLoading] = React.useState(false);
-  const [mobileDay, setMobileDay] = React.useState<number>(new Date().getDay());
+  const locale = useLocale();
 
+  const [data, setData] = React.useState<StudentTimetableResponse | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [mobileDay, setMobileDay] = React.useState<number>(new Date().getDay());
   const todayWeekday = new Date().getDay();
 
   React.useEffect(() => {
-    if (!selectedChild) return;
     setLoading(true);
-    apiClient<ParentTimetableResponse>(
-      `/api/v1/parent/timetable?student_id=${selectedChild}`,
-      { silent: true }, // SCHED-036: 404/403 fall back to the empty state.
-    )
+    apiClient<StudentTimetableResponse>('/api/v1/parent/timetable/self', { silent: true })
       .then((res) => setData(res))
       .catch((err) => {
-        console.error('[TimetableTab]', err);
-        return setData(null);
+        console.error('[StudentTimetablePage]', err);
+        setData(null);
       })
       .finally(() => setLoading(false));
-  }, [selectedChild]);
+  }, []);
 
-  // Set mobile day to today or first available weekday
   React.useEffect(() => {
     if (data && !data.weekdays.includes(todayWeekday) && data.weekdays.length > 0) {
       setMobileDay(data.weekdays[0]!);
@@ -98,56 +83,38 @@ export function TimetableTab({ students }: TimetableTabProps) {
 
   const cellMap = React.useMemo(() => {
     const map = new Map<string, TimetableCell>();
-    if (data) {
-      for (const c of data.cells) {
-        map.set(`${c.weekday}-${c.period_order}`, c);
-      }
-    }
+    if (data) for (const c of data.cells) map.set(`${c.weekday}-${c.period_order}`, c);
     return map;
   }, [data]);
 
   return (
-    <div className="space-y-5">
-      {/* Student selector */}
-      {students.length > 1 && (
-        <Select value={selectedChild} onValueChange={setSelectedChild}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder={t('selectStudent')} />
-          </SelectTrigger>
-          <SelectContent>
-            {students.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
+    <div className="space-y-5 p-4 sm:p-6">
+      <Link
+        href={`/${locale}/dashboard/student`}
+        className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        <span>{t('backToDashboard')}</span>
+      </Link>
 
       {loading ? (
         <div className="flex items-center gap-2 py-8 text-sm text-text-secondary">
           <Loader2 className="h-4 w-4 animate-spin" />
           {t('loading')}
         </div>
-      ) : !data ? (
+      ) : !data || data.weekdays.length === 0 ? (
         <p className="py-8 text-center text-sm text-text-secondary">{t('noTimetable')}</p>
       ) : (
         <>
-          {/* Week info */}
-          <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary">
-            <span className="font-medium text-text-primary">{data.class_name}</span>
-            {data.rotation_week_label && (
-              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                {data.rotation_week_label}
-              </span>
-            )}
-            <span className="text-text-tertiary">
+          <div className="space-y-1">
+            <h1 className="text-xl font-bold text-text-primary">{data.class_name}</h1>
+            <p className="text-xs text-text-tertiary">
               {new Date(data.week_start).toLocaleDateString()} –{' '}
               {new Date(data.week_end).toLocaleDateString()}
-            </span>
+            </p>
           </div>
 
-          {/* Desktop: weekly grid */}
+          {/* Desktop grid */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
@@ -165,11 +132,6 @@ export function TimetableTab({ students }: TimetableTabProps) {
                       }`}
                     >
                       {WEEKDAY_SHORT[wd] ?? wd}
-                      {wd === todayWeekday && (
-                        <span className="ms-1 rounded-full bg-primary px-1 py-0.5 text-[9px] text-white">
-                          {t('today')}
-                        </span>
-                      )}
                     </th>
                   ))}
                 </tr>
@@ -211,7 +173,7 @@ export function TimetableTab({ students }: TimetableTabProps) {
             </table>
           </div>
 
-          {/* Mobile: day tabs + list */}
+          {/* Mobile day tabs */}
           <div className="sm:hidden">
             <div className="flex gap-1 overflow-x-auto pb-1">
               {data.weekdays.map((wd) => (

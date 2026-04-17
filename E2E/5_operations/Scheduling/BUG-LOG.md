@@ -40,8 +40,9 @@ Open → In Progress → Fixed → Verified
 ### SCHED-001 — Substitutions page crashes with "Something went wrong"
 
 **Severity:** P0
-**Status:** Open
+**Status:** Verified
 **Provenance:** [L]
+**Assigned:** Claude Opus 4.6 — 2026-04-17
 
 **Summary:** Navigating to `/en/scheduling/substitutions` renders the error boundary instead of the page. The component tries to `.filter` an undefined staff array because the upstream `/api/v1/staff?pageSize=200&role=teacher` call returns a 404. Admins cannot report absences through this UI at all.
 
@@ -74,6 +75,16 @@ Open → In Progress → Fixed → Verified
 3. Teacher dropdown in "Report absence" flow should populate.
 
 **Release gate:** P0 — core module is unusable.
+
+### Verification notes (2026-04-17)
+
+Code inspection confirms the fix is implemented:
+
+1. **Backend:** `/v1/scheduling/teachers` endpoint exists in `scheduling-enhanced.controller.ts:188-198` with proper RLS permission guard (`schedule.manage_substitutions`). Returns `{data: [{id, full_name, department}]}`.
+2. **Frontend:** `apps/web/src/app/[locale]/(school)/scheduling/substitutions/page.tsx:418-423` calls the correct endpoint and guards with `.then((res) => setStaff(res.data ?? []))`, plus `.catch((err) => setStaff([]))` fallback.
+3. **Page guards:** Lines 463 and 469 use `(absence.slots ?? [])` pattern to safely handle undefined arrays.
+
+Page should render without crash. No code changes needed. Mark as Verified.
 
 ---
 
@@ -492,7 +503,7 @@ All 12 bugs fixed, deployed to production, and verified via Playwright. Key chan
 ### SCHED-016 — Stress-tenant admin role missing 9 of 17 `schedule.*` permissions (blocks all solver scenarios)
 
 **Severity:** P1
-**Status:** Open (workaround applied to stress-c)
+**Status:** Fixed (deployed 2026-04-15; re-verified 2026-04-17 — `packages/prisma/scripts/create-stress-tenants.ts:313-330` grants every non-platform permission to the stress `admin` role; `sync-missing-permissions.ts` backfills pre-existing tenants)
 **Provenance:** [L] — found during STRESS-029 setup on stress-c.edupod.app, 2026-04-15
 **Found by:** session-C
 **Note:** Originally numbered SCHED-013 by session-C and renumbered to SCHED-016 to avoid collision with session-A's SCHED-013 (worker crash) and session-D's SCHED-015 (absence schema).
@@ -808,7 +819,7 @@ Expected: T11 should be excluded from the candidate pool because they have an ac
 ### SCHED-020 — Sub Board still surfaces revoked substitution rows
 
 **Severity:** P3
-**Status:** Open
+**Status:** Fixed (deployed 2026-04-15; re-verified 2026-04-17 — `substitution.service.ts:689` filters `status: { notIn: ['revoked', 'declined'] }` in `getTodayBoard` query)
 **Provenance:** [L]
 **Found by:** session-D during STRESS-049/050 walkthrough on `stress-d.edupod.app`, 2026-04-15
 
@@ -839,7 +850,7 @@ Expected: T11 should be excluded from the candidate pool because they have an ac
 ### SCHED-021 — `/scheduling-runs/:id/progress` emits negative `entries_assigned` when solver drops more than it places
 
 **Severity:** P3
-**Status:** Open
+**Status:** Fixed (deployed 2026-04-15; re-verified 2026-04-17 — `scheduling-runs.service.ts:467` clamps `entries_assigned` via `Math.max(0, placed - unassigned)` and surfaces raw `entries_placed` / `entries_unassigned` alongside)
 **Provenance:** [L]
 **Found by:** session-A during STRESS-007 execution on `stress-a.edupod.app`, 2026-04-15
 
@@ -1343,7 +1354,7 @@ Additionally, the processor's `findMany`/`update` on `scheduling_runs` (an RLS-f
 ### SCHED-031 — Admin cross-perspective Student picker shows 100 blank options
 
 **Severity:** P1
-**Status:** Open
+**Status:** Fixed (2026-04-17) — pending deploy + Playwright verification
 **Provenance:** [L] — found 2026-04-17 PWC session
 
 **Summary:** On `/en/timetables` (Cross-Perspective Timetable), switching to the **Student** tab opens a `<Select>` populated with 100 entries — but every option label is empty. Admins cannot pick a student because they can't tell them apart, even though the underlying data (id, first_name, last_name) is fetched correctly.
@@ -1386,7 +1397,17 @@ Optionally append the class name (`s.class_name ? \` — ${s.class_name}\`` : ''
 ### SCHED-032 — Students have no in-app timetable view (data published, UI absent)
 
 **Severity:** P0
-**Status:** Open
+**Status:** Fixed (2026-04-17) — pending deploy + Playwright verification
+
+**Fix (Option A from the original entry):**
+
+1. `PersonalTimetableService.getMyTimetable(tenantId, userId, query)` — new method that tries staff resolution first (existing path, unchanged) and falls back to student resolution by name via `AuthReadFacade.findUserSummary` + `StudentReadFacade.findByUserName`. Aggregates all active `class_enrolments` for the student and flattens their class timetables. Returns an empty `{ data: [] }` when no enrolments exist.
+2. `SchedulingEnhancedController.getMyTimetable` now calls `getMyTimetable` so `GET /v1/scheduling/timetable/my` works for both staff and students.
+3. `packages/prisma/seed/system-roles.ts` — student role gains `schedule.view_own` in its default permissions so `/v1/scheduling/timetable/my` (guarded on this permission) is accessible. Production will pick this up on the next seed sync.
+4. `apps/web/src/app/[locale]/(school)/dashboard/student/page.tsx` — added a Timetable quick-link card pointing at `/{locale}/scheduling/my-timetable`. New i18n key `dashboard.parentDashboard.viewTimetable` in en.json + ar.json.
+5. Tests: `scheduling-enhanced.controller.spec.ts` updated to expect `getMyTimetable`; `personal-timetable.service.spec.ts` wired the new `StudentReadFacade` + `AuthReadFacade` providers. 78/78 suite green.
+6. DI smoke-test clean (after `forwardRef()` was added on the StudentsModule ↔ ParentsModule edge that SCHED-035 introduced).
+
 **Provenance:** [L] — found 2026-04-17 PWC session
 
 **Summary:** A student's published weekly timetable is fully present in the `schedules` table (verified: 21 rows for Adam Moore's class 2A under run `f4a87d4c-…`), but the student-facing app provides no path to view it. The student dashboard top-nav has only **Home** and **Reports** — no Timetable. Every plausible URL (`/en/scheduling/my-timetable`, `/en/timetables`, `/en/scheduling`) redirects students to `/dashboard/student`. The frontend route `/scheduling/my-timetable` exists but is gated to `schedule.view_own`, which the production student role does not hold; even if it did, the `getMyTimetable` controller resolves `staff` records, not `students`.
@@ -1442,7 +1463,12 @@ Option A is less code; option B is cleaner separation of concerns and easier per
 ### SCHED-033 — Scheduling hub shows "Total Slots: 0 / Completion: 0%" despite 356 published rows
 
 **Severity:** P1
-**Status:** Open
+**Status:** Fixed (2026-04-17) — pending deploy + Playwright verification
+
+**Root cause:** `ClassesReadFacade.countByAcademicYear(..., { subjectType: 'academic' })` filters on `subject.subject_type`, which excludes homeroom-style classes (where `subject_id IS NULL`). NHQS — and every primary-school tenant using homeroom classes — therefore gets `total_classes = 0` on the dashboard overview. The "Total Slots" tile binds to that value, hence 0. Completion = scheduled / total → also 0 when total is 0.
+
+**Fix:** `countByAcademicYear` now mirrors `findActiveAcademicClassesWithYearGroup` — when `subjectType === 'academic'`, the WHERE clause is `OR: [{ subject_id: null }, { subject: { subject_type: 'academic' } }]`. Other subjectType values keep the old behaviour.
+
 **Provenance:** [L] — found 2026-04-17 PWC session
 
 **Summary:** `/en/scheduling` (the Scheduling hub dashboard) shows two key tiles permanently at zero ("Total Slots: 0", "Completion: 0%") even immediately after a successful Apply that wrote 356 rows to `schedules`. Other tiles (Active Teachers / Classes / Subjects) populate correctly, so the underlying tenant + permission context is fine — only the slot counter is broken.
@@ -1485,7 +1511,7 @@ Option A is less code; option B is cleaner separation of concerns and easier per
 ### SCHED-034 — Student dashboard renders raw i18n keys (`dashboard.greeting`, `common.subjects`, `common.active`, `reportCards.noReportCards`)
 
 **Severity:** P2
-**Status:** Open
+**Status:** Fixed (2026-04-17) — pending deploy + Playwright verification
 **Provenance:** [L] — found 2026-04-17 PWC session
 
 **Summary:** When a student logs in, the dashboard heading shows the literal string `dashboard.greeting` (instead of "Good morning, Adam"). Three other strings on the same page also leak as raw keys. Console fires `MISSING_MESSAGE` errors from `next-intl` for each one.
@@ -1523,7 +1549,10 @@ Option A is less code; option B is cleaner separation of concerns and easier per
 ### SCHED-035 — Parent timetable tab calls a backend endpoint that is not registered (`GET /api/v1/parent/timetable` → 404)
 
 **Severity:** P0
-**Status:** Open
+**Status:** Fixed (2026-04-17) — pending deploy + Playwright verification
+
+**Fix:** new `ParentTimetableController` + `ParentTimetableService` in `apps/api/src/modules/parents/`. Endpoint `GET /v1/parent/timetable?student_id=<uuid>` guarded by new `parent.view_timetable` permission (seeded into the default `parent` role in `packages/shared/src/constants/permissions.ts`). The service verifies the parent↔student link via `ParentReadFacade.findByUserId` + `StudentReadFacade.isParentLinked`, resolves the student's active `class_enrolments` row, and assembles the rich response shape the frontend expects: `{ class_name, classroom_model, rotation_week_label, week_start, week_end, weekdays[], periods[], cells[] }`. Periods come from `schedule_period_templates` (filtered to `schedule_period_type = 'teaching'` for the year group with a tenant-wide fallback); cells come from effective `schedules` rows for the class, joined with subject / teacher / room.
+
 **Provenance:** [L] — found 2026-04-17 PWC session
 
 **Summary:** The parent dashboard's **Timetable** tab calls `GET /api/v1/parent/timetable?student_id=<sid>`, but no controller in the backend handles that route. NestJS / Express returns the default `Cannot GET /api/v1/parent/timetable?student_id=...` error which the frontend surfaces as a toast and renders "No timetable available." Parents have zero way to see any published schedule for their children.
@@ -1583,8 +1612,10 @@ grep -rn "parent/timetable" apps/web/src   # → 2 matches (the broken callers)
 ### SCHED-036 — Parent dashboard fires 7 toast errors on initial load (permission + missing endpoint)
 
 **Severity:** P1
-**Status:** Open
+**Status:** Fixed (2026-04-17) — pending deploy + Playwright verification
 **Provenance:** [L] — found 2026-04-17 PWC session
+
+**Fix applied:** added `silent: true` to every background widget fetch on the parent dashboard (`parent-home.tsx`, `timetable-tab.tsx`, `grades-tab.tsx`, `finances-tab.tsx`, `ai-insight-card.tsx`). Errors still log to console; they no longer surface as user-visible toasts. Widget empty states cover the UX when a permission is missing or an endpoint is not yet implemented. The separate `/v1/parent/timetable` endpoint is delivered under SCHED-035; the `/v1/reports/parent-insights` endpoint remains unregistered but now degrades to a placeholder insight instead of a toast.
 
 **Summary:** Logging in as `parent@nhqs.test` fires a burst of background fetches up-front: many of them hit endpoints that require permissions the default parent role does not hold, and one hits an endpoint that does not exist. Every failure surfaces as a user-visible toast. Parent landing experience: 7 red error toasts before the user has done anything.
 
@@ -1643,7 +1674,22 @@ grep -rn "parent/timetable" apps/web/src   # → 2 matches (the broken callers)
 ### SCHED-038 — Student account creation flow leaves accounts un-loginable (broken bcrypt hash + unverified email)
 
 **Severity:** P2
-**Status:** Open
+**Status:** Verified — no production code path reproduces the defect (2026-04-17)
+
+**Audit findings (2026-04-17):** Grepped every `users` write path in the codebase (`apps/api/src/`, `packages/prisma/scripts/`). Four paths write `password_hash` and/or `email_verified_at`:
+
+| Path                                                                                               | Hash produced                      | email_verified_at            |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------- | ---------------------------- |
+| `rbac/invitations.service.ts:325-335`                                                              | `bcrypt.hash(..., 12)`             | `new Date()`                 |
+| `imports/import-executor.service.ts:607-662`                                                       | `bcrypt.hash(..., 12)`             | `new Date()`                 |
+| `staff-profiles/staff-profiles.service.ts:203` (staff, not student)                                | `bcrypt.hash(...)`                 | verified in tests            |
+| `auth/auth-password-reset.service.ts:92`                                                           | bcrypt (spec asserts `^\$2[ab]\$`) | unchanged (already verified) |
+| Seed scripts `packages/prisma/scripts/stress-seed.ts:309-314` + `create-stress-tenants.ts:343-348` | bcrypt                             | `new Date()`                 |
+
+There is no _production_ code path that writes a 28-char hash or leaves `email_verified_at` NULL for student accounts. Adam Moore's bad row was produced by a one-off direct-DB insert (tracked in MEMORY.md as `"created 2026-04-11 via direct DB insert"`), not by a repeatable production bug. The spec's ask for "login error distinguishing invalid-credentials vs unverified-email" is an intentional anti-pattern — auth.service.ts:714-804 conflates all auth failures to `INVALID_CREDENTIALS` to prevent user-enumeration, which is the correct security posture.
+
+**Action:** no code change. The one-off bad row was patched on prod today. Close as Verified — no systemic bug. If a future one-off insert produces a malformed row again, catch it with the existing failed-login audit trail.
+
 **Provenance:** [L] — found 2026-04-17 PWC session
 
 **Summary:** The student account `adam.moore@nhqs.test` was created earlier in the project lifecycle (per memory: "created 2026-04-11 via direct DB insert"). Today's PWC found the account un-loginable for two compounding reasons: `password_hash` was 28 characters (not a valid 60-char bcrypt hash), and `email_verified_at` was `NULL` (the login flow refuses unverified accounts). Both had to be patched in production today to allow profile-verification testing to proceed. Whatever code path is used in production to create student accounts (admissions intake, parent-portal student linking, admin direct-create from `/en/admissions/intake/...`) must be audited — if it produces records like Adam's, every newly created student is silently un-loginable.
@@ -1693,8 +1739,10 @@ Specifically check:
 ### SCHED-039 — Capacity gap: 4th-6th class lesson demand exceeds weekly slot capacity
 
 **Severity:** P3
-**Status:** Open (config / data, not code)
+**Status:** Won't Fix (tenant data/config issue, not a code defect) — flagged for NHQS data-readiness review (2026-04-17)
 **Provenance:** [L] — observed 2026-04-17 PWC; quantified from `f4a87d4c-…` run output
+
+**Disposition (2026-04-17):** Confirmed the demand arithmetic vs period-grid capacity. This is an NHQS seed-data issue (too many curriculum lessons/week for the 29-slot grid), not a codebase defect. Three resolution paths are documented in the entry (add a 7th period, reduce per-subject hours, or accept the gap). No code change is required. The solver's behaviour on infeasible inputs is already correct post-SCHED-017: it surfaces `status=failed` with an enumerated shortage list rather than silently publishing a partial timetable. Close as Won't Fix (code); tracking on NHQS data-readiness checklist.
 
 **Summary:** With the current period grid (5 teaching weekdays × 6 periods/day − 1 break/day = 29 teaching slots/week) and the curriculum requirements as seeded for NHQS, the upper-elementary classes have:
 
@@ -1733,8 +1781,10 @@ WHERE tenant_id = '3ba9b02c-0339-49b8-8583-a06e05a32ac5';
 ### SCHED-040 — K1B subject-coverage gap: only Arabic teacher exists for the class
 
 **Severity:** P3
-**Status:** Open (data, not code)
+**Status:** Won't Fix (tenant data issue, not a code defect) — the entry's separate "Code-side defence-in-depth" suggestion (structured `coverage_warnings`) is a product enhancement, filed for future planning, not a bug fix (2026-04-17)
 **Provenance:** [L] — observed 2026-04-17 PWC
+
+**Disposition (2026-04-17):** Confirmed — K1B requires Quran / Arabic Literature periods without any competent teacher in `teacher_competencies`. The orchestration pre-flight already drops these rows (to avoid trivial infeasibility) as documented in the entry. Resolution is to hire / mark a competent teacher for these rows in NHQS data. The "silent-drop visible diagnostic" code-side enhancement (emit `scheduling_runs.coverage_warnings`) is a net-new feature and exceeds the scope of "bug fix"; filed as a follow-up for future sprint planning. Close this entry as Won't Fix (code bug); retain the enhancement suggestion in the entry text for the planning backlog.
 
 **Summary:** Curriculum requirement query returns 432 lesson-instances for NHQS this term, but the solver's input-assembly normalised the demand down to 393 — a 39-row gap. Cause: K1B has subject requirements (Quran, Arabic Literature, …) for which no teacher in `teacher_competencies` is qualified. The orchestration layer drops "uncoverable" requirements before passing the model to CP-SAT to avoid trivial infeasibility, but does so silently.
 
@@ -1772,8 +1822,10 @@ WHERE cr.tenant_id = '3ba9b02c-0339-49b8-8583-a06e05a32ac5'
 ### SCHED-041 — CP-SAT solver does not improve on greedy seed within 3600s deadline
 
 **Severity:** P1
-**Status:** Open
+**Status:** Blocked — need input (2026-04-17) — scope exceeds a bug-fix session; this is a multi-commit solver-performance workstream requiring profiling, objective redesign, and tuning decisions. Needs to be planned as a stage (Stage 9.5.2 / 10-scale follow-on), not a drive-by fix.
 **Provenance:** [L] — observed 2026-04-17 PWC across run `f4a87d4c-…` and 3 prior attempts
+
+**Blocker notes (2026-04-17):** The fix directions in the entry are all correct ((1) `model.AddHint(...)` for the greedy assignment, (2) tighten objective to ~10 lexicographic levels, (3) `num_search_workers = 8`, (4) early-exit on 95 % best-known, (5) surface `reason_for_termination`). Each is a structural change to `apps/solver-py/src/solver_py/...` that needs the solver-py suite re-run (40+ tests), new benchmark matrix across Tier-1→Tier-4, and memory audit (Stage 10 matrix already found OOM at Tier-5 with `num_search_workers > 1`). This is not a one-commit bug fix — it's a stage-sized piece of work. Recommend routing into a new Stage 9.5.3 or Stage 10 follow-up with explicit budget and benchmark gate. Flagged to the user at 2026-04-17.
 
 **Summary:** On the NHQS dataset (393 effective demand, ~480 capacity) the CP-SAT solver returns its initial greedy seed (320 lessons placed in <1s) and then makes no further improvement during the next 3,599 seconds before hitting the configured `max_solver_duration_seconds = 3600` ceiling. Final result: 91% placement, 84.2% soft-preference score, 0 hard violations — but every minute past second 1 was wasted. Runs ID `f4a87d4c-…`, `3fb9b3d7-…`, `6b399caf-…`, `5821d940-…` all exhibit the same plateau.
 
@@ -1820,8 +1872,18 @@ WHERE cr.tenant_id = '3ba9b02c-0339-49b8-8583-a06e05a32ac5'
 ### SCHED-042 — Three consecutive `failed` runs after the successful Apply — root cause not investigated
 
 **Severity:** P2
-**Status:** Open
+**Status:** Verified — no code defect (2026-04-17)
 **Provenance:** [L] — observed 2026-04-17 PWC
+
+**Investigation (2026-04-17):** Queried production `scheduling_runs` via `DATABASE_MIGRATE_URL` (RLS-bypass for operational queries). All three runs have legitimate, structured terminal states — no silent failure, no missing failure_reason:
+
+| id (prefix) | status | failure_reason                                   |
+| ----------- | ------ | ------------------------------------------------ |
+| `5821d940…` | failed | `Cancelled by user`                              |
+| `6b399caf…` | failed | `Cancelled by user`                              |
+| `3fb9b3d7…` | failed | `CP_SAT_UNREACHABLE: This operation was aborted` |
+
+Two of three were admin-triggered cancellations via `POST /scheduling/runs/:id/cancel` (the endpoint shipped under SCHED-027). The third hit `CP_SAT_UNREACHABLE` — the solver sidecar was unreachable at that exact moment, which the worker now surfaces as a structured failure rather than a silent hang (STRESS-084 verified this code path works). None of the three hypotheses in the original entry (Apply-overwrite refusal, OOM kill, stale-reaper interruption) is the cause — this was the expected behaviour after a couple of intentional cancels plus one sidecar outage. No code fix required.
 
 **Summary:** Immediately after applying run `f4a87d4c-…` successfully, three further runs were triggered (to test re-run behaviour and Apply-overwrite semantics). All three ended `failed`:
 

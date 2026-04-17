@@ -445,6 +445,10 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     default_permissions: [
       'legal.view',
       'schedule.view_class',
+      // SCHED-032 — students view their own timetable through the parent-tier
+      // endpoint `GET /v1/parent/timetable/self`, which reuses the rich-shape
+      // assembler from the scheduling module. See ParentTimetableService.
+      'parent.view_timetable',
       // Inbox — students hold the send bit; the policy engine decides whether
       // they may actually start or reply (default: reply-only on allow_replies).
       'inbox.send',

@@ -128,7 +128,14 @@ export default function TimetablesPage() {
         { silent: true },
       ),
       apiClient<ListResponse<SelectOption>>('/api/v1/rooms?pageSize=100', { silent: true }),
-      apiClient<ListResponse<SelectOption>>('/api/v1/students?pageSize=100', { silent: true }),
+      apiClient<{
+        data: Array<{
+          id: string;
+          first_name: string;
+          last_name: string;
+          class_entity?: { name: string } | null;
+        }>;
+      }>('/api/v1/students?pageSize=100', { silent: true }),
       apiClient<ListResponse<ClassOption>>('/api/v1/classes?pageSize=100', { silent: true }),
       apiClient<ListResponse<SelectOption>>('/api/v1/year-groups?pageSize=50', { silent: true }),
     ])
@@ -138,7 +145,14 @@ export default function TimetablesPage() {
             ListResponse<AcademicYear>,
             { data: Array<{ id: string; user?: { first_name: string; last_name: string } }> },
             ListResponse<SelectOption>,
-            ListResponse<SelectOption>,
+            {
+              data: Array<{
+                id: string;
+                first_name: string;
+                last_name: string;
+                class_entity?: { name: string } | null;
+              }>;
+            },
             ListResponse<ClassOption>,
             ListResponse<SelectOption>,
           ];
@@ -154,7 +168,16 @@ export default function TimetablesPage() {
           })),
         );
         setRooms(roomsRes.data);
-        setStudents(studentsRes.data);
+        // SCHED-031 — map {first_name, last_name, class_entity.name} → {id, name}
+        // so the student picker shows readable labels (was rendering blank rows).
+        setStudents(
+          (studentsRes.data ?? []).map((s) => ({
+            id: s.id,
+            name: s.class_entity?.name
+              ? `${s.first_name} ${s.last_name} — ${s.class_entity.name}`
+              : `${s.first_name} ${s.last_name}`,
+          })),
+        );
         setClasses(classesRes.data);
         setYearGroups(yearGroupsRes.data);
       })

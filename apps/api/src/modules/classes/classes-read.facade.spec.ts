@@ -722,15 +722,31 @@ describe('ClassesReadFacade — countByAcademicYear', () => {
     );
   });
 
-  it('should apply subjectType filter when provided', async () => {
-    mockPrisma.class.count.mockResolvedValue(2);
+  it('should apply subjectType=academic filter via OR(subject_id IS NULL OR subject_type=academic) — SCHED-033', async () => {
+    mockPrisma.class.count.mockResolvedValue(16);
 
     await facade.countByAcademicYear(TENANT_ID, ACADEMIC_YEAR_ID, { subjectType: 'academic' });
 
     expect(mockPrisma.class.count).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          subject: { subject_type: 'academic' },
+          OR: [{ subject_id: null }, { subject: { subject_type: 'academic' } }],
+        }),
+      }),
+    );
+  });
+
+  it('should apply non-academic subjectType filter via subject.subject_type', async () => {
+    mockPrisma.class.count.mockResolvedValue(2);
+
+    await facade.countByAcademicYear(TENANT_ID, ACADEMIC_YEAR_ID, {
+      subjectType: 'extracurricular',
+    });
+
+    expect(mockPrisma.class.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          subject: { subject_type: 'extracurricular' },
         }),
       }),
     );
