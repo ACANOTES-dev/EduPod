@@ -490,6 +490,15 @@ export class SchedulingReadFacade {
     tenantId: string,
     academicYearId: string,
     yearGroups: ReadonlyArray<{ id: string; name: string }>,
+    // Set of (year_group_id, subject_id) tuples that have at least one
+    // active class in the year group assigned the subject via
+    // ``class_subject_grade_configs``. Filters out orphan curriculum
+    // rows whose subject isn't actually taught to any class — these
+    // don't contribute to the solver's demand so must not count
+    // against the grid capacity check. Consumers build this from
+    // ``GradebookReadFacade.findClassSubjectConfigs`` joined with the
+    // year-group-scoped class list.
+    activeYearGroupSubjects: ReadonlySet<string>,
   ): Promise<
     Array<{
       year_group_id: string;
@@ -509,7 +518,7 @@ export class SchedulingReadFacade {
       }),
       this.prisma.curriculumRequirement.findMany({
         where: { tenant_id: tenantId, academic_year_id: academicYearId },
-        select: { year_group_id: true, min_periods_per_week: true },
+        select: { year_group_id: true, subject_id: true, min_periods_per_week: true },
       }),
     ]);
 
@@ -529,8 +538,19 @@ export class SchedulingReadFacade {
       for (const tuple of defaultTuples) {
         if (!ygTuples.has(tuple)) gridSlots += 1;
       }
+      // Only count requirements whose (year_group, subject) is actively
+      // assigned to at least one class via ``class_subject_grade_configs``.
+      // Orphan requirements (subject configured in curriculum but not
+      // attached to any class in the year group) would inflate the
+      // "allocated" side and produce spurious over-capacity failures —
+      // NHQS pilot has 17 such orphan periods on Year 6, which would
+      // otherwise block generation even though the solver places them
+      // cleanly.
       const allocated = requirements
-        .filter((r) => r.year_group_id === yg.id)
+        .filter(
+          (r) =>
+            r.year_group_id === yg.id && activeYearGroupSubjects.has(`${yg.id}:${r.subject_id}`),
+        )
         .reduce((sum, r) => sum + r.min_periods_per_week, 0);
       return {
         year_group_id: yg.id,

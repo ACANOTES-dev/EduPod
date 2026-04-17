@@ -4,6 +4,7 @@ import type { PrerequisiteCheck, PrerequisitesResult } from '@school/shared';
 
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 import { SchedulingReadFacade } from '../scheduling/scheduling-read.facade';
@@ -15,6 +16,7 @@ export class SchedulingPrerequisitesService {
     private readonly prisma: PrismaService,
     private readonly academicReadFacade: AcademicReadFacade,
     private readonly classesReadFacade: ClassesReadFacade,
+    private readonly gradebookReadFacade: GradebookReadFacade,
     private readonly schedulesReadFacade: SchedulesReadFacade,
     private readonly schedulingReadFacade: SchedulingReadFacade,
     private readonly staffAvailabilityReadFacade: StaffAvailabilityReadFacade,
@@ -298,10 +300,26 @@ export class SchedulingPrerequisitesService {
     // Year groups with zero curriculum requirements are skipped — they
     // are already flagged by the ``all_classes_configured`` check above.
     const yearGroupList = await this.academicReadFacade.findAllYearGroups(tenantId);
+    // Active class-subject pairs let us filter out orphan curriculum
+    // requirements that aren't actually taught. ``academicClasses`` was
+    // loaded above for the 3b check — reuse to avoid a second fetch.
+    const classIdToYearGroup = new Map<string, string>();
+    for (const c of academicClasses) {
+      if (c.year_group_id) classIdToYearGroup.set(c.id, c.year_group_id);
+    }
+    const classSubjectConfigs = await this.gradebookReadFacade.findClassSubjectConfigs(tenantId, [
+      ...classIdToYearGroup.keys(),
+    ]);
+    const activeYearGroupSubjects = new Set<string>();
+    for (const cfg of classSubjectConfigs) {
+      const yg = classIdToYearGroup.get(cfg.class_id);
+      if (yg) activeYearGroupSubjects.add(`${yg}:${cfg.subject_id}`);
+    }
     const capacity = await this.schedulingReadFacade.findCapacityByYearGroup(
       tenantId,
       academicYearId,
       yearGroupList,
+      activeYearGroupSubjects,
     );
 
     const overCapacityYgs = capacity.filter((c) => c.allocated_min_periods > c.grid_teaching_slots);

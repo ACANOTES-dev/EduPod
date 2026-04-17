@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import {
   ClassesReadFacade,
+  GradebookReadFacade,
   MOCK_FACADE_PROVIDERS,
   SchedulesReadFacade,
   SchedulingReadFacade,
@@ -40,6 +41,10 @@ describe('SchedulingPrerequisitesService', () => {
     findByStaffIds: jest.fn().mockResolvedValue([]),
   };
 
+  const mockGradebookReadFacade = {
+    findClassSubjectConfigs: jest.fn().mockResolvedValue([]),
+  };
+
   const mockPrisma = {};
 
   beforeEach(async () => {
@@ -47,6 +52,7 @@ describe('SchedulingPrerequisitesService', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
+        { provide: GradebookReadFacade, useValue: mockGradebookReadFacade },
         { provide: SchedulesReadFacade, useValue: mockSchedulesReadFacade },
         { provide: SchedulingReadFacade, useValue: mockSchedulingReadFacade },
         { provide: StaffAvailabilityReadFacade, useValue: mockStaffAvailabilityReadFacade },

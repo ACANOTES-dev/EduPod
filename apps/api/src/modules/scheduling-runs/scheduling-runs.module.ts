@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { AcademicsModule } from '../academics/academics.module';
 import { AuthModule } from '../auth/auth.module';
 import { ClassesModule } from '../classes/classes.module';
+import { GradebookModule } from '../gradebook/gradebook.module';
 import { PeriodGridModule } from '../period-grid/period-grid.module';
 import { RoomsModule } from '../rooms/rooms.module';
 import { SchedulesModule } from '../schedules/schedules.module';
@@ -28,6 +29,7 @@ import { SchedulingSimulationService } from './scheduling-simulation.service';
     AuthModule,
     BullModule.registerQueue({ name: 'scheduling' }),
     ClassesModule,
+    GradebookModule,
     PeriodGridModule,
     RoomsModule,
     SchedulesModule,
