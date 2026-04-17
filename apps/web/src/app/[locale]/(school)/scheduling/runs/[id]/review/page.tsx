@@ -1012,37 +1012,11 @@ function ClassTimetable({
     return list.sort((a, b) => a - b);
   }, [periodSlots]);
 
-  // Representative slot per period_order used for the row label + time range.
-  // Picks the most common (start, end) pair across the week so the row
-  // header time matches what the majority of cells in that row display.
-  const rowLabelByPeriod = React.useMemo(() => {
-    const out = new Map<number, { label: string; start: string; end: string; isBreak: boolean }>();
-    for (const po of periodOrders) {
-      const slots = periodSlots.filter((s) => s.period_order === po);
-      if (slots.length === 0) continue;
-      const counts = new Map<string, { slot: PeriodSlot; count: number }>();
-      for (const s of slots) {
-        const key = `${s.start_time}|${s.end_time}`;
-        const existing = counts.get(key);
-        if (existing) existing.count += 1;
-        else counts.set(key, { slot: s, count: 1 });
-      }
-      // Most common time wins; ties broken by picking the earliest weekday
-      let best: { slot: PeriodSlot; count: number } | null = null;
-      for (const candidate of counts.values()) {
-        if (!best || candidate.count > best.count) best = candidate;
-      }
-      const rep = best?.slot ?? slots[0];
-      if (!rep) continue;
-      out.set(po, {
-        label: `P${po}`,
-        start: rep.start_time,
-        end: rep.end_time,
-        isBreak: rep.period_type !== 'teaching',
-      });
-    }
-    return out;
-  }, [periodOrders, periodSlots]);
+  // The previous "rowLabelByPeriod" memo has been removed with the
+  // Period column itself — per-cell rendering already carries its own
+  // day-accurate start/end, so a single most-common-time row label was
+  // redundant and actively misleading on schools with variable day
+  // lengths.
 
   return (
     <div className="space-y-2">
@@ -1054,13 +1028,18 @@ function ClassTimetable({
           Drag lessons to swap. Drop onto an empty Free slot to move.
         </p>
       </div>
+      {/* The leftmost "Period" column used to display a representative
+          (start, end) pair derived from the most-common weekday for that
+          period_order. On schools whose day lengths differ (NHQS: Mon ends
+          12:45, Fri ends 14:50) the header was wrong for whichever days
+          weren't in the majority — P3 labelled "9:30-9:45" but Tuesday's
+          P3 is actually 10:00-10:15. Each cell already shows its own
+          day-accurate start/end, so the row header is redundant *and*
+          misleading. Dropping the whole column. */}
       <div className="overflow-x-auto rounded-xl border border-border bg-surface">
         <table className="w-full min-w-[640px] table-fixed">
           <thead>
             <tr className="border-b border-border">
-              <th className="px-3 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary w-16">
-                Period
-              </th>
               {weekdays.map((day) => (
                 <th
                   key={day}
@@ -1073,18 +1052,8 @@ function ClassTimetable({
           </thead>
           <tbody>
             {periodOrders.map((period) => {
-              const rowMeta = rowLabelByPeriod.get(period);
               return (
                 <tr key={period} className="border-b border-border last:border-b-0">
-                  <td className="px-3 py-2 text-xs font-mono text-text-tertiary align-top">
-                    <div>{rowMeta?.label ?? `P${period}`}</div>
-                    {rowMeta?.start && rowMeta?.end && (
-                      <div className="font-mono text-[10px] text-text-tertiary/80 mt-0.5 leading-tight">
-                        <div>{rowMeta.start}</div>
-                        <div>{rowMeta.end}</div>
-                      </div>
-                    )}
-                  </td>
                   {weekdays.map((day) => {
                     const entry = entryByCell.get(`${day}:${period}`);
                     const slot = slotByCell.get(`${day}:${period}`);

@@ -566,10 +566,19 @@ export default function CurriculumPage() {
                         {tv('forecastTeachingHours')}
                       </td>
                       <td className="px-3 py-2.5" />
-                      <td className="px-3 py-2.5 text-center text-text-primary tabular-nums">
-                        {totalAllocated}
+                      {/* Wrap in a 16-unit-wide div to mirror the input's
+                          ``w-16 text-center`` geometry above — without it
+                          the td's own ``text-center`` pushes the number
+                          to the middle of the full column width, which
+                          sits RIGHT of where the 22 appears in the inputs
+                          above (those are left-aligned inside the cell at
+                          a 16-unit input). */}
+                      <td className="px-3 py-2.5 text-text-primary tabular-nums">
+                        <div className="w-16 text-center">{totalAllocated}</div>
                       </td>
-                      <td className="px-3 py-2.5" />
+                      <td className="px-3 py-2.5">
+                        <div className="w-16" />
+                      </td>
                       <td className="px-3 py-2.5" />
                       <td className="px-3 py-2.5 text-end text-text-primary tabular-nums">
                         {rows.reduce((sum, r) => sum + (computeHoursPerWeek(r) ?? 0), 0).toFixed(1)}
