@@ -2,7 +2,7 @@
 
 > **Purpose**: Complete inventory of every implemented feature, mapped to its code location. This document answers "what does the product do and where does it live?"
 > **Maintenance**: Update only when a feature change is confirmed final. This file is intended to be the architecture-level source of truth for product scope.
-> **Last verified**: 2026-04-11 (household-numbers rebuild)
+> **Last verified**: 2026-04-17 (sched-041 CP-SAT telemetry + multi-worker closeout)
 
 ---
 
@@ -218,6 +218,7 @@
 - Exam sessions and invigilation planning
 - Calendar subscription for personal timetables
 - Timetable quality and cover reporting
+- CP-SAT solver telemetry: every scheduling run persists a `SolverDiagnosticsV3` payload (improvement trajectory, terminal state, worker/seed config, placement counts) to `scheduling_runs.solver_diagnostics` for post-hoc analysis
 
 **Frontend**:
 

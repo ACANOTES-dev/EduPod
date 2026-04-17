@@ -20,6 +20,7 @@ const S3_CONFIG: Record<string, string> = {
   S3_SECRET_ACCESS_KEY: 'test-secret',
   S3_BUCKET_NAME: 'test-bucket',
   S3_ENDPOINT: 'https://object.example.com',
+  NODE_ENV: 'test',
 };
 
 const TENANT_ID = '3ba9b02c-0339-49b8-8583-a06e05a32ac5';
@@ -84,7 +85,12 @@ describe('S3ReportCardStorageWriter', () => {
   });
 
   it('throws a clear error when S3 env vars are missing', async () => {
-    mockConfigService.get.mockReturnValue(undefined);
+    // Simulate a test-environment worker whose S3 env vars are unset: NODE_ENV=test lets
+    // onModuleInit log a warning and return without throwing, so that upload() is the
+    // surface that surfaces the misconfiguration.
+    mockConfigService.get.mockImplementation((key: string) =>
+      key === 'NODE_ENV' ? 'test' : undefined,
+    );
     const fresh = new S3ReportCardStorageWriter(mockConfigService as unknown as ConfigService);
     fresh.onModuleInit();
 
