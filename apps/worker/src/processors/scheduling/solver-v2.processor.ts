@@ -211,11 +211,34 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     // below gives it +30 s for round-trip + presolve. Clearing the interval
     // on both success and failure keeps the Node process from hanging after
     // the job resolves.
+    //
+    // Heartbeat: the same interval also bumps ``scheduling_runs.updated_at``
+    // so GET /progress can surface a "last heard from worker" timestamp.
+    // Prior behaviour left ``updated_at`` frozen at solve-start for the
+    // entire run (observed 2026-04-17 NHQS run 5a38a832 — updated_at sat
+    // at 15:12:59 for 60 min while the worker was clearly alive). Without
+    // a heartbeat there's no way for operators to distinguish a healthy
+    // long solve from a wedged worker.
     const EXTEND_INTERVAL_MS = 60_000;
     const extendTimer = setInterval(() => {
       this.job.extendLock(this.job.token!, 300_000).catch((extendErr) => {
         this.logger.warn(`Failed to extend lock for run ${data.run_id}: ${extendErr}`);
       });
+      this.prisma
+        .$transaction(async (tx) => {
+          await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenant_id}::text, true)`;
+          // Bump ``updated_at`` via raw SQL so the column moves without
+          // requiring a fake-field update through Prisma's type-checked
+          // client. Scoped to status='running' so we never overwrite a
+          // terminal state if this heartbeat races a just-landed solver
+          // write in the main path below.
+          await tx.$executeRaw`UPDATE scheduling_runs SET updated_at = NOW() WHERE id = ${run_id}::uuid AND status = 'running'`;
+        })
+        .catch((heartbeatErr) => {
+          // Heartbeat failures are non-fatal — log and keep solving. The
+          // solve itself does not depend on heartbeat success.
+          this.logger.warn(`Heartbeat update failed for run ${data.run_id}: ${heartbeatErr}`);
+        });
     }, EXTEND_INTERVAL_MS);
 
     const sidecarUrl = process.env.SOLVER_PY_URL ?? 'http://localhost:5557';

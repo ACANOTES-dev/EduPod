@@ -22,10 +22,22 @@ solve request lands on a healthy process.
 
 Scope notes
 -----------
-* We use ``multiprocessing`` with the ``fork`` start method so OR-Tools
-  (large C++ footprint) is inherited via copy-on-write and we don't pay
-  its import cost on every request. Linux-only — that's fine, prod runs
-  on Debian and tests run under Linux CI.
+* We use ``multiprocessing`` with the ``forkserver`` start method. We
+  originally used ``fork`` so OR-Tools' large C++ import was inherited
+  via copy-on-write, but that start method has a well-known failure
+  mode on 8-worker CP-SAT solves: the child finishes the solve, enqueues
+  a valid result, then exits with code 1 during interpreter teardown
+  as its native worker threads race ``Py_Finalize``. The parent
+  discarded the queue on non-zero exit, so the valid timetable was
+  thrown away (observed prod NHQS 2026-04-17, run ``5a38a832``, 60-min
+  budget, zero placements persisted).
+
+  ``forkserver`` re-imports the world on every solve (~50 ms cost on
+  Debian prod) but starts each solver in a clean single-threaded
+  interpreter, which eliminates the teardown race without losing the
+  crash-isolation property. Paired with the queue-drain-first fix in
+  ``solve_in_subprocess`` below it means a valid result survives even
+  when the child does die abnormally at teardown.
 * Cancellation is plumbed through a ``multiprocessing.Event`` which is
   duck-type-compatible with ``threading.Event`` (both expose
   ``is_set()``). EarlyStopCallback calls only ``.is_set()``, so the
@@ -52,9 +64,19 @@ from solver_py.solver.telemetry import SolverTelemetry
 
 logger = logging.getLogger("solver_py.subprocess")
 
-# Module-level fork context so tests can monkeypatch it with a different
-# start method (``spawn`` on platforms where fork is unavailable).
-_mp_context = _mp.get_context("fork")
+# Module-level start-method context so tests can monkeypatch it with a
+# different start method (``spawn`` on platforms where fork is unavailable).
+#
+# We use ``forkserver`` rather than raw ``fork`` because OR-Tools' CP-SAT
+# C++ layer spawns native worker threads and has known issues on
+# fork-based interpreter teardown: the child can enqueue a valid result
+# and then exit with code 1 while Py_Finalize races the CP-SAT worker
+# threads. ``forkserver`` starts each solver in a fresh, known-single-
+# threaded interpreter and keeps the crash-isolation property of
+# ``fork`` while avoiding the teardown races. (``forkserver`` does pay
+# a ~50 ms spawn cost per solve; that's negligible compared with a solve
+# budget measured in seconds.)
+_mp_context = _mp.get_context("forkserver")
 
 
 class SolverCrashError(RuntimeError):
@@ -159,23 +181,45 @@ def solve_in_subprocess(
 
     exitcode = proc.exitcode if proc.exitcode is not None else -1
 
+    # Drain the queue *before* classifying the exit. OR-Tools' CP-SAT can
+    # finish the solve and enqueue a valid result, then die with exitcode
+    # 1 during interpreter teardown as its worker threads race with
+    # Py_Finalize. Discarding the queue in that case throws away an hour
+    # of honest compute. If a usable payload was enqueued we surface it
+    # with a WARNING log — the operator still learns that teardown was
+    # unclean, but the admin gets their timetable.
+    #
+    # We use ``get_nowait`` so a truly hung/empty queue raises immediately
+    # and falls through to the crash path.
+    queue_payload: tuple[str, Any] | None = None
+    try:
+        queue_payload = q.get_nowait()
+    except Exception:  # noqa: BLE001 — queue.Empty isn't imported; any error means no payload
+        queue_payload = None
+
     if exitcode != 0:
-        # Child died — either a C++ abort (negative exitcode) or a Python
-        # sys.exit(nonzero). We don't try to read the queue because a
-        # crash may have left it in an inconsistent state.
+        if queue_payload is not None and queue_payload[0] == "ok":
+            logger.warning(
+                "solver subprocess exited abnormally but returned a valid result; "
+                "surfacing the result anyway",
+                extra={"exitcode": exitcode},
+            )
+            output, diagnostics = pickle.loads(queue_payload[1])
+            return SubprocessResult(output=output, diagnostics=diagnostics)
+        # Child died with no usable result — genuine crash path.
         logger.error(
             "solver subprocess terminated abnormally",
             extra={"exitcode": exitcode},
         )
         raise SolverCrashError(exitcode)
 
-    if q.empty():
+    if queue_payload is None:
         # Clean exit but no result enqueued — shouldn't happen unless
         # _child_entrypoint itself was killed between the final except
         # and the queue put. Treat as a crash for safety.
         raise SolverCrashError(-1, detail="child exited cleanly without enqueueing a result")
 
-    tag, data = q.get()
+    tag, data = queue_payload
     if tag == "ok":
         output, diagnostics = pickle.loads(data)
         return SubprocessResult(output=output, diagnostics=diagnostics)

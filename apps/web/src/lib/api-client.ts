@@ -118,6 +118,24 @@ async function refreshAccessToken(): Promise<boolean> {
   return refreshPromise;
 }
 
+/**
+ * Trigger an eager token refresh. Callers that run long-lived polling
+ * loops (e.g. the solver-progress-provider during a 60-minute solve)
+ * call this on a timer so the access token is rotated BEFORE it
+ * expires rather than after a 401 round-trip. Returns true when the
+ * new token was installed; false on any refresh error (the next
+ * 401-driven retry will try again).
+ *
+ * Use this over ``apiClient`` when you want to pre-emptively rotate
+ * without issuing an API call — unauthenticated refresh success does
+ * not consume a request budget against any business endpoint and
+ * avoids the transient "Failed to load resource: 401" entries that
+ * show up in devtools when the passive refresh fires mid-poll.
+ */
+export async function refreshAuthToken(): Promise<boolean> {
+  return refreshAccessToken();
+}
+
 async function doRefresh(): Promise<boolean> {
   try {
     const response = await fetch(`${API_URL}/api/v1/auth/refresh`, {

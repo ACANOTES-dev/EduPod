@@ -272,7 +272,9 @@ describe('SchedulingRunsService', () => {
         entries_unassigned: 10,
         solver_duration_ms: 3500,
         failure_reason: null,
+        created_at: NOW,
         updated_at: NOW,
+        config_snapshot: null,
       };
       mockPrisma.schedulingRun.findFirst.mockResolvedValue(run);
 
@@ -280,7 +282,9 @@ describe('SchedulingRunsService', () => {
 
       expect(result.phase).toBe('solving');
       expect(result.entries_assigned).toBe(90);
-      expect(result.entries_total).toBe(100);
+      // entries_total is now derived from placed + unassigned (real
+      // total demand), not just placed — 2026-04 SCHED-progress fix.
+      expect(result.entries_total).toBe(110);
       expect(result.elapsed_ms).toBe(3500);
     });
 
@@ -293,7 +297,9 @@ describe('SchedulingRunsService', () => {
         entries_unassigned: 0,
         solver_duration_ms: 2000,
         failure_reason: null,
+        created_at: NOW,
         updated_at: NOW,
+        config_snapshot: null,
       };
       mockPrisma.schedulingRun.findFirst.mockResolvedValue(run);
 
@@ -601,14 +607,20 @@ describe('SchedulingRunsService', () => {
         entries_unassigned: null,
         solver_duration_ms: null,
         failure_reason: null,
+        created_at: NOW,
         updated_at: NOW,
+        config_snapshot: null,
       });
 
       const result = await service.getProgress(TENANT_ID, RUN_ID);
 
       expect(result.phase).toBe('preparing');
       expect(result.entries_assigned).toBe(0);
-      expect(result.elapsed_ms).toBe(0);
+      // A queued run elapsed_ms is now derived from now() - created_at,
+      // not 0. Assert it's numeric and small (within the test's wall-
+      // clock tolerance) rather than exactly 0.
+      expect(typeof result.elapsed_ms).toBe('number');
+      expect(result.elapsed_ms).toBeGreaterThanOrEqual(0);
     });
 
     it('should return phase "complete" for applied runs', async () => {
@@ -620,7 +632,9 @@ describe('SchedulingRunsService', () => {
         entries_unassigned: 0,
         solver_duration_ms: 4000,
         failure_reason: null,
+        created_at: NOW,
         updated_at: NOW,
+        config_snapshot: null,
       });
 
       const result = await service.getProgress(TENANT_ID, RUN_ID);
@@ -638,7 +652,9 @@ describe('SchedulingRunsService', () => {
         entries_unassigned: 5,
         solver_duration_ms: 1000,
         failure_reason: 'Solver timeout',
+        created_at: NOW,
         updated_at: NOW,
+        config_snapshot: null,
       });
 
       const result = await service.getProgress(TENANT_ID, RUN_ID);
@@ -656,12 +672,35 @@ describe('SchedulingRunsService', () => {
         entries_unassigned: 0,
         solver_duration_ms: 3000,
         failure_reason: null,
+        created_at: NOW,
         updated_at: NOW,
+        config_snapshot: null,
       });
 
       const result = await service.getProgress(TENANT_ID, RUN_ID);
 
       expect(result.phase).toBe('failed');
+    });
+
+    it('derives entries_total from config_snapshot.demand while running', async () => {
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        status: 'running',
+        entries_generated: null,
+        entries_pinned: null,
+        entries_unassigned: null,
+        solver_duration_ms: null,
+        failure_reason: null,
+        created_at: new Date(Date.now() - 5000),
+        updated_at: NOW,
+        config_snapshot: { demand: new Array(330).fill({}) },
+      });
+
+      const result = await service.getProgress(TENANT_ID, RUN_ID);
+
+      expect(result.phase).toBe('solving');
+      expect(result.entries_total).toBe(330);
+      expect(result.elapsed_ms).toBeGreaterThanOrEqual(4000);
     });
   });
 

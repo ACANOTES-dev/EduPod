@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-import { apiClient } from '@/lib/api-client';
+import { apiClient, refreshAuthToken } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,7 +56,14 @@ interface SolverProgressContextValue {
 }
 
 const SESSION_KEY = 'scheduling:active-run';
-const POLL_INTERVAL_MS = 3000;
+// Progress polling cadence. Bumped from 3 s → 5 s in 2026-04 after the
+// NHQS 60-minute E2E solve generated ~1,800 progress requests for a
+// single run (0.33 Hz × 3600 s) and intermittent 401s started
+// appearing in the console when JWT refresh races a high-frequency
+// poll loop. 5 s keeps the UI feeling responsive (timer ticks visibly)
+// while cutting request volume by ~40 % and leaving more headroom for
+// the proactive-refresh path in the auth helper below.
+const POLL_INTERVAL_MS = 5000;
 
 const SolverProgressContext = React.createContext<SolverProgressContextValue | null>(null);
 
@@ -157,18 +164,42 @@ export function SolverProgressProvider({ children }: { children: React.ReactNode
     return false;
   }, []);
 
+  // Eager token refresh during long-running solves. The access-token TTL
+  // (15 min) is shorter than the worst-case solve budget (60 min on NHQS),
+  // so without this the first 401 lands 15 min into a solve and generates
+  // a noisy ``Failed to load resource: 401`` entry in devtools. Refreshing
+  // every 10 min keeps the token comfortably ahead of expiry without
+  // touching any business endpoint.
+  const refreshRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopRefreshing = React.useCallback(() => {
+    if (refreshRef.current) {
+      clearInterval(refreshRef.current);
+      refreshRef.current = null;
+    }
+  }, []);
+
   const startPolling = React.useCallback(
     (runId: string, startedAt: number) => {
       stopPolling();
+      stopRefreshing();
       // Fire the first poll immediately so the widget never shows an empty
       // "Solving…" card — it's populated on first render.
       void pollOnce(runId, startedAt);
       pollRef.current = setInterval(async () => {
         const done = await pollOnce(runId, startedAt);
-        if (done) stopPolling();
+        if (done) {
+          stopPolling();
+          stopRefreshing();
+        }
       }, POLL_INTERVAL_MS);
+      // Kick off a matching token-refresh timer so the access token is
+      // rotated before the first 401 would fire. 10 min < 15 min TTL.
+      refreshRef.current = setInterval(() => {
+        void refreshAuthToken();
+      }, 600_000);
     },
-    [pollOnce, stopPolling],
+    [pollOnce, stopPolling, stopRefreshing],
   );
 
   const startTracking = React.useCallback(
@@ -193,9 +224,10 @@ export function SolverProgressProvider({ children }: { children: React.ReactNode
 
   const dismiss = React.useCallback(() => {
     stopPolling();
+    stopRefreshing();
     clearPersisted();
     setSnapshot(null);
-  }, [stopPolling]);
+  }, [stopPolling, stopRefreshing]);
 
   const cancel = React.useCallback(async () => {
     const current = snapshotRef.current;
@@ -243,7 +275,10 @@ export function SolverProgressProvider({ children }: { children: React.ReactNode
       });
       startPolling(persisted.runId, persisted.startedAt);
     }
-    return () => stopPolling();
+    return () => {
+      stopPolling();
+      stopRefreshing();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
   }, []);
 

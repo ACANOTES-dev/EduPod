@@ -206,21 +206,44 @@ export default function AutoSchedulerPage() {
     loadFeasibility(selectedYear);
   }, [selectedYear, loadFeasibility]);
 
-  // Load run history
-  React.useEffect(() => {
-    if (!selectedYear) {
+  // Load run history. Extracted into a callback so the Refresh control in
+  // the feasibility card can re-trigger it — previously Refresh only
+  // re-ran feasibility, so after a crash the freshly-failed run didn't
+  // appear in Run History until a full page reload (observed 2026-04-17
+  // NHQS run 5a38a832). The effect-wrapping `useEffect` handles the
+  // year-change case while keeping a single source of truth for the
+  // fetch logic.
+  const loadRuns = React.useCallback((yearId: string) => {
+    if (!yearId) {
       setRuns([]);
       return;
     }
     setRunsLoading(true);
-    apiClient<{ data: SchedulingRun[] }>(`/api/v1/scheduling-runs?academic_year_id=${selectedYear}`)
+    apiClient<{ data: SchedulingRun[] }>(`/api/v1/scheduling-runs?academic_year_id=${yearId}`)
       .then((res) => setRuns(res.data ?? []))
       .catch((err) => {
         console.error('[SchedulingAutoPage]', err);
-        return setRuns([]);
+        setRuns([]);
       })
       .finally(() => setRunsLoading(false));
-  }, [selectedYear]);
+  }, []);
+
+  React.useEffect(() => {
+    loadRuns(selectedYear);
+  }, [selectedYear, loadRuns]);
+
+  // When a tracked run transitions into a terminal state (solver finishes,
+  // crashes, is cancelled), pull the fresh Run History row so the UI shows
+  // it without requiring the operator to reload the page. ``isTerminal``
+  // flips on the provider once it sees the first terminal status from the
+  // progress endpoint.
+  const prevTerminalRef = React.useRef<boolean>(solverProgress.isTerminal);
+  React.useEffect(() => {
+    if (solverProgress.isTerminal && !prevTerminalRef.current) {
+      loadRuns(selectedYear);
+    }
+    prevTerminalRef.current = solverProgress.isTerminal;
+  }, [solverProgress.isTerminal, selectedYear, loadRuns]);
 
   // Progress tracking lives in SolverProgressProvider + the bottom-end
   // SolverProgressWidget — a local center modal would block navigation and
@@ -249,6 +272,34 @@ export default function AutoSchedulerPage() {
 
   const allPassed = prerequisites?.ready ?? false;
   const modeLabel = t('modeAuto');
+
+  // Crash-retry guard: if the most recent run for this year terminated
+  // with a SOLVER_CRASH the backend banner in the progress widget warns
+  // "don't retry with the same inputs until we've investigated" — but the
+  // Generate button was still enabled and the confirm dialog said nothing
+  // about the prior crash. Users could burn another 60 minutes on the
+  // same inputs. We surface the warning directly in the confirm dialog
+  // and force the user to explicitly acknowledge it. We don't disable
+  // Generate outright because sometimes the operator has already fixed
+  // the root cause (e.g. reduced ``max_solver_duration_seconds``) and
+  // needs to retry right now.
+  const lastRun: SchedulingRun | null = runs[0] ?? null;
+  const lastRunCrashed = Boolean(
+    lastRun &&
+    lastRun.status === 'failed' &&
+    typeof lastRun.failure_reason === 'string' &&
+    lastRun.failure_reason.startsWith('SOLVER_CRASH'),
+  );
+  const [crashAcknowledged, setCrashAcknowledged] = React.useState(false);
+  // Reset the acknowledgement whenever the dialog closes or the last-run
+  // status flips, so it can't be smuggled across dialog re-opens or year
+  // changes.
+  React.useEffect(() => {
+    if (!confirmOpen) setCrashAcknowledged(false);
+  }, [confirmOpen]);
+  React.useEffect(() => {
+    setCrashAcknowledged(false);
+  }, [lastRun?.id, lastRunCrashed]);
 
   // ─── Tooltip copy ──────────────────────────────────────────────────────────
   // Each prerequisite check has a short "what" explanation and an actionable
@@ -349,14 +400,19 @@ export default function AutoSchedulerPage() {
       {/* Feasibility Preview Card — mathematical analysis of whether a
           100 % placement is achievable with the current data. Does NOT
           block generation; warns the user when the answer is "no" so they
-          don't wait an hour for a solve that was never going to hit 100 %. */}
+          don't wait an hour for a solve that was never going to hit 100 %.
+          Refresh also refetches Run History so a just-completed (or just-
+          crashed) solve appears without reloading the page. */}
       {selectedYear && (
         <FeasibilityPreviewCard
           report={feasibility}
           loading={feasibilityLoading}
           expanded={feasibilityExpanded}
           onToggleExpanded={() => setFeasibilityExpanded((v) => !v)}
-          onRefresh={() => loadFeasibility(selectedYear)}
+          onRefresh={() => {
+            loadFeasibility(selectedYear);
+            loadRuns(selectedYear);
+          }}
           t={t}
         />
       )}
@@ -560,11 +616,38 @@ export default function AutoSchedulerPage() {
           </DialogHeader>
           <p className="text-sm text-text-secondary">{t('confirmGenerate')}</p>
           <p className="text-sm text-text-tertiary mt-1">{modeLabel}</p>
+          {lastRunCrashed && (
+            <div className="mt-3 rounded-md border border-red-500/40 bg-red-500/5 p-3 text-sm">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-red-600" />
+                <div className="flex-1 space-y-2">
+                  <p className="font-medium text-text-primary">
+                    {t('lastRunCrashedWarning.title')}
+                  </p>
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    {t('lastRunCrashedWarning.detail')}
+                  </p>
+                  <label className="flex items-start gap-2 text-xs text-text-primary cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={crashAcknowledged}
+                      onChange={(e) => setCrashAcknowledged(e.target.checked)}
+                    />
+                    <span>{t('lastRunCrashedWarning.acknowledge')}</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
               {t('cancelSolve')}
             </Button>
-            <Button onClick={handleGenerate} disabled={submitting}>
+            <Button
+              onClick={handleGenerate}
+              disabled={submitting || (lastRunCrashed && !crashAcknowledged)}
+            >
               {submitting && <Loader2 className="h-4 w-4 animate-spin me-2" />}
               {t('generateTimetable')}
             </Button>

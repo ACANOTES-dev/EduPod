@@ -40,7 +40,7 @@ from solver_py.schema import (
     SolverOutputV2,
     UnassignedSlotV2,
 )
-from solver_py.solver.early_stop import EarlyStopCallback
+from solver_py.solver.early_stop import EarlyStopCallback, WallClockWatchdog
 from solver_py.solver.hints import greedy_assign
 from solver_py.solver.lessons import Lesson, build_lessons
 from solver_py.solver.model import build_model
@@ -194,7 +194,27 @@ def solve(
         cancel_flag=cancel_flag,
     )
 
-    status = solver.solve(built.model, callback)
+    # Wall-clock plateau watchdog. CP-SAT's OnSolutionCallback only fires on
+    # strictly improving solutions, so the callback-gated stagnation trigger
+    # above is blind to plateaus where CP-SAT finds its first feasible
+    # (e.g. the greedy hint) and then searches silently for the entire
+    # budget. On NHQS-scale inputs the worker then crashes on teardown —
+    # see the comment on ``last_callback_monotonic`` in ``early_stop.py``.
+    # This watchdog halts the solver after a configurable wall-clock
+    # silence window (default 80 s; tenants can tighten via env).
+    watchdog_threshold_seconds = float(
+        os.environ.get("CP_SAT_WATCHDOG_SILENCE_SECONDS", "80")
+    )
+    watchdog = WallClockWatchdog(
+        solver=solver,
+        callback=callback,
+        threshold_seconds=watchdog_threshold_seconds,
+    )
+    watchdog.start()
+    try:
+        status = solver.solve(built.model, callback)
+    finally:
+        watchdog.stop()
     duration_ms = int(round((time.perf_counter() - start) * 1000))
     early_stop_triggered: bool = callback.triggered
     early_stop_reason: EarlyStopReason = callback.reason

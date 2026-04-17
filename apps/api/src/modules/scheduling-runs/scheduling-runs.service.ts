@@ -432,7 +432,16 @@ export class SchedulingRunsService {
         entries_unassigned: true,
         solver_duration_ms: true,
         failure_reason: true,
+        created_at: true,
         updated_at: true,
+        // ``config_snapshot`` carries the full SolverInputV3 the run was
+        // created with; we pull the demand array length out so the UI can
+        // show a live "0 / 330 placed" denominator while the solver is
+        // still running (previously the progress endpoint returned
+        // entries_total=0 throughout the entire solve — see SCHED
+        // E2E report 2026-04-17, run 5a38a832). The field is `Json` in
+        // Prisma so the type is unknown; we extract length defensively.
+        config_snapshot: true,
       },
     });
 
@@ -460,6 +469,26 @@ export class SchedulingRunsService {
     const placed = run.entries_generated ?? 0;
     const unassigned = run.entries_unassigned ?? 0;
 
+    // Derive a live elapsed_ms while the run is still in-flight. The worker
+    // only writes ``solver_duration_ms`` after the solve returns; during
+    // the solve that column is NULL and returning 0 made the UI appear
+    // frozen ("Improving · 0:00" for 60 minutes). For queued/running rows
+    // we compute elapsed from ``created_at`` on the server so every client
+    // gets a consistent timer without relying on its own clock.
+    const elapsedMs =
+      run.solver_duration_ms ??
+      (run.status === 'queued' || run.status === 'running'
+        ? Math.max(0, Date.now() - run.created_at.getTime())
+        : 0);
+
+    // Total demand — known up-front from ``config_snapshot.demand``. Until
+    // the solver writes results, ``placed + unassigned === 0``; falling
+    // back to the snapshot gives the UI a trustworthy denominator from
+    // second 0 of the run.
+    const snapshotDemandTotal = extractSnapshotDemandTotal(run.config_snapshot);
+    const observedTotal = placed + unassigned;
+    const entriesTotal = observedTotal > 0 ? observedTotal : snapshotDemandTotal;
+
     return {
       id: run.id,
       status: run.status,
@@ -467,8 +496,8 @@ export class SchedulingRunsService {
       entries_assigned: Math.max(0, placed - unassigned),
       entries_placed: placed,
       entries_unassigned: unassigned,
-      entries_total: placed,
-      elapsed_ms: run.solver_duration_ms ?? 0,
+      entries_total: entriesTotal,
+      elapsed_ms: elapsedMs,
       failure_reason: run.failure_reason,
       updated_at: run.updated_at.toISOString(),
     };
@@ -744,4 +773,17 @@ export class SchedulingRunsService {
     if (!Array.isArray(obj['entries'])) return null;
     return raw as SchedulingResultJson;
   }
+}
+
+// ─── Progress helpers ────────────────────────────────────────────────────────
+
+// Defensively extract demand count from the run's ``config_snapshot``
+// JSONB blob. Returns 0 when the shape isn't what we expect — callers
+// treat 0 as "no total yet" and show the raw placed count only.
+function extractSnapshotDemandTotal(snapshot: unknown): number {
+  if (!snapshot || typeof snapshot !== 'object') return 0;
+  const record = snapshot as Record<string, unknown>;
+  const demand = record.demand;
+  if (Array.isArray(demand)) return demand.length;
+  return 0;
 }

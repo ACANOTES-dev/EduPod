@@ -267,14 +267,24 @@ async def test_async_refactor_preserves_determinism(
     (strip only the timing fields that naturally drift).
 
     SCHED-041 §B caveat: CP-SAT multi-worker is non-deterministic. This
-    test pins ``_CP_SAT_NUM_SEARCH_WORKERS=1`` via monkeypatch to validate
-    the async refactor's determinism invariant independently of CP-SAT's
-    multi-worker indeterminacy. Production runs with 8 workers per the
-    Phase B fix.
+    test pins ``CP_SAT_NUM_SEARCH_WORKERS=1`` via the environment to
+    validate the async refactor's determinism invariant independently
+    of CP-SAT's multi-worker indeterminacy. Production runs with 8
+    workers per the Phase B fix.
+
+    2026-04: the crash-isolation wrapper uses ``forkserver`` rather
+    than ``fork``, which re-imports ``solver_py.config`` in each solve
+    child. In-process ``monkeypatch.setattr`` on the module attribute
+    therefore no longer propagates — we use the env var instead so the
+    re-imported config reads it.
     """
+    monkeypatch.setenv("CP_SAT_NUM_SEARCH_WORKERS", "1")
     import importlib
 
     solve_mod = importlib.import_module("solver_py.solver.solve")
+    # In-process (non-subprocess) callers still read the module-level
+    # constant — keep the monkeypatch so mixed test setups see the same
+    # single-worker behaviour on both paths.
     monkeypatch.setattr(solve_mod, "_CP_SAT_NUM_SEARCH_WORKERS", 1)
 
     payload = _tiny_payload(max_seconds=5)

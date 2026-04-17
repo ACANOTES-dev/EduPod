@@ -4983,6 +4983,11 @@
       "modeAuto": "Auto (no pinned entries)",
       "modeHybrid": "Hybrid ({count} pinned entries)",
       "confirmGenerate": "This will generate a timetable. Continue?",
+      "lastRunCrashedWarning": {
+        "title": "Last run crashed",
+        "detail": "The previous solve for this academic year terminated with a solver crash. Retrying with the same inputs may reproduce the crash. Consider reducing the solver budget or contacting support before continuing.",
+        "acknowledge": "I understand the previous run crashed and want to retry anyway."
+      },
       "solving": "Solving...",
       "preparing": "Preparing constraints...",
       "complete": "Complete",
