@@ -677,6 +677,10 @@ model Tenant {
   exam_sessions                ExamSession[]
   exam_slots                   ExamSlot[]
   exam_invigilations           ExamInvigilation[]
+  exam_session_configs         ExamSessionConfig[]
+  exam_subject_configs         ExamSubjectConfig[]
+  exam_invigilator_pool        ExamInvigilatorPool[]
+  exam_slot_rooms              ExamSlotRoom[]
   scheduling_scenarios         SchedulingScenario[]
   rotation_configs             RotationConfig[]
 
@@ -1889,11 +1893,12 @@ model StaffProfile {
 
   // Scheduling World-Class Relations
   teacher_absences       TeacherAbsence[]
-  nominated_for_absences TeacherAbsence[]     @relation("nominated_substitute")
-  substitution_records   SubstitutionRecord[] @relation("substitute_staff")
-  substitution_offers    SubstitutionOffer[]  @relation("offer_candidate")
+  nominated_for_absences TeacherAbsence[]      @relation("nominated_substitute")
+  substitution_records   SubstitutionRecord[]  @relation("substitute_staff")
+  substitution_offers    SubstitutionOffer[]   @relation("offer_candidate")
   leave_requests         LeaveRequest[]
-  exam_invigilations     ExamInvigilation[]   @relation("exam_invigilator")
+  exam_invigilations     ExamInvigilation[]    @relation("exam_invigilator")
+  exam_pool_memberships  ExamInvigilatorPool[] @relation("exam_pool_member")
 
   // Behaviour Management Relations
   bh_incident_participants BehaviourIncidentParticipant[] @relation("bh_participant_staff")
@@ -2362,6 +2367,7 @@ model YearGroup {
 
   // Scheduling World-Class Relations
   exam_slots             ExamSlot[]
+  exam_subject_configs   ExamSubjectConfig[]
   subject_period_weights SubjectPeriodWeight[] @relation("SubjectPeriodWeightYearGroup")
   period_year_weights    PeriodYearWeight[]    @relation("PeriodYearWeightYearGroup")
 
@@ -2412,7 +2418,8 @@ model Subject {
   grading_weights              TeacherGradingWeight[]     @relation("grading_weight_subject")
 
   // Scheduling World-Class Relations
-  exam_slots ExamSlot[]
+  exam_slots           ExamSlot[]
+  exam_subject_configs ExamSubjectConfig[]
 
   // Behaviour Management Relations
   bh_incidents BehaviourIncident[] @relation("bh_incident_subject")
@@ -2766,8 +2773,9 @@ model Room {
   room_closures RoomClosure[]
 
   // Scheduling World-Class Relations
-  homeroom_classes Class[]    @relation("class_homeroom_room")
+  homeroom_classes Class[]        @relation("class_homeroom_room")
   exam_slots       ExamSlot[]
+  exam_slot_rooms  ExamSlotRoom[] @relation("exam_slot_rooms")
 
   // Behaviour Management Relations
   bh_incidents_in_room BehaviourIncident[] @relation("bh_incident_room")
@@ -4808,36 +4816,44 @@ model ExamSession {
   updated_at         DateTime          @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
-  exam_slots      ExamSlot[]
+  tenant                Tenant                @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_period       AcademicPeriod        @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  exam_slots            ExamSlot[]
+  exam_session_config   ExamSessionConfig?
+  exam_subject_configs  ExamSubjectConfig[]
+  exam_invigilator_pool ExamInvigilatorPool[]
 
   @@index([tenant_id, academic_period_id], name: "idx_exam_sessions_tenant_period")
   @@map("exam_sessions")
 }
 
 model ExamSlot {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id        String   @db.Uuid
-  exam_session_id  String   @db.Uuid
-  subject_id       String   @db.Uuid
-  year_group_id    String   @db.Uuid
-  date             DateTime @db.Date
-  start_time       DateTime @db.Time
-  end_time         DateTime @db.Time
-  room_id          String?  @db.Uuid
-  duration_minutes Int
-  student_count    Int
-  created_at       DateTime @default(now()) @db.Timestamptz()
-  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz()
+  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String   @db.Uuid
+  exam_session_id         String   @db.Uuid
+  subject_id              String   @db.Uuid
+  year_group_id           String   @db.Uuid
+  date                    DateTime @db.Date
+  start_time              DateTime @db.Time
+  end_time                DateTime @db.Time
+  room_id                 String?  @db.Uuid
+  duration_minutes        Int
+  student_count           Int
+  paper_number            Int?     @db.SmallInt
+  exam_subject_config_id  String?  @db.Uuid
+  gradebook_assessment_id String?  @db.Uuid
+  created_at              DateTime @default(now()) @db.Timestamptz()
+  updated_at              DateTime @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant        Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  exam_session  ExamSession        @relation(fields: [exam_session_id], references: [id], onDelete: Cascade)
-  subject       Subject            @relation(fields: [subject_id], references: [id], onDelete: Cascade)
-  year_group    YearGroup          @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
-  room          Room?              @relation(fields: [room_id], references: [id], onDelete: SetNull)
-  invigilations ExamInvigilation[]
+  tenant              Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_session        ExamSession        @relation(fields: [exam_session_id], references: [id], onDelete: Cascade)
+  subject             Subject            @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  year_group          YearGroup          @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+  room                Room?              @relation(fields: [room_id], references: [id], onDelete: SetNull)
+  exam_subject_config ExamSubjectConfig? @relation(fields: [exam_subject_config_id], references: [id], onDelete: SetNull)
+  invigilations       ExamInvigilation[]
+  exam_slot_rooms     ExamSlotRoom[]
 
   @@index([tenant_id, exam_session_id], name: "idx_exam_slots_tenant_session")
   @@map("exam_slots")
@@ -4845,20 +4861,106 @@ model ExamSlot {
 
 /// Append-only, no updated_at
 model ExamInvigilation {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id        String   @db.Uuid
-  exam_slot_id     String   @db.Uuid
-  staff_profile_id String   @db.Uuid
-  role             String   @db.VarChar(20)
-  created_at       DateTime @default(now()) @db.Timestamptz()
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String   @db.Uuid
+  exam_slot_id      String   @db.Uuid
+  staff_profile_id  String   @db.Uuid
+  role              String   @db.VarChar(20)
+  exam_slot_room_id String?  @db.Uuid
+  created_at        DateTime @default(now()) @db.Timestamptz()
 
   // Relations
-  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  exam_slot     ExamSlot     @relation(fields: [exam_slot_id], references: [id], onDelete: Cascade)
-  staff_profile StaffProfile @relation("exam_invigilator", fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  tenant         Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_slot      ExamSlot      @relation(fields: [exam_slot_id], references: [id], onDelete: Cascade)
+  staff_profile  StaffProfile  @relation("exam_invigilator", fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  exam_slot_room ExamSlotRoom? @relation(fields: [exam_slot_room_id], references: [id], onDelete: SetNull)
 
   @@index([tenant_id, exam_slot_id], name: "idx_exam_invigilation_tenant_slot")
   @@map("exam_invigilation")
+}
+
+// ─── Exam Session Config (one row per session) ────────────────────────────────
+model ExamSessionConfig {
+  id                           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                    String   @db.Uuid
+  exam_session_id              String   @unique @db.Uuid
+  allowed_weekdays             Int[]
+  morning_start                DateTime @db.Time
+  morning_end                  DateTime @db.Time
+  afternoon_start              DateTime @db.Time
+  afternoon_end                DateTime @db.Time
+  min_gap_minutes_same_student Int      @default(0)
+  max_exams_per_day_per_yg     Int      @default(2)
+  created_at                   DateTime @default(now()) @db.Timestamptz()
+  updated_at                   DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant       Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_session ExamSession @relation(fields: [exam_session_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, exam_session_id], name: "idx_exam_session_configs_tenant_session")
+  @@map("exam_session_configs")
+}
+
+// ─── Exam Subject Configs (matrix: session × year_group × subject) ────────────
+model ExamSubjectConfig {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String   @db.Uuid
+  exam_session_id       String   @db.Uuid
+  year_group_id         String   @db.Uuid
+  subject_id            String   @db.Uuid
+  is_examinable         Boolean  @default(true)
+  paper_count           Int      @default(1) @db.SmallInt
+  paper_1_duration_mins Int      @default(90)
+  paper_2_duration_mins Int?
+  mode                  String   @default("in_person") @db.VarChar(20)
+  invigilators_required Int      @default(2)
+  created_at            DateTime @default(now()) @db.Timestamptz()
+  updated_at            DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant       Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_session ExamSession @relation(fields: [exam_session_id], references: [id], onDelete: Cascade)
+  year_group   YearGroup   @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+  subject      Subject     @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  exam_slots   ExamSlot[]
+
+  @@unique([exam_session_id, year_group_id, subject_id], name: "uq_exam_subject_config_session_yg_subject")
+  @@index([tenant_id, exam_session_id], name: "idx_exam_subject_configs_tenant_session")
+  @@map("exam_subject_configs")
+}
+
+// ─── Exam Invigilator Pool (opt-in set per session) ───────────────────────────
+model ExamInvigilatorPool {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String   @db.Uuid
+  exam_session_id  String   @db.Uuid
+  staff_profile_id String   @db.Uuid
+  created_at       DateTime @default(now()) @db.Timestamptz()
+
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_session  ExamSession  @relation(fields: [exam_session_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile @relation("exam_pool_member", fields: [staff_profile_id], references: [id], onDelete: Cascade)
+
+  @@unique([exam_session_id, staff_profile_id], name: "uq_exam_invigilator_pool_session_staff")
+  @@index([tenant_id, exam_session_id], name: "idx_exam_invigilator_pool_tenant_session")
+  @@map("exam_invigilator_pool")
+}
+
+// ─── Exam Slot Room Assignments (supports room splits) ────────────────────────
+model ExamSlotRoom {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String   @db.Uuid
+  exam_slot_id String   @db.Uuid
+  room_id      String   @db.Uuid
+  capacity     Int
+  created_at   DateTime @default(now()) @db.Timestamptz()
+
+  tenant        Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_slot     ExamSlot           @relation(fields: [exam_slot_id], references: [id], onDelete: Cascade)
+  room          Room               @relation("exam_slot_rooms", fields: [room_id], references: [id], onDelete: Cascade)
+  invigilations ExamInvigilation[]
+
+  @@index([tenant_id, exam_slot_id], name: "idx_exam_slot_rooms_tenant_slot")
+  @@map("exam_slot_rooms")
 }
 
 model SchedulingScenario {

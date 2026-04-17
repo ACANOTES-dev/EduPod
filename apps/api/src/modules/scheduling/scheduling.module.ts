@@ -22,7 +22,13 @@ import { CoverNotificationsService } from './cover-notifications.service';
 import { CoverTrackingService } from './cover-tracking.service';
 import { CurriculumRequirementsController } from './curriculum-requirements.controller';
 import { CurriculumRequirementsService } from './curriculum-requirements.service';
+import { ExamInvigilatorPoolService } from './exam-invigilator-pool.service';
+import { ExamPublishService } from './exam-publish.service';
+import { ExamSchedulingV2Controller } from './exam-scheduling-v2.controller';
 import { ExamSchedulingService } from './exam-scheduling.service';
+import { ExamSessionConfigService } from './exam-session-config.service';
+import { ExamSolverOrchestrationService } from './exam-solver-orchestration.service';
+import { ExamSubjectConfigService } from './exam-subject-config.service';
 import { PersonalTimetableService } from './personal-timetable.service';
 import { RoomClosuresController } from './room-closures.controller';
 import { RoomClosuresService } from './room-closures.service';
@@ -73,6 +79,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     SchedulerValidationController,
     SchedulingEnhancedController,
     SchedulingPublicController,
+    ExamSchedulingV2Controller,
   ],
   providers: [
     CurriculumRequirementsService,
@@ -92,6 +99,11 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     PersonalTimetableService,
     RotationService,
     ExamSchedulingService,
+    ExamSessionConfigService,
+    ExamSubjectConfigService,
+    ExamInvigilatorPoolService,
+    ExamSolverOrchestrationService,
+    ExamPublishService,
     ScenarioService,
     SchedulingAnalyticsService,
     SchedulingReadFacade,

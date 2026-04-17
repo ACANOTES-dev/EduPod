@@ -322,6 +322,71 @@ export class ExamSchedulingService {
     };
   }
 
+  // ─── List Exam Slots Detailed (v2 dashboard — includes rooms + invigilators) ─
+
+  async listExamSlotsDetailed(tenantId: string, sessionId: string) {
+    const session = await this.prisma.examSession.findFirst({
+      where: { id: sessionId, tenant_id: tenantId },
+      select: { id: true, status: true },
+    });
+    if (!session) {
+      throw new NotFoundException({
+        error: { code: 'EXAM_SESSION_NOT_FOUND', message: 'Exam session not found' },
+      });
+    }
+
+    const slots = await this.prisma.examSlot.findMany({
+      where: { tenant_id: tenantId, exam_session_id: sessionId },
+      orderBy: [{ date: 'asc' }, { start_time: 'asc' }],
+      include: {
+        subject: { select: { id: true, name: true } },
+        year_group: { select: { id: true, name: true } },
+        exam_slot_rooms: {
+          include: { room: { select: { id: true, name: true } } },
+        },
+        invigilations: {
+          include: {
+            staff_profile: {
+              select: {
+                id: true,
+                user: { select: { first_name: true, last_name: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      data: slots.map((s) => ({
+        id: s.id,
+        exam_session_id: s.exam_session_id,
+        subject_id: s.subject_id,
+        subject_name: s.subject?.name ?? null,
+        year_group_id: s.year_group_id,
+        year_group_name: s.year_group?.name ?? null,
+        paper_number: s.paper_number,
+        date: s.date.toISOString().slice(0, 10),
+        start_time: s.start_time.toISOString().slice(11, 16),
+        end_time: s.end_time.toISOString().slice(11, 16),
+        duration_minutes: s.duration_minutes,
+        student_count: s.student_count,
+        rooms: s.exam_slot_rooms.map((r) => ({
+          id: r.id,
+          room_id: r.room_id,
+          room_name: r.room?.name ?? null,
+          capacity: r.capacity,
+        })),
+        invigilators: s.invigilations.map((i) => ({
+          staff_profile_id: i.staff_profile_id,
+          name: `${i.staff_profile.user.first_name} ${i.staff_profile.user.last_name}`.trim(),
+          role: i.role,
+        })),
+      })),
+      session_status: session.status,
+    };
+  }
+
   // ─── Generate Exam Schedule ───────────────────────────────────────────────
 
   async generateExamSchedule(tenantId: string, sessionId: string) {

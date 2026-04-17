@@ -148,6 +148,9 @@ export * from './schemas/scheduling.schema';
 // Scheduling World-Class Enhancement Schemas
 export * from './schemas/scheduling-enhanced.schema';
 
+// Exam Scheduling v2 — config matrix, invigilator pool, solver I/O
+export * from './schemas/exam-scheduling.schema';
+
 // Leave & Cover
 export * from './schemas/leave.schema';
 

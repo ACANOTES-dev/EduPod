@@ -862,4 +862,58 @@ export class ClassesReadFacade {
       orderBy: { name: 'asc' },
     });
   }
+
+  /**
+   * Return all active classes with basic info + active enrolment count — for the
+   * exam scheduling module's subject matrix and solver. Avoids cross-module Prisma
+   * access in the scheduling module.
+   */
+  async findActiveClassesForExamPlanning(tenantId: string): Promise<
+    Array<{
+      id: string;
+      year_group_id: string;
+      year_group_name: string | null;
+      subject_id: string;
+      subject_name: string | null;
+      enrolment_count: number;
+    }>
+  > {
+    const classes = await this.prisma.class.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: 'active',
+        year_group_id: { not: null },
+        subject_id: { not: null },
+      },
+      select: {
+        id: true,
+        year_group_id: true,
+        subject_id: true,
+        year_group: { select: { name: true } },
+        subject: { select: { name: true } },
+        _count: { select: { class_enrolments: { where: { status: 'active' } } } },
+      },
+    });
+
+    const rows: Array<{
+      id: string;
+      year_group_id: string;
+      year_group_name: string | null;
+      subject_id: string;
+      subject_name: string | null;
+      enrolment_count: number;
+    }> = [];
+    for (const c of classes) {
+      if (!c.year_group_id || !c.subject_id) continue;
+      rows.push({
+        id: c.id,
+        year_group_id: c.year_group_id,
+        year_group_name: c.year_group?.name ?? null,
+        subject_id: c.subject_id,
+        subject_name: c.subject?.name ?? null,
+        enrolment_count: c._count.class_enrolments,
+      });
+    }
+    return rows;
+  }
 }

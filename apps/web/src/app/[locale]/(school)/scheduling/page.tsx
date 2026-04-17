@@ -394,6 +394,12 @@ const CATEGORIES: ModuleCategory[] = [
         href: '/scheduling/exams',
         icon: FlaskConical,
       },
+      {
+        labelKey: 'examSchedules.navTitle',
+        descKey: 'hub.examSchedulesDesc',
+        href: '/scheduling/exam-schedules',
+        icon: ClipboardList,
+      },
     ],
   },
   {

@@ -1,0 +1,1076 @@
+/* eslint-disable school/no-hand-rolled-forms -- dashboard config uses inline state by design */
+'use client';
+
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ClipboardList,
+  Loader2,
+  Save,
+  Send,
+  Sparkles,
+  Users,
+} from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
+import {
+  Badge,
+  Button,
+  Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  toast,
+} from '@school/ui';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type TabId = 'matrix' | 'pool' | 'window' | 'review';
+
+interface ExamSession {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  status: 'planning' | 'published' | 'completed';
+  slot_count?: number;
+}
+
+interface SubjectConfigRow {
+  id: string | null;
+  year_group_id: string;
+  year_group_name: string;
+  subject_id: string;
+  subject_name: string;
+  is_examinable: boolean;
+  paper_count: number;
+  paper_1_duration_mins: number;
+  paper_2_duration_mins: number | null;
+  mode: 'in_person' | 'online';
+  invigilators_required: number;
+  student_count: number;
+}
+
+interface PoolMember {
+  staff_profile_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  job_title: string | null;
+}
+
+interface SessionConfig {
+  allowed_weekdays: number[];
+  morning_start: string;
+  morning_end: string;
+  afternoon_start: string;
+  afternoon_end: string;
+  min_gap_minutes_same_student: number;
+  max_exams_per_day_per_yg: number;
+}
+
+interface DetailedSlot {
+  id: string;
+  subject_name: string | null;
+  year_group_name: string | null;
+  paper_number: number | null;
+  date: string;
+  start_time: string;
+  end_time: string;
+  duration_minutes: number;
+  student_count: number;
+  rooms: Array<{ id: string; room_id: string; room_name: string | null; capacity: number }>;
+  invigilators: Array<{ staff_profile_id: string; name: string; role: string }>;
+}
+
+interface SolveResponse {
+  status: 'optimal' | 'feasible' | 'infeasible';
+  placed: number;
+  total: number;
+  slots_written: number;
+  message?: string;
+  solve_time_ms: number;
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
+
+export default function ExamScheduleDetailPage() {
+  const t = useTranslations('scheduling.examSchedules');
+  const params = useParams();
+  const sessionId = (params?.sessionId ?? '') as string;
+  const pathname = usePathname() ?? '';
+  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+
+  const [session, setSession] = React.useState<ExamSession | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [tab, setTab] = React.useState<TabId>('matrix');
+
+  const fetchSession = React.useCallback(async () => {
+    if (!sessionId) return;
+    setLoading(true);
+    try {
+      const res = await apiClient<ExamSession>(`/api/v1/scheduling/exam-sessions/${sessionId}`);
+      setSession(res);
+    } catch (err) {
+      console.error('[ExamScheduleDetailPage]', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  React.useEffect(() => {
+    void fetchSession();
+  }, [fetchSession]);
+
+  if (loading || !session) {
+    return (
+      <div className="flex items-center gap-2 py-12 text-sm text-text-secondary">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        {t('description')}
+      </div>
+    );
+  }
+
+  const readOnly = session.status !== 'planning';
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={session.name}
+        description={`${new Date(session.start_date).toLocaleDateString()} – ${new Date(session.end_date).toLocaleDateString()}`}
+        actions={
+          <div className="flex items-center gap-2">
+            <Badge variant={session.status === 'published' ? 'default' : 'secondary'}>
+              {t(session.status)}
+            </Badge>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href={`/${locale}/scheduling/exam-schedules`}>
+                <ChevronLeft className="h-4 w-4 me-1 rtl:rotate-180" />
+                {t('backToSessions')}
+              </Link>
+            </Button>
+          </div>
+        }
+      />
+
+      <TabBar tab={tab} onChange={setTab} />
+
+      {tab === 'matrix' && <SubjectMatrixTab sessionId={sessionId} readOnly={readOnly} />}
+      {tab === 'pool' && <InvigilatorPoolTab sessionId={sessionId} readOnly={readOnly} />}
+      {tab === 'window' && <SessionWindowTab sessionId={sessionId} readOnly={readOnly} />}
+      {tab === 'review' && (
+        <ReviewTab
+          sessionId={sessionId}
+          session={session}
+          onPublished={() => void fetchSession()}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Tab Bar ─────────────────────────────────────────────────────────────────
+
+function TabBar({ tab, onChange }: { tab: TabId; onChange: (t: TabId) => void }) {
+  const t = useTranslations('scheduling.examSchedules.tabs');
+  const items: Array<{ id: TabId; label: string; icon: React.ReactNode }> = [
+    { id: 'matrix', label: t('subjectMatrix'), icon: <ClipboardList className="h-4 w-4" /> },
+    { id: 'pool', label: t('invigilatorPool'), icon: <Users className="h-4 w-4" /> },
+    { id: 'window', label: t('sessionWindow'), icon: <Sparkles className="h-4 w-4" /> },
+    { id: 'review', label: t('review'), icon: <CheckCircle2 className="h-4 w-4" /> },
+  ];
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="inline-flex gap-1 rounded-xl border border-border bg-surface p-1">
+        {items.map((i) => (
+          <button
+            key={i.id}
+            type="button"
+            onClick={() => onChange(i.id)}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              tab === i.id
+                ? 'bg-brand text-brand-contrast'
+                : 'text-text-secondary hover:bg-surface-secondary'
+            }`}
+          >
+            {i.icon}
+            {i.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Subject Matrix Tab ──────────────────────────────────────────────────────
+
+function SubjectMatrixTab({ sessionId, readOnly }: { sessionId: string; readOnly: boolean }) {
+  const t = useTranslations('scheduling.examSchedules.matrix');
+  const [rows, setRows] = React.useState<SubjectConfigRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [savingKey, setSavingKey] = React.useState<string | null>(null);
+
+  const fetchRows = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient<{ data: SubjectConfigRow[] }>(
+        `/api/v1/scheduling/exam-sessions/${sessionId}/subject-configs`,
+      );
+      setRows(res.data ?? []);
+    } catch (err) {
+      console.error('[SubjectMatrixTab]', err);
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  React.useEffect(() => {
+    void fetchRows();
+  }, [fetchRows]);
+
+  const saveRow = React.useCallback(
+    async (row: SubjectConfigRow) => {
+      const key = `${row.year_group_id}:${row.subject_id}`;
+      setSavingKey(key);
+      try {
+        await apiClient(`/api/v1/scheduling/exam-sessions/${sessionId}/subject-configs`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            year_group_id: row.year_group_id,
+            subject_id: row.subject_id,
+            is_examinable: row.is_examinable,
+            paper_count: row.paper_count,
+            paper_1_duration_mins: row.paper_1_duration_mins,
+            paper_2_duration_mins: row.paper_2_duration_mins,
+            mode: row.mode,
+            invigilators_required: row.invigilators_required,
+          }),
+        });
+        toast.success(t('rowUpdated'));
+      } catch (err) {
+        console.error('[SubjectMatrixTab]', err);
+        toast.error(t('rowUpdateFailed'));
+        void fetchRows();
+      } finally {
+        setSavingKey(null);
+      }
+    },
+    [sessionId, fetchRows, t],
+  );
+
+  const updateRow = (key: string, patch: Partial<SubjectConfigRow>) => {
+    setRows((prev) => {
+      const next = prev.map((r) =>
+        `${r.year_group_id}:${r.subject_id}` === key ? { ...r, ...patch } : r,
+      );
+      const updated = next.find((r) => `${r.year_group_id}:${r.subject_id}` === key);
+      if (updated) void saveRow(updated);
+      return next;
+    });
+  };
+
+  const bulkSet = async (yearGroupId: string, examinable: boolean) => {
+    const toUpsert = rows
+      .filter((r) => r.year_group_id === yearGroupId)
+      .map((r) => ({
+        year_group_id: r.year_group_id,
+        subject_id: r.subject_id,
+        is_examinable: examinable,
+        paper_count: r.paper_count,
+        paper_1_duration_mins: r.paper_1_duration_mins,
+        paper_2_duration_mins: r.paper_2_duration_mins,
+        mode: r.mode,
+        invigilators_required: r.invigilators_required,
+      }));
+    if (toUpsert.length === 0) return;
+    try {
+      await apiClient(`/api/v1/scheduling/exam-sessions/${sessionId}/subject-configs/bulk`, {
+        method: 'POST',
+        body: JSON.stringify({ configs: toUpsert }),
+      });
+      toast.success(t('bulkApplied'));
+      void fetchRows();
+    } catch (err) {
+      console.error('[SubjectMatrixTab]', err);
+      toast.error(t('rowUpdateFailed'));
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-12 animate-pulse rounded-lg bg-surface-secondary" />
+        ))}
+      </div>
+    );
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-2xl border border-border bg-surface p-12 text-center">
+        <p className="text-sm text-text-secondary">{t('empty')}</p>
+      </div>
+    );
+  }
+
+  // Group by year group
+  const byYearGroup = new Map<string, SubjectConfigRow[]>();
+  for (const r of rows) {
+    const list = byYearGroup.get(r.year_group_name) ?? [];
+    list.push(r);
+    byYearGroup.set(r.year_group_name, list);
+  }
+
+  return (
+    <div className="space-y-6">
+      {Array.from(byYearGroup.entries()).map(([ygName, ygRows]) => {
+        const ygId = ygRows[0]?.year_group_id ?? '';
+        return (
+          <div key={ygName} className="rounded-2xl border border-border bg-surface">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+              <h3 className="text-base font-semibold text-text-primary">{ygName}</h3>
+              {!readOnly && (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => void bulkSet(ygId, true)}>
+                    {t('markAllExaminable')}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => void bulkSet(ygId, false)}>
+                    {t('markNone')}
+                  </Button>
+                </div>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-surface-secondary">
+                    {[
+                      t('subject'),
+                      t('studentCount'),
+                      t('examinable'),
+                      t('paperCount'),
+                      t('paper1Duration'),
+                      t('paper2Duration'),
+                      t('mode'),
+                      t('invigilatorsRequired'),
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ygRows.map((r) => {
+                    const key = `${r.year_group_id}:${r.subject_id}`;
+                    const saving = savingKey === key;
+                    return (
+                      <tr key={key} className="border-b border-border last:border-b-0">
+                        <td className="px-3 py-2 font-medium text-text-primary">
+                          {r.subject_name}
+                          {saving && (
+                            <Loader2 className="inline-block h-3 w-3 animate-spin ms-2 text-text-tertiary" />
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-text-secondary">{r.student_count}</td>
+                        <td className="px-3 py-2">
+                          <Switch
+                            checked={r.is_examinable}
+                            disabled={readOnly}
+                            onCheckedChange={(checked) =>
+                              updateRow(key, { is_examinable: checked })
+                            }
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Select
+                            value={String(r.paper_count)}
+                            onValueChange={(v) => updateRow(key, { paper_count: parseInt(v, 10) })}
+                            disabled={readOnly || !r.is_examinable}
+                          >
+                            <SelectTrigger className="h-8 w-16">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1</SelectItem>
+                              <SelectItem value="2">2</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input
+                            type="number"
+                            min={10}
+                            max={480}
+                            value={r.paper_1_duration_mins}
+                            onChange={(e) =>
+                              updateRow(key, {
+                                paper_1_duration_mins: parseInt(e.target.value, 10) || 60,
+                              })
+                            }
+                            disabled={readOnly || !r.is_examinable}
+                            className="h-8 w-24"
+                            dir="ltr"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input
+                            type="number"
+                            min={10}
+                            max={480}
+                            value={r.paper_2_duration_mins ?? ''}
+                            onChange={(e) =>
+                              updateRow(key, {
+                                paper_2_duration_mins: e.target.value
+                                  ? parseInt(e.target.value, 10)
+                                  : null,
+                              })
+                            }
+                            disabled={readOnly || !r.is_examinable || r.paper_count !== 2}
+                            className="h-8 w-24"
+                            dir="ltr"
+                            placeholder="—"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Select
+                            value={r.mode}
+                            onValueChange={(v) =>
+                              updateRow(key, { mode: v as 'in_person' | 'online' })
+                            }
+                            disabled={readOnly || !r.is_examinable}
+                          >
+                            <SelectTrigger className="h-8 w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="in_person">{t('inPerson')}</SelectItem>
+                              <SelectItem value="online">{t('online')}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={50}
+                            value={r.invigilators_required}
+                            onChange={(e) =>
+                              updateRow(key, {
+                                invigilators_required: parseInt(e.target.value, 10) || 1,
+                              })
+                            }
+                            disabled={readOnly || !r.is_examinable}
+                            className="h-8 w-20"
+                            dir="ltr"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Invigilator Pool Tab ────────────────────────────────────────────────────
+
+function InvigilatorPoolTab({ sessionId, readOnly }: { sessionId: string; readOnly: boolean }) {
+  const t = useTranslations('scheduling.examSchedules.pool');
+  const [pool, setPool] = React.useState<PoolMember[]>([]);
+  const [staff, setStaff] = React.useState<PoolMember[]>([]);
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const [search, setSearch] = React.useState('');
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+
+  const fetchAll = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const [poolRes, staffRes] = await Promise.all([
+        apiClient<{ data: PoolMember[] }>(
+          `/api/v1/scheduling/exam-sessions/${sessionId}/invigilator-pool`,
+        ),
+        apiClient<{
+          data: Array<{
+            id: string;
+            user: { first_name: string; last_name: string; email: string };
+            job_title: string | null;
+          }>;
+        }>(`/api/v1/scheduling/teachers?pageSize=500`),
+      ]);
+      const poolList = poolRes.data ?? [];
+      setPool(poolList);
+      setSelected(new Set(poolList.map((p) => p.staff_profile_id)));
+
+      const teachers: PoolMember[] = (staffRes.data ?? []).map((s) => ({
+        staff_profile_id: s.id,
+        first_name: s.user.first_name,
+        last_name: s.user.last_name,
+        email: s.user.email,
+        job_title: s.job_title,
+      }));
+      setStaff(teachers);
+    } catch (err) {
+      console.error('[InvigilatorPoolTab]', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  React.useEffect(() => {
+    void fetchAll();
+  }, [fetchAll]);
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await apiClient(`/api/v1/scheduling/exam-sessions/${sessionId}/invigilator-pool`, {
+        method: 'PUT',
+        body: JSON.stringify({ staff_profile_ids: Array.from(selected) }),
+      });
+      toast.success(t('poolSaved'));
+      void fetchAll();
+    } catch (err) {
+      console.error('[InvigilatorPoolTab]', err);
+      toast.error(t('poolSaveFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filtered = staff.filter((s) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      s.first_name.toLowerCase().includes(q) ||
+      s.last_name.toLowerCase().includes(q) ||
+      s.email.toLowerCase().includes(q)
+    );
+  });
+
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-20 animate-pulse rounded-lg bg-surface-secondary" />
+        ))}
+      </div>
+    );
+  }
+
+  if (staff.length === 0) {
+    return (
+      <div className="rounded-2xl border border-border bg-surface p-12 text-center">
+        <p className="text-sm text-text-secondary">{t('noStaff')}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-border bg-surface p-4 space-y-2">
+        <h3 className="text-base font-semibold text-text-primary">{t('title')}</h3>
+        <p className="text-sm text-text-secondary">{t('description')}</p>
+      </div>
+
+      <Input
+        placeholder={t('searchPlaceholder')}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="max-w-md"
+      />
+
+      <div className="rounded-2xl border border-border bg-surface">
+        <ul className="divide-y divide-border">
+          {filtered.map((s) => {
+            const checked = selected.has(s.staff_profile_id);
+            return (
+              <li key={s.staff_profile_id} className="flex items-center gap-3 px-4 py-3">
+                <Checkbox
+                  id={`staff-${s.staff_profile_id}`}
+                  checked={checked}
+                  disabled={readOnly}
+                  onCheckedChange={() => toggle(s.staff_profile_id)}
+                />
+                <label htmlFor={`staff-${s.staff_profile_id}`} className="flex-1 cursor-pointer">
+                  <p className="text-sm font-medium text-text-primary">
+                    {s.first_name} {s.last_name}
+                  </p>
+                  <p className="text-xs text-text-secondary">
+                    {s.job_title ? `${s.job_title} · ` : ''}
+                    {s.email}
+                  </p>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      {!readOnly && (
+        <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
+          <p className="text-sm text-text-secondary">
+            {selected.size} {t('selectedPool')}
+            {pool.length > 0 && ` (saved: ${pool.length})`}
+          </p>
+          <Button onClick={() => void save()} disabled={saving}>
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin me-2" />
+            ) : (
+              <Save className="h-4 w-4 me-2" />
+            )}
+            {t('savePool')}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Session Window Tab ──────────────────────────────────────────────────────
+
+const DEFAULT_WINDOW: SessionConfig = {
+  allowed_weekdays: [1, 2, 3, 4],
+  morning_start: '09:00',
+  morning_end: '12:30',
+  afternoon_start: '13:30',
+  afternoon_end: '16:30',
+  min_gap_minutes_same_student: 60,
+  max_exams_per_day_per_yg: 2,
+};
+
+function SessionWindowTab({ sessionId, readOnly }: { sessionId: string; readOnly: boolean }) {
+  const t = useTranslations('scheduling.examSchedules.window');
+  const [config, setConfig] = React.useState<SessionConfig>(DEFAULT_WINDOW);
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    apiClient<SessionConfig | null>(`/api/v1/scheduling/exam-sessions/${sessionId}/config`)
+      .then((res) => {
+        if (res) {
+          setConfig({
+            allowed_weekdays: res.allowed_weekdays ?? DEFAULT_WINDOW.allowed_weekdays,
+            morning_start: res.morning_start,
+            morning_end: res.morning_end,
+            afternoon_start: res.afternoon_start,
+            afternoon_end: res.afternoon_end,
+            min_gap_minutes_same_student: res.min_gap_minutes_same_student,
+            max_exams_per_day_per_yg: res.max_exams_per_day_per_yg,
+          });
+        }
+      })
+      .catch((err) => console.error('[SessionWindowTab]', err))
+      .finally(() => setLoading(false));
+  }, [sessionId]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await apiClient(`/api/v1/scheduling/exam-sessions/${sessionId}/config`, {
+        method: 'PUT',
+        body: JSON.stringify(config),
+      });
+      toast.success(t('saved'));
+    } catch (err) {
+      console.error('[SessionWindowTab]', err);
+      toast.error(t('saveFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleDay = (day: number) => {
+    setConfig((prev) => {
+      const next = new Set(prev.allowed_weekdays);
+      if (next.has(day)) next.delete(day);
+      else next.add(day);
+      return { ...prev, allowed_weekdays: Array.from(next).sort((a, b) => a - b) };
+    });
+  };
+
+  if (loading) {
+    return <div className="h-64 animate-pulse rounded-lg bg-surface-secondary" />;
+  }
+
+  const days = [
+    { n: 0, key: 'sunday' as const },
+    { n: 1, key: 'monday' as const },
+    { n: 2, key: 'tuesday' as const },
+    { n: 3, key: 'wednesday' as const },
+    { n: 4, key: 'thursday' as const },
+    { n: 5, key: 'friday' as const },
+    { n: 6, key: 'saturday' as const },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-border bg-surface p-4 space-y-2">
+        <h3 className="text-base font-semibold text-text-primary">{t('title')}</h3>
+        <p className="text-sm text-text-secondary">{t('description')}</p>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-surface p-5 space-y-5">
+        <div>
+          <Label className="mb-2 block">{t('allowedWeekdays')}</Label>
+          <div className="flex flex-wrap gap-2">
+            {days.map((d) => {
+              const active = config.allowed_weekdays.includes(d.n);
+              return (
+                <button
+                  key={d.n}
+                  type="button"
+                  disabled={readOnly}
+                  onClick={() => toggleDay(d.n)}
+                  className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                    active
+                      ? 'border-brand bg-brand text-brand-contrast'
+                      : 'border-border bg-surface text-text-secondary hover:bg-surface-secondary'
+                  }`}
+                >
+                  {t(d.key)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>{t('morningStart')}</Label>
+            <Input
+              type="time"
+              value={config.morning_start}
+              onChange={(e) => setConfig({ ...config, morning_start: e.target.value })}
+              disabled={readOnly}
+              dir="ltr"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t('morningEnd')}</Label>
+            <Input
+              type="time"
+              value={config.morning_end}
+              onChange={(e) => setConfig({ ...config, morning_end: e.target.value })}
+              disabled={readOnly}
+              dir="ltr"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t('afternoonStart')}</Label>
+            <Input
+              type="time"
+              value={config.afternoon_start}
+              onChange={(e) => setConfig({ ...config, afternoon_start: e.target.value })}
+              disabled={readOnly}
+              dir="ltr"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t('afternoonEnd')}</Label>
+            <Input
+              type="time"
+              value={config.afternoon_end}
+              onChange={(e) => setConfig({ ...config, afternoon_end: e.target.value })}
+              disabled={readOnly}
+              dir="ltr"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t('minGap')}</Label>
+            <Input
+              type="number"
+              min={0}
+              max={480}
+              value={config.min_gap_minutes_same_student}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  min_gap_minutes_same_student: parseInt(e.target.value, 10) || 0,
+                })
+              }
+              disabled={readOnly}
+              dir="ltr"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t('maxPerDay')}</Label>
+            <Input
+              type="number"
+              min={1}
+              max={10}
+              value={config.max_exams_per_day_per_yg}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  max_exams_per_day_per_yg: parseInt(e.target.value, 10) || 1,
+                })
+              }
+              disabled={readOnly}
+              dir="ltr"
+            />
+          </div>
+        </div>
+
+        {!readOnly && (
+          <div className="flex justify-end">
+            <Button onClick={() => void save()} disabled={saving}>
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin me-2" />
+              ) : (
+                <Save className="h-4 w-4 me-2" />
+              )}
+              {t('save')}
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Review & Publish Tab ────────────────────────────────────────────────────
+
+function ReviewTab({
+  sessionId,
+  session,
+  onPublished,
+}: {
+  sessionId: string;
+  session: ExamSession;
+  onPublished: () => void;
+}) {
+  const t = useTranslations('scheduling.examSchedules.solve');
+  const tPub = useTranslations('scheduling.examSchedules.publish');
+  const tCommon = useTranslations('common');
+
+  const [slots, setSlots] = React.useState<DetailedSlot[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [solving, setSolving] = React.useState(false);
+  const [publishing, setPublishing] = React.useState(false);
+  const [publishOpen, setPublishOpen] = React.useState(false);
+
+  const fetchSlots = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient<{ data: DetailedSlot[] }>(
+        `/api/v1/scheduling/exam-sessions/${sessionId}/slots-detailed`,
+      );
+      setSlots(res.data ?? []);
+    } catch (err) {
+      console.error('[ReviewTab]', err);
+      setSlots([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  React.useEffect(() => {
+    void fetchSlots();
+  }, [fetchSlots]);
+
+  const solve = async () => {
+    setSolving(true);
+    try {
+      const res = await apiClient<SolveResponse>(
+        `/api/v1/scheduling/exam-sessions/${sessionId}/solve`,
+        { method: 'POST', body: JSON.stringify({ max_solver_duration_seconds: 60 }) },
+      );
+      if (res.status === 'optimal') {
+        toast.success(t('succeeded', { placed: res.placed, total: res.total }));
+      } else if (res.status === 'feasible') {
+        toast.success(
+          t('partial', { placed: res.placed, total: res.total, msg: res.message ?? '' }),
+        );
+      } else {
+        toast.error(t('failed'));
+      }
+      void fetchSlots();
+    } catch (err: unknown) {
+      console.error('[ReviewTab]', err);
+      const ex = err as { error?: { message?: string } };
+      toast.error(ex?.error?.message ?? t('error'));
+    } finally {
+      setSolving(false);
+    }
+  };
+
+  const publish = async () => {
+    setPublishing(true);
+    try {
+      await apiClient(`/api/v1/scheduling/exam-sessions/${sessionId}/publish-v2`, {
+        method: 'POST',
+        body: JSON.stringify({ confirm: true }),
+      });
+      toast.success(tPub('succeeded'));
+      setPublishOpen(false);
+      onPublished();
+    } catch (err: unknown) {
+      console.error('[ReviewTab]', err);
+      const ex = err as { error?: { message?: string } };
+      toast.error(ex?.error?.message ?? tPub('failed'));
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const canSolve = session.status === 'planning';
+  const canPublish = session.status === 'planning' && slots.length > 0;
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-border bg-surface p-5 space-y-4">
+        <div>
+          <h3 className="text-base font-semibold text-text-primary">{t('title')}</h3>
+          <p className="mt-1 text-sm text-text-secondary">{t('description')}</p>
+        </div>
+        {canSolve && (
+          <div>
+            <Button onClick={() => void solve()} disabled={solving}>
+              {solving ? (
+                <Loader2 className="h-4 w-4 animate-spin me-2" />
+              ) : (
+                <Sparkles className="h-4 w-4 me-2" />
+              )}
+              {slots.length > 0 ? t('regenerate') : t('generate')}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-border bg-surface">
+        <div className="border-b border-border px-5 py-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-text-primary">{t('slotsTable')}</h3>
+          {canPublish && (
+            <Button onClick={() => setPublishOpen(true)} disabled={publishing}>
+              <Send className="h-4 w-4 me-2" />
+              {tPub('button')}
+            </Button>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="p-5 space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-10 animate-pulse rounded bg-surface-secondary" />
+            ))}
+          </div>
+        ) : slots.length === 0 ? (
+          <div className="px-5 py-12 text-center text-sm text-text-secondary">{t('noSlots')}</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-surface-secondary">
+                  {[
+                    t('slotsColDate'),
+                    t('slotsColTime'),
+                    t('slotsColYearGroup'),
+                    t('slotsColSubject'),
+                    t('slotsColPaper'),
+                    t('slotsColStudents'),
+                    t('slotsColRooms'),
+                    t('slotsColInvigilators'),
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {slots.map((s) => (
+                  <tr key={s.id} className="border-b border-border last:border-b-0">
+                    <td className="px-3 py-2 text-text-secondary">
+                      {new Date(s.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-3 py-2 text-text-secondary font-mono text-xs" dir="ltr">
+                      {s.start_time} – {s.end_time}
+                    </td>
+                    <td className="px-3 py-2 text-text-secondary">{s.year_group_name ?? '—'}</td>
+                    <td className="px-3 py-2 font-medium text-text-primary">
+                      {s.subject_name ?? '—'}
+                    </td>
+                    <td className="px-3 py-2 text-text-secondary">
+                      {s.paper_number ? `P${s.paper_number}` : t('singlePaper')}
+                    </td>
+                    <td className="px-3 py-2 text-text-secondary">{s.student_count}</td>
+                    <td className="px-3 py-2 text-text-secondary">
+                      {s.rooms.length === 0 ? '—' : s.rooms.map((r) => r.room_name).join(', ')}
+                    </td>
+                    <td className="px-3 py-2 text-text-secondary">
+                      {s.invigilators.length === 0
+                        ? '—'
+                        : s.invigilators.map((i) => i.name).join(', ')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{tPub('confirmTitle')}</DialogTitle>
+            <DialogDescription>{tPub('confirmBody')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPublishOpen(false)} disabled={publishing}>
+              {tPub('cancel')}
+            </Button>
+            <Button onClick={() => void publish()} disabled={publishing}>
+              {publishing && <Loader2 className="h-4 w-4 animate-spin me-2" />}
+              {tPub('confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* reference tCommon to keep import in use for future strings */}
+      <span className="sr-only">{tCommon('cancel')}</span>
+    </div>
+  );
+}
