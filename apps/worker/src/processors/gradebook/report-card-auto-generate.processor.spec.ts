@@ -12,7 +12,8 @@ const STUDENT_A_ID = '44444444-4444-4444-4444-444444444444';
 const STUDENT_B_ID = '55555555-5555-5555-5555-555555555555';
 
 function buildMockPrisma() {
-  return {
+  const tx = {
+    $executeRaw: jest.fn().mockResolvedValue(undefined),
     academicPeriod: {
       findMany: jest.fn().mockResolvedValue([]),
     },
@@ -23,10 +24,22 @@ function buildMockPrisma() {
       createMany: jest.fn().mockResolvedValue({ count: 0 }),
       findMany: jest.fn().mockResolvedValue([]),
     },
+  };
+  const prisma = {
+    // Per-tenant work runs inside an interactive $transaction that sets
+    // `app.current_tenant_id` via `set_config`. The mock forwards `tx` to the
+    // callback and returns its resolution so tests can inspect the tx-scoped
+    // calls directly.
+    $transaction: jest.fn((cb: (t: typeof tx) => unknown) => Promise.resolve(cb(tx))),
     tenant: {
       findMany: jest.fn().mockResolvedValue([{ default_locale: 'en', id: TENANT_A_ID }]),
     },
+    // Surface tx so assertions can keep reading from the familiar paths.
+    academicPeriod: tx.academicPeriod,
+    classEnrolment: tx.classEnrolment,
+    reportCard: tx.reportCard,
   };
+  return prisma;
 }
 
 function buildJob(name: string = REPORT_CARD_AUTO_GENERATE_JOB): Job {
@@ -54,7 +67,13 @@ describe('ReportCardAutoGenerateProcessor', () => {
       { default_locale: 'ar', id: TENANT_B_ID },
     ]);
     mockPrisma.academicPeriod.findMany
-      .mockResolvedValueOnce([{ id: PERIOD_ID, name: 'Term 2' }])
+      .mockResolvedValueOnce([
+        {
+          id: PERIOD_ID,
+          name: 'Term 2',
+          academic_year_id: '66666666-6666-6666-6666-666666666666',
+        },
+      ])
       .mockResolvedValueOnce([]);
     mockPrisma.classEnrolment.findMany.mockResolvedValue([
       { student_id: STUDENT_A_ID },
@@ -86,6 +105,7 @@ describe('ReportCardAutoGenerateProcessor', () => {
           tenant_id: TENANT_A_ID,
           student_id: STUDENT_B_ID,
           academic_period_id: PERIOD_ID,
+          academic_year_id: '66666666-6666-6666-6666-666666666666',
           status: 'draft',
           template_locale: 'en',
           snapshot_payload_json: {},
@@ -93,5 +113,33 @@ describe('ReportCardAutoGenerateProcessor', () => {
       ],
       skipDuplicates: true,
     });
+  });
+
+  it('sets app.current_tenant_id via set_config before querying', async () => {
+    const mockPrisma = buildMockPrisma();
+    mockPrisma.academicPeriod.findMany.mockResolvedValueOnce([]);
+    const processor = new ReportCardAutoGenerateProcessor(mockPrisma as never);
+
+    await processor.process(buildJob());
+
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.academicPeriod.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips tenants with malformed (empty/invalid) ids', async () => {
+    const mockPrisma = buildMockPrisma();
+    mockPrisma.tenant.findMany.mockResolvedValue([
+      { default_locale: 'en', id: '' },
+      { default_locale: 'en', id: 'not-a-uuid' },
+      { default_locale: 'en', id: TENANT_A_ID },
+    ]);
+    mockPrisma.academicPeriod.findMany.mockResolvedValue([]);
+    const processor = new ReportCardAutoGenerateProcessor(mockPrisma as never);
+
+    await processor.process(buildJob());
+
+    // Only the one valid tenant entered the transactional path.
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.academicPeriod.findMany).toHaveBeenCalledTimes(1);
   });
 });

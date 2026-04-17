@@ -402,6 +402,12 @@
       "methods": ["$executeRaw"],
       "category": "rls-infrastructure",
       "reason": "RLS context-setting via set_config() inside the audit_logs insert transaction — required because audit_logs has FORCE ROW LEVEL SECURITY with policy referencing current_setting('app.current_tenant_id')::uuid; SCHED-013 fix for worker crash loop."
+    },
+    {
+      "file": "apps/worker/src/processors/gradebook/report-card-auto-generate.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() inside each per-tenant transaction of the cross-tenant daily cron — required because academic_periods/class_enrolments/report_cards all have FORCE ROW LEVEL SECURITY with current_setting('app.current_tenant_id')::uuid policies; fixes empty-UUID cast storm observed in prod 2026-04-17."
     }
   ]
 }

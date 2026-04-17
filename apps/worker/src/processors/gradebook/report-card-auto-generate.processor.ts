@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
@@ -36,8 +36,23 @@ export class ReportCardAutoGenerateProcessor {
     });
 
     let totalGenerated = 0;
+    let skippedInvalid = 0;
 
     for (const tenant of tenants) {
+      // Defensive UUID guard. The root cause of prior "invalid input syntax for
+      // type uuid: \"\"" storms in this cron was RLS policies failing when the
+      // `app.current_tenant_id` GUC was cast from an empty string — we now set
+      // the GUC per-tenant in a transaction below, but a tenant row with an
+      // empty/whitespace id would still poison everything it touches. Skip
+      // those explicitly and log so the upstream data can be fixed.
+      if (!isValidUuid(tenant.id)) {
+        this.logger.error(
+          `Skipping tenant with invalid id "${tenant.id}" — ignored to avoid RLS cast failure`,
+        );
+        skippedInvalid += 1;
+        continue;
+      }
+
       // RC-C029: Skip tenants that have tripped the circuit breaker
       const failures = this.failureCountByTenant.get(tenant.id) ?? 0;
       if (failures >= ReportCardAutoGenerateProcessor.CIRCUIT_BREAKER_THRESHOLD) {
@@ -61,102 +76,132 @@ export class ReportCardAutoGenerateProcessor {
       }
     }
 
+    if (skippedInvalid > 0) {
+      this.logger.warn(
+        `Report card auto-generate: skipped ${skippedInvalid} tenant(s) with invalid UUIDs`,
+      );
+    }
+
     this.logger.log(
       `Report card auto-generate complete: ${totalGenerated} draft(s) created across ${tenants.length} tenants`,
     );
   }
 
   private async processForTenant(tenantId: string, locale: string): Promise<number> {
-    // Find academic periods that ended within the last 24 hours
-    const now = new Date();
-    const since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    // Every tenant-scoped query below relies on RLS policies that cast
+    // `app.current_tenant_id` to UUID. Without a transaction-scoped
+    // `set_config`, the GUC is either unset (runtime error) or a stale
+    // empty string from a prior PgBouncer session ("invalid input syntax
+    // for type uuid: \"\"" — the original prod failure). Wrap the whole
+    // per-tenant pipeline in one interactive transaction with the GUC
+    // set locally, so every read/write inside sees the right context and
+    // the cleanup is automatic on commit.
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(
+        Prisma.sql`SELECT set_config('app.current_tenant_id', ${tenantId}::text, true)`,
+      );
 
-    const recentlyEndedPeriods = await this.prisma.academicPeriod.findMany({
-      where: {
-        tenant_id: tenantId,
-        end_date: {
-          gte: since,
-          lte: now,
-        },
-        status: { in: ['active', 'closed'] },
-      },
-      select: { id: true, name: true, academic_year_id: true },
-    });
+      // Find academic periods that ended within the last 24 hours
+      const now = new Date();
+      const since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    if (recentlyEndedPeriods.length === 0) {
-      return 0;
-    }
-
-    let created = 0;
-
-    for (const period of recentlyEndedPeriods) {
-      // Find all distinct students enrolled in classes within this period's academic year
-      const enrolments = await this.prisma.classEnrolment.findMany({
+      const recentlyEndedPeriods = await tx.academicPeriod.findMany({
         where: {
           tenant_id: tenantId,
-          class_entity: {
-            academic_year: {
-              periods: {
-                some: { id: period.id },
+          end_date: {
+            gte: since,
+            lte: now,
+          },
+          status: { in: ['active', 'closed'] },
+        },
+        select: { id: true, name: true, academic_year_id: true },
+      });
+
+      if (recentlyEndedPeriods.length === 0) {
+        return 0;
+      }
+
+      let created = 0;
+
+      for (const period of recentlyEndedPeriods) {
+        // Find all distinct students enrolled in classes within this period's academic year
+        const enrolments = await tx.classEnrolment.findMany({
+          where: {
+            tenant_id: tenantId,
+            class_entity: {
+              academic_year: {
+                periods: {
+                  some: { id: period.id },
+                },
               },
             },
+            status: 'active',
           },
-          status: 'active',
-        },
-        select: { student_id: true },
-        distinct: ['student_id'],
-      });
+          select: { student_id: true },
+          distinct: ['student_id'],
+        });
 
-      const studentIds = enrolments.map((e: { student_id: string }) => e.student_id);
+        const studentIds = enrolments.map((e: { student_id: string }) => e.student_id);
 
-      if (studentIds.length === 0) {
-        this.logger.log(
-          `Tenant ${tenantId}: period "${period.name}" has no enrolled students, skipping.`,
+        if (studentIds.length === 0) {
+          this.logger.log(
+            `Tenant ${tenantId}: period "${period.name}" has no enrolled students, skipping.`,
+          );
+          continue;
+        }
+
+        // Find students who already have a report card for this period
+        const existing = await tx.reportCard.findMany({
+          where: {
+            tenant_id: tenantId,
+            academic_period_id: period.id,
+            student_id: { in: studentIds },
+          },
+          select: { student_id: true },
+        });
+        const existingStudentIds = new Set(
+          existing.map((r: { student_id: string }) => r.student_id),
         );
-        continue;
+
+        const missing = studentIds.filter((id: string) => !existingStudentIds.has(id));
+
+        if (missing.length === 0) {
+          this.logger.log(
+            `Tenant ${tenantId}: period "${period.name}" — all students already have report cards.`,
+          );
+          continue;
+        }
+
+        // Batch-create draft report cards for missing students
+        await tx.reportCard.createMany({
+          data: missing.map((studentId: string) => ({
+            tenant_id: tenantId,
+            student_id: studentId,
+            academic_period_id: period.id,
+            academic_year_id: period.academic_year_id,
+            status: 'draft' as const,
+            template_locale: locale,
+            snapshot_payload_json: {},
+          })),
+          skipDuplicates: true,
+        });
+
+        created += missing.length;
+
+        this.logger.log(
+          `Tenant ${tenantId}: period "${period.name}" — created ${missing.length} draft report card(s)`,
+        );
       }
 
-      // Find students who already have a report card for this period
-      const existing = await this.prisma.reportCard.findMany({
-        where: {
-          tenant_id: tenantId,
-          academic_period_id: period.id,
-          student_id: { in: studentIds },
-        },
-        select: { student_id: true },
-      });
-      const existingStudentIds = new Set(existing.map((r: { student_id: string }) => r.student_id));
-
-      const missing = studentIds.filter((id: string) => !existingStudentIds.has(id));
-
-      if (missing.length === 0) {
-        this.logger.log(
-          `Tenant ${tenantId}: period "${period.name}" — all students already have report cards.`,
-        );
-        continue;
-      }
-
-      // Batch-create draft report cards for missing students
-      await this.prisma.reportCard.createMany({
-        data: missing.map((studentId: string) => ({
-          tenant_id: tenantId,
-          student_id: studentId,
-          academic_period_id: period.id,
-          academic_year_id: period.academic_year_id,
-          status: 'draft' as const,
-          template_locale: locale,
-          snapshot_payload_json: {},
-        })),
-        skipDuplicates: true,
-      });
-
-      created += missing.length;
-
-      this.logger.log(
-        `Tenant ${tenantId}: period "${period.name}" — created ${missing.length} draft report card(s)`,
-      );
-    }
-
-    return created;
+      return created;
+    });
   }
+}
+
+// UUID v1-v5 validator. Keep the check permissive (any hex-8-4-4-4-12 shape)
+// so we don't break fixture UUIDs used in tests — the goal is to catch
+// empty/obviously-malformed values, not to validate version bits.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isValidUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID_RE.test(value);
 }
