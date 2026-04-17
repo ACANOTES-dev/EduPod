@@ -5093,7 +5093,9 @@
         "slack": "Capacity slack",
         "periodsPerWeek": "periods / week",
         "blockersCount": "{count, plural, =0 {No blockers} one {# blocker to resolve} other {# blockers to resolve}}",
-        "impact": "Blocks approximately {periods} period{periods, plural, =1 {} other {s}} ({pct}% of weekly demand)"
+        "impact": "Blocks approximately {periods} period{periods, plural, =1 {} other {s}} ({pct}% of weekly demand)",
+        "refresh": "Refresh",
+        "refreshTooltip": "Recompute against the current data. Use this after editing requirements, availability, teachers, or pins elsewhere in the app."
       },
       "progressWidget": {
         "runningTitle": "Generating timetable",

@@ -9,6 +9,7 @@ import {
   Info,
   Loader2,
   Pin,
+  RefreshCw,
   Sparkles,
   XCircle,
 } from 'lucide-react';
@@ -162,18 +163,19 @@ export default function AutoSchedulerPage() {
       .finally(() => setPrereqLoading(false));
   }, [selectedYear]);
 
-  // Load the mathematical-feasibility preview whenever the year changes.
-  // Runs the same 10 capacity checks the orchestration would use pre-solve
-  // but without starting the solver, so the user sees up-front whether
-  // 100 % placement is achievable with this data set.
-  React.useEffect(() => {
-    if (!selectedYear) {
+  // Load the mathematical-feasibility preview. Extracted into a callback so
+  // the user can manually refresh after editing requirements / availability /
+  // teachers / pins elsewhere — the endpoint itself is live (no caching), but
+  // the page only auto-refetches when the academic year changes, so without
+  // a manual trigger the card can appear stale relative to the current DB.
+  const loadFeasibility = React.useCallback((yearId: string) => {
+    if (!yearId) {
       setFeasibility(null);
       return;
     }
     setFeasibilityLoading(true);
     apiClient<{ data: FeasibilityReport }>(
-      `/api/v1/scheduling-runs/feasibility?academic_year_id=${selectedYear}`,
+      `/api/v1/scheduling-runs/feasibility?academic_year_id=${yearId}`,
     )
       .then((res) => setFeasibility(res.data))
       .catch((err) => {
@@ -181,7 +183,11 @@ export default function AutoSchedulerPage() {
         setFeasibility(null);
       })
       .finally(() => setFeasibilityLoading(false));
-  }, [selectedYear]);
+  }, []);
+
+  React.useEffect(() => {
+    loadFeasibility(selectedYear);
+  }, [selectedYear, loadFeasibility]);
 
   // Load run history
   React.useEffect(() => {
@@ -333,6 +339,7 @@ export default function AutoSchedulerPage() {
           loading={feasibilityLoading}
           expanded={feasibilityExpanded}
           onToggleExpanded={() => setFeasibilityExpanded((v) => !v)}
+          onRefresh={() => loadFeasibility(selectedYear)}
           t={t}
         />
       )}
@@ -562,12 +569,14 @@ function FeasibilityPreviewCard({
   loading,
   expanded,
   onToggleExpanded,
+  onRefresh,
   t,
 }: {
   report: FeasibilityReport | null;
   loading: boolean;
   expanded: boolean;
   onToggleExpanded: () => void;
+  onRefresh: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
   if (loading && !report) {
@@ -605,6 +614,30 @@ function FeasibilityPreviewCard({
             {t(`feasibility.verdict.${verdict}.subtitle`)}
           </p>
         </div>
+        {/* Refresh lets the admin recompute after editing requirements /
+            availability / teachers / pins elsewhere. The endpoint is live
+            but the page only auto-refetches on year change, so without this
+            the card can silently lag behind DB state. Local TooltipProvider
+            because this card renders outside the prereq card's provider. */}
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onRefresh}
+                disabled={loading}
+                aria-label={t('feasibility.refresh')}
+                className="shrink-0"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                <span className="ms-2 hidden sm:inline">{t('feasibility.refresh')}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('feasibility.refreshTooltip')}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Ceiling numbers — the three that tell the whole story */}
