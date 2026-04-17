@@ -479,6 +479,68 @@ export class SchedulingReadFacade {
     return rows.map((r) => r.class_id);
   }
 
+  /**
+   * Per-year-group capacity breakdown: how many teaching periods the
+   * period grid provides vs how many the curriculum allocates via
+   * ``min_periods_per_week``. Consumed by the prerequisites check that
+   * hard-blocks generation when any year group is over-capacity, and
+   * surfaces an under-capacity warning otherwise.
+   */
+  async findCapacityByYearGroup(
+    tenantId: string,
+    academicYearId: string,
+    yearGroups: ReadonlyArray<{ id: string; name: string }>,
+  ): Promise<
+    Array<{
+      year_group_id: string;
+      year_group_name: string;
+      grid_teaching_slots: number;
+      allocated_min_periods: number;
+    }>
+  > {
+    const [templates, requirements] = await Promise.all([
+      this.prisma.schedulePeriodTemplate.findMany({
+        where: {
+          tenant_id: tenantId,
+          academic_year_id: academicYearId,
+          schedule_period_type: 'teaching',
+        },
+        select: { year_group_id: true, weekday: true, period_order: true },
+      }),
+      this.prisma.curriculumRequirement.findMany({
+        where: { tenant_id: tenantId, academic_year_id: academicYearId },
+        select: { year_group_id: true, min_periods_per_week: true },
+      }),
+    ]);
+
+    const defaultTuples = new Set<string>();
+    for (const t of templates) {
+      if (t.year_group_id === null) defaultTuples.add(`${t.weekday}:${t.period_order}`);
+    }
+
+    return yearGroups.map((yg) => {
+      const ygTuples = new Set<string>();
+      for (const t of templates) {
+        if (t.year_group_id === yg.id) ygTuples.add(`${t.weekday}:${t.period_order}`);
+      }
+      // Mirror buildPeriodSlots: year-group-specific wins; NULL defaults
+      // fill only uncovered tuples.
+      let gridSlots = ygTuples.size;
+      for (const tuple of defaultTuples) {
+        if (!ygTuples.has(tuple)) gridSlots += 1;
+      }
+      const allocated = requirements
+        .filter((r) => r.year_group_id === yg.id)
+        .reduce((sum, r) => sum + r.min_periods_per_week, 0);
+      return {
+        year_group_id: yg.id,
+        year_group_name: yg.name,
+        grid_teaching_slots: gridSlots,
+        allocated_min_periods: allocated,
+      };
+    });
+  }
+
   async findCurriculumForCoverageCheck(
     tenantId: string,
     academicYearId: string,

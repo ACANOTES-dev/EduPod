@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import type { PrerequisiteCheck, PrerequisitesResult } from '@school/shared';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
@@ -12,6 +13,7 @@ import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availab
 export class SchedulingPrerequisitesService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
     private readonly classesReadFacade: ClassesReadFacade,
     private readonly schedulesReadFacade: SchedulesReadFacade,
     private readonly schedulingReadFacade: SchedulingReadFacade,
@@ -274,6 +276,68 @@ export class SchedulingPrerequisitesService {
         ? `${violationDetails.length} pinned entries violate teacher availability`
         : 'All pinned entries within teacher availability',
       details: availabilityViolations ? { violations: violationDetails } : undefined,
+    });
+
+    // ── 6. Curriculum allocation fits the grid (tiered capacity check) ──────
+    //
+    // Per-year-group capacity balance between the curriculum matrix
+    // (``min_periods_per_week`` summed across subjects) and the period
+    // grid (teaching slots available per week). Three tiers, matching
+    // the UX contract agreed with the pilot:
+    //
+    //   allocated > grid  → FAIL. Mathematically infeasible (the solver
+    //                        literally cannot place that many periods).
+    //                        Hard-blocks Generate.
+    //   allocated < grid  → PASS with ``under_capacity`` warning details.
+    //                        The generate confirm dialog surfaces these
+    //                        to the admin and requires an explicit ack;
+    //                        legitimate for senior-year study periods
+    //                        but usually signals missing curriculum data.
+    //   allocated == grid → PASS, no warning.
+    //
+    // Year groups with zero curriculum requirements are skipped — they
+    // are already flagged by the ``all_classes_configured`` check above.
+    const yearGroupList = await this.academicReadFacade.findAllYearGroups(tenantId);
+    const capacity = await this.schedulingReadFacade.findCapacityByYearGroup(
+      tenantId,
+      academicYearId,
+      yearGroupList,
+    );
+
+    const overCapacityYgs = capacity.filter((c) => c.allocated_min_periods > c.grid_teaching_slots);
+    const underCapacityYgs = capacity.filter(
+      (c) => c.allocated_min_periods > 0 && c.allocated_min_periods < c.grid_teaching_slots,
+    );
+
+    checks.push({
+      key: 'curriculum_fits_grid',
+      passed: overCapacityYgs.length === 0,
+      message:
+        overCapacityYgs.length > 0
+          ? `${overCapacityYgs.length} year group(s) demand more periods than the grid can fit`
+          : underCapacityYgs.length > 0
+            ? `${underCapacityYgs.length} year group(s) have fewer curriculum periods than grid slots — review before generating`
+            : 'Curriculum allocation matches the period grid for every year group',
+      details:
+        overCapacityYgs.length > 0
+          ? {
+              over_capacity: overCapacityYgs.map((c) => ({
+                year_group_id: c.year_group_id,
+                year_group_name: c.year_group_name,
+                allocated: c.allocated_min_periods,
+                grid: c.grid_teaching_slots,
+              })),
+            }
+          : underCapacityYgs.length > 0
+            ? {
+                under_capacity: underCapacityYgs.map((c) => ({
+                  year_group_id: c.year_group_id,
+                  year_group_name: c.year_group_name,
+                  allocated: c.allocated_min_periods,
+                  grid: c.grid_teaching_slots,
+                })),
+              }
+            : undefined,
     });
 
     return {

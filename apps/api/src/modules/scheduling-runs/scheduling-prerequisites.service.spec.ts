@@ -23,6 +23,7 @@ describe('SchedulingPrerequisitesService', () => {
     findClassIdsWithSchedulingRequirements: jest.fn().mockResolvedValue([]),
     findCurriculumForCoverageCheck: jest.fn().mockResolvedValue([]),
     findCompetencyPinsAndPool: jest.fn().mockResolvedValue([]),
+    findCapacityByYearGroup: jest.fn().mockResolvedValue([]),
   };
 
   const mockClassesReadFacade = {
@@ -101,7 +102,7 @@ describe('SchedulingPrerequisitesService', () => {
       const result = await service.check(TENANT_ID, AY_ID);
 
       expect(result.ready).toBe(true);
-      expect(result.checks).toHaveLength(6);
+      expect(result.checks).toHaveLength(7);
       expect(result.checks.every((c) => c.passed)).toBe(true);
     });
 
@@ -426,7 +427,7 @@ describe('SchedulingPrerequisitesService', () => {
   // ─── Result structure ─────────────────────────────────────────────────────
 
   describe('check (result structure)', () => {
-    it('should always return 6 checks', async () => {
+    it('should always return 7 checks', async () => {
       mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
       mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
       mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
@@ -435,7 +436,7 @@ describe('SchedulingPrerequisitesService', () => {
 
       const result = await service.check(TENANT_ID, AY_ID);
 
-      expect(result.checks).toHaveLength(6);
+      expect(result.checks).toHaveLength(7);
       const keys = result.checks.map((c) => c.key);
       expect(keys).toContain('period_grid_exists');
       expect(keys).toContain('all_classes_configured');
@@ -443,6 +444,97 @@ describe('SchedulingPrerequisitesService', () => {
       expect(keys).toContain('every_class_subject_has_teacher');
       expect(keys).toContain('no_pinned_conflicts');
       expect(keys).toContain('no_pinned_availability_violations');
+      expect(keys).toContain('curriculum_fits_grid');
+    });
+  });
+
+  // ─── curriculum_fits_grid — tiered capacity check ──────────────────────────
+
+  describe('check (curriculum_fits_grid)', () => {
+    function baselineMocks() {
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.findActiveAcademicClassesWithYearGroup.mockResolvedValue([
+        { id: 'c1', name: '1A', year_group_id: 'yg-1' },
+      ]);
+      mockSchedulingReadFacade.findClassIdsWithSchedulingRequirements.mockResolvedValue(['c1']);
+      mockSchedulingReadFacade.findCurriculumForCoverageCheck.mockResolvedValue([]);
+      mockSchedulingReadFacade.findCompetencyPinsAndPool.mockResolvedValue([]);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
+    }
+
+    it('passes with matched allocation and no under/over capacity details', async () => {
+      baselineMocks();
+      mockSchedulingReadFacade.findCapacityByYearGroup.mockResolvedValue([
+        {
+          year_group_id: 'yg-1',
+          year_group_name: 'Year 1',
+          grid_teaching_slots: 25,
+          allocated_min_periods: 25,
+        },
+      ]);
+
+      const result = await service.check(TENANT_ID, AY_ID);
+      const cap = result.checks.find((c) => c.key === 'curriculum_fits_grid')!;
+      expect(cap.passed).toBe(true);
+      expect(cap.details).toBeUndefined();
+    });
+
+    it('passes but surfaces under_capacity details when allocated < grid', async () => {
+      baselineMocks();
+      mockSchedulingReadFacade.findCapacityByYearGroup.mockResolvedValue([
+        {
+          year_group_id: 'yg-1',
+          year_group_name: 'Year 6',
+          grid_teaching_slots: 29,
+          allocated_min_periods: 22,
+        },
+      ]);
+
+      const result = await service.check(TENANT_ID, AY_ID);
+      const cap = result.checks.find((c) => c.key === 'curriculum_fits_grid')!;
+      expect(cap.passed).toBe(true);
+      expect(cap.details?.under_capacity).toEqual([
+        { year_group_id: 'yg-1', year_group_name: 'Year 6', allocated: 22, grid: 29 },
+      ]);
+    });
+
+    it('fails with over_capacity details when allocated > grid', async () => {
+      baselineMocks();
+      mockSchedulingReadFacade.findCapacityByYearGroup.mockResolvedValue([
+        {
+          year_group_id: 'yg-1',
+          year_group_name: 'Year 1',
+          grid_teaching_slots: 20,
+          allocated_min_periods: 24,
+        },
+      ]);
+
+      const result = await service.check(TENANT_ID, AY_ID);
+      const cap = result.checks.find((c) => c.key === 'curriculum_fits_grid')!;
+      expect(cap.passed).toBe(false);
+      expect(cap.details?.over_capacity).toEqual([
+        { year_group_id: 'yg-1', year_group_name: 'Year 1', allocated: 24, grid: 20 },
+      ]);
+      // Over-capacity → ready === false (hard block).
+      expect(result.ready).toBe(false);
+    });
+
+    it('ignores year groups with zero allocated periods (not yet configured)', async () => {
+      baselineMocks();
+      mockSchedulingReadFacade.findCapacityByYearGroup.mockResolvedValue([
+        {
+          year_group_id: 'yg-1',
+          year_group_name: 'Year 1',
+          grid_teaching_slots: 25,
+          allocated_min_periods: 0,
+        },
+      ]);
+
+      const result = await service.check(TENANT_ID, AY_ID);
+      const cap = result.checks.find((c) => c.key === 'curriculum_fits_grid')!;
+      expect(cap.passed).toBe(true);
+      expect(cap.details).toBeUndefined();
     });
   });
 

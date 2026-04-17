@@ -57,6 +57,18 @@ interface PrerequisiteCheck {
   passed: boolean;
   message: string;
   fix_href?: string;
+  // Free-form details bag that check-specific UI branches read from.
+  // Keys currently in use: ``under_capacity``, ``over_capacity`` (both
+  // emitted by the ``curriculum_fits_grid`` check), plus legacy
+  // ``uncovered`` / ``conflicts`` / ``violations`` from earlier checks.
+  details?: Record<string, unknown>;
+}
+
+interface UnderCapacityYearGroup {
+  year_group_id: string;
+  year_group_name: string;
+  allocated: number;
+  grid: number;
 }
 
 interface PrerequisitesResponse {
@@ -291,15 +303,24 @@ export default function AutoSchedulerPage() {
     lastRun.failure_reason.startsWith('SOLVER_CRASH'),
   );
   const [crashAcknowledged, setCrashAcknowledged] = React.useState(false);
+  const [capacityAcknowledged, setCapacityAcknowledged] = React.useState(false);
   // Reset the acknowledgement whenever the dialog closes or the last-run
   // status flips, so it can't be smuggled across dialog re-opens or year
   // changes.
   React.useEffect(() => {
-    if (!confirmOpen) setCrashAcknowledged(false);
+    if (!confirmOpen) {
+      setCrashAcknowledged(false);
+      setCapacityAcknowledged(false);
+    }
   }, [confirmOpen]);
   React.useEffect(() => {
     setCrashAcknowledged(false);
   }, [lastRun?.id, lastRunCrashed]);
+  // Reset the capacity ack when the under-capacity set changes — the
+  // user must re-confirm each time the allocation state differs.
+  React.useEffect(() => {
+    setCapacityAcknowledged(false);
+  }, [underCapacityYgs.length, hasUnderCapacity]);
 
   // ─── Tooltip copy ──────────────────────────────────────────────────────────
   // Each prerequisite check has a short "what" explanation and an actionable
@@ -312,7 +333,20 @@ export default function AutoSchedulerPage() {
     'every_class_subject_has_teacher',
     'no_pinned_conflicts',
     'no_pinned_availability_violations',
+    'curriculum_fits_grid',
   ]);
+
+  // Read under-capacity year groups off the new ``curriculum_fits_grid``
+  // prerequisite check. ``passed`` is true in this state (under-capacity
+  // is a soft warning, not a blocker) — we still need the details to
+  // surface the dialog ack, so we pull them even on pass.
+  const capacityCheck = prerequisites?.checks.find((c) => c.key === 'curriculum_fits_grid');
+  const underCapacityYgs: UnderCapacityYearGroup[] = Array.isArray(
+    capacityCheck?.details?.under_capacity,
+  )
+    ? (capacityCheck!.details!.under_capacity as UnderCapacityYearGroup[])
+    : [];
+  const hasUnderCapacity = underCapacityYgs.length > 0;
 
   function getCheckCopy(checkKey: string): { what: string; fix: string } {
     const key = KNOWN_CHECK_KEYS.has(checkKey) ? checkKey : 'unknown_check';
@@ -640,13 +674,54 @@ export default function AutoSchedulerPage() {
               </div>
             </div>
           )}
+          {hasUnderCapacity && (
+            <div className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+                <div className="flex-1 space-y-2">
+                  <p className="font-medium text-text-primary">{t('underCapacityWarning.title')}</p>
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    {t('underCapacityWarning.detail')}
+                  </p>
+                  <ul className="text-xs text-text-secondary list-disc ps-4 space-y-0.5">
+                    {underCapacityYgs.map((yg) => {
+                      const gap = yg.grid - yg.allocated;
+                      return (
+                        <li key={yg.year_group_id} className="font-mono">
+                          {t('underCapacityWarning.row', {
+                            yearGroup: yg.year_group_name,
+                            allocated: yg.allocated,
+                            grid: yg.grid,
+                            gap,
+                          })}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <label className="flex items-start gap-2 text-xs text-text-primary cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={capacityAcknowledged}
+                      onChange={(e) => setCapacityAcknowledged(e.target.checked)}
+                    />
+                    <span>{t('underCapacityWarning.acknowledge')}</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
               {t('cancelSolve')}
             </Button>
             <Button
               onClick={handleGenerate}
-              disabled={submitting || (lastRunCrashed && !crashAcknowledged)}
+              disabled={
+                submitting ||
+                (lastRunCrashed && !crashAcknowledged) ||
+                (hasUnderCapacity && !capacityAcknowledged)
+              }
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin me-2" />}
               {t('generateTimetable')}

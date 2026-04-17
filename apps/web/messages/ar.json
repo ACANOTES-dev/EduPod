@@ -4980,6 +4980,12 @@
         "detail": "انتهت محاولة الجدولة السابقة لهذا العام الدراسي بتعطل المُحلّل. قد تؤدي إعادة المحاولة بنفس المدخلات إلى تكرار التعطل. يُستحسن تقليل ميزانية المُحلّل أو التواصل مع الدعم قبل المتابعة.",
         "acknowledge": "أتفهم أن المحاولة السابقة تعطلت وأرغب في إعادة المحاولة على أي حال."
       },
+      "underCapacityWarning": {
+        "title": "عدد الحصص المخصصة في المنهج أقل من شبكة الحصص",
+        "detail": "لدى مجموعة سنوية أو أكثر عدد حصص مخصصة في المنهج أقل من عدد حصص التدريس المتاحة. سيظهر لدى الطلاب حصص فارغة في جدولهم. إذا كانت هذه الفجوات مقصودة (مثل حصص المذاكرة) فيمكنك المتابعة، وإلا يُستحسن استكمال مصفوفة المنهج أولاً.",
+        "row": "{yearGroup}: {allocated}/{grid} ({gap} فارغ)",
+        "acknowledge": "أتفهم أنه ستظهر حصص فارغة وأرغب في إنشاء الجدول على أي حال."
+      },
       "solving": "جارٍ الحل...",
       "preparing": "جارٍ تحضير القيود...",
       "complete": "مكتمل",
@@ -5194,6 +5200,10 @@
         "no_pinned_availability_violations": {
           "what": "[AR] Every pinned lesson must fall inside the teacher's configured availability window for that weekday. If a teacher is only available on Mondays until noon, a pin at 2pm on Monday is impossible.",
           "fix": "[AR] Go to Scheduling → Availability. Either widen the teacher's availability window for that day, or move the pinned entry to a time the teacher is available."
+        },
+        "curriculum_fits_grid": {
+          "what": "يجب أن يتوافق منهج كل مجموعة سنوية (مجموع الحد الأدنى للحصص الأسبوعية لكل مادة) مع عدد حصص التدريس المتاحة في شبكة الحصص. إذا كان المنهج يطلب حصصاً أكثر من سعة الشبكة، فلن يتمكن المُحلّل من وضع جميع الدروس.",
+          "fix": "انتقل إلى الجدولة ← المنهج. إما قلل الحد الأدنى للحصص لبعض المواد حتى يتناسب المجموع مع السعة، أو انتقل إلى الجدولة ← شبكة الحصص وأضف المزيد من حصص التدريس للمجموعات السنوية المتأثرة."
         },
         "unknown_check": {
           "what": "[AR] This prerequisite must be satisfied before the solver can run.",

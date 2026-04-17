@@ -4988,6 +4988,12 @@
         "detail": "The previous solve for this academic year terminated with a solver crash. Retrying with the same inputs may reproduce the crash. Consider reducing the solver budget or contacting support before continuing.",
         "acknowledge": "I understand the previous run crashed and want to retry anyway."
       },
+      "underCapacityWarning": {
+        "title": "Curriculum allocation is smaller than the period grid",
+        "detail": "One or more year groups have fewer curriculum periods than teaching slots. Students in these year groups will have empty (Free) periods in their timetable. If those gaps are intentional (e.g. study periods, external activities), continue. Otherwise add to the curriculum matrix first.",
+        "row": "{yearGroup}: {allocated}/{grid} ({gap} empty)",
+        "acknowledge": "I understand students will have Free periods and want to generate anyway."
+      },
       "solving": "Solving...",
       "preparing": "Preparing constraints...",
       "complete": "Complete",
@@ -5202,6 +5208,10 @@
         "no_pinned_availability_violations": {
           "what": "Every pinned lesson must fall inside the teacher's configured availability window for that weekday. If a teacher is only available on Mondays until noon, a pin at 2pm on Monday is impossible.",
           "fix": "Go to Scheduling → Availability. Either widen the teacher's availability window for that day, or move the pinned entry to a time the teacher is available."
+        },
+        "curriculum_fits_grid": {
+          "what": "Each year group's curriculum (sum of min periods per week across subjects) must fit within the teaching slots available in the period grid for that year group. If the curriculum demands more periods than the grid can hold, the solver cannot place all lessons and will always fail.",
+          "fix": "Go to Scheduling → Curriculum. Either reduce min periods per week for one or more subjects until the total fits, or go to Scheduling → Period Grid and add more teaching slots for the affected year group."
         },
         "unknown_check": {
           "what": "This prerequisite must be satisfied before the solver can run.",

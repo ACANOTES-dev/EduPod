@@ -222,6 +222,15 @@ export default function CurriculumPage() {
 
   const handleSaveAll = async () => {
     if (!selectedYear || !selectedYearGroup) return;
+    // Hard block when the curriculum demands MORE periods than the grid
+    // can fit. Letting this save would guarantee an infeasible solver run
+    // (the ceiling check in FeasibilityService reports exactly this as a
+    // structural blocker). A warning the admin can ignore isn't enough —
+    // if allocated > grid, there is mathematically no valid timetable.
+    if (overCapacity) {
+      toast.error(tv('overCapacityWarning'));
+      return;
+    }
 
     // Only save rows that have min_periods_per_week set (> 0)
     const itemsToSave = rows
@@ -358,7 +367,8 @@ export default function CurriculumPage() {
             <Button
               size="sm"
               onClick={() => void handleSaveAll()}
-              disabled={isSaving || rows.length === 0}
+              disabled={isSaving || rows.length === 0 || overCapacity}
+              title={overCapacity ? tv('overCapacityWarning') : undefined}
             >
               <Save className="me-1.5 h-3.5 w-3.5" />
               {isSaving ? '...' : tv('saveAll')}
