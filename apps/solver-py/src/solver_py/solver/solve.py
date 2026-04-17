@@ -52,6 +52,7 @@ from solver_py.solver.soft_constraints import (
     TeacherPrefSatVar,
     build_soft_constraints,
 )
+from solver_py.solver.telemetry import SolverTelemetry
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,7 @@ class _SolveResult:
 def solve(
     input_payload: SolverInputV2,
     cancel_flag: threading.Event | None = None,
+    telemetry: SolverTelemetry | None = None,
 ) -> SolverOutputV2:
     """Solve a ``SolverInputV2`` and return a ``SolverOutputV2``.
 
@@ -84,6 +86,13 @@ def solve(
     on its next solution callback. A cancelled solve still returns a valid
     ``SolverOutputV2`` — greedy fallback plus whatever CP-SAT found before
     the halt — with ``early_stop_reason='cancelled'``.
+
+    ``telemetry`` (SCHED-041 §A) is an optional mutable capture object. When
+    provided, the solver records CP-SAT counters, hint survival, objective
+    trajectory, and termination reason into it. The caller then reads the
+    populated telemetry via ``telemetry.to_diagnostics()``. Omitted, solve
+    runs with no capture overhead — preserves behaviour for every existing
+    test that calls ``solve(input)`` directly.
     """
     start = time.perf_counter()
 
@@ -140,6 +149,17 @@ def solve(
     # env vars so production can adjust without redeploying source.
     placement_weight = objective_meta.placement_weight
     greedy_hint_score = placement_weight * len(greedy_chosen)
+
+    # SCHED-041 §A — record hint shape for the diagnostics consumer now that
+    # ``greedy_hint_score`` is known. final_objective_value ≈ greedy_hint_score
+    # is the canonical "CP-SAT matched the hint and never improved" signature
+    # and is what we need observability on for NHQS.
+    if telemetry is not None:
+        telemetry.record_greedy(
+            greedy_placement_count=len(greedy_chosen),
+            greedy_hint_score=greedy_hint_score,
+            placement_vars_count=len(built.placement_vars),
+        )
     callback = EarlyStopCallback(
         greedy_hint_score=greedy_hint_score,
         stagnation_seconds=float(os.environ.get("CP_SAT_EARLY_STOP_STAGNATION_SECONDS", "8")),
@@ -154,6 +174,15 @@ def solve(
     duration_ms = int(round((time.perf_counter() - start) * 1000))
     early_stop_triggered: bool = callback.triggered
     early_stop_reason: EarlyStopReason = callback.reason
+
+    # SCHED-041 §A — capture CP-SAT telemetry once, before the status-based
+    # branching below. MODEL_INVALID raises immediately, so we only capture
+    # on paths where a telemetry read is safe. Callback state is final here
+    # because solve() has returned.
+    if telemetry is not None and status != cp_model.MODEL_INVALID:
+        telemetry.capture_after_solve(
+            solver, callback, status, budget_seconds=budget_seconds
+        )
     # Budget-bound fallback: if cancel arrived during the solve but the
     # callback never fired (CP-SAT never found a feasible, so no solution
     # callbacks), still stamp the output with ``reason='cancelled'`` so the

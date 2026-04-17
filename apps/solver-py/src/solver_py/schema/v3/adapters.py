@@ -48,6 +48,7 @@ from solver_py.schema.v3.output import (
     PreferenceSatisfactionV3,
     QualityMetricRangeV3,
     QualityMetricsV3,
+    SolverDiagnosticsV3,
     SolverOutputV3,
     SolveStatusV3,
     UnassignedDemandV3,
@@ -280,12 +281,16 @@ def v3_input_to_v2(v3: SolverInputV3) -> SolverInputV2:
 
 # ─── V2 output → V3 output ──────────────────────────────────────────────────
 
-# Mapping from v2's lowercase cp_sat_status to v3's uppercase SolveStatusV3
+# Mapping from v2's lowercase cp_sat_status to v3's uppercase SolveStatusV3.
+# model_invalid was previously missing — the V2 solve path raises SolveError
+# on MODEL_INVALID rather than returning it, so the gap was benign. We map
+# it defensively in case a future V2 output surfaces that status.
 _STATUS_MAP: dict[str, SolveStatusV3] = {
     "optimal": "OPTIMAL",
     "feasible": "FEASIBLE",
     "infeasible": "INFEASIBLE",
     "unknown": "UNKNOWN",
+    "model_invalid": "MODEL_INVALID",
 }
 
 
@@ -297,11 +302,19 @@ def v2_output_to_v3(
     cp_sat_objective_value: int | float | None = None,
     cp_sat_improved_on_greedy: bool = False,
     objective_breakdown: list[ObjectiveBreakdownEntry] | None = None,
+    diagnostics: SolverDiagnosticsV3 | None = None,
 ) -> SolverOutputV3:
     """Convert a V2 output to V3, enriched with CP-SAT-native signals.
 
     The extra keyword args come from the solve pipeline and carry data
     that the v2 output doesn't surface natively.
+
+    ``diagnostics`` (SCHED-041 §A) is the structured telemetry block. When
+    provided, it becomes ``SolverOutputV3.solver_diagnostics``. The
+    kwargs ``greedy_hint_score`` / ``cp_sat_objective_value`` /
+    ``cp_sat_improved_on_greedy`` are kept for backward compatibility
+    with callers that only want the ``quality_metrics`` bucket populated;
+    ``diagnostics`` is the superset and is preferred.
     """
     # Build slot lookup: (year_group_id, weekday, period_order) → period_index
     slot_lookup: dict[tuple[str, int, int], int] = {}
@@ -367,6 +380,30 @@ def v2_output_to_v3(
             )
         )
 
+    # Quality metrics' CP-SAT-native fields prefer the telemetry diagnostics
+    # when available — they are the canonical source. The legacy kwargs are
+    # used as a fallback for callers that still populate them (e.g. the
+    # direct-call parity tests) and for the diagnostics-missing path.
+    qm_objective_value: int | float | None
+    qm_greedy_score: int | float
+    qm_improved: bool
+    if diagnostics is not None:
+        qm_objective_value = (
+            diagnostics.final_objective_value
+            if diagnostics.final_objective_value is not None
+            else cp_sat_objective_value
+        )
+        qm_greedy_score = (
+            diagnostics.greedy_hint_score
+            if diagnostics.greedy_hint_score is not None
+            else greedy_hint_score
+        )
+        qm_improved = diagnostics.cp_sat_improved_on_greedy or cp_sat_improved_on_greedy
+    else:
+        qm_objective_value = cp_sat_objective_value
+        qm_greedy_score = greedy_hint_score
+        qm_improved = cp_sat_improved_on_greedy
+
     # Convert quality metrics
     qm_v2 = v2.quality_metrics
     if qm_v2 is not None:
@@ -389,18 +426,18 @@ def v2_output_to_v3(
                 )
                 for pb in qm_v2.preference_breakdown
             ],
-            cp_sat_objective_value=cp_sat_objective_value,
-            greedy_hint_score=greedy_hint_score,
-            cp_sat_improved_on_greedy=cp_sat_improved_on_greedy,
+            cp_sat_objective_value=qm_objective_value,
+            greedy_hint_score=qm_greedy_score,
+            cp_sat_improved_on_greedy=qm_improved,
         )
     else:
         quality_metrics = QualityMetricsV3(
             teacher_gap_index=QualityMetricRangeV3(min=0, avg=0, max=0),
             day_distribution_variance=QualityMetricRangeV3(min=0, avg=0, max=0),
             preference_breakdown=[],
-            cp_sat_objective_value=cp_sat_objective_value,
-            greedy_hint_score=greedy_hint_score,
-            cp_sat_improved_on_greedy=cp_sat_improved_on_greedy,
+            cp_sat_objective_value=qm_objective_value,
+            greedy_hint_score=qm_greedy_score,
+            cp_sat_improved_on_greedy=qm_improved,
         )
 
     # Convert constraint_snapshot from v3 input (echo back)
@@ -420,4 +457,5 @@ def v2_output_to_v3(
         early_stop_triggered=v2.early_stop_triggered,
         early_stop_reason=v2.early_stop_reason,
         time_saved_ms=v2.time_saved_ms,
+        solver_diagnostics=diagnostics,
     )

@@ -265,12 +265,12 @@ describe('SchedulingSolverV2Processor', () => {
             { id: 'entry-2', is_pinned: true },
           ],
           unassigned: [{ id: 'unassigned-1' }],
-          // Stage 6 observability meta — persisted alongside entries so Stage 7's
-          // observation window and Stage 12's diagnostics can read the signal
-          // without a cross-table join. Stage 9.5.1 §E adds the
-          // ``early_stop_*`` + ``time_saved_ms`` fields; spec uses default
-          // values when the sidecar response carries none of them.
-          meta: {
+          // Stage 6 observability meta + Stage 9.5.1 §E early-stop fields +
+          // SCHED-041 §A solver-diagnostics mirror. The diagnostics keys are
+          // all ``null`` here because the mocked V3 response carries no
+          // ``solver_diagnostics`` block — the worker's ``?? null`` fallback
+          // is the code path exercised.
+          meta: expect.objectContaining({
             solve_status: 'FEASIBLE',
             sidecar_duration_ms: 1234,
             placed_count: 2,
@@ -278,16 +278,25 @@ describe('SchedulingSolverV2Processor', () => {
             early_stop_triggered: false,
             early_stop_reason: 'not_triggered',
             time_saved_ms: 0,
-          },
+            termination_reason: null,
+            improvements_found: null,
+            cp_sat_improved_on_greedy: null,
+            greedy_hint_score: null,
+            final_objective_value: null,
+            first_solution_wall_time_seconds: null,
+          }),
         }),
         soft_preference_max: 100,
         soft_preference_score: 87,
         solver_duration_ms: 1234,
         solver_seed: BigInt(123),
-        // SCHED-017: any unassigned demand flips the run to `failed` with a
-        // reason enumerating what couldn't be placed. Only zero-unassigned
-        // runs count as `completed`.
-        status: 'failed',
+        // Post-``c9ec9395`` (feasibility-preview / tiered-completion commit):
+        // ``finalStatus`` is hardcoded ``'completed'`` whenever the solver
+        // produced output, even with unassigned demand. The UI classifies
+        // the quality (100 % / partial / incomplete) from placed-vs-total,
+        // so the DB status only distinguishes "solver ran" from "solver
+        // failed". ``failure_reason`` still enumerates unplaced slots.
+        status: 'completed',
         failure_reason: expect.stringContaining('1 curriculum slot'),
       }),
     });

@@ -1,0 +1,15 @@
+-- SCHED-041 §A — structured CP-SAT telemetry storage.
+--
+-- Separate JSONB column (not nested in result_json) so operators can
+-- query termination_reason / improvements_found / cp_sat_improved_on_greedy
+-- directly without parsing the full result payload (which contains every
+-- assignment and can be hundreds of KB on multi-year-group runs).
+--
+-- Nullable: older sidecar builds and the MODEL_INVALID path emit no
+-- diagnostics. Consumers treat NULL as "diagnostics unavailable".
+--
+-- RLS: no new policy needed — scheduling_runs already has
+-- `scheduling_runs_tenant_isolation` which covers every column of every
+-- row. Adding a column inherits coverage; the existing FORCE ROW LEVEL
+-- SECURITY flag applies.
+ALTER TABLE "scheduling_runs" ADD COLUMN "solver_diagnostics" JSONB;

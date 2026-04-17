@@ -220,6 +220,22 @@ export type SolveStatusV3 =
 export type EarlyStopReasonV3 = 'stagnation' | 'gap' | 'cancelled' | 'not_triggered';
 
 /**
+ * SCHED-041 §A — unified termination bucket combining CP-SAT's status with
+ * the sidecar's cooperative halt signals. Lets operators answer "what
+ * actually stopped this solve?" without joining `solve_status` and
+ * `early_stop_reason` client-side. See `SolverDiagnosticsV3` below.
+ */
+export type TerminationReasonV3 =
+  | 'optimal'
+  | 'feasible_at_deadline'
+  | 'infeasible'
+  | 'model_invalid'
+  | 'unknown_at_deadline'
+  | 'cancelled'
+  | 'early_stop_stagnation'
+  | 'early_stop_gap';
+
+/**
  * Rooms are assigned by a greedy post-pass (Stage 4 dropped rooms from CP-SAT).
  * This field makes the source explicit so Stage 12 diagnostics can distinguish
  * solver-chosen slots from greedy-assigned rooms.
@@ -314,6 +330,81 @@ export interface ObjectiveBreakdownEntry {
 
 // ─── SolverOutputV3 ─────────────────────────────────────────────────────────
 
+/**
+ * SCHED-041 §A — structured CP-SAT telemetry captured per solve.
+ *
+ * Every field is optional during the rollout: older sidecar builds omit
+ * the block entirely (`solver_diagnostics === null`), and the
+ * MODEL_INVALID / transport-failure paths return before telemetry is
+ * captured. Consumers should treat all fields as nullable and tolerate
+ * `null` gracefully.
+ *
+ * The worker persists this into `scheduling_runs.solver_diagnostics`
+ * (separate JSONB column, not nested in `result_json`) so operators
+ * can run queries like:
+ *
+ *   SELECT id, solver_diagnostics->>'termination_reason',
+ *          solver_diagnostics->>'improvements_found',
+ *          solver_diagnostics->>'cp_sat_improved_on_greedy'
+ *   FROM scheduling_runs
+ *   WHERE tenant_id = '...' AND status = 'completed'
+ *   ORDER BY created_at DESC;
+ */
+export interface SolverDiagnosticsV3 {
+  /** Runtime environment. */
+  or_tools_version: string | null;
+  /** Multi-line CP-SAT `response_stats()` dump, truncated to 16 KB. */
+  response_stats_text: string | null;
+
+  /** Solver-level counters from CP-SAT's ResponseProto. */
+  solver_wall_time_seconds: number | null;
+  solver_user_time_seconds: number | null;
+  solver_deterministic_time: number | null;
+  num_booleans: number | null;
+  num_branches: number | null;
+  num_conflicts: number | null;
+  num_binary_propagations: number | null;
+  num_integer_propagations: number | null;
+  num_restarts: number | null;
+  num_lp_iterations: number | null;
+
+  /** Worker parameters — what we asked CP-SAT to do. */
+  num_search_workers: number | null;
+  max_time_in_seconds: number | null;
+  random_seed: number | null;
+
+  /**
+   * Objective trajectory (SCHED-041 core signal).
+   * - `greedy_hint_score` / `greedy_placement_count` — what the warm-start produced.
+   * - `final_objective_value` / `final_objective_bound` — CP-SAT's best objective
+   *   and best upper bound at termination.
+   * - `final_relative_gap` — (bound - value) / max(1, |value|).
+   * - `first_solution_objective` / `first_solution_wall_time_seconds` — when CP-SAT
+   *   produced its first feasible (accepted hint → near-zero wall time).
+   * - `improvements_found` — strictly-better objective tics observed; 0 is the
+   *   "CP-SAT found nothing" signature; 1 is the "accepted hint and never
+   *   improved" signature (the SCHED-041 plateau).
+   * - `cp_sat_improved_on_greedy` — whether final > greedy_hint_score.
+   */
+  greedy_hint_score: number | null;
+  greedy_placement_count: number | null;
+  final_objective_value: number | null;
+  final_objective_bound: number | null;
+  final_relative_gap: number | null;
+  first_solution_objective: number | null;
+  first_solution_wall_time_seconds: number | null;
+  improvements_found: number;
+  cp_sat_improved_on_greedy: boolean;
+
+  /** Presolve / hint survival signal. */
+  placement_vars_count: number | null;
+  placement_vars_hinted_to_1: number | null;
+
+  /** Terminal-state summary. */
+  termination_reason: TerminationReasonV3 | null;
+  solution_info: string | null;
+}
+
 export interface SolverOutputV3 {
   solve_status: SolveStatusV3;
   entries: AssignmentV3[];
@@ -328,6 +419,12 @@ export interface SolverOutputV3 {
   early_stop_triggered: boolean;
   early_stop_reason: EarlyStopReasonV3;
   time_saved_ms: number;
+  /**
+   * SCHED-041 §A — structured CP-SAT telemetry. `null` when the sidecar is
+   * running an older build that doesn't emit diagnostics, or when the solve
+   * errored out before telemetry could be captured (e.g. MODEL_INVALID).
+   */
+  solver_diagnostics?: SolverDiagnosticsV3 | null;
 }
 
 // ─── Version tagging (persisted on result_json) ─────────────────────────────

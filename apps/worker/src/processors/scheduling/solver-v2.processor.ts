@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { CpSatSolveError, solveViaCpSatV3 } from '../../../../../packages/shared/src/scheduler';
@@ -277,6 +277,11 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     const earlyStopTriggered = result.early_stop_triggered;
     const earlyStopReason = result.early_stop_reason;
     const timeSavedMs = result.time_saved_ms;
+    // SCHED-041 §A — structured CP-SAT telemetry. Optional during rollout:
+    // older sidecar builds omit `solver_diagnostics` entirely, and the
+    // MODEL_INVALID / transport-failure paths return before capture, so
+    // normalise to `null` for the DB column.
+    const solverDiagnostics = result.solver_diagnostics ?? null;
     const meta = {
       solve_status: solveStatus,
       sidecar_duration_ms: sidecarDurationMs,
@@ -285,6 +290,16 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
       early_stop_triggered: earlyStopTriggered,
       early_stop_reason: earlyStopReason,
       time_saved_ms: timeSavedMs,
+      // Mirror the key SCHED-041 §A signals into result_json.meta so admin
+      // tools that already read meta see the new fields without needing to
+      // query the separate solver_diagnostics column. The column remains
+      // the authoritative queryable source.
+      termination_reason: solverDiagnostics?.termination_reason ?? null,
+      improvements_found: solverDiagnostics?.improvements_found ?? null,
+      cp_sat_improved_on_greedy: solverDiagnostics?.cp_sat_improved_on_greedy ?? null,
+      greedy_hint_score: solverDiagnostics?.greedy_hint_score ?? null,
+      final_objective_value: solverDiagnostics?.final_objective_value ?? null,
+      first_solution_wall_time_seconds: solverDiagnostics?.first_solution_wall_time_seconds ?? null,
     };
 
     const resultJson = {
@@ -308,6 +323,16 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
         early_stop_triggered: earlyStopTriggered,
         early_stop_reason: earlyStopReason,
         time_saved_ms: timeSavedMs,
+        // SCHED-041 §A — key telemetry in the per-solve log line so `pm2 logs
+        // worker | grep cp_sat.solve_complete` shows the full picture without
+        // needing to join to the DB.
+        termination_reason: solverDiagnostics?.termination_reason ?? null,
+        improvements_found: solverDiagnostics?.improvements_found ?? null,
+        cp_sat_improved_on_greedy: solverDiagnostics?.cp_sat_improved_on_greedy ?? null,
+        greedy_hint_score: solverDiagnostics?.greedy_hint_score ?? null,
+        final_objective_value: solverDiagnostics?.final_objective_value ?? null,
+        num_branches: solverDiagnostics?.num_branches ?? null,
+        num_conflicts: solverDiagnostics?.num_conflicts ?? null,
       })}`,
     );
     // Whenever the solver produced output (even with unassigned slots) the
@@ -348,6 +373,17 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
             configSnapshot.settings.solver_seed !== null
               ? BigInt(configSnapshot.settings.solver_seed)
               : BigInt(0),
+          // SCHED-041 §A — persist structured CP-SAT telemetry to a dedicated
+          // JSONB column so operators can query termination_reason /
+          // improvements_found / cp_sat_improved_on_greedy directly without
+          // parsing the (potentially hundreds of KB) result_json. Prisma's
+          // nullable Json field requires ``Prisma.DbNull`` to write a SQL NULL
+          // (passing plain ``null`` is a type error — it would be interpreted
+          // as the JSON literal "null"). DbNull matches the pattern used in
+          // behaviour/evaluate-policy + retention-check processors.
+          solver_diagnostics: solverDiagnostics
+            ? (JSON.parse(JSON.stringify(solverDiagnostics)) as Prisma.InputJsonValue)
+            : Prisma.DbNull,
         },
       });
     });

@@ -35,6 +35,7 @@ from solver_py.schema.v3.adapters import v2_output_to_v3, v3_input_to_v2
 from solver_py.schema.v3.diagnose import DiagnoseRequest
 from solver_py.solver import SolveError, solve
 from solver_py.solver.diagnose import diagnose_unassigned
+from solver_py.solver.telemetry import SolverTelemetry
 
 
 class _JsonLogFormatter(logging.Formatter):
@@ -307,11 +308,17 @@ async def solve_v3_endpoint(
     # Convert V3 → V2 for the existing solver pipeline
     v2_input = v3_input_to_v2(payload)
 
+    # SCHED-041 §A — instantiate telemetry so the solver records CP-SAT
+    # counters, hint survival, objective trajectory, and termination
+    # reason. The telemetry object is mutated in-place by solve() and
+    # then serialised for the V3 response and the DB column.
+    telemetry = SolverTelemetry()
+
     try:
         async with _solve_semaphore:
             try:
                 v2_result = await asyncio.to_thread(
-                    solve, v2_input, cancel_flag
+                    solve, v2_input, cancel_flag, telemetry
                 )
             except SolveError as exc:
                 logger.exception("solver could not decide (v3)")
@@ -328,8 +335,10 @@ async def solve_v3_endpoint(
         with _inflight_lock:
             _inflight.pop(request_id, None)
 
+    diagnostics = telemetry.to_diagnostics()
+
     # Convert V2 output → V3
-    v3_result = v2_output_to_v3(v2_result, payload)
+    v3_result = v2_output_to_v3(v2_result, payload, diagnostics=diagnostics)
 
     logger.info(
         "v3 solve complete",
@@ -341,6 +350,17 @@ async def solve_v3_endpoint(
             "soft_score": v3_result.soft_score,
             "soft_max_score": v3_result.soft_max_score,
             "duration_ms": v3_result.duration_ms,
+            # SCHED-041 §A telemetry surfaced to the per-solve sidecar log so
+            # tail -f logs tell the "what actually happened" story without
+            # needing to read the JSONB cell in the DB.
+            "greedy_hint_score": diagnostics.greedy_hint_score,
+            "greedy_placement_count": diagnostics.greedy_placement_count,
+            "final_objective_value": diagnostics.final_objective_value,
+            "cp_sat_improved_on_greedy": diagnostics.cp_sat_improved_on_greedy,
+            "improvements_found": diagnostics.improvements_found,
+            "termination_reason": diagnostics.termination_reason,
+            "num_branches": diagnostics.num_branches,
+            "num_conflicts": diagnostics.num_conflicts,
         },
     )
     return JSONResponse(

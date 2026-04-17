@@ -93,6 +93,14 @@ class EarlyStopCallback(cp_model.CpSolverSolutionCallback):
         self._last_improvement_wall: float = 0.0
         self._triggered = False
         self._reason: EarlyStopReason = "not_triggered"
+        # SCHED-041 §A telemetry — trajectory captured on the fly so the
+        # post-solve diagnostics can distinguish "CP-SAT found its first
+        # feasible at 3ms" from "CP-SAT took 47s to find one and then
+        # never improved". ``improvements_found`` counts strictly-better
+        # objective values seen — 0 is the SCHED-041 plateau signature.
+        self._first_solution_objective: float | None = None
+        self._first_solution_wall_time: float | None = None
+        self._improvements_found = 0
 
     @property
     def triggered(self) -> bool:
@@ -101,6 +109,18 @@ class EarlyStopCallback(cp_model.CpSolverSolutionCallback):
     @property
     def reason(self) -> EarlyStopReason:
         return self._reason
+
+    @property
+    def first_solution_objective(self) -> float | None:
+        return self._first_solution_objective
+
+    @property
+    def first_solution_wall_time(self) -> float | None:
+        return self._first_solution_wall_time
+
+    @property
+    def improvements_found(self) -> int:
+        return self._improvements_found
 
     def OnSolutionCallback(self) -> None:  # noqa: N802 — CP-SAT API
         """Called on every new solution CP-SAT discovers."""
@@ -122,11 +142,22 @@ class EarlyStopCallback(cp_model.CpSolverSolutionCallback):
 
         wall = self.wall_time
 
+        # SCHED-041 §A — record first solution arrival time the very first
+        # time the callback fires with a valid objective. Needed to tell
+        # "CP-SAT accepted the hint and started at greedy score immediately"
+        # from "CP-SAT rejected the hint and took 47s to find its own
+        # first feasible". The hint-accepted case is the 320/393 plateau
+        # symptom; the hint-rejected case is a different problem.
+        if self._first_solution_objective is None:
+            self._first_solution_objective = current
+            self._first_solution_wall_time = wall
+
         # Track best + last improvement.
         improved = self._best_objective is None or current > self._best_objective
         if improved:
             self._best_objective = current
             self._last_improvement_wall = wall
+            self._improvements_found += 1
 
         # ── Trigger 1: stagnation past greedy floor ──────────────────────
         if (

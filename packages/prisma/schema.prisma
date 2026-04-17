@@ -3044,6 +3044,9 @@ model SchedulingRun {
   feasibility_report         Json?               @db.JsonB
   diagnostics_refined_report Json?               @db.JsonB
   diagnostics_computed_at    DateTime?           @db.Timestamptz()
+  // SCHED-041 §A — structured CP-SAT telemetry. See SolverDiagnosticsV3 in
+  // packages/shared/src/scheduler/types-v3.ts for the payload shape.
+  solver_diagnostics         Json?               @db.JsonB
   created_by_user_id         String              @db.Uuid
   applied_by_user_id         String?             @db.Uuid
   applied_at                 DateTime?           @db.Timestamptz()
