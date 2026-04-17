@@ -1822,8 +1822,10 @@ WHERE cr.tenant_id = '3ba9b02c-0339-49b8-8583-a06e05a32ac5'
 ### SCHED-041 — CP-SAT single-worker never finds a feasible solution on NHQS-scale input
 
 **Severity:** P1
-**Status:** Diagnosed — Phase A (telemetry) shipped, Phase B (fix) in progress (2026-04-17)
-**Provenance:** [L] — observed 2026-04-17 PWC across run `f4a87d4c-…` and 3 prior attempts; diagnosed via SCHED-041 §A instrumentation on 2026-04-17
+**Status:** **Fixed** — Phase A (telemetry) shipped in commit `6cb15e90`, Phase B (fix) shipped in commit `dc839a2b`, NHQS live-verified 2026-04-17
+**Provenance:** [L] — observed 2026-04-17 PWC across run `f4a87d4c-…` and 3 prior attempts; diagnosed via SCHED-041 §A instrumentation on 2026-04-17; Phase B fix verified on production 2026-04-17
+
+**Resolution — 2026-04-17:** `num_search_workers = 1 → 8` in `apps/solver-py/src/solver_py/solver/solve.py`, gated by `CP_SAT_NUM_SEARCH_WORKERS` env var for per-deployment memory containment. Phase A instrumentation (structured `SolverDiagnosticsV3` on `scheduling_runs.solver_diagnostics` JSONB column) remains permanently as the operator-visible signal for this class of bug. NHQS production verification at 180s budget with workers=8: `improvements_found=46`, `first_solution_wall_time_seconds=39.6`, `cp_sat_improved_on_greedy=true`, `termination_reason=feasible_at_deadline`, `final_objective_value=2,032,239` vs `greedy_hint_score=2,001,410`, 392 placed (+6 vs greedy). All five SCHED-041 acceptance criteria satisfied. Full benchmark matrix + decision rationale in `docs/operations/solver-performance-2026-04.md`.
 
 **Real diagnosis (2026-04-17, via SCHED-041 §A telemetry):**
 
