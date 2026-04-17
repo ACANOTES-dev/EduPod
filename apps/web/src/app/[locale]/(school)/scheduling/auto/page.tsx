@@ -3,6 +3,7 @@
 
 import {
   AlertCircle,
+  ArrowRight,
   CheckCircle2,
   ChevronRight,
   HelpCircle,
@@ -11,8 +12,10 @@ import {
   Pin,
   RefreshCw,
   Sparkles,
+  Wrench,
   XCircle,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -62,12 +65,25 @@ interface PrerequisitesResponse {
 }
 
 // ─── Feasibility preview types ────────────────────────────────────────────────
-// Mirror the backend `FeasibilityReport` shape. The widget on the auto page
-// only reads verdict, ceiling, and the blockers' headline/detail/quantified
-// impact — the full payload is available if we want to render the "solutions"
-// list in a future pass.
+// Mirror the backend `FeasibilityReport` shape. Each blocker ships with a
+// `solutions` array of concrete actions the admin can take to close the gap,
+// populated by the backend's buildSolutions() helper.
 
 type FeasibilityVerdict = 'feasible' | 'infeasible' | 'tight';
+
+interface FeasibilitySolution {
+  id: string;
+  headline: string;
+  detail: string;
+  effort: 'quick' | 'medium' | 'long';
+  impact: {
+    would_unblock_periods: number;
+    would_unblock_percentage: number;
+    side_effects: string[];
+    confidence: 'high' | 'medium' | 'low';
+  };
+  link: { href: string; label: string };
+}
 
 interface FeasibilityBlocker {
   id: string;
@@ -76,6 +92,7 @@ interface FeasibilityBlocker {
   headline: string;
   detail: string;
   quantified_impact: { blocked_periods: number; blocked_percentage: number };
+  solutions?: FeasibilitySolution[];
 }
 
 interface FeasibilityReport {
@@ -677,7 +694,7 @@ function FeasibilityPreviewCard({
           {expanded && (
             <ol className="mt-3 space-y-3 text-sm">
               {blockers.map((b) => (
-                <li key={b.id} className="rounded-lg border border-border bg-surface p-3 space-y-1">
+                <li key={b.id} className="rounded-lg border border-border bg-surface p-3 space-y-3">
                   <div className="flex items-start gap-2">
                     <span
                       className={`mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full ${
@@ -699,6 +716,52 @@ function FeasibilityPreviewCard({
                       )}
                     </div>
                   </div>
+
+                  {/* Actionable solutions — each one is a concrete next step with
+                      a deep-link into the page where the fix is applied. Ranked
+                      by effort (quick → medium → long). */}
+                  {b.solutions && b.solutions.length > 0 && (
+                    <div className="ms-4 space-y-2 border-s-2 border-border ps-3">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+                        <Wrench className="h-3 w-3" />
+                        {t('feasibility.howToFix')}
+                      </p>
+                      {[...b.solutions]
+                        .sort((a, z) => effortRank(a.effort) - effortRank(z.effort))
+                        .map((s) => (
+                          <div
+                            key={s.id}
+                            className="rounded-md border border-border bg-background/50 p-3 space-y-1"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-medium text-text-primary">{s.headline}</p>
+                              <span
+                                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${effortChip(
+                                  s.effort,
+                                )}`}
+                              >
+                                {t(`feasibility.effort.${s.effort}`)}
+                              </span>
+                            </div>
+                            <p className="text-xs text-text-secondary leading-relaxed">
+                              {s.detail}
+                            </p>
+                            {s.impact.side_effects.length > 0 && (
+                              <p className="text-[11px] text-text-tertiary">
+                                {t('feasibility.sideEffect')}: {s.impact.side_effects.join(' ')}
+                              </p>
+                            )}
+                            <Link
+                              href={s.link.href}
+                              className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
+                            >
+                              {s.link.label}
+                              <ArrowRight className="h-3 w-3 rtl:rotate-180" />
+                            </Link>
+                          </div>
+                        ))}
+                    </div>
+                  )}
                 </li>
               ))}
             </ol>
@@ -707,6 +770,21 @@ function FeasibilityPreviewCard({
       )}
     </div>
   );
+}
+
+function effortRank(e: FeasibilitySolution['effort']): number {
+  return e === 'quick' ? 0 : e === 'medium' ? 1 : 2;
+}
+
+function effortChip(e: FeasibilitySolution['effort']): string {
+  switch (e) {
+    case 'quick':
+      return 'bg-emerald-500/10 text-emerald-700';
+    case 'medium':
+      return 'bg-amber-500/10 text-amber-700';
+    case 'long':
+      return 'bg-red-500/10 text-red-700';
+  }
 }
 
 function CeilingStat({

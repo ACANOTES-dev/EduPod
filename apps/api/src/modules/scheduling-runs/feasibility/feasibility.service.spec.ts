@@ -256,6 +256,41 @@ describe('FeasibilityService', () => {
     expect(blocker?.quantified_impact.blocked_periods).toBe(5);
   });
 
+  // Regression: feasibility blockers used to ship with `solutions: []`, leaving the
+  // UI with nothing actionable to render. Every blocker now carries at least one
+  // actionable fix with a deep-link target, effort tier, and unblock estimate.
+  it('every blocker ships with actionable solutions', async () => {
+    const input = makeInput({
+      demand: [
+        {
+          class_id: 'c1',
+          subject_id: 's1',
+          periods_per_week: 10,
+          max_per_day: null,
+          required_doubles: 0,
+          required_room_type: null,
+        },
+      ],
+    });
+    const report = await service.runFeasibilitySweep('tenant-1', input);
+    const overbook = report.diagnosed_blockers.find((b) => b.check === 'class_weekly_overbook');
+    expect(overbook).toBeDefined();
+    expect(overbook?.solutions.length).toBeGreaterThan(0);
+    for (const sol of overbook?.solutions ?? []) {
+      expect(sol.headline).toBeTruthy();
+      expect(sol.detail).toBeTruthy();
+      expect(sol.link.href).toMatch(/^\//);
+      expect(sol.link.label).toBeTruthy();
+      expect(['quick', 'medium', 'long']).toContain(sol.effort);
+      expect(sol.impact.would_unblock_periods).toBeGreaterThanOrEqual(0);
+    }
+    // Overbook specifically should deep-link to the requirements page scoped to the class.
+    const reqLink = overbook?.solutions.find((s) =>
+      s.link.href.includes('/scheduling/requirements'),
+    );
+    expect(reqLink?.link.href).toContain('class_id=c1');
+  });
+
   it('check 5: flags teacher pin conflict', async () => {
     const input = makeInput({
       pinned: [

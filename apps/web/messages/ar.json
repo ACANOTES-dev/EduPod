@@ -5087,7 +5087,14 @@
         "blockersCount": "[AR] {count, plural, =0 {No blockers} one {# blocker to resolve} other {# blockers to resolve}}",
         "impact": "[AR] Blocks approximately {periods} period{periods, plural, =1 {} other {s}} ({pct}% of weekly demand)",
         "refresh": "[AR] Refresh",
-        "refreshTooltip": "[AR] Recompute against the current data."
+        "refreshTooltip": "[AR] Recompute against the current data.",
+        "howToFix": "[AR] How to fix",
+        "sideEffect": "[AR] Side effect",
+        "effort": {
+          "quick": "[AR] Quick",
+          "medium": "[AR] Medium",
+          "long": "[AR] Long"
+        }
       },
       "progressWidget": {
         "runningTitle": "جارٍ إنشاء الجدول",
