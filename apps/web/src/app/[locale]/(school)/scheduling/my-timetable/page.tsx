@@ -655,20 +655,20 @@ export default function MyTimetablePage() {
           setData(normalizeMyEndpoint(res.data ?? [], weekStart, weekEnd));
         }
       } else if (mode === 'class' && selectedId && academicYearId) {
-        const res = await apiClient<TimetableEntryDto[]>(
+        const res = await apiClient<{ data: TimetableEntryDto[] }>(
           `/api/v1/timetables/class/${selectedId}?academic_year_id=${academicYearId}&week_start=${weekDateIso}`,
         );
-        setData(normalizeTimetableEntries(res ?? [], weekStart, weekEnd));
+        setData(normalizeTimetableEntries(res.data ?? [], weekStart, weekEnd));
       } else if (mode === 'teacher' && selectedId && academicYearId) {
-        const res = await apiClient<TimetableEntryDto[]>(
+        const res = await apiClient<{ data: TimetableEntryDto[] }>(
           `/api/v1/timetables/teacher/${selectedId}?academic_year_id=${academicYearId}&week_start=${weekDateIso}`,
         );
-        setData(normalizeTimetableEntries(res ?? [], weekStart, weekEnd));
+        setData(normalizeTimetableEntries(res.data ?? [], weekStart, weekEnd));
       } else if (mode === 'student' && selectedId && academicYearId) {
-        const res = await apiClient<TimetableEntryDto[]>(
+        const res = await apiClient<{ data: TimetableEntryDto[] }>(
           `/api/v1/timetables/student/${selectedId}?academic_year_id=${academicYearId}&week_start=${weekDateIso}`,
         );
-        setData(normalizeTimetableEntries(res ?? [], weekStart, weekEnd));
+        setData(normalizeTimetableEntries(res.data ?? [], weekStart, weekEnd));
       } else if (mode === 'child' && selectedId) {
         const res = await apiClient<ParentTimetableResponse>(
           `/api/v1/parent/timetable?student_id=${selectedId}`,
