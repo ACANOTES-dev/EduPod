@@ -229,4 +229,30 @@ def solve_in_subprocess(
     raise RuntimeError(f"solver subprocess raised: {data}")
 
 
-__all__ = ["SolverCrashError", "SubprocessResult", "solve_in_subprocess"]
+def create_cancel_event() -> Any:
+    """Return a ``multiprocessing.Event`` compatible with the solver context.
+
+    Callers (e.g. the sidecar HTTP handler in ``main.py``) register the
+    returned event in an in-flight map so ``DELETE /solve/{id}`` can
+    signal the solve to halt cooperatively. Because the event must be
+    passed across the process boundary when the child starts, it MUST
+    be created from the same start-method context as the
+    ``_mp_context.Process`` that receives it — otherwise the child
+    process raises::
+
+        A SemLock created in a fork context is being shared with a
+        process in a spawn context. This is not supported.
+
+    This helper centralises the context choice so callers don't
+    accidentally construct a default-context ``multiprocessing.Event``
+    that fails at runtime.
+    """
+    return _mp_context.Event()
+
+
+__all__ = [
+    "SolverCrashError",
+    "SubprocessResult",
+    "create_cancel_event",
+    "solve_in_subprocess",
+]

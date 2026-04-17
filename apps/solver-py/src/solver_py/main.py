@@ -35,6 +35,7 @@ from solver_py.schema.v3 import SolverInputV3
 from solver_py.schema.v3.adapters import v2_output_to_v3, v3_input_to_v2
 from solver_py.schema.v3.diagnose import DiagnoseRequest
 from solver_py.solver import SolveError, SolverCrashError, solve_in_subprocess
+from solver_py.solver.subprocess_solve import create_cancel_event
 from solver_py.solver.diagnose import diagnose_unassigned
 from solver_py.solver.telemetry import SolverTelemetry
 
@@ -174,7 +175,7 @@ async def solve_endpoint(payload: SolverInputV2, request: Request) -> JSONRespon
     UUID so the registry always has an addressable key.
     """
     request_id: str = getattr(request.state, "request_id", "") or uuid.uuid4().hex
-    cancel_flag = multiprocessing.Event()
+    cancel_flag = create_cancel_event()
     with _inflight_lock:
         _inflight[request_id] = cancel_flag
 
@@ -319,7 +320,7 @@ async def solve_v3_endpoint(
     request_id: str = (
         getattr(request.state, "request_id", "") or uuid.uuid4().hex
     )
-    cancel_flag = multiprocessing.Event()
+    cancel_flag = create_cancel_event()
     with _inflight_lock:
         _inflight[request_id] = cancel_flag
 
