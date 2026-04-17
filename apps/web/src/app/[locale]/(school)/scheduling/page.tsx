@@ -30,7 +30,14 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Badge, Button } from '@school/ui';
+import {
+  Badge,
+  Button,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -70,6 +77,7 @@ function KpiCard({
   accent,
   glow,
   subtitle,
+  tooltip,
 }: {
   label: string;
   value: React.ReactNode;
@@ -79,9 +87,10 @@ function KpiCard({
   accent: string;
   glow: string;
   subtitle?: string;
+  tooltip?: string;
 }) {
   const locale = (usePathname() ?? '').split('/').filter(Boolean)[0] ?? 'en';
-  return (
+  const card = (
     <Link
       href={`/${locale}${href}`}
       className="group relative overflow-hidden rounded-2xl border border-border bg-surface p-5 transition-all hover:border-border-strong hover:shadow-md"
@@ -110,6 +119,15 @@ function KpiCard({
         className={`absolute bottom-0 end-0 start-0 h-1 origin-start scale-x-0 bg-gradient-to-r ${gradient} transition-transform group-hover:scale-x-100`}
       />
     </Link>
+  );
+  if (!tooltip) return card;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{card}</TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs py-2 text-start leading-relaxed">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -466,70 +484,75 @@ export default function SchedulingHubPage() {
       />
 
       {/* KPI cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          label={t('auto.totalSlots')}
-          value={loading ? '…' : totalClasses}
-          icon={BookOpen}
-          href="/scheduling/curriculum"
-          gradient="from-primary/60 to-primary"
-          accent="bg-primary/10 text-primary"
-          glow="from-primary/5"
-          subtitle={
-            overview && totalClasses > 0
-              ? `${configuredClasses} ${t('hub.configuredLabel')}`
-              : undefined
-          }
-        />
-        <KpiCard
-          label={t('auto.completionPct')}
-          value={loading ? '…' : `${completionPct}%`}
-          icon={CheckCircle2}
-          href="/scheduling/dashboard"
-          gradient="from-emerald-400 to-emerald-600"
-          accent="bg-emerald-100 text-emerald-700"
-          glow="from-emerald-400/10"
-          subtitle={
-            overview && totalClasses > 0
-              ? `${scheduledClasses} / ${totalClasses} ${t('hub.slotsLabel')}`
-              : undefined
-          }
-        />
-        <KpiCard
-          label={t('auto.pinnedSlots')}
-          value={loading ? '…' : pinnedEntries}
-          icon={Pin}
-          href="/scheduling/runs"
-          gradient="from-amber-400 to-amber-600"
-          accent="bg-amber-100 text-amber-700"
-          glow="from-amber-400/10"
-          subtitle={t('hub.pinnedSubtitle')}
-        />
-        <KpiCard
-          label={t('hub.latestRun')}
-          value={
-            loading
-              ? '…'
-              : overview?.latest_run
-                ? t(`hub.runStatus.${overview.latest_run.status}`)
-                : t('hub.noRunYet')
-          }
-          icon={Sparkles}
-          href={
-            overview?.latest_run
-              ? `/scheduling/runs/${overview.latest_run.id}/review`
-              : '/scheduling/auto'
-          }
-          gradient="from-violet-400 to-violet-600"
-          accent="bg-violet-100 text-violet-700"
-          glow="from-violet-400/10"
-          subtitle={
-            overview?.latest_run
-              ? new Date(overview.latest_run.created_at).toLocaleDateString()
-              : t('hub.noRunSubtitle')
-          }
-        />
-      </div>
+      <TooltipProvider delayDuration={150}>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard
+            label={t('hub.curriculumCard')}
+            value={loading ? '…' : totalClasses}
+            icon={BookOpen}
+            href="/scheduling/curriculum"
+            gradient="from-primary/60 to-primary"
+            accent="bg-primary/10 text-primary"
+            glow="from-primary/5"
+            subtitle={
+              overview && totalClasses > 0
+                ? configuredClasses > 0
+                  ? `${configuredClasses} ${t('hub.curriculumWithOverrides')}`
+                  : t('hub.curriculumCardHint')
+                : undefined
+            }
+            tooltip={t('hub.curriculumCardTooltip')}
+          />
+          <KpiCard
+            label={t('auto.completionPct')}
+            value={loading ? '…' : `${completionPct}%`}
+            icon={CheckCircle2}
+            href="/scheduling/dashboard"
+            gradient="from-emerald-400 to-emerald-600"
+            accent="bg-emerald-100 text-emerald-700"
+            glow="from-emerald-400/10"
+            subtitle={
+              overview && totalClasses > 0
+                ? `${scheduledClasses} / ${totalClasses} ${t('hub.slotsLabel')}`
+                : undefined
+            }
+          />
+          <KpiCard
+            label={t('auto.pinnedSlots')}
+            value={loading ? '…' : pinnedEntries}
+            icon={Pin}
+            href="/scheduling/runs"
+            gradient="from-amber-400 to-amber-600"
+            accent="bg-amber-100 text-amber-700"
+            glow="from-amber-400/10"
+            subtitle={t('hub.pinnedSubtitle')}
+          />
+          <KpiCard
+            label={t('hub.latestRun')}
+            value={
+              loading
+                ? '…'
+                : overview?.latest_run
+                  ? t(`hub.runStatus.${overview.latest_run.status}`)
+                  : t('hub.noRunYet')
+            }
+            icon={Sparkles}
+            href={
+              overview?.latest_run
+                ? `/scheduling/runs/${overview.latest_run.id}/review`
+                : '/scheduling/auto'
+            }
+            gradient="from-violet-400 to-violet-600"
+            accent="bg-violet-100 text-violet-700"
+            glow="from-violet-400/10"
+            subtitle={
+              overview?.latest_run
+                ? new Date(overview.latest_run.created_at).toLocaleDateString()
+                : t('hub.noRunSubtitle')
+            }
+          />
+        </div>
+      </TooltipProvider>
 
       {/* Latest run detail strip */}
       {overview?.latest_run && (

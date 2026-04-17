@@ -5532,10 +5532,12 @@
     "substitutions": {
       "title": "Substitution Management",
       "description": "Manage teacher absences and assign cover substitutes.",
+      "descriptionSelf": "Report your own absences. Your school admin will assign cover.",
       "navTitle": "Substitutions",
       "tab_today": "Today",
       "tab_history": "History",
       "reportAbsence": "Report Absence",
+      "reportOwnAbsence": "Report My Absence",
       "reportAbsenceSubmit": "Report Absence",
       "absenceReported": "Absence reported",
       "selectTeacher": "Teacher",
@@ -5548,6 +5550,8 @@
       "validationRequired": "Please fill in all required fields.",
       "noAbsencesToday": "No absences today",
       "noAbsencesDesc": "All teachers are present. Report an absence if needed.",
+      "noAbsencesTodaySelf": "No absence reported today",
+      "noAbsencesDescSelf": "If you need to miss class today, report your absence here.",
       "loading": "Loading...",
       "unassigned": "unassigned",
       "findSub": "Find Sub",
@@ -5603,8 +5607,13 @@
     "myTimetable": {
       "title": "My Timetable",
       "navTitle": "My Timetable",
+      "description": "Your weekly schedule.",
+      "descriptionAdmin": "Look up any class, teacher, or student's timetable.",
+      "descriptionTeacher": "Your own timetable, or look up a class's timetable.",
+      "descriptionParent": "Your children's timetables.",
       "loading": "Loading...",
-      "noTimetable": "No timetable available for this week.",
+      "noTimetable": "No timetable available.",
+      "pickToBegin": "Pick one to view its timetable.",
       "period": "Period",
       "today": "Today",
       "prevWeek": "Previous Week",
@@ -5621,7 +5630,84 @@
       "calendarHint": "The URL is private — do not share it.",
       "copy": "Copy URL",
       "copied": "Copied!",
-      "calendarError": "Could not generate subscription URL."
+      "calendarError": "Could not generate subscription URL.",
+      "mode": {
+        "mine": "My Timetable",
+        "class": "By Class",
+        "teacher": "By Teacher",
+        "student": "By Student",
+        "child": "My Children"
+      },
+      "pickClass": "Select class...",
+      "pickTeacher": "Select teacher...",
+      "pickStudent": "Select student...",
+      "pickChild": "Select child...",
+      "searchPlaceholder": "Search..."
+    },
+    "dashboard": {
+      "health": {
+        "label": "Scheduling Health",
+        "good": "On track — your timetable is in great shape.",
+        "okay": "Mostly healthy — a few areas to tidy up.",
+        "poor": "Needs attention — review the cards below."
+      },
+      "coverage": {
+        "title": "Coverage",
+        "full": "Timetable is complete",
+        "almost": "Almost there — {pct}% placed",
+        "partial": "Only {pct}% placed",
+        "empty": "No classes yet",
+        "fullDetail": "All {scheduled} of {total} classes have a placed schedule.",
+        "partialDetail": "{scheduled} of {total} classes placed. {unassigned} still waiting to be scheduled.",
+        "emptyDetail": "Create classes and configure curriculum to start scheduling.",
+        "assigned": "Placed",
+        "total": "Total",
+        "unassigned": "Unassigned",
+        "drillDown": "Resolve unassigned"
+      },
+      "teachers": {
+        "title": "Teacher wellbeing",
+        "healthy": "Teachers have a comfortable load",
+        "fair": "Load is OK, watch for edge cases",
+        "strained": "Some teachers are stretched thin",
+        "empty": "No run yet",
+        "utilPart": "Average load is {pct}% of max teaching capacity.",
+        "gapsPart": "Average {gaps} empty periods between lessons per teacher-day.",
+        "emptyDetail": "Generate a timetable to see teacher workload and gaps.",
+        "utilisation": "Avg load",
+        "avgGaps": "Avg gaps",
+        "drillDown": "Open workload heatmap"
+      },
+      "rooms": {
+        "title": "Rooms",
+        "balanced": "Rooms are well-balanced ({pct}% avg)",
+        "busy": "Rooms running hot ({pct}% avg)",
+        "bottleneck": "Room pressure is high ({pct}% avg)",
+        "idle": "Many rooms are sitting empty ({pct}%)",
+        "empty": "No data yet",
+        "balancedDetail": "Room supply and demand are well-matched across the week.",
+        "busyDetail": "Popular rooms are approaching capacity — watch for clashes at peak periods.",
+        "bottleneckDetail": "At this utilisation any change can trigger clashes. Consider adding rooms or offsetting peak demand.",
+        "idleDetail": "Rooms are under-used. Consider consolidating space or re-assigning classes.",
+        "emptyDetail": "Generate a timetable to analyse room utilisation.",
+        "avgUtilisation": "Avg utilisation",
+        "drillDown": "See per-room utilisation"
+      },
+      "generatedEntries": "entries generated",
+      "trendsAction": "Trends",
+      "actions": {
+        "workload": "Workload heatmap",
+        "workloadHint": "Teacher load by day and period",
+        "rooms": "Room utilisation",
+        "roomsHint": "Bottlenecks and under-used space",
+        "trends": "Historical trends",
+        "trendsHint": "Compare runs over time"
+      },
+      "alerts": {
+        "unassignedTitle": "{count} classes still need a schedule",
+        "unassignedDetail": "Open the last run review to see which lessons could not be placed and why — usually teacher, room, or grid capacity.",
+        "reviewRun": "Review last run"
+      }
     },
     "exams": {
       "title": "Exam Timetable",
@@ -5800,6 +5886,10 @@
       "modulesHeading": "Modules",
       "quickActions": "Quick actions",
       "configuredLabel": "configured",
+      "curriculumCard": "Curriculum",
+      "curriculumCardHint": "Define weekly subject periods",
+      "curriculumCardTooltip": "Define how many periods each subject needs per week for every year group. This is where the solver learns what to schedule — the source of demand for every timetable.",
+      "curriculumWithOverrides": "with per-class overrides",
       "slotsLabel": "slots filled",
       "pinnedSubtitle": "Locked across generations",
       "latestRun": "Latest run",

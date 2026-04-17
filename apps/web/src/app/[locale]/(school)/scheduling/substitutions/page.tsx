@@ -34,6 +34,7 @@ import {
 } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
+import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -200,23 +201,27 @@ function SuggestionsModal({
   );
 }
 
+export interface ReportAbsenceValues {
+  staff_id: string | null;
+  date: string;
+  full_day: boolean;
+  period_from: number | null;
+  period_to: number | null;
+  reason: string;
+}
+
 function ReportAbsenceModal({
   open,
   onOpenChange,
   staff,
+  selfMode,
   onSubmit,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   staff: StaffProfile[];
-  onSubmit: (values: {
-    staff_profile_id: string;
-    absence_date: string;
-    full_day: boolean;
-    period_from: number | null;
-    period_to: number | null;
-    reason: string;
-  }) => Promise<void>;
+  selfMode: boolean;
+  onSubmit: (values: ReportAbsenceValues) => Promise<void>;
 }) {
   const t = useTranslations('scheduling.substitutions');
   const tc = useTranslations('common');
@@ -239,7 +244,7 @@ function ReportAbsenceModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!staffId || !date) {
+    if ((!selfMode && !staffId) || !date) {
       setError(t('validationRequired'));
       return;
     }
@@ -247,8 +252,8 @@ function ReportAbsenceModal({
     setError('');
     try {
       await onSubmit({
-        staff_profile_id: staffId,
-        absence_date: date,
+        staff_id: selfMode ? null : staffId,
+        date,
         full_day: fullDay,
         period_from: null,
         period_to: null,
@@ -267,24 +272,26 @@ function ReportAbsenceModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('reportAbsence')}</DialogTitle>
+          <DialogTitle>{selfMode ? t('reportOwnAbsence') : t('reportAbsence')}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label>{t('selectTeacher')}</Label>
-            <Select value={staffId} onValueChange={setStaffId}>
-              <SelectTrigger>
-                <SelectValue placeholder={t('selectTeacherPlaceholder')} />
-              </SelectTrigger>
-              <SelectContent>
-                {staff.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.full_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {!selfMode && (
+            <div className="space-y-1.5">
+              <Label>{t('selectTeacher')}</Label>
+              <Select value={staffId} onValueChange={setStaffId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('selectTeacherPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {staff.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label>{t('absenceDate')}</Label>
             <Input
@@ -330,7 +337,7 @@ function ReportAbsenceModal({
 
 // ─── Today Tab ────────────────────────────────────────────────────────────────
 
-function TodayTab() {
+function TodayTab({ isAdmin }: { isAdmin: boolean }) {
   const t = useTranslations('scheduling.substitutions');
   const [absences, setAbsences] = React.useState<TeacherAbsence[]>([]);
   const [staff, setStaff] = React.useState<StaffProfile[]>([]);
@@ -347,6 +354,11 @@ function TodayTab() {
   const today = new Date().toISOString().split('T')[0];
 
   const fetchAbsences = React.useCallback(async () => {
+    if (!isAdmin) {
+      setAbsences([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await apiClient<{ data: TeacherAbsence[] }>(
@@ -359,17 +371,19 @@ function TodayTab() {
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [today, isAdmin]);
 
   React.useEffect(() => {
     void fetchAbsences();
-    apiClient<{ data: StaffProfile[] }>('/api/v1/scheduling/teachers')
-      .then((res) => setStaff(res.data ?? []))
-      .catch((err) => {
-        console.error('[SchedulingSubstitutionsPage]', err);
-        return setStaff([]);
-      });
-  }, [fetchAbsences]);
+    if (isAdmin) {
+      apiClient<{ data: StaffProfile[] }>('/api/v1/scheduling/teachers')
+        .then((res) => setStaff(res.data ?? []))
+        .catch((err) => {
+          console.error('[SchedulingSubstitutionsPage]', err);
+          return setStaff([]);
+        });
+    }
+  }, [fetchAbsences, isAdmin]);
 
   const handleFindSub = async (absenceId: string, slot: AbsenceSlot) => {
     setActiveSlot({ absenceId, slot });
@@ -403,15 +417,32 @@ function TodayTab() {
     void fetchAbsences();
   };
 
-  const handleReportAbsence = async (
-    values: Parameters<typeof ReportAbsenceModal>[0]['onSubmit'] extends (v: infer V) => unknown
-      ? V
-      : never,
-  ) => {
-    await apiClient('/api/v1/scheduling/absences', {
-      method: 'POST',
-      body: JSON.stringify(values),
-    });
+  const handleReportAbsence = async (values: ReportAbsenceValues) => {
+    if (isAdmin) {
+      if (!values.staff_id) throw new Error('staff_id is required for admin report');
+      await apiClient('/api/v1/scheduling/absences', {
+        method: 'POST',
+        body: JSON.stringify({
+          staff_id: values.staff_id,
+          date: values.date,
+          full_day: values.full_day,
+          period_from: values.period_from,
+          period_to: values.period_to,
+          reason: values.reason || null,
+        }),
+      });
+    } else {
+      await apiClient('/api/v1/scheduling/absences/self-report', {
+        method: 'POST',
+        body: JSON.stringify({
+          date: values.date,
+          full_day: values.full_day,
+          period_from: values.period_from,
+          period_to: values.period_to,
+          reason: values.reason || null,
+        }),
+      });
+    }
     toast.success(t('absenceReported'));
     void fetchAbsences();
   };
@@ -427,15 +458,28 @@ function TodayTab() {
 
   if (absences.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-surface p-12 text-center">
-        <CheckCircle2 className="h-10 w-10 text-green-500" />
-        <p className="text-base font-medium text-text-primary">{t('noAbsencesToday')}</p>
-        <p className="text-sm text-text-secondary">{t('noAbsencesDesc')}</p>
-        <Button onClick={() => setReportOpen(true)}>
-          <Plus className="h-4 w-4 me-2" />
-          {t('reportAbsence')}
-        </Button>
-      </div>
+      <>
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-surface p-12 text-center">
+          <CheckCircle2 className="h-10 w-10 text-green-500" />
+          <p className="text-base font-medium text-text-primary">
+            {isAdmin ? t('noAbsencesToday') : t('noAbsencesTodaySelf')}
+          </p>
+          <p className="text-sm text-text-secondary">
+            {isAdmin ? t('noAbsencesDesc') : t('noAbsencesDescSelf')}
+          </p>
+          <Button onClick={() => setReportOpen(true)}>
+            <Plus className="h-4 w-4 me-2" />
+            {isAdmin ? t('reportAbsence') : t('reportOwnAbsence')}
+          </Button>
+        </div>
+        <ReportAbsenceModal
+          open={reportOpen}
+          onOpenChange={setReportOpen}
+          staff={staff}
+          selfMode={!isAdmin}
+          onSubmit={handleReportAbsence}
+        />
+      </>
     );
   }
 
@@ -444,7 +488,7 @@ function TodayTab() {
       <div className="flex justify-end">
         <Button onClick={() => setReportOpen(true)}>
           <Plus className="h-4 w-4 me-2" />
-          {t('reportAbsence')}
+          {isAdmin ? t('reportAbsence') : t('reportOwnAbsence')}
         </Button>
       </div>
 
@@ -498,6 +542,7 @@ function TodayTab() {
         open={reportOpen}
         onOpenChange={setReportOpen}
         staff={staff}
+        selfMode={!isAdmin}
         onSubmit={handleReportAbsence}
       />
 
@@ -515,7 +560,7 @@ function TodayTab() {
 
 // ─── History Tab ──────────────────────────────────────────────────────────────
 
-function HistoryTab() {
+function HistoryTab({ isAdmin }: { isAdmin: boolean }) {
   const t = useTranslations('scheduling.substitutions');
   const [records, setRecords] = React.useState<SubstitutionRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -525,6 +570,11 @@ function HistoryTab() {
   const pageSize = 20;
 
   const fetchHistory = React.useCallback(async () => {
+    if (!isAdmin) {
+      setRecords([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
@@ -540,7 +590,7 @@ function HistoryTab() {
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, isAdmin]);
 
   React.useEffect(() => {
     void fetchHistory();
@@ -653,15 +703,20 @@ function HistoryTab() {
 
 export default function SubstitutionsPage() {
   const t = useTranslations('scheduling.substitutions');
+  const { hasAnyRole } = useRoleCheck();
+  const isAdmin = hasAnyRole('school_owner', 'school_principal', 'school_vice_principal');
   const [activeTab, setActiveTab] = React.useState<'today' | 'history'>('today');
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={isAdmin ? t('description') : t('descriptionSelf')}
+      />
 
-      {/* Tabs */}
+      {/* Tabs — admins see Today + History, teachers see Today only */}
       <div className="flex gap-1 border-b border-border">
-        {(['today', 'history'] as const).map((tab) => (
+        {(isAdmin ? (['today', 'history'] as const) : (['today'] as const)).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -682,7 +737,7 @@ export default function SubstitutionsPage() {
         ))}
       </div>
 
-      {activeTab === 'today' ? <TodayTab /> : <HistoryTab />}
+      {activeTab === 'today' ? <TodayTab isAdmin={isAdmin} /> : <HistoryTab isAdmin={isAdmin} />}
     </div>
   );
 }

@@ -1,6 +1,17 @@
 'use client';
 
-import { BarChart3, BookOpen, CheckCircle2, Loader2, Pin, Sparkles } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronRight,
+  DoorOpen,
+  Loader2,
+  Sparkles,
+  TrendingUp,
+  UserCheck,
+  type LucideIcon,
+} from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -71,28 +82,128 @@ interface TrendPoint {
   preference_score: number;
 }
 
-// ─── KPI Card ──────────────────────────────────────────────────────────────────
+// ─── Narrative Cards ─────────────────────────────────────────────────────────
 
-interface KpiCardProps {
-  label: string;
-  value: string | number;
-  icon: React.ReactNode;
-  highlight?: boolean;
-  sub?: string;
+type NarrativeTone = 'good' | 'warn' | 'bad' | 'neutral';
+
+const TONE_STYLES: Record<
+  NarrativeTone,
+  { border: string; bg: string; iconBg: string; iconText: string; accent: string }
+> = {
+  good: {
+    border: 'border-emerald-200',
+    bg: 'bg-emerald-50/60',
+    iconBg: 'bg-emerald-100',
+    iconText: 'text-emerald-700',
+    accent: 'text-emerald-700',
+  },
+  warn: {
+    border: 'border-amber-200',
+    bg: 'bg-amber-50/60',
+    iconBg: 'bg-amber-100',
+    iconText: 'text-amber-700',
+    accent: 'text-amber-700',
+  },
+  bad: {
+    border: 'border-red-200',
+    bg: 'bg-red-50/60',
+    iconBg: 'bg-red-100',
+    iconText: 'text-red-700',
+    accent: 'text-red-700',
+  },
+  neutral: {
+    border: 'border-border',
+    bg: 'bg-surface',
+    iconBg: 'bg-surface-secondary',
+    iconText: 'text-text-secondary',
+    accent: 'text-text-primary',
+  },
+};
+
+function NarrativeCard({
+  icon: Icon,
+  title,
+  headline,
+  detail,
+  metrics,
+  tone,
+  onDrillDown,
+  drillDownLabel,
+}: {
+  icon: LucideIcon;
+  title: string;
+  headline: string;
+  detail: string;
+  metrics: Array<{ label: string; value: string | number }>;
+  tone: NarrativeTone;
+  onDrillDown?: () => void;
+  drillDownLabel?: string;
+}) {
+  const s = TONE_STYLES[tone];
+  return (
+    <div className={`rounded-2xl border ${s.border} ${s.bg} p-5 flex flex-col gap-3`}>
+      <div className="flex items-center gap-2.5">
+        <div className={`rounded-xl p-2 ${s.iconBg} ${s.iconText}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{title}</p>
+      </div>
+      <div>
+        <p className={`text-xl font-bold leading-tight ${s.accent}`}>{headline}</p>
+        <p className="mt-1.5 text-sm leading-relaxed text-text-secondary">{detail}</p>
+      </div>
+      {metrics.length > 0 && (
+        <div className="mt-auto flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-3">
+          {metrics.map((m) => (
+            <div key={m.label}>
+              <p className="text-[10px] uppercase tracking-wider text-text-tertiary">{m.label}</p>
+              <p className="text-base font-semibold text-text-primary tabular-nums">{m.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      {onDrillDown && drillDownLabel && (
+        <button
+          type="button"
+          onClick={onDrillDown}
+          className={`flex items-center gap-1 text-xs font-medium ${s.accent} hover:underline mt-1`}
+        >
+          {drillDownLabel}
+          <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" />
+        </button>
+      )}
+    </div>
+  );
 }
 
-function KpiCard({ label, value, icon, highlight, sub }: KpiCardProps) {
+function HealthBanner({
+  score,
+  label,
+  summary,
+}: {
+  score: number;
+  label: string;
+  summary: string;
+}) {
+  const tone: NarrativeTone = score >= 85 ? 'good' : score >= 60 ? 'warn' : 'bad';
+  const s = TONE_STYLES[tone];
   return (
     <div
-      className={`rounded-xl border p-5 ${highlight ? 'border-brand/40 bg-brand/5' : 'border-border bg-surface'}`}
+      className={`relative overflow-hidden rounded-2xl border ${s.border} ${s.bg} p-6 flex flex-col gap-4 md:flex-row md:items-center`}
     >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs text-text-tertiary uppercase tracking-wide">{label}</p>
-          <p className="mt-1 text-2xl font-bold text-text-primary">{value}</p>
-          {sub && <p className="mt-0.5 text-xs text-text-tertiary">{sub}</p>}
+      <div className="flex items-center gap-4">
+        <div
+          className={`flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-2xl ${s.iconBg} ${s.iconText} shadow-sm`}
+        >
+          <span className="text-2xl font-bold leading-none tabular-nums">{score}</span>
+          <span className="mt-1 text-[9px] font-semibold uppercase tracking-wider">/100</span>
         </div>
-        <div className="text-text-tertiary">{icon}</div>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+            {label}
+          </p>
+          <p className={`mt-1 text-lg font-bold leading-tight ${s.accent}`}>{summary}</p>
+        </div>
       </div>
     </div>
   );
@@ -439,19 +550,25 @@ function TrendsTab({ academicYearId }: { academicYearId: string }) {
   );
 }
 
-// ─── Overview Tab (original content) ─────────────────────────────────────────
+// ─── Overview Tab ────────────────────────────────────────────────────────────
+// Principal briefing layout: a single Scheduling Health score at the top, then
+// three narrative story cards (Coverage, Teacher QoL, Room Efficiency) that
+// turn raw numbers into a one-sentence read. Drill-downs live in the tabs.
 
 function OverviewTab({
   overview,
   loading,
   locale,
+  onGoToTab,
 }: {
   overview: DashboardOverview | null;
   loading: boolean;
   locale: string;
+  onGoToTab: (tab: 'workload' | 'rooms' | 'trends') => void;
 }) {
   const tCommon = useTranslations('common');
   const t = useTranslations('scheduling.auto');
+  const tDash = useTranslations('scheduling.dashboard');
   const router = useRouter();
 
   function statusBadgeVariant(status: string): 'default' | 'secondary' | 'danger' {
@@ -471,109 +588,303 @@ function OverviewTab({
 
   if (!overview) return null;
 
+  // ─── Derive narratives ──────────────────────────────────────────────────────
+
+  const total = overview.total_classes;
+  const scheduled = overview.scheduled_classes;
+  const completionPct = total > 0 ? Math.round((scheduled / total) * 100) : 0;
+  const unassigned = Math.max(0, total - scheduled);
+
+  const coverageTone: NarrativeTone =
+    total === 0 ? 'neutral' : completionPct >= 100 ? 'good' : completionPct >= 80 ? 'warn' : 'bad';
+  const coverageHeadline =
+    total === 0
+      ? tDash('coverage.empty')
+      : completionPct >= 100
+        ? tDash('coverage.full')
+        : completionPct >= 80
+          ? tDash('coverage.almost', { pct: completionPct })
+          : tDash('coverage.partial', { pct: completionPct });
+  const coverageDetail =
+    total === 0
+      ? tDash('coverage.emptyDetail')
+      : unassigned === 0
+        ? tDash('coverage.fullDetail', { scheduled, total })
+        : tDash('coverage.partialDetail', { scheduled, total, unassigned });
+
+  const teacherUtil = overview.teacher_utilisation_pct;
+  const avgGaps = overview.avg_gaps;
+  const teacherTone: NarrativeTone = (() => {
+    if (teacherUtil == null && avgGaps == null) return 'neutral';
+    const gapsBad = avgGaps != null && avgGaps >= 2;
+    const utilHeavy = teacherUtil != null && teacherUtil >= 90;
+    const utilLight = teacherUtil != null && teacherUtil < 40;
+    if (gapsBad || utilHeavy) return 'bad';
+    if ((teacherUtil != null && teacherUtil >= 75) || (avgGaps != null && avgGaps >= 1))
+      return 'warn';
+    if (utilLight) return 'warn';
+    return 'good';
+  })();
+  const teacherHeadline = (() => {
+    if (teacherUtil == null && avgGaps == null) return tDash('teachers.empty');
+    if (teacherTone === 'bad') return tDash('teachers.strained');
+    if (teacherTone === 'warn') return tDash('teachers.fair');
+    return tDash('teachers.healthy');
+  })();
+  const teacherDetail = (() => {
+    if (teacherUtil == null && avgGaps == null) return tDash('teachers.emptyDetail');
+    const utilPart =
+      teacherUtil != null ? tDash('teachers.utilPart', { pct: Math.round(teacherUtil) }) : '';
+    const gapsPart =
+      avgGaps != null ? tDash('teachers.gapsPart', { gaps: avgGaps.toFixed(1) }) : '';
+    return [utilPart, gapsPart].filter(Boolean).join(' ');
+  })();
+
+  const roomUtil = overview.room_utilisation_pct;
+  const roomTone: NarrativeTone = (() => {
+    if (roomUtil == null) return 'neutral';
+    if (roomUtil >= 90) return 'bad';
+    if (roomUtil >= 70) return 'warn';
+    if (roomUtil < 25) return 'warn';
+    return 'good';
+  })();
+  const roomHeadline =
+    roomUtil == null
+      ? tDash('rooms.empty')
+      : roomUtil >= 90
+        ? tDash('rooms.bottleneck', { pct: Math.round(roomUtil) })
+        : roomUtil >= 70
+          ? tDash('rooms.busy', { pct: Math.round(roomUtil) })
+          : roomUtil < 25
+            ? tDash('rooms.idle', { pct: Math.round(roomUtil) })
+            : tDash('rooms.balanced', { pct: Math.round(roomUtil) });
+  const roomDetail =
+    roomUtil == null
+      ? tDash('rooms.emptyDetail')
+      : roomUtil >= 90
+        ? tDash('rooms.bottleneckDetail')
+        : roomUtil >= 70
+          ? tDash('rooms.busyDetail')
+          : roomUtil < 25
+            ? tDash('rooms.idleDetail')
+            : tDash('rooms.balancedDetail');
+
+  // Composite health score: completion (50%), teacher (25%), rooms (15%), preference (10%)
+  const completionScore = total > 0 ? completionPct : 0;
+  const teacherScore = (() => {
+    if (teacherUtil == null && avgGaps == null) return 50;
+    const utilScore =
+      teacherUtil == null
+        ? 60
+        : teacherUtil >= 90
+          ? 40
+          : teacherUtil >= 75
+            ? 80
+            : teacherUtil >= 40
+              ? 100
+              : 70;
+    const gapScore = avgGaps == null ? 80 : Math.max(0, 100 - avgGaps * 25);
+    return Math.round(utilScore * 0.5 + gapScore * 0.5);
+  })();
+  const roomScore = (() => {
+    if (roomUtil == null) return 60;
+    if (roomUtil >= 90) return 50;
+    if (roomUtil >= 70) return 80;
+    if (roomUtil >= 25) return 100;
+    return 70;
+  })();
+  const prefScore = overview.preference_score == null ? 70 : Math.round(overview.preference_score);
+  const overallScore = Math.round(
+    completionScore * 0.5 + teacherScore * 0.25 + roomScore * 0.15 + prefScore * 0.1,
+  );
+  const healthSummary = (() => {
+    if (overallScore >= 85) return tDash('health.good');
+    if (overallScore >= 60) return tDash('health.okay');
+    return tDash('health.poor');
+  })();
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <KpiCard
-          label={t('totalSlots')}
-          value={overview.total_classes}
-          icon={<BookOpen className="h-5 w-5" />}
-        />
-        <KpiCard
-          label={t('configured')}
-          value={overview.configured_classes}
-          icon={<CheckCircle2 className="h-5 w-5" />}
-        />
-        <KpiCard
-          label={t('assignedSlots')}
-          value={overview.scheduled_classes}
-          icon={<Sparkles className="h-5 w-5" />}
-          highlight
-        />
-        <KpiCard
-          label={t('pinnedSlots')}
-          value={overview.pinned_entries}
-          icon={<Pin className="h-5 w-5" />}
-        />
-        <KpiCard
-          label={t('completionPct')}
-          value={
-            overview.total_classes > 0
-              ? `${Math.round((overview.scheduled_classes / overview.total_classes) * 100)}%`
-              : '0%'
+    <div className="space-y-5">
+      <HealthBanner score={overallScore} label={tDash('health.label')} summary={healthSummary} />
+
+      {/* Narrative story cards */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <NarrativeCard
+          icon={CheckCircle2}
+          title={tDash('coverage.title')}
+          headline={coverageHeadline}
+          detail={coverageDetail}
+          tone={coverageTone}
+          metrics={[
+            { label: tDash('coverage.assigned'), value: scheduled },
+            { label: tDash('coverage.total'), value: total },
+            { label: tDash('coverage.unassigned'), value: unassigned },
+          ]}
+          drillDownLabel={unassigned > 0 ? tDash('coverage.drillDown') : undefined}
+          onDrillDown={
+            unassigned > 0 && overview.latest_run
+              ? () => router.push(`/${locale}/scheduling/runs/${overview.latest_run!.id}/review`)
+              : undefined
           }
-          icon={<BarChart3 className="h-5 w-5" />}
-          highlight
+        />
+        <NarrativeCard
+          icon={UserCheck}
+          title={tDash('teachers.title')}
+          headline={teacherHeadline}
+          detail={teacherDetail}
+          tone={teacherTone}
+          metrics={[
+            {
+              label: tDash('teachers.utilisation'),
+              value: teacherUtil != null ? `${Math.round(teacherUtil)}%` : '—',
+            },
+            {
+              label: tDash('teachers.avgGaps'),
+              value: avgGaps != null ? avgGaps.toFixed(1) : '—',
+            },
+          ]}
+          drillDownLabel={tDash('teachers.drillDown')}
+          onDrillDown={() => onGoToTab('workload')}
+        />
+        <NarrativeCard
+          icon={DoorOpen}
+          title={tDash('rooms.title')}
+          headline={roomHeadline}
+          detail={roomDetail}
+          tone={roomTone}
+          metrics={[
+            {
+              label: tDash('rooms.avgUtilisation'),
+              value: roomUtil != null ? `${Math.round(roomUtil)}%` : '—',
+            },
+          ]}
+          drillDownLabel={tDash('rooms.drillDown')}
+          onDrillDown={() => onGoToTab('rooms')}
         />
       </div>
 
-      {/* Scheduling efficiency metrics */}
-      {(overview.room_utilisation_pct != null || overview.teacher_utilisation_pct != null) && (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {overview.room_utilisation_pct != null && (
-            <KpiCard
-              label={t('roomUtilisation')}
-              value={`${Math.round(overview.room_utilisation_pct)}%`}
-              icon={<BarChart3 className="h-5 w-5" />}
-            />
-          )}
-          {overview.teacher_utilisation_pct != null && (
-            <KpiCard
-              label={t('teacherUtilisation')}
-              value={`${Math.round(overview.teacher_utilisation_pct)}%`}
-              icon={<BarChart3 className="h-5 w-5" />}
-            />
-          )}
-          {overview.avg_gaps != null && (
-            <KpiCard
-              label={t('avgTeacherGaps')}
-              value={overview.avg_gaps.toFixed(1)}
-              icon={<BarChart3 className="h-5 w-5" />}
-            />
-          )}
-          {overview.preference_score != null && (
-            <KpiCard
-              label={t('preferenceScore')}
-              value={`${Math.round(overview.preference_score)}%`}
-              icon={<Sparkles className="h-5 w-5" />}
-              highlight
-            />
-          )}
-        </div>
-      )}
-
-      {/* Latest run card */}
+      {/* Latest run strip */}
       {overview.latest_run && (
-        <div className="rounded-2xl border border-border bg-surface p-5">
+        <div className="rounded-2xl border border-border bg-surface p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <Sparkles className="h-5 w-5 text-text-tertiary" />
-              <div>
-                <p className="text-sm font-medium text-text-primary">{t('lastRun')}</p>
-                <p className="text-xs text-text-tertiary">
-                  {new Date(overview.latest_run.created_at).toLocaleString()} &middot;{' '}
+              <div className="rounded-xl bg-violet-100 p-2 text-violet-700">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-text-primary">{t('lastRun')}</p>
                   <Badge
                     variant={statusBadgeVariant(overview.latest_run.status)}
                     className="text-[10px]"
                   >
                     {overview.latest_run.status}
                   </Badge>
+                </div>
+                <p className="mt-0.5 text-xs text-text-tertiary">
+                  {new Date(overview.latest_run.created_at).toLocaleString()}
+                  {overview.latest_run.entries_generated != null
+                    ? ` · ${overview.latest_run.entries_generated} ${tDash('generatedEntries')}`
+                    : ''}
                 </p>
               </div>
             </div>
-            {overview.latest_run.status === 'completed' && (
+            <div className="flex gap-2">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                onClick={() =>
-                  router.push(`/${locale}/scheduling/runs/${overview.latest_run!.id}/review`)
-                }
+                onClick={() => onGoToTab('trends')}
+                className="gap-1"
               >
-                {t('viewReview')}
+                <TrendingUp className="h-3.5 w-3.5 me-1" />
+                {tDash('trendsAction')}
               </Button>
-            )}
+              {overview.latest_run.status === 'completed' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    router.push(`/${locale}/scheduling/runs/${overview.latest_run!.id}/review`)
+                  }
+                >
+                  {t('viewReview')}
+                </Button>
+              )}
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* Quick actions — drill directly into the tabs */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <button
+          type="button"
+          onClick={() => onGoToTab('workload')}
+          className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-start transition hover:border-border-strong hover:shadow-sm"
+        >
+          <div className="rounded-lg bg-sky-100 p-2 text-sky-700">
+            <Activity className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-text-primary">{tDash('actions.workload')}</p>
+            <p className="text-xs text-text-tertiary">{tDash('actions.workloadHint')}</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-text-tertiary rtl:rotate-180" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onGoToTab('rooms')}
+          className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-start transition hover:border-border-strong hover:shadow-sm"
+        >
+          <div className="rounded-lg bg-teal-100 p-2 text-teal-700">
+            <DoorOpen className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-text-primary">{tDash('actions.rooms')}</p>
+            <p className="text-xs text-text-tertiary">{tDash('actions.roomsHint')}</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-text-tertiary rtl:rotate-180" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onGoToTab('trends')}
+          className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-start transition hover:border-border-strong hover:shadow-sm"
+        >
+          <div className="rounded-lg bg-amber-100 p-2 text-amber-700">
+            <TrendingUp className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-text-primary">{tDash('actions.trends')}</p>
+            <p className="text-xs text-text-tertiary">{tDash('actions.trendsHint')}</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-text-tertiary rtl:rotate-180" />
+        </button>
+      </div>
+
+      {/* Subtle alerts band */}
+      {unassigned > 0 && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-700 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-800">
+              {tDash('alerts.unassignedTitle', { count: unassigned })}
+            </p>
+            <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+              {tDash('alerts.unassignedDetail')}
+            </p>
+          </div>
+          {overview.latest_run && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                router.push(`/${locale}/scheduling/runs/${overview.latest_run!.id}/review`)
+              }
+            >
+              {tDash('alerts.reviewRun')}
+            </Button>
+          )}
         </div>
       )}
     </div>
@@ -657,7 +968,12 @@ export default function SchedulingDashboardPage() {
       </div>
 
       {activeTab === 'overview' && (
-        <OverviewTab overview={overview} loading={loading} locale={locale} />
+        <OverviewTab
+          overview={overview}
+          loading={loading}
+          locale={locale}
+          onGoToTab={(tab) => setActiveTab(tab)}
+        />
       )}
       {activeTab === 'workload' && academicYearId && (
         <div className="rounded-2xl border border-border bg-surface p-5">
