@@ -200,16 +200,44 @@ def solve(
     # (e.g. the greedy hint) and then searches silently for the entire
     # budget. On NHQS-scale inputs the worker then crashes on teardown —
     # see the comment on ``last_callback_monotonic`` in ``early_stop.py``.
-    # This watchdog halts the solver after a configurable wall-clock
-    # silence window (default 80 s; tenants can tighten via env).
+    #
+    # Threshold defaults to the same value as the callback-gated
+    # stagnation trigger (``CP_SAT_EARLY_STOP_STAGNATION_SECONDS``, 8 s)
+    # so the wall-clock path and the callback path have the same "no
+    # improvement for N seconds" semantics. A separate env var
+    # (``CP_SAT_WATCHDOG_SILENCE_SECONDS``) exists in case operators
+    # want to loosen the watchdog without affecting the callback trigger
+    # — that matters when CP-SAT is finding rapid tiny improvements but
+    # the LNS phase has genuinely plateaued.
     watchdog_threshold_seconds = float(
-        os.environ.get("CP_SAT_WATCHDOG_SILENCE_SECONDS", "80")
+        os.environ.get(
+            "CP_SAT_WATCHDOG_SILENCE_SECONDS",
+            os.environ.get("CP_SAT_EARLY_STOP_STAGNATION_SECONDS", "8"),
+        )
     )
     watchdog = WallClockWatchdog(
         solver=solver,
         callback=callback,
         threshold_seconds=watchdog_threshold_seconds,
     )
+    # Verbose CP-SAT search log — emits one line per improving solution
+    # so operators can see "improvement at +23.4s: objective 318 → 319"
+    # in the sidecar log in near real time. Previously the sidecar was
+    # silent for the full budget (up to 60 min) and nothing hit disk
+    # until the solver returned, making it impossible to tell a live
+    # improvement run from a wedged one. Configurable via env because
+    # the log lines are noisy for short smoke tests.
+    solver.parameters.log_search_progress = (
+        os.environ.get("CP_SAT_LOG_SEARCH_PROGRESS", "true").strip().lower()
+        not in ("0", "false", "no")
+    )
+    if solver.parameters.log_search_progress:
+        # Route CP-SAT's log callback through the standard logger so the
+        # sidecar's JSON log formatter picks it up alongside every other
+        # line. Without a callback, OR-Tools prints to stdout which gets
+        # captured but isn't structured.
+        cp_sat_logger = logging.getLogger("solver_py.cp_sat")
+        solver.log_callback = lambda line: cp_sat_logger.info(line.rstrip())
     watchdog.start()
     try:
         status = solver.solve(built.model, callback)

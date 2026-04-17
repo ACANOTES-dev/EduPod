@@ -683,6 +683,16 @@ describe('SchedulingRunsService', () => {
     });
 
     it('derives entries_total from config_snapshot.demand while running', async () => {
+      // 91 class×subject pairs with varying periods_per_week — must
+      // sum to 330 (the NHQS pilot demand total). Validates the
+      // sum-of-periods-per-week aggregation, not the naive .length
+      // count we used to return.
+      const demand = [
+        ...Array(50).fill({ periods_per_week: 3 }), //   150
+        ...Array(30).fill({ periods_per_week: 4 }), //   120
+        ...Array(10).fill({ periods_per_week: 6 }), //    60
+        ...Array(1).fill({ periods_per_week: 0 }), //      0 (skipped)
+      ];
       mockPrisma.schedulingRun.findFirst.mockResolvedValue({
         id: RUN_ID,
         status: 'running',
@@ -693,7 +703,7 @@ describe('SchedulingRunsService', () => {
         failure_reason: null,
         created_at: new Date(Date.now() - 5000),
         updated_at: NOW,
-        config_snapshot: { demand: new Array(330).fill({}) },
+        config_snapshot: { demand },
       });
 
       const result = await service.getProgress(TENANT_ID, RUN_ID);

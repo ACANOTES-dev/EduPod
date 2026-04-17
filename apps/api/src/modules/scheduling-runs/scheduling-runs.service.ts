@@ -777,13 +777,31 @@ export class SchedulingRunsService {
 
 // ─── Progress helpers ────────────────────────────────────────────────────────
 
-// Defensively extract demand count from the run's ``config_snapshot``
-// JSONB blob. Returns 0 when the shape isn't what we expect — callers
+// Defensively extract total demanded periods from the run's
+// ``config_snapshot`` JSONB blob. Each demand entry is one (class,
+// subject) pair with a ``periods_per_week`` integer — summing that
+// gives the total number of periods the solver will try to place
+// (matches the ``placed + unassigned`` total the solver reports on
+// completion). Returns 0 when the shape isn't what we expect — callers
 // treat 0 as "no total yet" and show the raw placed count only.
+//
+// Prior behaviour returned ``demand.length`` (count of class×subject
+// pairs), which under-reported the total by ~4× on NHQS-shaped inputs
+// (91 pairs × avg 3.6 periods_per_week ≈ 330 periods) — observed
+// 2026-04-17 E2E, "0 OF 91 SLOTS ASSIGNED" instead of "0 OF 330".
 function extractSnapshotDemandTotal(snapshot: unknown): number {
   if (!snapshot || typeof snapshot !== 'object') return 0;
   const record = snapshot as Record<string, unknown>;
   const demand = record.demand;
-  if (Array.isArray(demand)) return demand.length;
-  return 0;
+  if (!Array.isArray(demand)) return 0;
+  let total = 0;
+  for (const entry of demand) {
+    if (entry && typeof entry === 'object') {
+      const ppw = (entry as Record<string, unknown>).periods_per_week;
+      if (typeof ppw === 'number' && Number.isFinite(ppw) && ppw > 0) {
+        total += Math.floor(ppw);
+      }
+    }
+  }
+  return total;
 }
