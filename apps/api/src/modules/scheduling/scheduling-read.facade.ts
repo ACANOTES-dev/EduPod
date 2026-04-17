@@ -507,14 +507,26 @@ export class SchedulingReadFacade {
       allocated_min_periods: number;
     }>
   > {
-    const [templates, requirements] = await Promise.all([
+    const [allTemplates, requirements] = await Promise.all([
+      // Pull ALL templates (including break/lunch/etc.) so the
+      // year-group-wins-over-NULL precedence in buildPeriodSlots is
+      // honoured end-to-end: if Year 6 defines Mon P3 as a break, the
+      // NULL-default teaching slot at (Mon, P3) must NOT count towards
+      // the year group's teaching capacity. Filtering to
+      // ``teaching`` here would have let those orphan defaults leak
+      // in and inflate the grid count (NHQS 6th Class: 31 vs the
+      // correct 29).
       this.prisma.schedulePeriodTemplate.findMany({
         where: {
           tenant_id: tenantId,
           academic_year_id: academicYearId,
-          schedule_period_type: 'teaching',
         },
-        select: { year_group_id: true, weekday: true, period_order: true },
+        select: {
+          year_group_id: true,
+          weekday: true,
+          period_order: true,
+          schedule_period_type: true,
+        },
       }),
       this.prisma.curriculumRequirement.findMany({
         where: { tenant_id: tenantId, academic_year_id: academicYearId },
@@ -522,21 +534,30 @@ export class SchedulingReadFacade {
       }),
     ]);
 
-    const defaultTuples = new Set<string>();
-    for (const t of templates) {
-      if (t.year_group_id === null) defaultTuples.add(`${t.weekday}:${t.period_order}`);
+    const defaultByTuple = new Map<string, { teaching: boolean }>();
+    for (const t of allTemplates) {
+      if (t.year_group_id === null) {
+        defaultByTuple.set(`${t.weekday}:${t.period_order}`, {
+          teaching: t.schedule_period_type === 'teaching',
+        });
+      }
     }
 
     return yearGroups.map((yg) => {
       const ygTuples = new Set<string>();
-      for (const t of templates) {
-        if (t.year_group_id === yg.id) ygTuples.add(`${t.weekday}:${t.period_order}`);
+      let ygTeachingCount = 0;
+      for (const t of allTemplates) {
+        if (t.year_group_id === yg.id) {
+          ygTuples.add(`${t.weekday}:${t.period_order}`);
+          if (t.schedule_period_type === 'teaching') ygTeachingCount += 1;
+        }
       }
-      // Mirror buildPeriodSlots: year-group-specific wins; NULL defaults
-      // fill only uncovered tuples.
-      let gridSlots = ygTuples.size;
-      for (const tuple of defaultTuples) {
-        if (!ygTuples.has(tuple)) gridSlots += 1;
+      // Year-group-specific precedence: if the YG defines a tuple
+      // (as teaching OR break/lunch/etc.), that wins. NULL defaults
+      // only contribute on tuples the YG doesn't cover at all.
+      let gridSlots = ygTeachingCount;
+      for (const [tuple, meta] of defaultByTuple) {
+        if (!ygTuples.has(tuple) && meta.teaching) gridSlots += 1;
       }
       // Only count requirements whose (year_group, subject) is actively
       // assigned to at least one class via ``class_subject_grade_configs``.
