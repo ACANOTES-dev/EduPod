@@ -5135,6 +5135,10 @@
             "title": "[AR] Solver error",
             "subtitle": "[AR] The solver encountered an internal error after {elapsed}. Retry, and contact support if it persists."
           },
+          "solverCrash": {
+            "title": "[AR] Solver crashed",
+            "subtitle": "[AR] The solver terminated unexpectedly. Please contact support — don't retry with the same inputs until we've investigated."
+          },
           "modelInvalid": {
             "title": "[AR] Solver rejected the input",
             "subtitle": "[AR] The snapshot couldn't be processed. Review the run detail for the specific validation error."

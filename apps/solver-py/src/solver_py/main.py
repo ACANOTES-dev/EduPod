@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import multiprocessing
 import threading
 import time
 import uuid
@@ -33,7 +34,7 @@ from solver_py.schema import SolverInputV2
 from solver_py.schema.v3 import SolverInputV3
 from solver_py.schema.v3.adapters import v2_output_to_v3, v3_input_to_v2
 from solver_py.schema.v3.diagnose import DiagnoseRequest
-from solver_py.solver import SolveError, solve
+from solver_py.solver import SolveError, SolverCrashError, solve_in_subprocess
 from solver_py.solver.diagnose import diagnose_unassigned
 from solver_py.solver.telemetry import SolverTelemetry
 
@@ -77,22 +78,28 @@ app = FastAPI(
 
 # ─── Cooperative cancellation registry (amendment) ───────────────────────────
 #
-# Each active /solve registers a ``threading.Event`` keyed on its request_id.
-# DELETE /solve/{request_id} sets the flag; EarlyStopCallback checks it on
-# every CP-SAT solution callback and calls ``StopSearch()`` when set.
+# Each active /solve registers a ``multiprocessing.Event`` keyed on its
+# request_id. DELETE /solve/{request_id} sets the flag; EarlyStopCallback
+# inside the solver subprocess checks it on every CP-SAT solution callback
+# and calls ``StopSearch()`` when set.
 #
-# Why in-process: the sidecar is a single pm2 process with a 2 GB memory
-# cap and ``asyncio.Semaphore(1)`` concurrency — there is at most one
-# solve in-flight at any time on this instance. Distributed registries
-# (Redis, etc.) are out of scope until Part 2 introduces multi-solve
-# concurrency.
+# Why mp.Event instead of threading.Event: the solve runs in a forked child
+# process (see solver_py.solver.subprocess_solve) so the cancellation flag
+# must be visible across the fork boundary. ``multiprocessing.Event`` is
+# duck-type-compatible with ``threading.Event`` (same ``.is_set()`` API)
+# so the EarlyStopCallback code didn't need to change.
+#
+# Why in-process registry: the sidecar is a single pm2 process with a
+# 2 GB memory cap and ``asyncio.Semaphore(1)`` concurrency — at most one
+# solve in-flight at any time. Distributed registries (Redis, etc.) are
+# out of scope until Part 2 introduces multi-solve concurrency.
 #
 # ``_inflight_lock`` protects the dict against concurrent mutation from
 # different asyncio tasks. A threading.Lock is sufficient because all
 # mutations happen on the asyncio event-loop thread (the dict is
 # read/written from the /solve and DELETE handlers, never from inside
-# the worker thread running CP-SAT).
-_inflight: dict[str, threading.Event] = {}
+# the child process running CP-SAT).
+_inflight: dict[str, "multiprocessing.Event"] = {}  # type: ignore[type-arg]
 _inflight_lock = threading.Lock()
 
 # Single-solve concurrency cap. Lifting this requires the Part 2 memory
@@ -167,7 +174,7 @@ async def solve_endpoint(payload: SolverInputV2, request: Request) -> JSONRespon
     UUID so the registry always has an addressable key.
     """
     request_id: str = getattr(request.state, "request_id", "") or uuid.uuid4().hex
-    cancel_flag = threading.Event()
+    cancel_flag = multiprocessing.Event()
     with _inflight_lock:
         _inflight[request_id] = cancel_flag
 
@@ -188,10 +195,15 @@ async def solve_endpoint(payload: SolverInputV2, request: Request) -> JSONRespon
     try:
         async with _solve_semaphore:
             try:
-                # ortools 9.15.6755's solver.Solve() releases the GIL
-                # (verified via concurrent-thread pytest), so asyncio.to_thread
-                # keeps the event loop responsive while CP-SAT is working.
-                result = await asyncio.to_thread(solve, payload, cancel_flag)
+                # The solve runs in a forked child process so an OR-Tools
+                # C++ abort (std::bad_function_call and friends) can't
+                # take down the whole sidecar. On abnormal child exit
+                # SolverCrashError is raised and we return SOLVER_CRASH
+                # below; uvicorn stays alive for the next request.
+                subprocess_result = await asyncio.to_thread(
+                    solve_in_subprocess, payload, cancel_flag, False
+                )
+                result = subprocess_result.output
             except SolveError as exc:
                 logger.exception("solver could not decide")
                 return JSONResponse(
@@ -200,6 +212,26 @@ async def solve_endpoint(payload: SolverInputV2, request: Request) -> JSONRespon
                         "error": {
                             "code": "SOLVER_INDETERMINATE",
                             "message": str(exc),
+                        },
+                    },
+                )
+            except SolverCrashError as exc:
+                logger.error(
+                    "solver subprocess crashed",
+                    extra={
+                        "request_id": request_id,
+                        "exitcode": exc.exitcode,
+                        "signal": exc.signal_name or "",
+                    },
+                )
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "error": {
+                            "code": "SOLVER_CRASH",
+                            "message": str(exc),
+                            "exitcode": exc.exitcode,
+                            "signal": exc.signal_name,
                         },
                     },
                 )
@@ -287,7 +319,7 @@ async def solve_v3_endpoint(
     request_id: str = (
         getattr(request.state, "request_id", "") or uuid.uuid4().hex
     )
-    cancel_flag = threading.Event()
+    cancel_flag = multiprocessing.Event()
     with _inflight_lock:
         _inflight[request_id] = cancel_flag
 
@@ -308,18 +340,20 @@ async def solve_v3_endpoint(
     # Convert V3 → V2 for the existing solver pipeline
     v2_input = v3_input_to_v2(payload)
 
-    # SCHED-041 §A — instantiate telemetry so the solver records CP-SAT
-    # counters, hint survival, objective trajectory, and termination
-    # reason. The telemetry object is mutated in-place by solve() and
-    # then serialised for the V3 response and the DB column.
-    telemetry = SolverTelemetry()
-
     try:
         async with _solve_semaphore:
             try:
-                v2_result = await asyncio.to_thread(
-                    solve, v2_input, cancel_flag, telemetry
+                # SCHED-041 §A — telemetry is captured in the child
+                # process (mp.Event + mutable objects don't cross fork
+                # cleanly); the subprocess wrapper returns the finalized
+                # diagnostics dataclass alongside the output so we still
+                # populate V3.solver_diagnostics the same way the in-process
+                # path used to.
+                subprocess_result = await asyncio.to_thread(
+                    solve_in_subprocess, v2_input, cancel_flag, True
                 )
+                v2_result = subprocess_result.output
+                diagnostics_from_subprocess = subprocess_result.diagnostics
             except SolveError as exc:
                 logger.exception("solver could not decide (v3)")
                 return JSONResponse(
@@ -331,11 +365,34 @@ async def solve_v3_endpoint(
                         },
                     },
                 )
+            except SolverCrashError as exc:
+                logger.error(
+                    "solver subprocess crashed (v3)",
+                    extra={
+                        "request_id": request_id,
+                        "exitcode": exc.exitcode,
+                        "signal": exc.signal_name or "",
+                    },
+                )
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "error": {
+                            "code": "SOLVER_CRASH",
+                            "message": str(exc),
+                            "exitcode": exc.exitcode,
+                            "signal": exc.signal_name,
+                        },
+                    },
+                )
     finally:
         with _inflight_lock:
             _inflight.pop(request_id, None)
 
-    diagnostics = telemetry.to_diagnostics()
+    # Fallback to an empty telemetry if the subprocess returned None
+    # (shouldn't happen for V3 since we always request capture, but
+    # keep the contract total so v2_output_to_v3 never sees None).
+    diagnostics = diagnostics_from_subprocess or SolverTelemetry().to_diagnostics()
 
     # Convert V2 output → V3
     v3_result = v2_output_to_v3(v2_result, payload, diagnostics=diagnostics)

@@ -5,6 +5,15 @@ describe('classifySolverFailure', () => {
     expect(classifySolverFailure('CP_SAT_UNREACHABLE: fetch failed', 0)).toBe('serviceUnavailable');
   });
 
+  it('maps SOLVER_CRASH prefix to solverCrash', () => {
+    expect(
+      classifySolverFailure(
+        'SOLVER_CRASH: solver subprocess terminated abnormally, exitcode=-6 (SIGABRT)',
+        0,
+      ),
+    ).toBe('solverCrash');
+  });
+
   it('maps MODEL_INVALID prefix to modelInvalid', () => {
     expect(classifySolverFailure('MODEL_INVALID: missing field x', 0)).toBe('modelInvalid');
   });

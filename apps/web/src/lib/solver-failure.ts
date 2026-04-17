@@ -15,6 +15,13 @@ export type SolverFailureCategory =
   | 'serviceUnavailable'
   /** Sidecar returned an error but the process is alive (HTTP 5xx with body). */
   | 'solverError'
+  /**
+   * OR-Tools (or another native dependency) aborted the solve subprocess.
+   * Distinct from `solverError` because a deterministic C++ crash will repeat
+   * on retry with the same snapshot — the operator needs the snapshot for
+   * offline investigation before retrying.
+   */
+  | 'solverCrash'
   /** Snapshot rejected as structurally invalid by the sidecar. */
   | 'modelInvalid'
   /** Worker crashed mid-solve and BullMQ reaped the run. */
@@ -35,6 +42,7 @@ export function classifySolverFailure(
   const reason = failureReason ?? '';
 
   if (reason.startsWith('CP_SAT_UNREACHABLE')) return 'serviceUnavailable';
+  if (reason.startsWith('SOLVER_CRASH')) return 'solverCrash';
   if (reason.startsWith('MODEL_INVALID')) return 'modelInvalid';
   if (reason.startsWith('CP_SAT_ERROR') || reason.startsWith('INTERNAL_ERROR')) {
     return 'solverError';

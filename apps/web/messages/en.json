@@ -5143,6 +5143,10 @@
             "title": "Solver error",
             "subtitle": "The solver encountered an internal error after {elapsed}. Retry, and contact support if it persists."
           },
+          "solverCrash": {
+            "title": "Solver crashed",
+            "subtitle": "The solver terminated unexpectedly. Please contact support — don't retry with the same inputs until we've investigated."
+          },
           "modelInvalid": {
             "title": "Solver rejected the input",
             "subtitle": "The snapshot couldn't be processed. Review the run detail for the specific validation error."
