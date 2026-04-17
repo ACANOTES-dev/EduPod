@@ -15,6 +15,7 @@ import { BadRequestException } from '@nestjs/common';
 import type { DemandV3 } from '@school/shared/scheduler';
 
 import type {
+  ClassSubjectAssignmentRow,
   ClassSubjectOverrideRow,
   CurriculumRow,
   YearGroupWithClasses,
@@ -35,10 +36,24 @@ export function buildDemand(
   yearGroups: YearGroupWithClasses[],
   curriculum: CurriculumRow[],
   classSubjectOverrides: ClassSubjectOverrideRow[],
+  classSubjectAssignments: ClassSubjectAssignmentRow[],
   strictClassSubjectOverride: boolean,
 ): BuildDemandResult {
   const demand: DemandV3[] = [];
   const overridesApplied: BuildDemandResult['overridesApplied'] = [];
+
+  // Curriculum Matrix filter: only fan out year-group curriculum to (class,
+  // subject) pairs the school has explicitly assigned in the Matrix UI. If
+  // the tenant has ZERO assignments we treat that as "Matrix not in use" and
+  // fall back to the old fan-out-to-every-class behaviour — that's what the
+  // stress-test tenants rely on, and it's a safe default for pre-Matrix
+  // fixtures. Overrides (class_subject_requirements) always bypass the filter
+  // because they're an explicit per-class opt-in and imply the user wants
+  // that pair scheduled regardless of Matrix state.
+  const assignmentKeys = new Set<string>(
+    classSubjectAssignments.map((a) => `${a.class_id}::${a.subject_id}`),
+  );
+  const matrixInUse = assignmentKeys.size > 0;
 
   // Index: (year_group_id, subject_id) → baseline row
   const baselineMap = new Map<string, CurriculumRow>();
@@ -83,13 +98,16 @@ export function buildDemand(
   }
 
   // For each year-group curriculum row, emit one DemandV3 per class in the year group
+  // — but only if the Matrix has assigned the (class, subject) pair (when the Matrix
+  // is in use). Overrides are handled separately below.
   for (const cr of curriculum) {
     const yg = yearGroups.find((y) => y.id === cr.year_group_id);
     if (!yg) continue;
 
     for (const cls of yg.classes) {
-      const overrideKey = `${cls.id}::${cr.subject_id}`;
-      if (overrideMap.has(overrideKey)) continue; // Override wins — emitted below
+      const key = `${cls.id}::${cr.subject_id}`;
+      if (overrideMap.has(key)) continue; // Override wins — emitted below
+      if (matrixInUse && !assignmentKeys.has(key)) continue; // Matrix says not this class
 
       demand.push({
         class_id: cls.id,

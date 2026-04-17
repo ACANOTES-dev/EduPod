@@ -74,6 +74,24 @@ export interface ClassSubjectOverrideRow {
   preferred_room_id: string | null;
 }
 
+/**
+ * A (class, subject) assignment from the Curriculum Matrix.
+ *
+ * The Matrix UI (at /curriculum-matrix) writes to `class_subject_grade_configs`
+ * — one row per class-subject pair the user has toggled on. This is the
+ * authoritative "which subjects does this specific class take?" list. The
+ * solver demand used to ignore this table and fan out year-group curriculum
+ * to EVERY class in the year group, producing "phantom" demand for subjects
+ * that weren't actually assigned to the class (e.g. 6A was getting 11
+ * subjects from year-group curriculum when only 6 were checked in the
+ * Matrix). The demand builder now intersects the two so the solver only
+ * plans what the school actually intends to teach.
+ */
+export interface ClassSubjectAssignmentRow {
+  class_id: string;
+  subject_id: string;
+}
+
 export interface TeacherRecord {
   staff_profile_id: string;
   name: string;
@@ -132,6 +150,7 @@ export interface TenantData {
   periodTemplates: PeriodTemplate[];
   curriculum: CurriculumRow[];
   classSubjectOverrides: ClassSubjectOverrideRow[];
+  classSubjectAssignments: ClassSubjectAssignmentRow[];
   teachers: TeacherRecord[];
   rooms: RoomRecord[];
   roomClosures: RoomClosureRecord[];
@@ -168,6 +187,7 @@ export async function loadTenantData(
     tenantSettingsRow,
     classRequirements,
     classSubjectRequirements,
+    classSubjectAssignmentsRaw,
   ] = await Promise.all([
     facades.academicReadFacade.findYearGroupsWithClassesAndCounts(tenantId, academicYearId),
     prisma.schedulePeriodTemplate.findMany({
@@ -209,6 +229,17 @@ export async function loadTenantData(
         class_entity: { select: { year_group_id: true } },
         subject: { select: { name: true } },
       },
+    }),
+    // Curriculum Matrix assignments: filters the year-group curriculum fan-out
+    // so the solver only plans demand for (class, subject) pairs the school
+    // has explicitly assigned. Joined via class -> academic_year_id so we
+    // only pick up rows for this run's year.
+    prisma.classSubjectGradeConfig.findMany({
+      where: {
+        tenant_id: tenantId,
+        class_entity: { academic_year_id: academicYearId },
+      },
+      select: { class_id: true, subject_id: true },
     }),
   ]);
 
@@ -351,11 +382,19 @@ export async function loadTenantData(
   const strictClassSubjectOverride =
     (schedulingSettings?.['strict_class_subject_override'] as boolean | undefined) ?? false;
 
+  const classSubjectAssignments: ClassSubjectAssignmentRow[] = classSubjectAssignmentsRaw.map(
+    (r) => ({
+      class_id: r.class_id,
+      subject_id: r.subject_id,
+    }),
+  );
+
   return {
     yearGroups,
     periodTemplates,
     curriculum,
     classSubjectOverrides,
+    classSubjectAssignments,
     teachers,
     rooms,
     roomClosures,

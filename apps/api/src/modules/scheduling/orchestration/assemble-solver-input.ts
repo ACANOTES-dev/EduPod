@@ -68,6 +68,7 @@ export async function assembleSolverInput(
     data.yearGroups,
     data.curriculum,
     data.classSubjectOverrides,
+    data.classSubjectAssignments,
     data.strictClassSubjectOverride,
   );
 
