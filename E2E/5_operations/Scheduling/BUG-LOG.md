@@ -1354,7 +1354,7 @@ Additionally, the processor's `findMany`/`update` on `scheduling_runs` (an RLS-f
 ### SCHED-031 — Admin cross-perspective Student picker shows 100 blank options
 
 **Severity:** P1
-**Status:** Fixed (2026-04-17) — pending deploy + Playwright verification
+**Status:** Verified (2026-04-17) — deployed + smoke-checked on prod
 **Provenance:** [L] — found 2026-04-17 PWC session
 
 **Summary:** On `/en/timetables` (Cross-Perspective Timetable), switching to the **Student** tab opens a `<Select>` populated with 100 entries — but every option label is empty. Admins cannot pick a student because they can't tell them apart, even though the underlying data (id, first_name, last_name) is fetched correctly.
@@ -1397,7 +1397,7 @@ Optionally append the class name (`s.class_name ? \` — ${s.class_name}\`` : ''
 ### SCHED-032 — Students have no in-app timetable view (data published, UI absent)
 
 **Severity:** P0
-**Status:** Fixed (2026-04-17) — pending deploy + Playwright verification
+**Status:** Verified (2026-04-17) — deployed + smoke-checked on prod
 
 **Fix (Option A from the original entry):**
 
@@ -1463,7 +1463,7 @@ Option A is less code; option B is cleaner separation of concerns and easier per
 ### SCHED-033 — Scheduling hub shows "Total Slots: 0 / Completion: 0%" despite 356 published rows
 
 **Severity:** P1
-**Status:** Fixed (2026-04-17) — pending deploy + Playwright verification
+**Status:** Verified (2026-04-17) — deployed + smoke-checked on prod
 
 **Root cause:** `ClassesReadFacade.countByAcademicYear(..., { subjectType: 'academic' })` filters on `subject.subject_type`, which excludes homeroom-style classes (where `subject_id IS NULL`). NHQS — and every primary-school tenant using homeroom classes — therefore gets `total_classes = 0` on the dashboard overview. The "Total Slots" tile binds to that value, hence 0. Completion = scheduled / total → also 0 when total is 0.
 
@@ -1511,7 +1511,7 @@ Option A is less code; option B is cleaner separation of concerns and easier per
 ### SCHED-034 — Student dashboard renders raw i18n keys (`dashboard.greeting`, `common.subjects`, `common.active`, `reportCards.noReportCards`)
 
 **Severity:** P2
-**Status:** Fixed (2026-04-17) — pending deploy + Playwright verification
+**Status:** Verified (2026-04-17) — deployed + smoke-checked on prod
 **Provenance:** [L] — found 2026-04-17 PWC session
 
 **Summary:** When a student logs in, the dashboard heading shows the literal string `dashboard.greeting` (instead of "Good morning, Adam"). Three other strings on the same page also leak as raw keys. Console fires `MISSING_MESSAGE` errors from `next-intl` for each one.
@@ -1549,7 +1549,7 @@ Option A is less code; option B is cleaner separation of concerns and easier per
 ### SCHED-035 — Parent timetable tab calls a backend endpoint that is not registered (`GET /api/v1/parent/timetable` → 404)
 
 **Severity:** P0
-**Status:** Fixed (2026-04-17) — pending deploy + Playwright verification
+**Status:** Verified (2026-04-17) — deployed + smoke-checked on prod
 
 **Fix:** new `ParentTimetableController` + `ParentTimetableService` in `apps/api/src/modules/parents/`. Endpoint `GET /v1/parent/timetable?student_id=<uuid>` guarded by new `parent.view_timetable` permission (seeded into the default `parent` role in `packages/shared/src/constants/permissions.ts`). The service verifies the parent↔student link via `ParentReadFacade.findByUserId` + `StudentReadFacade.isParentLinked`, resolves the student's active `class_enrolments` row, and assembles the rich response shape the frontend expects: `{ class_name, classroom_model, rotation_week_label, week_start, week_end, weekdays[], periods[], cells[] }`. Periods come from `schedule_period_templates` (filtered to `schedule_period_type = 'teaching'` for the year group with a tenant-wide fallback); cells come from effective `schedules` rows for the class, joined with subject / teacher / room.
 
@@ -1612,7 +1612,7 @@ grep -rn "parent/timetable" apps/web/src   # → 2 matches (the broken callers)
 ### SCHED-036 — Parent dashboard fires 7 toast errors on initial load (permission + missing endpoint)
 
 **Severity:** P1
-**Status:** Fixed (2026-04-17) — pending deploy + Playwright verification
+**Status:** Verified (2026-04-17) — deployed + smoke-checked on prod
 **Provenance:** [L] — found 2026-04-17 PWC session
 
 **Fix applied:** added `silent: true` to every background widget fetch on the parent dashboard (`parent-home.tsx`, `timetable-tab.tsx`, `grades-tab.tsx`, `finances-tab.tsx`, `ai-insight-card.tsx`). Errors still log to console; they no longer surface as user-visible toasts. Widget empty states cover the UX when a permission is missing or an endpoint is not yet implemented. The separate `/v1/parent/timetable` endpoint is delivered under SCHED-035; the `/v1/reports/parent-insights` endpoint remains unregistered but now degrades to a placeholder insight instead of a toast.
