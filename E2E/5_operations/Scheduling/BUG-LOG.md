@@ -1340,4 +1340,527 @@ Additionally, the processor's `findMany`/`update` on `scheduling_runs` (an RLS-f
 
 ---
 
+### SCHED-031 — Admin cross-perspective Student picker shows 100 blank options
+
+**Severity:** P1
+**Status:** Open
+**Provenance:** [L] — found 2026-04-17 PWC session
+
+**Summary:** On `/en/timetables` (Cross-Perspective Timetable), switching to the **Student** tab opens a `<Select>` populated with 100 entries — but every option label is empty. Admins cannot pick a student because they can't tell them apart, even though the underlying data (id, first_name, last_name) is fetched correctly.
+
+**Reproduction steps:**
+
+1. Log in as `owner@nhqs.test`.
+2. Navigate to `https://nhqs.edupod.app/en/timetables`.
+3. Click the **Student** tab.
+4. Click the picker → dropdown opens with 100 visually-blank rows.
+
+**Expected:** Each option labelled with the student's full name (e.g. "Adam Moore — 2A"), in the same shape as the Teacher and Class pickers on the same page.
+
+**Affected files:**
+
+- `apps/web/src/app/[locale]/(school)/timetables/page.tsx` — the students-fetch hook (line ~131) calls `apiClient<ListResponse<SelectOption>>('/api/v1/students?pageSize=100', { silent: true })`. The `/students` API returns `{ id, first_name, last_name, ... }`, not `{ id, name }`. The code stashes the raw rows into `students` state and at line ~254 uses them directly: `entityOptions = ... activeTab === 'student' ? students`. Because `SelectOption.name` is `undefined`, every Radix `<SelectItem>` renders an empty label.
+
+**Fix direction:**
+
+Map the response to `{ id, name: \`${first_name} ${last_name}\` }` before storing in state:
+
+```ts
+.then((res) => setStudents(
+  res.data.map((s) => ({ id: s.id, name: `${s.first_name} ${s.last_name}` })),
+));
+```
+
+Optionally append the class name (`s.class_name ? \` — ${s.class_name}\`` : '') so the picker is readable even with similarly-named siblings.
+
+**Playwright verification:**
+
+1. Navigate to `/en/timetables`.
+2. Open the Student tab; open the picker.
+3. Each row shows a non-empty label.
+
+**Release gate:** P1 — admin cannot use the published-feature without picking by name.
+
+---
+
+### SCHED-032 — Students have no in-app timetable view (data published, UI absent)
+
+**Severity:** P0
+**Status:** Open
+**Provenance:** [L] — found 2026-04-17 PWC session
+
+**Summary:** A student's published weekly timetable is fully present in the `schedules` table (verified: 21 rows for Adam Moore's class 2A under run `f4a87d4c-…`), but the student-facing app provides no path to view it. The student dashboard top-nav has only **Home** and **Reports** — no Timetable. Every plausible URL (`/en/scheduling/my-timetable`, `/en/timetables`, `/en/scheduling`) redirects students to `/dashboard/student`. The frontend route `/scheduling/my-timetable` exists but is gated to `schedule.view_own`, which the production student role does not hold; even if it did, the `getMyTimetable` controller resolves `staff` records, not `students`.
+
+**Reproduction steps:**
+
+1. SSH into prod, confirm published schedule exists for student's class:
+   ```sql
+   -- as edupod_app, with tenant set
+   SELECT count(*) FROM schedules s
+   JOIN students st ON st.class_id = s.class_id
+   WHERE st.id = 'c5ddc653-6bae-4756-86e9-03abfcab74a8';
+   -- 21
+   ```
+2. Log in to https://nhqs.edupod.app/en/login as `adam.moore@nhqs.test`.
+3. Lands at `/en/dashboard/student`. No Timetable nav button.
+4. Try `/en/scheduling/my-timetable` → bounces to `/dashboard/student`.
+5. Try `/en/timetables` → bounces to `/dashboard/student`.
+
+**Expected:** A student can view their own published timetable (the same weekday × period grid teachers see for themselves), with subject + room + period info, with print + .ics export options.
+
+**Affected files:**
+
+- `apps/web/src/app/[locale]/(school)/dashboard/student/page.tsx` — has no timetable widget and no link to one.
+- `apps/api/src/modules/scheduling/scheduling-enhanced.controller.ts:439` — `GET /v1/scheduling/timetable/my` is implemented as `getMyTimetable → personalTimetableService.getTeacherTimetableByUserId(...)`. It resolves a staff_profile from the JWT, so it returns 404 for students even if the permission was granted.
+- `packages/shared/src/permissions.ts` (or wherever `schedule.view_own` is defined) — student role does not include this permission.
+
+**Fix direction (option A — re-use the existing route, add a student branch):**
+
+1. Extend `personalTimetableService` with a `getStudentTimetableByUserId(tenantId, userId, query)` that resolves the user → student record → class_id → existing class-timetable assembly.
+2. Update `getMyTimetable` controller to attempt staff resolution first; if not found, attempt student resolution; if neither, throw `NOT_AUTHORIZED`.
+3. Add `schedule.view_own` to the student role's default permissions.
+4. Add a Timetable card / quick-link to `dashboard/student/page.tsx` linking to `/scheduling/my-timetable`.
+
+**Fix direction (option B — dedicated student route):**
+
+1. New endpoint `GET /v1/scheduling/timetable/student-self` (permission `schedule.view_own_student` or simply `students.view_own`).
+2. New page at `/en/dashboard/student/timetable` (or extend the student dashboard with a "This week" widget).
+
+Option A is less code; option B is cleaner separation of concerns and easier permission auditing.
+
+**Playwright verification:**
+
+1. Log in as `adam.moore@nhqs.test`.
+2. Navigate to the new timetable page.
+3. Grid renders 21 lessons across the week with subject + room labels.
+4. Printable variant renders.
+
+**Release gate:** P0 — students literally cannot see their own schedule. Day-1 expectation for any school.
+
+---
+
+### SCHED-033 — Scheduling hub shows "Total Slots: 0 / Completion: 0%" despite 356 published rows
+
+**Severity:** P1
+**Status:** Open
+**Provenance:** [L] — found 2026-04-17 PWC session
+
+**Summary:** `/en/scheduling` (the Scheduling hub dashboard) shows two key tiles permanently at zero ("Total Slots: 0", "Completion: 0%") even immediately after a successful Apply that wrote 356 rows to `schedules`. Other tiles (Active Teachers / Classes / Subjects) populate correctly, so the underlying tenant + permission context is fine — only the slot counter is broken.
+
+**Reproduction steps:**
+
+1. Confirm there is at least one applied run with `entries_generated > 0`:
+   ```sql
+   SELECT id, status, entries_generated, applied_at FROM scheduling_runs
+   WHERE tenant_id = '3ba9b02c-0339-49b8-8583-a06e05a32ac5'
+     AND status = 'applied' ORDER BY applied_at DESC LIMIT 1;
+   ```
+2. As `owner@nhqs.test`, navigate to `/en/scheduling`.
+3. "Total Slots" tile shows `0`. "Completion" shows `0%`.
+
+**Expected:** Total Slots = sum of period × weekday capacity (e.g., 6 periods × 5 weekdays × 16 classes = 480) — or whatever measure the tile is meant to convey. Completion = `entries_generated / total_slots`. With 356 published rows over ~480 slot capacity → ~74%.
+
+**Affected files:**
+
+- `apps/api/src/modules/scheduling-runs/scheduling-dashboard.controller.ts` (or wherever `GET /v1/scheduling-dashboard/summary` is defined) and the corresponding service. The hub almost certainly calls a `/dashboard/summary` endpoint that aggregates from a stale source (e.g., `scheduling_drafts` instead of `schedules`, or `runs WHERE status='draft'` instead of `status='applied'`).
+- `apps/web/src/app/[locale]/(school)/scheduling/page.tsx` — the tile component reading `totalSlots` and `completionPct`.
+
+**Fix direction:**
+
+1. Open the dashboard service, find the slot-aggregation query.
+2. If it's reading from drafts only: switch to the latest `applied` run's entry counts, or `count(*) from schedules`.
+3. Compute total-slot capacity from `period_grid_periods × period_grid_weekdays × classes` for the tenant.
+4. Verify the tile renders correctly post-Apply.
+
+**Playwright verification:**
+
+1. Apply any run.
+2. Navigate to `/en/scheduling`.
+3. Total Slots > 0; Completion > 0%.
+
+**Release gate:** P1 — dashboard misleads admin into thinking nothing is published.
+
+---
+
+### SCHED-034 — Student dashboard renders raw i18n keys (`dashboard.greeting`, `common.subjects`, `common.active`, `reportCards.noReportCards`)
+
+**Severity:** P2
+**Status:** Open
+**Provenance:** [L] — found 2026-04-17 PWC session
+
+**Summary:** When a student logs in, the dashboard heading shows the literal string `dashboard.greeting` (instead of "Good morning, Adam"). Three other strings on the same page also leak as raw keys. Console fires `MISSING_MESSAGE` errors from `next-intl` for each one.
+
+**Reproduction steps:**
+
+1. Log in as `adam.moore@nhqs.test`.
+2. Observe page heading and stat-card labels.
+3. Devtools console shows `l: MISSING_MESSAGE: dashboard.greeting (en)` etc.
+
+**Expected:** All four strings render in English (and equivalents in Arabic on `/ar/*`).
+
+**Affected files:**
+
+- `apps/web/src/app/[locale]/(school)/dashboard/student/page.tsx` — uses `t('dashboard.greeting')`, `t('common.subjects')`, `t('common.active')`, `t('reportCards.noReportCards')` but those keys are not in `messages/en.json` (or `ar.json`).
+
+**Fix direction:**
+
+1. Open `apps/web/messages/en.json` and `apps/web/messages/ar.json`.
+2. Add the four missing keys with appropriate values.
+3. Confirm the `useTranslations` namespace in the page matches the JSON nesting (e.g. if the page does `useTranslations('dashboard')` then the JSON needs `dashboard.greeting`).
+4. Same fix for Arabic.
+
+**Playwright verification:**
+
+1. Log in as Adam.
+2. Page heading shows "Good morning, Adam" (or the localised equivalent).
+3. No `MISSING_MESSAGE` console errors.
+4. Switch locale to `ar` — Arabic strings render.
+
+**Release gate:** P2 — visually broken but no functional loss.
+
+---
+
+### SCHED-035 — Parent timetable tab calls a backend endpoint that is not registered (`GET /api/v1/parent/timetable` → 404)
+
+**Severity:** P0
+**Status:** Open
+**Provenance:** [L] — found 2026-04-17 PWC session
+
+**Summary:** The parent dashboard's **Timetable** tab calls `GET /api/v1/parent/timetable?student_id=<sid>`, but no controller in the backend handles that route. NestJS / Express returns the default `Cannot GET /api/v1/parent/timetable?student_id=...` error which the frontend surfaces as a toast and renders "No timetable available." Parents have zero way to see any published schedule for their children.
+
+**Reproduction steps:**
+
+1. Log in as `parent@nhqs.test` (Zainab Ali).
+2. Navigate to `/en/dashboard/parent`.
+3. Click the **Timetable** tab.
+4. Page renders "No timetable available." Toast: `Cannot GET /api/v1/parent/timetable?student_id=...`.
+
+**Code-side verification:**
+
+```bash
+grep -rn "parent/timetable" apps/api/src   # → 0 matches
+grep -rn "parent/timetable" apps/web/src   # → 2 matches (the broken callers)
+```
+
+**Expected:** Endpoint returns the same shape as `GET /v1/scheduling/timetable/class/:classId` but resolved via the requesting parent's authorised child relationships.
+
+**Affected files:**
+
+- New file: `apps/api/src/modules/parent-portal/parent-timetable.controller.ts` (or extend existing parent controller) registering `GET /v1/parent/timetable`.
+- `apps/web/src/app/[locale]/(school)/dashboard/parent/_components/timetable-tab.tsx:80`
+- `apps/web/src/app/[locale]/(school)/dashboard/_components/parent-home.tsx:127`
+
+**Fix direction:**
+
+1. Add a parent-scoped controller endpoint:
+   ```ts
+   @Get('parent/timetable')
+   @RequiresPermission('parent.view_timetable')   // new permission
+   async getChildTimetable(
+     @CurrentTenant() tenant,
+     @CurrentUser() user,
+     @Query('student_id', ParseUUIDPipe) studentId: string,
+     @Query(new ZodValidationPipe(timetableQuerySchema)) query,
+   ) {
+     // 1. Verify (parent_user_id = user.sub, student_id) link exists in parent_student_links.
+     // 2. Resolve student → class_id.
+     // 3. Delegate to personalTimetableService.getClassTimetable(...).
+   }
+   ```
+2. Add `parent.view_timetable` to default parent role permissions.
+3. (Optional) Ensure the child's class is `is_published = true` before returning.
+
+**Playwright verification:**
+
+1. Log in as `parent@nhqs.test`.
+2. Click Timetable tab.
+3. Adam Moore's 21 published lessons render in a weekday × period grid.
+
+**Release gate:** P0 — parent-portal feature documented in spec is non-functional.
+
+---
+
+### SCHED-036 — Parent dashboard fires 7 toast errors on initial load (permission + missing endpoint)
+
+**Severity:** P1
+**Status:** Open
+**Provenance:** [L] — found 2026-04-17 PWC session
+
+**Summary:** Logging in as `parent@nhqs.test` fires a burst of background fetches up-front: many of them hit endpoints that require permissions the default parent role does not hold, and one hits an endpoint that does not exist. Every failure surfaces as a user-visible toast. Parent landing experience: 7 red error toasts before the user has done anything.
+
+**Errors observed (devtools / Sonner toasts):**
+
+1. `Missing required permission: parent.view_engagement` (×2 — fired by two separate widgets)
+2. `Missing required permission: parent.view_finances`
+3. `Missing required permission: homework.view_diary`
+4. `Missing required permission: parent.homework` (×2)
+5. `Cannot POST /api/v1/reports/parent-insights` (endpoint not registered)
+
+**Reproduction steps:**
+
+1. Log in as `parent@nhqs.test`.
+2. Land at `/en/dashboard/parent`.
+3. Watch toasts pile up over ~2 seconds.
+
+**Expected:**
+
+- Permission-denied responses (403) on background widget fetches should NOT show user-visible toasts. The widget should hide / show a soft empty state.
+- 404 responses on missing endpoints should be reported once via console, not toast.
+- Or: align the parent role's default permission set with the widgets the dashboard renders — give parents `parent.view_engagement`, `parent.view_finances`, `parent.homework`, `homework.view_diary`.
+- Or: stop rendering widgets the role cannot access (gate the widget render on permission first, then fetch).
+
+**Affected files:**
+
+- `apps/web/src/lib/api-client.ts` — toast policy on 403/404. Currently looks like every error becomes a toast unless `silent: true` is passed.
+- `apps/web/src/app/[locale]/(school)/dashboard/parent/page.tsx` (and `parent-home.tsx`) — should pass `silent: true` for background widget fetches OR check permissions client-side before issuing the request.
+- `apps/api/src/modules/reports/...` — register or remove the `POST /v1/reports/parent-insights` route (frontend currently expects it).
+- `packages/shared/src/permissions.ts` — possibly add the missing permissions to default parent role.
+
+**Fix direction:**
+
+1. Decide for each missing permission: should default parent have it, or should the widget be removed?
+2. For widgets that should remain but require permission: gate the fetch on `usePermission('parent.view_engagement')` (etc.) so unauthorised parents see an empty card instead of a fetch attempt.
+3. For the `/api/v1/reports/parent-insights` POST: either register the endpoint or remove the AI Insight widget's POST call.
+4. Update `api-client.ts` (or per-call) so widget fetches use `silent: true` and report errors via console, not toast.
+
+**Playwright verification:**
+
+1. Log in as `parent@nhqs.test`.
+2. Watch toasts: zero unexpected error toasts within 5 seconds of landing.
+3. Console may still log expected 403/404; UI should not surface them.
+
+**Release gate:** P1 — first impression to parents is "the platform is broken." Trust-destroying on day one.
+
+---
+
+### SCHED-037 — Reserved (intentionally numbered to keep the gap; see SCHED-033 for the dashboard-counts bug originally drafted under this ID)
+
+**Severity:** —
+**Status:** N/A — see SCHED-033
+
+---
+
+### SCHED-038 — Student account creation flow leaves accounts un-loginable (broken bcrypt hash + unverified email)
+
+**Severity:** P2
+**Status:** Open
+**Provenance:** [L] — found 2026-04-17 PWC session
+
+**Summary:** The student account `adam.moore@nhqs.test` was created earlier in the project lifecycle (per memory: "created 2026-04-11 via direct DB insert"). Today's PWC found the account un-loginable for two compounding reasons: `password_hash` was 28 characters (not a valid 60-char bcrypt hash), and `email_verified_at` was `NULL` (the login flow refuses unverified accounts). Both had to be patched in production today to allow profile-verification testing to proceed. Whatever code path is used in production to create student accounts (admissions intake, parent-portal student linking, admin direct-create from `/en/admissions/intake/...`) must be audited — if it produces records like Adam's, every newly created student is silently un-loginable.
+
+**Reproduction steps (post-fix, but the bug was present in production today):**
+
+1. Pre-fix: `SELECT length(password_hash), email_verified_at FROM users WHERE email='adam.moore@nhqs.test';` → `(28, NULL)`.
+2. Attempt login → "Invalid email or password" (no clue that the hash is malformed or that verification is missing).
+
+**Expected:**
+
+- All student account creation paths must produce `password_hash = bcrypt(plaintext, 10)` (60 chars).
+- System-created student accounts (vs self-registered) must default `email_verified_at = now()` so the verification email step is not required to log in.
+- Login error path should distinguish between "invalid credentials" and "account not yet verified" so an admin can diagnose without DB access.
+
+**Audit targets:**
+
+```bash
+grep -rn "INSERT INTO users\|prisma.user.create\|password_hash" apps/api/src
+grep -rn "INSERT INTO users\|prisma.user.create" packages/prisma/scripts
+```
+
+Specifically check:
+
+- `apps/api/src/modules/admissions/...` — if the admissions intake flow creates the linked student `users` row, does it bcrypt the password?
+- `apps/api/src/modules/students/students.service.ts` — student create path.
+- `packages/prisma/scripts/seed*.ts` — seed-time creators.
+
+**Fix direction:**
+
+1. Find the student-create path that produced Adam's bad row (likely a seed or one-shot script).
+2. Replace the hash-write with `await bcrypt.hash(password, 10)`.
+3. Set `email_verified_at: new Date()` for all system-initiated student account creates.
+4. Backfill: scan `users` for `length(password_hash) <> 60` and either reset (force password-reset email) or mark for manual remediation.
+5. Add a unit test asserting that any helper that writes `users.password_hash` produces a 60-char bcrypt string.
+
+**Playwright verification:**
+
+1. Run the affected create-student path with a known plaintext password.
+2. Inspect the new row — `length(password_hash) = 60`, `email_verified_at IS NOT NULL`.
+3. Log in with that plaintext password → succeeds without verification email.
+
+**Release gate:** P2 — only one known affected user today (Adam), but blast radius is "every future student created via the same path" so this should land before any tenant onboards a real cohort.
+
+---
+
+### SCHED-039 — Capacity gap: 4th-6th class lesson demand exceeds weekly slot capacity
+
+**Severity:** P3
+**Status:** Open (config / data, not code)
+**Provenance:** [L] — observed 2026-04-17 PWC; quantified from `f4a87d4c-…` run output
+
+**Summary:** With the current period grid (5 teaching weekdays × 6 periods/day − 1 break/day = 29 teaching slots/week) and the curriculum requirements as seeded for NHQS, the upper-elementary classes have:
+
+- 4th class (`4A`/`4B`): 33 lesson-instances/week required, 29 available → **4 unplaced lessons inevitable per class**.
+- 5th class (`5A`/`5B`): 35 required, 29 available → **6 unplaced inevitable**.
+- 6th class (`6A`/`6B`): 39 required, 29 available → **10 unplaced inevitable**.
+
+Solver report on `f4a87d4c-…` shows 37 entries unassigned, broken down by class, matching the analysis above (4A=4, 5A=7 (rounded up), 6A=10, plus other tier overflow). No CSP search strategy can recover this — the inputs are infeasible.
+
+**Reproduction:**
+
+```sql
+-- Demand per class (sum of curriculum_requirements.weekly_lessons)
+SELECT c.name, sum(cr.weekly_lessons)
+FROM curriculum_requirements cr JOIN classes c ON c.id = cr.class_id
+WHERE cr.tenant_id = '3ba9b02c-0339-49b8-8583-a06e05a32ac5'
+GROUP BY c.name ORDER BY sum DESC;
+
+-- Capacity = teaching slots/week per class
+SELECT 5 * (count(*) FILTER (WHERE NOT is_break)) AS slots_per_week
+FROM period_grid_periods
+WHERE tenant_id = '3ba9b02c-0339-49b8-8583-a06e05a32ac5';
+-- 29
+```
+
+**Resolution paths (NHQS-data-side; not a code bug):**
+
+1. **Add a 7th period** to the day, or reinstate Friday-morning teaching → +5 to +12 slots/week.
+2. **Reduce per-subject hours** for upper elementary (e.g. drop one PE / one Art weekly).
+3. **Accept the gap** as the published norm — explicitly mark unplaced lessons as "to be assigned in cover board" or "delivered as homework / online".
+
+**Release gate:** Not a code release blocker; flag at NHQS data-readiness review. Until resolved, expect ~9% solver-unplaced as steady state.
+
+---
+
+### SCHED-040 — K1B subject-coverage gap: only Arabic teacher exists for the class
+
+**Severity:** P3
+**Status:** Open (data, not code)
+**Provenance:** [L] — observed 2026-04-17 PWC
+
+**Summary:** Curriculum requirement query returns 432 lesson-instances for NHQS this term, but the solver's input-assembly normalised the demand down to 393 — a 39-row gap. Cause: K1B has subject requirements (Quran, Arabic Literature, …) for which no teacher in `teacher_competencies` is qualified. The orchestration layer drops "uncoverable" requirements before passing the model to CP-SAT to avoid trivial infeasibility, but does so silently.
+
+**Reproduction:**
+
+```sql
+-- Find required (subject × class) pairs with zero qualified teacher
+SELECT cr.class_id, c.name AS class_name, cr.subject_id, s.name AS subject_name
+FROM curriculum_requirements cr
+JOIN classes c ON c.id = cr.class_id
+JOIN subjects s ON s.id = cr.subject_id
+WHERE cr.tenant_id = '3ba9b02c-0339-49b8-8583-a06e05a32ac5'
+  AND NOT EXISTS (
+    SELECT 1 FROM teacher_competencies tc
+    WHERE tc.tenant_id = cr.tenant_id
+      AND tc.subject_id = cr.subject_id
+      AND (tc.class_id = cr.class_id OR tc.class_id IS NULL)
+  );
+-- Returns rows for K1B + a few others
+```
+
+**Resolution paths (NHQS-data-side):**
+
+1. Hire / mark existing teachers as competent for K1B Quran/Arabic-Lit.
+2. Surface an admin warning in the run-review UI: "39 requirements have no qualified teacher and were excluded from this run." Right now the gap is invisible.
+
+**Code-side defence-in-depth:**
+
+- Make the orchestration layer emit a structured warning into `scheduling_runs.coverage_warnings` (new JSONB column) so the run-review UI can show "N requirements were silently dropped — these will never be scheduled." This converts a silent data issue into an admin-visible diagnostic.
+
+**Release gate:** P3 today (NHQS pilot only); the silent-drop behaviour itself is a P2 product gap and worth its own ticket if the team chooses.
+
+---
+
+### SCHED-041 — CP-SAT solver does not improve on greedy seed within 3600s deadline
+
+**Severity:** P1
+**Status:** Open
+**Provenance:** [L] — observed 2026-04-17 PWC across run `f4a87d4c-…` and 3 prior attempts
+
+**Summary:** On the NHQS dataset (393 effective demand, ~480 capacity) the CP-SAT solver returns its initial greedy seed (320 lessons placed in <1s) and then makes no further improvement during the next 3,599 seconds before hitting the configured `max_solver_duration_seconds = 3600` ceiling. Final result: 91% placement, 84.2% soft-preference score, 0 hard violations — but every minute past second 1 was wasted. Runs ID `f4a87d4c-…`, `3fb9b3d7-…`, `6b399caf-…`, `5821d940-…` all exhibit the same plateau.
+
+**Hypothesised causes (in priority order):**
+
+1. **No solver hints** — the greedy assignment isn't being passed back into CP-SAT as a starting solution, so the solver re-explores from scratch and times out before reaching the greedy quality.
+2. **Soft-preference weights too dense** — the objective function may have ~thousands of weighted terms, swamping CP-SAT's branch-and-bound.
+3. **No symmetry breaking** — equivalent (teacher × period) assignments may explode the search space.
+4. **Phase-saving / value-ordering not tuned** — default CP-SAT search on a hard scheduling problem rarely beats a hand-tuned greedy.
+
+**Reproduction:**
+
+1. Trigger any auto-run on NHQS.
+2. Watch run-detail page: greedy line "320/393 (greedy)" appears in <1s.
+3. No further "Improving …" log lines for 3,600s.
+4. Run completes at 3,604s with the greedy assignment as final result.
+
+**Affected files:**
+
+- `apps/worker/python/solver_v2/main.py` (or wherever the CP-SAT model is built — Python sidecar).
+- `packages/shared/src/scheduler/` if there is a TypeScript-side seed/objective construction layer.
+- Tenant config: `scheduling_configs.max_solver_duration_seconds`.
+
+**Fix direction:**
+
+1. Pass the greedy assignment as `model.AddHint(...)` for every (lesson, slot) pair before `solver.Solve(model)`. This guarantees the solver never returns _worse_ than greedy and gives it a basin to improve from.
+2. Tighten objective: rather than ~1000 weighted soft terms, normalise to ~10 categorical objectives (teacher fairness, room-distance, double-period preference, etc.) and run lexicographic optimisation on them.
+3. Add `solver.parameters.num_search_workers = 8` (or whatever the sidecar host has) to use multi-threaded LNS.
+4. Add early-exit: once `objective_value > 0.95 * best_known`, allow the solver to terminate at the next checkpoint instead of running the full 3,600s.
+5. Surface the solver's `reason_for_termination` in `scheduling_runs.solver_diagnostics_jsonb` so admins can see "OPTIMAL" / "FEASIBLE_AT_DEADLINE" / "INFEASIBLE" without having to read worker logs.
+
+**Playwright verification:**
+
+1. Apply hints + multi-thread + tightened objective.
+2. Re-trigger on NHQS.
+3. Greedy seed visible in <1s.
+4. At least one "Improving to N/393" log line within the first 60s.
+5. Either: solver terminates with `OPTIMAL` < 600s, or terminates at deadline with provably better solution than the greedy seed.
+
+**Release gate:** P1 — wasting 1h of CPU per run for no quality gain. At pilot tenant scale this is tolerable; at multi-tenant scale this is a worker-pool capacity problem.
+
+---
+
+### SCHED-042 — Three consecutive `failed` runs after the successful Apply — root cause not investigated
+
+**Severity:** P2
+**Status:** Open
+**Provenance:** [L] — observed 2026-04-17 PWC
+
+**Summary:** Immediately after applying run `f4a87d4c-…` successfully, three further runs were triggered (to test re-run behaviour and Apply-overwrite semantics). All three ended `failed`:
+
+- `3fb9b3d7-…`
+- `6b399caf-…`
+- `5821d940-…`
+
+The `failure_reason` and `result_json` were not captured during the live walkthrough (got pulled into the Adam Moore login fix). Worth a 15-minute dig on the DB + worker logs to confirm the failure mode.
+
+**Reproduction:**
+
+1. SSH to prod, set tenant context, query:
+   ```sql
+   SELECT id, status, failure_reason, created_at, completed_at,
+          (extract(epoch FROM (completed_at - created_at))) AS dur_s
+   FROM scheduling_runs
+   WHERE tenant_id = '3ba9b02c-0339-49b8-8583-a06e05a32ac5'
+     AND id IN ('3fb9b3d7-...', '6b399caf-...', '5821d940-...');
+   ```
+2. Cross-check worker logs in the same window:
+   ```bash
+   pm2 logs worker --lines 5000 | grep -E '3fb9b3d7|6b399caf|5821d940'
+   ```
+
+**Hypotheses (untested):**
+
+1. The Apply step set `is_published = true` on derived rows that the next solver attempt then refused to overwrite — should have surfaced a structured "ALREADY_PUBLISHED" failure_reason rather than a generic failure.
+2. Solver sidecar got OOM-killed by the 3rd run (stress-side resource pressure) and BullMQ marked the runs failed via stalled-handler.
+3. The stale-reaper (every 60s, max_solver_duration + 60s threshold) picked up a still-in-flight run because the cron triggered at the worst moment.
+
+**Resolution direction:**
+
+1. First — go look. Don't ship a fix until the failure_reason is read.
+2. If hypothesis (1): expose a clear `RUN_AGAINST_PUBLISHED_SCHEDULE` failure reason and a "force overwrite" admin toggle.
+3. If hypothesis (2): Worker memory profile + sidecar memory budget review.
+4. If hypothesis (3): widen the reaper threshold or add solver-progress heartbeats so reaper does not interrupt healthy runs.
+
+**Release gate:** P2 — three terminal failures with no root cause is uncomfortable, even if they were "post-success retest" attempts. Don't want to ship NHQS not knowing what failure these represent.
+
+---
+
 **End of Bug Log.**

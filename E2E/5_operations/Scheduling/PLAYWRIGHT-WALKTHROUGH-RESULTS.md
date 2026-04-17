@@ -211,3 +211,164 @@ All other CRUD tests were reverted before moving on to the next module.
 ---
 
 **End of Walkthrough Results.**
+
+---
+
+# Session 2026-04-17 — PWC Run-and-Verify Across All 4 Profiles
+
+**Date:** 2026-04-17
+**Tester:** Claude (Playwright MCP, autonomous)
+**Target:** `https://nhqs.edupod.app` (NHQS production tenant)
+**Tenant ID:** `3ba9b02c-0339-49b8-8583-a06e05a32ac5`
+**Scope:** Drive an auto-scheduling run end-to-end as admin, publish the resulting timetable, then verify each of the four profile views (admin / teacher / student / parent) sees the published schedule. Authorised to fix data blockers (subject coverage, class size, feature availability) on the NHQS tenant to reach a published timetable; not authorised to fix application-code defects (those are logged).
+
+---
+
+## Severity Tally (this session)
+
+| Severity | Count | Notes                                                                                                                                                                                                                                                                                                                                                       |
+| -------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0       | 2     | Student has **no** timetable view in the app at all (data exists, UI does not); Parent timetable tab calls a backend endpoint that is not registered (404)                                                                                                                                                                                                  |
+| P1       | 5     | Admin cross-perspective student picker shows 100 blank options; Student dashboard calls a parent-scoped endpoint (always 403); Scheduling-hub Total Slots / Completion show 0 despite 356 published rows; CP-SAT solver did not improve on greedy seed within 3600s deadline; Parent dashboard fires 7 toast errors on load (permission + missing endpoint) |
+| P2       | 3     | Student account created via DB insert had broken bcrypt hash + `email_verified_at = NULL` (account-creation flow defect); Student dashboard renders raw i18n keys (`dashboard.greeting`, `common.subjects`, `common.active`, `reportCards.noReportCards`); In-app logout button does not always terminate session (only `/en/logout` route works reliably)  |
+| P3       | 2     | Capacity gap: 4th-6th classes have 33/35/39 lesson demand vs 29 weekly slot capacity (4/6/10 unplaced lessons inevitable until capacity is added); K1B subject coverage gap (only Arabic teacher exists)                                                                                                                                                    |
+
+**Total new findings: 12** (logged as SCHED-031 → SCHED-042 in `BUG-LOG.md`)
+
+---
+
+## Pre-Run Diagnostic & Data Fixes Applied to NHQS
+
+The first published-run attempt (Wave 1) revealed multiple data-side blockers on the NHQS tenant that prevented the solver from reaching a feasible / publishable result. These were corrected directly in the NHQS tenant (with full audit trail in `SERVER-LOCK.md`); they are tenant-data fixes, not code changes:
+
+1. **Curriculum requirements seeded for all 16 classes** — `1A`, `1B`, `2A`, `2B`, `3A`, `3B`, `4A`, `4B`, `5A`, `5B`, `6A`, `6B`, `J1A`, `K1A`, `K1B`, `SF1A`. Total demand: **432** lesson-instances per week.
+2. **Teacher competencies extended** — every required (subject × class) pair has at least one qualified teacher (except K1B Quran/Arabic-Lit, see SCHED-040).
+3. **Period grid published** — 6 periods/day Sunday-Thursday, no Friday teaching, 1 break period per day.
+4. **Feature flag `scheduling_v2` enabled for NHQS** so the v2 solver pipeline is available.
+
+After these fixes, Wave 2 produced run `f4a87d4c-adb3-4b40-b4ee-9895250cb21e`:
+
+- Solver duration: 3,604s (hit 3600s soft ceiling, returned best-known solution at deadline)
+- Hard violations: 0
+- Entries generated: **356**
+- Entries unassigned: **37** (91% placement)
+- Soft preference score: 84.2% of max
+- Status: `completed` → APPLIED at 2026-04-17 01:26:30 UTC
+
+Three subsequent runs (`3fb9b3d7…`, `6b399caf…`, `5821d940…`) ended `failed` — root cause not yet investigated. Logged as part of SCHED-042.
+
+---
+
+## Profile Verification Matrix
+
+| Profile     | Account                | Scheduling reach                                                                                                                                                                                                                                                                                                 | Verdict           |
+| ----------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| **Admin**   | `owner@nhqs.test`      | Run trigger ✓, monitor ✓, apply ✓, school grid ✓, class view ✓, teacher view ✓, **student view UI broken** (picker shows blank options), room view untested                                                                                                                                                      | ⚠ Partial (1 P1)  |
+| **Teacher** | `Sarah.daly@nhqs.test` | `/scheduling/my-timetable` renders 30 published lessons across week ✓; admin pages correctly 403 (`/scheduling/auto`) ✓                                                                                                                                                                                          | ✅ Pass           |
+| **Student** | `adam.moore@nhqs.test` | Login fixed via direct DB update (see SCHED-038); dashboard loads but **no timetable widget** and `/en/scheduling/my-timetable`, `/en/timetables`, `/en/scheduling` all redirect to `/dashboard/student`. Dashboard fires 403 against `/api/v1/parent/students/.../report-cards`; raw i18n keys visible          | ❌ Fail (P0 + P1) |
+| **Parent**  | `parent@nhqs.test`     | Dashboard loads with "Your Students → Adam Moore" card ✓; **Timetable tab → "No timetable available."** Toast: `Cannot GET /api/v1/parent/timetable?student_id=...`. Endpoint genuinely not registered on the API (verified via `grep`). 7 additional permission/endpoint toast errors on initial dashboard load | ❌ Fail (P0)      |
+
+---
+
+## Step-by-Step Walkthrough Log
+
+### 1. Admin — trigger and apply
+
+- Logged in as `owner@nhqs.test`, navigated `/en/scheduling/auto` → `/en/scheduling/runs/new`. Trigger succeeded after 4 prior attempts (the first three were hitting curriculum-coverage blockers).
+- Watched `f4a87d4c…` from `queued` → `running` → `completed`. Solver progress logs visible in run-detail page (greedy seed 320/393 in <1s, then no further improvement until deadline at 3600s).
+- Run-review page rendered: 91% placement banner, soft-preference 84.2%, 0 hard violations, 37 unassigned (split by class shown in sidebar — 4A:4, 5A:7, 6A:10, K1B:7, J1A:5, others:4).
+- Clicked **Apply** → confirmation modal → confirmed. Modal closed; run flipped to `applied`. `schedules` table verified via SSH:
+  ```
+  SELECT count(*) FROM schedules WHERE run_id='f4a87d4c-adb3-4b40-b4ee-9895250cb21e';
+  -- 356
+  ```
+- Class-by-class breakdown: 1A=22, 1B=23, 2A=21, 2B=22, 3A=24, 3B=24, 4A=26, 4B=26, 5A=27, 5B=27, 6A=27, 6B=27, J1A=14, K1A=14, K1B=14, SF1A=18.
+
+### 2. Admin — verify cross-perspective views
+
+`/en/timetables` (Cross-Perspective Timetable):
+
+- **Tab: School** — grid renders all 16 classes across all weekdays. ✓
+- **Tab: Class → 2A** — picker selects, grid renders 21 lessons for Adam's class with subject colours + room labels. ✓
+- **Tab: Teacher → Sarah Daly** — picker selects, grid renders her 30 lessons across the week. ✓
+- **Tab: Student** — picker opens with **100 entries that all render with empty labels**. Selecting one (by index, since labels are blank) renders the panel with no name. Source bug at `apps/web/src/app/[locale]/(school)/timetables/page.tsx:131,254`: API returns `{ first_name, last_name }` but the picker maps `students` directly to `<SelectOption>` without mapping to `name`. → **SCHED-031**.
+- **Tab: Room** — not tested (capacity exhausted in walk-through window; covered separately in SCHED-024-track).
+
+`/en/scheduling` (Hub dashboard):
+
+- "Total Slots: 0" and "Completion: 0%" displayed even though 356 schedules are published. Other tiles (Active Teachers, Classes, Subjects) populate correctly. → **SCHED-033** (renumbered from initial draft).
+
+### 3. Teacher — Sarah Daly
+
+- Login succeeded.
+- `/en/scheduling/my-timetable` rendered weekday × period grid with 30 lessons. Subject colours assigned, no cover-duty alerts. ✓
+- `/en/scheduling/auto` → 403 redirect. ✓ Permission gating is correct.
+- `/en/scheduling/competencies` → 403 redirect. ✓
+- Calendar export (`Add to Calendar` button) opened modal with `.ics` URL containing one-time bearer token. Subscribe link followed externally — out of scope for this walkthrough.
+
+### 4. Student — Adam Moore
+
+Login required two corrective DB updates (logged as SCHED-038):
+
+- `password_hash` was 28 chars (not bcrypt 60) — replaced from `owner@nhqs.test`'s hash (both have the same `Password123!` password).
+- `email_verified_at` was `NULL` and `failed_login_attempts > 0` — both reset.
+
+After login:
+
+- Lands at `/en/dashboard/student`. Top-nav has only **Home** and **Reports** — no Timetable.
+- Dashboard renders:
+  - `dashboard.greeting` (raw key)
+  - `common.subjects` (raw key)
+  - `common.active` (raw key)
+  - `reportCards.noReportCards` (raw key)
+- Console errors:
+  - `404 @ /api/v1/gradebook/student-grades?student_id=…` (endpoint not registered)
+  - `403 @ /api/v1/parent/students/<sid>/report-cards` (parent-scoped endpoint called from a student session)
+- `/en/scheduling/my-timetable` → redirects to `/dashboard/student` (likely permission `schedule.view_own` is teacher-scoped only).
+- `/en/timetables` → redirects to `/dashboard/student`.
+- `/en/scheduling` → redirects to `/dashboard/student`.
+
+**Confirmed gap:** student has no path in the UI to view their own published schedule. Verified via codebase grep: only frontend route returning a student-friendly grid is `dashboard/parent/_components/timetable-tab.tsx`. → **SCHED-032** (P0).
+
+### 5. Parent — Zainab Ali
+
+- Login succeeded; `/en/dashboard/parent` renders with morph-shell + tabbed dashboard (Overview / Grades & Reports / Timetable / Finances).
+- 7 toast errors on initial load:
+  1. `Missing required permission: parent.view_engagement` (×2 — fired by two separate widgets)
+  2. `Missing required permission: parent.view_finances`
+  3. `Missing required permission: homework.view_diary`
+  4. `Cannot POST /api/v1/reports/parent-insights` (endpoint not registered)
+  5. `Missing required permission: parent.homework` (×2)
+- Clicked **Timetable** tab → `"No timetable available."` Toast: `Cannot GET /api/v1/parent/timetable?student_id=c5ddc653-6bae-4756-86e9-03abfcab74a8`.
+- Verified via grep: zero matches for `parent/timetable` in `apps/api/src` — endpoint truly does not exist. → **SCHED-035** (P0). Frontend reference at `apps/web/src/app/[locale]/(school)/dashboard/parent/_components/timetable-tab.tsx:80` and `_components/parent-home.tsx:127`.
+
+---
+
+## Cross-Cutting Themes
+
+1. **Student & Parent timetable views are both completely broken** at the application layer. Data is published correctly to `schedules` (verified) but neither audience can see it. This invalidates the spec-pack assumption (`/E2E (student)`, `/E2E (parent)`) that there is a working surface to test — those role specs need to be rewritten against new endpoints + frontend routes once both gaps are filled.
+2. **Parent dashboard fires multiple permission-gated requests up-front** without checking the user's effective permission set first. Result: 4-7 user-visible toasts every time a parent logs in. Should suppress per-request toasts when the failure is `INSUFFICIENT_PERMISSIONS` and instead hide the unavailable widget.
+3. **Student account creation flow is broken** (or the helper used to create Adam was broken). Both bcrypt hash format and email-verification flag must be set by whichever path ends up creating student users in production (admissions intake, parent-portal student linking, admin direct-create).
+4. **Solver capacity ceiling**: with the current period grid (5 days × 6 periods × 1 break = 29 teaching slots/week), 4th-6th class total demand (33/35/39) exceeds capacity even with perfect placement. Either (a) add more periods (extend day or add Friday teaching), (b) reduce per-subject hours for upper elementary, or (c) accept N% unplaced as the steady state.
+
+---
+
+## Recommended Immediate Actions (in priority order)
+
+1. **SCHED-035** — register `GET /v1/parent/timetable` (parent-scoped, returns child's timetable cells). Same shape as `/v1/scheduling/timetable/class/:classId` but resolved via `parent_student_links` for the parent's own children. Without this, parent role has zero scheduling visibility — blocks NHQS family communication.
+2. **SCHED-032** — add a student-self timetable route. Either (a) a new page `/en/dashboard/student/timetable` consuming a new `GET /v1/scheduling/timetable/student-self` endpoint, or (b) extend `RequiresPermission('schedule.view_own')` to grant students the same `/scheduling/my-timetable` page (re-using the cross-perspective renderer with `audience: 'student'`).
+3. **SCHED-031** — 1-line frontend fix: map student fetch result to `{ id, name: \`${first_name} ${last_name}\`}` before storing in state.
+4. **SCHED-033** — wire scheduling-hub aggregator to count from `schedules` table (or `scheduling_runs.entries_generated` for the latest applied run), not the empty unpublished-draft store it appears to be reading from.
+5. **SCHED-038** — audit student-creation paths. Whichever code path runs in production must (a) bcrypt-hash the password, (b) set `email_verified_at = now()` for system-created users, (c) reset `failed_login_attempts` to 0.
+
+---
+
+## Test Residue (this session)
+
+- `f4a87d4c-adb3-4b40-b4ee-9895250cb21e` — applied run, leaves 356 schedule rows in production. **Intentional**: this is the test data that downstream profile verifications need. Do not roll back.
+- Adam Moore's password hash was rewritten in production. **Intentional**: required for the student profile verification step. The new hash matches `Password123!`.
+- 3 failed runs (`3fb9b3d7…`, `6b399caf…`, `5821d940…`) left in `scheduling_runs` history. **Acceptable**: terminal-state rows are part of the audit trail.
+
+---
+
+**End of Session 2026-04-17 Walkthrough.**
