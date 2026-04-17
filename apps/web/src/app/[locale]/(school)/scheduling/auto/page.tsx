@@ -304,6 +304,20 @@ export default function AutoSchedulerPage() {
   );
   const [crashAcknowledged, setCrashAcknowledged] = React.useState(false);
   const [capacityAcknowledged, setCapacityAcknowledged] = React.useState(false);
+
+  // Read under-capacity year groups off the new ``curriculum_fits_grid``
+  // prerequisite check. ``passed`` is true in this state (under-capacity
+  // is a soft warning, not a blocker) — we still need the details to
+  // surface the dialog ack, so we pull them even on pass. Declared here
+  // before the ack-reset effect below can reference their identities.
+  const capacityCheck = prerequisites?.checks.find((c) => c.key === 'curriculum_fits_grid');
+  const underCapacityYgs: UnderCapacityYearGroup[] = Array.isArray(
+    capacityCheck?.details?.under_capacity,
+  )
+    ? (capacityCheck!.details!.under_capacity as UnderCapacityYearGroup[])
+    : [];
+  const hasUnderCapacity = underCapacityYgs.length > 0;
+
   // Reset the acknowledgement whenever the dialog closes or the last-run
   // status flips, so it can't be smuggled across dialog re-opens or year
   // changes.
@@ -335,18 +349,6 @@ export default function AutoSchedulerPage() {
     'no_pinned_availability_violations',
     'curriculum_fits_grid',
   ]);
-
-  // Read under-capacity year groups off the new ``curriculum_fits_grid``
-  // prerequisite check. ``passed`` is true in this state (under-capacity
-  // is a soft warning, not a blocker) — we still need the details to
-  // surface the dialog ack, so we pull them even on pass.
-  const capacityCheck = prerequisites?.checks.find((c) => c.key === 'curriculum_fits_grid');
-  const underCapacityYgs: UnderCapacityYearGroup[] = Array.isArray(
-    capacityCheck?.details?.under_capacity,
-  )
-    ? (capacityCheck!.details!.under_capacity as UnderCapacityYearGroup[])
-    : [];
-  const hasUnderCapacity = underCapacityYgs.length > 0;
 
   function getCheckCopy(checkKey: string): { what: string; fix: string } {
     const key = KNOWN_CHECK_KEYS.has(checkKey) ? checkKey : 'unknown_check';
