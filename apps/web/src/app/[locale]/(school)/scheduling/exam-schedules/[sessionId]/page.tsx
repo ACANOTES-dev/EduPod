@@ -41,6 +41,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient, unwrap } from '@/lib/api-client';
+import { useExamSolverProgress } from '@/providers/exam-solver-progress-provider';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -102,13 +103,9 @@ interface DetailedSlot {
   invigilators: Array<{ staff_profile_id: string; name: string; role: string }>;
 }
 
-interface SolveResponse {
-  status: 'optimal' | 'feasible' | 'infeasible';
-  placed: number;
-  total: number;
-  slots_written: number;
-  message?: string;
-  solve_time_ms: number;
+interface EnqueueSolveResponse {
+  solve_job_id: string;
+  status: 'queued';
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -907,6 +904,7 @@ function ReviewTab({
   const t = useTranslations('scheduling.examSchedules.solve');
   const tPub = useTranslations('scheduling.examSchedules.publish');
   const tPre = useTranslations('scheduling.examSchedules.prereqs');
+  const { snapshot: examSolveSnapshot, startTracking } = useExamSolverProgress();
 
   const [slots, setSlots] = React.useState<DetailedSlot[]>([]);
   const [prereqs, setPrereqs] = React.useState<Prereqs | null>(null);
@@ -963,24 +961,34 @@ function ReviewTab({
     void fetchAll();
   }, [fetchAll]);
 
+  // When a solve we started (or resumed) finishes, refetch slots so the
+  // review grid updates without requiring a manual reload.
+  const lastSeenTerminalRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!examSolveSnapshot || examSolveSnapshot.sessionId !== sessionId) return;
+    const isTerminal =
+      examSolveSnapshot.status === 'completed' ||
+      examSolveSnapshot.status === 'failed' ||
+      examSolveSnapshot.status === 'cancelled';
+    if (!isTerminal) return;
+    if (lastSeenTerminalRef.current === examSolveSnapshot.jobId) return;
+    lastSeenTerminalRef.current = examSolveSnapshot.jobId;
+    void fetchAll();
+  }, [examSolveSnapshot, sessionId, fetchAll]);
+
   const solve = async () => {
     setSolving(true);
     try {
-      const raw = await apiClient<{ data: SolveResponse } | SolveResponse>(
+      const raw = await apiClient<{ data: EnqueueSolveResponse } | EnqueueSolveResponse>(
         `/api/v1/scheduling/exam-sessions/${sessionId}/solve`,
-        { method: 'POST', body: JSON.stringify({ max_solver_duration_seconds: 90 }) },
+        { method: 'POST', body: JSON.stringify({ max_solver_duration_seconds: 450 }) },
       );
-      const res = unwrap(raw) as SolveResponse;
-      if (res.status === 'optimal') {
-        toast.success(t('succeeded', { placed: res.placed, total: res.total }));
-      } else if (res.status === 'feasible') {
-        toast.success(
-          t('partial', { placed: res.placed, total: res.total, msg: res.message ?? '' }),
-        );
-      } else {
-        toast.error(t('failed'));
-      }
-      void fetchAll();
+      const res = unwrap(raw) as EnqueueSolveResponse;
+      // Hand off to the global progress provider — the bottom-right widget
+      // polls from here and stays mounted across navigation so leaving this
+      // page doesn't cancel the solve.
+      startTracking(res.solve_job_id, sessionId);
+      toast.success(t('enqueued'));
     } catch (err: unknown) {
       console.error('[ReviewTab]', err);
       const ex = err as { error?: { message?: string } };
@@ -1008,6 +1016,13 @@ function ReviewTab({
       setPublishing(false);
     }
   };
+
+  const activeSolveForThisSession =
+    !!examSolveSnapshot &&
+    examSolveSnapshot.sessionId === sessionId &&
+    (examSolveSnapshot.status === 'queued' ||
+      examSolveSnapshot.status === 'running' ||
+      examSolveSnapshot.status === 'unknown');
 
   const matrixReady = (prereqs?.examinable_count ?? 0) > 0;
   const poolReady =
@@ -1060,22 +1075,33 @@ function ReviewTab({
           <div className="flex items-center gap-3">
             <Button
               onClick={() => void solve()}
-              disabled={solving || !allPrereqsMet}
-              title={!allPrereqsMet ? tPre('blockedTooltip') : undefined}
+              disabled={solving || !allPrereqsMet || activeSolveForThisSession}
+              title={
+                activeSolveForThisSession
+                  ? t('alreadyRunningHint')
+                  : !allPrereqsMet
+                    ? tPre('blockedTooltip')
+                    : undefined
+              }
             >
-              {solving ? (
+              {solving || activeSolveForThisSession ? (
                 <Loader2 className="h-4 w-4 animate-spin me-2" />
               ) : (
                 <Sparkles className="h-4 w-4 me-2" />
               )}
               {slots.length > 0 ? t('regenerate') : t('generate')}
             </Button>
-            {!allPrereqsMet && (
+            {activeSolveForThisSession ? (
+              <span className="flex items-center gap-1.5 text-xs text-text-tertiary">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                {t('runningHint')}
+              </span>
+            ) : !allPrereqsMet ? (
               <span className="flex items-center gap-1.5 text-xs text-text-tertiary">
                 <AlertCircle className="h-3.5 w-3.5" />
                 {tPre('blocked')}
               </span>
-            )}
+            ) : null}
           </div>
         )}
       </div>

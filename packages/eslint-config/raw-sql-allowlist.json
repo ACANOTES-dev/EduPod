@@ -74,6 +74,12 @@
       "reason": "SELECT set_config('app.current_tenant_id', ...) inside the two short transactions introduced to avoid holding a row lock during the 120s solve (SCHED-027 worker split-txn). Tagged template, tenant_id parameter is validated UUID."
     },
     {
+      "file": "apps/worker/src/processors/scheduling/exam-solver.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "SELECT set_config('app.current_tenant_id', ...) inside three short transactions used by the async exam-solve runner (claim → solve → persist) plus a heartbeat bump of exam_solve_jobs.updated_at. Same split-txn pattern as solver-v2 so the job row stays unlocked while the sidecar solves. Tagged templates, tenant_id parameter is validated UUID."
+    },
+    {
       "file": "apps/worker/src/processors/behaviour/partition-maintenance.processor.ts",
       "methods": ["$executeRawUnsafe", "$queryRawUnsafe"],
       "category": "ddl-operations",

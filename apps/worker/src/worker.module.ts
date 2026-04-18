@@ -114,6 +114,7 @@ import { CriticalEscalationProcessor } from './processors/safeguarding/critical-
 import { SafeguardingScanMessageProcessor } from './processors/safeguarding/message-scan.processor';
 import { SafeguardingNotifyReviewersProcessor } from './processors/safeguarding/notify-reviewers.processor';
 import { SlaCheckProcessor } from './processors/safeguarding/sla-check.processor';
+import { ExamSolverProcessor } from './processors/scheduling/exam-solver.processor';
 import { SchedulingSolverV2Processor } from './processors/scheduling/solver-v2.processor';
 import { SchedulingStaleReaperJob } from './processors/scheduling-stale-reaper.processor';
 import { SearchIndexProcessor } from './processors/search-index.processor';
@@ -422,6 +423,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     // Scheduling queue processors
     SchedulingSolverV2Processor,
     SchedulingStaleReaperJob,
+    ExamSolverProcessor,
     // Gradebook queue — single @Processor dispatcher routes jobs to the
     // @Injectable processor services below by job name. This eliminates the
     // competitive-consumer race that used to silently drop jobs when

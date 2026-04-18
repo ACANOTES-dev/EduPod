@@ -72,6 +72,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     StudentsModule,
     TenantsModule,
     BullModule.registerQueue({ name: 'scheduling' }),
+    BullModule.registerQueue({ name: 'exam-scheduling' }),
   ],
   controllers: [
     CurriculumRequirementsController,

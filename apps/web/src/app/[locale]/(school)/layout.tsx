@@ -16,6 +16,7 @@ import {
 } from '@school/ui';
 
 import { ErrorBoundary } from '@/components/error-boundary';
+import { ExamSolverProgressWidget } from '@/components/exam-solver-progress-widget';
 import { GlobalSearch } from '@/components/global-search';
 import { PrivacyNoticeBanner } from '@/components/legal/privacy-notice-banner';
 import { InboxBadge } from '@/components/morph-bar/inbox-badge';
@@ -29,6 +30,7 @@ import { hubConfigs, hubGroupedSubStripConfigs, hubSubStripConfigs } from '@/lib
 import { isAllowedForRoute } from '@/lib/route-roles';
 import type { RoleKey } from '@/lib/route-roles';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
+import { ExamSolverProgressProvider } from '@/providers/exam-solver-progress-provider';
 import { SolverProgressProvider } from '@/providers/solver-progress-provider';
 
 import { RegistrationWizard } from './_components/registration-wizard/registration-wizard';
@@ -214,65 +216,68 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
     <RequireAuth>
       <InboxPollingProvider>
         <SolverProgressProvider>
-          <AppShell
-            morphBar={
-              <MorphBar
-                schoolName={schoolName}
-                logoUrl={logoUrl ?? undefined}
-                activeHub={activeHub}
-                hubs={derivedHubs}
-                onHubClick={handleHubClick}
-                onSearchClick={() => setCommandPaletteOpen(true)}
-                notificationCount={0}
-                onNotificationClick={() => {}}
-                onHamburgerClick={() => setMobileNavOpen(true)}
-                userName={user?.first_name || 'User'}
-                onUserClick={() => {}}
-                renderInboxBadge={() => <InboxBadge />}
-                renderNotification={() => <NotificationPanel />}
-                renderUser={() => <UserMenu />}
-              />
-            }
-            subStrip={
-              filteredGroupedTabs.length > 0 ? (
-                <GroupedSubStrip
-                  groups={filteredGroupedTabs}
-                  activeTabHref={pathname || ''}
-                  LinkComponent={StripLink}
+          <ExamSolverProgressProvider>
+            <AppShell
+              morphBar={
+                <MorphBar
+                  schoolName={schoolName}
+                  logoUrl={logoUrl ?? undefined}
+                  activeHub={activeHub}
+                  hubs={derivedHubs}
+                  onHubClick={handleHubClick}
+                  onSearchClick={() => setCommandPaletteOpen(true)}
+                  notificationCount={0}
+                  onNotificationClick={() => {}}
+                  onHamburgerClick={() => setMobileNavOpen(true)}
+                  userName={user?.first_name || 'User'}
+                  onUserClick={() => {}}
+                  renderInboxBadge={() => <InboxBadge />}
+                  renderNotification={() => <NotificationPanel />}
+                  renderUser={() => <UserMenu />}
                 />
-              ) : filteredSubStripTabs.length > 0 ? (
-                <SubStrip
-                  tabs={filteredSubStripTabs}
-                  activeTabHref={pathname || ''}
-                  LinkComponent={StripLink}
-                />
-              ) : null
-            }
-          >
-            <PrivacyNoticeBanner />
-            <ErrorBoundary resetKeys={[pathname]}>
-              <div key={pathname} className="page-fade-in">
-                <RequireRole>{children}</RequireRole>
-              </div>
-            </ErrorBoundary>
-          </AppShell>
+              }
+              subStrip={
+                filteredGroupedTabs.length > 0 ? (
+                  <GroupedSubStrip
+                    groups={filteredGroupedTabs}
+                    activeTabHref={pathname || ''}
+                    LinkComponent={StripLink}
+                  />
+                ) : filteredSubStripTabs.length > 0 ? (
+                  <SubStrip
+                    tabs={filteredSubStripTabs}
+                    activeTabHref={pathname || ''}
+                    LinkComponent={StripLink}
+                  />
+                ) : null
+              }
+            >
+              <PrivacyNoticeBanner />
+              <ErrorBoundary resetKeys={[pathname]}>
+                <div key={pathname} className="page-fade-in">
+                  <RequireRole>{children}</RequireRole>
+                </div>
+              </ErrorBoundary>
+            </AppShell>
 
-          <GlobalSearch open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
-          <ToastProvider />
-          <RegistrationWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
-          <MobileNavOverlay
-            open={mobileNavOpen}
-            onClose={() => setMobileNavOpen(false)}
-            hubs={derivedHubs}
-            activeHub={activeHub}
-            onHubClick={handleHubClick}
-            schoolName={schoolName}
-            onSearchClick={() => {
-              setMobileNavOpen(false);
-              setCommandPaletteOpen(true);
-            }}
-          />
-          <SolverProgressWidget />
+            <GlobalSearch open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
+            <ToastProvider />
+            <RegistrationWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+            <MobileNavOverlay
+              open={mobileNavOpen}
+              onClose={() => setMobileNavOpen(false)}
+              hubs={derivedHubs}
+              activeHub={activeHub}
+              onHubClick={handleHubClick}
+              schoolName={schoolName}
+              onSearchClick={() => {
+                setMobileNavOpen(false);
+                setCommandPaletteOpen(true);
+              }}
+            />
+            <SolverProgressWidget />
+            <ExamSolverProgressWidget />
+          </ExamSolverProgressProvider>
         </SolverProgressProvider>
       </InboxPollingProvider>
     </RequireAuth>

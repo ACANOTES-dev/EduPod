@@ -142,19 +142,45 @@ export class ExamSchedulingV2Controller {
     return this.invigilatorPoolService.setPool(tenant.tenant_id, sessionId, dto);
   }
 
-  // ─── Solve ────────────────────────────────────────────────────────────────
+  // ─── Solve (async — enqueue + poll) ───────────────────────────────────────
 
-  // POST /v1/scheduling/exam-sessions/:id/solve
+  // POST /v1/scheduling/exam-sessions/:id/solve — enqueue an exam solve job.
+  // Returns { solve_job_id, status } immediately; client then polls
+  // /solve-jobs/:jobId/progress until terminal.
   @Post(':id/solve')
   @RequiresPermission('schedule.manage_exams')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.ACCEPTED)
   async solve(
     @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) sessionId: string,
     @Body(new ZodValidationPipe(triggerExamSolverSchema))
     dto: z.infer<typeof triggerExamSolverSchema>,
   ) {
-    return this.solverService.triggerSolve(tenant.tenant_id, sessionId, dto);
+    return this.solverService.enqueueSolve(tenant.tenant_id, sessionId, dto, user.sub);
+  }
+
+  // GET /v1/scheduling/exam-sessions/:id/solve-jobs/:jobId/progress
+  @Get(':id/solve-jobs/:jobId/progress')
+  @RequiresPermission('schedule.manage_exams')
+  async getSolveProgress(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) _sessionId: string,
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+  ) {
+    return this.solverService.getSolveProgress(tenant.tenant_id, jobId);
+  }
+
+  // POST /v1/scheduling/exam-sessions/:id/solve-jobs/:jobId/cancel
+  @Post(':id/solve-jobs/:jobId/cancel')
+  @RequiresPermission('schedule.manage_exams')
+  @HttpCode(HttpStatus.OK)
+  async cancelSolve(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) _sessionId: string,
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+  ) {
+    return this.solverService.cancelSolve(tenant.tenant_id, jobId);
   }
 
   // ─── Detailed slot listing (for review UI) ────────────────────────────────

@@ -19,6 +19,7 @@ export const QUEUE_NAMES = {
   REPORTS: 'reports',
   SAFEGUARDING: 'safeguarding',
   SCHEDULING: 'scheduling',
+  EXAM_SCHEDULING: 'exam-scheduling',
   SEARCH_SYNC: 'search-sync',
   SECURITY: 'security',
   WELLBEING: 'wellbeing',

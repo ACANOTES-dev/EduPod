@@ -682,6 +682,7 @@ model Tenant {
   exam_subject_configs         ExamSubjectConfig[]
   exam_invigilator_pool        ExamInvigilatorPool[]
   exam_slot_rooms              ExamSlotRoom[]
+  exam_solve_jobs              ExamSolveJob[]
   scheduling_scenarios         SchedulingScenario[]
   rotation_configs             RotationConfig[]
 
@@ -3845,6 +3846,14 @@ enum ExamSessionStatus {
   completed
 }
 
+enum ExamSolveJobStatus {
+  queued
+  running
+  completed
+  failed
+  cancelled
+}
+
 enum ScenarioStatus {
   draft
   solved
@@ -4823,9 +4832,35 @@ model ExamSession {
   exam_session_config   ExamSessionConfig?
   exam_subject_configs  ExamSubjectConfig[]
   exam_invigilator_pool ExamInvigilatorPool[]
+  exam_solve_jobs       ExamSolveJob[]
 
   @@index([tenant_id, academic_period_id], name: "idx_exam_sessions_tenant_period")
   @@map("exam_sessions")
+}
+
+model ExamSolveJob {
+  id                          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                   String             @db.Uuid
+  exam_session_id             String             @db.Uuid
+  status                      ExamSolveJobStatus @default(queued)
+  max_solver_duration_seconds Int                @default(90)
+  placed                      Int                @default(0)
+  total                       Int                @default(0)
+  slots_written               Int                @default(0)
+  solve_time_ms               Int                @default(0)
+  failure_reason              String?
+  result_meta                 Json?
+  created_at                  DateTime           @default(now()) @db.Timestamptz()
+  updated_at                  DateTime           @default(now()) @updatedAt @db.Timestamptz()
+  started_at                  DateTime?          @db.Timestamptz()
+  finished_at                 DateTime?          @db.Timestamptz()
+  created_by_user_id          String?            @db.Uuid
+
+  tenant       Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_session ExamSession @relation(fields: [exam_session_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, exam_session_id, status], name: "idx_exam_solve_jobs_tenant_session_status")
+  @@map("exam_solve_jobs")
 }
 
 model ExamSlot {
