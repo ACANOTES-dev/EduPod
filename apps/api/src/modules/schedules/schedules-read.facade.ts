@@ -123,6 +123,7 @@ export interface ScheduleSubstitutionContextRow {
   teacher_staff_id: string | null;
   academic_year_id: string;
   class_id: string;
+  scheduling_run_id: string | null;
   weekday: number;
   period_order: number | null;
   start_time: Date;
@@ -777,7 +778,10 @@ export class SchedulesReadFacade {
   ): Promise<
     Array<{
       id: string;
+      class_id: string;
+      weekday: number;
       period_order: number | null;
+      scheduling_run_id: string | null;
       schedule_period_template: { period_name: string | null } | null;
       class_entity: {
         name: string;
@@ -799,7 +803,10 @@ export class SchedulesReadFacade {
       orderBy: [{ period_order: 'asc' }, { start_time: 'asc' }],
       select: {
         id: true,
+        class_id: true,
+        weekday: true,
         period_order: true,
+        scheduling_run_id: true,
         schedule_period_template: { select: { period_name: true } },
         class_entity: {
           select: {
@@ -977,6 +984,7 @@ export class SchedulesReadFacade {
         teacher_staff_id: true,
         academic_year_id: true,
         class_id: true,
+        scheduling_run_id: true,
         weekday: true,
         period_order: true,
         start_time: true,

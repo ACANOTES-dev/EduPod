@@ -39,6 +39,95 @@ export class SubstitutionService {
     private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
+  /**
+   * Resolve the subject for one or more schedule rows via their originating
+   * scheduling_run_id. `Schedule` has no subject_id column — the solver stores
+   * each lesson's subject in the run's result_json, keyed by
+   * (class_id, weekday, period_order).
+   *
+   * Returns a Map keyed by schedule_id with { subject_id, subject_name }. Any
+   * row whose run/class/period combination can't be located is simply absent
+   * from the map; the caller falls back to whatever context is available.
+   */
+  private async resolveSubjectsFromRuns(
+    tenantId: string,
+    rows: Array<{
+      schedule_id: string;
+      class_id: string;
+      weekday: number;
+      period_order: number | null;
+      scheduling_run_id: string | null;
+    }>,
+  ): Promise<Map<string, { subject_id: string; subject_name: string }>> {
+    const result = new Map<string, { subject_id: string; subject_name: string }>();
+    const runIds = new Set<string>();
+    for (const r of rows) if (r.scheduling_run_id) runIds.add(r.scheduling_run_id);
+    if (runIds.size === 0) return result;
+
+    // eslint-disable-next-line school/no-cross-module-prisma-access -- read-only lookup of scheduling_run result/config to recover subject for applied schedule entries (Schedule table has no subject_id column; subject lives per-lesson in the solver output)
+    const runs = await this.prisma.schedulingRun.findMany({
+      where: { tenant_id: tenantId, id: { in: [...runIds] } },
+      select: { id: true, result_json: true, config_snapshot: true },
+    });
+
+    const nameByRun = new Map<string, Map<string, string>>();
+    const entryByRun = new Map<string, Map<string, string>>();
+    for (const run of runs) {
+      const snap = (run.config_snapshot ?? {}) as Record<string, unknown>;
+      const nameMap = new Map<string, string>();
+      const subjects = Array.isArray(snap['subjects'])
+        ? (snap['subjects'] as Array<Record<string, unknown>>)
+        : [];
+      for (const s of subjects) {
+        if (typeof s['subject_id'] === 'string' && typeof s['subject_name'] === 'string') {
+          nameMap.set(s['subject_id'], s['subject_name']);
+        }
+      }
+      const curriculum = Array.isArray(snap['curriculum'])
+        ? (snap['curriculum'] as Array<Record<string, unknown>>)
+        : [];
+      for (const c of curriculum) {
+        if (
+          typeof c['subject_id'] === 'string' &&
+          typeof c['subject_name'] === 'string' &&
+          !nameMap.has(c['subject_id'])
+        ) {
+          nameMap.set(c['subject_id'], c['subject_name']);
+        }
+      }
+      nameByRun.set(run.id, nameMap);
+
+      const res = (run.result_json ?? {}) as Record<string, unknown>;
+      const entries = Array.isArray(res['entries'])
+        ? (res['entries'] as Array<Record<string, unknown>>)
+        : [];
+      const entryMap = new Map<string, string>();
+      for (const e of entries) {
+        const cid = typeof e['class_id'] === 'string' ? e['class_id'] : null;
+        const wd = Number(e['weekday'] ?? -1);
+        const po = Number(e['period_order'] ?? -1);
+        const sid = typeof e['subject_id'] === 'string' ? e['subject_id'] : null;
+        if (cid && sid && wd >= 0 && po >= 0) {
+          entryMap.set(`${cid}|${wd}|${po}`, sid);
+        }
+      }
+      entryByRun.set(run.id, entryMap);
+    }
+
+    for (const r of rows) {
+      if (!r.scheduling_run_id || r.period_order === null) continue;
+      const entryMap = entryByRun.get(r.scheduling_run_id);
+      const nameMap = nameByRun.get(r.scheduling_run_id);
+      if (!entryMap || !nameMap) continue;
+      const subjectId = entryMap.get(`${r.class_id}|${r.weekday}|${r.period_order}`);
+      if (!subjectId) continue;
+      const subjectName = nameMap.get(subjectId);
+      if (subjectName)
+        result.set(r.schedule_id, { subject_id: subjectId, subject_name: subjectName });
+    }
+    return result;
+  }
+
   // ─── Report Absence ───────────────────────────────────────────────────────
 
   async reportAbsence(tenantId: string, userId: string, dto: ReportAbsenceDto) {
@@ -346,10 +435,27 @@ export class SubstitutionService {
 
     const targetDate = new Date(date);
     const weekday = targetDate.getDay();
-    const subjectId = schedule.class_entity?.subject_id ?? null;
-    const yearGroupId = schedule.class_entity?.year_group_id ?? null;
     const classId = schedule.class_id;
+    const yearGroupId = schedule.class_entity?.year_group_id ?? null;
     const academicYearId = schedule.class_entity?.academic_year_id ?? schedule.academic_year_id;
+
+    // Resolve the subject for this slot. Legacy subject-specific classes carry
+    // `class.subject_id`; shared classes don't, in which case the subject lives
+    // in the scheduling run that placed the lesson. Without this fallback the
+    // competency lookup below returns empty and every cover search for a
+    // shared-class tenant says "no eligible substitutes" — which is the bug
+    // the NHQS pilot hit on 2026-04-18.
+    const resolved = await this.resolveSubjectsFromRuns(tenantId, [
+      {
+        schedule_id: schedule.id,
+        class_id: classId,
+        weekday: schedule.weekday,
+        period_order: schedule.period_order,
+        scheduling_run_id: schedule.scheduling_run_id,
+      },
+    ]);
+    const subjectId =
+      resolved.get(schedule.id)?.subject_id ?? schedule.class_entity?.subject_id ?? null;
 
     // Find teachers already busy at this time slot on that date
     const busyIds = await this.schedulesReadFacade.findBusyTeacherIds(tenantId, {
@@ -609,31 +715,48 @@ export class SubstitutionService {
 
       const recBySchedule = new Map(absence.substitution_records.map((r) => [r.schedule_id, r]));
 
-      const slots = schedules
-        .filter((s) => inWindow(s.period_order))
-        .map((s) => {
-          const rec = recBySchedule.get(s.id);
-          const status = rec?.status ?? 'unassigned';
-          return {
-            schedule_id: s.id,
-            period_name:
-              s.schedule_period_template?.period_name ??
-              (s.period_order != null ? `P${s.period_order}` : '—'),
-            period_order: s.period_order ?? 0,
-            subject_name: s.class_entity?.subject?.name ?? s.class_entity?.name ?? '—',
-            class_name: s.class_entity?.name ?? '—',
-            substitute_status: status as
-              | 'unassigned'
-              | 'assigned'
-              | 'confirmed'
-              | 'declined'
-              | 'completed',
-            substitute_name: rec?.substitute
-              ? `${rec.substitute.user.first_name} ${rec.substitute.user.last_name}`.trim()
-              : null,
-            substitution_record_id: rec?.id ?? null,
-          };
-        });
+      const windowed = schedules.filter((s) => inWindow(s.period_order));
+
+      // Resolve subject_name per slot via the scheduling run (applied schedule
+      // rows carry a run_id but no subject_id — the subject lives in the run's
+      // result_json). Falls back to class.subject.name where that legacy column
+      // is populated (subject-specific classes), then to '—' as a last resort.
+      const runSubjects = await this.resolveSubjectsFromRuns(
+        tenantId,
+        windowed.map((s) => ({
+          schedule_id: s.id,
+          class_id: s.class_id,
+          weekday: s.weekday,
+          period_order: s.period_order,
+          scheduling_run_id: s.scheduling_run_id,
+        })),
+      );
+
+      const slots = windowed.map((s) => {
+        const rec = recBySchedule.get(s.id);
+        const status = rec?.status ?? 'unassigned';
+        const resolvedSubject =
+          runSubjects.get(s.id)?.subject_name ?? s.class_entity?.subject?.name ?? null;
+        return {
+          schedule_id: s.id,
+          period_name:
+            s.schedule_period_template?.period_name ??
+            (s.period_order != null ? `P${s.period_order}` : '—'),
+          period_order: s.period_order ?? 0,
+          subject_name: resolvedSubject ?? '—',
+          class_name: s.class_entity?.name ?? '—',
+          substitute_status: status as
+            | 'unassigned'
+            | 'assigned'
+            | 'confirmed'
+            | 'declined'
+            | 'completed',
+          substitute_name: rec?.substitute
+            ? `${rec.substitute.user.first_name} ${rec.substitute.user.last_name}`.trim()
+            : null,
+          substitution_record_id: rec?.id ?? null,
+        };
+      });
 
       slotsByAbsenceId.set(absence.id, slots);
     }

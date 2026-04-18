@@ -391,10 +391,38 @@ function TodayTab({ isAdmin }: { isAdmin: boolean }) {
     setSuggestLoading(true);
     setSuggestions([]);
     try {
-      const res = await apiClient<{ data: SubstituteSuggestion[] }>(
-        `/api/v1/scheduling/absences/${absenceId}/suggestions?schedule_id=${slot.schedule_id}`,
+      // Backend endpoint is `.../substitutes` (not `/suggestions`) and requires
+      // the absence_date so it can filter out teachers already on leave or
+      // teaching another class that period.
+      interface SubstituteCandidate {
+        staff_profile_id: string;
+        name: string;
+        is_competent: boolean;
+        is_primary: boolean;
+        is_available: boolean;
+        cover_count: number;
+        rank_score: number;
+      }
+      const absenceDate = absences.find((a) => a.id === absenceId)?.absence_date ?? today ?? '';
+      const res = await apiClient<{ data: SubstituteCandidate[] }>(
+        `/api/v1/scheduling/absences/${absenceId}/substitutes?schedule_id=${slot.schedule_id}&date=${absenceDate}`,
       );
-      setSuggestions(res.data ?? []);
+      const candidates = res.data ?? [];
+      const mapped: SubstituteSuggestion[] = candidates
+        .filter((c) => c.is_available)
+        .map((c) => ({
+          staff_profile_id: c.staff_profile_id,
+          full_name: c.name,
+          cover_count: c.cover_count,
+          qualification_match: c.is_primary ? 'primary' : 'eligible',
+          confidence: Math.min(1, Math.max(0, c.rank_score / 100)),
+          reason: c.is_primary
+            ? t('reasonPrimary')
+            : c.is_competent
+              ? t('reasonEligible')
+              : t('reasonAvailable'),
+        }));
+      setSuggestions(mapped);
     } catch (err) {
       console.error('[SchedulingSubstitutionsPage]', err);
       setSuggestions([]);
@@ -516,30 +544,42 @@ function TodayTab({ isAdmin }: { isAdmin: boolean }) {
                 <span>{t('noClassesOnDate')}</span>
               </div>
             ) : (
-              (absence.slots ?? []).map((slot) => (
-                <div key={slot.schedule_id} className="flex flex-wrap items-center gap-3 px-5 py-3">
-                  <div className="flex-1 min-w-0 space-y-0.5">
-                    <p className="text-sm font-medium text-text-primary">
-                      {slot.period_name} &middot; {slot.subject_name}
-                    </p>
-                    <p className="text-xs text-text-secondary">{slot.class_name}</p>
+              (absence.slots ?? []).map((slot) => {
+                // Where the subject isn't known (run metadata missing), collapse
+                // the primary line to just the period so we don't show "P1 · —".
+                const subjectLabel =
+                  slot.subject_name && slot.subject_name !== '—' ? slot.subject_name : null;
+                return (
+                  <div
+                    key={slot.schedule_id}
+                    className="flex flex-wrap items-center gap-3 px-5 py-3"
+                  >
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <p className="text-sm font-medium text-text-primary">
+                        {subjectLabel ? `${slot.period_name} · ${subjectLabel}` : slot.period_name}
+                      </p>
+                      <p className="text-xs text-text-secondary">
+                        {t('classPrefix')}
+                        {slot.class_name}
+                      </p>
+                    </div>
+                    <StatusBadge status={slot.substitute_status} />
+                    {slot.substitute_name && (
+                      <span className="text-xs text-text-secondary">{slot.substitute_name}</span>
+                    )}
+                    {slot.substitute_status === 'unassigned' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void handleFindSub(absence.id, slot)}
+                      >
+                        <Search className="h-3.5 w-3.5 me-1" />
+                        {t('findSub')}
+                      </Button>
+                    )}
                   </div>
-                  <StatusBadge status={slot.substitute_status} />
-                  {slot.substitute_name && (
-                    <span className="text-xs text-text-secondary">{slot.substitute_name}</span>
-                  )}
-                  {slot.substitute_status === 'unassigned' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void handleFindSub(absence.id, slot)}
-                    >
-                      <Search className="h-3.5 w-3.5 me-1" />
-                      {t('findSub')}
-                    </Button>
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
