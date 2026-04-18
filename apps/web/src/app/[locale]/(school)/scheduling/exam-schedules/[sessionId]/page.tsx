@@ -152,7 +152,7 @@ export default function ExamScheduleDetailPage() {
   const readOnly = session.status !== 'planning';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       <PageHeader
         title={session.name}
         description={`${new Date(session.start_date).toLocaleDateString()} – ${new Date(session.end_date).toLocaleDateString()}`}
@@ -892,6 +892,41 @@ interface Prereqs {
   max_invigilators_required: number;
 }
 
+// Group detailed slots by year group so the review page renders one card per
+// year group instead of interleaving rows. Slots inside a group sort by date
+// then start time; groups sort by year group name (stable, null-last).
+function groupSlotsByYearGroup(
+  slots: DetailedSlot[],
+): Array<{ yearGroupId: string; yearGroupName: string; rows: DetailedSlot[] }> {
+  const groups = new Map<string, { yearGroupName: string; rows: DetailedSlot[] }>();
+  for (const s of slots) {
+    const key = s.year_group_name ?? '__unknown__';
+    const bucket = groups.get(key);
+    if (bucket) {
+      bucket.rows.push(s);
+    } else {
+      groups.set(key, { yearGroupName: s.year_group_name ?? '—', rows: [s] });
+    }
+  }
+
+  const ordered = Array.from(groups.entries()).map(([id, g]) => {
+    const rows = [...g.rows].sort((a, b) => {
+      const d = a.date.localeCompare(b.date);
+      if (d !== 0) return d;
+      return a.start_time.localeCompare(b.start_time);
+    });
+    return { yearGroupId: id, yearGroupName: g.yearGroupName, rows };
+  });
+
+  ordered.sort((a, b) => {
+    if (a.yearGroupId === '__unknown__') return 1;
+    if (b.yearGroupId === '__unknown__') return -1;
+    return a.yearGroupName.localeCompare(b.yearGroupName);
+  });
+
+  return ordered;
+}
+
 function ReviewTab({
   sessionId,
   session,
@@ -1117,82 +1152,92 @@ function ReviewTab({
         </div>
       )}
 
-      {/* Slots table */}
-      <div className="rounded-2xl border border-border bg-surface">
-        <div className="border-b border-border px-5 py-3 flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold text-text-primary">{t('slotsTable')}</h3>
-          {canPublish && (
-            <Button onClick={() => setPublishOpen(true)} disabled={publishing}>
-              <Send className="h-4 w-4 me-2" />
-              {tPub('button')}
-            </Button>
-          )}
-        </div>
-
-        {loading ? (
-          <div className="p-5 space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-10 animate-pulse rounded bg-surface-secondary" />
-            ))}
-          </div>
-        ) : slots.length === 0 ? (
-          <div className="px-5 py-12 text-center text-sm text-text-secondary">{t('noSlots')}</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-surface-secondary">
-                  {[
-                    t('slotsColDate'),
-                    t('slotsColTime'),
-                    t('slotsColYearGroup'),
-                    t('slotsColSubject'),
-                    t('slotsColPaper'),
-                    t('slotsColStudents'),
-                    t('slotsColRooms'),
-                    t('slotsColInvigilators'),
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {slots.map((s) => (
-                  <tr key={s.id} className="border-b border-border last:border-b-0">
-                    <td className="px-3 py-2 text-text-secondary">
-                      {new Date(s.date).toLocaleDateString()}
-                    </td>
-                    <td className="px-3 py-2 text-text-secondary font-mono text-xs" dir="ltr">
-                      {s.start_time} – {s.end_time}
-                    </td>
-                    <td className="px-3 py-2 text-text-secondary">{s.year_group_name ?? '—'}</td>
-                    <td className="px-3 py-2 font-medium text-text-primary">
-                      {s.subject_name ?? '—'}
-                    </td>
-                    <td className="px-3 py-2 text-text-secondary">
-                      {s.paper_number ? `P${s.paper_number}` : t('singlePaper')}
-                    </td>
-                    <td className="px-3 py-2 text-text-secondary">{s.student_count}</td>
-                    <td className="px-3 py-2 text-text-secondary">
-                      {s.rooms.length === 0 ? '—' : s.rooms.map((r) => r.room_name).join(', ')}
-                    </td>
-                    <td className="px-3 py-2 text-text-secondary">
-                      {s.invigilators.length === 0
-                        ? '—'
-                        : s.invigilators.map((i) => i.name).join(', ')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* Slots — header + Publish action, then one card per year group */}
+      <div className="flex items-center justify-between gap-2 px-1">
+        <h3 className="text-sm font-semibold text-text-primary">{t('slotsTable')}</h3>
+        {canPublish && (
+          <Button onClick={() => setPublishOpen(true)} disabled={publishing}>
+            <Send className="h-4 w-4 me-2" />
+            {tPub('button')}
+          </Button>
         )}
       </div>
+
+      {loading ? (
+        <div className="rounded-2xl border border-border bg-surface p-5 space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-10 animate-pulse rounded bg-surface-secondary" />
+          ))}
+        </div>
+      ) : slots.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-surface px-5 py-12 text-center text-sm text-text-secondary">
+          {t('noSlots')}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {groupSlotsByYearGroup(slots).map(({ yearGroupId, yearGroupName, rows }) => (
+            <div key={yearGroupId} className="rounded-2xl border border-border bg-surface">
+              <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+                <h4 className="text-base font-semibold text-text-primary">{yearGroupName}</h4>
+                <span className="text-xs text-text-tertiary">
+                  {t('groupExamCount', { count: rows.length })}
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-surface-secondary">
+                      {[
+                        t('slotsColDate'),
+                        t('slotsColTime'),
+                        t('slotsColSubject'),
+                        t('slotsColPaper'),
+                        t('slotsColStudents'),
+                        t('slotsColRooms'),
+                        t('slotsColInvigilators'),
+                      ].map((h) => (
+                        <th
+                          key={h}
+                          className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((s) => (
+                      <tr key={s.id} className="border-b border-border last:border-b-0">
+                        <td className="px-3 py-2 text-text-secondary">
+                          {new Date(s.date).toLocaleDateString()}
+                        </td>
+                        <td className="px-3 py-2 text-text-secondary font-mono text-xs" dir="ltr">
+                          {s.start_time} – {s.end_time}
+                        </td>
+                        <td className="px-3 py-2 font-medium text-text-primary">
+                          {s.subject_name ?? '—'}
+                        </td>
+                        <td className="px-3 py-2 text-text-secondary">
+                          {s.paper_number ? `P${s.paper_number}` : t('singlePaper')}
+                        </td>
+                        <td className="px-3 py-2 text-text-secondary">{s.student_count}</td>
+                        <td className="px-3 py-2 text-text-secondary">
+                          {s.rooms.length === 0 ? '—' : s.rooms.map((r) => r.room_name).join(', ')}
+                        </td>
+                        <td className="px-3 py-2 text-text-secondary">
+                          {s.invigilators.length === 0
+                            ? '—'
+                            : s.invigilators.map((i) => i.name).join(', ')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
         <DialogContent>

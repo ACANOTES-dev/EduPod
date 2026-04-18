@@ -5903,7 +5903,8 @@
         "slotsColPaper": "Paper",
         "slotsColRooms": "Rooms",
         "slotsColInvigilators": "Invigilators",
-        "slotsColStudents": "Students"
+        "slotsColStudents": "Students",
+        "groupExamCount": "{count, plural, one {# exam} other {# exams}}"
       },
       "progressWidget": {
         "runningTitle": "Solving exam schedule",

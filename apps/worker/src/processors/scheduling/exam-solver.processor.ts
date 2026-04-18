@@ -9,7 +9,7 @@ import type {
   ExamSolverInput,
   ExamSolverInvigilator,
   ExamSolverRoom,
-} from '../../../../../packages/shared/src/scheduler';
+} from '../../../../../packages/shared/src/schemas/exam-scheduling.schema';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, type TenantJobPayload } from '../../base/tenant-aware-job';
 
@@ -290,7 +290,7 @@ class ExamSolverRunner extends TenantAwareJob<ExamSolverPayload> {
       }));
 
       const roomRows = await tx.room.findMany({
-        where: { tenant_id: tenantId, status: 'active' },
+        where: { tenant_id: tenantId, active: true },
         select: { id: true, capacity: true },
       });
       const rooms: ExamSolverRoom[] = roomRows

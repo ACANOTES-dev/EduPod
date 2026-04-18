@@ -5895,7 +5895,8 @@
         "slotsColPaper": "الورقة",
         "slotsColRooms": "القاعات",
         "slotsColInvigilators": "المراقبون",
-        "slotsColStudents": "الطلاب"
+        "slotsColStudents": "الطلاب",
+        "groupExamCount": "{count, plural, zero {لا امتحانات} one {امتحان واحد} two {امتحانان} few {# امتحانات} many {# امتحاناً} other {# امتحان}}"
       },
       "progressWidget": {
         "runningTitle": "توليد جدول الامتحانات",
