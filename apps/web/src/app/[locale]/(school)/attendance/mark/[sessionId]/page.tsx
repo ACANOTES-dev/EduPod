@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, CheckCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Keyboard, Search } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -8,6 +8,11 @@ import * as React from 'react';
 import {
   Badge,
   Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
   Input,
   RadioGroup,
   RadioGroupItem,
@@ -91,12 +96,17 @@ const SEN_SUPPORT_LEVEL_LABELS: Record<string, string> = {
 };
 
 const ATTENDANCE_STATUSES = [
-  { value: 'present', labelKey: 'present' },
-  { value: 'absent_unexcused', labelKey: 'absentUnexcused' },
-  { value: 'absent_excused', labelKey: 'absentExcused' },
-  { value: 'late', labelKey: 'late' },
-  { value: 'left_early', labelKey: 'leftEarly' },
+  { value: 'present', labelKey: 'present', shortcut: 'P' },
+  { value: 'absent_unexcused', labelKey: 'absentUnexcused', shortcut: 'A' },
+  { value: 'absent_excused', labelKey: 'absentExcused', shortcut: 'E' },
+  { value: 'late', labelKey: 'late', shortcut: 'L' },
+  { value: 'left_early', labelKey: 'leftEarly', shortcut: 'X' },
 ] as const;
+
+/** Map uppercase shortcut letters to their status value. */
+const SHORTCUT_MAP: Record<string, string> = Object.fromEntries(
+  ATTENDANCE_STATUSES.map((s) => [s.shortcut, s.value]),
+);
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -114,6 +124,10 @@ export default function MarkAttendancePage() {
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
   const [senMap, setSenMap] = React.useState<Map<string, SenProfileSummary>>(new Map());
+  const [search, setSearch] = React.useState('');
+  const [focusedIndex, setFocusedIndex] = React.useState(0);
+  const [helpOpen, setHelpOpen] = React.useState(false);
+  const rowRefs = React.useRef<Array<HTMLDivElement | null>>([]);
 
   React.useEffect(() => {
     if (!sessionId) return;
@@ -273,6 +287,78 @@ export default function MarkAttendancePage() {
     }
   };
 
+  // ─── Filter + keyboard shortcuts ────────────────────────────────────────
+  const filteredRecords = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return records;
+    return records.filter((r) => r.student_name.toLowerCase().includes(q));
+  }, [records, search]);
+
+  const isEditable = session?.status === 'open';
+
+  // Keep focus index within bounds when filter or row count changes.
+  React.useEffect(() => {
+    if (focusedIndex >= filteredRecords.length) {
+      setFocusedIndex(Math.max(0, filteredRecords.length - 1));
+    }
+  }, [filteredRecords.length, focusedIndex]);
+
+  React.useEffect(() => {
+    if (!isEditable) return;
+
+    const handler = (e: KeyboardEvent) => {
+      // Ignore if typing in an input / textarea / contenteditable — we don't
+      // want P/A/L to hijack a teacher typing a reason.
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
+        return;
+      }
+
+      // '?' opens help. Shift+/ on most layouts produces '?'.
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setHelpOpen((v) => !v);
+        return;
+      }
+
+      if (filteredRecords.length === 0) return;
+
+      if (e.key === 'ArrowDown' || e.key === 'j') {
+        e.preventDefault();
+        setFocusedIndex((i) => Math.min(filteredRecords.length - 1, i + 1));
+        return;
+      }
+      if (e.key === 'ArrowUp' || e.key === 'k') {
+        e.preventDefault();
+        setFocusedIndex((i) => Math.max(0, i - 1));
+        return;
+      }
+
+      const key = e.key.toUpperCase();
+      const status = SHORTCUT_MAP[key];
+      if (status) {
+        const record = filteredRecords[focusedIndex];
+        if (!record) return;
+        e.preventDefault();
+        updateRecordStatus(record.student_id, status);
+        // Advance to next row so marking a whole class is a flow.
+        setFocusedIndex((i) => Math.min(filteredRecords.length - 1, i + 1));
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [filteredRecords, focusedIndex, isEditable]);
+
+  // Scroll the focused row into view when it changes (smooth, nearest).
+  React.useEffect(() => {
+    const el = rowRefs.current[focusedIndex];
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [focusedIndex]);
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -295,8 +381,6 @@ export default function MarkAttendancePage() {
       </div>
     );
   }
-
-  const isEditable = session.status === 'open';
 
   return (
     <div className="space-y-6">
@@ -321,6 +405,15 @@ export default function MarkAttendancePage() {
         </div>
         {isEditable && (
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setHelpOpen(true)}
+              aria-label={t('shortcuts')}
+              title={t('shortcuts')}
+            >
+              <Keyboard className="h-4 w-4" />
+            </Button>
             <Button variant="outline" onClick={markAllPresent}>
               <CheckCircle className="me-2 h-4 w-4" />
               {t('markAllPresent')}
@@ -329,12 +422,48 @@ export default function MarkAttendancePage() {
         )}
       </div>
 
+      {/* Search */}
+      {isEditable && (
+        <div className="relative">
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
+          <Input
+            type="text"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setFocusedIndex(0);
+            }}
+            placeholder={t('searchStudents')}
+            className="ps-9"
+            aria-label={t('searchStudents')}
+          />
+          {search && (
+            <p className="mt-1 text-xs text-text-tertiary">
+              {filteredRecords.length} / {records.length}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Student list */}
       <div className="space-y-3">
-        {records.map((record) => (
+        {filteredRecords.length === 0 && records.length > 0 && (
+          <p className="rounded-xl border border-border bg-surface p-6 text-center text-sm text-text-secondary">
+            {t('noStudentsMatch')}
+          </p>
+        )}
+        {filteredRecords.map((record, idx) => (
           <div
             key={record.student_id}
-            className="rounded-xl border border-border bg-surface p-4 shadow-sm"
+            ref={(el) => {
+              rowRefs.current[idx] = el;
+            }}
+            onClick={() => setFocusedIndex(idx)}
+            className={`rounded-xl border bg-surface p-4 shadow-sm transition-colors ${
+              isEditable && idx === focusedIndex
+                ? 'border-primary-500 ring-2 ring-primary-500/20'
+                : 'border-border'
+            }`}
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex items-center gap-3">
@@ -382,9 +511,12 @@ export default function MarkAttendancePage() {
                         <RadioGroupItem value={s.value} id={`${record.student_id}-${s.value}`} />
                         <Label
                           htmlFor={`${record.student_id}-${s.value}`}
-                          className="text-xs cursor-pointer"
+                          className="flex cursor-pointer items-center gap-1 text-xs"
                         >
-                          {t(s.labelKey)}
+                          <span>{t(s.labelKey)}</span>
+                          <kbd className="rounded border border-border bg-surface-secondary px-1 font-mono text-[10px] text-text-tertiary">
+                            {s.shortcut}
+                          </kbd>
                         </Label>
                       </div>
                     ))}
@@ -432,6 +564,58 @@ export default function MarkAttendancePage() {
           </Button>
         </div>
       )}
+
+      {/* Keyboard shortcuts help */}
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('shortcutsTitle')}</DialogTitle>
+            <DialogDescription>{t('shortcutsDescription')}</DialogDescription>
+          </DialogHeader>
+          <dl className="space-y-2 text-sm">
+            {ATTENDANCE_STATUSES.map((s) => (
+              <div key={s.value} className="flex items-center justify-between gap-4">
+                <dt className="text-text-secondary">{t(s.labelKey)}</dt>
+                <dd>
+                  <kbd className="rounded border border-border bg-surface-secondary px-2 py-0.5 font-mono text-xs">
+                    {s.shortcut}
+                  </kbd>
+                </dd>
+              </div>
+            ))}
+            <div className="flex items-center justify-between gap-4 pt-2">
+              <dt className="text-text-secondary">{t('shortcutNextRow')}</dt>
+              <dd className="flex gap-1">
+                <kbd className="rounded border border-border bg-surface-secondary px-2 py-0.5 font-mono text-xs">
+                  ↓
+                </kbd>
+                <kbd className="rounded border border-border bg-surface-secondary px-2 py-0.5 font-mono text-xs">
+                  J
+                </kbd>
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-text-secondary">{t('shortcutPrevRow')}</dt>
+              <dd className="flex gap-1">
+                <kbd className="rounded border border-border bg-surface-secondary px-2 py-0.5 font-mono text-xs">
+                  ↑
+                </kbd>
+                <kbd className="rounded border border-border bg-surface-secondary px-2 py-0.5 font-mono text-xs">
+                  K
+                </kbd>
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-text-secondary">{t('shortcutsToggleHelp')}</dt>
+              <dd>
+                <kbd className="rounded border border-border bg-surface-secondary px-2 py-0.5 font-mono text-xs">
+                  ?
+                </kbd>
+              </dd>
+            </div>
+          </dl>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
