@@ -59,7 +59,10 @@ export class AttendanceSessionService {
     userStaffProfileId?: string,
   ): Promise<{ id: string; [key: string]: unknown }> {
     // 1. Validate class exists and belongs to tenant
-    const classEntity = await this.classesReadFacade.findByIdWithAcademicYear(tenantId, dto.class_id);
+    const classEntity = await this.classesReadFacade.findByIdWithAcademicYear(
+      tenantId,
+      dto.class_id,
+    );
 
     if (!classEntity) {
       throw new NotFoundException({
@@ -228,7 +231,10 @@ export class AttendanceSessionService {
     userId: string,
   ): Promise<number> {
     // Get all actively enrolled students in the class
-    const enrolledStudentIds = await this.classesReadFacade.findEnrolledStudentIds(tenantId, classId);
+    const enrolledStudentIds = await this.classesReadFacade.findEnrolledStudentIds(
+      tenantId,
+      classId,
+    );
 
     if (enrolledStudentIds.length === 0) {
       return 0;
@@ -289,7 +295,10 @@ export class AttendanceSessionService {
 
     // If teacher, filter to their assigned classes
     if (userStaffProfileId) {
-      const assignedClassIds = await this.classesReadFacade.findClassIdsByStaff(tenantId, userStaffProfileId);
+      const assignedClassIds = await this.classesReadFacade.findClassIdsByStaff(
+        tenantId,
+        userStaffProfileId,
+      );
 
       if (where.class_id) {
         // If a specific class_id filter is provided, validate it's in their assignments
@@ -445,7 +454,11 @@ export class AttendanceSessionService {
     const weekday = jsDay === 0 ? 6 : jsDay - 1;
 
     // Find all active schedules for this weekday
-    const schedules = await this.schedulesReadFacade.findByWeekdayWithClassYearGroup(tenantId, weekday, date);
+    const schedules = await this.schedulesReadFacade.findByWeekdayWithClassYearGroup(
+      tenantId,
+      weekday,
+      date,
+    );
 
     let created = 0;
     let skipped = 0;
@@ -527,7 +540,12 @@ export class AttendanceSessionService {
     // Get today's schedules for classes the teacher is assigned to
     const classIds = await this.classesReadFacade.findClassIdsByStaff(tenantId, staffProfileId);
 
-    const schedules = await this.schedulesReadFacade.findByClassIdsAndWeekday(tenantId, classIds, weekday, today);
+    const schedules = await this.schedulesReadFacade.findByClassIdsAndWeekday(
+      tenantId,
+      classIds,
+      weekday,
+      today,
+    );
 
     // Get today's sessions for those classes
     const sessions = await this.prisma.attendanceSession.findMany({
@@ -557,6 +575,123 @@ export class AttendanceSessionService {
       today: today.toISOString().slice(0, 10),
       schedules: formattedSchedules,
       sessions,
+    };
+  }
+
+  // ─── Officer dashboard ────────────────────────────────────────────────────
+  // Tenant-wide view of every attendance session on a given date. Backs the
+  // dedicated-taker dashboard introduced in Step 4. Caller auth is enforced
+  // at the controller via @RequiresPermission('attendance.take_any_class').
+
+  async getOfficerDashboard(
+    tenantId: string,
+    params: {
+      page: number;
+      pageSize: number;
+      session_date?: string;
+      status?: string;
+      year_group_id?: string;
+      class_id?: string;
+      teacher_staff_id?: string;
+    },
+  ) {
+    // Build the target date at UTC midnight so the date we echo back in
+    // `meta.date` matches what the caller asked for, regardless of the
+    // server's local timezone. attendance_sessions.session_date is a DATE
+    // column, so we compare at UTC midnight.
+    const target = params.session_date
+      ? new Date(`${params.session_date}T00:00:00.000Z`)
+      : (() => {
+          const now = new Date();
+          return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+        })();
+
+    const where: Prisma.AttendanceSessionWhereInput = {
+      tenant_id: tenantId,
+      session_date: target,
+    };
+    if (params.status) where.status = params.status as $Enums.AttendanceSessionStatus;
+    if (params.class_id) where.class_id = params.class_id;
+    if (params.teacher_staff_id) where.teacher_staff_id = params.teacher_staff_id;
+    if (params.year_group_id) {
+      where.class_entity = { year_group_id: params.year_group_id };
+    }
+
+    const [rows, total] = await Promise.all([
+      this.prisma.attendanceSession.findMany({
+        where,
+        skip: (params.page - 1) * params.pageSize,
+        take: params.pageSize,
+        include: {
+          class_entity: {
+            select: {
+              id: true,
+              name: true,
+              year_group: { select: { id: true, name: true } },
+            },
+          },
+          teacher_staff: {
+            select: {
+              id: true,
+              user: { select: { first_name: true, last_name: true } },
+            },
+          },
+          schedule: {
+            select: { id: true, start_time: true, end_time: true },
+          },
+          _count: { select: { records: true } },
+        },
+        orderBy: [{ schedule: { start_time: 'asc' } }, { class_entity: { name: 'asc' } }],
+      }),
+      this.prisma.attendanceSession.count({ where }),
+    ]);
+
+    // Get enrolment counts for each class via the classes facade (cross-module
+    // Prisma access is lint-forbidden).
+    const classIds = [...new Set(rows.map((r) => r.class_id))];
+    const enrolmentByClass = await this.classesReadFacade.findEnrolmentCountsByClasses(
+      tenantId,
+      classIds,
+    );
+
+    const data = rows.map((r) => ({
+      id: r.id,
+      session_date: r.session_date.toISOString().slice(0, 10),
+      status: r.status,
+      default_present: r.default_present ?? false,
+      class: r.class_entity
+        ? {
+            id: r.class_entity.id,
+            name: r.class_entity.name,
+            year_group: r.class_entity.year_group,
+          }
+        : null,
+      teacher: r.teacher_staff
+        ? {
+            id: r.teacher_staff.id,
+            first_name: r.teacher_staff.user.first_name,
+            last_name: r.teacher_staff.user.last_name,
+          }
+        : null,
+      schedule: r.schedule
+        ? {
+            id: r.schedule.id,
+            start_time: r.schedule.start_time.toISOString().slice(11, 16),
+            end_time: r.schedule.end_time.toISOString().slice(11, 16),
+          }
+        : null,
+      record_count: r._count.records,
+      enrolled_count: enrolmentByClass.get(r.class_id) ?? 0,
+    }));
+
+    return {
+      data,
+      meta: {
+        page: params.page,
+        pageSize: params.pageSize,
+        total,
+        date: target.toISOString().slice(0, 10),
+      },
     };
   }
 }

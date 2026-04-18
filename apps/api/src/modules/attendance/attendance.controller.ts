@@ -66,6 +66,19 @@ const listSessionsQuerySchema = z.object({
   status: z.enum(['open', 'submitted', 'locked', 'cancelled']).optional(),
 });
 
+const officerDashboardQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  session_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format')
+    .optional(),
+  status: z.enum(['open', 'submitted', 'locked', 'cancelled']).optional(),
+  year_group_id: z.string().uuid().optional(),
+  class_id: z.string().uuid().optional(),
+  teacher_staff_id: z.string().uuid().optional(),
+});
+
 const listSummariesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -172,6 +185,18 @@ export class AttendanceController {
       query,
       hasManage ? undefined : staffProfileId,
     );
+  }
+
+  // GET /v1/attendance/officer-dashboard
+  // Registered before the :id variant so the literal path wins the route match.
+  @Get('attendance/officer-dashboard')
+  @RequiresPermission('attendance.take_any_class')
+  async getOfficerDashboard(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(officerDashboardQuerySchema))
+    query: z.infer<typeof officerDashboardQuerySchema>,
+  ) {
+    return this.attendanceService.getOfficerDashboard(tenant.tenant_id, query);
   }
 
   @Get('attendance-sessions/:id')

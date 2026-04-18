@@ -107,6 +107,21 @@ export class AttendanceService {
     return this.sessionService.getTeacherDashboard(tenantId, userId);
   }
 
+  async getOfficerDashboard(
+    tenantId: string,
+    params: {
+      page: number;
+      pageSize: number;
+      session_date?: string;
+      status?: string;
+      year_group_id?: string;
+      class_id?: string;
+      teacher_staff_id?: string;
+    },
+  ) {
+    return this.sessionService.getOfficerDashboard(tenantId, params);
+  }
+
   // ─── Locking (delegated) ─────────────────────────────────────────────────
 
   async lockExpiredSessions(tenantId: string) {

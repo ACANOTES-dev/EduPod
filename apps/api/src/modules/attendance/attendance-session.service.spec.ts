@@ -64,7 +64,7 @@ describe('AttendanceSessionService', () => {
         findMany: jest.fn(),
         count: jest.fn(),
       },
-      classEnrolment: { findMany: jest.fn() },
+      classEnrolment: { findMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
       schedule: { findMany: jest.fn() },
       staffProfile: { findFirst: jest.fn() },
     };
@@ -90,6 +90,7 @@ describe('AttendanceSessionService', () => {
       findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
       findEnrolledStudentsWithNumber: jest.fn().mockResolvedValue([]),
       findClassIdsByStaff: jest.fn().mockResolvedValue(null),
+      findEnrolmentCountsByClasses: jest.fn().mockResolvedValue(new Map()),
     };
 
     mockSchedulesFacade = {
@@ -753,6 +754,133 @@ describe('AttendanceSessionService', () => {
           data: expect.objectContaining({ default_present: null }),
         }),
       );
+    });
+  });
+
+  // ─── Officer Dashboard ────────────────────────────────────────────────────
+
+  describe('getOfficerDashboard', () => {
+    it('should list all sessions for the given date with class + teacher + counts', async () => {
+      mockPrisma.attendanceSession.findMany.mockResolvedValue([
+        {
+          id: 'sess-1',
+          session_date: new Date('2026-04-18'),
+          status: 'open',
+          default_present: true,
+          class_id: 'class-1',
+          class_entity: {
+            id: 'class-1',
+            name: 'Grade 7 Maths',
+            year_group: { id: 'yg-7', name: 'Year 7' },
+          },
+          teacher_staff: {
+            id: 'staff-9',
+            user: { first_name: 'Ada', last_name: 'Lovelace' },
+          },
+          schedule: {
+            id: 'sched-1',
+            start_time: new Date('2026-04-18T09:00:00.000Z'),
+            end_time: new Date('2026-04-18T09:45:00.000Z'),
+          },
+          _count: { records: 23 },
+        },
+      ]);
+      mockPrisma.attendanceSession.count.mockResolvedValue(1);
+      mockClassesFacade.findEnrolmentCountsByClasses.mockResolvedValue(new Map([['class-1', 25]]));
+
+      const result = await service.getOfficerDashboard(TENANT_ID, {
+        page: 1,
+        pageSize: 50,
+        session_date: '2026-04-18',
+      });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toMatchObject({
+        id: 'sess-1',
+        session_date: '2026-04-18',
+        status: 'open',
+        default_present: true,
+        class: { id: 'class-1', name: 'Grade 7 Maths', year_group: { id: 'yg-7', name: 'Year 7' } },
+        teacher: { id: 'staff-9', first_name: 'Ada', last_name: 'Lovelace' },
+        schedule: { id: 'sched-1', start_time: '09:00', end_time: '09:45' },
+        record_count: 23,
+        enrolled_count: 25,
+      });
+      expect(result.meta).toMatchObject({ page: 1, pageSize: 50, total: 1, date: '2026-04-18' });
+    });
+
+    it('should filter by year_group_id via class_entity relation', async () => {
+      mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
+      mockPrisma.attendanceSession.count.mockResolvedValue(0);
+
+      await service.getOfficerDashboard(TENANT_ID, {
+        page: 1,
+        pageSize: 50,
+        session_date: '2026-04-18',
+        year_group_id: 'yg-7',
+      });
+
+      const findArgs = mockPrisma.attendanceSession.findMany.mock.calls[0]![0];
+      expect(findArgs.where).toMatchObject({
+        tenant_id: TENANT_ID,
+        class_entity: { year_group_id: 'yg-7' },
+      });
+    });
+
+    it('should filter by teacher_staff_id when provided', async () => {
+      mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
+      mockPrisma.attendanceSession.count.mockResolvedValue(0);
+
+      await service.getOfficerDashboard(TENANT_ID, {
+        page: 1,
+        pageSize: 50,
+        teacher_staff_id: 'staff-7',
+      });
+
+      const findArgs = mockPrisma.attendanceSession.findMany.mock.calls[0]![0];
+      expect(findArgs.where).toMatchObject({
+        tenant_id: TENANT_ID,
+        teacher_staff_id: 'staff-7',
+      });
+    });
+
+    it('should default to today (UTC) when session_date is not provided', async () => {
+      mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
+      mockPrisma.attendanceSession.count.mockResolvedValue(0);
+
+      const result = await service.getOfficerDashboard(TENANT_ID, { page: 1, pageSize: 50 });
+
+      const now = new Date();
+      const expected = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+        .toISOString()
+        .slice(0, 10);
+      expect(result.meta.date).toBe(expected);
+    });
+
+    it('should return null for teacher when session has no assigned teacher', async () => {
+      mockPrisma.attendanceSession.findMany.mockResolvedValue([
+        {
+          id: 'sess-1',
+          session_date: new Date('2026-04-18'),
+          status: 'open',
+          default_present: false,
+          class_id: 'class-1',
+          class_entity: { id: 'class-1', name: 'Grade 7 Maths', year_group: null },
+          teacher_staff: null,
+          schedule: null,
+          _count: { records: 0 },
+        },
+      ]);
+      mockPrisma.attendanceSession.count.mockResolvedValue(1);
+      mockClassesFacade.findEnrolmentCountsByClasses.mockResolvedValue(new Map());
+
+      const result = await service.getOfficerDashboard(TENANT_ID, {
+        page: 1,
+        pageSize: 50,
+      });
+
+      expect(result.data[0]!.teacher).toBeNull();
+      expect(result.data[0]!.schedule).toBeNull();
     });
   });
 });

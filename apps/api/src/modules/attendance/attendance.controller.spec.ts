@@ -57,6 +57,7 @@ describe('AttendanceController', () => {
     amendRecord: jest.fn(),
     getExceptions: jest.fn(),
     getParentStudentAttendance: jest.fn(),
+    getOfficerDashboard: jest.fn(),
   };
 
   const mockAttendancePatternService = {
@@ -197,6 +198,18 @@ describe('AttendanceController', () => {
     await controller.cancelSession(TENANT, SESSION_ID);
 
     expect(mockAttendanceService.cancelSession).toHaveBeenCalledWith(TENANT_ID, SESSION_ID);
+  });
+
+  it('delegates getOfficerDashboard with parsed query', async () => {
+    mockAttendanceService.getOfficerDashboard.mockResolvedValue({
+      data: [],
+      meta: { page: 1, pageSize: 50, total: 0, date: '2026-04-18' },
+    });
+
+    const query = { page: 1, pageSize: 50, session_date: '2026-04-18', status: 'open' as const };
+    await controller.getOfficerDashboard(TENANT, query);
+
+    expect(mockAttendanceService.getOfficerDashboard).toHaveBeenCalledWith(TENANT_ID, query);
   });
 
   it('delegates saveRecords', async () => {

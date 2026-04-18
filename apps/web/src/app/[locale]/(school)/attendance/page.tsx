@@ -1,6 +1,6 @@
 'use client';
 
-import { ClipboardCheck, Plus, Upload } from 'lucide-react';
+import { ClipboardCheck, Plus, Upload, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -28,6 +28,15 @@ import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
+import { useAuth } from '@/providers/auth-provider';
+
+const OFFICER_ROLE_KEYS = new Set([
+  'school_owner',
+  'school_principal',
+  'school_vice_principal',
+  'admin',
+  'attendance_officer',
+]);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -77,10 +86,19 @@ export default function AttendancePage() {
   const [dateTo, setDateTo] = React.useState('');
   const [defaultPresentEnabled, setDefaultPresentEnabled] = React.useState(false);
 
+  const { user } = useAuth();
+  const hasOfficerRole = React.useMemo(() => {
+    if (!user?.memberships) return false;
+    const roleKeys = user.memberships.flatMap((m) => m.roles?.map((r) => r.role_key) ?? []);
+    return roleKeys.some((k) => OFFICER_ROLE_KEYS.has(k));
+  }, [user]);
+
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/classes?pageSize=100')
       .then((res) => setClasses(res.data))
-      .catch((err) => { console.error('[AttendancePage]', err); });
+      .catch((err) => {
+        console.error('[AttendancePage]', err);
+      });
     apiClient<{
       data?: { attendance?: { defaultPresentEnabled?: boolean } };
       attendance?: { defaultPresentEnabled?: boolean };
@@ -91,7 +109,9 @@ export default function AttendancePage() {
           setDefaultPresentEnabled(true);
         }
       })
-      .catch((err) => { console.error('[AttendancePage]', err); });
+      .catch((err) => {
+        console.error('[AttendancePage]', err);
+      });
   }, []);
 
   const fetchSessions = React.useCallback(
@@ -278,6 +298,14 @@ export default function AttendancePage() {
         title={t('title')}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {hasOfficerRole && (
+              <Link href={`/${locale}/attendance/officer`}>
+                <Button variant="outline">
+                  <UserCheck className="me-2 h-4 w-4" />
+                  {t('officerDashboardLink')}
+                </Button>
+              </Link>
+            )}
             <Link href={`/${locale}/attendance/upload`}>
               <Button variant="outline">
                 <Upload className="me-2 h-4 w-4" />
