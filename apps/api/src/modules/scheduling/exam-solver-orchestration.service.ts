@@ -11,8 +11,7 @@ import type {
 import { CpSatSolveError, solveExamViaCpSat } from '@school/shared/scheduler';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
-import { AcademicReadFacade } from '../academics/academic-read.facade';
-import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { CurriculumMatrixService } from '../academics/curriculum-matrix.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomsReadFacade } from '../rooms/rooms-read.facade';
 
@@ -46,8 +45,7 @@ export class ExamSolverOrchestrationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly roomsReadFacade: RoomsReadFacade,
-    private readonly classesReadFacade: ClassesReadFacade,
-    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly curriculumMatrix: CurriculumMatrixService,
   ) {}
 
   // ─── Trigger a solve (synchronous — calls the CP-SAT sidecar) ─────────────
@@ -345,24 +343,13 @@ export class ExamSolverOrchestrationService {
     return slotsWritten;
   }
 
-  // ─── Compute (year_group, subject) student counts ──────────────────────────
+  // ─── Compute (year_group, subject) student counts — curriculum-restricted ─
 
   private async computeYgSubjectStudentCounts(tenantId: string): Promise<Map<string, number>> {
-    const [yearGroups, subjects, ygEnrolment] = await Promise.all([
-      this.academicReadFacade.findAllYearGroups(tenantId) as Promise<
-        Array<{ id: string; name: string }>
-      >,
-      this.academicReadFacade.findAllSubjects(tenantId, { id: true }) as Promise<
-        Array<{ id: string }>
-      >,
-      this.classesReadFacade.findEnrolmentCountsByYearGroup(tenantId),
-    ]);
-
+    const pairs = await this.curriculumMatrix.findExamCurriculumPairs(tenantId);
     const ygSubject = new Map<string, number>();
-    for (const yg of yearGroups) {
-      for (const s of subjects) {
-        ygSubject.set(`${yg.id}:${s.id}`, ygEnrolment.get(yg.id) ?? 0);
-      }
+    for (const p of pairs) {
+      ygSubject.set(`${p.year_group_id}:${p.subject_id}`, p.student_count);
     }
     return ygSubject;
   }

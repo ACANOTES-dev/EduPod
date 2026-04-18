@@ -5908,7 +5908,22 @@
         "confirm": "Yes, publish",
         "cancel": "Cancel",
         "succeeded": "Exam schedule published.",
-        "failed": "Couldn't publish the schedule."
+        "failed": "Couldn't publish the schedule.",
+        "draftTitle": "Draft generated — not yet published",
+        "draftDescription": "Review the slots below. You can re-generate to try different placements or adjust configuration. Nothing is visible to students, parents, or invigilators until you click Publish."
+      },
+      "prereqs": {
+        "title": "Before you generate",
+        "description": "Complete each step below. Generate stays disabled until all prerequisites are met.",
+        "matrix": "Subject matrix — {count} subjects marked examinable",
+        "matrixHint": "Open the Subject Matrix tab and turn on at least one subject for a year group.",
+        "pool": "Invigilator pool — {count} selected (min required: {required})",
+        "poolHint": "Open the Invigilator Pool tab and add enough teachers to cover the largest single exam.",
+        "windowOk": "Session window configured",
+        "windowMissing": "Session window not configured",
+        "windowHint": "Open the Session Window tab and pick weekdays plus morning/afternoon time ranges.",
+        "blocked": "Complete the checklist above to enable Generate.",
+        "blockedTooltip": "Fix missing prerequisites above first."
       }
     },
     "scenarios": {

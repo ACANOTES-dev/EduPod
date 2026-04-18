@@ -2,8 +2,10 @@
 'use client';
 
 import {
+  AlertCircle,
   CheckCircle2,
   ChevronLeft,
+  Circle,
   ClipboardList,
   Loader2,
   Save,
@@ -207,10 +209,11 @@ function TabBar({ tab, onChange }: { tab: TabId; onChange: (t: TabId) => void })
             key={i.id}
             type="button"
             onClick={() => onChange(i.id)}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            aria-current={tab === i.id ? 'page' : undefined}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-all ${
               tab === i.id
-                ? 'bg-brand text-brand-contrast'
-                : 'text-text-secondary hover:bg-surface-secondary'
+                ? 'border-brand bg-brand text-brand-contrast shadow-sm ring-2 ring-brand/30 ring-offset-1 ring-offset-surface'
+                : 'border-transparent text-text-secondary hover:bg-surface-secondary'
             }`}
           >
             {i.icon}
@@ -875,6 +878,13 @@ function SessionWindowTab({ sessionId, readOnly }: { sessionId: string; readOnly
 
 // ─── Review & Publish Tab ────────────────────────────────────────────────────
 
+interface Prereqs {
+  examinable_count: number;
+  pool_count: number;
+  window_configured: boolean;
+  max_invigilators_required: number;
+}
+
 function ReviewTab({
   sessionId,
   session,
@@ -886,32 +896,58 @@ function ReviewTab({
 }) {
   const t = useTranslations('scheduling.examSchedules.solve');
   const tPub = useTranslations('scheduling.examSchedules.publish');
-  const tCommon = useTranslations('common');
+  const tPre = useTranslations('scheduling.examSchedules.prereqs');
 
   const [slots, setSlots] = React.useState<DetailedSlot[]>([]);
+  const [prereqs, setPrereqs] = React.useState<Prereqs | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [solving, setSolving] = React.useState(false);
   const [publishing, setPublishing] = React.useState(false);
   const [publishOpen, setPublishOpen] = React.useState(false);
 
-  const fetchSlots = React.useCallback(async () => {
+  const fetchAll = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient<{ data: DetailedSlot[] }>(
-        `/api/v1/scheduling/exam-sessions/${sessionId}/slots-detailed`,
-      );
-      setSlots(res.data ?? []);
+      const [slotsRes, matrixRes, poolRes, configRaw] = await Promise.all([
+        apiClient<{ data: DetailedSlot[] }>(
+          `/api/v1/scheduling/exam-sessions/${sessionId}/slots-detailed`,
+        ),
+        apiClient<{ data: SubjectConfigRow[] }>(
+          `/api/v1/scheduling/exam-sessions/${sessionId}/subject-configs`,
+        ),
+        apiClient<{ data: PoolMember[] }>(
+          `/api/v1/scheduling/exam-sessions/${sessionId}/invigilator-pool`,
+        ),
+        apiClient<{ data: SessionConfig | null } | SessionConfig | null>(
+          `/api/v1/scheduling/exam-sessions/${sessionId}/config`,
+        ),
+      ]);
+      setSlots(slotsRes.data ?? []);
+      const matrix = matrixRes.data ?? [];
+      const examinable = matrix.filter((r) => r.is_examinable);
+      const config = unwrap(configRaw) as SessionConfig | null;
+      setPrereqs({
+        examinable_count: examinable.length,
+        pool_count: (poolRes.data ?? []).length,
+        window_configured:
+          !!config && Array.isArray(config.allowed_weekdays) && config.allowed_weekdays.length > 0,
+        max_invigilators_required: examinable.reduce(
+          (max, r) => Math.max(max, r.invigilators_required),
+          0,
+        ),
+      });
     } catch (err) {
       console.error('[ReviewTab]', err);
       setSlots([]);
+      setPrereqs(null);
     } finally {
       setLoading(false);
     }
   }, [sessionId]);
 
   React.useEffect(() => {
-    void fetchSlots();
-  }, [fetchSlots]);
+    void fetchAll();
+  }, [fetchAll]);
 
   const solve = async () => {
     setSolving(true);
@@ -930,7 +966,7 @@ function ReviewTab({
       } else {
         toast.error(t('failed'));
       }
-      void fetchSlots();
+      void fetchAll();
     } catch (err: unknown) {
       console.error('[ReviewTab]', err);
       const ex = err as { error?: { message?: string } };
@@ -959,19 +995,60 @@ function ReviewTab({
     }
   };
 
-  const canSolve = session.status === 'planning';
+  const matrixReady = (prereqs?.examinable_count ?? 0) > 0;
+  const poolReady =
+    !!prereqs && prereqs.pool_count > 0 && prereqs.pool_count >= prereqs.max_invigilators_required;
+  const windowReady = prereqs?.window_configured ?? false;
+  const allPrereqsMet = matrixReady && poolReady && windowReady;
+
   const canPublish = session.status === 'planning' && slots.length > 0;
+  const isDraft = session.status === 'planning' && slots.length > 0;
 
   return (
     <div className="space-y-6">
+      {/* Prerequisites checklist */}
+      {session.status === 'planning' && (
+        <div className="rounded-2xl border border-border bg-surface p-5 space-y-3">
+          <div>
+            <h3 className="text-base font-semibold text-text-primary">{tPre('title')}</h3>
+            <p className="mt-1 text-sm text-text-secondary">{tPre('description')}</p>
+          </div>
+          <ul className="space-y-2">
+            <PrereqItem
+              met={matrixReady}
+              label={tPre('matrix', { count: prereqs?.examinable_count ?? 0 })}
+              hint={tPre('matrixHint')}
+            />
+            <PrereqItem
+              met={poolReady}
+              label={tPre('pool', {
+                count: prereqs?.pool_count ?? 0,
+                required: prereqs?.max_invigilators_required ?? 0,
+              })}
+              hint={tPre('poolHint')}
+            />
+            <PrereqItem
+              met={windowReady}
+              label={windowReady ? tPre('windowOk') : tPre('windowMissing')}
+              hint={tPre('windowHint')}
+            />
+          </ul>
+        </div>
+      )}
+
+      {/* Generate section */}
       <div className="rounded-2xl border border-border bg-surface p-5 space-y-4">
         <div>
           <h3 className="text-base font-semibold text-text-primary">{t('title')}</h3>
           <p className="mt-1 text-sm text-text-secondary">{t('description')}</p>
         </div>
-        {canSolve && (
-          <div>
-            <Button onClick={() => void solve()} disabled={solving}>
+        {session.status === 'planning' && (
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => void solve()}
+              disabled={solving || !allPrereqsMet}
+              title={!allPrereqsMet ? tPre('blockedTooltip') : undefined}
+            >
               {solving ? (
                 <Loader2 className="h-4 w-4 animate-spin me-2" />
               ) : (
@@ -979,12 +1056,30 @@ function ReviewTab({
               )}
               {slots.length > 0 ? t('regenerate') : t('generate')}
             </Button>
+            {!allPrereqsMet && (
+              <span className="flex items-center gap-1.5 text-xs text-text-tertiary">
+                <AlertCircle className="h-3.5 w-3.5" />
+                {tPre('blocked')}
+              </span>
+            )}
           </div>
         )}
       </div>
 
+      {/* Draft / published banner */}
+      {isDraft && (
+        <div className="rounded-2xl border border-brand/40 bg-brand/5 p-4 flex items-start gap-3">
+          <ClipboardList className="h-5 w-5 text-brand mt-0.5 shrink-0" />
+          <div className="flex-1 text-sm">
+            <p className="font-semibold text-text-primary">{tPub('draftTitle')}</p>
+            <p className="text-text-secondary mt-0.5">{tPub('draftDescription')}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Slots table */}
       <div className="rounded-2xl border border-border bg-surface">
-        <div className="border-b border-border px-5 py-3 flex items-center justify-between">
+        <div className="border-b border-border px-5 py-3 flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-text-primary">{t('slotsTable')}</h3>
           {canPublish && (
             <Button onClick={() => setPublishOpen(true)} disabled={publishing}>
@@ -1076,8 +1171,22 @@ function ReviewTab({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* reference tCommon to keep import in use for future strings */}
-      <span className="sr-only">{tCommon('cancel')}</span>
     </div>
+  );
+}
+
+function PrereqItem({ met, label, hint }: { met: boolean; label: string; hint: string }) {
+  return (
+    <li className="flex items-start gap-2.5 text-sm">
+      {met ? (
+        <CheckCircle2 className="h-4 w-4 text-success-fg mt-0.5 shrink-0" />
+      ) : (
+        <Circle className="h-4 w-4 text-text-tertiary mt-0.5 shrink-0" />
+      )}
+      <div className="flex-1">
+        <p className={met ? 'text-text-primary' : 'text-text-secondary'}>{label}</p>
+        {!met && <p className="text-xs text-text-tertiary mt-0.5">{hint}</p>}
+      </div>
+    </li>
   );
 }

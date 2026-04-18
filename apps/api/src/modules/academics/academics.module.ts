@@ -42,6 +42,7 @@ import { YearGroupsService } from './year-groups.service';
     YearGroupsService,
     SubjectsService,
     PromotionService,
+    CurriculumMatrixService,
   ],
 })
 export class AcademicsModule {}

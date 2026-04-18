@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -26,6 +22,14 @@ export interface MatrixData {
     code: string | null;
   }>;
   assignments: MatrixCell[];
+}
+
+export interface ExamCurriculumPair {
+  year_group_id: string;
+  year_group_name: string;
+  subject_id: string;
+  subject_name: string;
+  student_count: number;
 }
 
 @Injectable()
@@ -76,19 +80,20 @@ export class CurriculumMatrixService {
 
       // Get all existing class-subject grade configs (the checked cells)
       const classIds = classes.map((c) => c.id);
-      const configs = classIds.length > 0
-        ? await db.classSubjectGradeConfig.findMany({
-            where: {
-              tenant_id: tenantId,
-              class_id: { in: classIds },
-            },
-            select: {
-              id: true,
-              class_id: true,
-              subject_id: true,
-            },
-          })
-        : [];
+      const configs =
+        classIds.length > 0
+          ? await db.classSubjectGradeConfig.findMany({
+              where: {
+                tenant_id: tenantId,
+                class_id: { in: classIds },
+              },
+              select: {
+                id: true,
+                class_id: true,
+                subject_id: true,
+              },
+            })
+          : [];
 
       return {
         classes,
@@ -156,7 +161,8 @@ export class CurriculumMatrixService {
         if (!defaultScale) {
           throw new BadRequestException({
             code: 'NO_GRADING_SCALE',
-            message: 'No grading scale configured. Please create a grading scale in Settings first.',
+            message:
+              'No grading scale configured. Please create a grading scale in Settings first.',
           });
         }
 
@@ -269,7 +275,11 @@ export class CurriculumMatrixService {
             });
             if (assessmentCount === 0) {
               const deleteResult = await db.classSubjectGradeConfig.deleteMany({
-                where: { tenant_id: tenantId, class_id: classId, subject_id: assignment.subject_id },
+                where: {
+                  tenant_id: tenantId,
+                  class_id: classId,
+                  subject_id: assignment.subject_id,
+                },
               });
               removed += deleteResult.count;
             }
@@ -380,5 +390,80 @@ export class CurriculumMatrixService {
 
       return { created, skipped };
     })) as { created: number; skipped: number };
+  }
+
+  /**
+   * Return (year_group, subject) pairs that exist in the curriculum, with
+   * aggregate student counts summed across all classes in the year group
+   * that have the subject configured. Used by the exam scheduling subject
+   * matrix to show ONLY subjects each year group actually studies — never
+   * a cartesian product of every year group × every subject.
+   *
+   * Only active classes with a non-null year_group are considered. Subjects
+   * are restricted to academic type (same filter the curriculum matrix UI uses).
+   */
+  async findExamCurriculumPairs(tenantId: string): Promise<ExamCurriculumPair[]> {
+    const [configs, yearGroups, subjects] = await Promise.all([
+      // eslint-disable-next-line school/no-cross-module-prisma-access -- curriculum matrix joins ClassSubjectGradeConfig (gradebook-owned model) with Class + Subject to surface curriculum membership; this is the same cross-module read already used elsewhere in this file via tx wrapper
+      this.prisma.classSubjectGradeConfig.findMany({
+        where: {
+          tenant_id: tenantId,
+          class_entity: { status: 'active', year_group_id: { not: null } },
+          subject: { active: true, subject_type: 'academic' },
+        },
+        select: {
+          subject_id: true,
+          class_entity: {
+            select: {
+              year_group_id: true,
+              _count: { select: { class_enrolments: { where: { status: 'active' } } } },
+            },
+          },
+        },
+      }),
+      this.prisma.yearGroup.findMany({
+        where: { tenant_id: tenantId },
+        select: { id: true, name: true },
+      }),
+      this.prisma.subject.findMany({
+        where: { tenant_id: tenantId, active: true, subject_type: 'academic' },
+        select: { id: true, name: true },
+      }),
+    ]);
+
+    const ygName = new Map(yearGroups.map((yg) => [yg.id, yg.name]));
+    const subjName = new Map(subjects.map((s) => [s.id, s.name]));
+
+    const pairTotals = new Map<string, { ygId: string; subjId: string; students: number }>();
+    for (const c of configs) {
+      const ygId = c.class_entity.year_group_id;
+      if (!ygId) continue;
+      const key = `${ygId}:${c.subject_id}`;
+      const prev = pairTotals.get(key);
+      const students = c.class_entity._count.class_enrolments;
+      if (prev) {
+        prev.students += students;
+      } else {
+        pairTotals.set(key, { ygId, subjId: c.subject_id, students });
+      }
+    }
+
+    const rows: ExamCurriculumPair[] = [];
+    for (const pair of pairTotals.values()) {
+      rows.push({
+        year_group_id: pair.ygId,
+        year_group_name: ygName.get(pair.ygId) ?? '',
+        subject_id: pair.subjId,
+        subject_name: subjName.get(pair.subjId) ?? '',
+        student_count: pair.students,
+      });
+    }
+
+    rows.sort((a, b) => {
+      const yg = a.year_group_name.localeCompare(b.year_group_name);
+      return yg !== 0 ? yg : a.subject_name.localeCompare(b.subject_name);
+    });
+
+    return rows;
   }
 }

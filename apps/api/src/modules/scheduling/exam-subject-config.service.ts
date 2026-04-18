@@ -3,8 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { BulkUpsertExamSubjectConfigsDto, UpsertExamSubjectConfigDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
-import { AcademicReadFacade } from '../academics/academic-read.facade';
-import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { CurriculumMatrixService } from '../academics/curriculum-matrix.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -35,11 +34,10 @@ function defaultInvigilators(studentCount: number): number {
 export class ExamSubjectConfigService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly classesReadFacade: ClassesReadFacade,
-    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly curriculumMatrix: CurriculumMatrixService,
   ) {}
 
-  // ─── List configs (with unconfigured (year_group × subject) placeholders) ─
+  // ─── List configs — one row per curriculum-valid (year_group, subject) pair ─
 
   async listConfigs(tenantId: string, sessionId: string): Promise<ExamSubjectConfigRow[]> {
     const session = await this.prisma.examSession.findFirst({
@@ -52,49 +50,20 @@ export class ExamSubjectConfigService {
       });
     }
 
-    const [configs, yearGroups, subjects, ygEnrolment] = await Promise.all([
+    const [configs, curriculumPairs] = await Promise.all([
       this.prisma.examSubjectConfig.findMany({
         where: { tenant_id: tenantId, exam_session_id: sessionId },
-        include: {
-          year_group: { select: { id: true, name: true } },
-          subject: { select: { id: true, name: true } },
-        },
       }),
-      this.academicReadFacade.findAllYearGroups(tenantId) as Promise<
-        Array<{ id: string; name: string }>
-      >,
-      this.academicReadFacade.findAllSubjects(tenantId, { id: true, name: true }) as Promise<
-        Array<{ id: string; name: string }>
-      >,
-      this.classesReadFacade.findEnrolmentCountsByYearGroup(tenantId),
+      this.curriculumMatrix.findExamCurriculumPairs(tenantId),
     ]);
-
-    const ygSubjectCounts = new Map<string, number>();
-    const uniquePairs = new Map<
-      string,
-      { year_group_id: string; year_group_name: string; subject_id: string; subject_name: string }
-    >();
-    for (const yg of yearGroups) {
-      for (const s of subjects) {
-        const key = `${yg.id}:${s.id}`;
-        ygSubjectCounts.set(key, ygEnrolment.get(yg.id) ?? 0);
-        uniquePairs.set(key, {
-          year_group_id: yg.id,
-          year_group_name: yg.name,
-          subject_id: s.id,
-          subject_name: s.name,
-        });
-      }
-    }
 
     const configsByKey = new Map(configs.map((c) => [`${c.year_group_id}:${c.subject_id}`, c]));
 
-    const rows: ExamSubjectConfigRow[] = [];
-    for (const [key, pair] of uniquePairs.entries()) {
-      const studentCount = ygSubjectCounts.get(key) ?? 0;
+    const rows: ExamSubjectConfigRow[] = curriculumPairs.map((pair) => {
+      const key = `${pair.year_group_id}:${pair.subject_id}`;
       const config = configsByKey.get(key);
       if (config) {
-        rows.push({
+        return {
           id: config.id,
           exam_session_id: sessionId,
           year_group_id: pair.year_group_id,
@@ -107,26 +76,25 @@ export class ExamSubjectConfigService {
           paper_2_duration_mins: config.paper_2_duration_mins,
           mode: config.mode === 'online' ? 'online' : 'in_person',
           invigilators_required: config.invigilators_required,
-          student_count: studentCount,
-        });
-      } else {
-        rows.push({
-          id: null,
-          exam_session_id: sessionId,
-          year_group_id: pair.year_group_id,
-          year_group_name: pair.year_group_name,
-          subject_id: pair.subject_id,
-          subject_name: pair.subject_name,
-          is_examinable: false,
-          paper_count: 1,
-          paper_1_duration_mins: 90,
-          paper_2_duration_mins: null,
-          mode: 'in_person',
-          invigilators_required: defaultInvigilators(studentCount),
-          student_count: studentCount,
-        });
+          student_count: pair.student_count,
+        };
       }
-    }
+      return {
+        id: null,
+        exam_session_id: sessionId,
+        year_group_id: pair.year_group_id,
+        year_group_name: pair.year_group_name,
+        subject_id: pair.subject_id,
+        subject_name: pair.subject_name,
+        is_examinable: false,
+        paper_count: 1,
+        paper_1_duration_mins: 90,
+        paper_2_duration_mins: null,
+        mode: 'in_person',
+        invigilators_required: defaultInvigilators(pair.student_count),
+        student_count: pair.student_count,
+      };
+    });
 
     rows.sort((a, b) => {
       const yg = a.year_group_name.localeCompare(b.year_group_name);
