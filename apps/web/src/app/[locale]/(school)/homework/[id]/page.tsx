@@ -1,6 +1,6 @@
 'use client';
 
-import { Copy, Edit, FileText, Link as Link2, Trash2, Video } from 'lucide-react';
+import { Bell, Copy, Edit, FileText, Link as Link2, Trash2, Video } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -18,14 +18,12 @@ import {
   toast,
 } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
 import { CompletionDonut } from '../_components/completion-donut';
 import { HomeworkTypeBadge } from '../_components/homework-type-badge';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -88,15 +86,28 @@ export default function HomeworkDetailPage() {
   const [loading, setLoading] = React.useState(true);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
 
+  // ─── Notification dialogs (publish + re-notify) ─────────────────────────
+  const [notifyMode, setNotifyMode] = React.useState<'publish' | 'renotify' | null>(null);
+  const [notifyPreview, setNotifyPreview] = React.useState<{ parents_count: number } | null>(null);
+  const [notifyLoading, setNotifyLoading] = React.useState(false);
+
   const fetchData = React.useCallback(async () => {
     setLoading(true);
     try {
       const [hwRes, rateRes, compRes] = await Promise.all([
         apiClient<{ data: HomeworkDetail }>(`/api/v1/homework/${id}`),
-        apiClient<CompletionRate>(`/api/v1/homework/${id}/completion-rate`, { silent: true }).catch((err) => { console.error('[HomeworkPage]', err); return null; }),
+        apiClient<CompletionRate>(`/api/v1/homework/${id}/completion-rate`, { silent: true }).catch(
+          (err) => {
+            console.error('[HomeworkPage]', err);
+            return null;
+          },
+        ),
         apiClient<{ data: CompletionPreview[] }>(`/api/v1/homework/${id}/completions?pageSize=10`, {
           silent: true,
-        }).catch((err) => { console.error('[HomeworkPage]', err); return ({ data: [] }); }),
+        }).catch((err) => {
+          console.error('[HomeworkPage]', err);
+          return { data: [] };
+        }),
       ]);
       setHw(hwRes.data);
       setRate(rateRes);
@@ -142,6 +153,45 @@ export default function HomeworkDetailPage() {
     }
   };
 
+  const openNotifyDialog = async (mode: 'publish' | 'renotify') => {
+    setNotifyMode(mode);
+    setNotifyPreview(null);
+    try {
+      const preview = await apiClient<{ parents_count: number }>(
+        `/api/v1/homework/${id}/notification-preview`,
+        { silent: true },
+      );
+      setNotifyPreview(preview);
+    } catch (err) {
+      console.error('[HomeworkPage] notification preview failed', err);
+      setNotifyPreview({ parents_count: 0 });
+    }
+  };
+
+  const handleConfirmNotify = async () => {
+    if (!notifyMode) return;
+    setNotifyLoading(true);
+    try {
+      if (notifyMode === 'publish') {
+        await apiClient(`/api/v1/homework/${id}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'published' }),
+        });
+        toast.success(t('homeworkPublished'));
+      } else {
+        await apiClient(`/api/v1/homework/${id}/notify`, { method: 'POST' });
+        toast.success(t('reNotifySent'));
+      }
+      setNotifyMode(null);
+      void fetchData();
+    } catch (err) {
+      console.error('[HomeworkPage]', err);
+      toast.error(notifyMode === 'publish' ? 'Failed to publish' : 'Failed to re-notify');
+    } finally {
+      setNotifyLoading(false);
+    }
+  };
+
   const handleDelete = async () => {
     try {
       await apiClient(`/api/v1/homework/${id}`, { method: 'DELETE' });
@@ -183,14 +233,24 @@ export default function HomeworkDetailPage() {
               {t('copy')}
             </Button>
             {hw.status === 'draft' && (
-              <Button size="sm" onClick={() => handleStatusChange('published')}>
+              <Button size="sm" onClick={() => void openNotifyDialog('publish')}>
                 {t('publish')}
               </Button>
             )}
             {hw.status === 'published' && (
-              <Button variant="outline" size="sm" onClick={() => handleStatusChange('archived')}>
-                {t('archive')}
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void openNotifyDialog('renotify')}
+                >
+                  <Bell className="me-1 h-4 w-4" />
+                  {t('reNotify')}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleStatusChange('archived')}>
+                  {t('archive')}
+                </Button>
+              </>
             )}
             <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="me-1 h-4 w-4" />
@@ -333,9 +393,55 @@ export default function HomeworkDetailPage() {
           </DialogHeader>
           <p className="text-sm text-text-secondary py-2">{t('confirmDeleteDesc')}</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>{tCommon('cancel')}</Button>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              {tCommon('cancel')}
+            </Button>
             <Button variant="destructive" onClick={handleDelete}>
               {t('delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={notifyMode !== null}
+        onOpenChange={(open) => {
+          if (!open) setNotifyMode(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {notifyMode === 'publish' ? t('confirmPublishTitle') : t('confirmReNotifyTitle')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-2">
+            <p className="text-sm text-text-secondary">
+              {notifyMode === 'publish' ? t('confirmPublishDesc') : t('confirmReNotifyDesc')}
+            </p>
+            <div className="rounded-lg border border-border-subtle bg-surface-secondary p-3 text-sm text-text-primary">
+              {notifyPreview === null ? (
+                <span className="text-text-tertiary">{tCommon('loading')}</span>
+              ) : notifyPreview.parents_count === 0 ? (
+                t('notifyNoRecipients')
+              ) : (
+                t('notifyRecipientsSummary', { count: notifyPreview.parents_count })
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNotifyMode(null)} disabled={notifyLoading}>
+              {tCommon('cancel')}
+            </Button>
+            <Button
+              onClick={handleConfirmNotify}
+              disabled={notifyLoading || notifyPreview === null}
+            >
+              {notifyLoading
+                ? t('loading')
+                : notifyMode === 'publish'
+                  ? t('publish')
+                  : t('reNotify')}
             </Button>
           </DialogFooter>
         </DialogContent>

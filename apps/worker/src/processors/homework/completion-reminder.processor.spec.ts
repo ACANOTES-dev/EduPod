@@ -47,6 +47,9 @@ function buildAssignment(overrides: Record<string, unknown> = {}) {
 
 function buildMockPrisma() {
   return {
+    tenant: {
+      findMany: jest.fn().mockResolvedValue([{ id: TENANT_ID }]),
+    },
     tenantSetting: {
       findFirst: jest.fn().mockResolvedValue({
         settings: {
@@ -80,10 +83,7 @@ function buildMockPrisma() {
 
 type MockPrisma = ReturnType<typeof buildMockPrisma>;
 
-function buildMockJob(
-  name: string,
-  data: Record<string, unknown> = {},
-): Job {
+function buildMockJob(name: string, data: Record<string, unknown> = {}): Job {
   return { name, data } as unknown as Job;
 }
 
@@ -97,15 +97,13 @@ describe('HomeworkCompletionReminderProcessor', () => {
     mockPrisma = buildMockPrisma();
 
     // Default $transaction: execute the callback, passing mockPrisma as tx
-    mockPrisma.$transaction.mockImplementation(
-      async (fn: (tx: MockPrisma) => Promise<unknown>) => {
-        const txProxy: MockPrisma = {
-          ...mockPrisma,
-          $executeRaw: jest.fn().mockResolvedValue(undefined),
-        };
-        return fn(txProxy);
-      },
-    );
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: MockPrisma) => Promise<unknown>) => {
+      const txProxy: MockPrisma = {
+        ...mockPrisma,
+        $executeRaw: jest.fn().mockResolvedValue(undefined),
+      };
+      return fn(txProxy);
+    });
 
     const module = await Test.createTestingModule({
       providers: [
@@ -141,13 +139,52 @@ describe('HomeworkCompletionReminderProcessor', () => {
     });
   });
 
-  // ─── Tenant validation ────────────────────────────────────────────────
+  // ─── Cross-tenant fan-out (DZ-Homework-1 fix) ─────────────────────────
 
-  describe('process — tenant validation', () => {
-    it('should reject jobs without tenant_id', async () => {
+  describe('process — cross-tenant fan-out', () => {
+    it('iterates active tenants when payload is empty', async () => {
+      const tenantA = '22222222-2222-2222-2222-222222222222';
+      const tenantB = '33333333-3333-3333-3333-333333333333';
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: tenantA }, { id: tenantB }]);
+
       const job = buildMockJob(HOMEWORK_COMPLETION_REMINDER_JOB, {});
+      await processor.process(job);
 
-      await expect(processor.process(job)).rejects.toThrow('tenant_id');
+      expect(mockPrisma.tenant.findMany).toHaveBeenCalledWith({
+        where: { status: 'active' },
+        select: { id: true },
+      });
+      expect(mockPrisma.tenantSetting.findFirst).toHaveBeenCalledTimes(2);
+    });
+
+    it('continues when one tenant throws', async () => {
+      const tenantA = '22222222-2222-2222-2222-222222222222';
+      const tenantB = '33333333-3333-3333-3333-333333333333';
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: tenantA }, { id: tenantB }]);
+      mockPrisma.tenantSetting.findFirst
+        .mockRejectedValueOnce(new Error('db hiccup'))
+        .mockResolvedValueOnce({
+          settings: {
+            homework: { enabled: true, completion_reminder_enabled: true },
+          },
+        });
+
+      const job = buildMockJob(HOMEWORK_COMPLETION_REMINDER_JOB, {});
+      await expect(processor.process(job)).resolves.toBeUndefined();
+    });
+  });
+
+  // ─── Legacy direct enqueue (still supported) ──────────────────────────
+
+  describe('process — direct tenant enqueue', () => {
+    it('processes a single tenant when tenant_id is supplied', async () => {
+      const job = buildMockJob(HOMEWORK_COMPLETION_REMINDER_JOB, {
+        tenant_id: TENANT_ID,
+      });
+      await processor.process(job);
+
+      expect(mockPrisma.tenant.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.tenantSetting.findFirst).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -213,9 +250,7 @@ describe('HomeworkCompletionReminderProcessor', () => {
   describe('process — incomplete homework reminders', () => {
     it('should send reminder for students with incomplete homework due tomorrow', async () => {
       // Assignments due tomorrow
-      mockPrisma.homeworkAssignment.findMany.mockResolvedValue([
-        buildAssignment(),
-      ]);
+      mockPrisma.homeworkAssignment.findMany.mockResolvedValue([buildAssignment()]);
 
       // Students enrolled in the class
       mockPrisma.classEnrolment.findMany.mockResolvedValue([
@@ -266,9 +301,7 @@ describe('HomeworkCompletionReminderProcessor', () => {
     });
 
     it('should not send reminder for students who have completed homework', async () => {
-      mockPrisma.homeworkAssignment.findMany.mockResolvedValue([
-        buildAssignment(),
-      ]);
+      mockPrisma.homeworkAssignment.findMany.mockResolvedValue([buildAssignment()]);
 
       mockPrisma.classEnrolment.findMany.mockResolvedValue([
         {
@@ -304,9 +337,7 @@ describe('HomeworkCompletionReminderProcessor', () => {
     });
 
     it('should include students with no completion record', async () => {
-      mockPrisma.homeworkAssignment.findMany.mockResolvedValue([
-        buildAssignment(),
-      ]);
+      mockPrisma.homeworkAssignment.findMany.mockResolvedValue([buildAssignment()]);
 
       // Two students enrolled
       mockPrisma.classEnrolment.findMany.mockResolvedValue([
@@ -380,9 +411,7 @@ describe('HomeworkCompletionReminderProcessor', () => {
 
   describe('process — idempotency', () => {
     it('should not send duplicate notifications (idempotency)', async () => {
-      mockPrisma.homeworkAssignment.findMany.mockResolvedValue([
-        buildAssignment(),
-      ]);
+      mockPrisma.homeworkAssignment.findMany.mockResolvedValue([buildAssignment()]);
 
       mockPrisma.classEnrolment.findMany.mockResolvedValue([
         {
@@ -455,9 +484,7 @@ describe('HomeworkCompletionReminderProcessor', () => {
       });
       await processor.process(job);
 
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('reminder'),
-      );
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('reminder'));
     });
   });
 });

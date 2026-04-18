@@ -15,6 +15,10 @@ import type { CreateHomeworkDto } from './dto/create-homework.dto';
 import type { ListHomeworkQuery } from './dto/list-homework.dto';
 import type { UpdateHomeworkDto } from './dto/update-homework.dto';
 import { HomeworkAuthorityService } from './homework-authority.service';
+import {
+  HomeworkNotificationService,
+  NotifyOnPublishResult,
+} from './homework-notification.service';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -107,6 +111,7 @@ export class HomeworkService {
     private readonly s3Service: S3Service,
     private readonly tenantReadFacade: TenantReadFacade,
     private readonly homeworkAuthority: HomeworkAuthorityService,
+    private readonly homeworkNotification: HomeworkNotificationService,
     private readonly schedulesReadFacade: SchedulesReadFacade,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
     private readonly academicReadFacade: AcademicReadFacade,
@@ -342,7 +347,7 @@ export class HomeworkService {
       tenant_id: tenantId,
     });
 
-    return prismaWithRls.$transaction(async (tx) => {
+    const updated = await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const data: Record<string, unknown> = {
@@ -363,6 +368,67 @@ export class HomeworkService {
         },
       });
     });
+
+    // ── Fire in-app notifications on publish ──
+    // Non-optional: every draft → published transition fans out to the
+    // class's parents. The publish transaction has already committed; a
+    // notification failure should not roll back the publish (teachers can
+    // re-notify via POST /v1/homework/:id/notify).
+    if (currentStatus !== 'published' && targetStatus === 'published') {
+      try {
+        const result = await this.homeworkNotification.notifyOnPublish(tenantId, id);
+        (
+          updated as unknown as { notification_result?: NotifyOnPublishResult }
+        ).notification_result = result;
+      } catch (err) {
+        this.logger.error(
+          `[updateStatus] Homework ${id} published but notification dispatch failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    return updated;
+  }
+
+  // ─── Re-notify (teacher-triggered) ────────────────────────────────────────────
+
+  /**
+   * Fan out in-app notifications for an already-published homework. Used
+   * when a teacher edits the description, changes the due date, or
+   * otherwise needs parents to see the homework again. Rejects drafts —
+   * drafts must be published first, which triggers the initial fan-out.
+   */
+  async notify(tenantId: string, id: string) {
+    const existing = await this.prisma.homeworkAssignment.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: { id: true, status: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'HOMEWORK_NOT_FOUND',
+        message: `Homework assignment with id "${id}" not found`,
+      });
+    }
+
+    if (existing.status !== 'published') {
+      throw new BadRequestException({
+        code: 'HOMEWORK_NOT_PUBLISHED',
+        message: `Only published homework can be re-notified. Current status: "${existing.status}"`,
+      });
+    }
+
+    return this.homeworkNotification.notifyOnPublish(tenantId, id);
+  }
+
+  // ─── Notification preview ─────────────────────────────────────────────────────
+
+  /**
+   * Preview the parent recipient count for an upcoming publish or
+   * re-notify. Used by the confirmation dialog in the frontend.
+   */
+  async previewNotification(tenantId: string, id: string) {
+    return this.homeworkNotification.previewRecipientCount(tenantId, id);
   }
 
   // ─── Copy ─────────────────────────────────────────────────────────────────────

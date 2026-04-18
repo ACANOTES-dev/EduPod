@@ -291,9 +291,15 @@ Missing any one of those leaves “approved but not actually executed” items i
 - `homework:digest-homework`
 - `homework:completion-reminder`
 - **Sources**:
-  - `generate-recurring` and `overdue-detection` are true cross-tenant cron jobs from `CronSchedulerService`
-  - `digest-homework` and `completion-reminder` are also enqueued per-tenant by `behaviour:cron-dispatch-daily`
-- **Critical note**: the homework digest/reminder processors require `tenant_id`, but `CronSchedulerService` also registers repeatable jobs for them with empty `{}` payloads. The per-tenant behaviour-dispatch path matches the processor contract; the direct cron registrations do not.
+  - `generate-recurring`, `overdue-detection`, `digest-homework`, and `completion-reminder` are all cross-tenant cron jobs from `CronSchedulerService` — each processor branches on `job.data.tenant_id` (direct cron = iterate all active tenants; per-tenant enqueue = single tenant) after the Wave 2 fix (2026-04-18).
+  - `digest-homework` and `completion-reminder` are also enqueued per-tenant by `behaviour:cron-dispatch-daily` — still supported via the same branch.
+
+### Homework publish notifications (synchronous, not queued)
+
+- `HomeworkNotificationService.notifyOnPublish(tenantId, homeworkId)` fires inline from `HomeworkService.updateStatus` on every `draft → published` transition, and from the `POST /v1/homework/:id/notify` re-notify endpoint.
+- **Flow**: resolve `class_parents` audience via `InboxModule.AudienceResolutionService` → call `CommunicationsModule.NotificationsService.createBatch` with `channel: 'in_app'`, `template_key: 'homework_assigned'`, `source_entity_type: 'homework_assignment'`, `source_entity_id: <homework_id>`.
+- **Intentionally not queued**: in-app rows are cheap direct writes and the teacher expects immediate feedback in the confirmation toast; there is no multi-channel fan-out to defer to a worker. Notification failures are logged but do NOT roll back the publish — teachers can call `POST /v1/homework/:id/notify` to retry.
+- **No email / SMS / WhatsApp**: homework notifications intentionally exclude paid third-party channels for per-message cost discipline. A future dedicated mobile app will deliver push notifications off the same in-app rows.
 
 ### `imports`
 
@@ -472,13 +478,9 @@ domain code writes notification rows -> `notifications:dispatch-queued` or direc
 
 ## Live Drift And Risk Notes
 
-### Homework dual-dispatch mismatch
+### Homework dual-dispatch mismatch — ✅ RESOLVED 2026-04-18 (Wave 2)
 
-- `homework:digest-homework` and `homework:completion-reminder` currently have two dispatch paths
-- one is valid: per-tenant dispatch from `behaviour:cron-dispatch-daily`
-- one is invalid: direct repeatable registration in `CronSchedulerService` with empty payloads even though the processors reject missing `tenant_id`
-
-This is source-of-truth architecture now and should be treated as a live danger, not a documentation typo.
+- `homework:digest-homework` and `homework:completion-reminder` processors now branch on `tenant_id` presence: direct cron (empty payload) iterates `Tenant.findMany({ status: 'active' })` and runs per-tenant; behaviour-dispatch path (with explicit `tenant_id`) runs for that tenant only. Both paths are now valid.
 
 ### Processor-exists vs dispatcher-exists is not the same thing
 

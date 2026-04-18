@@ -1,10 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { Job } from 'bullmq';
 
-import {
-  HOMEWORK_DIGEST_JOB,
-  HomeworkDigestProcessor,
-} from './digest-homework.processor';
+import { HOMEWORK_DIGEST_JOB, HomeworkDigestProcessor } from './digest-homework.processor';
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -20,6 +17,9 @@ const PARENT_USER_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 
 function buildMockPrisma() {
   return {
+    tenant: {
+      findMany: jest.fn().mockResolvedValue([{ id: TENANT_ID }]),
+    },
     tenantSetting: {
       findFirst: jest.fn().mockResolvedValue({
         settings: {
@@ -50,17 +50,11 @@ function buildMockPrisma() {
 
 type MockPrisma = ReturnType<typeof buildMockPrisma>;
 
-function buildMockJob(
-  name: string,
-  data: Record<string, unknown> = {},
-): Job {
+function buildMockJob(name: string, data: Record<string, unknown> = {}): Job {
   return { name, data } as unknown as Job;
 }
 
-function buildPublishedAssignment(
-  id: string,
-  overrides: Record<string, unknown> = {},
-) {
+function buildPublishedAssignment(id: string, overrides: Record<string, unknown> = {}) {
   return {
     id,
     tenant_id: TENANT_ID,
@@ -89,21 +83,16 @@ describe('HomeworkDigestProcessor', () => {
     mockPrisma = buildMockPrisma();
 
     // Default $transaction: execute the callback, passing mockPrisma as tx
-    mockPrisma.$transaction.mockImplementation(
-      async (fn: (tx: MockPrisma) => Promise<unknown>) => {
-        const txProxy: MockPrisma = {
-          ...mockPrisma,
-          $executeRaw: jest.fn().mockResolvedValue(undefined),
-        };
-        return fn(txProxy);
-      },
-    );
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: MockPrisma) => Promise<unknown>) => {
+      const txProxy: MockPrisma = {
+        ...mockPrisma,
+        $executeRaw: jest.fn().mockResolvedValue(undefined),
+      };
+      return fn(txProxy);
+    });
 
     const module = await Test.createTestingModule({
-      providers: [
-        HomeworkDigestProcessor,
-        { provide: 'PRISMA_CLIENT', useValue: mockPrisma },
-      ],
+      providers: [HomeworkDigestProcessor, { provide: 'PRISMA_CLIENT', useValue: mockPrisma }],
     }).compile();
 
     processor = module.get<HomeworkDigestProcessor>(HomeworkDigestProcessor);
@@ -129,13 +118,39 @@ describe('HomeworkDigestProcessor', () => {
     });
   });
 
-  // ─── Tenant validation ────────────────────────────────────────────────
+  // ─── Cross-tenant fan-out (DZ-Homework-1 fix) ─────────────────────────
 
-  describe('process — tenant validation', () => {
-    it('should reject jobs without tenant_id', async () => {
+  describe('process — cross-tenant fan-out', () => {
+    it('iterates active tenants when payload is empty', async () => {
+      const tenantA = '22222222-2222-2222-2222-222222222222';
+      const tenantB = '33333333-3333-3333-3333-333333333333';
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: tenantA }, { id: tenantB }]);
+
       const job = buildMockJob(HOMEWORK_DIGEST_JOB, {});
+      await processor.process(job);
 
-      await expect(processor.process(job)).rejects.toThrow('tenant_id');
+      expect(mockPrisma.tenant.findMany).toHaveBeenCalledWith({
+        where: { status: 'active' },
+        select: { id: true },
+      });
+      // One tenantSetting lookup per tenant
+      expect(mockPrisma.tenantSetting.findFirst).toHaveBeenCalledTimes(2);
+    });
+
+    it('continues when one tenant throws', async () => {
+      const tenantA = '22222222-2222-2222-2222-222222222222';
+      const tenantB = '33333333-3333-3333-3333-333333333333';
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: tenantA }, { id: tenantB }]);
+      mockPrisma.tenantSetting.findFirst
+        .mockRejectedValueOnce(new Error('db hiccup'))
+        .mockResolvedValueOnce({
+          settings: {
+            homework: { enabled: true, parent_digest_include_homework: true },
+          },
+        });
+
+      const job = buildMockJob(HOMEWORK_DIGEST_JOB, {});
+      await expect(processor.process(job)).resolves.toBeUndefined();
     });
   });
 
@@ -356,9 +371,7 @@ describe('HomeworkDigestProcessor', () => {
       const job = buildMockJob(HOMEWORK_DIGEST_JOB, { tenant_id: TENANT_ID });
       await processor.process(job);
 
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('digest'),
-      );
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('digest'));
     });
   });
 });

@@ -559,32 +559,9 @@ The compute-student processor validates `early_warning_configs.is_enabled` and `
 
 ---
 
-## DZ-33: Homework — Dual Dispatch Paths With Payload Contract Drift
+## DZ-33: Homework — Dual Dispatch Paths With Payload Contract Drift — ✅ CLOSED 2026-04-18 (Wave 2)
 
-**Risk**: noisy failing cron jobs, duplicate scheduling paths, and false assumptions about which automation path is actually live
-**Location**: `apps/worker/src/cron/cron-scheduler.service.ts`, `apps/worker/src/processors/behaviour/cron-dispatch.processor.ts`, `apps/worker/src/processors/homework/digest-homework.processor.ts`, `apps/worker/src/processors/homework/completion-reminder.processor.ts`
-
-The homework reminder/digest automation now has two different dispatch paths:
-
-1. `CronSchedulerService.registerHomeworkCronJobs()` registers repeatable jobs for:
-   - `homework:generate-recurring`
-   - `homework:overdue-detection`
-   - `homework:digest-homework`
-   - `homework:completion-reminder`
-2. `BehaviourCronDispatchProcessor.dispatchDaily()` also enqueues:
-   - `homework:digest-homework`
-   - `homework:completion-reminder`
-     per tenant with valid `tenant_id` payloads
-
-The problem is that the `HomeworkDigestProcessor` and `HomeworkCompletionReminderProcessor` both reject missing `tenant_id`, but the direct cron registrations in `CronSchedulerService` enqueue those jobs with `{}`.
-
-That means the current codebase contains:
-
-- one valid per-tenant dispatch path for digest/reminder jobs
-- one invalid repeatable dispatch path for the same jobs
-- two different architectural “sources of truth” for the same automation
-
-**Mitigation**: Treat the per-tenant behaviour-dispatch path as the only payload-compatible path for `homework:digest-homework` and `homework:completion-reminder` unless the direct cron registrations are fixed to iterate tenants explicitly. Do not document `registerHomeworkCronJobs()` as the sole source of truth for homework automation in its current form.
+**Status**: Resolved in the homework Wave 2 fix. `HomeworkDigestProcessor` and `HomeworkCompletionReminderProcessor` now branch on `job.data.tenant_id`: when present, they process that single tenant (behaviour-dispatch path); when absent, they iterate `tenant.findMany({ where: { status: 'active' } })` and run per tenant (direct cron path). Both dispatch paths are now valid; the repeatable cron registrations in `CronSchedulerService.registerHomeworkCronJobs()` no longer silently fail. See `apps/worker/src/processors/homework/digest-homework.processor.spec.ts` and `completion-reminder.processor.spec.ts` for regression coverage (cross-tenant fan-out + legacy direct-enqueue suites).
 
 ---
 

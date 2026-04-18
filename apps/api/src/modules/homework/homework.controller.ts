@@ -300,6 +300,27 @@ export class HomeworkController {
     );
   }
 
+  // POST /v1/homework/:id/notify — fan out in-app notification to class parents
+  @Post(':id/notify')
+  @RequiresPermission('homework.manage')
+  @HttpCode(HttpStatus.OK)
+  async notify(
+    @CurrentTenant() tenantContext: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.homeworkService.notify(tenantContext.tenant_id, id);
+  }
+
+  // GET /v1/homework/:id/notification-preview — parent count for confirm dialog
+  @Get(':id/notification-preview')
+  @RequiresPermission('homework.view')
+  async notificationPreview(
+    @CurrentTenant() tenantContext: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.homeworkService.previewNotification(tenantContext.tenant_id, id);
+  }
+
   // DELETE /v1/homework/:id
   @Delete(':id')
   @RequiresPermission('homework.manage')

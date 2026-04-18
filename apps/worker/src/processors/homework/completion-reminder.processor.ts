@@ -35,15 +35,41 @@ export class HomeworkCompletionReminderProcessor extends WorkerHost {
   async process(job: Job<HomeworkCompletionReminderPayload>): Promise<void> {
     if (job.name !== HOMEWORK_COMPLETION_REMINDER_JOB) return;
 
-    const { tenant_id } = job.data;
-    if (!tenant_id) {
-      throw new Error('Job rejected: missing tenant_id in payload.');
+    const directTenantId = job.data?.tenant_id;
+    if (directTenantId) {
+      this.logger.log(
+        `Processing ${HOMEWORK_COMPLETION_REMINDER_JOB} for tenant ${directTenantId}`,
+      );
+      const reminderJob = new HomeworkCompletionReminderJob(this.prisma);
+      await reminderJob.execute({ tenant_id: directTenantId });
+      return;
     }
 
-    this.logger.log(`Processing ${HOMEWORK_COMPLETION_REMINDER_JOB} for tenant ${tenant_id}`);
+    // Cross-tenant cron path: empty {} payload. Iterate active tenants
+    // and run one per-tenant reminder pass each. See DZ-Homework-1.
+    this.logger.log(`Processing ${HOMEWORK_COMPLETION_REMINDER_JOB} — cross-tenant cron run`);
 
-    const reminderJob = new HomeworkCompletionReminderJob(this.prisma);
-    await reminderJob.execute(job.data);
+    const tenants = await this.prisma.tenant.findMany({
+      where: { status: 'active' },
+      select: { id: true },
+    });
+
+    let successCount = 0;
+    for (const tenant of tenants) {
+      try {
+        const reminderJob = new HomeworkCompletionReminderJob(this.prisma);
+        await reminderJob.execute({ tenant_id: tenant.id });
+        successCount++;
+      } catch (err) {
+        this.logger.error(
+          `Completion reminder failed for tenant ${tenant.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `${HOMEWORK_COMPLETION_REMINDER_JOB} cron complete: ${successCount}/${tenants.length} tenants processed`,
+    );
   }
 }
 

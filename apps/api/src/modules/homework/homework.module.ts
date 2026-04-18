@@ -3,6 +3,8 @@ import { Module } from '@nestjs/common';
 
 import { AcademicsModule } from '../academics/academics.module';
 import { ClassesModule } from '../classes/classes.module';
+import { CommunicationsModule } from '../communications/communications.module';
+import { InboxModule } from '../inbox/inbox.module';
 import { ParentsModule } from '../parents/parents.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { S3Module } from '../s3/s3.module';
@@ -20,6 +22,7 @@ import { HomeworkCompletionsService } from './homework-completions.service';
 import { HomeworkDiaryController } from './homework-diary.controller';
 import { HomeworkDiaryService } from './homework-diary.service';
 import { HomeworkLoadAnalyticsService } from './homework-load-analytics.service';
+import { HomeworkNotificationService } from './homework-notification.service';
 import { HomeworkParentController } from './homework-parent.controller';
 import { HomeworkParentService } from './homework-parent.service';
 import { HomeworkStudentAnalyticsService } from './homework-student-analytics.service';
@@ -30,6 +33,8 @@ import { HomeworkService } from './homework.service';
   imports: [
     AcademicsModule,
     ClassesModule,
+    CommunicationsModule,
+    InboxModule,
     ParentsModule,
     PrismaModule,
     S3Module,
@@ -49,6 +54,7 @@ import { HomeworkService } from './homework.service';
   providers: [
     HomeworkService,
     HomeworkAuthorityService,
+    HomeworkNotificationService,
     HomeworkCompletionsService,
     HomeworkDiaryService,
     HomeworkParentService,
