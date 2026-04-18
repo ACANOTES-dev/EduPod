@@ -11,7 +11,8 @@ type RoleKey =
   | 'front_office'
   | 'parent'
   | 'school_vice_principal'
-  | 'student';
+  | 'student'
+  | 'attendance_officer';
 
 /**
  * Returns the current user's role keys and helper to check membership.

@@ -18,7 +18,8 @@ export type RoleKey =
   | 'front_office'
   | 'parent'
   | 'school_vice_principal'
-  | 'student';
+  | 'student'
+  | 'attendance_officer';
 
 // ─── Role groups ─────────────────────────────────────────────────────────────
 
@@ -113,7 +114,7 @@ export const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
   },
   {
     prefix: '/attendance',
-    roles: [...ADMIN_ROLES, 'teacher'],
+    roles: [...ADMIN_ROLES, 'teacher', 'attendance_officer'],
   },
   {
     prefix: '/gradebook',
