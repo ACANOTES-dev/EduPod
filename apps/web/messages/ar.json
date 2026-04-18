@@ -5794,7 +5794,13 @@
       "time": "الوقت",
       "duration": "المدة",
       "date": "التاريخ",
+      "paper": "الورقة",
+      "singlePaper": "—",
       "groupExamCount": "{count, plural, zero {لا امتحانات} one {امتحان واحد} two {امتحانان} few {# امتحانات} many {# امتحانًا} other {# امتحان}}",
+      "print": "طباعة",
+      "export": "تصدير",
+      "exportXlsx": "Excel (.xlsx)",
+      "exportPdf": "PDF",
       "validationRequired": "يرجى ملء جميع الحقول المطلوبة."
     },
     "examSchedules": {

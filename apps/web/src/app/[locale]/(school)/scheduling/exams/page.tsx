@@ -5,8 +5,12 @@ import {
   BookOpen,
   Calendar,
   ChevronRight,
+  Download,
+  FileSpreadsheet,
+  FileText,
   Loader2,
   Plus,
+  Printer,
   Sparkles,
   Trash2,
   UserCheck,
@@ -22,6 +26,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   Label,
   Select,
@@ -34,6 +42,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { exportToExcel, exportToPdf } from '@/lib/export-utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,17 +63,31 @@ interface ExamSession {
   unassigned_count: number;
 }
 
+interface ExamSlotRoom {
+  id: string;
+  room_id: string;
+  room_name: string | null;
+  capacity: number;
+}
+
+interface ExamSlotInvigilator {
+  staff_profile_id: string;
+  name: string;
+  role: 'lead' | 'assistant';
+}
+
 interface ExamSlot {
   id: string;
-  subject_name: string;
-  year_group_name: string;
+  subject_name: string | null;
+  year_group_name: string | null;
+  paper_number: 1 | 2 | null;
   date: string;
   start_time: string;
   end_time: string;
-  room_name: string | null;
+  rooms: ExamSlotRoom[];
   duration_minutes: number;
   student_count: number;
-  invigilators: Array<{ name: string; role: 'lead' | 'assistant' }>;
+  invigilators: ExamSlotInvigilator[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -109,6 +132,120 @@ function groupSlotsByYearGroup(
   });
 
   return ordered.map(({ yearGroupName, rows }) => ({ yearGroupName, rows }));
+}
+
+// Flatten a year-group's slots into plain rows for export + print. Mirrors the
+// on-screen table columns so the exported/printed artefact matches what the
+// user sees.
+function buildExportRows(
+  rows: ExamSlot[],
+  headers: {
+    date: string;
+    time: string;
+    subject: string;
+    paper: string;
+    duration: string;
+    rooms: string;
+    students: string;
+    invigilators: string;
+  },
+  singlePaperLabel: string,
+): {
+  columns: Array<{ header: string; key: string }>;
+  dataRows: Array<Record<string, string | number>>;
+} {
+  const columns = [
+    { header: headers.date, key: 'date' },
+    { header: headers.time, key: 'time' },
+    { header: headers.subject, key: 'subject' },
+    { header: headers.paper, key: 'paper' },
+    { header: headers.duration, key: 'duration' },
+    { header: headers.rooms, key: 'rooms' },
+    { header: headers.students, key: 'students' },
+    { header: headers.invigilators, key: 'invigilators' },
+  ];
+  const dataRows = rows.map((s) => ({
+    date: new Date(s.date).toLocaleDateString(),
+    time: `${s.start_time} – ${s.end_time}`,
+    subject: s.subject_name ?? '—',
+    paper: s.paper_number ? `P${s.paper_number}` : singlePaperLabel,
+    duration: `${s.duration_minutes}m`,
+    rooms: s.rooms.length === 0 ? '—' : s.rooms.map((r) => r.room_name ?? '—').join(', '),
+    students: s.student_count,
+    invigilators: s.invigilators.length === 0 ? '—' : s.invigilators.map((i) => i.name).join(', '),
+  }));
+  return { columns, dataRows };
+}
+
+// Opens a new window with a self-contained HTML table styled for landscape
+// printing, then auto-triggers the print dialog. Using a separate window
+// sidesteps the complexity of @media-print rules competing with the app shell.
+function printYearGroupTable(
+  title: string,
+  columns: Array<{ header: string; key: string }>,
+  dataRows: Array<Record<string, string | number>>,
+): void {
+  const escape = (v: unknown): string =>
+    String(v ?? '').replace(/[&<>"']/g, (c) => {
+      switch (c) {
+        case '&':
+          return '&amp;';
+        case '<':
+          return '&lt;';
+        case '>':
+          return '&gt;';
+        case '"':
+          return '&quot;';
+        default:
+          return '&#39;';
+      }
+    });
+
+  const headHtml = columns.map((c) => `<th>${escape(c.header)}</th>`).join('');
+  const bodyHtml = dataRows
+    .map((r) => `<tr>${columns.map((c) => `<td>${escape(r[c.key])}</td>`).join('')}</tr>`)
+    .join('');
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>${escape(title)}</title>
+<style>
+  @page { size: landscape; margin: 1cm; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; color: #111; margin: 0; padding: 16px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { font-size: 11px; color: #666; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: start; vertical-align: top; }
+  th { background: #f3f4f6; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.03em; }
+  tr:nth-child(even) td { background: #fafafa; }
+</style>
+</head>
+<body>
+  <h1>${escape(title)}</h1>
+  <div class="sub">${escape(new Date().toLocaleDateString())}</div>
+  <table>
+    <thead><tr>${headHtml}</tr></thead>
+    <tbody>${bodyHtml}</tbody>
+  </table>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank', 'width=1100,height=800');
+  if (!w) {
+    toast.error('Pop-up blocked — allow pop-ups to print.');
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  // Give the new window a beat to lay out before invoking print.
+  setTimeout(() => {
+    w.print();
+  }, 250);
 }
 
 // ─── Create Session Modal ─────────────────────────────────────────────────────
@@ -449,7 +586,7 @@ function SessionDetail({ session, onBack }: { session: ExamSession; onBack: () =
     setLoading(true);
     try {
       const res = await apiClient<{ data: ExamSlot[] }>(
-        `/api/v1/scheduling/exam-sessions/${session.id}/slots`,
+        `/api/v1/scheduling/exam-sessions/${session.id}/slots-detailed`,
       );
       setSlots(res.data ?? []);
     } catch (err) {
@@ -593,75 +730,146 @@ function SessionDetail({ session, onBack }: { session: ExamSession; onBack: () =
         </div>
       ) : (
         <div className="space-y-4">
-          {groupSlotsByYearGroup(slots).map(({ yearGroupName, rows }) => (
-            <div key={yearGroupName} className="rounded-2xl border border-border bg-surface">
-              <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
-                <h4 className="text-base font-semibold text-text-primary">{yearGroupName}</h4>
-                <span className="text-xs text-text-tertiary">
-                  {t('groupExamCount', { count: rows.length })}
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-secondary">
-                      {[
-                        t('date'),
-                        t('time'),
-                        t('subject'),
-                        t('duration'),
-                        t('room'),
-                        t('students'),
-                        t('invigilators'),
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary"
+          {groupSlotsByYearGroup(slots).map(({ yearGroupName, rows }) => {
+            const exportHeaders = {
+              date: t('date'),
+              time: t('time'),
+              subject: t('subject'),
+              paper: t('paper'),
+              duration: t('duration'),
+              rooms: t('room'),
+              students: t('students'),
+              invigilators: t('invigilators'),
+            };
+            const { columns: exportColumns, dataRows: exportData } = buildExportRows(
+              rows,
+              exportHeaders,
+              t('singlePaper'),
+            );
+            const exportTitle = `${session.name} — ${yearGroupName}`;
+            const fileName = `${session.name}-${yearGroupName}`
+              .replace(/\s+/g, '-')
+              .replace(/[^a-zA-Z0-9_-]+/g, '');
+
+            return (
+              <div key={yearGroupName} className="rounded-2xl border border-border bg-surface">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <h4 className="text-base font-semibold text-text-primary">{yearGroupName}</h4>
+                    <span className="text-xs text-text-tertiary">
+                      {t('groupExamCount', { count: rows.length })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => printYearGroupTable(exportTitle, exportColumns, exportData)}
+                    >
+                      <Printer className="h-4 w-4 me-1.5" />
+                      {t('print')}
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Download className="h-4 w-4 me-1.5" />
+                          {t('export')}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() =>
+                            exportToExcel({
+                              fileName,
+                              title: exportTitle,
+                              columns: exportColumns,
+                              rows: exportData,
+                            })
+                          }
                         >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((slot) => (
-                      <tr
-                        key={slot.id}
-                        className="border-b border-border last:border-b-0 hover:bg-surface-secondary/50"
-                      >
-                        <td className="px-3 py-2 text-text-secondary">
-                          {new Date(slot.date).toLocaleDateString()}
-                        </td>
-                        <td className="px-3 py-2 text-text-secondary font-mono text-xs" dir="ltr">
-                          {slot.start_time} – {slot.end_time}
-                        </td>
-                        <td className="px-3 py-2 font-medium text-text-primary">
-                          {slot.subject_name}
-                        </td>
-                        <td className="px-3 py-2 text-text-secondary">{slot.duration_minutes}m</td>
-                        <td className="px-3 py-2 text-text-secondary">{slot.room_name ?? '—'}</td>
-                        <td className="px-3 py-2 text-text-secondary">{slot.student_count}</td>
-                        <td className="px-3 py-2">
-                          {(slot.invigilators ?? []).length === 0 ? (
-                            <span className="text-text-tertiary">—</span>
-                          ) : (
-                            <div className="space-y-0.5">
-                              {(slot.invigilators ?? []).map((inv, i) => (
-                                <p key={i} className="text-xs text-text-secondary">
-                                  {inv.name}{' '}
-                                  <span className="text-text-tertiary">({inv.role})</span>
-                                </p>
-                              ))}
-                            </div>
-                          )}
-                        </td>
+                          <FileSpreadsheet className="h-4 w-4 me-2" />
+                          {t('exportXlsx')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            exportToPdf({
+                              fileName,
+                              title: exportTitle,
+                              columns: exportColumns,
+                              rows: exportData,
+                            })
+                          }
+                        >
+                          <FileText className="h-4 w-4 me-2" />
+                          {t('exportPdf')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-surface-secondary">
+                        {[
+                          t('date'),
+                          t('time'),
+                          t('subject'),
+                          t('paper'),
+                          t('duration'),
+                          t('room'),
+                          t('students'),
+                          t('invigilators'),
+                        ].map((h) => (
+                          <th
+                            key={h}
+                            className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary"
+                          >
+                            {h}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {rows.map((slot) => (
+                        <tr
+                          key={slot.id}
+                          className="border-b border-border last:border-b-0 hover:bg-surface-secondary/50"
+                        >
+                          <td className="px-3 py-2 text-text-secondary">
+                            {new Date(slot.date).toLocaleDateString()}
+                          </td>
+                          <td className="px-3 py-2 text-text-secondary font-mono text-xs" dir="ltr">
+                            {slot.start_time} – {slot.end_time}
+                          </td>
+                          <td className="px-3 py-2 font-medium text-text-primary">
+                            {slot.subject_name ?? '—'}
+                          </td>
+                          <td className="px-3 py-2 text-text-secondary">
+                            {slot.paper_number ? `P${slot.paper_number}` : t('singlePaper')}
+                          </td>
+                          <td className="px-3 py-2 text-text-secondary">
+                            {slot.duration_minutes}m
+                          </td>
+                          <td className="px-3 py-2 text-text-secondary">
+                            {slot.rooms.length === 0
+                              ? '—'
+                              : slot.rooms.map((r) => r.room_name ?? '—').join(', ')}
+                          </td>
+                          <td className="px-3 py-2 text-text-secondary">{slot.student_count}</td>
+                          <td className="px-3 py-2 text-text-secondary">
+                            {slot.invigilators.length === 0
+                              ? '—'
+                              : slot.invigilators.map((i) => i.name).join(', ')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

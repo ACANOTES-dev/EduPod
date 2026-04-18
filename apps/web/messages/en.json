@@ -5802,7 +5802,13 @@
       "time": "Time",
       "duration": "Duration",
       "date": "Date",
+      "paper": "Paper",
+      "singlePaper": "—",
       "groupExamCount": "{count, plural, one {# exam} other {# exams}}",
+      "print": "Print",
+      "export": "Export",
+      "exportXlsx": "Excel (.xlsx)",
+      "exportPdf": "PDF",
       "validationRequired": "Please fill in all required fields."
     },
     "examSchedules": {
