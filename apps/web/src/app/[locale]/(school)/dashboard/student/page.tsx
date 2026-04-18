@@ -142,6 +142,23 @@ export default function StudentDashboardPage() {
         <span className="text-xs font-medium text-primary group-hover:underline">→</span>
       </Link>
 
+      {/* Homework quick link (Wave 3) */}
+      <Link
+        href={`/${locale}/dashboard/student/homework`}
+        className="group flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 p-4 shadow-sm transition-colors hover:bg-primary/10"
+      >
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
+            <BookOpen className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-text-primary">{t('myHomework')}</p>
+            <p className="text-xs text-text-secondary">{t('myHomeworkDesc')}</p>
+          </div>
+        </div>
+        <span className="text-xs font-medium text-primary group-hover:underline">→</span>
+      </Link>
+
       {/* Quick stats row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm">

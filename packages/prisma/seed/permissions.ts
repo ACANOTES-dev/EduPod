@@ -964,6 +964,11 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     description: 'View homework, mark self-reported completion, diary notes',
     permission_tier: 'parent',
   },
+  {
+    permission_key: 'homework.submit.own',
+    description: 'Student: view own homework assignments and submit work',
+    permission_tier: 'parent',
+  },
 
   // ─── Inbox / Messaging ────────────────────────────────────────────────────
   {

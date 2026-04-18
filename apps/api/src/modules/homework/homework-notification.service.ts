@@ -5,6 +5,7 @@ import type { AudienceDefinition } from '@school/shared/inbox';
 import { NotificationsService } from '../communications/notifications.service';
 import { AudienceResolutionService } from '../inbox/audience/audience-resolution.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ export class HomeworkNotificationService {
     private readonly prisma: PrismaService,
     private readonly audienceResolution: AudienceResolutionService,
     private readonly notificationsService: NotificationsService,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {}
 
   /**
@@ -183,5 +185,160 @@ export class HomeworkNotificationService {
       students_count: 0,
       recipients_count: preview.count,
     };
+  }
+
+  // ─── Wave 3 submission notifications ────────────────────────────────────────
+
+  /**
+   * Notify the teacher that a student has submitted work. One in-app row
+   * to the `assigned_by_user_id` of the homework.
+   */
+  async notifyOnSubmit(
+    tenantId: string,
+    homeworkId: string,
+    submissionId: string,
+    studentId: string,
+    teacherUserId: string,
+  ): Promise<void> {
+    const [assignment, student] = await Promise.all([
+      this.prisma.homeworkAssignment.findFirst({
+        where: { id: homeworkId, tenant_id: tenantId },
+        select: {
+          id: true,
+          title: true,
+          class_entity: { select: { id: true, name: true } },
+          subject: { select: { id: true, name: true } },
+        },
+      }),
+      this.studentReadFacade.findById(tenantId, studentId),
+    ]);
+
+    if (!assignment || !student) return;
+
+    await this.notificationsService.createBatch(tenantId, [
+      {
+        tenant_id: tenantId,
+        recipient_user_id: teacherUserId,
+        channel: 'in_app',
+        template_key: 'homework_submitted',
+        locale: 'en',
+        payload_json: {
+          homework_id: homeworkId,
+          submission_id: submissionId,
+          title: assignment.title,
+          class_name: assignment.class_entity.name,
+          subject_name: assignment.subject?.name ?? null,
+          student_name: `${student.first_name} ${student.last_name}`.trim(),
+        },
+        source_entity_type: 'homework_submission',
+        source_entity_id: submissionId,
+      },
+    ]);
+  }
+
+  /**
+   * Notify the student (if they have a user account) and their parents
+   * that a submission has been returned for revision or graded.
+   *
+   * `templateKey` discriminates the copy on the client side —
+   * `homework_returned` vs `homework_graded`. Both use the same recipient
+   * resolution: student user_id (if linked) + class_parents of the
+   * student's enrolled class(es).
+   */
+  private async notifyStudentAndParents(
+    tenantId: string,
+    homeworkId: string,
+    submissionId: string,
+    studentId: string,
+    templateKey: 'homework_returned' | 'homework_graded',
+    extraPayload: Record<string, unknown> = {},
+  ): Promise<void> {
+    const [assignment, student] = await Promise.all([
+      this.prisma.homeworkAssignment.findFirst({
+        where: { id: homeworkId, tenant_id: tenantId },
+        select: {
+          id: true,
+          title: true,
+          class_entity: { select: { id: true, name: true } },
+          subject: { select: { id: true, name: true } },
+        },
+      }),
+      this.studentReadFacade.findById(tenantId, studentId),
+    ]);
+
+    if (!assignment || !student) return;
+
+    const payload_json = {
+      homework_id: homeworkId,
+      submission_id: submissionId,
+      title: assignment.title,
+      class_name: assignment.class_entity.name,
+      subject_name: assignment.subject?.name ?? null,
+      student_name: `${student.first_name} ${student.last_name}`.trim(),
+      ...extraPayload,
+    };
+
+    // Resolve parent user_ids via the inbox audience provider.
+    const resolved = await this.audienceResolution.resolve(tenantId, {
+      provider: 'class_parents',
+      params: { class_ids: [assignment.class_entity.id] },
+    });
+    const parentUserIds = new Set(resolved.user_ids);
+
+    const recipients = new Set<string>(parentUserIds);
+    if (student.user_id) recipients.add(student.user_id);
+
+    if (recipients.size === 0) return;
+
+    const notifications = Array.from(recipients).map((userId) => ({
+      tenant_id: tenantId,
+      recipient_user_id: userId,
+      channel: 'in_app',
+      template_key: templateKey,
+      locale: 'en',
+      payload_json,
+      source_entity_type: 'homework_submission',
+      source_entity_id: submissionId,
+    }));
+
+    await this.notificationsService.createBatch(tenantId, notifications);
+  }
+
+  async notifyOnReturn(
+    tenantId: string,
+    homeworkId: string,
+    submissionId: string,
+    studentId: string,
+    teacherFeedback: string | null,
+  ): Promise<void> {
+    await this.notifyStudentAndParents(
+      tenantId,
+      homeworkId,
+      submissionId,
+      studentId,
+      'homework_returned',
+      { teacher_feedback: teacherFeedback },
+    );
+  }
+
+  async notifyOnGrade(
+    tenantId: string,
+    homeworkId: string,
+    submissionId: string,
+    studentId: string,
+    pointsAwarded: number | null,
+    teacherFeedback: string | null,
+  ): Promise<void> {
+    await this.notifyStudentAndParents(
+      tenantId,
+      homeworkId,
+      submissionId,
+      studentId,
+      'homework_graded',
+      {
+        points_awarded: pointsAwarded,
+        teacher_feedback: teacherFeedback,
+      },
+    );
   }
 }

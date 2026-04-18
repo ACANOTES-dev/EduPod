@@ -986,10 +986,29 @@ withdrawn_appeal*
   archived*
   ```
 - **Side effects**:
-  - `draft -> published`: sets `published_at` timestamp, makes assignment visible to students/parents
+  - `draft -> published`: sets `published_at` timestamp, makes assignment visible to students/parents, fires `HomeworkNotificationService.notifyOnPublish` (Wave 2) — in-app fan-out to class parents
   - `published -> archived`: hides from default views but retains for analytics
 - **Guarded by**: `VALID_HOMEWORK_TRANSITIONS` in `packages/shared/src/constants/homework-status.ts` + enforced in `apps/api/src/modules/homework/homework.service.ts`
 - **Simplicity**: 3 states, 2 transitions — follows the published/archive pattern rather than the more complex finance or behaviour machines
+
+### HomeworkSubmissionStatus (Wave 3)
+
+- **Field**: `status` on `homework_submissions`
+- **Values**: `submitted`, `returned_for_revision`, `graded`
+- **Initial state**: `submitted` (row only exists once a student submits — there is no `not_submitted` row)
+- **Transitions**:
+  ```
+  submitted              -> [returned_for_revision, graded]
+  returned_for_revision  -> [submitted]   (student resubmits)
+  graded*                (terminal — teacher can edit the grade in place, but cannot revert status)
+  ```
+- **Side effects**:
+  - Initial `submitted`: computes `is_late` against `homework_assignments.due_date` + `due_time`; hard-rejected upfront if `homework_assignments.accept_late_submissions = false` and deadline has passed. Mirrors `HomeworkCompletion` to `status = completed`. Fires `HomeworkNotificationService.notifyOnSubmit` (teacher in-app).
+  - `submitted -> returned_for_revision`: set by `HomeworkCompletionsService.returnSubmission`. Downgrades the mirrored `HomeworkCompletion` to `in_progress` so the student sees it as outstanding again. Fires `HomeworkNotificationService.notifyOnReturn` (student + parents in-app).
+  - `returned_for_revision -> submitted`: student resubmits via `POST /v1/student/homework/:id/submit`; `version` increments; re-mirrors completion to `completed`.
+  - `* -> graded`: set by `HomeworkCompletionsService.gradeSubmission`. Stamps `graded_at`, `graded_by_user_id`, `points_awarded`, `teacher_feedback`. Fires `HomeworkNotificationService.notifyOnGrade` (student + parents in-app).
+- **Guarded by**: inline checks in `HomeworkStudentService.submit` (late policy, attachment locking after grade) and `HomeworkCompletionsService.gradeSubmission/returnSubmission` (rejects return on already-graded submissions).
+- **Invariants**: `version` increments on every state change (optimistic locking). `is_late` is immutable after initial submission — computed once at submission time against the assignment's deadline.
 
 ---
 

@@ -88,7 +88,7 @@ export class ParentTimetableService {
     return this.assembleForStudent(tenantId, studentId);
   }
 
-  /** Student-self view — resolves the student record by name match. */
+  /** Student-self view — resolves the student record via the user_id FK. */
   async getSelfTimetable(tenantId: string, userId: string): Promise<ParentTimetableResponse> {
     const user = await this.authReadFacade.findUserSummary(tenantId, userId);
     if (!user) {
@@ -98,11 +98,7 @@ export class ParentTimetableService {
       });
     }
 
-    const student = await this.studentReadFacade.findByUserName(
-      tenantId,
-      user.first_name,
-      user.last_name,
-    );
+    const student = await this.studentReadFacade.findByUserId(tenantId, userId);
     if (!student) {
       throw new ForbiddenException({
         code: 'STUDENT_PROFILE_NOT_FOUND',

@@ -470,6 +470,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       // Inbox — students hold the send bit; the policy engine decides whether
       // they may actually start or reply (default: reply-only on allow_replies).
       'inbox.send',
+      // Wave 3 homework — view own assignments + submit work.
+      'homework.submit.own',
     ],
   },
 ];

@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Copy, Edit, FileText, Link as Link2, Trash2, Video } from 'lucide-react';
+import { Bell, Copy, Edit, FileText, Link as Link2, Send, Trash2, Video } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -232,6 +232,14 @@ export default function HomeworkDetailPage() {
               <Copy className="me-1 h-4 w-4" />
               {t('copy')}
             </Button>
+            {hw.status === 'published' && (
+              <Link href={`/${locale}/homework/${id}/submissions`}>
+                <Button variant="outline" size="sm">
+                  <Send className="me-1 h-4 w-4" />
+                  {t('submissions.title')}
+                </Button>
+              </Link>
+            )}
             {hw.status === 'draft' && (
               <Button size="sm" onClick={() => void openNotifyDialog('publish')}>
                 {t('publish')}

@@ -278,12 +278,13 @@ If a module is not listed individually, it is either:
 
 ### HomeworkModule
 
-- **Contract**: homework assignments/completions, diary notes, parent homework visibility, teacher class-authority gating for assignment writes, in-app parent notifications on publish
-- **Primary consumers**: parent digests, behaviour daily dispatch, class/student read paths, analytics
+- **Contract**: homework assignments/completions, diary notes, student submissions, parent homework visibility, teacher class-authority gating for assignment writes, in-app notifications on publish/submit/return/grade
+- **Primary consumers**: parent digests, behaviour daily dispatch, class/student read paths, analytics, student self-submission surface
 - **Dependencies added (Wave 1, 2026-04-18)**: `SchedulesReadFacade` (teacher-class authority via Schedule table) + `PermissionCacheService` (owner/principal/VP bypass) + `ClassesReadFacade.findById` (subject cross-check) + `AcademicReadFacade.findCurrentYearId` (resolve current year). `HomeworkAuthorityService.assertCanAssignHomework` gates `POST /v1/homework`, `PATCH /v1/homework/:id` (class/subject changes), `POST /v1/homework/:id/copy`, and `POST /v1/homework/bulk-create`.
 - **Dependencies added (Wave 2, 2026-04-18)**: `CommunicationsModule` (for `NotificationsService.createBatch`) + `InboxModule` (for `AudienceResolutionService` — resolves `class_parents` leaf). `HomeworkNotificationService.notifyOnPublish` writes in-app Notification rows for every parent of every enrolled student on every `draft → published` transition. No email / SMS / WhatsApp — paid third-party channels were intentionally removed from the module's scope for per-message cost discipline. Also wires `POST /v1/homework/:id/notify` (teacher-triggered re-notify) and `GET /v1/homework/:id/notification-preview` (parent count for confirmation dialogs).
+- **Dependencies added (Wave 3, 2026-04-19)**: `StudentReadFacade.findByUserId` (NEW, replaces broken `findByUserName` — requires `Student.user_id` FK added in the same migration). `HomeworkStudentController` (`v1/student/homework`) is the student-facing surface for listing + submitting work; gated by new `homework.submit.own` permission. `HomeworkCompletionsController` gains `GET /v1/homework/:id/submissions` and `POST /v1/homework/:id/submissions/:submissionId/{grade,return}` for the teacher grading grid. `HomeworkNotificationService` gains `notifyOnSubmit` (→ teacher), `notifyOnReturn` (→ student + parents), `notifyOnGrade` (→ student + parents) — all in-app.
 - **Blast radius**: MEDIUM-HIGH
-- **Notes**: exports are narrow, but worker automation and parent-facing surfaces depend on its table contracts. New `GET /v1/homework/my-classes` endpoint is the teacher-facing entry point backed by `SchedulesReadFacade.findClassesTaughtByTeacher`.
+- **Notes**: exports are narrow, but worker automation and parent-facing surfaces depend on its table contracts. New `GET /v1/homework/my-classes` endpoint is the teacher-facing entry point backed by `SchedulesReadFacade.findClassesTaughtByTeacher`. **Wave 3 schema** adds `HomeworkSubmission` + `HomeworkSubmissionAttachment` tables, plus `Student.user_id` FK (fixes a latent cross-student data-leakage bug — see Live Drift notes below).
 
 ### RegulatoryModule
 

@@ -26,6 +26,8 @@ import { HomeworkNotificationService } from './homework-notification.service';
 import { HomeworkParentController } from './homework-parent.controller';
 import { HomeworkParentService } from './homework-parent.service';
 import { HomeworkStudentAnalyticsService } from './homework-student-analytics.service';
+import { HomeworkStudentController } from './homework-student.controller';
+import { HomeworkStudentService } from './homework-student.service';
 import { HomeworkController } from './homework.controller';
 import { HomeworkService } from './homework.service';
 
@@ -50,6 +52,7 @@ import { HomeworkService } from './homework.service';
     HomeworkDiaryController,
     HomeworkParentController,
     HomeworkAnalyticsController,
+    HomeworkStudentController,
   ],
   providers: [
     HomeworkService,
@@ -62,6 +65,7 @@ import { HomeworkService } from './homework.service';
     HomeworkCompletionAnalyticsService,
     HomeworkLoadAnalyticsService,
     HomeworkStudentAnalyticsService,
+    HomeworkStudentService,
   ],
   exports: [HomeworkService, HomeworkCompletionsService],
 })

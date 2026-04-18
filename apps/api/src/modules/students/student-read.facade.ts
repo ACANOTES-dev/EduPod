@@ -47,6 +47,7 @@ const STUDENT_DISPLAY_SELECT = {
   gender: true,
   date_of_birth: true,
   status: true,
+  user_id: true,
   year_group_id: true,
   class_homeroom_id: true,
   household_id: true,
@@ -78,6 +79,7 @@ export interface StudentDisplayRow {
   gender: string | null;
   date_of_birth: Date;
   status: string;
+  user_id: string | null;
   year_group_id: string | null;
   class_homeroom_id: string | null;
   household_id: string;
@@ -612,14 +614,15 @@ export class StudentReadFacade {
   // ─── Student-user resolution ────────────────────────────────────────────
 
   /**
-   * Resolve a student record from a user's name within a tenant.
-   * Used by the student dashboard — students don't have a direct user_id
-   * FK; the linkage is by name convention.
+   * Resolve a student record from the authenticated user's id. The FK is
+   * enforced unique per tenant by `idx_students_tenant_user`, so at most
+   * one row is returned. Students without a linked user (the majority
+   * today, until student logins are seeded) are invisible to this lookup
+   * — that is the desired behaviour.
    */
-  async findByUserName(
+  async findByUserId(
     tenantId: string,
-    firstName: string,
-    lastName: string,
+    userId: string,
   ): Promise<{
     id: string;
     first_name: string;
@@ -631,8 +634,7 @@ export class StudentReadFacade {
     const student = await this.prisma.student.findFirst({
       where: {
         tenant_id: tenantId,
-        first_name: firstName,
-        last_name: lastName,
+        user_id: userId,
         status: 'active',
       },
       include: {

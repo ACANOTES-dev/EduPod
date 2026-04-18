@@ -559,6 +559,18 @@ The compute-student processor validates `early_warning_configs.is_enabled` and `
 
 ---
 
+## DZ-35: Student → User linkage via name matching — ✅ CLOSED 2026-04-19 (Wave 3)
+
+**Risk (historical)**: `StudentReadFacade.findByUserName(tenant, firstName, lastName)` used `prisma.student.findFirst({ where: { first_name, last_name } })` — a silent first-match-wins query. When two students in a tenant share a name (e.g., two "Jane Smith"s — guaranteed to happen in any school with more than a few hundred students), an arbitrary row was returned. Under RLS this meant student A could log in and see student B's grades, timetable, report cards, and (once Wave 3 shipped) homework submissions. Cross-student data leakage inside a tenant — the exact failure mode RLS exists to prevent.
+
+**Status**: Resolved in the Wave 3 migration `20260418220000_add_student_user_id_and_homework_submissions`:
+
+- Added nullable `students.user_id UUID` column with FK to `users(id) ON DELETE SET NULL`.
+- Partial unique index `(tenant_id, user_id) WHERE user_id IS NOT NULL` guarantees one student per user per tenant at the database layer.
+- Replaced `findByUserName` → `findByUserId` (single method). The three callers — `DashboardService.student`, `ParentTimetableService.getSelfTimetable`, and the new `HomeworkStudentService` — all resolve the student record via the FK; name matching has been removed from the codebase.
+- Adam Moore (the only seeded student user to date) is backfilled in `post_migrate.sql` via an email-local-part match (idempotent, safe to re-run).
+- Side effect: `ClassStudentsAudienceProvider` can now resolve student user_ids too — the inbox team's pending "Wave 4 student audience" work is partially unblocked.
+
 ## DZ-33: Homework — Dual Dispatch Paths With Payload Contract Drift — ✅ CLOSED 2026-04-18 (Wave 2)
 
 **Status**: Resolved in the homework Wave 2 fix. `HomeworkDigestProcessor` and `HomeworkCompletionReminderProcessor` now branch on `job.data.tenant_id`: when present, they process that single tenant (behaviour-dispatch path); when absent, they iterate `tenant.findMany({ where: { status: 'active' } })` and run per tenant (direct cron path). Both dispatch paths are now valid; the repeatable cron registrations in `CronSchedulerService.registerHomeworkCronJobs()` no longer silently fail. See `apps/worker/src/processors/homework/digest-homework.processor.spec.ts` and `completion-reminder.processor.spec.ts` for regression coverage (cross-tenant fan-out + legacy direct-enqueue suites).

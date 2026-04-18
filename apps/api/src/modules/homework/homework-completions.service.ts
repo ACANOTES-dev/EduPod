@@ -16,6 +16,18 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import type { BulkMarkCompletionDto, MarkCompletionDto } from './dto/mark-completion.dto';
+import { HomeworkNotificationService } from './homework-notification.service';
+
+// ─── DTOs ─────────────────────────────────────────────────────────────────────
+
+export interface GradeSubmissionDto {
+  points_awarded?: number | null;
+  teacher_feedback?: string | null;
+}
+
+export interface ReturnSubmissionDto {
+  teacher_feedback: string;
+}
 
 @Injectable()
 export class HomeworkCompletionsService {
@@ -26,6 +38,7 @@ export class HomeworkCompletionsService {
     private readonly tenantReadFacade: TenantReadFacade,
     private readonly parentReadFacade: ParentReadFacade,
     private readonly classesReadFacade: ClassesReadFacade,
+    private readonly homeworkNotification: HomeworkNotificationService,
   ) {}
 
   // ─── List completions for an assignment ─────────────────────────────────────
@@ -286,6 +299,171 @@ export class HomeworkCompletionsService {
     );
 
     return { data: results, count: results.length };
+  }
+
+  // ─── List submissions for an assignment (Wave 3) ────────────────────────────
+
+  async listSubmissions(tenantId: string, homeworkId: string) {
+    const assignment = await this.findPublishedAssignment(tenantId, homeworkId);
+
+    const submissions = await this.prisma.homeworkSubmission.findMany({
+      where: {
+        tenant_id: tenantId,
+        homework_assignment_id: assignment.id,
+      },
+      include: {
+        student: {
+          select: { id: true, first_name: true, last_name: true, student_number: true },
+        },
+        attachments: { orderBy: { display_order: 'asc' } },
+      },
+      orderBy: { submitted_at: 'desc' },
+    });
+
+    return {
+      data: submissions,
+      assignment: {
+        id: assignment.id,
+        title: assignment.title,
+        max_points: assignment.max_points,
+      },
+    };
+  }
+
+  // ─── Grade / return submissions (Wave 3) ────────────────────────────────────
+
+  async gradeSubmission(
+    tenantId: string,
+    homeworkId: string,
+    submissionId: string,
+    userId: string,
+    dto: GradeSubmissionDto,
+  ) {
+    const submission = await this.prisma.homeworkSubmission.findFirst({
+      where: {
+        id: submissionId,
+        tenant_id: tenantId,
+        homework_assignment_id: homeworkId,
+      },
+      select: { id: true, student_id: true, status: true },
+    });
+
+    if (!submission) {
+      throw new NotFoundException({
+        code: 'SUBMISSION_NOT_FOUND',
+        message: `Submission with id "${submissionId}" not found on homework "${homeworkId}"`,
+      });
+    }
+
+    const now = new Date();
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const updated = await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      return db.homeworkSubmission.update({
+        where: { id: submissionId },
+        data: {
+          status: 'graded',
+          graded_at: now,
+          graded_by_user_id: userId,
+          points_awarded: dto.points_awarded ?? null,
+          teacher_feedback: dto.teacher_feedback ?? null,
+          version: { increment: 1 },
+        },
+      });
+    });
+
+    try {
+      await this.homeworkNotification.notifyOnGrade(
+        tenantId,
+        homeworkId,
+        submissionId,
+        submission.student_id,
+        dto.points_awarded ?? null,
+        dto.teacher_feedback ?? null,
+      );
+    } catch (err) {
+      this.logger.error(
+        `[gradeSubmission] Graded submission ${submissionId} but notification failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    return updated;
+  }
+
+  async returnSubmission(
+    tenantId: string,
+    homeworkId: string,
+    submissionId: string,
+    userId: string,
+    dto: ReturnSubmissionDto,
+  ) {
+    const submission = await this.prisma.homeworkSubmission.findFirst({
+      where: {
+        id: submissionId,
+        tenant_id: tenantId,
+        homework_assignment_id: homeworkId,
+      },
+      select: { id: true, student_id: true, status: true },
+    });
+
+    if (!submission) {
+      throw new NotFoundException({
+        code: 'SUBMISSION_NOT_FOUND',
+        message: `Submission with id "${submissionId}" not found on homework "${homeworkId}"`,
+      });
+    }
+
+    if (submission.status === 'graded') {
+      throw new BadRequestException({
+        code: 'SUBMISSION_ALREADY_GRADED',
+        message: 'Graded submissions cannot be returned for revision',
+      });
+    }
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const updated = await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      // Move completion back to in_progress so the student sees the
+      // assignment as needing attention again.
+      await db.homeworkCompletion.updateMany({
+        where: {
+          tenant_id: tenantId,
+          homework_assignment_id: homeworkId,
+          student_id: submission.student_id,
+        },
+        data: { status: 'in_progress', completed_at: null },
+      });
+
+      return db.homeworkSubmission.update({
+        where: { id: submissionId },
+        data: {
+          status: 'returned_for_revision',
+          teacher_feedback: dto.teacher_feedback,
+          graded_by_user_id: userId,
+          version: { increment: 1 },
+        },
+      });
+    });
+
+    try {
+      await this.homeworkNotification.notifyOnReturn(
+        tenantId,
+        homeworkId,
+        submissionId,
+        submission.student_id,
+        dto.teacher_feedback,
+      );
+    } catch (err) {
+      this.logger.error(
+        `[returnSubmission] Returned submission ${submissionId} but notification failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    return updated;
   }
 
   // ─── Completion rate for an assignment ──────────────────────────────────────

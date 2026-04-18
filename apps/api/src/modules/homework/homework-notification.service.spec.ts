@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationsService } from '../communications/notifications.service';
 import { AudienceResolutionService } from '../inbox/audience/audience-resolution.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { HomeworkNotificationService } from './homework-notification.service';
 
@@ -90,6 +91,7 @@ describe('HomeworkNotificationService — notifyOnPublish', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: AudienceResolutionService, useValue: audience },
         { provide: NotificationsService, useValue: notifications },
+        { provide: StudentReadFacade, useValue: { findById: jest.fn() } },
       ],
     }).compile();
 
@@ -233,6 +235,7 @@ describe('HomeworkNotificationService — previewRecipientCount', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: AudienceResolutionService, useValue: audience },
         { provide: NotificationsService, useValue: notifications },
+        { provide: StudentReadFacade, useValue: { findById: jest.fn() } },
       ],
     }).compile();
 

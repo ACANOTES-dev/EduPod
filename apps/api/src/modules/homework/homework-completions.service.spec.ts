@@ -1,10 +1,28 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, ParentReadFacade, ClassesReadFacade, TenantReadFacade } from '../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  ParentReadFacade,
+  ClassesReadFacade,
+  TenantReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { HomeworkCompletionsService } from './homework-completions.service';
+import { HomeworkNotificationService } from './homework-notification.service';
+
+function buildMockHomeworkNotification() {
+  return {
+    notifyOnPublish: jest.fn().mockResolvedValue(undefined),
+    previewRecipientCount: jest
+      .fn()
+      .mockResolvedValue({ parents_count: 0, students_count: 0, recipients_count: 0 }),
+    notifyOnSubmit: jest.fn().mockResolvedValue(undefined),
+    notifyOnReturn: jest.fn().mockResolvedValue(undefined),
+    notifyOnGrade: jest.fn().mockResolvedValue(undefined),
+  };
+}
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -29,9 +47,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(
-        async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -87,12 +103,11 @@ describe('HomeworkCompletionsService — listCompletions', () => {
         ...MOCK_FACADE_PROVIDERS,
         HomeworkCompletionsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: HomeworkNotificationService, useValue: buildMockHomeworkNotification() },
       ],
     }).compile();
 
-    service = module.get<HomeworkCompletionsService>(
-      HomeworkCompletionsService,
-    );
+    service = module.get<HomeworkCompletionsService>(HomeworkCompletionsService);
   });
 
   afterEach(async () => {
@@ -102,9 +117,7 @@ describe('HomeworkCompletionsService — listCompletions', () => {
 
   it('should return completions for a published assignment', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(publishedAssignment);
-    const completions = [
-      { id: 'c1', student_id: STUDENT_ID, status: 'completed' },
-    ];
+    const completions = [{ id: 'c1', student_id: STUDENT_ID, status: 'completed' }];
     mockPrisma.homeworkCompletion.findMany.mockResolvedValue(completions);
 
     const result = await service.listCompletions(TENANT_ID, HOMEWORK_ID);
@@ -133,17 +146,17 @@ describe('HomeworkCompletionsService — listCompletions', () => {
   it('should throw NotFoundException when assignment not found', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.listCompletions(TENANT_ID, HOMEWORK_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.listCompletions(TENANT_ID, HOMEWORK_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should throw BadRequestException when assignment is not published', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(draftAssignment);
 
-    await expect(
-      service.listCompletions(TENANT_ID, HOMEWORK_ID),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.listCompletions(TENANT_ID, HOMEWORK_ID)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 });
 
@@ -180,12 +193,11 @@ describe('HomeworkCompletionsService — studentSelfReport', () => {
         { provide: ParentReadFacade, useValue: mockParentFacade },
         { provide: ClassesReadFacade, useValue: mockClassesFacade },
         { provide: TenantReadFacade, useValue: mockTenantFacade },
+        { provide: HomeworkNotificationService, useValue: buildMockHomeworkNotification() },
       ],
     }).compile();
 
-    service = module.get<HomeworkCompletionsService>(
-      HomeworkCompletionsService,
-    );
+    service = module.get<HomeworkCompletionsService>(HomeworkCompletionsService);
   });
 
   afterEach(async () => {
@@ -281,12 +293,11 @@ describe('HomeworkCompletionsService — teacherUpdate', () => {
         ...MOCK_FACADE_PROVIDERS,
         HomeworkCompletionsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: HomeworkNotificationService, useValue: buildMockHomeworkNotification() },
       ],
     }).compile();
 
-    service = module.get<HomeworkCompletionsService>(
-      HomeworkCompletionsService,
-    );
+    service = module.get<HomeworkCompletionsService>(HomeworkCompletionsService);
   });
 
   afterEach(async () => {
@@ -306,13 +317,7 @@ describe('HomeworkCompletionsService — teacherUpdate', () => {
     mockRlsTx.homeworkCompletion.upsert.mockResolvedValue(upserted);
 
     const dto = { status: 'completed' as const, notes: 'Well done' };
-    const result = await service.teacherUpdate(
-      TENANT_ID,
-      HOMEWORK_ID,
-      STUDENT_ID,
-      USER_ID,
-      dto,
-    );
+    const result = await service.teacherUpdate(TENANT_ID, HOMEWORK_ID, STUDENT_ID, USER_ID, dto);
 
     expect(result).toEqual(upserted);
     const upsertCall = mockRlsTx.homeworkCompletion.upsert.mock.calls[0][0];
@@ -340,13 +345,9 @@ describe('HomeworkCompletionsService — teacherUpdate', () => {
       status: 'completed',
     });
 
-    const result = await service.teacherUpdate(
-      TENANT_ID,
-      HOMEWORK_ID,
-      STUDENT_ID,
-      USER_ID,
-      { status: 'completed' },
-    );
+    const result = await service.teacherUpdate(TENANT_ID, HOMEWORK_ID, STUDENT_ID, USER_ID, {
+      status: 'completed',
+    });
 
     expect(result).toBeDefined();
     expect(mockRlsTx.homeworkCompletion.upsert).toHaveBeenCalledTimes(1);
@@ -369,12 +370,11 @@ describe('HomeworkCompletionsService — bulkMark', () => {
         ...MOCK_FACADE_PROVIDERS,
         HomeworkCompletionsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: HomeworkNotificationService, useValue: buildMockHomeworkNotification() },
       ],
     }).compile();
 
-    service = module.get<HomeworkCompletionsService>(
-      HomeworkCompletionsService,
-    );
+    service = module.get<HomeworkCompletionsService>(HomeworkCompletionsService);
   });
 
   afterEach(async () => {
@@ -450,12 +450,11 @@ describe('HomeworkCompletionsService — getCompletionRate', () => {
         HomeworkCompletionsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ClassesReadFacade, useValue: mockClassesFacadeRate },
+        { provide: HomeworkNotificationService, useValue: buildMockHomeworkNotification() },
       ],
     }).compile();
 
-    service = module.get<HomeworkCompletionsService>(
-      HomeworkCompletionsService,
-    );
+    service = module.get<HomeworkCompletionsService>(HomeworkCompletionsService);
   });
 
   afterEach(async () => {
@@ -501,9 +500,9 @@ describe('HomeworkCompletionsService — getCompletionRate', () => {
   it('should throw NotFoundException when assignment not found', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.getCompletionRate(TENANT_ID, HOMEWORK_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.getCompletionRate(TENANT_ID, HOMEWORK_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should count all status types correctly', async () => {

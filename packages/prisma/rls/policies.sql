@@ -2624,3 +2624,19 @@ DROP POLICY IF EXISTS tenant_scheduling_settings_tenant_isolation ON tenant_sche
 CREATE POLICY tenant_scheduling_settings_tenant_isolation ON tenant_scheduling_settings
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- Homework Submissions (Wave 3)
+ALTER TABLE homework_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE homework_submissions FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS homework_submissions_tenant_isolation ON homework_submissions;
+CREATE POLICY homework_submissions_tenant_isolation ON homework_submissions
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- Homework Submission Attachments (Wave 3)
+ALTER TABLE homework_submission_attachments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE homework_submission_attachments FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS homework_submission_attachments_tenant_isolation ON homework_submission_attachments;
+CREATE POLICY homework_submission_attachments_tenant_isolation ON homework_submission_attachments
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);

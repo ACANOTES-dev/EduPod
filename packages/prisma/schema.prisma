@@ -806,6 +806,8 @@ model Tenant {
   homework_attachments      HomeworkAttachment[]
   homework_completions      HomeworkCompletion[]
   homework_recurrence_rules HomeworkRecurrenceRule[]
+  homework_submissions      HomeworkSubmission[]
+  homework_submission_attachments HomeworkSubmissionAttachment[]
   diary_notes               DiaryNote[]
   diary_parent_notes        DiaryParentNote[]
 
@@ -1094,6 +1096,7 @@ model User {
   // P2 Relations
   staff_profiles StaffProfile[]
   parents        Parent[]
+  students       Student[]
 
   // P3 Relations
   applications_reviewed    ApplicationNote[]
@@ -1324,6 +1327,7 @@ model User {
   // Homework Relations
   hw_assignments          HomeworkAssignment[] @relation("hw_assigned_by")
   hw_verified_completions HomeworkCompletion[] @relation("hw_verified_by")
+  hw_graded_submissions   HomeworkSubmission[] @relation("hw_submission_graded_by")
   hw_diary_parent_notes   DiaryParentNote[]    @relation("hw_diary_note_author")
 
   // Engagement Relations
@@ -1702,6 +1706,7 @@ model Student {
   id                        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                 String        @db.Uuid
   household_id              String        @db.Uuid
+  user_id                   String?       @db.Uuid
   student_number            String?       @db.VarChar(50)
   national_id               String?       @db.VarChar(50)
   first_name                String        @db.VarChar(100)
@@ -1730,6 +1735,7 @@ model Student {
   // Relations
   tenant                     Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   household                  Household                @relation(fields: [household_id], references: [id], onDelete: Cascade)
+  user                       User?                    @relation(fields: [user_id], references: [id], onDelete: SetNull)
   year_group                 YearGroup?               @relation(fields: [year_group_id], references: [id], onDelete: SetNull)
   homeroom_class             Class?                   @relation("homeroom_students", fields: [class_homeroom_id], references: [id], onDelete: SetNull)
   student_parents            StudentParent[]
@@ -1737,6 +1743,7 @@ model Student {
   attendance_records         AttendanceRecord[]
   daily_attendance_summaries DailyAttendanceSummary[]
   attendance_pattern_alerts  AttendancePatternAlert[]
+  homework_submissions       HomeworkSubmission[]
 
   // P5 Relations
   grades                 Grade[]
@@ -9735,25 +9742,26 @@ model EarlyWarningConfig {
 // ─── Homework & Diary ──────────────────────────────────────────────────────
 
 model HomeworkAssignment {
-  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id           String         @db.Uuid
-  class_id            String         @db.Uuid
-  subject_id          String?        @db.Uuid
-  academic_year_id    String         @db.Uuid
-  academic_period_id  String?        @db.Uuid
-  assigned_by_user_id String         @db.Uuid
-  title               String         @db.VarChar(255)
-  description         String?        @db.Text
-  homework_type       HomeworkType
-  status              HomeworkStatus @default(draft)
-  due_date            DateTime       @db.Date
-  due_time            DateTime?      @db.Time
-  published_at        DateTime?      @db.Timestamptz()
-  copied_from_id      String?        @db.Uuid
-  recurrence_rule_id  String?        @db.Uuid
-  max_points          Int?           @db.SmallInt
-  created_at          DateTime       @default(now()) @db.Timestamptz()
-  updated_at          DateTime       @default(now()) @updatedAt @db.Timestamptz()
+  id                      String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String         @db.Uuid
+  class_id                String         @db.Uuid
+  subject_id              String?        @db.Uuid
+  academic_year_id        String         @db.Uuid
+  academic_period_id      String?        @db.Uuid
+  assigned_by_user_id     String         @db.Uuid
+  title                   String         @db.VarChar(255)
+  description             String?        @db.Text
+  homework_type           HomeworkType
+  status                  HomeworkStatus @default(draft)
+  due_date                DateTime       @db.Date
+  due_time                DateTime?      @db.Time
+  accept_late_submissions Boolean        @default(true)
+  published_at            DateTime?      @db.Timestamptz()
+  copied_from_id          String?        @db.Uuid
+  recurrence_rule_id      String?        @db.Uuid
+  max_points              Int?           @db.SmallInt
+  created_at              DateTime       @default(now()) @db.Timestamptz()
+  updated_at              DateTime       @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant          Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -9767,12 +9775,71 @@ model HomeworkAssignment {
   recurrence_rule HomeworkRecurrenceRule? @relation(fields: [recurrence_rule_id], references: [id], onDelete: SetNull)
   attachments     HomeworkAttachment[]
   completions     HomeworkCompletion[]
+  submissions     HomeworkSubmission[]
 
   @@index([tenant_id, class_id, status], name: "idx_hw_assignments_class_status")
   @@index([tenant_id, due_date], name: "idx_hw_assignments_due_date")
   @@index([tenant_id, assigned_by_user_id], name: "idx_hw_assignments_assigned_by")
   @@index([tenant_id, academic_year_id], name: "idx_hw_assignments_year")
   @@map("homework_assignments")
+}
+
+enum HomeworkSubmissionStatus {
+  submitted
+  returned_for_revision
+  graded
+}
+
+model HomeworkSubmission {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String                   @db.Uuid
+  homework_assignment_id String                   @db.Uuid
+  student_id             String                   @db.Uuid
+  submitted_at           DateTime                 @default(now()) @db.Timestamptz()
+  submission_text        String?                  @db.Text
+  status                 HomeworkSubmissionStatus @default(submitted)
+  is_late                Boolean                  @default(false)
+  teacher_feedback       String?                  @db.Text
+  graded_by_user_id      String?                  @db.Uuid
+  graded_at              DateTime?                @db.Timestamptz()
+  points_awarded         Int?                     @db.SmallInt
+  version                Int                      @default(1)
+  created_at             DateTime                 @default(now()) @db.Timestamptz()
+  updated_at             DateTime                 @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant                         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assignment  HomeworkAssignment             @relation(fields: [homework_assignment_id], references: [id], onDelete: Cascade)
+  student     Student                        @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  graded_by   User?                          @relation("hw_submission_graded_by", fields: [graded_by_user_id], references: [id], onDelete: SetNull)
+  attachments HomeworkSubmissionAttachment[]
+
+  @@unique([tenant_id, homework_assignment_id, student_id], name: "idx_homework_submissions_tenant_assignment_student")
+  @@index([tenant_id, student_id], name: "idx_homework_submissions_tenant_student")
+  @@index([tenant_id, status], name: "idx_homework_submissions_tenant_status")
+  @@map("homework_submissions")
+}
+
+model HomeworkSubmissionAttachment {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String   @db.Uuid
+  homework_submission_id String   @db.Uuid
+  attachment_type        String   @db.VarChar(20)
+  file_name              String?  @db.VarChar(255)
+  file_key               String?  @db.VarChar(500)
+  file_size_bytes        Int?
+  mime_type              String?  @db.VarChar(100)
+  url                    String?  @db.Text
+  display_order          Int      @default(0) @db.SmallInt
+  created_at             DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  submission HomeworkSubmission @relation(fields: [homework_submission_id], references: [id], onDelete: Cascade)
+
+  @@index([homework_submission_id], name: "idx_homework_submission_attachments_submission")
+  @@index([tenant_id], name: "idx_homework_submission_attachments_tenant")
+  @@map("homework_submission_attachments")
 }
 
 model HomeworkAttachment {

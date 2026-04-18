@@ -376,13 +376,9 @@ export class DashboardService {
       });
     }
 
-    // Resolve the student record via StudentReadFacade — students don't
-    // have a direct user_id FK, so we match by name within the tenant.
-    const student = await this.studentReadFacade.findByUserName(
-      tenantId,
-      user.first_name,
-      user.last_name,
-    );
+    // Resolve the student record via the student.user_id FK. Unique per
+    // tenant — no ambiguity even with same-named students.
+    const student = await this.studentReadFacade.findByUserId(tenantId, userId);
 
     if (!student) {
       return {
