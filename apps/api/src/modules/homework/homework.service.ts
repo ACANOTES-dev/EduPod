@@ -4,13 +4,17 @@ import type { HomeworkStatus, HomeworkType } from '@school/shared';
 import { VALID_HOMEWORK_TRANSITIONS } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import type { CreateHomeworkDto } from './dto/create-homework.dto';
 import type { ListHomeworkQuery } from './dto/list-homework.dto';
 import type { UpdateHomeworkDto } from './dto/update-homework.dto';
+import { HomeworkAuthorityService } from './homework-authority.service';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -28,6 +32,11 @@ const ALLOWED_MIME_TYPES = [
 const BYTES_PER_MB = 1024 * 1024;
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
+
+export interface HomeworkActor {
+  user_id: string;
+  membership_id: string | null;
+}
 
 interface AddAttachmentDto {
   attachment_type: 'file' | 'link' | 'video';
@@ -97,11 +106,23 @@ export class HomeworkService {
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
     private readonly tenantReadFacade: TenantReadFacade,
+    private readonly homeworkAuthority: HomeworkAuthorityService,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
   ) {}
 
   // ─── Create ───────────────────────────────────────────────────────────────────
 
-  async create(tenantId: string, userId: string, dto: CreateHomeworkDto) {
+  async create(tenantId: string, actor: HomeworkActor, dto: CreateHomeworkDto) {
+    await this.homeworkAuthority.assertCanAssignHomework(
+      tenantId,
+      actor.user_id,
+      actor.membership_id,
+      dto.class_id,
+      dto.subject_id ?? null,
+    );
+
     const prismaWithRls = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -116,7 +137,7 @@ export class HomeworkService {
           subject_id: dto.subject_id ?? null,
           academic_year_id: dto.academic_year_id,
           academic_period_id: dto.academic_period_id ?? null,
-          assigned_by_user_id: userId,
+          assigned_by_user_id: actor.user_id,
           title: dto.title,
           description: dto.description ?? null,
           homework_type: dto.homework_type,
@@ -225,10 +246,10 @@ export class HomeworkService {
 
   // ─── Update ───────────────────────────────────────────────────────────────────
 
-  async update(tenantId: string, id: string, userId: string, dto: UpdateHomeworkDto) {
+  async update(tenantId: string, id: string, actor: HomeworkActor, dto: UpdateHomeworkDto) {
     const existing = await this.prisma.homeworkAssignment.findFirst({
       where: { id, tenant_id: tenantId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, class_id: true, subject_id: true },
     });
 
     if (!existing) {
@@ -244,6 +265,17 @@ export class HomeworkService {
         message: `Only draft assignments can be edited. Current status: "${existing.status}"`,
       });
     }
+
+    const targetClassId = dto.class_id ?? existing.class_id;
+    const targetSubjectId =
+      dto.subject_id === undefined ? existing.subject_id : (dto.subject_id ?? null);
+    await this.homeworkAuthority.assertCanAssignHomework(
+      tenantId,
+      actor.user_id,
+      actor.membership_id,
+      targetClassId,
+      targetSubjectId,
+    );
 
     const prismaWithRls = createRlsClient(this.prisma, {
       tenant_id: tenantId,
@@ -335,7 +367,7 @@ export class HomeworkService {
 
   // ─── Copy ─────────────────────────────────────────────────────────────────────
 
-  async copy(tenantId: string, id: string, userId: string, dto: CopyHomeworkDto) {
+  async copy(tenantId: string, id: string, actor: HomeworkActor, dto: CopyHomeworkDto) {
     const source = await this.prisma.homeworkAssignment.findFirst({
       where: { id, tenant_id: tenantId },
       include: { attachments: true },
@@ -347,6 +379,14 @@ export class HomeworkService {
         message: `Source homework assignment with id "${id}" not found`,
       });
     }
+
+    await this.homeworkAuthority.assertCanAssignHomework(
+      tenantId,
+      actor.user_id,
+      actor.membership_id,
+      source.class_id,
+      source.subject_id,
+    );
 
     const prismaWithRls = createRlsClient(this.prisma, {
       tenant_id: tenantId,
@@ -362,7 +402,7 @@ export class HomeworkService {
           subject_id: source.subject_id,
           academic_year_id: source.academic_year_id,
           academic_period_id: source.academic_period_id,
-          assigned_by_user_id: userId,
+          assigned_by_user_id: actor.user_id,
           title: source.title,
           description: source.description,
           homework_type: source.homework_type,
@@ -666,6 +706,111 @@ export class HomeworkService {
     };
   }
 
+  // ─── My Classes (teacher entry point) ──────────────────────────────────────
+
+  /**
+   * Return the classes the given user is scheduled to teach in the current
+   * academic year, enriched with homework counts. Used by the teacher
+   * dashboard tile grid in `/homework/my-classes`.
+   *
+   * Admins/principals/VPs: callers should pass `teacherUserId` to browse
+   * another user's classes. Teachers: `teacherUserId === actor.user_id`.
+   */
+  async findMyClasses(tenantId: string, teacherUserId: string) {
+    const staffProfile = await this.staffProfileReadFacade.findByUserId(tenantId, teacherUserId);
+    if (!staffProfile) {
+      return { data: [] };
+    }
+
+    const academicYear = await this.academicReadFacade.findCurrentYear(tenantId);
+    if (!academicYear) {
+      return { data: [] };
+    }
+
+    const classes = await this.schedulesReadFacade.findClassesTaughtByTeacher(
+      tenantId,
+      staffProfile.id,
+      academicYear.id,
+    );
+
+    if (classes.length === 0) {
+      return { data: [] };
+    }
+
+    const classIds = classes.map((c) => c.class_id);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [activeAssignments, overdueAssignments, publishedByClass] = await Promise.all([
+      this.prisma.homeworkAssignment.findMany({
+        where: {
+          tenant_id: tenantId,
+          class_id: { in: classIds },
+          status: 'published',
+          due_date: { gte: today },
+        },
+        select: { id: true, class_id: true },
+      }),
+      this.prisma.homeworkAssignment.findMany({
+        where: {
+          tenant_id: tenantId,
+          class_id: { in: classIds },
+          status: 'published',
+          due_date: { lt: today },
+        },
+        select: { id: true, class_id: true },
+      }),
+      this.prisma.homeworkAssignment.findMany({
+        where: {
+          tenant_id: tenantId,
+          class_id: { in: classIds },
+          status: 'published',
+        },
+        select: { id: true, class_id: true },
+      }),
+    ]);
+
+    const activeByClass = new Map<string, number>();
+    for (const a of activeAssignments) {
+      activeByClass.set(a.class_id, (activeByClass.get(a.class_id) ?? 0) + 1);
+    }
+
+    const overdueByClass = new Map<string, number>();
+    for (const a of overdueAssignments) {
+      overdueByClass.set(a.class_id, (overdueByClass.get(a.class_id) ?? 0) + 1);
+    }
+
+    const assignmentToClass = new Map(publishedByClass.map((a) => [a.id, a.class_id]));
+    const pendingByClass = new Map<string, number>();
+
+    if (publishedByClass.length > 0) {
+      const pendingGrading = await this.prisma.homeworkCompletion.findMany({
+        where: {
+          tenant_id: tenantId,
+          status: 'completed',
+          verified_at: null,
+          homework_assignment_id: { in: Array.from(assignmentToClass.keys()) },
+        },
+        select: { homework_assignment_id: true },
+      });
+
+      for (const c of pendingGrading) {
+        const classId = assignmentToClass.get(c.homework_assignment_id);
+        if (!classId) continue;
+        pendingByClass.set(classId, (pendingByClass.get(classId) ?? 0) + 1);
+      }
+    }
+
+    return {
+      data: classes.map((c) => ({
+        ...c,
+        active_homework_count: activeByClass.get(c.class_id) ?? 0,
+        overdue_homework_count: overdueByClass.get(c.class_id) ?? 0,
+        pending_grading_count: pendingByClass.get(c.class_id) ?? 0,
+      })),
+    };
+  }
+
   // ─── Find Today (teacher's view) ──────────────────────────────────────────────
 
   async findToday(tenantId: string, userId: string) {
@@ -828,7 +973,7 @@ export class HomeworkService {
 
   // ─── Bulk Create ──────────────────────────────────────────────────────────────
 
-  async bulkCreate(tenantId: string, userId: string, dto: BulkCreateDto) {
+  async bulkCreate(tenantId: string, actor: HomeworkActor, dto: BulkCreateDto) {
     const rule = await this.prisma.homeworkRecurrenceRule.findFirst({
       where: { id: dto.recurrence_rule_id, tenant_id: tenantId },
     });
@@ -839,6 +984,16 @@ export class HomeworkService {
         message: `Recurrence rule with id "${dto.recurrence_rule_id}" not found`,
       });
     }
+
+    const authorityClassId = dto.class_id;
+    const authoritySubjectId = dto.subject_id ?? null;
+    await this.homeworkAuthority.assertCanAssignHomework(
+      tenantId,
+      actor.user_id,
+      actor.membership_id,
+      authorityClassId,
+      authoritySubjectId,
+    );
 
     // If a template is specified, load it for field defaults
     let template: {
@@ -901,7 +1056,7 @@ export class HomeworkService {
             subject_id: template?.subject_id ?? dto.subject_id ?? null,
             academic_year_id: template?.academic_year_id ?? dto.academic_year_id,
             academic_period_id: template?.academic_period_id ?? dto.academic_period_id ?? null,
-            assigned_by_user_id: userId,
+            assigned_by_user_id: actor.user_id,
             title: template?.title ?? dto.title,
             description: template?.description ?? dto.description ?? null,
             homework_type: template?.homework_type ?? dto.homework_type,

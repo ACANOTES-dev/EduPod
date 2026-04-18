@@ -38,6 +38,8 @@ interface HomeworkQuickFormProps {
   academicPeriods: SelectOption[];
   onSubmit: (data: CreateHomeworkDto) => Promise<void>;
   isSubmitting: boolean;
+  defaultClassId?: string | null;
+  defaultSubjectId?: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -57,15 +59,18 @@ export function HomeworkQuickForm({
   academicPeriods,
   onSubmit,
   isSubmitting,
+  defaultClassId,
+  defaultSubjectId,
 }: HomeworkQuickFormProps) {
   const t = useTranslations('homework');
-  const [showMore, setShowMore] = React.useState(false);
+  const [showMore, setShowMore] = React.useState(Boolean(defaultSubjectId));
 
   const form = useForm<CreateHomeworkDto>({
     resolver: zodResolver(createHomeworkSchema),
     defaultValues: {
       title: '',
-      class_id: '',
+      class_id: defaultClassId ?? '',
+      subject_id: defaultSubjectId ?? undefined,
       homework_type: 'written',
       due_date: tomorrow(),
       due_time: '09:00',

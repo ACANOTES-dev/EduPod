@@ -4,9 +4,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { UpdateHomeworkDto } from '@school/shared';
 
 import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
+import { HomeworkAuthorityService } from './homework-authority.service';
 import { HomeworkService } from './homework.service';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -19,6 +22,14 @@ const SUBJECT_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 const ACADEMIC_YEAR_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 const ATTACHMENT_ID = '11111111-1111-1111-1111-111111111111';
 const RECURRENCE_RULE_ID = '22222222-2222-2222-2222-222222222222';
+
+const ACTOR = { user_id: USER_ID, membership_id: null } as const;
+
+function buildMockAuthority() {
+  return {
+    assertCanAssignHomework: jest.fn().mockResolvedValue(undefined),
+  };
+}
 
 // ─── RLS mock ────────────────────────────────────────────────────────────────
 
@@ -144,6 +155,7 @@ describe('HomeworkService — create', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -158,7 +170,7 @@ describe('HomeworkService — create', () => {
   });
 
   it('should create a homework assignment via RLS transaction', async () => {
-    const result = await service.create(TENANT_ID, USER_ID, baseCreateDto);
+    const result = await service.create(TENANT_ID, ACTOR, baseCreateDto);
 
     expect(mockRlsTx.homeworkAssignment.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -175,7 +187,7 @@ describe('HomeworkService — create', () => {
   });
 
   it('should set subject_id to null when not provided', async () => {
-    await service.create(TENANT_ID, USER_ID, baseCreateDto);
+    await service.create(TENANT_ID, ACTOR, baseCreateDto);
 
     const callData = mockRlsTx.homeworkAssignment.create.mock.calls[0]?.[0]?.data;
     expect(callData.subject_id).toBeNull();
@@ -190,7 +202,7 @@ describe('HomeworkService — create', () => {
       max_points: 20,
     };
 
-    await service.create(TENANT_ID, USER_ID, dto);
+    await service.create(TENANT_ID, ACTOR, dto);
 
     const callData = mockRlsTx.homeworkAssignment.create.mock.calls[0]?.[0]?.data;
     expect(callData.subject_id).toBe(SUBJECT_ID);
@@ -218,6 +230,7 @@ describe('HomeworkService — list', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -326,6 +339,7 @@ describe('HomeworkService — findOne', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -388,6 +402,7 @@ describe('HomeworkService — update', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -407,7 +422,7 @@ describe('HomeworkService — update', () => {
       status: 'draft',
     });
 
-    const result = await service.update(TENANT_ID, HOMEWORK_ID, USER_ID, {
+    const result = await service.update(TENANT_ID, HOMEWORK_ID, ACTOR, {
       title: 'Updated Title',
     });
 
@@ -424,7 +439,7 @@ describe('HomeworkService — update', () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(null);
 
     await expect(
-      service.update(TENANT_ID, HOMEWORK_ID, USER_ID, { title: 'Updated' }),
+      service.update(TENANT_ID, HOMEWORK_ID, ACTOR, { title: 'Updated' }),
     ).rejects.toThrow(NotFoundException);
   });
 
@@ -435,7 +450,7 @@ describe('HomeworkService — update', () => {
     });
 
     await expect(
-      service.update(TENANT_ID, HOMEWORK_ID, USER_ID, { title: 'Updated' }),
+      service.update(TENANT_ID, HOMEWORK_ID, ACTOR, { title: 'Updated' }),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -445,7 +460,7 @@ describe('HomeworkService — update', () => {
       status: 'draft',
     });
 
-    await service.update(TENANT_ID, HOMEWORK_ID, USER_ID, {
+    await service.update(TENANT_ID, HOMEWORK_ID, ACTOR, {
       title: 'New Title',
     });
 
@@ -477,6 +492,7 @@ describe('HomeworkService — updateStatus (state machine)', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -608,6 +624,7 @@ describe('HomeworkService — copy', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -636,7 +653,7 @@ describe('HomeworkService — copy', () => {
     };
     mockRlsTx.homeworkAssignment.create.mockResolvedValue(copiedAssignment);
 
-    const result = await service.copy(TENANT_ID, HOMEWORK_ID, USER_ID, {
+    const result = await service.copy(TENANT_ID, HOMEWORK_ID, ACTOR, {
       due_date: '2026-05-01',
     });
 
@@ -681,7 +698,7 @@ describe('HomeworkService — copy', () => {
     mockRlsTx.homeworkAssignment.create.mockResolvedValue(copiedAssignment);
     mockRlsTx.homeworkAttachment.createMany.mockResolvedValue({ count: 1 });
 
-    await service.copy(TENANT_ID, HOMEWORK_ID, USER_ID, {
+    await service.copy(TENANT_ID, HOMEWORK_ID, ACTOR, {
       due_date: '2026-05-01',
     });
 
@@ -701,7 +718,7 @@ describe('HomeworkService — copy', () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(null);
 
     await expect(
-      service.copy(TENANT_ID, HOMEWORK_ID, USER_ID, { due_date: '2026-05-01' }),
+      service.copy(TENANT_ID, HOMEWORK_ID, ACTOR, { due_date: '2026-05-01' }),
     ).rejects.toThrow(NotFoundException);
   });
 });
@@ -721,6 +738,7 @@ describe('HomeworkService — remove', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -809,6 +827,7 @@ describe('HomeworkService — addAttachment', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -949,6 +968,7 @@ describe('HomeworkService — removeAttachment', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -1035,6 +1055,7 @@ describe('HomeworkService — findByClass', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -1086,6 +1107,7 @@ describe('HomeworkService — findToday', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -1136,6 +1158,7 @@ describe('HomeworkService — findTemplates', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -1199,6 +1222,7 @@ describe('HomeworkService — createRecurrenceRule', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -1262,6 +1286,7 @@ describe('HomeworkService — updateRecurrenceRule', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -1323,6 +1348,7 @@ describe('HomeworkService — deleteRecurrenceRule', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -1372,6 +1398,7 @@ describe('HomeworkService — bulkCreate', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -1398,7 +1425,7 @@ describe('HomeworkService — bulkCreate', () => {
     mockPrisma.homeworkRecurrenceRule.findFirst.mockResolvedValue(rule);
     mockRlsTx.homeworkAssignment.create.mockResolvedValue(baseAssignment);
 
-    const result = await service.bulkCreate(TENANT_ID, USER_ID, {
+    const result = await service.bulkCreate(TENANT_ID, ACTOR, {
       recurrence_rule_id: RECURRENCE_RULE_ID,
       class_id: CLASS_ID,
       academic_year_id: ACADEMIC_YEAR_ID,
@@ -1429,7 +1456,7 @@ describe('HomeworkService — bulkCreate', () => {
     mockRlsTx.homeworkAssignment.create.mockResolvedValue(baseAssignment);
 
     // 2026-04-06 is a Monday, 2026-04-12 is a Sunday
-    const result = await service.bulkCreate(TENANT_ID, USER_ID, {
+    const result = await service.bulkCreate(TENANT_ID, ACTOR, {
       recurrence_rule_id: RECURRENCE_RULE_ID,
       class_id: CLASS_ID,
       academic_year_id: ACADEMIC_YEAR_ID,
@@ -1448,7 +1475,7 @@ describe('HomeworkService — bulkCreate', () => {
     mockPrisma.homeworkRecurrenceRule.findFirst.mockResolvedValue(null);
 
     await expect(
-      service.bulkCreate(TENANT_ID, USER_ID, {
+      service.bulkCreate(TENANT_ID, ACTOR, {
         recurrence_rule_id: RECURRENCE_RULE_ID,
         class_id: CLASS_ID,
         academic_year_id: ACADEMIC_YEAR_ID,
@@ -1475,7 +1502,7 @@ describe('HomeworkService — bulkCreate', () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(null);
 
     await expect(
-      service.bulkCreate(TENANT_ID, USER_ID, {
+      service.bulkCreate(TENANT_ID, ACTOR, {
         recurrence_rule_id: RECURRENCE_RULE_ID,
         template_homework_id: HOMEWORK_ID,
         class_id: CLASS_ID,
@@ -1502,7 +1529,7 @@ describe('HomeworkService — bulkCreate', () => {
 
     // Range is Monday-Wednesday, rule only generates Saturday -> 0 dates
     await expect(
-      service.bulkCreate(TENANT_ID, USER_ID, {
+      service.bulkCreate(TENANT_ID, ACTOR, {
         recurrence_rule_id: RECURRENCE_RULE_ID,
         class_id: CLASS_ID,
         academic_year_id: ACADEMIC_YEAR_ID,
@@ -1527,7 +1554,7 @@ describe('HomeworkService — bulkCreate', () => {
     mockPrisma.homeworkRecurrenceRule.findFirst.mockResolvedValue(rule);
     mockRlsTx.homeworkAssignment.create.mockResolvedValue(baseAssignment);
 
-    const result = await service.bulkCreate(TENANT_ID, USER_ID, {
+    const result = await service.bulkCreate(TENANT_ID, ACTOR, {
       recurrence_rule_id: RECURRENCE_RULE_ID,
       class_id: CLASS_ID,
       academic_year_id: ACADEMIC_YEAR_ID,
@@ -1559,6 +1586,7 @@ describe('HomeworkService — findByClassWeek', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -1640,6 +1668,7 @@ describe('HomeworkService — list — additional filter branches', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -1788,6 +1817,7 @@ describe('HomeworkService — findByClass — filter branches', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -1897,6 +1927,7 @@ describe('HomeworkService — findTemplates — filter branches', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -1960,6 +1991,7 @@ describe('HomeworkService — update — all dto field branches', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -1974,7 +2006,7 @@ describe('HomeworkService — update — all dto field branches', () => {
   });
 
   it('should include all dto fields when all are provided', async () => {
-    await service.update(TENANT_ID, HOMEWORK_ID, USER_ID, {
+    await service.update(TENANT_ID, HOMEWORK_ID, ACTOR, {
       title: 'New Title',
       description: 'New desc',
       class_id: 'new-class',
@@ -2012,7 +2044,7 @@ describe('HomeworkService — update — all dto field branches', () => {
       recurrence_rule_id: null,
     } as unknown as UpdateHomeworkDto;
 
-    await service.update(TENANT_ID, HOMEWORK_ID, USER_ID, nullClearDto);
+    await service.update(TENANT_ID, HOMEWORK_ID, ACTOR, nullClearDto);
 
     const callData = mockRlsTx.homeworkAssignment.update.mock.calls[0]?.[0]?.data;
     expect(callData.subject_id).toBeNull();
@@ -2038,6 +2070,7 @@ describe('HomeworkService — copy — due_time branch', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -2059,7 +2092,7 @@ describe('HomeworkService — copy — due_time branch', () => {
     });
     mockRlsTx.homeworkAssignment.create.mockResolvedValue(baseAssignment);
 
-    await service.copy(TENANT_ID, HOMEWORK_ID, USER_ID, {
+    await service.copy(TENANT_ID, HOMEWORK_ID, ACTOR, {
       due_date: '2026-05-01',
       due_time: '14:30',
     });
@@ -2077,7 +2110,7 @@ describe('HomeworkService — copy — due_time branch', () => {
     });
     mockRlsTx.homeworkAssignment.create.mockResolvedValue(baseAssignment);
 
-    await service.copy(TENANT_ID, HOMEWORK_ID, USER_ID, {
+    await service.copy(TENANT_ID, HOMEWORK_ID, ACTOR, {
       due_date: '2026-05-01',
     });
 
@@ -2101,6 +2134,7 @@ describe('HomeworkService — bulkCreate — custom frequency and template', () 
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -2128,7 +2162,7 @@ describe('HomeworkService — bulkCreate — custom frequency and template', () 
     mockRlsTx.homeworkAssignment.create.mockResolvedValue(baseAssignment);
 
     // 2026-04-06 = Monday, 2026-04-12 = Sunday
-    const result = await service.bulkCreate(TENANT_ID, USER_ID, {
+    const result = await service.bulkCreate(TENANT_ID, ACTOR, {
       recurrence_rule_id: RECURRENCE_RULE_ID,
       class_id: CLASS_ID,
       academic_year_id: ACADEMIC_YEAR_ID,
@@ -2168,7 +2202,7 @@ describe('HomeworkService — bulkCreate — custom frequency and template', () 
 
     mockRlsTx.homeworkAssignment.create.mockResolvedValue(baseAssignment);
 
-    await service.bulkCreate(TENANT_ID, USER_ID, {
+    await service.bulkCreate(TENANT_ID, ACTOR, {
       recurrence_rule_id: RECURRENCE_RULE_ID,
       template_homework_id: HOMEWORK_ID,
       class_id: CLASS_ID,
@@ -2210,6 +2244,7 @@ describe('HomeworkService — updateRecurrenceRule — all dto fields', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -2268,6 +2303,7 @@ describe('HomeworkService — addAttachment — max attachments reached', () => 
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
       ],
@@ -2289,5 +2325,62 @@ describe('HomeworkService — addAttachment — max attachments reached', () => 
         display_order: 5,
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('HomeworkService — findMyClasses', () => {
+  let module: TestingModule;
+  let service: HomeworkService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockS3: ReturnType<typeof buildMockS3>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockS3 = buildMockS3();
+    resetRlsMocks();
+
+    module = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        HomeworkService,
+        { provide: HomeworkAuthorityService, useValue: buildMockAuthority() },
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: S3Service, useValue: mockS3 },
+      ],
+    }).compile();
+
+    service = module.get<HomeworkService>(HomeworkService);
+  });
+
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
+
+  it('returns empty data when the user has no staff profile', async () => {
+    const staffProfileFacade = module.get(StaffProfileReadFacade) as unknown as {
+      findByUserId: jest.Mock;
+    };
+    staffProfileFacade.findByUserId.mockResolvedValue(null);
+
+    const result = await service.findMyClasses(TENANT_ID, USER_ID);
+
+    expect(result).toEqual({ data: [] });
+  });
+
+  it('returns empty data when the tenant has no active academic year', async () => {
+    const staffProfileFacade = module.get(StaffProfileReadFacade) as unknown as {
+      findByUserId: jest.Mock;
+    };
+    staffProfileFacade.findByUserId.mockResolvedValue({ id: 'sp-1' });
+
+    const academicFacade = module.get(AcademicReadFacade) as unknown as {
+      findCurrentYear: jest.Mock;
+    };
+    academicFacade.findCurrentYear.mockResolvedValue(null);
+
+    const result = await service.findMyClasses(TENANT_ID, USER_ID);
+
+    expect(result).toEqual({ data: [] });
   });
 });

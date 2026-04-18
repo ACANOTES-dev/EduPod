@@ -1,18 +1,16 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type { CreateHomeworkDto } from '@school/shared';
 import { toast } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { HomeworkQuickForm } from '../_components/homework-quick-form';
-
 
 interface SelectOption {
   id: string;
@@ -30,7 +28,10 @@ export default function NewHomeworkPage() {
   const t = useTranslations('homework');
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+  const prefillClassId = searchParams?.get('class_id') ?? null;
+  const prefillSubjectId = searchParams?.get('subject_id') ?? null;
 
   const [classes, setClasses] = React.useState<ClassOption[]>([]);
   const [academicYears, setAcademicYears] = React.useState<SelectOption[]>([]);
@@ -101,6 +102,8 @@ export default function NewHomeworkPage() {
           academicPeriods={academicPeriods}
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
+          defaultClassId={prefillClassId}
+          defaultSubjectId={prefillSubjectId}
         />
       </div>
     </div>

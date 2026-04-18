@@ -6,11 +6,14 @@ import { ClassesModule } from '../classes/classes.module';
 import { ParentsModule } from '../parents/parents.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { S3Module } from '../s3/s3.module';
+import { SchedulesModule } from '../schedules/schedules.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { StudentsModule } from '../students/students.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
 import { HomeworkAnalyticsController } from './homework-analytics.controller';
 import { HomeworkAnalyticsService } from './homework-analytics.service';
+import { HomeworkAuthorityService } from './homework-authority.service';
 import { HomeworkCompletionAnalyticsService } from './homework-completion-analytics.service';
 import { HomeworkCompletionsController } from './homework-completions.controller';
 import { HomeworkCompletionsService } from './homework-completions.service';
@@ -30,6 +33,8 @@ import { HomeworkService } from './homework.service';
     ParentsModule,
     PrismaModule,
     S3Module,
+    SchedulesModule,
+    StaffProfilesModule,
     StudentsModule,
     TenantsModule,
     BullModule.registerQueue({ name: 'homework' }),
@@ -43,6 +48,7 @@ import { HomeworkService } from './homework.service';
   ],
   providers: [
     HomeworkService,
+    HomeworkAuthorityService,
     HomeworkCompletionsService,
     HomeworkDiaryService,
     HomeworkParentService,

@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, Plus } from 'lucide-react';
+import { BookOpen, LayoutGrid, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -8,12 +8,10 @@ import * as React from 'react';
 
 import { EmptyState, StatCard } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { HomeworkCard } from './_components/homework-card';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,12 +65,20 @@ export default function HomeworkDashboardPage() {
       <PageHeader
         title={t('title')}
         actions={
-          <Link href={`/${locale}/homework/new`}>
-            <span className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors">
-              <Plus className="h-4 w-4" />
-              {t('setHomework')}
-            </span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href={`/${locale}/homework/my-classes`}>
+              <span className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-primary px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-secondary transition-colors">
+                <LayoutGrid className="h-4 w-4" />
+                {t('myClasses.title')}
+              </span>
+            </Link>
+            <Link href={`/${locale}/homework/new`}>
+              <span className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors">
+                <Plus className="h-4 w-4" />
+                {t('setHomework')}
+              </span>
+            </Link>
+          </div>
         }
       />
 

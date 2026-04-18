@@ -25,6 +25,7 @@ const userCtx = {
   iat: 0,
   exp: 0,
 };
+const ACTOR = { user_id: USER_ID, membership_id: 'mem-1' };
 
 // ─── Mock Service ────────────────────────────────────────────────────────────
 
@@ -33,6 +34,7 @@ const mockService = {
   list: jest.fn(),
   findToday: jest.fn(),
   findTemplates: jest.fn(),
+  findMyClasses: jest.fn(),
   findOne: jest.fn(),
   update: jest.fn(),
   updateStatus: jest.fn(),
@@ -81,7 +83,7 @@ describe('HomeworkController — branch coverage', () => {
       };
       const result = await controller.create(tenantCtx, userCtx, dto as never);
       expect(result).toEqual({ id: HW_ID });
-      expect(mockService.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
+      expect(mockService.create).toHaveBeenCalledWith(TENANT_ID, ACTOR, dto);
     });
   });
 
@@ -178,7 +180,7 @@ describe('HomeworkController — branch coverage', () => {
         end_date: '2026-06-30',
       };
       await controller.bulkCreate(tenantCtx, userCtx, dto);
-      expect(mockService.bulkCreate).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
+      expect(mockService.bulkCreate).toHaveBeenCalledWith(TENANT_ID, ACTOR, dto);
     });
   });
 
@@ -194,7 +196,7 @@ describe('HomeworkController — branch coverage', () => {
     it('should delegate to homeworkService.update', async () => {
       mockService.update.mockResolvedValue({ id: HW_ID });
       await controller.update(tenantCtx, userCtx, HW_ID, { title: 'Updated' } as never);
-      expect(mockService.update).toHaveBeenCalledWith(TENANT_ID, HW_ID, USER_ID, {
+      expect(mockService.update).toHaveBeenCalledWith(TENANT_ID, HW_ID, ACTOR, {
         title: 'Updated',
       });
     });
@@ -214,7 +216,7 @@ describe('HomeworkController — branch coverage', () => {
     it('should delegate to homeworkService.copy', async () => {
       mockService.copy.mockResolvedValue({ id: 'new-hw' });
       await controller.copy(tenantCtx, userCtx, HW_ID, { due_date: '2026-05-01' });
-      expect(mockService.copy).toHaveBeenCalledWith(TENANT_ID, HW_ID, USER_ID, {
+      expect(mockService.copy).toHaveBeenCalledWith(TENANT_ID, HW_ID, ACTOR, {
         due_date: '2026-05-01',
       });
     });

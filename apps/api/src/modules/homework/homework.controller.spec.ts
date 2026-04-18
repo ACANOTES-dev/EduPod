@@ -11,12 +11,19 @@ import { HomeworkService } from './homework.service';
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const HOMEWORK_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const USER_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+const MEMBERSHIP_ID = 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm';
 const CLASS_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 const ATTACHMENT_ID = '11111111-1111-1111-1111-111111111111';
 const RECURRENCE_RULE_ID = '22222222-2222-2222-2222-222222222222';
 
 const mockTenant = { tenant_id: TENANT_ID };
-const mockUser = { sub: USER_ID, tenant_id: TENANT_ID, role: 'teacher' };
+const mockUser = {
+  sub: USER_ID,
+  tenant_id: TENANT_ID,
+  membership_id: MEMBERSHIP_ID,
+  role: 'teacher',
+};
+const ACTOR = { user_id: USER_ID, membership_id: MEMBERSHIP_ID };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -35,6 +42,7 @@ function buildMockHomeworkService() {
     findByClassWeek: jest.fn(),
     findToday: jest.fn(),
     findTemplates: jest.fn(),
+    findMyClasses: jest.fn(),
     createRecurrenceRule: jest.fn(),
     updateRecurrenceRule: jest.fn(),
     deleteRecurrenceRule: jest.fn(),
@@ -85,7 +93,7 @@ describe('HomeworkController', () => {
 
     const result = await controller.create(mockTenant as never, mockUser as never, dto as never);
 
-    expect(service.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
+    expect(service.create).toHaveBeenCalledWith(TENANT_ID, ACTOR, dto);
     expect(result).toBe(expected);
   });
 
@@ -179,7 +187,7 @@ describe('HomeworkController', () => {
       dto as never,
     );
 
-    expect(service.update).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID, USER_ID, dto);
+    expect(service.update).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID, ACTOR, dto);
     expect(result).toBe(expected);
   });
 
@@ -210,7 +218,7 @@ describe('HomeworkController', () => {
       dto as never,
     );
 
-    expect(service.copy).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID, USER_ID, dto);
+    expect(service.copy).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID, ACTOR, dto);
     expect(result).toBe(expected);
   });
 
@@ -318,7 +326,7 @@ describe('HomeworkController', () => {
       dto as never,
     );
 
-    expect(service.bulkCreate).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
+    expect(service.bulkCreate).toHaveBeenCalledWith(TENANT_ID, ACTOR, dto);
     expect(result).toBe(expected);
   });
 
@@ -362,7 +370,7 @@ describe('HomeworkController', () => {
       dto as never,
     );
 
-    expect(service.copy).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID, USER_ID, dto);
+    expect(service.copy).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID, ACTOR, dto);
     expect(result).toBe(expected);
   });
 
@@ -415,7 +423,7 @@ describe('HomeworkController', () => {
 
     const result = await controller.create(mockTenant as never, mockUser as never, dto as never);
 
-    expect(service.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
+    expect(service.create).toHaveBeenCalledWith(TENANT_ID, ACTOR, dto);
     expect(result).toBe(expected);
   });
 
@@ -433,6 +441,31 @@ describe('HomeworkController', () => {
     const result = await controller.addAttachment(mockTenant as never, HOMEWORK_ID, dto as never);
 
     expect(service.addAttachment).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID, dto);
+    expect(result).toBe(expected);
+  });
+
+  // ─── GET /v1/homework/my-classes ────────────────────────────────────────────
+
+  it('findMyClasses — delegates to service with tenantId and user.sub by default', async () => {
+    const expected = { data: [] };
+    service.findMyClasses.mockResolvedValue(expected);
+
+    const result = await controller.findMyClasses(mockTenant as never, mockUser as never, {});
+
+    expect(service.findMyClasses).toHaveBeenCalledWith(TENANT_ID, USER_ID);
+    expect(result).toBe(expected);
+  });
+
+  it('findMyClasses — allows admin to browse another teacher via ?teacher_id=', async () => {
+    const OTHER_TEACHER_ID = '77777777-7777-7777-7777-777777777777';
+    const expected = { data: [] };
+    service.findMyClasses.mockResolvedValue(expected);
+
+    const result = await controller.findMyClasses(mockTenant as never, mockUser as never, {
+      teacher_id: OTHER_TEACHER_ID,
+    });
+
+    expect(service.findMyClasses).toHaveBeenCalledWith(TENANT_ID, OTHER_TEACHER_ID);
     expect(result).toBe(expected);
   });
 

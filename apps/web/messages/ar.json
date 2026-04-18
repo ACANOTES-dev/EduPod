@@ -12429,6 +12429,19 @@
     "moreOptions": "المزيد من الخيارات",
     "publishImmediately": "النشر فورًا",
     "notFound": "الواجب غير موجود",
+    "myClasses": {
+      "title": "فصولي",
+      "subtitle": "الفصول التي تدرّسها هذا العام. اختر فصلًا لتعيين الواجبات أو مراجعتها.",
+      "empty": "لا توجد فصول مجدولة لك",
+      "emptyDesc": "ستظهر الفصول التي تدرّسها هنا بمجرد نشر الجدول الزمني.",
+      "activeHomework": "نشطة",
+      "overdueHomework": "متأخرة",
+      "pendingGrading": "بانتظار التقييم",
+      "periodsPerWeek": "{count} حصة/أسبوع",
+      "subjectlessClass": "بدون مادة",
+      "viewHomework": "عرض الواجبات",
+      "newHomeworkFor": "واجب جديد لـ {className}"
+    },
     "templates": {
       "title": "قوالب الواجبات",
       "copyFrom": "نسخ من",

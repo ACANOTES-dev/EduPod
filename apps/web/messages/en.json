@@ -12438,6 +12438,19 @@
     "moreOptions": "More Options",
     "publishImmediately": "Publish Immediately",
     "notFound": "Homework not found",
+    "myClasses": {
+      "title": "My Classes",
+      "subtitle": "Classes you teach this year. Pick one to assign or review homework.",
+      "empty": "You don't have any scheduled classes",
+      "emptyDesc": "Once your timetable is published, the classes you teach will appear here.",
+      "activeHomework": "Active",
+      "overdueHomework": "Overdue",
+      "pendingGrading": "To grade",
+      "periodsPerWeek": "{count} periods/week",
+      "subjectlessClass": "No subject",
+      "viewHomework": "View homework",
+      "newHomeworkFor": "New homework for {className}"
+    },
     "templates": {
       "title": "Homework Templates",
       "copyFrom": "Copy From",

@@ -114,6 +114,16 @@ export interface BusyTeacherRow {
   teacher_staff_id: string | null;
 }
 
+export interface TeacherClassRow {
+  class_id: string;
+  class_name: string;
+  subject_id: string | null;
+  subject_name: string | null;
+  year_group_id: string | null;
+  year_group_name: string | null;
+  periods_per_week: number;
+}
+
 export interface PinnedScheduleRow extends ScheduleCoreRow {
   class_entity: { year_group_id: string | null; subject_id: string | null } | null;
 }
@@ -184,6 +194,97 @@ export class SchedulesReadFacade {
       where: { id: scheduleId, tenant_id: tenantId },
       select: { id: true },
     });
+  }
+
+  // ─── Teacher-class authority lookups ────────────────────────────────────────
+
+  /**
+   * Return the distinct classes a teacher is scheduled to teach in a given
+   * academic year. Used by homework/attendance/behaviour flows to gate
+   * "can teacher X act on class C?" without every caller rolling its own
+   * Schedule query.
+   *
+   * Honours `effective_start_date`/`effective_end_date` so cover
+   * assignments with a limited date range are picked up automatically
+   * for the covering teacher during the cover window.
+   *
+   * `subject_id`/`year_group_id` come from the Class row — Schedule has
+   * no subject column, and a class owns exactly one subject.
+   */
+  async findClassesTaughtByTeacher(
+    tenantId: string,
+    staffProfileId: string,
+    academicYearId: string,
+    opts?: { asOfDate?: Date },
+  ): Promise<TeacherClassRow[]> {
+    const asOf = opts?.asOfDate ?? new Date();
+
+    const schedules = await this.prisma.schedule.findMany({
+      where: {
+        tenant_id: tenantId,
+        teacher_staff_id: staffProfileId,
+        academic_year_id: academicYearId,
+        ...effectiveAt(asOf),
+      },
+      select: {
+        class_id: true,
+        class_entity: {
+          select: {
+            id: true,
+            name: true,
+            subject: { select: { id: true, name: true } },
+            year_group: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    const byClass = new Map<string, TeacherClassRow>();
+    for (const s of schedules) {
+      const existing = byClass.get(s.class_id);
+      if (existing) {
+        existing.periods_per_week += 1;
+        continue;
+      }
+      byClass.set(s.class_id, {
+        class_id: s.class_entity.id,
+        class_name: s.class_entity.name,
+        subject_id: s.class_entity.subject?.id ?? null,
+        subject_name: s.class_entity.subject?.name ?? null,
+        year_group_id: s.class_entity.year_group?.id ?? null,
+        year_group_name: s.class_entity.year_group?.name ?? null,
+        periods_per_week: 1,
+      });
+    }
+
+    return Array.from(byClass.values()).sort((a, b) => a.class_name.localeCompare(b.class_name));
+  }
+
+  /**
+   * Fast boolean check: is this teacher scheduled for this class in the
+   * given academic year as of `asOfDate` (default: today)? Uses the
+   * `idx_schedules_tenant_teacher` index.
+   */
+  async isTeacherScheduledForClass(
+    tenantId: string,
+    staffProfileId: string,
+    classId: string,
+    academicYearId: string,
+    opts?: { asOfDate?: Date },
+  ): Promise<boolean> {
+    const asOf = opts?.asOfDate ?? new Date();
+
+    const count = await this.prisma.schedule.count({
+      where: {
+        tenant_id: tenantId,
+        teacher_staff_id: staffProfileId,
+        class_id: classId,
+        academic_year_id: academicYearId,
+        ...effectiveAt(asOf),
+      },
+    });
+
+    return count > 0;
   }
 
   // ─── Teacher busy / availability checks ─────────────────────────────────────

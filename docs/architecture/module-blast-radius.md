@@ -278,10 +278,11 @@ If a module is not listed individually, it is either:
 
 ### HomeworkModule
 
-- **Contract**: homework assignments/completions, diary notes, parent homework visibility
+- **Contract**: homework assignments/completions, diary notes, parent homework visibility, teacher class-authority gating for assignment writes
 - **Primary consumers**: parent digests, behaviour daily dispatch, class/student read paths, analytics
+- **Dependencies added (Wave 1, 2026-04-18)**: `SchedulesReadFacade` (teacher-class authority via Schedule table) + `PermissionCacheService` (owner/principal/VP bypass) + `ClassesReadFacade.findById` (subject cross-check) + `AcademicReadFacade.findCurrentYearId` (resolve current year). `HomeworkAuthorityService.assertCanAssignHomework` gates `POST /v1/homework`, `PATCH /v1/homework/:id` (class/subject changes), `POST /v1/homework/:id/copy`, and `POST /v1/homework/bulk-create`.
 - **Blast radius**: MEDIUM-HIGH
-- **Notes**: exports are narrow, but worker automation and parent-facing surfaces depend on its table contracts
+- **Notes**: exports are narrow, but worker automation and parent-facing surfaces depend on its table contracts. New `GET /v1/homework/my-classes` endpoint is the teacher-facing entry point backed by `SchedulesReadFacade.findClassesTaughtByTeacher`.
 
 ### RegulatoryModule
 
