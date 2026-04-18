@@ -1,7 +1,7 @@
 # Attendance Module — Deep Review & Implementation Plan
 
 **Date:** 2026-04-18
-**Status:** Step 1 + Step 2 complete and live on production. Steps 3–5 pending.
+**Status:** Steps 1–3 complete and live on production. Steps 4–5 pending.
 
 ---
 
@@ -158,13 +158,15 @@ Cheapest first.
 - No schema migration — `captureMode` lives inside the existing JSONB blob. Teacher-of-class copying onto `attendance_sessions` is deferred to Step 3 as originally planned.
 - 10 unit tests on the generation processor (5 new daily-mode tests), 25 settings service tests, 880 shared tests, 398 attendance module tests — all green. E2E-verified on nhqs.edupod.app: toggle switches, save persists, full page reload restores the correct mode, zero console errors.
 
-### Step 3 — Teacher scoping (1 day)
+### Step 3 — Teacher scoping ✓ DONE (2026-04-18)
 
-- Add `teacher_staff_id` to `attendance_sessions`
-- Copy it during generation
-- Scope mark/submit endpoints
-- Add `attendance.take_any_class` permission
-- Add `attendance_officer` role
+- `attendance_sessions.teacher_staff_id UUID NULL` with FK to `staff_profiles` (ON DELETE SET NULL) and an index on `(tenant_id, teacher_staff_id)`. Migration `20260418210000_add_teacher_staff_id_to_attendance_sessions`.
+- Generation processor copies `schedule.teacher_staff_id` (per_period) or `class.homeroom_teacher_staff_id` (daily) onto each session at creation.
+- New permission `attendance.take_any_class` (admin tier). Seeded to `school_owner`, `school_principal`, `admin`. New `attendance_officer` system role (staff tier) with `attendance.view` + `attendance.take` + `attendance.take_any_class` + `students.view` + `schedule.view_class`.
+- `PUT /attendance-sessions/:id/records` and `PATCH /attendance-sessions/:id/submit` now resolve the caller's staff profile. If they have `take_any_class`, scope is null and any session is allowed. Otherwise they must match `session.teacher_staff_id`. Users holding `attendance.take` but with no linked staff profile get a clean 403 rather than silent access.
+- One-off scripts shipped: `sync-attendance-take-any-class.ts` (permission + role grants across live tenants) and `backfill-attendance-session-teacher.ts` (populate the new column for existing rows). Both idempotent.
+- Prod state after deploy: 33 legacy sessions → 30 backfilled from homeroom, 3 remain unassigned (admin must pick a homeroom or have an officer cover). 8 tenants all received the `attendance_officer` role. 29 total `take_any_class` grants (21 to existing admin roles + 8 to the new officers).
+- Tests: 408 attendance module tests + 10 generation processor tests all green (includes 4 new service-level scoping tests and 2 new controller-level scope-resolution tests).
 
 ### Step 4 — Dedicated-taker dashboard (1 day)
 
@@ -184,4 +186,4 @@ Cheapest first.
 
 ## Current Work
 
-Step 1 (three wiring defects) and Step 2 (capture-mode config) are complete and live. Steps 3–5 remain. This document is the source of truth for the remaining plan.
+Steps 1–3 are complete and live. Steps 4–5 remain. This document is the source of truth for the remaining plan.
