@@ -1,7 +1,7 @@
 # Attendance Module — Deep Review & Implementation Plan
 
 **Date:** 2026-04-18
-**Status:** Review complete, wiring fixes in progress
+**Status:** Step 1 + Step 2 complete and live on production. Steps 3–5 pending.
 
 ---
 
@@ -148,13 +148,15 @@ Cheapest first.
 2. Seed `attendance.view_pattern_reports` + grant to appropriate roles
 3. Replace the `reports/attendance` mock with a real endpoint-backed page
 
-### Step 2 — Add capture-mode config (1½ days)
+### Step 2 — Add capture-mode config ✓ DONE (2026-04-18)
 
-- JSONB key `settings.attendance.captureMode`
-- Settings endpoint
-- Branch in generation processor
-- UI config page
-- Marking UI respects mode
+- `settings.attendance.captureMode: 'per_period' | 'daily'` added to the shared Zod schema and the frontend settings types. Default is `per_period`.
+- Existing `/v1/settings` + `/v1/settings/attendance` endpoints pick it up automatically via the per-module schema registry — no new controller needed.
+- Generation processor branches on the mode. The `daily` branch iterates active classes directly, copies nothing from `Schedule`, and relies on the pre-existing `idx_attendance_sessions_adhoc_unique` partial index for idempotence. The per-period branch is unchanged.
+- Admin UI toggle lives at Settings › General › Attendance. Saves round-trip through `/v1/settings/attendance` and survives reload.
+- Marking UI now shows the schedule's start/end times when the session is bound to a period, and falls back to "Daily Register" framing for schedule_id=null sessions.
+- No schema migration — `captureMode` lives inside the existing JSONB blob. Teacher-of-class copying onto `attendance_sessions` is deferred to Step 3 as originally planned.
+- 10 unit tests on the generation processor (5 new daily-mode tests), 25 settings service tests, 880 shared tests, 398 attendance module tests — all green. E2E-verified on nhqs.edupod.app: toggle switches, save persists, full page reload restores the correct mode, zero console errors.
 
 ### Step 3 — Teacher scoping (1 day)
 
@@ -182,4 +184,4 @@ Cheapest first.
 
 ## Current Work
 
-Started with Step 1 — the three wiring defects. This document is the source of truth for the remaining plan.
+Step 1 (three wiring defects) and Step 2 (capture-mode config) are complete and live. Steps 3–5 remain. This document is the source of truth for the remaining plan.
