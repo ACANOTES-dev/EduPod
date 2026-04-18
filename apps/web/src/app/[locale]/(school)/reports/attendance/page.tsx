@@ -136,8 +136,8 @@ export default function AttendanceAnalyticsPage() {
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    apiClient<YearGroupOption[]>('/api/v1/year-groups')
-      .then((res) => setYearGroupOptions(res))
+    apiClient<{ data: YearGroupOption[] }>('/api/v1/year-groups')
+      .then((res) => setYearGroupOptions(res.data))
       .catch((err: unknown) => console.error('[reports/attendance] year-groups', err));
   }, []);
 
@@ -152,36 +152,36 @@ export default function AttendanceAnalyticsPage() {
         if (yearGroup !== 'all') excusedQs.set('year_group_id', yearGroup);
 
         const [chronicRes, heatmapRes, complianceRes, trendsRes, excusedRes] = await Promise.all([
-          apiClient<ChronicAbsenteeismEntry[]>(
+          apiClient<{ data: ChronicAbsenteeismEntry[] }>(
             `/api/v1/reports/analytics/attendance/chronic-absenteeism?${dateQs.toString()}`,
           ),
-          apiClient<DayOfWeekHeatmapEntry[]>(
+          apiClient<{ data: DayOfWeekHeatmapEntry[] }>(
             `/api/v1/reports/analytics/attendance/day-of-week-heatmap?${dateQs.toString()}`,
           ),
-          apiClient<TeacherComplianceEntry[]>(
+          apiClient<{ data: TeacherComplianceEntry[] }>(
             '/api/v1/reports/analytics/attendance/teacher-compliance',
           ),
-          apiClient<TrendDataPoint[]>(
+          apiClient<{ data: TrendDataPoint[] }>(
             `/api/v1/reports/analytics/attendance/trends?${dateQs.toString()}`,
           ),
-          apiClient<ExcusedVsUnexcused>(
+          apiClient<{ data: ExcusedVsUnexcused }>(
             `/api/v1/reports/analytics/attendance/excused-vs-unexcused?${excusedQs.toString()}`,
           ),
         ]);
 
         if (cancelled) return;
-        setChronic(chronicRes);
-        setHeatmap(heatmapRes);
-        setCompliance(complianceRes);
-        setTrends(trendsRes);
-        setExcused(excusedRes);
+        setChronic(chronicRes.data);
+        setHeatmap(heatmapRes.data);
+        setCompliance(complianceRes.data);
+        setTrends(trendsRes.data);
+        setExcused(excusedRes.data);
 
         // Class comparison requires a year_group_id path param — only load when one is selected
         if (yearGroup !== 'all') {
-          const cmpRes = await apiClient<ClassComparisonEntry[]>(
+          const cmpRes = await apiClient<{ data: ClassComparisonEntry[] }>(
             `/api/v1/reports/analytics/attendance/class-comparison/${yearGroup}?${dateQs.toString()}`,
           );
-          if (!cancelled) setComparison(cmpRes);
+          if (!cancelled) setComparison(cmpRes.data);
         } else {
           setComparison([]);
         }
