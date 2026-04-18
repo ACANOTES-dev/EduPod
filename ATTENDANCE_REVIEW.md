@@ -1,7 +1,7 @@
 # Attendance Module — Deep Review & Implementation Plan
 
 **Date:** 2026-04-18
-**Status:** Steps 1–4 complete and live on production. Step 5 pending.
+**Status:** All 5 steps complete and live on production (2026-04-18).
 
 ---
 
@@ -176,11 +176,18 @@ Cheapest first.
 - Discovery: subtle "Officer dashboard" button on the existing `/attendance` list page for users with the role. No new morph-bar nav entry — avoids reshaping primary navigation.
 - Tests: 414 attendance tests green (+5 new service-level tests for `getOfficerDashboard`, +1 new controller delegation test). E2E-verified on nhqs.edupod.app: link shows for principal, page loads, filters work, daily-mode row renders with "Daily Register" + "Unassigned" (for one of the 3 classes left teacherless after backfill).
 
-### Step 5 — Marking UX polish (½ day)
+### Step 5 — Marking UX polish ✓ DONE (2026-04-18)
 
-- Keyboard shortcuts
-- Swipe gestures
-- Search
+Shipped on `/attendance/mark/[sessionId]`:
+
+- Focused-row keyboard model: arrow-up/down or J/K to navigate between students; the focused row gets a coloured ring so the next keystroke's target is obvious.
+- Letter shortcuts to set status: `P` present, `A` absent (unexcused), `E` excused, `L` late, `X` left early. Each shortcut auto-advances focus to the next row so a whole class can be marked in a steady rhythm.
+- Each radio label now shows its shortcut as a small `kbd` chip — the hint is discoverable without opening help.
+- Client-side search input: hides rows not matching the student-name query and shows a running `N / total` count. Focus resets to the first visible row whenever the filter changes.
+- `?` opens a shortcuts dialog (also accessible via a keyboard-icon button in the header next to "Mark all present"). Dialog lists every shortcut with its `kbd` chip.
+- Typing in text inputs (reason, arrival time) suppresses the letter shortcuts so the status of the focused row can't be clobbered while writing a comment.
+
+**Deferred from original sketch:** swipe-to-mark mobile gestures. These need a real mobile test pass + a gesture library; the current tap targets remain usable on touch. Easy follow-up when the user asks. Tests: web type-check + lint clean; smoke-tested on nhqs.edupod.app with 25-student session (shortcut fired, focus advanced, 0 console errors).
 
 **Total: 3–4 days of focused work** from "backend exists but not wired" to "production-ready attendance across both capture modes with three user personas."
 
@@ -188,4 +195,4 @@ Cheapest first.
 
 ## Current Work
 
-Steps 1–4 are complete and live. Step 5 (marking UX polish) remains. This document is the source of truth for the remaining plan.
+All 5 steps are complete and live on production. The attendance module is now at "production-ready across both capture modes with three user personas" as set out in the original sequence estimate. Future follow-ups (swipe gestures, additional backfills, role refinements) can be scheduled as separate work.
