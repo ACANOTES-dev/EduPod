@@ -42,7 +42,12 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-import { exportToExcel, exportToPdf } from '@/lib/export-utils';
+import {
+  exportToExcel,
+  exportToExcelMulti,
+  exportToPdf,
+  exportToPdfMulti,
+} from '@/lib/export-utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -177,14 +182,17 @@ function buildExportRows(
   return { columns, dataRows };
 }
 
-// Opens a new window with a self-contained HTML table styled for landscape
-// printing, then auto-triggers the print dialog. Using a separate window
-// sidesteps the complexity of @media-print rules competing with the app shell.
-function printYearGroupTable(
-  title: string,
-  columns: Array<{ header: string; key: string }>,
-  dataRows: Array<Record<string, string | number>>,
-): void {
+interface PrintSection {
+  title: string;
+  columns: Array<{ header: string; key: string }>;
+  dataRows: Array<Record<string, string | number>>;
+}
+
+// Opens a new window containing one section per table, each landscape-sized
+// and separated by a page break so a master Print All produces one page per
+// class. Using a separate window sidesteps the complexity of @media-print
+// rules competing with the app shell.
+function printTableSections(docTitle: string, sections: PrintSection[]): void {
   const escape = (v: unknown): string =>
     String(v ?? '').replace(/[&<>"']/g, (c) => {
       switch (c) {
@@ -201,20 +209,37 @@ function printYearGroupTable(
       }
     });
 
-  const headHtml = columns.map((c) => `<th>${escape(c.header)}</th>`).join('');
-  const bodyHtml = dataRows
-    .map((r) => `<tr>${columns.map((c) => `<td>${escape(r[c.key])}</td>`).join('')}</tr>`)
-    .join('');
+  const exportedOn = escape(new Date().toLocaleDateString());
+  const sectionHtml = sections
+    .map((section) => {
+      const headHtml = section.columns.map((c) => `<th>${escape(c.header)}</th>`).join('');
+      const bodyHtml = section.dataRows
+        .map(
+          (r) => `<tr>${section.columns.map((c) => `<td>${escape(r[c.key])}</td>`).join('')}</tr>`,
+        )
+        .join('');
+      return `<section>
+  <h1>${escape(section.title)}</h1>
+  <div class="sub">${exportedOn}</div>
+  <table>
+    <thead><tr>${headHtml}</tr></thead>
+    <tbody>${bodyHtml}</tbody>
+  </table>
+</section>`;
+    })
+    .join('\n');
 
   const html = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8" />
-<title>${escape(title)}</title>
+<title>${escape(docTitle)}</title>
 <style>
   @page { size: landscape; margin: 1cm; }
   * { box-sizing: border-box; }
   body { font-family: system-ui, -apple-system, sans-serif; color: #111; margin: 0; padding: 16px; }
+  section { page-break-after: always; }
+  section:last-child { page-break-after: auto; }
   h1 { font-size: 18px; margin: 0 0 4px; }
   .sub { font-size: 11px; color: #666; margin-bottom: 12px; }
   table { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -224,12 +249,7 @@ function printYearGroupTable(
 </style>
 </head>
 <body>
-  <h1>${escape(title)}</h1>
-  <div class="sub">${escape(new Date().toLocaleDateString())}</div>
-  <table>
-    <thead><tr>${headHtml}</tr></thead>
-    <tbody>${bodyHtml}</tbody>
-  </table>
+${sectionHtml}
 </body>
 </html>`;
 
@@ -711,166 +731,253 @@ function SessionDetail({ session, onBack }: { session: ExamSession; onBack: () =
         }
       />
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => setAddSlotOpen(true)}>
-          <Plus className="h-4 w-4 me-2" />
-          {t('addExam')}
-        </Button>
-      </div>
-
       {loading ? (
         <div className="flex items-center gap-2 py-8 text-sm text-text-secondary">
           <Loader2 className="h-4 w-4 animate-spin" />
           {t('loading')}
         </div>
       ) : slots.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-surface p-12 text-center">
-          <BookOpen className="mx-auto h-10 w-10 text-text-tertiary" />
-          <p className="mt-3 text-sm text-text-secondary">{t('noSlots')}</p>
-        </div>
+        <>
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setAddSlotOpen(true)}>
+              <Plus className="h-4 w-4 me-2" />
+              {t('addExam')}
+            </Button>
+          </div>
+          <div className="rounded-2xl border border-border bg-surface p-12 text-center">
+            <BookOpen className="mx-auto h-10 w-10 text-text-tertiary" />
+            <p className="mt-3 text-sm text-text-secondary">{t('noSlots')}</p>
+          </div>
+        </>
       ) : (
-        <div className="space-y-4">
-          {groupSlotsByYearGroup(slots).map(({ yearGroupName, rows }) => {
-            const exportHeaders = {
-              date: t('date'),
-              time: t('time'),
-              subject: t('subject'),
-              paper: t('paper'),
-              duration: t('duration'),
-              rooms: t('room'),
-              students: t('students'),
-              invigilators: t('invigilators'),
-            };
-            const { columns: exportColumns, dataRows: exportData } = buildExportRows(
-              rows,
-              exportHeaders,
-              t('singlePaper'),
-            );
-            const exportTitle = `${session.name} — ${yearGroupName}`;
-            const fileName = `${session.name}-${yearGroupName}`
-              .replace(/\s+/g, '-')
-              .replace(/[^a-zA-Z0-9_-]+/g, '');
+        (() => {
+          const grouped = groupSlotsByYearGroup(slots);
+          const sharedHeaders = {
+            date: t('date'),
+            time: t('time'),
+            subject: t('subject'),
+            paper: t('paper'),
+            duration: t('duration'),
+            rooms: t('room'),
+            students: t('students'),
+            invigilators: t('invigilators'),
+          };
+          const singlePaperLabel = t('singlePaper');
+          const groupedExports = grouped.map(({ yearGroupName, rows }) => {
+            const { columns, dataRows } = buildExportRows(rows, sharedHeaders, singlePaperLabel);
+            const title = `${session.name} — ${yearGroupName}`;
+            return { yearGroupName, rows, columns, dataRows, title };
+          });
+          const masterFileName = session.name.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9_-]+/g, '');
+          const masterTables = groupedExports.map((g) => ({
+            name: g.yearGroupName,
+            columns: g.columns,
+            rows: g.dataRows,
+          }));
+          const masterSections: PrintSection[] = groupedExports.map((g) => ({
+            title: g.title,
+            columns: g.columns,
+            dataRows: g.dataRows,
+          }));
 
-            return (
-              <div key={yearGroupName} className="rounded-2xl border border-border bg-surface">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <h4 className="text-base font-semibold text-text-primary">{yearGroupName}</h4>
-                    <span className="text-xs text-text-tertiary">
-                      {t('groupExamCount', { count: rows.length })}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => printYearGroupTable(exportTitle, exportColumns, exportData)}
-                    >
-                      <Printer className="h-4 w-4 me-1.5" />
-                      {t('print')}
+          return (
+            <>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => printTableSections(session.name, masterSections)}
+                >
+                  <Printer className="h-4 w-4 me-2" />
+                  {t('printAll')}
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                      <Download className="h-4 w-4 me-2" />
+                      {t('exportAll')}
                     </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Download className="h-4 w-4 me-1.5" />
-                          {t('export')}
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() =>
-                            exportToExcel({
-                              fileName,
-                              title: exportTitle,
-                              columns: exportColumns,
-                              rows: exportData,
-                            })
-                          }
-                        >
-                          <FileSpreadsheet className="h-4 w-4 me-2" />
-                          {t('exportXlsx')}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            exportToPdf({
-                              fileName,
-                              title: exportTitle,
-                              columns: exportColumns,
-                              rows: exportData,
-                            })
-                          }
-                        >
-                          <FileText className="h-4 w-4 me-2" />
-                          {t('exportPdf')}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-surface-secondary">
-                        {[
-                          t('date'),
-                          t('time'),
-                          t('subject'),
-                          t('paper'),
-                          t('duration'),
-                          t('room'),
-                          t('students'),
-                          t('invigilators'),
-                        ].map((h) => (
-                          <th
-                            key={h}
-                            className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary"
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((slot) => (
-                        <tr
-                          key={slot.id}
-                          className="border-b border-border last:border-b-0 hover:bg-surface-secondary/50"
-                        >
-                          <td className="px-3 py-2 text-text-secondary">
-                            {new Date(slot.date).toLocaleDateString()}
-                          </td>
-                          <td className="px-3 py-2 text-text-secondary font-mono text-xs" dir="ltr">
-                            {slot.start_time} – {slot.end_time}
-                          </td>
-                          <td className="px-3 py-2 font-medium text-text-primary">
-                            {slot.subject_name ?? '—'}
-                          </td>
-                          <td className="px-3 py-2 text-text-secondary">
-                            {slot.paper_number ? `P${slot.paper_number}` : t('singlePaper')}
-                          </td>
-                          <td className="px-3 py-2 text-text-secondary">
-                            {slot.duration_minutes}m
-                          </td>
-                          <td className="px-3 py-2 text-text-secondary">
-                            {slot.rooms.length === 0
-                              ? '—'
-                              : slot.rooms.map((r) => r.room_name ?? '—').join(', ')}
-                          </td>
-                          <td className="px-3 py-2 text-text-secondary">{slot.student_count}</td>
-                          <td className="px-3 py-2 text-text-secondary">
-                            {slot.invigilators.length === 0
-                              ? '—'
-                              : slot.invigilators.map((i) => i.name).join(', ')}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() =>
+                        exportToExcelMulti({
+                          fileName: masterFileName,
+                          tables: masterTables,
+                        })
+                      }
+                    >
+                      <FileSpreadsheet className="h-4 w-4 me-2" />
+                      {t('exportXlsx')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        exportToPdfMulti({
+                          fileName: masterFileName,
+                          tables: masterTables,
+                        })
+                      }
+                    >
+                      <FileText className="h-4 w-4 me-2" />
+                      {t('exportPdf')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button variant="outline" onClick={() => setAddSlotOpen(true)}>
+                  <Plus className="h-4 w-4 me-2" />
+                  {t('addExam')}
+                </Button>
               </div>
-            );
-          })}
-        </div>
+
+              <div className="space-y-4">
+                {groupedExports.map(({ yearGroupName, rows, columns, dataRows, title }) => {
+                  const exportColumns = columns;
+                  const exportData = dataRows;
+                  const exportTitle = title;
+                  const fileName = `${session.name}-${yearGroupName}`
+                    .replace(/\s+/g, '-')
+                    .replace(/[^a-zA-Z0-9_-]+/g, '');
+
+                  return (
+                    <div
+                      key={yearGroupName}
+                      className="rounded-2xl border border-border bg-surface"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <h4 className="text-base font-semibold text-text-primary">
+                            {yearGroupName}
+                          </h4>
+                          <span className="text-xs text-text-tertiary">
+                            {t('groupExamCount', { count: rows.length })}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              printTableSections(exportTitle, [
+                                {
+                                  title: exportTitle,
+                                  columns: exportColumns,
+                                  dataRows: exportData,
+                                },
+                              ])
+                            }
+                          >
+                            <Printer className="h-4 w-4 me-1.5" />
+                            {t('print')}
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <Download className="h-4 w-4 me-1.5" />
+                                {t('export')}
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  exportToExcel({
+                                    fileName,
+                                    title: exportTitle,
+                                    columns: exportColumns,
+                                    rows: exportData,
+                                  })
+                                }
+                              >
+                                <FileSpreadsheet className="h-4 w-4 me-2" />
+                                {t('exportXlsx')}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  exportToPdf({
+                                    fileName,
+                                    title: exportTitle,
+                                    columns: exportColumns,
+                                    rows: exportData,
+                                  })
+                                }
+                              >
+                                <FileText className="h-4 w-4 me-2" />
+                                {t('exportPdf')}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border bg-surface-secondary">
+                              {[
+                                t('date'),
+                                t('time'),
+                                t('subject'),
+                                t('paper'),
+                                t('duration'),
+                                t('room'),
+                                t('students'),
+                                t('invigilators'),
+                              ].map((h) => (
+                                <th
+                                  key={h}
+                                  className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary"
+                                >
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((slot) => (
+                              <tr
+                                key={slot.id}
+                                className="border-b border-border last:border-b-0 hover:bg-surface-secondary/50"
+                              >
+                                <td className="px-3 py-2 text-text-secondary">
+                                  {new Date(slot.date).toLocaleDateString()}
+                                </td>
+                                <td
+                                  className="px-3 py-2 text-text-secondary font-mono text-xs"
+                                  dir="ltr"
+                                >
+                                  {slot.start_time} – {slot.end_time}
+                                </td>
+                                <td className="px-3 py-2 font-medium text-text-primary">
+                                  {slot.subject_name ?? '—'}
+                                </td>
+                                <td className="px-3 py-2 text-text-secondary">
+                                  {slot.paper_number ? `P${slot.paper_number}` : t('singlePaper')}
+                                </td>
+                                <td className="px-3 py-2 text-text-secondary">
+                                  {slot.duration_minutes}m
+                                </td>
+                                <td className="px-3 py-2 text-text-secondary">
+                                  {slot.rooms.length === 0
+                                    ? '—'
+                                    : slot.rooms.map((r) => r.room_name ?? '—').join(', ')}
+                                </td>
+                                <td className="px-3 py-2 text-text-secondary">
+                                  {slot.student_count}
+                                </td>
+                                <td className="px-3 py-2 text-text-secondary">
+                                  {slot.invigilators.length === 0
+                                    ? '—'
+                                    : slot.invigilators.map((i) => i.name).join(', ')}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          );
+        })()
       )}
 
       <AddExamSlotModal

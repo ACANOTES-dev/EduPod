@@ -5806,7 +5806,9 @@
       "singlePaper": "—",
       "groupExamCount": "{count, plural, one {# exam} other {# exams}}",
       "print": "Print",
+      "printAll": "Print all",
       "export": "Export",
+      "exportAll": "Export all",
       "exportXlsx": "Excel (.xlsx)",
       "exportPdf": "PDF",
       "validationRequired": "Please fill in all required fields."

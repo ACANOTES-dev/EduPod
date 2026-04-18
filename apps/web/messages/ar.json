@@ -5798,7 +5798,9 @@
       "singlePaper": "—",
       "groupExamCount": "{count, plural, zero {لا امتحانات} one {امتحان واحد} two {امتحانان} few {# امتحانات} many {# امتحانًا} other {# امتحان}}",
       "print": "طباعة",
+      "printAll": "طباعة الكل",
       "export": "تصدير",
+      "exportAll": "تصدير الكل",
       "exportXlsx": "Excel (.xlsx)",
       "exportPdf": "PDF",
       "validationRequired": "يرجى ملء جميع الحقول المطلوبة."
