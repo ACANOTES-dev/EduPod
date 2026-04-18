@@ -16,6 +16,7 @@ export interface AttendanceSettings {
   autoLockAfterDays: number | null;
   pendingAlertTimeHour: number;
   workDays: number[];
+  captureMode: 'per_period' | 'daily';
   defaultPresentEnabled: boolean;
   notifyParentOnAbsence: boolean;
   patternDetection: PatternDetectionSettings;
@@ -170,6 +171,7 @@ export const DEFAULT_SETTINGS: TenantSettings = {
     autoLockAfterDays: null,
     pendingAlertTimeHour: 14,
     workDays: [1, 2, 3, 4, 5],
+    captureMode: 'per_period',
     defaultPresentEnabled: false,
     notifyParentOnAbsence: false,
     patternDetection: {

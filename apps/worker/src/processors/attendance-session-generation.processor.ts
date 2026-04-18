@@ -72,6 +72,20 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
     const settings = (tenantSettings?.settings as Record<string, unknown>) ?? {};
     const attendanceSettings = (settings.attendance as Record<string, unknown>) ?? {};
     const defaultPresentEnabled = attendanceSettings.defaultPresentEnabled === true;
+    const captureMode = attendanceSettings.captureMode === 'daily' ? 'daily' : 'per_period';
+
+    if (captureMode === 'daily') {
+      const created = await this.generateDailySessions(
+        tx,
+        tenant_id,
+        targetDate,
+        defaultPresentEnabled,
+      );
+      this.logger.log(
+        `Generated ${created} daily sessions${defaultPresentEnabled ? ' (with default present records)' : ''} for tenant ${tenant_id} on ${date}`,
+      );
+      return;
+    }
 
     // JavaScript getDay(): 0=Sunday, 1=Monday, ..., 6=Saturday
     // Schema uses 0=Monday, 1=Tuesday, ..., 6=Sunday
@@ -197,5 +211,100 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
     this.logger.log(
       `Generated ${created} sessions${defaultPresentEnabled ? ' (with default present records)' : ''} for tenant ${tenant_id} on ${date}`,
     );
+  }
+
+  // ─── Daily capture-mode generation ─────────────────────────────────────────
+  // One session per active class per day, schedule_id=null. Iterates the Class
+  // table directly so non-timetabled classes still get a register. Honours the
+  // same academic-year + school-closure guards as the per-period branch.
+  private async generateDailySessions(
+    tx: PrismaClient,
+    tenant_id: string,
+    targetDate: Date,
+    defaultPresentEnabled: boolean,
+  ): Promise<number> {
+    const classes = await tx.class.findMany({
+      where: { tenant_id, status: 'active' },
+      select: {
+        id: true,
+        year_group_id: true,
+        academic_year: { select: { start_date: true, end_date: true } },
+      },
+    });
+
+    let created = 0;
+
+    for (const cls of classes) {
+      if (targetDate < cls.academic_year.start_date || targetDate > cls.academic_year.end_date) {
+        continue;
+      }
+
+      const closureWhere: Record<string, unknown>[] = [{ affects_scope: 'all' }];
+      if (cls.year_group_id) {
+        closureWhere.push({
+          affects_scope: 'year_group',
+          scope_entity_id: cls.year_group_id,
+        });
+      }
+      closureWhere.push({ affects_scope: 'class', scope_entity_id: cls.id });
+
+      const closureCount = await tx.schoolClosure.count({
+        where: { tenant_id, closure_date: targetDate, OR: closureWhere },
+      });
+
+      if (closureCount > 0) continue;
+
+      try {
+        const session = await tx.attendanceSession.create({
+          data: {
+            tenant_id,
+            class_id: cls.id,
+            schedule_id: null,
+            session_date: targetDate,
+            status: 'open',
+          },
+        });
+        created++;
+
+        if (defaultPresentEnabled) {
+          await tx.attendanceSession.update({
+            where: { id: session.id },
+            data: { default_present: true },
+          });
+
+          const enrolments = await tx.classEnrolment.findMany({
+            where: { class_id: cls.id, tenant_id, status: 'active' },
+            select: { student_id: true },
+          });
+
+          if (enrolments.length > 0) {
+            const now = new Date();
+            await tx.attendanceRecord.createMany({
+              data: enrolments.map((e: { student_id: string }) => ({
+                tenant_id,
+                attendance_session_id: session.id,
+                student_id: e.student_id,
+                status: 'present' as const,
+                marked_by_user_id: '00000000-0000-0000-0000-000000000000',
+                marked_at: now,
+              })),
+              skipDuplicates: true,
+            });
+          }
+        }
+      } catch (err: unknown) {
+        if (
+          typeof err === 'object' &&
+          err !== null &&
+          'code' in err &&
+          (err as { code: string }).code === 'P2002'
+        ) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    return created;
   }
 }

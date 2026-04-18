@@ -30,6 +30,7 @@ interface SessionDetail {
   date: string;
   status: string;
   class: { id: string; name: string };
+  schedule: { start_time: string; end_time: string } | null;
 }
 
 interface StudentRecord {
@@ -47,6 +48,7 @@ interface ApiSession {
   session_date: string;
   status: string;
   class_entity: { id: string; name: string } | null;
+  schedule: { id: string; weekday: number; start_time: string; end_time: string } | null;
   records: Array<{
     id: string;
     student: { id: string; first_name: string; last_name: string };
@@ -124,6 +126,9 @@ export default function MarkAttendancePage() {
           date: s.session_date,
           status: s.status,
           class: s.class_entity ?? { id: '', name: '—' },
+          schedule: s.schedule
+            ? { start_time: s.schedule.start_time, end_time: s.schedule.end_time }
+            : null,
         });
 
         // Build student records: merge existing records + enrolled students without records
@@ -303,10 +308,13 @@ export default function MarkAttendancePage() {
           </Button>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-              {t('markAttendance')}
+              {session.schedule ? t('markAttendance') : t('dailyRegister')}
             </h1>
             <p className="text-sm text-text-secondary">
               {session.class.name} — {session.date}
+              {session.schedule
+                ? ` · ${session.schedule.start_time}–${session.schedule.end_time}`
+                : ''}
             </p>
           </div>
           <AttendanceStatusBadge status={session.status} type="session" />

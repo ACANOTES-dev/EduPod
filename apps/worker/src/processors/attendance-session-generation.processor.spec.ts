@@ -40,6 +40,18 @@ function buildMockTx() {
       create: jest.fn().mockResolvedValue({ id: SESSION_ID }),
       update: jest.fn().mockResolvedValue({ id: SESSION_ID }),
     },
+    class: {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          id: CLASS_ID,
+          year_group_id: YEAR_GROUP_ID,
+          academic_year: {
+            start_date: new Date('2025-09-01T00:00:00.000Z'),
+            end_date: new Date('2026-06-30T00:00:00.000Z'),
+          },
+        },
+      ]),
+    },
     classEnrolment: {
       findMany: jest.fn().mockResolvedValue([{ student_id: STUDENT_ID }]),
     },
@@ -168,6 +180,102 @@ describe('AttendanceSessionGenerationProcessor', () => {
 
   it('should swallow duplicate-session P2002 errors', async () => {
     const mockTx = buildMockTx();
+    mockTx.attendanceSession.create.mockRejectedValue({ code: 'P2002' });
+    const processor = new AttendanceSessionGenerationProcessor(buildMockPrisma(mockTx) as never);
+
+    await expect(processor.process(buildJob())).resolves.toBeUndefined();
+
+    expect(mockTx.attendanceRecord.createMany).not.toHaveBeenCalled();
+  });
+
+  // ─── Daily capture-mode branch ─────────────────────────────────────────────
+
+  it('should create one session per active class with schedule_id=null when captureMode is daily', async () => {
+    const mockTx = buildMockTx();
+    mockTx.tenantSetting.findFirst.mockResolvedValue({
+      settings: { attendance: { captureMode: 'daily', defaultPresentEnabled: false } },
+    });
+    const processor = new AttendanceSessionGenerationProcessor(buildMockPrisma(mockTx) as never);
+
+    await processor.process(buildJob());
+
+    expect(mockTx.schedule.findMany).not.toHaveBeenCalled();
+    expect(mockTx.class.findMany).toHaveBeenCalledWith({
+      where: { tenant_id: TENANT_ID, status: 'active' },
+      select: {
+        id: true,
+        year_group_id: true,
+        academic_year: { select: { start_date: true, end_date: true } },
+      },
+    });
+    expect(mockTx.attendanceSession.create).toHaveBeenCalledWith({
+      data: {
+        tenant_id: TENANT_ID,
+        class_id: CLASS_ID,
+        schedule_id: null,
+        session_date: new Date('2026-03-30'),
+        status: 'open',
+      },
+    });
+    expect(mockTx.attendanceRecord.createMany).not.toHaveBeenCalled();
+  });
+
+  it('should insert default-present records for daily sessions when enabled', async () => {
+    const mockTx = buildMockTx();
+    mockTx.tenantSetting.findFirst.mockResolvedValue({
+      settings: { attendance: { captureMode: 'daily', defaultPresentEnabled: true } },
+    });
+    const processor = new AttendanceSessionGenerationProcessor(buildMockPrisma(mockTx) as never);
+
+    await processor.process(buildJob());
+
+    expect(mockTx.attendanceSession.update).toHaveBeenCalledWith({
+      where: { id: SESSION_ID },
+      data: { default_present: true },
+    });
+    expect(mockTx.attendanceRecord.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          attendance_session_id: SESSION_ID,
+          student_id: STUDENT_ID,
+          status: 'present',
+          tenant_id: TENANT_ID,
+        }),
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  it('should skip daily sessions when a school closure applies', async () => {
+    const mockTx = buildMockTx();
+    mockTx.tenantSetting.findFirst.mockResolvedValue({
+      settings: { attendance: { captureMode: 'daily', defaultPresentEnabled: false } },
+    });
+    mockTx.schoolClosure.count.mockResolvedValue(1);
+    const processor = new AttendanceSessionGenerationProcessor(buildMockPrisma(mockTx) as never);
+
+    await processor.process(buildJob());
+
+    expect(mockTx.attendanceSession.create).not.toHaveBeenCalled();
+  });
+
+  it('should skip daily sessions when date is outside the academic year', async () => {
+    const mockTx = buildMockTx();
+    mockTx.tenantSetting.findFirst.mockResolvedValue({
+      settings: { attendance: { captureMode: 'daily', defaultPresentEnabled: false } },
+    });
+    const processor = new AttendanceSessionGenerationProcessor(buildMockPrisma(mockTx) as never);
+
+    await processor.process(buildJob(ATTENDANCE_GENERATE_SESSIONS_JOB, { date: '2030-01-01' }));
+
+    expect(mockTx.attendanceSession.create).not.toHaveBeenCalled();
+  });
+
+  it('should swallow duplicate-session P2002 errors in daily mode', async () => {
+    const mockTx = buildMockTx();
+    mockTx.tenantSetting.findFirst.mockResolvedValue({
+      settings: { attendance: { captureMode: 'daily', defaultPresentEnabled: true } },
+    });
     mockTx.attendanceSession.create.mockRejectedValue({ code: 'P2002' });
     const processor = new AttendanceSessionGenerationProcessor(buildMockPrisma(mockTx) as never);
 

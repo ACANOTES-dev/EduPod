@@ -21,6 +21,38 @@ export function AttendanceSection({ settings, onChange }: AttendanceSectionProps
 
   return (
     <SectionCard title={t('sectionAttendance')} description={t('sectionAttendanceDesc')}>
+      {/* Capture mode: per_period vs daily */}
+      <div className="space-y-3">
+        <div className="space-y-0.5">
+          <Label className="text-sm text-text-primary">{t('captureMode')}</Label>
+          <p className="text-xs text-text-tertiary">{t('captureModeDesc')}</p>
+        </div>
+        <RadioGroup
+          value={settings.captureMode}
+          onValueChange={(v) => onChange({ captureMode: v as 'per_period' | 'daily' })}
+          className="space-y-2"
+        >
+          <div className="flex items-start gap-3">
+            <RadioGroupItem value="per_period" id="capture-per-period" className="mt-0.5" />
+            <div>
+              <Label htmlFor="capture-per-period" className="text-sm text-text-primary">
+                {t('capturePerPeriod')}
+              </Label>
+              <p className="text-xs text-text-tertiary">{t('capturePerPeriodDesc')}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <RadioGroupItem value="daily" id="capture-daily" className="mt-0.5" />
+            <div>
+              <Label htmlFor="capture-daily" className="text-sm text-text-primary">
+                {t('captureDaily')}
+              </Label>
+              <p className="text-xs text-text-tertiary">{t('captureDailyDesc')}</p>
+            </div>
+          </div>
+        </RadioGroup>
+      </div>
+
       <BooleanRow
         label={t('allowTeacherAmendment')}
         value={settings.allowTeacherAmendment}

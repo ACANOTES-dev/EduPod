@@ -40,6 +40,12 @@ export const attendanceSettingsSchema = z.object({
   pendingAlertTimeHour: z.number().int().min(0).max(23).default(14),
   /** Days of the week when school is in session. 0=Sunday, 1=Monday, ..., 6=Saturday. */
   workDays: z.array(z.number().int().min(0).max(6)).default([1, 2, 3, 4, 5]),
+  /**
+   * How attendance is captured each school day.
+   * - `per_period` (default): one session per Schedule row (class×period).
+   * - `daily`: one session per active class per day, no schedule binding.
+   */
+  captureMode: z.enum(['per_period', 'daily']).default('per_period'),
   defaultPresentEnabled: z.boolean().default(false),
   notifyParentOnAbsence: z.boolean().default(false),
   patternDetection: z

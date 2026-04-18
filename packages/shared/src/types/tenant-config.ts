@@ -25,6 +25,7 @@ export interface TenantSettingsAttendance {
   allowTeacherAmendment: boolean;
   autoLockAfterDays: number | null;
   pendingAlertTimeHour: number;
+  captureMode: 'per_period' | 'daily';
 }
 
 export interface TenantSettingsGradebook {
