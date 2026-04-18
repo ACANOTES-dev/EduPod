@@ -449,9 +449,8 @@ export class AttendanceSessionService {
    * For each active schedule on the weekday, create a session if not exists.
    */
   async batchGenerateSessions(tenantId: string, date: Date) {
-    // Convert JS weekday (0=Sunday) to schema weekday (0=Monday)
-    const jsDay = date.getDay();
-    const weekday = jsDay === 0 ? 6 : jsDay - 1;
+    // Schedule.weekday uses JS convention: 0=Sunday, 1=Monday, ..., 6=Saturday.
+    const weekday = date.getDay();
 
     // Find all active schedules for this weekday
     const schedules = await this.schedulesReadFacade.findByWeekdayWithClassYearGroup(

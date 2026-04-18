@@ -55,13 +55,13 @@ export interface ClassComparisonEntry {
 @Injectable()
 export class AttendanceAnalyticsService {
   private readonly WEEKDAY_LABELS = [
+    'Sunday',
     'Monday',
     'Tuesday',
     'Wednesday',
     'Thursday',
     'Friday',
     'Saturday',
-    'Sunday',
   ];
 
   constructor(private readonly dataAccess: ReportsDataAccessService) {}
@@ -189,8 +189,7 @@ export class AttendanceAnalyticsService {
       const weekdayMap = new Map<number, { total: number; present: number }>();
 
       for (const session of sessions) {
-        const jsDay = new Date(session.session_date).getDay();
-        const weekday = jsDay === 0 ? 6 : jsDay - 1;
+        const weekday = new Date(session.session_date).getDay();
         const entry = weekdayMap.get(weekday) ?? { total: 0, present: 0 };
         entry.total += session._count.records;
         weekdayMap.set(weekday, entry);

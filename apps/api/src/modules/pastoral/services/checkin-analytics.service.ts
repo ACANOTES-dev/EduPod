@@ -319,13 +319,11 @@ export class CheckinAnalyticsService {
     checkins: Array<{ checkin_date: Date; mood_score: number; student_id: string }>,
     minCohort: number,
   ): DayOfWeekPattern[] {
-    // Group by day of week (0=Sunday per JS Date, but spec says 0=Monday)
+    // Group by day of week — JS convention: 0=Sunday, 1=Monday, ..., 6=Saturday.
     const groups = new Map<number, { scores: number[]; students: Set<string> }>();
 
     for (const checkin of checkins) {
-      const jsDay = checkin.checkin_date.getDay(); // 0=Sunday
-      // Convert to spec format: 0=Monday, 1=Tuesday, ..., 6=Sunday
-      const specDay = jsDay === 0 ? 6 : jsDay - 1;
+      const specDay = checkin.checkin_date.getDay();
       const group = groups.get(specDay) ?? { scores: [], students: new Set<string>() };
       group.scores.push(checkin.mood_score);
       group.students.add(checkin.student_id);

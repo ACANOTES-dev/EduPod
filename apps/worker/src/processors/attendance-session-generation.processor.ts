@@ -87,10 +87,9 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
       return;
     }
 
-    // JavaScript getDay(): 0=Sunday, 1=Monday, ..., 6=Saturday
-    // Schema uses 0=Monday, 1=Tuesday, ..., 6=Sunday
-    const jsDay = targetDate.getDay();
-    const planWeekday = jsDay === 0 ? 6 : jsDay - 1;
+    // Schedule.weekday uses the JS convention: 0=Sunday, 1=Monday, ..., 6=Saturday.
+    // This matches substitution.service.ts, timetable-grid.tsx, and the seed data.
+    const planWeekday = targetDate.getDay();
 
     // Get all active schedules for this weekday
     const schedules = await tx.schedule.findMany({

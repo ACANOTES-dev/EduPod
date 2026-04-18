@@ -275,9 +275,8 @@ export class DashboardService {
 
       const today = new Date();
       const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      // Convert JS day (0=Sun) to plan day (0=Mon)
-      const jsDay = today.getDay();
-      const planWeekday = jsDay === 0 ? 6 : jsDay - 1;
+      // Schedule.weekday uses JS convention: 0=Sunday, 1=Monday, ..., 6=Saturday.
+      const planWeekday = today.getDay();
 
       // Get today's schedule entries
       const schedules = await txClient.schedule.findMany({

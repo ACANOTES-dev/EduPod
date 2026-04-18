@@ -297,7 +297,7 @@ describe('AttendanceAnalyticsService', () => {
       expect(callArg?.where?.session_date).toBeDefined();
     });
 
-    it('edge: should handle Sunday session (jsDay=0 maps to weekday 6)', async () => {
+    it('edge: should handle Sunday session (JS getDay=0, label "Sunday")', async () => {
       mockDataAccess.findYearGroups.mockResolvedValue([{ id: 'yg-1', name: 'Grade 1' }]);
       mockDataAccess.findClasses.mockResolvedValue([{ id: 'cls-1' }]);
       // 2026-01-04 is a Sunday
@@ -308,7 +308,7 @@ describe('AttendanceAnalyticsService', () => {
       const result = await service.dayOfWeekHeatmap(TENANT_ID);
 
       expect(result).toHaveLength(1);
-      expect(result[0]?.weekday).toBe(6);
+      expect(result[0]?.weekday).toBe(0);
       expect(result[0]?.weekday_label).toBe('Sunday');
     });
 

@@ -376,7 +376,7 @@ describe('AttendanceSessionService', () => {
       ).rejects.toThrow('DB failure');
     });
 
-    it('should convert Sunday (JS day 0) to weekday 6', async () => {
+    it('should use JS weekday (Sunday = 0) when looking up schedules', async () => {
       mockSchedulesFacade.findByWeekdayWithClassYearGroup.mockResolvedValue([]);
 
       // 2025-05-18 is a Sunday (getDay() = 0)
@@ -384,7 +384,7 @@ describe('AttendanceSessionService', () => {
 
       expect(mockSchedulesFacade.findByWeekdayWithClassYearGroup).toHaveBeenCalledWith(
         TENANT_ID,
-        6,
+        0,
         expect.any(Date),
       );
     });

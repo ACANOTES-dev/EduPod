@@ -131,7 +131,7 @@ describe('AttendanceSessionGenerationProcessor', () => {
     expect(mockTx.schedule.findMany).toHaveBeenCalledWith({
       where: {
         tenant_id: TENANT_ID,
-        weekday: 0,
+        weekday: 1,
         effective_start_date: { lte: new Date('2026-03-30') },
         OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date('2026-03-30') } }],
       },
