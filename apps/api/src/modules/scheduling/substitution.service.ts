@@ -610,10 +610,13 @@ export class SubstitutionService {
   // ─── Assign Substitute ────────────────────────────────────────────────────
 
   async assignSubstitute(tenantId: string, userId: string, dto: AssignSubstituteDto) {
-    // Verify absence exists
+    // Verify absence exists and pull its date — needed so the record carries
+    // a valid absence_date. Without it the cover-overlay on My Timetable
+    // can't filter by week and the conflict check in findEligibleSubstitutes
+    // can't exclude already-covering teachers.
     const absence = await this.prisma.teacherAbsence.findFirst({
       where: { id: dto.absence_id, tenant_id: tenantId },
-      select: { id: true },
+      select: { id: true, absence_date: true },
     });
     if (!absence) {
       throw new NotFoundException({
@@ -642,6 +645,8 @@ export class SubstitutionService {
           absence_id: dto.absence_id,
           schedule_id: dto.schedule_id,
           substitute_staff_id: dto.substitute_staff_id,
+          absence_date: absence.absence_date,
+          source: 'manual',
           status: 'assigned',
           assigned_by_user_id: userId,
           assigned_at: new Date(),
