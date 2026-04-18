@@ -23,7 +23,13 @@ export interface PeriodSlot {
 export interface TimetableEnvelope {
   data: TimetableEntry[];
   period_slots: PeriodSlot[];
+  /** True when the displayed week falls inside a published exam session. */
+  exam_session_active?: boolean;
+  /** Human-readable explanation shown in place of the weekly grid. */
+  exam_session_message?: string;
 }
+
+const EXAM_SUSPENSION_MESSAGE = 'No classes — exam session in progress';
 
 type ScheduleRow = {
   id: string;
@@ -58,6 +64,16 @@ export class TimetablesService {
     staffProfileId: string,
     query: TimetableQuery,
   ): Promise<TimetableEnvelope> {
+    const suspension = await this.sessionOverlappingWeek(tenantId, query.week_start);
+    if (suspension) {
+      return {
+        data: [],
+        period_slots: [],
+        exam_session_active: true,
+        exam_session_message: EXAM_SUSPENSION_MESSAGE,
+      };
+    }
+
     const where = this.buildEffectiveFilter(tenantId, query.academic_year_id, query.week_start);
     where.teacher_staff_id = staffProfileId;
 
@@ -106,6 +122,16 @@ export class TimetablesService {
     classId: string,
     query: TimetableQuery,
   ): Promise<TimetableEnvelope> {
+    const suspension = await this.sessionOverlappingWeek(tenantId, query.week_start);
+    if (suspension) {
+      return {
+        data: [],
+        period_slots: [],
+        exam_session_active: true,
+        exam_session_message: EXAM_SUSPENSION_MESSAGE,
+      };
+    }
+
     const where = this.buildEffectiveFilter(tenantId, query.academic_year_id, query.week_start);
     where.class_id = classId;
 
@@ -123,6 +149,16 @@ export class TimetablesService {
     studentId: string,
     query: TimetableQuery,
   ): Promise<TimetableEnvelope> {
+    const suspension = await this.sessionOverlappingWeek(tenantId, query.week_start);
+    if (suspension) {
+      return {
+        data: [],
+        period_slots: [],
+        exam_session_active: true,
+        exam_session_message: EXAM_SUSPENSION_MESSAGE,
+      };
+    }
+
     const classIds = await this.classesReadFacade.findClassIdsForStudent(tenantId, studentId);
 
     if (classIds.length === 0) {
@@ -139,6 +175,34 @@ export class TimetablesService {
     });
 
     return this.buildEnvelope(tenantId, query.academic_year_id, schedules as ScheduleRow[]);
+  }
+
+  // Compute Mon-Sun window containing the week_start param (or today) and
+  // return the first published ExamSession overlapping it, if any.
+  private async sessionOverlappingWeek(
+    tenantId: string,
+    weekStart?: string,
+  ): Promise<{ id: string } | null> {
+    const reference = weekStart ? new Date(weekStart) : new Date();
+    const day = reference.getUTCDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const monday = new Date(reference);
+    monday.setUTCDate(reference.getUTCDate() + mondayOffset);
+    monday.setUTCHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setUTCDate(monday.getUTCDate() + 6);
+    sunday.setUTCHours(23, 59, 59, 999);
+
+    // eslint-disable-next-line school/no-cross-module-prisma-access -- read-only check for published ExamSession overlapping the week; pure metadata fetch inline with the schedule lookup to avoid an extra round-trip to the scheduling module
+    return this.prisma.examSession.findFirst({
+      where: {
+        tenant_id: tenantId,
+        status: 'published',
+        start_date: { lte: sunday },
+        end_date: { gte: monday },
+      },
+      select: { id: true },
+    });
   }
 
   async getWorkloadReport(tenantId: string, academicYearId: string): Promise<WorkloadEntry[]> {

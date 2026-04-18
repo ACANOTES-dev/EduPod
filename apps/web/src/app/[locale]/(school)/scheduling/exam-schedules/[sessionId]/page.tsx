@@ -954,7 +954,7 @@ function ReviewTab({
     try {
       const raw = await apiClient<{ data: SolveResponse } | SolveResponse>(
         `/api/v1/scheduling/exam-sessions/${sessionId}/solve`,
-        { method: 'POST', body: JSON.stringify({ max_solver_duration_seconds: 60 }) },
+        { method: 'POST', body: JSON.stringify({ max_solver_duration_seconds: 45 }) },
       );
       const res = unwrap(raw) as SolveResponse;
       if (res.status === 'optimal') {
