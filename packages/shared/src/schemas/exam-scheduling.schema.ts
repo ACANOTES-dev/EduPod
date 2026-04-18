@@ -135,9 +135,20 @@ export interface ExamSolverSlot {
   invigilator_ids: string[];
 }
 
+export type ExamEarlyStopReason = 'stagnation' | 'gap' | 'cancelled' | 'not_triggered';
+
 export interface ExamSolverOutput {
   status: 'optimal' | 'feasible' | 'infeasible' | 'unknown';
   slots: ExamSolverSlot[];
   solve_time_ms: number;
   message?: string;
+
+  // Early-stop telemetry — all optional, defaulted on the sidecar side, so
+  // older builds still deserialise cleanly.
+  early_stop_triggered?: boolean;
+  termination_reason?: ExamEarlyStopReason;
+  improvements_found?: number;
+  first_solution_wall_time_seconds?: number | null;
+  final_objective_value?: number | null;
+  time_saved_ms?: number;
 }

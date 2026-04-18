@@ -80,3 +80,15 @@ class ExamSolverOutput(_Strict):
     slots: list[ExamSolverSlot]
     solve_time_ms: int
     message: str | None = None
+
+    # Early-stop telemetry (all optional — older sidecar builds + the
+    # degenerate early-return paths omit them). Mirrors the timetable
+    # solver's `solver_diagnostics` surface, narrowed to the exam case.
+    early_stop_triggered: bool = False
+    termination_reason: Literal[
+        "stagnation", "gap", "cancelled", "not_triggered"
+    ] = "not_triggered"
+    improvements_found: int = 0
+    first_solution_wall_time_seconds: float | None = None
+    final_objective_value: float | None = None
+    time_saved_ms: int = 0

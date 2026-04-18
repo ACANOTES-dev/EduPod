@@ -40,6 +40,7 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from typing import Literal
 
 from ortools.sat.python import cp_model
 
@@ -50,8 +51,138 @@ from solver_py.schema.exam import (
     ExamSolverRoomAssignment,
     ExamSolverSlot,
 )
+from solver_py.solver.early_stop import WallClockWatchdog
 
 logger = logging.getLogger("solver_py.exam")
+
+ExamEarlyStopReason = Literal["stagnation", "gap", "cancelled", "not_triggered"]
+
+# Default stagnation threshold (seconds without an improvement) before the
+# exam solver halts. Same 8s value as the timetable solver — long enough to
+# avoid tripping on deep branch explorations, short enough that a plateau at
+# first-feasible doesn't burn the full 450s budget.
+_EXAM_STAGNATION_SECONDS = 8.0
+_EXAM_GAP_THRESHOLD = 0.001
+_EXAM_MIN_RUNTIME_SECONDS = 2.0
+
+
+class ExamEarlyStopCallback(cp_model.CpSolverSolutionCallback):
+    """Minimise-aware early-stop callback for the exam CP-SAT solver.
+
+    Mirrors the shape of the timetable solver's ``EarlyStopCallback`` but
+    inverts the improvement / floor checks for minimise objectives. We do
+    not touch the shared callback because altering its direction semantics
+    would be a high-risk change to the already-live timetable path.
+
+    The exam solver has no greedy warm-start, so there is no "hint floor"
+    to beat before stagnation becomes eligible. Instead we treat the first
+    feasible solution as the floor: once CP-SAT has found anything at all,
+    8 seconds of quiet (no strict improvement) is enough to halt.
+
+    Watchdog surface area matches the timetable callback (``last_callback_
+    monotonic``, ``mark_watchdog_triggered``) so the existing
+    :class:`WallClockWatchdog` can be reused verbatim — critical because
+    CP-SAT only fires the callback on strict improvements, so a plateau at
+    first-feasible would never trip the callback's own stagnation check.
+    """
+
+    def __init__(
+        self,
+        stagnation_seconds: float = _EXAM_STAGNATION_SECONDS,
+        gap_threshold: float = _EXAM_GAP_THRESHOLD,
+        min_runtime_seconds: float = _EXAM_MIN_RUNTIME_SECONDS,
+    ) -> None:
+        super().__init__()
+        self._stagnation_seconds = stagnation_seconds
+        self._gap_threshold = gap_threshold
+        self._min_runtime_seconds = min_runtime_seconds
+        self._best_objective: float | None = None
+        self._last_improvement_wall: float = 0.0
+        self._last_callback_monotonic: float = time.monotonic()
+        self._triggered = False
+        self._reason: ExamEarlyStopReason = "not_triggered"
+        self._first_solution_objective: float | None = None
+        self._first_solution_wall_time: float | None = None
+        self._improvements_found = 0
+
+    @property
+    def triggered(self) -> bool:
+        return self._triggered
+
+    @property
+    def reason(self) -> ExamEarlyStopReason:
+        return self._reason
+
+    @property
+    def best_objective(self) -> float | None:
+        return self._best_objective
+
+    @property
+    def first_solution_wall_time(self) -> float | None:
+        return self._first_solution_wall_time
+
+    @property
+    def improvements_found(self) -> int:
+        return self._improvements_found
+
+    @property
+    def last_callback_monotonic(self) -> float:
+        return self._last_callback_monotonic
+
+    def mark_watchdog_triggered(self) -> None:
+        """Called by :class:`WallClockWatchdog` just before ``stop_search``."""
+        if not self._triggered:
+            self._triggered = True
+            self._reason = "stagnation"
+
+    def OnSolutionCallback(self) -> None:  # noqa: N802 — CP-SAT API
+        self._last_callback_monotonic = time.monotonic()
+        try:
+            current = self.objective_value
+        except RuntimeError:
+            return
+
+        wall = self.wall_time
+
+        if self._first_solution_objective is None:
+            self._first_solution_objective = current
+            self._first_solution_wall_time = wall
+
+        # Minimise semantics: strict improvement is a DECREASE.
+        improved = self._best_objective is None or current < self._best_objective
+        if improved:
+            self._best_objective = current
+            self._last_improvement_wall = wall
+            self._improvements_found += 1
+
+        # ── Trigger 1: stagnation past first feasible ────────────────────────
+        # Unlike the timetable path, there's no greedy floor — the first
+        # feasible IS the floor. Stop if nothing has improved for N seconds.
+        if (
+            self._best_objective is not None
+            and (wall - self._last_improvement_wall) >= self._stagnation_seconds
+        ):
+            self._triggered = True
+            self._reason = "stagnation"
+            self.stop_search()
+            return
+
+        # ── Trigger 2: gap closure (minimise variant) ────────────────────────
+        if wall < self._min_runtime_seconds:
+            return
+        try:
+            best_bound = self.best_objective_bound
+        except RuntimeError:
+            return
+        if self._best_objective is None:
+            return
+        denom = max(1.0, abs(self._best_objective))
+        # For minimise: best_bound <= best_objective, so gap = (best - bound) / denom.
+        gap = (self._best_objective - best_bound) / denom
+        if gap < self._gap_threshold:
+            self._triggered = True
+            self._reason = "gap"
+            self.stop_search()
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -359,8 +490,25 @@ def solve_exam_schedule(payload: ExamSolverInput) -> ExamSolverOutput:
     solver.parameters.num_search_workers = 1
     solver.parameters.log_search_progress = False
 
-    status = solver.Solve(model)
+    callback = ExamEarlyStopCallback()
+    watchdog = WallClockWatchdog(
+        solver,
+        callback,
+        threshold_seconds=_EXAM_STAGNATION_SECONDS,
+    )
+    watchdog.start()
+    try:
+        status = solver.Solve(model, callback)
+    finally:
+        watchdog.stop()
     solve_ms = int((time.perf_counter() - started) * 1000)
+
+    # Time saved is the difference between the configured budget and the
+    # actual sidecar wall-clock — meaningful only when early stop halted
+    # the solver before the ceiling.
+    time_saved_ms = max(
+        0, payload.max_solver_duration_seconds * 1000 - solve_ms
+    ) if callback.triggered else 0
 
     logger.info(
         "exam solve finished",
@@ -371,6 +519,12 @@ def solve_exam_schedule(payload: ExamSolverInput) -> ExamSolverOutput:
             "rooms": num_rooms,
             "invigilators": num_invig,
             "duration_ms": solve_ms,
+            "early_stop_triggered": callback.triggered,
+            "termination_reason": callback.reason,
+            "improvements_found": callback.improvements_found,
+            "first_solution_wall_time_seconds": callback.first_solution_wall_time,
+            "final_objective_value": callback.best_objective,
+            "time_saved_ms": time_saved_ms,
         },
     )
 
@@ -390,6 +544,12 @@ def solve_exam_schedule(payload: ExamSolverInput) -> ExamSolverOutput:
             )
             if status == cp_model.INFEASIBLE
             else f"Solver returned {solver.StatusName(status)}",
+            early_stop_triggered=callback.triggered,
+            termination_reason=callback.reason,
+            improvements_found=callback.improvements_found,
+            first_solution_wall_time_seconds=callback.first_solution_wall_time,
+            final_objective_value=callback.best_objective,
+            time_saved_ms=time_saved_ms,
         )
 
     out_slots: list[ExamSolverSlot] = []
@@ -444,6 +604,12 @@ def solve_exam_schedule(payload: ExamSolverInput) -> ExamSolverOutput:
         status=status_label,  # type: ignore[arg-type]
         slots=out_slots,
         solve_time_ms=solve_ms,
+        early_stop_triggered=callback.triggered,
+        termination_reason=callback.reason,
+        improvements_found=callback.improvements_found,
+        first_solution_wall_time_seconds=callback.first_solution_wall_time,
+        final_objective_value=callback.best_objective,
+        time_saved_ms=time_saved_ms,
     )
 
 

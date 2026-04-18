@@ -239,6 +239,12 @@ class ExamSolverRunner extends TenantAwareJob<ExamSolverPayload> {
             elapsed_ms: elapsedMs,
             placed: output.slots.length,
             total: exams.length,
+            early_stop_triggered: output.early_stop_triggered ?? false,
+            termination_reason: output.termination_reason ?? 'not_triggered',
+            improvements_found: output.improvements_found ?? 0,
+            first_solution_wall_time_seconds: output.first_solution_wall_time_seconds ?? null,
+            final_objective_value: output.final_objective_value ?? null,
+            time_saved_ms: output.time_saved_ms ?? 0,
           },
           finished_at: new Date(),
         },
@@ -246,7 +252,10 @@ class ExamSolverRunner extends TenantAwareJob<ExamSolverPayload> {
     });
 
     this.logger.log(
-      `Exam solve ${solve_job_id} completed: ${output.slots.length}/${exams.length} placed in ${elapsedMs}ms (solver ${output.solve_time_ms}ms, status=${output.status})`,
+      `Exam solve ${solve_job_id} completed: ${output.slots.length}/${exams.length} placed in ${elapsedMs}ms ` +
+        `(solver ${output.solve_time_ms}ms, status=${output.status}, ` +
+        `early_stop=${output.early_stop_triggered ?? false}, reason=${output.termination_reason ?? 'n/a'}, ` +
+        `time_saved=${output.time_saved_ms ?? 0}ms, improvements=${output.improvements_found ?? 0})`,
     );
   }
 
