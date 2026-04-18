@@ -75,6 +75,42 @@ function sessionStatusVariant(status: ExamSessionStatus): 'default' | 'secondary
   return 'secondary';
 }
 
+// Group slots by year group so the published timetable renders one card per
+// year group (mirrors the review tab in exam-schedules/[sessionId]). Rows sort
+// by date then start time; groups sort alphabetically, with unknown-year-group
+// rows pinned to the end.
+function groupSlotsByYearGroup(
+  slots: ExamSlot[],
+): Array<{ yearGroupName: string; rows: ExamSlot[] }> {
+  const groups = new Map<string, { yearGroupName: string; rows: ExamSlot[] }>();
+  for (const s of slots) {
+    const key = s.year_group_name ?? '__unknown__';
+    const bucket = groups.get(key);
+    if (bucket) {
+      bucket.rows.push(s);
+    } else {
+      groups.set(key, { yearGroupName: s.year_group_name ?? '—', rows: [s] });
+    }
+  }
+
+  const ordered = Array.from(groups.entries()).map(([id, g]) => {
+    const rows = [...g.rows].sort((a, b) => {
+      const d = a.date.localeCompare(b.date);
+      if (d !== 0) return d;
+      return a.start_time.localeCompare(b.start_time);
+    });
+    return { key: id, yearGroupName: g.yearGroupName, rows };
+  });
+
+  ordered.sort((a, b) => {
+    if (a.key === '__unknown__') return 1;
+    if (b.key === '__unknown__') return -1;
+    return a.yearGroupName.localeCompare(b.yearGroupName);
+  });
+
+  return ordered.map(({ yearGroupName, rows }) => ({ yearGroupName, rows }));
+}
+
 // ─── Create Session Modal ─────────────────────────────────────────────────────
 
 function CreateSessionModal({
@@ -490,7 +526,7 @@ function SessionDetail({ session, onBack }: { session: ExamSession; onBack: () =
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       <PageHeader
         title={session.name}
         description={`${new Date(session.start_date).toLocaleDateString()} – ${new Date(session.end_date).toLocaleDateString()}`}
@@ -556,63 +592,76 @@ function SessionDetail({ session, onBack }: { session: ExamSession; onBack: () =
           <p className="mt-3 text-sm text-text-secondary">{t('noSlots')}</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-surface-secondary">
-                {[
-                  t('subject'),
-                  t('yearGroup'),
-                  t('date'),
-                  t('time'),
-                  t('duration'),
-                  t('room'),
-                  t('students'),
-                  t('invigilators'),
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {slots.map((slot) => (
-                <tr
-                  key={slot.id}
-                  className="border-b border-border last:border-b-0 hover:bg-surface-secondary/50"
-                >
-                  <td className="px-4 py-3 font-medium text-text-primary">{slot.subject_name}</td>
-                  <td className="px-4 py-3 text-text-secondary">{slot.year_group_name}</td>
-                  <td className="px-4 py-3 text-text-secondary">
-                    {new Date(slot.date).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary font-mono text-xs">
-                    {slot.start_time}
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary">{slot.duration_minutes}m</td>
-                  <td className="px-4 py-3 text-text-secondary">{slot.room_name ?? '—'}</td>
-                  <td className="px-4 py-3 text-text-secondary">{slot.student_count}</td>
-                  <td className="px-4 py-3">
-                    {(slot.invigilators ?? []).length === 0 ? (
-                      <span className="text-text-tertiary">—</span>
-                    ) : (
-                      <div className="space-y-0.5">
-                        {(slot.invigilators ?? []).map((inv, i) => (
-                          <p key={i} className="text-xs text-text-secondary">
-                            {inv.name} <span className="text-text-tertiary">({inv.role})</span>
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-4">
+          {groupSlotsByYearGroup(slots).map(({ yearGroupName, rows }) => (
+            <div key={yearGroupName} className="rounded-2xl border border-border bg-surface">
+              <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+                <h4 className="text-base font-semibold text-text-primary">{yearGroupName}</h4>
+                <span className="text-xs text-text-tertiary">
+                  {t('groupExamCount', { count: rows.length })}
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-surface-secondary">
+                      {[
+                        t('date'),
+                        t('time'),
+                        t('subject'),
+                        t('duration'),
+                        t('room'),
+                        t('students'),
+                        t('invigilators'),
+                      ].map((h) => (
+                        <th
+                          key={h}
+                          className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((slot) => (
+                      <tr
+                        key={slot.id}
+                        className="border-b border-border last:border-b-0 hover:bg-surface-secondary/50"
+                      >
+                        <td className="px-3 py-2 text-text-secondary">
+                          {new Date(slot.date).toLocaleDateString()}
+                        </td>
+                        <td className="px-3 py-2 text-text-secondary font-mono text-xs" dir="ltr">
+                          {slot.start_time} – {slot.end_time}
+                        </td>
+                        <td className="px-3 py-2 font-medium text-text-primary">
+                          {slot.subject_name}
+                        </td>
+                        <td className="px-3 py-2 text-text-secondary">{slot.duration_minutes}m</td>
+                        <td className="px-3 py-2 text-text-secondary">{slot.room_name ?? '—'}</td>
+                        <td className="px-3 py-2 text-text-secondary">{slot.student_count}</td>
+                        <td className="px-3 py-2">
+                          {(slot.invigilators ?? []).length === 0 ? (
+                            <span className="text-text-tertiary">—</span>
+                          ) : (
+                            <div className="space-y-0.5">
+                              {(slot.invigilators ?? []).map((inv, i) => (
+                                <p key={i} className="text-xs text-text-secondary">
+                                  {inv.name}{' '}
+                                  <span className="text-text-tertiary">({inv.role})</span>
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -700,7 +749,7 @@ export default function ExamsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       <PageHeader
         title={t('title')}
         description={t('description')}

@@ -5794,6 +5794,7 @@
       "time": "الوقت",
       "duration": "المدة",
       "date": "التاريخ",
+      "groupExamCount": "{count, plural, zero {لا امتحانات} one {امتحان واحد} two {امتحانان} few {# امتحانات} many {# امتحانًا} other {# امتحان}}",
       "validationRequired": "يرجى ملء جميع الحقول المطلوبة."
     },
     "examSchedules": {

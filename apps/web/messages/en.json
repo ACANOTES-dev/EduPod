@@ -5802,6 +5802,7 @@
       "time": "Time",
       "duration": "Duration",
       "date": "Date",
+      "groupExamCount": "{count, plural, one {# exam} other {# exams}}",
       "validationRequired": "Please fill in all required fields."
     },
     "examSchedules": {
