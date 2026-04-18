@@ -43,6 +43,7 @@ describe('TimetablesService', () => {
     schedule: { findMany: jest.Mock };
     schedulingRun: { findMany: jest.Mock };
     schedulePeriodTemplate: { findMany: jest.Mock };
+    substitutionRecord: { findMany: jest.Mock };
   };
 
   const mockClassesReadFacade = {
@@ -54,6 +55,10 @@ describe('TimetablesService', () => {
       schedule: { findMany: jest.fn() },
       schedulingRun: { findMany: jest.fn().mockResolvedValue([]) },
       schedulePeriodTemplate: { findMany: jest.fn().mockResolvedValue([]) },
+      // Cover-overlay mock — teacher-view now splices in SubstitutionRecord
+      // rows where the teacher is the substitute, so every test invoking
+      // getTeacherTimetable needs this mock available.
+      substitutionRecord: { findMany: jest.fn().mockResolvedValue([]) },
     };
 
     const module: TestingModule = await Test.createTestingModule({

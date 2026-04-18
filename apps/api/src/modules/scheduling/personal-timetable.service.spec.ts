@@ -72,6 +72,17 @@ describe('PersonalTimetableService', () => {
       examInvigilation: {
         findMany: jest.fn().mockResolvedValue([]),
       },
+      // Enrichment + cover-overlay mocks (default to empty so existing tests
+      // don't need to set them up explicitly).
+      schedulingRun: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      schedulePeriodTemplate: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      substitutionRecord: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     } as unknown as typeof mockPrisma;
 
     mockTx.calendarSubscriptionToken.create.mockResolvedValue({

@@ -22,6 +22,11 @@ export interface TimetableEntry {
   rotation_week: number | null;
   /** Set on entries that came from an exam-session invigilation shift overlay. */
   is_exam_invigilation?: boolean;
+  /** Set on entries that represent a cover duty assigned from someone else's
+   *  absence — the teacher is substituting, not teaching their own class. */
+  is_cover_duty?: boolean;
+  /** When `is_cover_duty` is set, the full name of the teacher being covered. */
+  cover_for_name?: string | null;
 }
 
 export interface PeriodSlot {
@@ -139,6 +144,93 @@ export class PersonalTimetableService {
       });
   }
 
+  /**
+   * Build overlay entries for class covers this teacher has been assigned to
+   * within the week [weekStart, weekEnd]. Each SubstitutionRecord where
+   * `substitute_staff_id` = this teacher produces one entry tagged
+   * `is_cover_duty: true`, carrying the subject/class/room of the absent
+   * teacher's original schedule so it slots cleanly into the grid.
+   */
+  private async buildTeacherCoverOverlay(
+    tenantId: string,
+    staffId: string,
+    weekStart: Date,
+    weekEnd: Date,
+  ): Promise<TimetableEntry[]> {
+    const records = await this.prisma.substitutionRecord.findMany({
+      where: {
+        tenant_id: tenantId,
+        substitute_staff_id: staffId,
+        status: { in: ['assigned', 'confirmed'] },
+        absence_date: { gte: weekStart, lte: weekEnd },
+      },
+      select: {
+        id: true,
+        absence_date: true,
+        absence: {
+          select: {
+            staff_profile: {
+              select: { user: { select: { first_name: true, last_name: true } } },
+            },
+          },
+        },
+        schedule: {
+          select: {
+            id: true,
+            weekday: true,
+            period_order: true,
+            start_time: true,
+            end_time: true,
+            class_id: true,
+            scheduling_run_id: true,
+            class_entity: {
+              select: {
+                name: true,
+                subject: { select: { name: true } },
+              },
+            },
+            room: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    // Resolve subject for each covered slot via the scheduling run (the
+    // schedule row itself has no subject_id for shared classes).
+    const runLookupRows = records
+      .filter((r) => r.schedule)
+      .map((r) => ({
+        id: r.schedule!.id,
+        class_id: r.schedule!.class_id,
+        weekday: r.schedule!.weekday,
+        period_order: r.schedule!.period_order,
+        scheduling_run_id: r.schedule!.scheduling_run_id,
+      }));
+    const subjectBySchedule = await this.resolveSubjectsFromRuns(tenantId, runLookupRows);
+
+    return records
+      .filter((r) => r.schedule != null)
+      .map((r) => {
+        const s = r.schedule!;
+        const absentName = r.absence?.staff_profile?.user
+          ? `${r.absence.staff_profile.user.first_name} ${r.absence.staff_profile.user.last_name}`.trim()
+          : null;
+        return {
+          schedule_id: `cover-${r.id}`,
+          weekday: s.weekday,
+          period_order: s.period_order,
+          start_time: s.start_time.toISOString().slice(11, 16),
+          end_time: s.end_time.toISOString().slice(11, 16),
+          class_name: s.class_entity?.name ?? '',
+          subject_name: subjectBySchedule.get(s.id) ?? s.class_entity?.subject?.name ?? null,
+          room_name: s.room?.name ?? null,
+          rotation_week: null,
+          is_cover_duty: true,
+          cover_for_name: absentName,
+        };
+      });
+  }
+
   // ─── Get Teacher Timetable ────────────────────────────────────────────────
 
   async getTeacherTimetable(
@@ -182,6 +274,15 @@ export class PersonalTimetableService {
       room_name: s.room?.name ?? null,
       rotation_week: s.rotation_week,
     }));
+
+    // Overlay cover duties for the displayed week. A SubstitutionRecord with
+    // this teacher as `substitute_staff_id` means they're covering someone
+    // else's class — the schedule row it points to isn't on their own
+    // timetable (it belongs to the absent teacher), so it has to be spliced in
+    // explicitly. Without this overlay an assigned cover simply vanishes
+    // from the substitute's "My Timetable" view.
+    const coverOverlay = await this.buildTeacherCoverOverlay(tenantId, staffId, weekStart, weekEnd);
+    data.push(...coverOverlay);
 
     const yearGroupIds = new Set<string>();
     for (const s of schedules) {

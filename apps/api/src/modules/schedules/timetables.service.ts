@@ -67,7 +67,21 @@ export class TimetablesService {
       include: this.scheduleInclude(),
     });
 
-    return this.buildEnvelope(tenantId, query.academic_year_id, schedules as ScheduleRow[]);
+    const envelope = await this.buildEnvelope(
+      tenantId,
+      query.academic_year_id,
+      schedules as ScheduleRow[],
+    );
+
+    // Overlay cover duties assigned to this teacher for the query week.
+    // Without this, an admin viewing Ethan's timetable right after he was
+    // assigned to cover Sarah's Mon P1 wouldn't see the extra class on his
+    // grid — it lives as a SubstitutionRecord pointing at Sarah's schedule
+    // row, not his own.
+    const covers = await this.buildTeacherCoverEntries(tenantId, staffProfileId, query.week_start);
+    envelope.data.push(...covers);
+
+    return envelope;
   }
 
   async getRoomTimetable(
@@ -345,6 +359,103 @@ export class TimetablesService {
     }
 
     return result;
+  }
+
+  /**
+   * Build TimetableEntry rows representing cover duties this teacher has been
+   * assigned to for the week containing `weekStart`. Each SubstitutionRecord
+   * with status assigned/confirmed produces one entry tagged `is_cover_duty`.
+   */
+  private async buildTeacherCoverEntries(
+    tenantId: string,
+    staffProfileId: string,
+    weekStart: string | undefined,
+  ): Promise<TimetableEntry[]> {
+    const anchor = weekStart ? new Date(weekStart) : new Date();
+    const monday = new Date(anchor);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(anchor.getDate() - ((anchor.getDay() + 6) % 7));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    // eslint-disable-next-line school/no-cross-module-prisma-access -- substitutionRecord lives in scheduling module; overlaying covers is a read-only augmentation of the applied timetable for admin display
+    const records = await this.prisma.substitutionRecord.findMany({
+      where: {
+        tenant_id: tenantId,
+        substitute_staff_id: staffProfileId,
+        status: { in: ['assigned', 'confirmed'] },
+        absence_date: { gte: monday, lte: sunday },
+      },
+      select: {
+        id: true,
+        absence: {
+          select: {
+            staff_profile: {
+              select: { user: { select: { first_name: true, last_name: true } } },
+            },
+          },
+        },
+        schedule: {
+          select: {
+            id: true,
+            class_id: true,
+            weekday: true,
+            period_order: true,
+            start_time: true,
+            end_time: true,
+            scheduling_run_id: true,
+            class_entity: {
+              select: {
+                id: true,
+                name: true,
+                year_group_id: true,
+                subject: { select: { name: true } },
+              },
+            },
+            room: { select: { id: true, name: true } },
+            teacher: {
+              select: {
+                id: true,
+                user: { select: { first_name: true, last_name: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const scheduleRows = records
+      .filter((r) => r.schedule != null)
+      .map((r) => r.schedule!) as unknown as ScheduleRow[];
+    const subjectBySchedule = await this.resolveSubjectsFromRuns(tenantId, scheduleRows);
+
+    return records
+      .filter((r) => r.schedule != null)
+      .map((r) => {
+        const s = r.schedule!;
+        const absentName = r.absence?.staff_profile?.user
+          ? `${r.absence.staff_profile.user.first_name} ${r.absence.staff_profile.user.last_name}`.trim()
+          : null;
+        const subjectName =
+          subjectBySchedule.get(s.id) ?? s.class_entity?.subject?.name ?? undefined;
+        const entry: TimetableEntry = {
+          schedule_id: `cover-${r.id}`,
+          weekday: s.weekday,
+          start_time: this.formatTime(s.start_time),
+          end_time: this.formatTime(s.end_time),
+          class_id: s.class_entity?.id ?? s.class_id,
+          class_name: s.class_entity?.name ?? '',
+          is_cover_duty: true,
+          cover_for_name: absentName,
+        };
+        if (s.room) {
+          entry.room_id = s.room.id;
+          entry.room_name = s.room.name;
+        }
+        if (subjectName) entry.subject_name = subjectName;
+        return entry;
+      });
   }
 
   private async loadPeriodSlots(

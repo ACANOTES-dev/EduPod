@@ -21,11 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   toast,
 } from '@school/ui';
 
@@ -84,6 +79,8 @@ interface MyEndpointEntry {
   room_name: string | null;
   rotation_week: number | null;
   is_exam_invigilation?: boolean;
+  is_cover_duty?: boolean;
+  cover_for_name?: string | null;
 }
 
 interface MyEndpointResponse {
@@ -105,6 +102,8 @@ interface TimetableEntryDto {
   teacher_staff_id?: string;
   teacher_name?: string;
   subject_name?: string;
+  is_cover_duty?: boolean;
+  cover_for_name?: string | null;
 }
 
 interface ParentTimetableResponse {
@@ -196,8 +195,8 @@ function normalizeMyEndpoint(
     class_name: e.class_name,
     teacher_name: null,
     room_name: e.room_name,
-    is_cover_duty: false,
-    cover_for_name: null,
+    is_cover_duty: e.is_cover_duty === true,
+    cover_for_name: e.cover_for_name ?? null,
     is_exam_invigilation: e.is_exam_invigilation === true,
   }));
 
@@ -246,8 +245,8 @@ function normalizeTimetableEntries(
       class_name: e.class_name,
       teacher_name: e.teacher_name ?? null,
       room_name: e.room_name ?? null,
-      is_cover_duty: false,
-      cover_for_name: null,
+      is_cover_duty: e.is_cover_duty === true,
+      cover_for_name: e.cover_for_name ?? null,
     };
   });
 
@@ -624,54 +623,142 @@ function DailyList({
 
 // ─── Lookup picker ────────────────────────────────────────────────────────────
 
+// Single-input combobox: user types, matches render inline as an autocomplete
+// popover, Enter picks the top match. Replaces the old "search box filters a
+// separate select dropdown" pattern, which required two clicks and confused
+// admins who expected to type and hit Enter.
 function LookupPicker({
   items,
   value,
   onChange,
   placeholder,
-  searchPlaceholder,
   loading,
 }: {
   items: LookupItem[];
   value: string;
   onChange: (id: string) => void;
   placeholder: string;
-  searchPlaceholder: string;
   loading: boolean;
 }) {
   const [q, setQ] = React.useState('');
+  const [open, setOpen] = React.useState(false);
+  const [activeIndex, setActiveIndex] = React.useState(0);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  // Keep the visible text in sync with the externally-selected value when it
+  // changes (parent resets it on mode change, etc.).
+  React.useEffect(() => {
+    if (!value) {
+      setQ('');
+      return;
+    }
+    const match = items.find((i) => i.id === value);
+    if (match) setQ(match.label);
+  }, [value, items]);
+
   const filtered = React.useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!term) return items;
-    return items.filter(
-      (i) => i.label.toLowerCase().includes(term) || (i.sub ?? '').toLowerCase().includes(term),
-    );
+    if (!term) return items.slice(0, 30);
+    return items
+      .filter(
+        (i) => i.label.toLowerCase().includes(term) || (i.sub ?? '').toLowerCase().includes(term),
+      )
+      .slice(0, 30);
   }, [items, q]);
 
+  // Close the popover on outside click.
+  React.useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  React.useEffect(() => {
+    setActiveIndex(0);
+  }, [q, open]);
+
+  const handleSelect = (item: LookupItem) => {
+    onChange(item.id);
+    setQ(item.label);
+    setOpen(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setOpen(true);
+      setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const pick = filtered[activeIndex] ?? filtered[0];
+      if (pick) handleSelect(pick);
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <div className="relative flex-1 max-w-md">
-        <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={searchPlaceholder}
-          className="ps-9"
-        />
-      </div>
-      <Select value={value} onValueChange={onChange} disabled={loading || items.length === 0}>
-        <SelectTrigger className="w-full sm:w-64">
-          <SelectValue placeholder={loading ? '…' : placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {filtered.map((i) => (
-            <SelectItem key={i.id} value={i.id}>
-              {i.label}
-              {i.sub ? <span className="ms-2 text-text-tertiary">{i.sub}</span> : null}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <div ref={containerRef} className="relative max-w-md">
+      <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
+      <Input
+        value={q}
+        placeholder={loading ? '…' : placeholder}
+        disabled={loading}
+        onChange={(e) => {
+          setQ(e.target.value);
+          setOpen(true);
+          // If the user types over an existing selection, clear it until
+          // they re-select. Prevents the stale id from driving the grid
+          // while the input no longer matches the chosen entity.
+          if (value) onChange('');
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={handleKeyDown}
+        className="ps-9"
+        autoComplete="off"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-20 mt-1 w-full max-h-[320px] overflow-y-auto rounded-lg border border-border bg-surface shadow-lg">
+          <ul role="listbox">
+            {filtered.map((i, idx) => (
+              <li
+                key={i.id}
+                role="option"
+                aria-selected={idx === activeIndex}
+                onMouseDown={(e) => {
+                  // Prevent the input from losing focus before onClick.
+                  e.preventDefault();
+                }}
+                onClick={() => handleSelect(i)}
+                onMouseEnter={() => setActiveIndex(idx)}
+                className={`px-3 py-2 text-sm cursor-pointer flex items-baseline justify-between gap-2 ${
+                  idx === activeIndex
+                    ? 'bg-surface-secondary text-text-primary'
+                    : 'text-text-secondary hover:bg-surface-secondary/60'
+                }`}
+              >
+                <span className="truncate">{i.label}</span>
+                {i.sub ? (
+                  <span className="text-xs text-text-tertiary truncate">{i.sub}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {open && q.trim() !== '' && filtered.length === 0 && !loading && (
+        <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-surface shadow-lg px-3 py-2 text-sm text-text-tertiary">
+          No matches
+        </div>
+      )}
     </div>
   );
 }
@@ -809,16 +896,32 @@ export default function MyTimetablePage() {
               })),
             );
           } else if (mode === 'student' && students.length === 0) {
-            const res = await apiClient<{
-              data: Array<{
-                id: string;
-                first_name: string;
-                last_name: string;
-                student_number: string | null;
-              }>;
-            }>('/api/v1/students?pageSize=200&status=active');
+            // The students endpoint caps pageSize at 100; page through until
+            // the backend returns less than a full page. Tenants with 200+
+            // active students (NHQS has 214) need multiple requests.
+            const collected: Array<{
+              id: string;
+              first_name: string;
+              last_name: string;
+              student_number: string | null;
+            }> = [];
+            let page = 1;
+            const pageSize = 100;
+            for (; page <= 20; page++) {
+              const res = await apiClient<{
+                data: Array<{
+                  id: string;
+                  first_name: string;
+                  last_name: string;
+                  student_number: string | null;
+                }>;
+              }>(`/api/v1/students?pageSize=${pageSize}&page=${page}&status=active`);
+              const batch = res.data ?? [];
+              collected.push(...batch);
+              if (batch.length < pageSize) break;
+            }
             setStudents(
-              (res.data ?? []).map((s) => ({
+              collected.map((s) => ({
                 id: s.id,
                 label: `${s.first_name} ${s.last_name}`.trim(),
                 sub: s.student_number ?? null,
@@ -1029,7 +1132,6 @@ export default function MyTimetablePage() {
           value={selectedId}
           onChange={setSelectedId}
           placeholder={pickerLabel}
-          searchPlaceholder={t('searchPlaceholder')}
           loading={pickerLoading}
         />
       )}

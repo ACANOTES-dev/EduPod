@@ -32,6 +32,12 @@ export interface TimetableEntry {
   teacher_staff_id?: string;
   teacher_name?: string;
   subject_name?: string;
+  /** Set when the entry represents a cover duty: the teacher is standing in
+   *  for an absent colleague, not teaching their own class. Only populated on
+   *  teacher-view responses where the viewer is the substitute. */
+  is_cover_duty?: boolean;
+  /** When is_cover_duty is true, the full name of the teacher being covered. */
+  cover_for_name?: string | null;
 }
 
 export interface WorkloadEntry {
@@ -44,7 +50,13 @@ export interface WorkloadEntry {
 
 export interface Conflict {
   type: 'hard' | 'soft';
-  category: 'room_double_booking' | 'teacher_double_booking' | 'student_double_booking' | 'room_over_capacity' | 'teacher_workload' | 'room_shared_warning';
+  category:
+    | 'room_double_booking'
+    | 'teacher_double_booking'
+    | 'student_double_booking'
+    | 'room_over_capacity'
+    | 'teacher_workload'
+    | 'room_shared_warning';
   message: string;
   message_ar?: string;
   conflicting_schedule_id?: string;
