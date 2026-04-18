@@ -80,6 +80,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'attendance.manage',
       'attendance.view',
       'attendance.take',
+      'attendance.take_any_class',
       'attendance.amend_historical',
       'attendance.override_closure',
       'attendance.view_pattern_reports',
@@ -195,6 +196,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'attendance.manage',
       'attendance.view',
       'attendance.take',
+      'attendance.take_any_class',
       'attendance.view_pattern_reports',
       'gradebook.manage',
       'gradebook.view',
@@ -286,6 +288,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'attendance.manage',
       'attendance.view',
       'attendance.take',
+      'attendance.take_any_class',
       'attendance.view_pattern_reports',
       'gradebook.manage',
       'gradebook.view',
@@ -368,6 +371,18 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'homework.view_analytics',
       // Inbox — teachers can send (policy engine gates actual audience)
       'inbox.send',
+    ],
+  },
+  {
+    role_key: 'attendance_officer',
+    display_name: 'Attendance Officer',
+    role_tier: 'staff',
+    default_permissions: [
+      'students.view',
+      'attendance.view',
+      'attendance.take',
+      'attendance.take_any_class',
+      'schedule.view_class',
     ],
   },
   {

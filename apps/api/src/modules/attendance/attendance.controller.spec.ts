@@ -205,11 +205,14 @@ describe('AttendanceController', () => {
 
     await controller.saveRecords(TENANT, user, SESSION_ID, dto);
 
+    // Without `attendance.take_any_class`, the controller passes the user's
+    // staff profile ID so the service enforces teacher-of-session scoping.
     expect(mockAttendanceService.saveRecords).toHaveBeenCalledWith(
       TENANT_ID,
       SESSION_ID,
       USER_ID,
       dto,
+      STAFF_PROFILE_ID,
     );
   });
 
@@ -222,6 +225,33 @@ describe('AttendanceController', () => {
       TENANT_ID,
       SESSION_ID,
       USER_ID,
+      STAFF_PROFILE_ID,
+    );
+  });
+
+  it('passes null scope when user has attendance.take_any_class', async () => {
+    mockAttendanceService.submitSession.mockResolvedValue({ id: SESSION_ID });
+    mockPermissionCacheService.getPermissions.mockResolvedValueOnce([
+      'attendance.view',
+      'attendance.take',
+      'attendance.take_any_class',
+    ]);
+
+    await controller.submitSession(TENANT, user, SESSION_ID);
+
+    expect(mockAttendanceService.submitSession).toHaveBeenCalledWith(
+      TENANT_ID,
+      SESSION_ID,
+      USER_ID,
+      null,
+    );
+  });
+
+  it('throws 403 when user has attendance.take but no staff profile', async () => {
+    mockStaffProfileFacade.findByUserId.mockResolvedValueOnce(null);
+
+    await expect(controller.submitSession(TENANT, user, SESSION_ID)).rejects.toThrow(
+      /NO_STAFF_PROFILE|not linked to a staff profile/,
     );
   });
 

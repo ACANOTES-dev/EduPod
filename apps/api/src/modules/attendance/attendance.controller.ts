@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -202,7 +203,14 @@ export class AttendanceController {
     @Body(new ZodValidationPipe(saveAttendanceRecordsSchema))
     dto: z.infer<typeof saveAttendanceRecordsSchema>,
   ) {
-    return this.attendanceService.saveRecords(tenant.tenant_id, sessionId, user.sub, dto);
+    const allowedTeacherStaffId = await this.resolveTeacherScope(user, tenant.tenant_id);
+    return this.attendanceService.saveRecords(
+      tenant.tenant_id,
+      sessionId,
+      user.sub,
+      dto,
+      allowedTeacherStaffId,
+    );
   }
 
   @Patch('attendance-sessions/:sessionId/submit')
@@ -212,7 +220,13 @@ export class AttendanceController {
     @CurrentUser() user: JwtPayload,
     @Param('sessionId', ParseUUIDPipe) sessionId: string,
   ) {
-    return this.attendanceService.submitSession(tenant.tenant_id, sessionId, user.sub);
+    const allowedTeacherStaffId = await this.resolveTeacherScope(user, tenant.tenant_id);
+    return this.attendanceService.submitSession(
+      tenant.tenant_id,
+      sessionId,
+      user.sub,
+      allowedTeacherStaffId,
+    );
   }
 
   @Patch('attendance-records/:id/amend')
@@ -526,5 +540,26 @@ export class AttendanceController {
       permissions,
       staffProfileId: staffProfile?.id,
     };
+  }
+
+  /**
+   * Returns null if the user holds `attendance.take_any_class` (or equivalent
+   * via the admin role) — meaning they can mark any session. Otherwise
+   * returns their staff_profile.id so the service layer can enforce that
+   * they are the teacher assigned to the target session. Throws
+   * ForbiddenException if the user has neither the override permission nor
+   * a staff profile bound to them.
+   */
+  private async resolveTeacherScope(user: JwtPayload, tenantId: string): Promise<string | null> {
+    const { permissions, staffProfileId } = await this.getUserContext(user, tenantId);
+    if (permissions.includes('attendance.take_any_class')) return null;
+    if (!staffProfileId) {
+      throw new ForbiddenException({
+        code: 'NO_STAFF_PROFILE',
+        message:
+          'Your account has attendance.take but is not linked to a staff profile. Ask an admin to link your account.',
+      });
+    }
+    return staffProfileId;
   }
 }

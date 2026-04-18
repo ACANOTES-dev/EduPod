@@ -1872,6 +1872,7 @@ model StaffProfile {
   homeroom_classes         Class[]                       @relation("homeroom_teacher")
   schedules                Schedule[]                    @relation("schedule_teacher")
   comment_window_homerooms ReportCommentWindowHomeroom[] @relation("comment_window_homeroom_staff")
+  attendance_sessions      AttendanceSession[]           @relation("attendance_session_teacher")
 
   // P4B Relations
   staff_availability           StaffAvailability[]
@@ -2866,6 +2867,7 @@ model AttendanceSession {
   tenant_id            String                  @db.Uuid
   class_id             String                  @db.Uuid
   schedule_id          String?                 @db.Uuid
+  teacher_staff_id     String?                 @db.Uuid
   session_date         DateTime                @db.Date
   status               AttendanceSessionStatus
   override_reason      String?                 @db.Text
@@ -2876,15 +2878,17 @@ model AttendanceSession {
   updated_at           DateTime                @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant       Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  class_entity Class              @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  schedule     Schedule?          @relation(fields: [schedule_id], references: [id], onDelete: SetNull)
-  submitted_by User?              @relation("session_submitter", fields: [submitted_by_user_id], references: [id], onDelete: SetNull)
-  records      AttendanceRecord[]
+  tenant        Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity  Class              @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  schedule      Schedule?          @relation(fields: [schedule_id], references: [id], onDelete: SetNull)
+  teacher_staff StaffProfile?      @relation("attendance_session_teacher", fields: [teacher_staff_id], references: [id], onDelete: SetNull)
+  submitted_by  User?              @relation("session_submitter", fields: [submitted_by_user_id], references: [id], onDelete: SetNull)
+  records       AttendanceRecord[]
 
   @@index([tenant_id, session_date], name: "idx_attendance_sessions_tenant_date")
   @@index([tenant_id, session_date, status], name: "idx_attendance_sessions_tenant_date_status")
   @@index([tenant_id, class_id, status], name: "idx_attendance_sessions_tenant_class_status")
+  @@index([tenant_id, teacher_staff_id], name: "idx_attendance_sessions_tenant_teacher")
   @@map("attendance_sessions")
 }
 

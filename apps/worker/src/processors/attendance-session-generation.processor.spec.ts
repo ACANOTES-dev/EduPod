@@ -12,6 +12,8 @@ const SCHEDULE_ID = '33333333-3333-3333-3333-333333333333';
 const SESSION_ID = '44444444-4444-4444-4444-444444444444';
 const YEAR_GROUP_ID = '55555555-5555-5555-5555-555555555555';
 const STUDENT_ID = '66666666-6666-6666-6666-666666666666';
+const TEACHER_STAFF_ID = '77777777-7777-7777-7777-777777777777';
+const HOMEROOM_STAFF_ID = '88888888-8888-8888-8888-888888888888';
 
 function buildSchedule(overrides: Record<string, unknown> = {}) {
   return {
@@ -26,6 +28,7 @@ function buildSchedule(overrides: Record<string, unknown> = {}) {
     },
     class_id: CLASS_ID,
     id: SCHEDULE_ID,
+    teacher_staff_id: TEACHER_STAFF_ID,
     ...overrides,
   };
 }
@@ -45,6 +48,7 @@ function buildMockTx() {
         {
           id: CLASS_ID,
           year_group_id: YEAR_GROUP_ID,
+          homeroom_teacher_staff_id: HOMEROOM_STAFF_ID,
           academic_year: {
             start_date: new Date('2025-09-01T00:00:00.000Z'),
             end_date: new Date('2026-06-30T00:00:00.000Z'),
@@ -131,7 +135,10 @@ describe('AttendanceSessionGenerationProcessor', () => {
         effective_start_date: { lte: new Date('2026-03-30') },
         OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date('2026-03-30') } }],
       },
-      include: {
+      select: {
+        id: true,
+        class_id: true,
+        teacher_staff_id: true,
         class_entity: {
           select: {
             id: true,
@@ -149,6 +156,7 @@ describe('AttendanceSessionGenerationProcessor', () => {
         tenant_id: TENANT_ID,
         class_id: CLASS_ID,
         schedule_id: SCHEDULE_ID,
+        teacher_staff_id: TEACHER_STAFF_ID,
         session_date: new Date('2026-03-30'),
         status: 'open',
       },
@@ -205,6 +213,7 @@ describe('AttendanceSessionGenerationProcessor', () => {
       select: {
         id: true,
         year_group_id: true,
+        homeroom_teacher_staff_id: true,
         academic_year: { select: { start_date: true, end_date: true } },
       },
     });
@@ -213,6 +222,7 @@ describe('AttendanceSessionGenerationProcessor', () => {
         tenant_id: TENANT_ID,
         class_id: CLASS_ID,
         schedule_id: null,
+        teacher_staff_id: HOMEROOM_STAFF_ID,
         session_date: new Date('2026-03-30'),
         status: 'open',
       },

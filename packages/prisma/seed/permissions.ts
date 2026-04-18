@@ -532,6 +532,12 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     permission_tier: 'staff',
   },
   {
+    permission_key: 'attendance.take_any_class',
+    description:
+      'Take attendance for any class in the tenant — intended for dedicated attendance officers and admins who need to cover teachers who are absent',
+    permission_tier: 'admin',
+  },
+  {
     permission_key: 'gradebook.enter_grades',
     description: 'Enter grades for assigned classes',
     permission_tier: 'staff',

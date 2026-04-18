@@ -100,7 +100,10 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
         effective_start_date: { lte: targetDate },
         OR: [{ effective_end_date: null }, { effective_end_date: { gte: targetDate } }],
       },
-      include: {
+      select: {
+        id: true,
+        class_id: true,
+        teacher_staff_id: true,
         class_entity: {
           select: {
             id: true,
@@ -157,6 +160,7 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
             tenant_id,
             class_id: schedule.class_id,
             schedule_id: schedule.id,
+            teacher_staff_id: schedule.teacher_staff_id,
             session_date: targetDate,
             status: 'open',
           },
@@ -228,6 +232,7 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
       select: {
         id: true,
         year_group_id: true,
+        homeroom_teacher_staff_id: true,
         academic_year: { select: { start_date: true, end_date: true } },
       },
     });
@@ -260,6 +265,7 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
             tenant_id,
             class_id: cls.id,
             schedule_id: null,
+            teacher_staff_id: cls.homeroom_teacher_staff_id,
             session_date: targetDate,
             status: 'open',
           },

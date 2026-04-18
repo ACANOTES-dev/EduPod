@@ -1135,6 +1135,93 @@ describe('AttendanceService — saveRecords', () => {
     expect(mockRlsRecordUpdate).toHaveBeenCalledTimes(1);
     expect(mockRlsRecordCreate).toHaveBeenCalledTimes(1);
   });
+
+  // ─── Teacher scoping (Step 3) ─────────────────────────────────────────────
+
+  it('should allow saveRecords when allowedTeacherStaffId matches session teacher', async () => {
+    const TEACHER_ID = 'teacher-staff-1';
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'open',
+      class_id: CLASS_ID,
+      session_date: new Date('2026-03-10'),
+      teacher_staff_id: TEACHER_ID,
+    });
+    mockRlsRecordFindFirst.mockResolvedValue(null);
+    mockRlsRecordCreate.mockResolvedValue({ id: 'r1', student_id: 'student-1', status: 'present' });
+
+    await expect(
+      service.saveRecords(
+        TENANT_ID,
+        SESSION_ID,
+        USER_ID,
+        { records: [{ student_id: 'student-1', status: 'present' }] },
+        TEACHER_ID,
+      ),
+    ).resolves.toBeDefined();
+  });
+
+  it('should throw ForbiddenException when allowedTeacherStaffId does not match session teacher', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'open',
+      class_id: CLASS_ID,
+      session_date: new Date('2026-03-10'),
+      teacher_staff_id: 'session-teacher-1',
+    });
+
+    await expect(
+      service.saveRecords(
+        TENANT_ID,
+        SESSION_ID,
+        USER_ID,
+        { records: [{ student_id: 'student-1', status: 'present' }] },
+        'different-teacher-2',
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('should throw ForbiddenException when session has no assigned teacher and scope is enforced', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'open',
+      class_id: CLASS_ID,
+      session_date: new Date('2026-03-10'),
+      teacher_staff_id: null,
+    });
+
+    await expect(
+      service.saveRecords(
+        TENANT_ID,
+        SESSION_ID,
+        USER_ID,
+        { records: [{ student_id: 'student-1', status: 'present' }] },
+        'teacher-1',
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('should skip teacher-scope check when allowedTeacherStaffId is null (take_any_class)', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'open',
+      class_id: CLASS_ID,
+      session_date: new Date('2026-03-10'),
+      teacher_staff_id: 'session-teacher-1',
+    });
+    mockRlsRecordFindFirst.mockResolvedValue(null);
+    mockRlsRecordCreate.mockResolvedValue({ id: 'r1', student_id: 'student-1', status: 'present' });
+
+    await expect(
+      service.saveRecords(
+        TENANT_ID,
+        SESSION_ID,
+        USER_ID,
+        { records: [{ student_id: 'student-1', status: 'present' }] },
+        null,
+      ),
+    ).resolves.toBeDefined();
+  });
 });
 
 describe('AttendanceService — amendRecord', () => {
@@ -1861,6 +1948,61 @@ describe('AttendanceService — submitSession', () => {
     const submittedAt = updateCall.data.submitted_at;
     expect(submittedAt).toBeInstanceOf(Date);
     expect(Date.now() - submittedAt.getTime()).toBeLessThan(5000);
+  });
+
+  // ─── Teacher scoping (Step 3) ─────────────────────────────────────────────
+
+  it('should allow submitSession when allowedTeacherStaffId matches session teacher', async () => {
+    const TEACHER_ID = 'teacher-1';
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'open',
+      session_date: new Date('2026-03-10'),
+      teacher_staff_id: TEACHER_ID,
+    });
+
+    await expect(
+      service.submitSession(TENANT_ID, SESSION_ID, USER_ID, TEACHER_ID),
+    ).resolves.toBeDefined();
+  });
+
+  it('should throw ForbiddenException on submitSession when teacher does not match', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'open',
+      session_date: new Date('2026-03-10'),
+      teacher_staff_id: 'other-teacher',
+    });
+
+    await expect(
+      service.submitSession(TENANT_ID, SESSION_ID, USER_ID, 'caller-teacher'),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('should throw ForbiddenException on submitSession when session has no teacher and scope enforced', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'open',
+      session_date: new Date('2026-03-10'),
+      teacher_staff_id: null,
+    });
+
+    await expect(
+      service.submitSession(TENANT_ID, SESSION_ID, USER_ID, 'caller-teacher'),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('should bypass teacher scope on submitSession when allowedTeacherStaffId is null', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'open',
+      session_date: new Date('2026-03-10'),
+      teacher_staff_id: 'session-teacher',
+    });
+
+    await expect(
+      service.submitSession(TENANT_ID, SESSION_ID, USER_ID, null),
+    ).resolves.toBeDefined();
   });
 });
 

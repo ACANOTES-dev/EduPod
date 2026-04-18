@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -148,11 +149,22 @@ export class AttendanceService {
     sessionId: string,
     userId: string,
     dto: SaveAttendanceRecordsDto,
+    // Null means the caller has `attendance.take_any_class` (or admin-level
+    // equivalent) and may mark any class in the tenant. A non-null string
+    // means the caller is a regular teacher and we must enforce that they
+    // are the teacher bound to this session.
+    allowedTeacherStaffId: string | null = null,
   ) {
     // 1. Validate session exists and is open
     const session = await this.prisma.attendanceSession.findFirst({
       where: { id: sessionId, tenant_id: tenantId },
-      select: { id: true, status: true, class_id: true, session_date: true },
+      select: {
+        id: true,
+        status: true,
+        class_id: true,
+        session_date: true,
+        teacher_staff_id: true,
+      },
     });
 
     if (!session) {
@@ -160,6 +172,16 @@ export class AttendanceService {
         code: 'SESSION_NOT_FOUND',
         message: `Attendance session with id "${sessionId}" not found`,
       });
+    }
+
+    if (allowedTeacherStaffId !== null) {
+      if (!session.teacher_staff_id || session.teacher_staff_id !== allowedTeacherStaffId) {
+        throw new ForbiddenException({
+          code: 'NOT_SESSION_TEACHER',
+          message:
+            'You are not the teacher assigned to this session. Ask an attendance officer or admin to take it.',
+        });
+      }
     }
 
     if (session.status !== 'open') {
@@ -171,7 +193,10 @@ export class AttendanceService {
 
     // 2. Validate all student_ids are actively enrolled in the class
     const studentIds = dto.records.map((r) => r.student_id);
-    const allEnrolledIds = await this.classesReadFacade.findEnrolledStudentIds(tenantId, session.class_id);
+    const allEnrolledIds = await this.classesReadFacade.findEnrolledStudentIds(
+      tenantId,
+      session.class_id,
+    );
 
     const enrolledStudentIds = new Set(allEnrolledIds);
     const notEnrolled = studentIds.filter((id) => !enrolledStudentIds.has(id));
@@ -263,10 +288,15 @@ export class AttendanceService {
    * Submit an attendance session (mark as submitted).
    * Triggers daily summary recalculation for all students.
    */
-  async submitSession(tenantId: string, sessionId: string, userId: string) {
+  async submitSession(
+    tenantId: string,
+    sessionId: string,
+    userId: string,
+    allowedTeacherStaffId: string | null = null,
+  ) {
     const session = await this.prisma.attendanceSession.findFirst({
       where: { id: sessionId, tenant_id: tenantId },
-      select: { id: true, status: true, session_date: true },
+      select: { id: true, status: true, session_date: true, teacher_staff_id: true },
     });
 
     if (!session) {
@@ -274,6 +304,16 @@ export class AttendanceService {
         code: 'SESSION_NOT_FOUND',
         message: `Attendance session with id "${sessionId}" not found`,
       });
+    }
+
+    if (allowedTeacherStaffId !== null) {
+      if (!session.teacher_staff_id || session.teacher_staff_id !== allowedTeacherStaffId) {
+        throw new ForbiddenException({
+          code: 'NOT_SESSION_TEACHER',
+          message:
+            'You are not the teacher assigned to this session. Ask an attendance officer or admin to submit it.',
+        });
+      }
     }
 
     if (session.status !== 'open') {
