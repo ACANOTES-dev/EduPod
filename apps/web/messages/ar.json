@@ -3342,7 +3342,8 @@
     "typeTerm": "فصل دراسي",
     "typeSemester": "نصف عام",
     "typeQuarter": "ربع عام",
-    "typeCustom": "مخصص"
+    "typeCustom": "مخصص",
+    "typeEndOfYear": "نهاية العام"
   },
   "yearGroups": {
     "title": "المجموعات السنوية",

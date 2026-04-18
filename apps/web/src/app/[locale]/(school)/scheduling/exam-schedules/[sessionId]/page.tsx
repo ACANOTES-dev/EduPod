@@ -694,16 +694,26 @@ function SessionWindowTab({ sessionId, readOnly }: { sessionId: string; readOnly
       `/api/v1/scheduling/exam-sessions/${sessionId}/config`,
     )
       .then((raw) => {
-        const res = unwrap(raw) as SessionConfig | null;
-        if (res) {
+        // Server returns null when no config has been saved yet. `unwrap` keeps
+        // the envelope when .data is null, so we peel it manually here and
+        // treat a missing morning_start as "no config" — otherwise we'd wipe
+        // DEFAULT_WINDOW with undefined and leave all inputs blank.
+        const inner =
+          raw && typeof raw === 'object' && 'data' in (raw as object)
+            ? ((raw as { data: SessionConfig | null }).data ?? null)
+            : (raw as SessionConfig | null);
+        if (inner && typeof inner.morning_start === 'string' && inner.morning_start.length > 0) {
           setConfig({
-            allowed_weekdays: res.allowed_weekdays ?? DEFAULT_WINDOW.allowed_weekdays,
-            morning_start: res.morning_start,
-            morning_end: res.morning_end,
-            afternoon_start: res.afternoon_start,
-            afternoon_end: res.afternoon_end,
-            min_gap_minutes_same_student: res.min_gap_minutes_same_student,
-            max_exams_per_day_per_yg: res.max_exams_per_day_per_yg,
+            allowed_weekdays:
+              inner.allowed_weekdays?.length > 0
+                ? inner.allowed_weekdays
+                : DEFAULT_WINDOW.allowed_weekdays,
+            morning_start: inner.morning_start,
+            morning_end: inner.morning_end,
+            afternoon_start: inner.afternoon_start,
+            afternoon_end: inner.afternoon_end,
+            min_gap_minutes_same_student: inner.min_gap_minutes_same_student,
+            max_exams_per_day_per_yg: inner.max_exams_per_day_per_yg,
           });
         }
       })
@@ -925,7 +935,11 @@ function ReviewTab({
       setSlots(slotsRes.data ?? []);
       const matrix = matrixRes.data ?? [];
       const examinable = matrix.filter((r) => r.is_examinable);
-      const config = unwrap(configRaw) as SessionConfig | null;
+      // Peel envelope manually — unwrap keeps { data: null } wrappers.
+      const config =
+        configRaw && typeof configRaw === 'object' && 'data' in (configRaw as object)
+          ? ((configRaw as { data: SessionConfig | null }).data ?? null)
+          : (configRaw as SessionConfig | null);
       setPrereqs({
         examinable_count: examinable.length,
         pool_count: (poolRes.data ?? []).length,
@@ -954,7 +968,7 @@ function ReviewTab({
     try {
       const raw = await apiClient<{ data: SolveResponse } | SolveResponse>(
         `/api/v1/scheduling/exam-sessions/${sessionId}/solve`,
-        { method: 'POST', body: JSON.stringify({ max_solver_duration_seconds: 45 }) },
+        { method: 'POST', body: JSON.stringify({ max_solver_duration_seconds: 150 }) },
       );
       const res = unwrap(raw) as SolveResponse;
       if (res.status === 'optimal') {

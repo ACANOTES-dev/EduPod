@@ -148,6 +148,7 @@ function PeriodDialog({
                 <SelectItem value="semester">{t('typeSemester')}</SelectItem>
                 <SelectItem value="quarter">{t('typeQuarter')}</SelectItem>
                 <SelectItem value="custom">{t('typeCustom')}</SelectItem>
+                <SelectItem value="end_of_year">{t('typeEndOfYear')}</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -1,6 +1,6 @@
 export type AcademicYearStatus = 'planned' | 'active' | 'closed';
 
-export type AcademicPeriodType = 'term' | 'semester' | 'quarter' | 'custom';
+export type AcademicPeriodType = 'term' | 'semester' | 'quarter' | 'custom' | 'end_of_year';
 export type AcademicPeriodStatus = 'planned' | 'active' | 'closed';
 
 export type SubjectType = 'core' | 'elective' | 'extracurricular';

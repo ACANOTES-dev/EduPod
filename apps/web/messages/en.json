@@ -3350,7 +3350,8 @@
     "typeTerm": "Term",
     "typeSemester": "Semester",
     "typeQuarter": "Quarter",
-    "typeCustom": "Custom"
+    "typeCustom": "Custom",
+    "typeEndOfYear": "End of Year"
   },
   "yearGroups": {
     "title": "Year Groups",

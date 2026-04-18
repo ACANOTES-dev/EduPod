@@ -13,8 +13,14 @@ export type CreateAcademicYearDto = z.infer<typeof createAcademicYearSchema>;
 
 export const updateAcademicYearSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD').optional(),
-  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD').optional(),
+  start_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD')
+    .optional(),
+  end_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD')
+    .optional(),
 });
 
 export type UpdateAcademicYearDto = z.infer<typeof updateAcademicYearSchema>;
@@ -29,7 +35,7 @@ export type UpdateAcademicYearStatusDto = z.infer<typeof updateAcademicYearStatu
 
 export const createAcademicPeriodSchema = z.object({
   name: z.string().min(1).max(100),
-  period_type: z.enum(['term', 'semester', 'quarter', 'custom']),
+  period_type: z.enum(['term', 'semester', 'quarter', 'custom', 'end_of_year']),
   start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
   end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
   status: z.enum(['planned', 'active', 'closed']).default('planned'),
@@ -39,9 +45,15 @@ export type CreateAcademicPeriodDto = z.infer<typeof createAcademicPeriodSchema>
 
 export const updateAcademicPeriodSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  period_type: z.enum(['term', 'semester', 'quarter', 'custom']).optional(),
-  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD').optional(),
-  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD').optional(),
+  period_type: z.enum(['term', 'semester', 'quarter', 'custom', 'end_of_year']).optional(),
+  start_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD')
+    .optional(),
+  end_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD')
+    .optional(),
 });
 
 export type UpdateAcademicPeriodDto = z.infer<typeof updateAcademicPeriodSchema>;
@@ -102,7 +114,10 @@ export type ListAcademicYearsQuery = z.infer<typeof listAcademicYearsQuerySchema
 
 export const listSubjectsQuerySchema = z.object({
   subject_type: z.enum(['academic', 'supervision', 'duty', 'other']).optional(),
-  active: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
+  active: z
+    .enum(['true', 'false'])
+    .transform((v) => v === 'true')
+    .optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(100),
 });

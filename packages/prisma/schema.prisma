@@ -171,6 +171,7 @@ enum AcademicPeriodType {
   semester
   quarter
   custom
+  end_of_year
 }
 
 enum SubjectType {
