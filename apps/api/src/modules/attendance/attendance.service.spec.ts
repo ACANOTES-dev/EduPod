@@ -1774,11 +1774,7 @@ describe('AttendanceService — teacher permission filtering', () => {
     expect(mockRlsTx.attendanceSession.create).toHaveBeenCalled();
   });
 
-  it('should filter sessions by teacher assigned classes in findAllSessions', async () => {
-    mockClassesFacade.findClassIdsByStaff.mockResolvedValue([
-      'assigned-class-1',
-      'assigned-class-2',
-    ]);
+  it('should filter sessions by teacher_staff_id when scoped to a teacher', async () => {
     mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
     mockPrisma.attendanceSession.count.mockResolvedValue(0);
 
@@ -1788,42 +1784,30 @@ describe('AttendanceService — teacher permission filtering', () => {
       STAFF_PROFILE_ID, // teacher's staff profile
     );
 
-    // Should fetch the teacher's class assignments
-    expect(mockClassesFacade.findClassIdsByStaff).toHaveBeenCalledWith(TENANT_ID, STAFF_PROFILE_ID);
-
-    // Should filter by assigned class IDs
     expect(mockPrisma.attendanceSession.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          class_id: { in: ['assigned-class-1', 'assigned-class-2'] },
+          teacher_staff_id: STAFF_PROFILE_ID,
         }),
       }),
     );
   });
 
-  it('should return empty result when teacher requests non-assigned class', async () => {
-    mockClassesFacade.findClassIdsByStaff.mockResolvedValue(['assigned-class-1']);
-
-    const result = await service.findAllSessions(
-      TENANT_ID,
-      { page: 1, pageSize: 20, class_id: 'non-assigned-class' },
-      STAFF_PROFILE_ID,
-    );
-
-    expect(result).toEqual({ data: [], meta: { page: 1, pageSize: 20, total: 0 } });
-  });
-
-  it('should not filter sessions when no staffProfileId is provided (admin)', async () => {
+  it('should not filter sessions when no staffProfileId is provided (take_any_class)', async () => {
     mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
     mockPrisma.attendanceSession.count.mockResolvedValue(0);
 
     await service.findAllSessions(
       TENANT_ID,
       { page: 1, pageSize: 20 },
-      undefined, // No staff profile = admin
+      undefined, // No staff profile = cross-class access
     );
 
-    expect(mockClassesFacade.findClassIdsByStaff).not.toHaveBeenCalled();
+    expect(mockPrisma.attendanceSession.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.not.objectContaining({ teacher_staff_id: expect.anything() }),
+      }),
+    );
   });
 });
 

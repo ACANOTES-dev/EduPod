@@ -18,6 +18,7 @@ import { AttendanceAutoLockProcessor } from './processors/attendance-auto-lock.p
 import { AttendanceCronDispatchProcessor } from './processors/attendance-cron-dispatch.processor';
 import { AttendancePatternDetectionProcessor } from './processors/attendance-pattern-detection.processor';
 import { AttendancePendingDetectionProcessor } from './processors/attendance-pending-detection.processor';
+import { AttendanceQueueDispatcher } from './processors/attendance-queue-dispatcher';
 import { AttendanceSessionGenerationProcessor } from './processors/attendance-session-generation.processor';
 import { AuditLogWriteProcessor } from './processors/audit-log/audit-log-write.processor';
 import { BehaviourCheckAwardsProcessor } from './processors/behaviour/check-awards.processor';
@@ -416,12 +417,15 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     // Search queue processors
     SearchIndexProcessor,
     SearchReindexProcessor,
-    // Attendance queue processors
+    // Attendance queue — single @Processor dispatcher routes jobs to the
+    // @Injectable processor services below by job name. This eliminates the
+    // competitive-consumer race that used to silently drop jobs when
+    // multiple @Processor(ATTENDANCE) classes coexisted.
+    AttendanceQueueDispatcher,
     AttendanceSessionGenerationProcessor,
     AttendancePendingDetectionProcessor,
     AttendanceAutoLockProcessor,
     AttendancePatternDetectionProcessor,
-    // Cross-tenant cron fanout for the four attendance processors above.
     AttendanceCronDispatchProcessor,
     // Scheduling queue processors
     SchedulingSolverV2Processor,

@@ -42,6 +42,7 @@ interface OfficerRow {
   class: { id: string; name: string; year_group: { id: string; name: string } | null } | null;
   teacher: { id: string; first_name: string; last_name: string } | null;
   schedule: { id: string; start_time: string; end_time: string } | null;
+  subject: { id: string; name: string } | null;
   record_count: number;
   enrolled_count: number;
 }
@@ -273,7 +274,14 @@ export default function OfficerDashboardPage() {
                   className="border-t border-border transition-colors hover:bg-surface-secondary"
                 >
                   <td className="px-4 py-3 font-medium text-text-primary">
-                    {r.class?.name ?? '—'}
+                    <div className="flex flex-col">
+                      <span>{r.class?.name ?? '—'}</span>
+                      {r.schedule && r.subject && (
+                        <span className="text-xs font-normal text-text-secondary">
+                          {r.subject.name}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-text-secondary">
                     {r.class?.year_group?.name ?? '—'}

@@ -73,20 +73,6 @@ describe('AttendancePatternDetectionProcessor', () => {
     jest.clearAllMocks();
   });
 
-  it('should ignore jobs with a different name', async () => {
-    const mockTx = buildMockTx();
-    const mockQueue = { add: jest.fn() };
-    const processor = new AttendancePatternDetectionProcessor(
-      buildMockPrisma(mockTx) as never,
-      mockQueue as never,
-    );
-
-    await processor.process(buildJob('attendance:other-job'));
-
-    expect(mockTx.student.findMany).not.toHaveBeenCalled();
-    expect(mockQueue.add).not.toHaveBeenCalled();
-  });
-
   it('should reject jobs without tenant_id', async () => {
     const mockTx = buildMockTx();
     const processor = new AttendancePatternDetectionProcessor(

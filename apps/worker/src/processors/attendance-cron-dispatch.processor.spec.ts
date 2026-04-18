@@ -115,12 +115,14 @@ describe('AttendanceCronDispatchProcessor', () => {
     );
   });
 
-  it('ignores unrelated job names', async () => {
+  it('throws loudly on unrelated job names (dispatcher is authoritative)', async () => {
     const prisma = buildMockPrisma();
     const queue = buildMockQueue();
     const processor = new AttendanceCronDispatchProcessor(prisma as never, queue as never);
 
-    await processor.process({ name: 'some:unrelated-job', data: {} } as Job);
+    await expect(
+      processor.process({ name: 'some:unrelated-job', data: {} } as Job),
+    ).rejects.toThrow('Unknown attendance cron-dispatch job name');
 
     expect(prisma.tenant.findMany).not.toHaveBeenCalled();
     expect(queue.add).not.toHaveBeenCalled();

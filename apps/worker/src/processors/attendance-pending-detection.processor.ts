@@ -1,9 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -18,25 +16,17 @@ export const ATTENDANCE_DETECT_PENDING_JOB = 'attendance:detect-pending';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.ATTENDANCE, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class AttendancePendingDetectionProcessor extends WorkerHost {
+/**
+ * Plain @Injectable service — the `AttendanceQueueDispatcher` owns the
+ * queue subscription and routes jobs to this class by name.
+ */
+@Injectable()
+export class AttendancePendingDetectionProcessor {
   private readonly logger = new Logger(AttendancePendingDetectionProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<AttendancePendingDetectionPayload>): Promise<void> {
-    if (job.name !== ATTENDANCE_DETECT_PENDING_JOB) {
-      // This processor only handles attendance:detect-pending jobs.
-      // Other job names on this queue are handled by other processors.
-      return;
-    }
-
     const { tenant_id } = job.data;
 
     if (!tenant_id) {

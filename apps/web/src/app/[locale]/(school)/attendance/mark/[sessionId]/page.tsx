@@ -27,6 +27,7 @@ import {
 
 import { AttendanceStatusBadge } from '@/components/attendance-status-badge';
 import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ interface SessionDetail {
   status: string;
   class: { id: string; name: string };
   schedule: { start_time: string; end_time: string } | null;
+  subject: { id: string; name: string } | null;
 }
 
 interface StudentRecord {
@@ -54,6 +56,7 @@ interface ApiSession {
   status: string;
   class_entity: { id: string; name: string } | null;
   schedule: { id: string; weekday: number; start_time: string; end_time: string } | null;
+  subject: { id: string; name: string } | null;
   records: Array<{
     id: string;
     student: { id: string; first_name: string; last_name: string };
@@ -143,6 +146,7 @@ export default function MarkAttendancePage() {
           schedule: s.schedule
             ? { start_time: s.schedule.start_time, end_time: s.schedule.end_time }
             : null,
+          subject: s.subject ?? null,
         });
 
         // Build student records: merge existing records + enrolled students without records
@@ -395,7 +399,8 @@ export default function MarkAttendancePage() {
               {session.schedule ? t('markAttendance') : t('dailyRegister')}
             </h1>
             <p className="text-sm text-text-secondary">
-              {session.class.name} — {session.date}
+              {session.class.name}
+              {session.subject ? ` · ${session.subject.name}` : ''} — {formatDate(session.date)}
               {session.schedule
                 ? ` · ${session.schedule.start_time}–${session.schedule.end_time}`
                 : ''}

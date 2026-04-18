@@ -164,11 +164,11 @@ describe('AttendanceController', () => {
     );
   });
 
-  it('delegates findAllSessions with undefined staffProfileId when user has manage', async () => {
+  it('delegates findAllSessions with undefined staffProfileId when user has take_any_class', async () => {
     mockPermissionCacheService.getPermissions.mockResolvedValue([
       'attendance.view',
       'attendance.take',
-      'attendance.manage',
+      'attendance.take_any_class',
     ]);
     mockAttendanceService.findAllSessions.mockResolvedValue({
       data: [],

@@ -293,24 +293,14 @@ export class AttendanceSessionService {
       where.status = status as $Enums.AttendanceSessionStatus;
     }
 
-    // If teacher, filter to their assigned classes
+    // If user lacks cross-class take permission, narrow to sessions they are
+    // the assigned teacher for. This matches Step 3's write-side scope check:
+    // see the `teacher_staff_id` column on attendance_sessions.
     if (userStaffProfileId) {
-      const assignedClassIds = await this.classesReadFacade.findClassIdsByStaff(
-        tenantId,
-        userStaffProfileId,
-      );
-
-      if (where.class_id) {
-        // If a specific class_id filter is provided, validate it's in their assignments
-        if (!assignedClassIds.includes(where.class_id as string)) {
-          return { data: [], meta: { page, pageSize, total: 0 } };
-        }
-      } else {
-        where.class_id = { in: assignedClassIds };
-      }
+      where.teacher_staff_id = userStaffProfileId;
     }
 
-    const [data, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       this.prisma.attendanceSession.findMany({
         where,
         skip,
@@ -320,6 +310,17 @@ export class AttendanceSessionService {
           class_entity: {
             select: { id: true, name: true },
           },
+          schedule: {
+            select: {
+              id: true,
+              class_id: true,
+              weekday: true,
+              period_order: true,
+              scheduling_run_id: true,
+              start_time: true,
+              end_time: true,
+            },
+          },
           _count: {
             select: { records: true },
           },
@@ -328,10 +329,124 @@ export class AttendanceSessionService {
       this.prisma.attendanceSession.count({ where }),
     ]);
 
+    const subjectsBySchedule = await this.resolveSubjectsForSchedules(
+      tenantId,
+      rows
+        .filter((r) => r.schedule)
+        .map((r) => ({
+          schedule_id: r.schedule!.id,
+          class_id: r.schedule!.class_id,
+          weekday: r.schedule!.weekday,
+          period_order: r.schedule!.period_order,
+          scheduling_run_id: r.schedule!.scheduling_run_id,
+        })),
+    );
+
+    const data = rows.map((r) => ({
+      ...r,
+      subject: r.schedule ? (subjectsBySchedule.get(r.schedule.id) ?? null) : null,
+      schedule: r.schedule
+        ? {
+            id: r.schedule.id,
+            weekday: r.schedule.weekday,
+            start_time: r.schedule.start_time.toISOString().slice(11, 16),
+            end_time: r.schedule.end_time.toISOString().slice(11, 16),
+          }
+        : null,
+    }));
+
     return {
       data,
       meta: { page, pageSize, total },
     };
+  }
+
+  /**
+   * Resolve the subject (id + name) for a set of schedule rows.
+   *
+   * Schedule rows don't carry a subject_id column — for classes that aren't
+   * subject-specific, the subject lives per-lesson inside the scheduling_run
+   * that placed the schedule. This helper mirrors the read path used by the
+   * substitution + personal-timetable services: read run.config_snapshot for
+   * subject names and run.result_json for the (class, weekday, period) →
+   * subject_id mapping.
+   */
+  private async resolveSubjectsForSchedules(
+    tenantId: string,
+    rows: Array<{
+      schedule_id: string;
+      class_id: string;
+      weekday: number;
+      period_order: number | null;
+      scheduling_run_id: string | null;
+    }>,
+  ): Promise<Map<string, { id: string; name: string }>> {
+    const result = new Map<string, { id: string; name: string }>();
+    const runIds = new Set<string>();
+    for (const r of rows) if (r.scheduling_run_id) runIds.add(r.scheduling_run_id);
+    if (runIds.size === 0) return result;
+
+    // eslint-disable-next-line school/no-cross-module-prisma-access -- read-only lookup of scheduling_run result/config to recover the subject for applied schedule entries (Schedule has no subject_id column; subject lives per-lesson in the solver output)
+    const runs = await this.prisma.schedulingRun.findMany({
+      where: { tenant_id: tenantId, id: { in: [...runIds] } },
+      select: { id: true, result_json: true, config_snapshot: true },
+    });
+
+    const nameByRun = new Map<string, Map<string, string>>();
+    const entryByRun = new Map<string, Map<string, string>>();
+    for (const run of runs) {
+      const snap = (run.config_snapshot ?? {}) as Record<string, unknown>;
+      const nameMap = new Map<string, string>();
+      const subjects = Array.isArray(snap['subjects'])
+        ? (snap['subjects'] as Array<Record<string, unknown>>)
+        : [];
+      for (const s of subjects) {
+        if (typeof s['subject_id'] === 'string' && typeof s['subject_name'] === 'string') {
+          nameMap.set(s['subject_id'], s['subject_name']);
+        }
+      }
+      const curriculum = Array.isArray(snap['curriculum'])
+        ? (snap['curriculum'] as Array<Record<string, unknown>>)
+        : [];
+      for (const c of curriculum) {
+        if (
+          typeof c['subject_id'] === 'string' &&
+          typeof c['subject_name'] === 'string' &&
+          !nameMap.has(c['subject_id'])
+        ) {
+          nameMap.set(c['subject_id'], c['subject_name']);
+        }
+      }
+      nameByRun.set(run.id, nameMap);
+
+      const res = (run.result_json ?? {}) as Record<string, unknown>;
+      const entries = Array.isArray(res['entries'])
+        ? (res['entries'] as Array<Record<string, unknown>>)
+        : [];
+      const entryMap = new Map<string, string>();
+      for (const e of entries) {
+        const cid = typeof e['class_id'] === 'string' ? e['class_id'] : null;
+        const wd = Number(e['weekday'] ?? -1);
+        const po = Number(e['period_order'] ?? -1);
+        const sid = typeof e['subject_id'] === 'string' ? e['subject_id'] : null;
+        if (cid && sid && wd >= 0 && po >= 0) {
+          entryMap.set(`${cid}|${wd}|${po}`, sid);
+        }
+      }
+      entryByRun.set(run.id, entryMap);
+    }
+
+    for (const r of rows) {
+      if (!r.scheduling_run_id || r.period_order === null) continue;
+      const entryMap = entryByRun.get(r.scheduling_run_id);
+      const nameMap = nameByRun.get(r.scheduling_run_id);
+      if (!entryMap || !nameMap) continue;
+      const subjectId = entryMap.get(`${r.class_id}|${r.weekday}|${r.period_order}`);
+      if (!subjectId) continue;
+      const subjectName = nameMap.get(subjectId);
+      if (subjectName) result.set(r.schedule_id, { id: subjectId, name: subjectName });
+    }
+    return result;
   }
 
   /**
@@ -351,7 +466,10 @@ export class AttendanceSessionService {
         schedule: {
           select: {
             id: true,
+            class_id: true,
             weekday: true,
+            period_order: true,
+            scheduling_run_id: true,
             start_time: true,
             end_time: true,
           },
@@ -401,9 +519,26 @@ export class AttendanceSessionService {
         }
       : null;
 
+    // Resolve subject from the scheduling run that placed this schedule row.
+    const subjectsBySchedule = session.schedule
+      ? await this.resolveSubjectsForSchedules(tenantId, [
+          {
+            schedule_id: session.schedule.id,
+            class_id: session.schedule.class_id,
+            weekday: session.schedule.weekday,
+            period_order: session.schedule.period_order,
+            scheduling_run_id: session.schedule.scheduling_run_id,
+          },
+        ])
+      : null;
+    const subject = session.schedule
+      ? (subjectsBySchedule?.get(session.schedule.id) ?? null)
+      : null;
+
     return {
       ...session,
       schedule: formattedSchedule,
+      subject,
       enrolled_students: enrolledStudents.map((e) => e.student),
     };
   }
@@ -636,7 +771,15 @@ export class AttendanceSessionService {
             },
           },
           schedule: {
-            select: { id: true, start_time: true, end_time: true },
+            select: {
+              id: true,
+              class_id: true,
+              weekday: true,
+              period_order: true,
+              scheduling_run_id: true,
+              start_time: true,
+              end_time: true,
+            },
           },
           _count: { select: { records: true } },
         },
@@ -651,6 +794,19 @@ export class AttendanceSessionService {
     const enrolmentByClass = await this.classesReadFacade.findEnrolmentCountsByClasses(
       tenantId,
       classIds,
+    );
+
+    const subjectsBySchedule = await this.resolveSubjectsForSchedules(
+      tenantId,
+      rows
+        .filter((r) => r.schedule)
+        .map((r) => ({
+          schedule_id: r.schedule!.id,
+          class_id: r.schedule!.class_id,
+          weekday: r.schedule!.weekday,
+          period_order: r.schedule!.period_order,
+          scheduling_run_id: r.schedule!.scheduling_run_id,
+        })),
     );
 
     const data = rows.map((r) => ({
@@ -679,6 +835,7 @@ export class AttendanceSessionService {
             end_time: r.schedule.end_time.toISOString().slice(11, 16),
           }
         : null,
+      subject: r.schedule ? (subjectsBySchedule.get(r.schedule.id) ?? null) : null,
       record_count: r._count.records,
       enrolled_count: enrolmentByClass.get(r.class_id) ?? 0,
     }));

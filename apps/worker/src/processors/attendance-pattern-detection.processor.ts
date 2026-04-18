@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -54,28 +54,20 @@ const DEFAULT_CONFIG: PatternDetectionConfig = {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.ATTENDANCE, {
-  lockDuration: 180_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class AttendancePatternDetectionProcessor extends WorkerHost {
+/**
+ * Plain @Injectable service — the `AttendanceQueueDispatcher` owns the
+ * queue subscription and routes jobs to this class by name.
+ */
+@Injectable()
+export class AttendancePatternDetectionProcessor {
   private readonly logger = new Logger(AttendancePatternDetectionProcessor.name);
 
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.EARLY_WARNING) private readonly earlyWarningQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job<AttendancePatternDetectionPayload>): Promise<void> {
-    if (job.name !== ATTENDANCE_DETECT_PATTERNS_JOB) {
-      // This processor only handles attendance:detect-patterns jobs.
-      // Other job names on this queue are handled by other processors.
-      return;
-    }
-
     const { tenant_id } = job.data;
 
     if (!tenant_id) {

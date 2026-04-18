@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -25,20 +25,18 @@ export const ATTENDANCE_CRON_DISPATCH_PENDING_JOB = 'attendance:cron-dispatch-pe
  * `tenant_id` on their payload. This dispatcher runs on a cron with empty
  * payload, queries active tenants, and enqueues one per-tenant job for each.
  */
-@Processor(QUEUE_NAMES.ATTENDANCE, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class AttendanceCronDispatchProcessor extends WorkerHost {
+/**
+ * Plain @Injectable service — the `AttendanceQueueDispatcher` owns the
+ * queue subscription and routes jobs to this class by name.
+ */
+@Injectable()
+export class AttendanceCronDispatchProcessor {
   private readonly logger = new Logger(AttendanceCronDispatchProcessor.name);
 
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.ATTENDANCE) private readonly attendanceQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job): Promise<void> {
     switch (job.name) {
@@ -51,7 +49,7 @@ export class AttendanceCronDispatchProcessor extends WorkerHost {
       case ATTENDANCE_CRON_DISPATCH_PENDING_JOB:
         return this.dispatchPending();
       default:
-        return;
+        throw new Error(`Unknown attendance cron-dispatch job name "${job.name}"`);
     }
   }
 

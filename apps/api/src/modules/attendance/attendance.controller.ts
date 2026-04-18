@@ -176,14 +176,16 @@ export class AttendanceController {
     @Query(new ZodValidationPipe(listSessionsQuerySchema))
     query: z.infer<typeof listSessionsQuerySchema>,
   ) {
-    // Check if user is teacher-only (has attendance.take but not attendance.manage)
+    // Cross-class visibility is gated on attendance.take_any_class — the same
+    // permission that gates the write-side scope check on submit/save. Users
+    // without it see only sessions where they are the assigned teacher.
     const { permissions, staffProfileId } = await this.getUserContext(user, tenant.tenant_id);
-    const hasManage = permissions.includes('attendance.manage');
+    const hasTakeAnyClass = permissions.includes('attendance.take_any_class');
 
     return this.attendanceService.findAllSessions(
       tenant.tenant_id,
       query,
-      hasManage ? undefined : staffProfileId,
+      hasTakeAnyClass ? undefined : staffProfileId,
     );
   }
 

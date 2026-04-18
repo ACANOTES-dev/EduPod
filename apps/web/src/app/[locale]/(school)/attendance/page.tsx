@@ -50,6 +50,8 @@ interface SessionRow {
   session_date: string;
   status: string;
   class_entity: { id: string; name: string } | null;
+  schedule: { id: string; start_time: string; end_time: string } | null;
+  subject: { id: string; name: string } | null;
   submitted_by_user_id: string | null;
   _count?: { records: number };
 }
@@ -195,7 +197,18 @@ export default function AttendancePage() {
       key: 'class_entity',
       header: 'Class',
       render: (row: SessionRow) => (
-        <span className="font-medium text-text-primary">{row.class_entity?.name ?? '—'}</span>
+        <div className="flex flex-col">
+          <span className="font-medium text-text-primary">{row.class_entity?.name ?? '—'}</span>
+          {row.schedule && (
+            <span className="text-xs text-text-secondary">
+              {row.subject?.name ?? '—'}
+              {' · '}
+              <span className="font-mono">
+                {row.schedule.start_time}–{row.schedule.end_time}
+              </span>
+            </span>
+          )}
+        </div>
       ),
     },
     {

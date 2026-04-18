@@ -275,8 +275,7 @@ describe('AttendanceSessionService', () => {
   });
 
   describe('Queries', () => {
-    it('findAllSessions should filter by teacher assignment', async () => {
-      mockClassesFacade.findClassIdsByStaff.mockResolvedValue(['class-1']);
+    it('findAllSessions should filter by teacher_staff_id when scoped to a teacher', async () => {
       mockPrisma.attendanceSession.findMany.mockResolvedValue([{ id: 'sess-1' }]);
       mockPrisma.attendanceSession.count.mockResolvedValue(1);
 
@@ -288,7 +287,7 @@ describe('AttendanceSessionService', () => {
       expect(result.data).toHaveLength(1);
       expect(mockPrisma.attendanceSession.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ class_id: { in: ['class-1'] } }),
+          where: expect.objectContaining({ teacher_staff_id: STAFF_PROFILE_ID }),
         }),
       );
     });
@@ -446,20 +445,7 @@ describe('AttendanceSessionService', () => {
       );
     });
 
-    it('should return empty when teacher is not assigned to requested class_id', async () => {
-      mockClassesFacade.findClassIdsByStaff.mockResolvedValue(['other-class']);
-
-      const result = await service.findAllSessions(
-        TENANT_ID,
-        { page: 1, pageSize: 20, class_id: 'class-1' },
-        STAFF_PROFILE_ID,
-      );
-
-      expect(result).toEqual({ data: [], meta: { page: 1, pageSize: 20, total: 0 } });
-    });
-
-    it('should filter by class_id when teacher has access', async () => {
-      mockClassesFacade.findClassIdsByStaff.mockResolvedValue(['class-1', 'class-2']);
+    it('should combine teacher_staff_id filter with explicit class_id filter', async () => {
       mockPrisma.attendanceSession.findMany.mockResolvedValue([{ id: 'sess-1' }]);
       mockPrisma.attendanceSession.count.mockResolvedValue(1);
 
@@ -470,6 +456,14 @@ describe('AttendanceSessionService', () => {
       );
 
       expect(result.data).toHaveLength(1);
+      expect(mockPrisma.attendanceSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            class_id: 'class-1',
+            teacher_staff_id: STAFF_PROFILE_ID,
+          }),
+        }),
+      );
     });
 
     it('should apply only start_date when end_date is not provided', async () => {
