@@ -70,7 +70,7 @@ interface SubstituteSuggestion {
   staff_profile_id: string;
   full_name: string;
   cover_count: number;
-  qualification_match: 'primary' | 'eligible';
+  qualification_match: 'primary' | 'eligible' | 'none';
   confidence: number;
   reason: string;
 }
@@ -110,6 +110,71 @@ function StatusBadge({
   );
 }
 
+function QualificationBadge({
+  match,
+  t,
+}: {
+  match: SubstituteSuggestion['qualification_match'];
+  t: ReturnType<typeof useTranslations<'scheduling.substitutions'>>;
+}) {
+  if (match === 'primary') {
+    return (
+      <span className="rounded-full px-1.5 py-0.5 text-xs font-medium bg-green-100 text-green-700">
+        {t('primaryMatch')}
+      </span>
+    );
+  }
+  if (match === 'eligible') {
+    return (
+      <span className="rounded-full px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-700">
+        {t('eligibleMatch')}
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full px-1.5 py-0.5 text-xs font-medium bg-surface-secondary text-text-secondary border border-border">
+      {t('anyTeacherMatch')}
+    </span>
+  );
+}
+
+function SuggestionRow({
+  s,
+  assigning,
+  onAssign,
+  t,
+}: {
+  s: SubstituteSuggestion;
+  assigning: string | null;
+  onAssign: (staffId: string) => void;
+  t: ReturnType<typeof useTranslations<'scheduling.substitutions'>>;
+}) {
+  return (
+    <li className="flex flex-wrap items-center gap-3 px-4 py-3">
+      <div className="flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-text-primary">{s.full_name}</span>
+          <QualificationBadge match={s.qualification_match} t={t} />
+        </div>
+        <p className="mt-0.5 text-xs text-text-tertiary">{s.reason}</p>
+        <p className="text-xs text-text-tertiary">{t('coverCount', { count: s.cover_count })}</p>
+      </div>
+      <Button
+        size="sm"
+        disabled={assigning === s.staff_profile_id}
+        onClick={() => onAssign(s.staff_profile_id)}
+      >
+        {assigning === s.staff_profile_id ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin me-1" />
+        ) : (
+          <UserCheck className="h-3.5 w-3.5 me-1" />
+        )}
+        {t('assign')}
+      </Button>
+    </li>
+  );
+}
+
 function SuggestionsModal({
   open,
   onOpenChange,
@@ -127,6 +192,13 @@ function SuggestionsModal({
 }) {
   const t = useTranslations('scheduling.substitutions');
   const [assigning, setAssigning] = React.useState<string | null>(null);
+  const [showAll, setShowAll] = React.useState(false);
+
+  React.useEffect(() => {
+    // Reset the "show all" toggle every time a fresh slot is loaded so
+    // admins always start with the competent pool.
+    if (open) setShowAll(false);
+  }, [open, slot?.schedule_id]);
 
   const handleAssign = async (staffId: string) => {
     setAssigning(staffId);
@@ -138,9 +210,12 @@ function SuggestionsModal({
     }
   };
 
+  const competent = suggestions.filter((s) => s.qualification_match !== 'none');
+  const nonCompetent = suggestions.filter((s) => s.qualification_match === 'none');
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>{t('findSubstitute')}</DialogTitle>
         </DialogHeader>
@@ -157,39 +232,62 @@ function SuggestionsModal({
         ) : suggestions.length === 0 ? (
           <p className="py-4 text-sm text-text-secondary">{t('noSuggestions')}</p>
         ) : (
-          <ul className="divide-y divide-border rounded-xl border border-border">
-            {suggestions.map((s) => (
-              <li key={s.staff_profile_id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium text-text-primary">{s.full_name}</span>
-                    <span
-                      className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${s.qualification_match === 'primary' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}
-                    >
-                      {s.qualification_match === 'primary' ? t('primaryMatch') : t('eligibleMatch')}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-xs text-text-tertiary">{s.reason}</p>
-                  <p className="text-xs text-text-tertiary">
-                    {t('coverCount', { count: s.cover_count })} &middot;{' '}
-                    {t('confidence', { pct: Math.round(s.confidence * 100) })}%
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  disabled={assigning === s.staff_profile_id}
-                  onClick={() => void handleAssign(s.staff_profile_id)}
-                >
-                  {assigning === s.staff_profile_id ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin me-1" />
-                  ) : (
-                    <UserCheck className="h-3.5 w-3.5 me-1" />
-                  )}
-                  {t('assign')}
-                </Button>
-              </li>
-            ))}
-          </ul>
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-2 px-2">
+            {competent.length > 0 && (
+              <>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('competentPoolLabel', { count: competent.length })}
+                </p>
+                <ul className="divide-y divide-border rounded-xl border border-border">
+                  {competent.map((s) => (
+                    <SuggestionRow
+                      key={s.staff_profile_id}
+                      s={s}
+                      assigning={assigning}
+                      onAssign={(id) => void handleAssign(id)}
+                      t={t}
+                    />
+                  ))}
+                </ul>
+              </>
+            )}
+
+            {nonCompetent.length > 0 && (
+              <div className="mt-4">
+                {!showAll ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAll(true)}
+                    className="w-full rounded-lg border border-dashed border-border px-4 py-2.5 text-xs font-medium text-text-secondary hover:bg-surface-secondary transition-colors"
+                  >
+                    {t('showAnyTeacher', { count: nonCompetent.length })}
+                  </button>
+                ) : (
+                  <>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                      {t('anyTeacherLabel', { count: nonCompetent.length })}
+                    </p>
+                    <p className="mb-2 text-[11px] text-text-tertiary">{t('anyTeacherHint')}</p>
+                    <ul className="divide-y divide-border rounded-xl border border-border">
+                      {nonCompetent.map((s) => (
+                        <SuggestionRow
+                          key={s.staff_profile_id}
+                          s={s}
+                          assigning={assigning}
+                          onAssign={(id) => void handleAssign(id)}
+                          t={t}
+                        />
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            )}
+
+            {competent.length === 0 && nonCompetent.length === 0 && (
+              <p className="py-4 text-sm text-text-secondary">{t('noSuggestions')}</p>
+            )}
+          </div>
         )}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -408,13 +506,20 @@ function TodayTab({ isAdmin }: { isAdmin: boolean }) {
         `/api/v1/scheduling/absences/${absenceId}/substitutes?schedule_id=${slot.schedule_id}&date=${absenceDate}`,
       );
       const candidates = res.data ?? [];
+      // 3-way classification matches the backend's competency model:
+      //   primary  — pinned substitute for this exact class (top priority)
+      //   eligible — pooled in the substitute-competencies roster for this
+      //              subject + year-group (competent, not class-pinned)
+      //   none     — no competency entry; still shown so admins can assign
+      //              ad-hoc coverage, tagged "Any teacher" so the distinction
+      //              from the competent pool is obvious.
       const mapped: SubstituteSuggestion[] = candidates
         .filter((c) => c.is_available)
         .map((c) => ({
           staff_profile_id: c.staff_profile_id,
           full_name: c.name,
           cover_count: c.cover_count,
-          qualification_match: c.is_primary ? 'primary' : 'eligible',
+          qualification_match: c.is_primary ? 'primary' : c.is_competent ? 'eligible' : 'none',
           confidence: Math.min(1, Math.max(0, c.rank_score / 100)),
           reason: c.is_primary
             ? t('reasonPrimary')

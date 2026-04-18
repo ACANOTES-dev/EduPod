@@ -102,8 +102,16 @@ export class SubstitutionCascadeService {
             slot.id,
             day.toISOString().slice(0, 10),
           );
+          // Cascade should only page the competent pool — teachers pinned to
+          // this class or pooled for the subject+year-group in the
+          // substitute-competencies roster. Non-competent teachers stay
+          // discoverable in the manual "Find Sub" UI but are never paged by
+          // the automatic cascade (no unsolicited cover requests for subjects
+          // they're not on the roster for). If the entire competent pool is
+          // unavailable, cascade sends zero offers and the admin assigns
+          // manually from the broader list.
           candidates = suggestions.data
-            .filter((c) => c.is_available)
+            .filter((c) => c.is_available && c.is_competent)
             .slice(0, settings.parallel_offer_count)
             .map((c) => c.staff_profile_id);
         }

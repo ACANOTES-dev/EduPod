@@ -477,14 +477,22 @@ describe('SubstitutionService', () => {
         { id: 'staff-3', user: { first_name: 'Bob', last_name: 'Jones' } },
       ]);
       mockPrisma.substituteTeacherCompetency.findMany.mockResolvedValue([]);
-      // staff-2 has covered 5 times, staff-3 has not covered at all
-      mockPrisma.substitutionRecord.findMany.mockResolvedValue([
-        { substitute_staff_id: 'staff-2' },
-        { substitute_staff_id: 'staff-2' },
-        { substitute_staff_id: 'staff-2' },
-        { substitute_staff_id: 'staff-2' },
-        { substitute_staff_id: 'staff-2' },
-      ]);
+      // staff-2 has covered 5 times, staff-3 has not covered at all.
+      // The service issues two substitutionRecord.findMany calls:
+      //   1. busy-check (where.status in [assigned, confirmed]) — return []
+      //      so nobody is marked busy from an existing cover assignment.
+      //   2. cover-count history (where.created_at.gte) — return the cover
+      //      history used to rank for fairness.
+      mockPrisma.substitutionRecord.findMany.mockImplementation(({ where }) => {
+        if (where?.status) return Promise.resolve([]);
+        return Promise.resolve([
+          { substitute_staff_id: 'staff-2' },
+          { substitute_staff_id: 'staff-2' },
+          { substitute_staff_id: 'staff-2' },
+          { substitute_staff_id: 'staff-2' },
+          { substitute_staff_id: 'staff-2' },
+        ]);
+      });
 
       const result = await service.findEligibleSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-20');
 

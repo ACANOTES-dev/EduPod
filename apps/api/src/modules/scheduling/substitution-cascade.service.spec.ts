@@ -143,9 +143,12 @@ describe('SubstitutionCascadeService', () => {
       ]);
       mockSubstitutionService.findEligibleSubstitutes.mockResolvedValue({
         data: [
-          { staff_profile_id: STAFF_JAMES, is_available: true },
-          { staff_profile_id: STAFF_MICHAEL, is_available: true },
-          { staff_profile_id: 'staff-liam', is_available: false },
+          // Cascade now filters to `is_competent && is_available` — flag the
+          // two that should receive offers as both, and leave the third
+          // unavailable so it stays excluded regardless.
+          { staff_profile_id: STAFF_JAMES, is_available: true, is_competent: true },
+          { staff_profile_id: STAFF_MICHAEL, is_available: true, is_competent: true },
+          { staff_profile_id: 'staff-liam', is_available: false, is_competent: true },
         ],
       });
 

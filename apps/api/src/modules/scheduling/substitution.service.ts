@@ -457,13 +457,37 @@ export class SubstitutionService {
     const subjectId =
       resolved.get(schedule.id)?.subject_id ?? schedule.class_entity?.subject_id ?? null;
 
-    // Find teachers already busy at this time slot on that date
-    const busyIds = await this.schedulesReadFacade.findBusyTeacherIds(tenantId, {
+    // Find teachers already busy at this time slot on that date.
+    // Busy = (a) has a scheduled class at the same weekday/time window, OR
+    //        (b) has already been assigned as a substitute for *another*
+    //            absence covering this same date + overlapping time.
+    // Case (b) is the one `findBusyTeacherIds` misses — a teacher who
+    // accepted a cover for an earlier-reported absence at Mon P1 must not
+    // now be offered a second Mon P1 cover.
+    const busyIdsScheduled = await this.schedulesReadFacade.findBusyTeacherIds(tenantId, {
       weekday,
       startTime: schedule.start_time,
       endTime: schedule.end_time,
       effectiveDate: targetDate,
     });
+
+    const busyIds = new Set(busyIdsScheduled);
+    const alreadyCoveringRows = await this.prisma.substitutionRecord.findMany({
+      where: {
+        tenant_id: tenantId,
+        absence_date: targetDate,
+        status: { in: ['assigned', 'confirmed'] },
+        schedule: {
+          weekday,
+          start_time: { lt: schedule.end_time },
+          end_time: { gt: schedule.start_time },
+        },
+      },
+      select: { substitute_staff_id: true },
+    });
+    for (const r of alreadyCoveringRows) {
+      if (r.substitute_staff_id) busyIds.add(r.substitute_staff_id);
+    }
 
     // Find teachers who themselves have an active absence covering this
     // date+period. An absence is disqualifying if it is not cancelled AND
