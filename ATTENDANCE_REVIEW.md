@@ -1,7 +1,7 @@
 # Attendance Module — Deep Review & Implementation Plan
 
 **Date:** 2026-04-18
-**Status:** Steps 1–3 complete and live on production. Steps 4–5 pending.
+**Status:** Steps 1–4 complete and live on production. Step 5 pending.
 
 ---
 
@@ -168,11 +168,13 @@ Cheapest first.
 - Prod state after deploy: 33 legacy sessions → 30 backfilled from homeroom, 3 remain unassigned (admin must pick a homeroom or have an officer cover). 8 tenants all received the `attendance_officer` role. 29 total `take_any_class` grants (21 to existing admin roles + 8 to the new officers).
 - Tests: 408 attendance module tests + 10 generation processor tests all green (includes 4 new service-level scoping tests and 2 new controller-level scope-resolution tests).
 
-### Step 4 — Dedicated-taker dashboard (1 day)
+### Step 4 — Dedicated-taker dashboard ✓ DONE (2026-04-18)
 
-- New page listing every open session for today across the tenant
-- Filters by year group, class, status
-- Accessible to users with `attendance.take_any_class`
+- `GET /v1/attendance/officer-dashboard` — paginated session list with class + year-group + teacher + schedule window + record count + enrolled count. Filters: `session_date` (defaults to today UTC), `status`, `year_group_id`, `class_id`, `teacher_staff_id`. Ordered by schedule start then class name. Gated by `@RequiresPermission('attendance.take_any_class')`. Enrolment counts go through `ClassesReadFacade.findEnrolmentCountsByClasses` (cross-module Prisma access is lint-forbidden).
+- `/attendance/officer` page: date picker, status / year-group / class filters, table with one-click jump to the existing mark page. Uses the `Badge` summary strip to surface open-count + unmarked-count at a glance.
+- Role-gated UI entry — roles `school_owner`, `school_principal`, `school_vice_principal`, `admin`, `attendance_officer`. Non-matching roles see a clean `officerAccessDenied` empty-state; the real enforcement still happens at the API via the permission check.
+- Discovery: subtle "Officer dashboard" button on the existing `/attendance` list page for users with the role. No new morph-bar nav entry — avoids reshaping primary navigation.
+- Tests: 414 attendance tests green (+5 new service-level tests for `getOfficerDashboard`, +1 new controller delegation test). E2E-verified on nhqs.edupod.app: link shows for principal, page loads, filters work, daily-mode row renders with "Daily Register" + "Unassigned" (for one of the 3 classes left teacherless after backfill).
 
 ### Step 5 — Marking UX polish (½ day)
 
@@ -186,4 +188,4 @@ Cheapest first.
 
 ## Current Work
 
-Steps 1–3 are complete and live. Steps 4–5 remain. This document is the source of truth for the remaining plan.
+Steps 1–4 are complete and live. Step 5 (marking UX polish) remains. This document is the source of truth for the remaining plan.
