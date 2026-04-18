@@ -32,7 +32,7 @@ async function main() {
   }
 
   const roles = await prisma.role.findMany({
-    where: { role_key: { in: roleKeys }, is_system: true },
+    where: { role_key: { in: roleKeys }, is_system_role: true },
     select: { id: true, role_key: true, tenant_id: true },
   });
 
