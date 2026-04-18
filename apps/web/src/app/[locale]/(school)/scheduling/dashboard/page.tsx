@@ -4,8 +4,10 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   DoorOpen,
+  Info,
   Loader2,
   Sparkles,
   TrendingUp,
@@ -176,35 +178,145 @@ function NarrativeCard({
   );
 }
 
+// ─── Health score breakdown ──────────────────────────────────────────────────
+//
+// Weights mirror the composite formula in the page body. Each component
+// subscore is already normalised to 0–100; multiplying by `weight` gives its
+// contribution to the overall /100.
+
+interface ScoreComponent {
+  id: 'completion' | 'teachers' | 'rooms' | 'preferences';
+  weight: number; // 0–1
+  score: number; // 0–100
+}
+
 function HealthBanner({
   score,
   label,
   summary,
+  components,
+  improvementTips,
 }: {
   score: number;
   label: string;
   summary: string;
+  components: ScoreComponent[];
+  improvementTips: Array<{ component: ScoreComponent['id']; tip: string; href: string }>;
 }) {
+  const tDash = useTranslations('scheduling.dashboard');
+  const [expanded, setExpanded] = React.useState(false);
   const tone: NarrativeTone = score >= 85 ? 'good' : score >= 60 ? 'warn' : 'bad';
   const s = TONE_STYLES[tone];
+
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border ${s.border} ${s.bg} p-6 flex flex-col gap-4 md:flex-row md:items-center`}
+      className={`relative overflow-hidden rounded-2xl border ${s.border} ${s.bg} p-6 flex flex-col gap-4`}
     >
-      <div className="flex items-center gap-4">
-        <div
-          className={`flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-2xl ${s.iconBg} ${s.iconText} shadow-sm`}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-4">
+          <div
+            className={`flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-2xl ${s.iconBg} ${s.iconText} shadow-sm`}
+          >
+            <span className="text-2xl font-bold leading-none tabular-nums">{score}</span>
+            <span className="mt-1 text-[9px] font-semibold uppercase tracking-wider">/100</span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+              {label}
+            </p>
+            <p className={`mt-1 text-lg font-bold leading-tight ${s.accent}`}>{summary}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className={`inline-flex items-center gap-1.5 self-start rounded-lg border ${s.border} bg-surface/60 backdrop-blur-sm px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface transition-colors md:self-auto`}
+          aria-expanded={expanded}
+          aria-controls="health-breakdown"
         >
-          <span className="text-2xl font-bold leading-none tabular-nums">{score}</span>
-          <span className="mt-1 text-[9px] font-semibold uppercase tracking-wider">/100</span>
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-            {label}
-          </p>
-          <p className={`mt-1 text-lg font-bold leading-tight ${s.accent}`}>{summary}</p>
-        </div>
+          <Info className="h-3.5 w-3.5" />
+          {expanded ? tDash('health.hideBreakdown') : tDash('health.showBreakdown')}
+          <ChevronDown
+            className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          />
+        </button>
       </div>
+
+      {expanded && (
+        <div
+          id="health-breakdown"
+          className="rounded-xl border border-border bg-surface/80 backdrop-blur-sm p-4 space-y-4"
+        >
+          <div>
+            <p className="text-sm font-semibold text-text-primary">
+              {tDash('health.howCalcTitle')}
+            </p>
+            <p className="mt-1 text-xs text-text-secondary">{tDash('health.howCalcDesc')}</p>
+          </div>
+
+          <div className="space-y-3">
+            {components.map((c) => {
+              const contribution = Math.round(c.score * c.weight);
+              const maxContribution = Math.round(100 * c.weight);
+              return (
+                <div key={c.id} className="space-y-1">
+                  <div className="flex items-baseline justify-between gap-2 text-xs">
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <span className="font-medium text-text-primary truncate">
+                        {tDash(`health.component.${c.id}.name`)}
+                      </span>
+                      <span className="text-text-tertiary">
+                        {tDash('health.weight', { pct: Math.round(c.weight * 100) })}
+                      </span>
+                    </div>
+                    <span className="font-mono tabular-nums text-text-secondary shrink-0">
+                      {contribution}
+                      <span className="text-text-tertiary"> / {maxContribution}</span>
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-surface-secondary overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        c.score >= 85
+                          ? 'bg-emerald-500'
+                          : c.score >= 60
+                            ? 'bg-amber-500'
+                            : 'bg-rose-500'
+                      }`}
+                      style={{ width: `${Math.min(100, Math.max(0, c.score))}%` }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-text-tertiary">
+                    {tDash(`health.component.${c.id}.desc`)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          {improvementTips.length > 0 && (
+            <div className="rounded-lg border border-border bg-surface-secondary/50 p-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-text-primary">
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                {tDash('health.howToImproveTitle')}
+              </div>
+              <ul className="mt-2 space-y-1.5 text-xs text-text-secondary">
+                {improvementTips.map((t, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="mt-1 h-1 w-1 rounded-full bg-text-tertiary shrink-0" />
+                    <span className="flex-1">
+                      {t.tip}{' '}
+                      <a href={t.href} className="font-medium text-primary hover:underline">
+                        {tDash('health.fixItLink')} →
+                      </a>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -703,10 +815,46 @@ function OverviewTab({
     return tDash('health.poor');
   })();
 
+  const scoreComponents: ScoreComponent[] = [
+    { id: 'completion', weight: 0.5, score: completionScore },
+    { id: 'teachers', weight: 0.25, score: teacherScore },
+    { id: 'rooms', weight: 0.15, score: roomScore },
+    { id: 'preferences', weight: 0.1, score: prefScore },
+  ];
+
+  // Surface the two lowest-contributing components as improvement tips, skipping
+  // anything already at 90+ (nothing meaningful to improve there).
+  const improvementTips = [...scoreComponents]
+    .filter((c) => c.score < 90)
+    .sort((a, b) => a.score * a.weight - b.score * b.weight)
+    .slice(0, 2)
+    .map((c) => ({
+      component: c.id,
+      tip: tDash(`health.component.${c.id}.improveTip`),
+      href: (() => {
+        switch (c.id) {
+          case 'completion':
+            return '/en/scheduling/auto';
+          case 'teachers':
+            return '/en/scheduling/teacher-config';
+          case 'rooms':
+            return '/en/scheduling/room-closures';
+          case 'preferences':
+            return '/en/scheduling/preferences';
+        }
+      })(),
+    }));
+
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
-      <HealthBanner score={overallScore} label={tDash('health.label')} summary={healthSummary} />
+      <HealthBanner
+        score={overallScore}
+        label={tDash('health.label')}
+        summary={healthSummary}
+        components={scoreComponents}
+        improvementTips={improvementTips}
+      />
 
       {/* Narrative story cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

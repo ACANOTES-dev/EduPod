@@ -5656,7 +5656,36 @@
         "label": "Scheduling Health",
         "good": "On track — your timetable is in great shape.",
         "okay": "Mostly healthy — a few areas to tidy up.",
-        "poor": "Needs attention — review the cards below."
+        "poor": "Needs attention — review the cards below.",
+        "showBreakdown": "How is this scored?",
+        "hideBreakdown": "Hide breakdown",
+        "howCalcTitle": "How the score is calculated",
+        "howCalcDesc": "Your /100 score is a weighted average of four signals. A perfect run scores 100 on every one.",
+        "weight": "{pct}% weight",
+        "howToImproveTitle": "How to improve",
+        "fixItLink": "Open",
+        "component": {
+          "completion": {
+            "name": "Completion",
+            "desc": "Share of class slots the solver placed (placed ÷ total demand).",
+            "improveTip": "Raise completion by unblocking unplaced lessons — widen teacher caps or broaden competency coverage so the solver can place every demanded period."
+          },
+          "teachers": {
+            "name": "Teacher load",
+            "desc": "Blends average utilisation (ideal 40–75%) with gap frequency — fewer idle periods between lessons is better.",
+            "improveTip": "Ease teacher strain by redistributing load — lift or lower weekly caps, rebalance subject assignments, and shrink the gap count per teacher."
+          },
+          "rooms": {
+            "name": "Room usage",
+            "desc": "Rewards balanced utilisation (25–70%). Very high means bottlenecks; very low means wasted rooms.",
+            "improveTip": "Rebalance room usage — if rooms are jammed, check closures or add capacity; if rooms are idle, review class-to-room requirements."
+          },
+          "preferences": {
+            "name": "Preferences",
+            "desc": "How many soft preferences (teacher time/class/subject) the solver satisfied, as a percentage.",
+            "improveTip": "Lift preference satisfaction by capturing up-to-date staff availability and preferences before the next run."
+          }
+        }
       },
       "coverage": {
         "title": "Coverage",
