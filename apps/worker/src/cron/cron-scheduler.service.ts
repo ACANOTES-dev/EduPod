@@ -11,6 +11,12 @@ import { CANARY_PING_JOB, QUEUE_NAMES } from '../base/queue.constants';
 import { ADMISSIONS_PAYMENT_EXPIRY_JOB } from '../processors/admissions/admissions-payment-expiry.processor';
 import { APPROVAL_CALLBACK_RECONCILIATION_JOB } from '../processors/approvals/callback-reconciliation.processor';
 import {
+  ATTENDANCE_CRON_DISPATCH_GENERATE_JOB,
+  ATTENDANCE_CRON_DISPATCH_LOCK_JOB,
+  ATTENDANCE_CRON_DISPATCH_PATTERNS_JOB,
+  ATTENDANCE_CRON_DISPATCH_PENDING_JOB,
+} from '../processors/attendance-cron-dispatch.processor';
+import {
   BEHAVIOUR_CRON_DISPATCH_DAILY_JOB,
   BEHAVIOUR_CRON_DISPATCH_MONTHLY_JOB,
   BEHAVIOUR_CRON_DISPATCH_SLA_JOB,
@@ -80,6 +86,7 @@ export class CronSchedulerService implements OnModuleInit {
     @InjectQueue(QUEUE_NAMES.ADMISSIONS) private readonly admissionsQueue: Queue,
     @InjectQueue(QUEUE_NAMES.FINANCE) private readonly financeQueue: Queue,
     @InjectQueue(QUEUE_NAMES.SCHEDULING) private readonly schedulingQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.ATTENDANCE) private readonly attendanceQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -103,6 +110,76 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerCanaryCronJobs();
     await this.registerFinanceCronJobs();
     await this.registerSchedulingCronJobs();
+    await this.registerAttendanceCronJobs();
+  }
+
+  // ─── Attendance ────────────────────────────────────────────────────────────
+  //
+  // The four attendance processors (generate-sessions, auto-lock,
+  // detect-patterns, detect-pending) require tenant_id on their payload. These
+  // crons run cross-tenant dispatchers (empty payload) that query active
+  // tenants and enqueue one per-tenant job per tenant. Kept on separate
+  // schedules so each task runs at the right time of day:
+  //   - generate-sessions at 04:30 UTC  — before most school days start
+  //   - detect-patterns  at 02:30 UTC  — quiet nightly window
+  //   - detect-pending   at 18:00 UTC  — end-of-day diagnostic count
+  //   - auto-lock        at 23:00 UTC  — after all school days conclude
+  private async registerAttendanceCronJobs(): Promise<void> {
+    await this.attendanceQueue.add(
+      ATTENDANCE_CRON_DISPATCH_GENERATE_JOB,
+      {},
+      {
+        repeat: { pattern: '30 4 * * *' },
+        jobId: `cron:${ATTENDANCE_CRON_DISPATCH_GENERATE_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(
+      `Registered repeatable cron: ${ATTENDANCE_CRON_DISPATCH_GENERATE_JOB} (daily 04:30 UTC)`,
+    );
+
+    await this.attendanceQueue.add(
+      ATTENDANCE_CRON_DISPATCH_PATTERNS_JOB,
+      {},
+      {
+        repeat: { pattern: '30 2 * * *' },
+        jobId: `cron:${ATTENDANCE_CRON_DISPATCH_PATTERNS_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(
+      `Registered repeatable cron: ${ATTENDANCE_CRON_DISPATCH_PATTERNS_JOB} (daily 02:30 UTC)`,
+    );
+
+    await this.attendanceQueue.add(
+      ATTENDANCE_CRON_DISPATCH_PENDING_JOB,
+      {},
+      {
+        repeat: { pattern: '0 18 * * *' },
+        jobId: `cron:${ATTENDANCE_CRON_DISPATCH_PENDING_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(
+      `Registered repeatable cron: ${ATTENDANCE_CRON_DISPATCH_PENDING_JOB} (daily 18:00 UTC)`,
+    );
+
+    await this.attendanceQueue.add(
+      ATTENDANCE_CRON_DISPATCH_LOCK_JOB,
+      {},
+      {
+        repeat: { pattern: '0 23 * * *' },
+        jobId: `cron:${ATTENDANCE_CRON_DISPATCH_LOCK_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(
+      `Registered repeatable cron: ${ATTENDANCE_CRON_DISPATCH_LOCK_JOB} (daily 23:00 UTC)`,
+    );
   }
 
   // ─── Scheduling ────────────────────────────────────────────────────────────

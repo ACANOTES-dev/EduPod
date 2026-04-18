@@ -15,6 +15,7 @@ import { AdmissionsPaymentLinkProcessor } from './processors/admissions/admissio
 import { AdmissionsTemplatesInit } from './processors/admissions/admissions-templates.init';
 import { ApprovalCallbackReconciliationProcessor } from './processors/approvals/callback-reconciliation.processor';
 import { AttendanceAutoLockProcessor } from './processors/attendance-auto-lock.processor';
+import { AttendanceCronDispatchProcessor } from './processors/attendance-cron-dispatch.processor';
 import { AttendancePatternDetectionProcessor } from './processors/attendance-pattern-detection.processor';
 import { AttendancePendingDetectionProcessor } from './processors/attendance-pending-detection.processor';
 import { AttendanceSessionGenerationProcessor } from './processors/attendance-session-generation.processor';
@@ -420,6 +421,8 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     AttendancePendingDetectionProcessor,
     AttendanceAutoLockProcessor,
     AttendancePatternDetectionProcessor,
+    // Cross-tenant cron fanout for the four attendance processors above.
+    AttendanceCronDispatchProcessor,
     // Scheduling queue processors
     SchedulingSolverV2Processor,
     SchedulingStaleReaperJob,

@@ -2362,6 +2362,10 @@
       "trendsTitle": "School-Wide Attendance Trends",
       "excusedTitle": "Excused vs Unexcused Absences",
       "comparisonTitle": "Class Attendance Comparison",
+      "absenceRate": "Absence Rate",
+      "loading": "Loading analytics…",
+      "noData": "No attendance data for the selected window.",
+      "selectYearGroupForComparison": "Select a year group above to compare classes within it.",
       "aiSummaryFallback": "School-wide attendance is 93.2% this term. Year 8 has the lowest rate at 88.4%, driven by 5 students with chronic absenteeism. Wednesday consistently shows 2-3% lower attendance across all year groups."
     },
     "grades": {

@@ -290,6 +290,11 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     description: 'Create attendance session on a closure date',
     permission_tier: 'admin',
   },
+  {
+    permission_key: 'attendance.view_pattern_reports',
+    description: 'View and action attendance pattern alerts (absences, tardiness)',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Gradebook ────────────────────────────────────────────────
   {

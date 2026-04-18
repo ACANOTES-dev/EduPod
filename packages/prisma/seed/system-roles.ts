@@ -82,6 +82,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'attendance.take',
       'attendance.amend_historical',
       'attendance.override_closure',
+      'attendance.view_pattern_reports',
       // Gradebook
       'gradebook.manage',
       'gradebook.view',
@@ -194,6 +195,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'attendance.manage',
       'attendance.view',
       'attendance.take',
+      'attendance.view_pattern_reports',
       'gradebook.manage',
       'gradebook.view',
       'gradebook.enter_grades',
@@ -284,6 +286,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'attendance.manage',
       'attendance.view',
       'attendance.take',
+      'attendance.view_pattern_reports',
       'gradebook.manage',
       'gradebook.view',
       'gradebook.enter_grades',
