@@ -3,6 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { BulkUpsertExamSubjectConfigsDto, UpsertExamSubjectConfigDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -35,6 +36,7 @@ export class ExamSubjectConfigService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly classesReadFacade: ClassesReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
   ) {}
 
   // ─── List configs (with unconfigured (year_group × subject) placeholders) ─
@@ -50,7 +52,7 @@ export class ExamSubjectConfigService {
       });
     }
 
-    const [configs, classes] = await Promise.all([
+    const [configs, yearGroups, subjects, ygEnrolment] = await Promise.all([
       this.prisma.examSubjectConfig.findMany({
         where: { tenant_id: tenantId, exam_session_id: sessionId },
         include: {
@@ -58,27 +60,29 @@ export class ExamSubjectConfigService {
           subject: { select: { id: true, name: true } },
         },
       }),
-      this.classesReadFacade.findActiveClassesForExamPlanning(tenantId),
+      this.academicReadFacade.findAllYearGroups(tenantId) as Promise<
+        Array<{ id: string; name: string }>
+      >,
+      this.academicReadFacade.findAllSubjects(tenantId, { id: true, name: true }) as Promise<
+        Array<{ id: string; name: string }>
+      >,
+      this.classesReadFacade.findEnrolmentCountsByYearGroup(tenantId),
     ]);
 
     const ygSubjectCounts = new Map<string, number>();
-    for (const c of classes) {
-      const key = `${c.year_group_id}:${c.subject_id}`;
-      ygSubjectCounts.set(key, (ygSubjectCounts.get(key) ?? 0) + c.enrolment_count);
-    }
-
     const uniquePairs = new Map<
       string,
       { year_group_id: string; year_group_name: string; subject_id: string; subject_name: string }
     >();
-    for (const c of classes) {
-      const key = `${c.year_group_id}:${c.subject_id}`;
-      if (!uniquePairs.has(key) && c.year_group_name && c.subject_name) {
+    for (const yg of yearGroups) {
+      for (const s of subjects) {
+        const key = `${yg.id}:${s.id}`;
+        ygSubjectCounts.set(key, ygEnrolment.get(yg.id) ?? 0);
         uniquePairs.set(key, {
-          year_group_id: c.year_group_id,
-          year_group_name: c.year_group_name,
-          subject_id: c.subject_id,
-          subject_name: c.subject_name,
+          year_group_id: yg.id,
+          year_group_name: yg.name,
+          subject_id: s.id,
+          subject_name: s.name,
         });
       }
     }

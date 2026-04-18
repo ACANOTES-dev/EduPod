@@ -3,6 +3,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import type { ExamSolverExam, TriggerExamSolverDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomsReadFacade } from '../rooms/rooms-read.facade';
@@ -79,6 +80,7 @@ export class ExamSolverOrchestrationService {
     private readonly prisma: PrismaService,
     private readonly roomsReadFacade: RoomsReadFacade,
     private readonly classesReadFacade: ClassesReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
   ) {}
 
   // ─── Trigger a solve (synchronous for MVP) ────────────────────────────────
@@ -417,11 +419,21 @@ export class ExamSolverOrchestrationService {
   // ─── Compute (year_group, subject) student counts ──────────────────────────
 
   private async computeYgSubjectStudentCounts(tenantId: string): Promise<Map<string, number>> {
-    const classes = await this.classesReadFacade.findActiveClassesForExamPlanning(tenantId);
+    const [yearGroups, subjects, ygEnrolment] = await Promise.all([
+      this.academicReadFacade.findAllYearGroups(tenantId) as Promise<
+        Array<{ id: string; name: string }>
+      >,
+      this.academicReadFacade.findAllSubjects(tenantId, { id: true }) as Promise<
+        Array<{ id: string }>
+      >,
+      this.classesReadFacade.findEnrolmentCountsByYearGroup(tenantId),
+    ]);
+
     const ygSubject = new Map<string, number>();
-    for (const c of classes) {
-      const key = `${c.year_group_id}:${c.subject_id}`;
-      ygSubject.set(key, (ygSubject.get(key) ?? 0) + c.enrolment_count);
+    for (const yg of yearGroups) {
+      for (const s of subjects) {
+        ygSubject.set(`${yg.id}:${s.id}`, ygEnrolment.get(yg.id) ?? 0);
+      }
     }
     return ygSubject;
   }

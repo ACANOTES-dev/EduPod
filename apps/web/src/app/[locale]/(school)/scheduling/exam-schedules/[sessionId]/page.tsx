@@ -38,7 +38,7 @@ import {
 } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -126,8 +126,10 @@ export default function ExamScheduleDetailPage() {
     if (!sessionId) return;
     setLoading(true);
     try {
-      const res = await apiClient<ExamSession>(`/api/v1/scheduling/exam-sessions/${sessionId}`);
-      setSession(res);
+      const res = await apiClient<{ data: ExamSession } | ExamSession>(
+        `/api/v1/scheduling/exam-sessions/${sessionId}`,
+      );
+      setSession(unwrap(res) as ExamSession);
     } catch (err) {
       console.error('[ExamScheduleDetailPage]', err);
     } finally {
@@ -520,24 +522,25 @@ function InvigilatorPoolTab({ sessionId, readOnly }: { sessionId: string; readOn
           `/api/v1/scheduling/exam-sessions/${sessionId}/invigilator-pool`,
         ),
         apiClient<{
-          data: Array<{
-            id: string;
-            user: { first_name: string; last_name: string; email: string };
-            job_title: string | null;
-          }>;
-        }>(`/api/v1/scheduling/teachers?pageSize=500`),
+          data: Array<{ id: string; full_name: string; department: string | null }>;
+        }>(`/api/v1/scheduling/teachers`),
       ]);
       const poolList = poolRes.data ?? [];
       setPool(poolList);
       setSelected(new Set(poolList.map((p) => p.staff_profile_id)));
 
-      const teachers: PoolMember[] = (staffRes.data ?? []).map((s) => ({
-        staff_profile_id: s.id,
-        first_name: s.user.first_name,
-        last_name: s.user.last_name,
-        email: s.user.email,
-        job_title: s.job_title,
-      }));
+      const teachers: PoolMember[] = (staffRes.data ?? []).map((s) => {
+        const parts = s.full_name.split(' ');
+        const first = parts[0] ?? '';
+        const last = parts.slice(1).join(' ');
+        return {
+          staff_profile_id: s.id,
+          first_name: first,
+          last_name: last,
+          email: '',
+          job_title: s.department,
+        };
+      });
       setStaff(teachers);
     } catch (err) {
       console.error('[InvigilatorPoolTab]', err);
@@ -684,8 +687,11 @@ function SessionWindowTab({ sessionId, readOnly }: { sessionId: string; readOnly
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
-    apiClient<SessionConfig | null>(`/api/v1/scheduling/exam-sessions/${sessionId}/config`)
-      .then((res) => {
+    apiClient<{ data: SessionConfig | null } | SessionConfig | null>(
+      `/api/v1/scheduling/exam-sessions/${sessionId}/config`,
+    )
+      .then((raw) => {
+        const res = unwrap(raw) as SessionConfig | null;
         if (res) {
           setConfig({
             allowed_weekdays: res.allowed_weekdays ?? DEFAULT_WINDOW.allowed_weekdays,
@@ -910,10 +916,11 @@ function ReviewTab({
   const solve = async () => {
     setSolving(true);
     try {
-      const res = await apiClient<SolveResponse>(
+      const raw = await apiClient<{ data: SolveResponse } | SolveResponse>(
         `/api/v1/scheduling/exam-sessions/${sessionId}/solve`,
         { method: 'POST', body: JSON.stringify({ max_solver_duration_seconds: 60 }) },
       );
+      const res = unwrap(raw) as SolveResponse;
       if (res.status === 'optimal') {
         toast.success(t('succeeded', { placed: res.placed, total: res.total }));
       } else if (res.status === 'feasible') {

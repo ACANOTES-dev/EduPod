@@ -868,6 +868,29 @@ export class ClassesReadFacade {
    * exam scheduling module's subject matrix and solver. Avoids cross-module Prisma
    * access in the scheduling module.
    */
+  /**
+   * Return active enrolment counts grouped by year_group_id. Used by the
+   * exam scheduling module to compute student_count per (year_group, subject)
+   * pair — the subject dimension is cross-joined in the calling service via
+   * AcademicReadFacade, since year_groups and subjects are owned by academics.
+   */
+  async findEnrolmentCountsByYearGroup(tenantId: string): Promise<Map<string, number>> {
+    const classes = await this.prisma.class.findMany({
+      where: { tenant_id: tenantId, status: 'active', year_group_id: { not: null } },
+      select: {
+        year_group_id: true,
+        _count: { select: { class_enrolments: { where: { status: 'active' } } } },
+      },
+    });
+
+    const counts = new Map<string, number>();
+    for (const c of classes) {
+      if (!c.year_group_id) continue;
+      counts.set(c.year_group_id, (counts.get(c.year_group_id) ?? 0) + c._count.class_enrolments);
+    }
+    return counts;
+  }
+
   async findActiveClassesForExamPlanning(tenantId: string): Promise<
     Array<{
       id: string;
