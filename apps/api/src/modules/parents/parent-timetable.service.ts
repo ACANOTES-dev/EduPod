@@ -35,6 +35,10 @@ export interface ParentTimetableResponse {
     teacher_name: string | null;
     room_name: string | null;
   }>;
+  /** True when the displayed week falls inside a published exam session. */
+  exam_session_active?: boolean;
+  /** Human-readable explanation shown in place of the weekly grid. */
+  exam_session_message?: string;
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -229,8 +233,22 @@ export class ParentTimetableService {
     const mondayOffset = (dow + 6) % 7;
     const weekStart = new Date(now);
     weekStart.setUTCDate(now.getUTCDate() - mondayOffset);
+    weekStart.setUTCHours(0, 0, 0, 0);
     const weekEnd = new Date(weekStart);
     weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+
+    // Exam-session full-suspension: hide regular grid for weeks that overlap
+    // a published session — schools suspend normal classes during exam weeks.
+    const activeSession = await this.prisma.examSession.findFirst({
+      where: {
+        tenant_id: tenantId,
+        status: 'published',
+        start_date: { lte: weekEnd },
+        end_date: { gte: weekStart },
+      },
+      select: { id: true },
+    });
+    const isSuspended = activeSession !== null;
 
     return {
       class_name: classRow.name,
@@ -240,7 +258,13 @@ export class ParentTimetableService {
       week_end: weekEnd.toISOString().slice(0, 10),
       weekdays,
       periods,
-      cells,
+      cells: isSuspended ? [] : cells,
+      ...(isSuspended
+        ? {
+            exam_session_active: true,
+            exam_session_message: 'No classes — exam session in progress',
+          }
+        : {}),
     };
   }
 

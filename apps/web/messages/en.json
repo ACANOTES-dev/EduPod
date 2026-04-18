@@ -5642,7 +5642,9 @@
       "pickTeacher": "Select teacher...",
       "pickStudent": "Select student...",
       "pickChild": "Select child...",
-      "searchPlaceholder": "Search..."
+      "searchPlaceholder": "Search...",
+      "examSuspensionBanner": "No classes — exam session in progress",
+      "examInvigilationHint": "Your invigilation shifts for this week are shown below."
     },
     "dashboard": {
       "health": {

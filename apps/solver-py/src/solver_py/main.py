@@ -31,12 +31,14 @@ from fastapi.responses import JSONResponse
 from solver_py import __version__
 from solver_py.config import settings
 from solver_py.schema import SolverInputV2
+from solver_py.schema.exam import ExamSolverInput
 from solver_py.schema.v3 import SolverInputV3
 from solver_py.schema.v3.adapters import v2_output_to_v3, v3_input_to_v2
 from solver_py.schema.v3.diagnose import DiagnoseRequest
 from solver_py.solver import SolveError, SolverCrashError, solve_in_subprocess
-from solver_py.solver.subprocess_solve import create_cancel_event
 from solver_py.solver.diagnose import diagnose_unassigned
+from solver_py.solver.exam_solver import solve_exam_schedule
+from solver_py.solver.subprocess_solve import create_cancel_event
 from solver_py.solver.telemetry import SolverTelemetry
 
 
@@ -475,3 +477,68 @@ async def diagnose_endpoint(
     )
 
     return JSONResponse(status_code=200, content=result)
+
+
+# ─── Exam solver endpoint (Exam Scheduling v2) ──────────────────────────────
+
+
+@app.post("/exam/solve")
+async def exam_solve_endpoint(
+    payload: ExamSolverInput, request: Request
+) -> JSONResponse:
+    """Solve an exam-session schedule using CP-SAT.
+
+    The exam solver is independent of the timetable solver (different variable
+    structure, different objective). It runs in a worker thread via
+    ``asyncio.to_thread`` so the event loop continues to service ``/health``
+    and the existing ``/solve`` endpoints while an exam solve is in flight.
+
+    Concurrency is not capped by ``_solve_semaphore``: the exam model is
+    typically 10-100× smaller than a timetable solve (≤ 120 exams × a few
+    dozen rooms) and finishes within seconds.
+    """
+    request_id: str = (
+        getattr(request.state, "request_id", "") or uuid.uuid4().hex
+    )
+
+    logger.info(
+        "received exam solve request",
+        extra={
+            "request_id": request_id,
+            "session_id": payload.session_id,
+            "exams": len(payload.exams),
+            "rooms": len(payload.rooms),
+            "invigilators": len(payload.invigilators),
+            "days_window": f"{payload.start_date}..{payload.end_date}",
+            "max_duration_s": payload.max_solver_duration_seconds,
+        },
+    )
+
+    try:
+        result = await asyncio.to_thread(solve_exam_schedule, payload)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("exam solver crashed")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": {
+                    "code": "EXAM_SOLVER_ERROR",
+                    "message": str(exc),
+                },
+            },
+        )
+
+    logger.info(
+        "exam solve complete",
+        extra={
+            "request_id": request_id,
+            "status": result.status,
+            "slots": len(result.slots),
+            "duration_ms": result.solve_time_ms,
+        },
+    )
+
+    return JSONResponse(
+        status_code=200,
+        content=result.model_dump(mode="json"),
+    )

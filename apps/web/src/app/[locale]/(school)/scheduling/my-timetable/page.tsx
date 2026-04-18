@@ -46,6 +46,7 @@ interface NormalizedCell {
   room_name: string | null;
   is_cover_duty: boolean;
   cover_for_name: string | null;
+  is_exam_invigilation?: boolean;
 }
 
 interface NormalizedTimetable {
@@ -56,6 +57,8 @@ interface NormalizedTimetable {
   cells: NormalizedCell[];
   periods: Array<{ order: number; name: string; start_time: string }>;
   weekdays: number[];
+  exam_session_active?: boolean;
+  exam_session_message?: string;
 }
 
 interface MyEndpointEntry {
@@ -68,6 +71,13 @@ interface MyEndpointEntry {
   subject_name: string | null;
   room_name: string | null;
   rotation_week: number | null;
+  is_exam_invigilation?: boolean;
+}
+
+interface MyEndpointResponse {
+  data: MyEndpointEntry[];
+  exam_session_active?: boolean;
+  exam_session_message?: string;
 }
 
 interface TimetableEntryDto {
@@ -100,6 +110,14 @@ interface ParentTimetableResponse {
     teacher_name: string | null;
     room_name: string | null;
   }>;
+  exam_session_active?: boolean;
+  exam_session_message?: string;
+}
+
+interface TimetableEnvelope {
+  data: TimetableEntryDto[];
+  exam_session_active?: boolean;
+  exam_session_message?: string;
 }
 
 interface LookupItem {
@@ -142,28 +160,31 @@ function formatTime(t: string): string {
 }
 
 function normalizeMyEndpoint(
-  entries: MyEndpointEntry[],
+  response: MyEndpointResponse,
   weekStart: Date,
   weekEnd: Date,
 ): NormalizedTimetable {
+  const entries = response.data ?? [];
   const cells: NormalizedCell[] = entries.map((e) => ({
     schedule_id: e.schedule_id,
     weekday: e.weekday,
-    period_order: e.period_order,
-    period_name: `P${e.period_order}`,
+    period_order: e.period_order || 1,
+    period_name: e.period_order ? `P${e.period_order}` : formatTime(e.start_time),
     subject_name: e.subject_name ?? '',
     class_name: e.class_name,
     teacher_name: null,
     room_name: e.room_name,
     is_cover_duty: false,
     cover_for_name: null,
+    is_exam_invigilation: e.is_exam_invigilation === true,
   }));
   const periodMap = new Map<number, { order: number; name: string; start_time: string }>();
   for (const e of entries) {
-    if (!periodMap.has(e.period_order)) {
-      periodMap.set(e.period_order, {
-        order: e.period_order,
-        name: `P${e.period_order}`,
+    const order = e.period_order || 1;
+    if (!periodMap.has(order)) {
+      periodMap.set(order, {
+        order,
+        name: e.period_order ? `P${order}` : formatTime(e.start_time),
         start_time: formatTime(e.start_time),
       });
     }
@@ -177,14 +198,17 @@ function normalizeMyEndpoint(
     cells,
     periods: [...periodMap.values()].sort((a, b) => a.order - b.order),
     weekdays,
+    exam_session_active: response.exam_session_active === true,
+    exam_session_message: response.exam_session_message,
   };
 }
 
 function normalizeTimetableEntries(
-  entries: TimetableEntryDto[],
+  envelope: TimetableEnvelope,
   weekStart: Date,
   weekEnd: Date,
 ): NormalizedTimetable {
+  const entries = envelope.data ?? [];
   // Derive period_order per unique start_time across the whole week.
   const uniqueTimes = [...new Set(entries.map((e) => e.start_time))].sort();
   const timeToOrder = new Map(uniqueTimes.map((t, i) => [t, i + 1]));
@@ -221,6 +245,8 @@ function normalizeTimetableEntries(
     cells,
     periods,
     weekdays,
+    exam_session_active: envelope.exam_session_active === true,
+    exam_session_message: envelope.exam_session_message,
   };
 }
 
@@ -248,10 +274,33 @@ function normalizeParentEndpoint(res: ParentTimetableResponse): NormalizedTimeta
       start_time: formatTime(p.start_time),
     })),
     weekdays: res.weekdays,
+    exam_session_active: res.exam_session_active === true,
+    exam_session_message: res.exam_session_message,
   };
 }
 
 // ─── Rendering ─────────────────────────────────────────────────────────────────
+
+function ExamSuspensionBanner({
+  message,
+  hasInvigilation,
+}: {
+  message: string;
+  hasInvigilation: boolean;
+}) {
+  const t = useTranslations('scheduling.myTimetable');
+  return (
+    <div className="flex flex-wrap gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+      <Calendar className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+      <div className="flex-1 min-w-0 space-y-1">
+        <p className="text-sm font-medium text-amber-800">{message}</p>
+        {hasInvigilation ? (
+          <p className="text-xs text-amber-700">{t('examInvigilationHint')}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 function CoverAlert({ cells }: { cells: NormalizedCell[] }) {
   const t = useTranslations('scheduling.myTimetable');
@@ -323,9 +372,11 @@ function WeeklyGrid({ data, todayWeekday }: { data: NormalizedTimetable; todayWe
                     {cell ? (
                       <div
                         className={`rounded-lg border p-2 text-xs space-y-0.5 ${
-                          cell.is_cover_duty
-                            ? 'border-warning-300 bg-warning-50'
-                            : subjectColour(cell.subject_name)
+                          cell.is_exam_invigilation
+                            ? 'border-amber-300 bg-amber-50 text-amber-900'
+                            : cell.is_cover_duty
+                              ? 'border-warning-300 bg-warning-50'
+                              : subjectColour(cell.subject_name)
                         }`}
                       >
                         <p className="font-semibold">{cell.subject_name || '—'}</p>
@@ -363,9 +414,11 @@ function DailyList({ data, day }: { data: NormalizedTimetable; day: number }) {
         <div
           key={cell.schedule_id}
           className={`rounded-xl border p-4 ${
-            cell.is_cover_duty
-              ? 'border-warning-300 bg-warning-50'
-              : subjectColour(cell.subject_name)
+            cell.is_exam_invigilation
+              ? 'border-amber-300 bg-amber-50 text-amber-900'
+              : cell.is_cover_duty
+                ? 'border-warning-300 bg-warning-50'
+                : subjectColour(cell.subject_name)
           }`}
         >
           <div className="flex items-start justify-between gap-2">
@@ -649,26 +702,26 @@ export default function MyTimetablePage() {
           });
           setData(normalizeParentEndpoint(res));
         } else {
-          const res = await apiClient<{ data: MyEndpointEntry[] }>(
+          const res = await apiClient<MyEndpointResponse>(
             `/api/v1/scheduling/timetable/my?week_date=${weekDateIso}`,
           );
-          setData(normalizeMyEndpoint(res.data ?? [], weekStart, weekEnd));
+          setData(normalizeMyEndpoint(res, weekStart, weekEnd));
         }
       } else if (mode === 'class' && selectedId && academicYearId) {
-        const res = await apiClient<{ data: TimetableEntryDto[] }>(
+        const res = await apiClient<TimetableEnvelope>(
           `/api/v1/timetables/class/${selectedId}?academic_year_id=${academicYearId}&week_start=${weekDateIso}`,
         );
-        setData(normalizeTimetableEntries(res.data ?? [], weekStart, weekEnd));
+        setData(normalizeTimetableEntries(res, weekStart, weekEnd));
       } else if (mode === 'teacher' && selectedId && academicYearId) {
-        const res = await apiClient<{ data: TimetableEntryDto[] }>(
+        const res = await apiClient<TimetableEnvelope>(
           `/api/v1/timetables/teacher/${selectedId}?academic_year_id=${academicYearId}&week_start=${weekDateIso}`,
         );
-        setData(normalizeTimetableEntries(res.data ?? [], weekStart, weekEnd));
+        setData(normalizeTimetableEntries(res, weekStart, weekEnd));
       } else if (mode === 'student' && selectedId && academicYearId) {
-        const res = await apiClient<{ data: TimetableEntryDto[] }>(
+        const res = await apiClient<TimetableEnvelope>(
           `/api/v1/timetables/student/${selectedId}?academic_year_id=${academicYearId}&week_start=${weekDateIso}`,
         );
-        setData(normalizeTimetableEntries(res.data ?? [], weekStart, weekEnd));
+        setData(normalizeTimetableEntries(res, weekStart, weekEnd));
       } else if (mode === 'child' && selectedId) {
         const res = await apiClient<ParentTimetableResponse>(
           `/api/v1/parent/timetable?student_id=${selectedId}`,
@@ -838,35 +891,46 @@ export default function MyTimetablePage() {
             </div>
           )}
 
+          {data.exam_session_active ? (
+            <ExamSuspensionBanner
+              message={data.exam_session_message ?? t('examSuspensionBanner')}
+              hasInvigilation={data.cells.some((c) => c.is_exam_invigilation)}
+            />
+          ) : null}
+
           <CoverAlert cells={data.cells} />
 
-          <div className="hidden md:block print:block">
-            <WeeklyGrid data={data} todayWeekday={todayWeekday} />
-          </div>
+          {data.exam_session_active && data.cells.length === 0 ? null : (
+            <>
+              <div className="hidden md:block print:block">
+                <WeeklyGrid data={data} todayWeekday={todayWeekday} />
+              </div>
 
-          <div className="md:hidden">
-            <div className="flex gap-1 overflow-x-auto pb-1">
-              {data.weekdays.map((wd) => (
-                <button
-                  key={wd}
-                  type="button"
-                  onClick={() => setMobileDay(wd)}
-                  className={`flex-shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
-                    mobileDay === wd
-                      ? 'bg-primary text-white'
-                      : wd === todayWeekday
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-surface-secondary text-text-secondary hover:bg-surface'
-                  }`}
-                >
-                  {WEEKDAY_SHORT[wd] ?? wd}
-                </button>
-              ))}
-            </div>
-            <div className="mt-4">
-              <DailyList data={data} day={mobileDay} />
-            </div>
-          </div>
+              <div className="md:hidden">
+                <div className="flex gap-1 overflow-x-auto pb-1">
+                  {data.weekdays.map((wd) => (
+                    <button
+                      key={wd}
+                      type="button"
+                      onClick={() => setMobileDay(wd)}
+                      className={`flex-shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                        mobileDay === wd
+                          ? 'bg-primary text-white'
+                          : wd === todayWeekday
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-surface-secondary text-text-secondary hover:bg-surface'
+                      }`}
+                    >
+                      {WEEKDAY_SHORT[wd] ?? wd}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-4">
+                  <DailyList data={data} day={mobileDay} />
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
 

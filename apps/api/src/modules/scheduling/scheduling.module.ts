@@ -8,11 +8,13 @@ import { ClassesModule } from '../classes/classes.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { GdprModule } from '../gdpr/gdpr.module';
+import { ParentsModule } from '../parents/parents.module';
 import { RoomsModule } from '../rooms/rooms.module';
 import { FeasibilityService } from '../scheduling-runs/feasibility/feasibility.service';
 import { StaffAvailabilityModule } from '../staff-availability/staff-availability.module';
 import { StaffPreferencesModule } from '../staff-preferences/staff-preferences.module';
 import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
+import { StudentsModule } from '../students/students.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
 import { AiSubstitutionService } from './ai-substitution.service';
@@ -23,6 +25,7 @@ import { CoverTrackingService } from './cover-tracking.service';
 import { CurriculumRequirementsController } from './curriculum-requirements.controller';
 import { CurriculumRequirementsService } from './curriculum-requirements.service';
 import { ExamInvigilatorPoolService } from './exam-invigilator-pool.service';
+import { ExamNotificationsService } from './exam-notifications.service';
 import { ExamPublishService } from './exam-publish.service';
 import { ExamSchedulingV2Controller } from './exam-scheduling-v2.controller';
 import { ExamSchedulingService } from './exam-scheduling.service';
@@ -61,10 +64,12 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     CommunicationsModule,
     ConfigurationModule,
     GdprModule,
+    ParentsModule,
     RoomsModule,
     StaffAvailabilityModule,
     StaffPreferencesModule,
     StaffProfilesModule,
+    StudentsModule,
     TenantsModule,
     BullModule.registerQueue({ name: 'scheduling' }),
   ],
@@ -104,6 +109,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     ExamInvigilatorPoolService,
     ExamSolverOrchestrationService,
     ExamPublishService,
+    ExamNotificationsService,
     ScenarioService,
     SchedulingAnalyticsService,
     SchedulingReadFacade,
@@ -119,6 +125,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     SchedulingReadFacade,
     SubstitutionCascadeService,
     CoverNotificationsService,
+    ExamPublishService,
     FeasibilityService,
   ],
 })

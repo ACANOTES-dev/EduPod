@@ -1,6 +1,14 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
-import type { ExamSolverExam, TriggerExamSolverDto } from '@school/shared';
+import type {
+  ExamSolverExam,
+  ExamSolverInput,
+  ExamSolverInvigilator,
+  ExamSolverOutput,
+  ExamSolverRoom,
+  TriggerExamSolverDto,
+} from '@school/shared';
+import { CpSatSolveError, solveExamViaCpSat } from '@school/shared/scheduler';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
@@ -10,23 +18,8 @@ import { RoomsReadFacade } from '../rooms/rooms-read.facade';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface PlacedExam {
-  exam_subject_config_id: string;
-  paper_number: 1 | 2;
-  year_group_id: string;
-  subject_id: string;
-  date: Date;
-  start_time: string;
-  end_time: string;
-  duration_minutes: number;
-  student_count: number;
-  mode: 'in_person' | 'online';
-  room_assignments: Array<{ room_id: string; capacity: number; student_count_in_room: number }>;
-  invigilator_ids: string[];
-}
-
 export interface SolveResult {
-  status: 'optimal' | 'feasible' | 'infeasible';
+  status: 'optimal' | 'feasible' | 'infeasible' | 'unknown';
   placed: number;
   total: number;
   slots_written: number;
@@ -36,38 +29,12 @@ export interface SolveResult {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function addMinutes(hhmm: string, minutes: number): string {
-  const [h, m] = hhmm.split(':').map((n) => parseInt(n, 10));
-  const total = (h ?? 0) * 60 + (m ?? 0) + minutes;
-  const hh = Math.floor(total / 60) % 24;
-  const mm = total % 60;
-  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
-}
-
 function timeToHhmm(d: Date): string {
   return d.toISOString().slice(11, 16);
 }
 
-function diffMinutes(a: string, b: string): number {
-  const [ah, am] = a.split(':').map((n) => parseInt(n, 10));
-  const [bh, bm] = b.split(':').map((n) => parseInt(n, 10));
-  return Math.abs((ah ?? 0) * 60 + (am ?? 0) - ((bh ?? 0) * 60 + (bm ?? 0)));
-}
-
-function dateKey(d: Date): string {
+function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
-}
-
-function eachAllowedDate(start: Date, end: Date, weekdays: number[]): Date[] {
-  const days: Date[] = [];
-  const cur = new Date(start);
-  while (cur <= end) {
-    if (weekdays.includes(cur.getUTCDay())) {
-      days.push(new Date(cur));
-    }
-    cur.setUTCDate(cur.getUTCDate() + 1);
-  }
-  return days;
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -83,14 +50,77 @@ export class ExamSolverOrchestrationService {
     private readonly academicReadFacade: AcademicReadFacade,
   ) {}
 
-  // ─── Trigger a solve (synchronous for MVP) ────────────────────────────────
+  // ─── Trigger a solve (synchronous — calls the CP-SAT sidecar) ─────────────
 
   async triggerSolve(
     tenantId: string,
     sessionId: string,
-    _dto: TriggerExamSolverDto,
+    dto: TriggerExamSolverDto,
   ): Promise<SolveResult> {
-    const start = Date.now();
+    const started = Date.now();
+
+    const { session, config, subjectConfigs, pool, rooms, ygStudentCounts } =
+      await this.loadSolveInputs(tenantId, sessionId);
+
+    const exams = this.buildExams(subjectConfigs, ygStudentCounts);
+    if (exams.length === 0) {
+      throw new BadRequestException({
+        error: {
+          code: 'NO_EXAMS_TO_SCHEDULE',
+          message: 'No examinable subjects with enrolled students found for this session',
+        },
+      });
+    }
+
+    const solverInput: ExamSolverInput = {
+      session_id: sessionId,
+      start_date: isoDate(session.start_date),
+      end_date: isoDate(session.end_date),
+      allowed_weekdays: config.allowed_weekdays,
+      morning_window: {
+        start: timeToHhmm(config.morning_start),
+        end: timeToHhmm(config.morning_end),
+      },
+      afternoon_window: {
+        start: timeToHhmm(config.afternoon_start),
+        end: timeToHhmm(config.afternoon_end),
+      },
+      min_gap_minutes: config.min_gap_minutes_same_student,
+      max_exams_per_day_per_yg: config.max_exams_per_day_per_yg,
+      max_solver_duration_seconds: dto.max_solver_duration_seconds,
+      exams,
+      rooms: rooms.map<ExamSolverRoom>((r) => ({ room_id: r.id, capacity: r.capacity })),
+      invigilators: pool.map<ExamSolverInvigilator>((p) => ({
+        staff_profile_id: p.staff_profile_id,
+      })),
+    };
+
+    const output = await this.callSidecar(solverInput, dto.max_solver_duration_seconds);
+
+    const slotsWritten = await this.persistSolverOutput(tenantId, sessionId, exams, output);
+
+    const elapsedMs = Date.now() - started;
+    this.logger.log(
+      `Exam solve for session ${sessionId}: placed ${output.slots.length}/${exams.length} in ${elapsedMs}ms (solver ${output.solve_time_ms}ms, status=${output.status})`,
+    );
+
+    return {
+      status: output.status,
+      placed: output.slots.length,
+      total: exams.length,
+      slots_written: slotsWritten,
+      message:
+        output.status === 'infeasible' || output.status === 'unknown'
+          ? (output.message ??
+            'Solver could not place every exam — widen the session or add resources')
+          : undefined,
+      solve_time_ms: output.solve_time_ms,
+    };
+  }
+
+  // ─── Input assembly ────────────────────────────────────────────────────────
+
+  private async loadSolveInputs(tenantId: string, sessionId: string) {
     const session = await this.prisma.examSession.findFirst({
       where: { id: sessionId, tenant_id: tenantId },
       select: { id: true, status: true, start_date: true, end_date: true },
@@ -124,7 +154,6 @@ export class ExamSolverOrchestrationService {
     const subjectConfigs = await this.prisma.examSubjectConfig.findMany({
       where: { tenant_id: tenantId, exam_session_id: sessionId, is_examinable: true },
     });
-
     if (subjectConfigs.length === 0) {
       throw new BadRequestException({
         error: {
@@ -147,19 +176,38 @@ export class ExamSolverOrchestrationService {
       });
     }
 
-    const rooms = await this.roomsReadFacade.findActiveRoomBasics(tenantId);
-    const inPersonRooms = rooms
+    const roomBasics = await this.roomsReadFacade.findActiveRoomBasics(tenantId);
+    const rooms = roomBasics
       .filter((r) => r.capacity !== null && r.capacity > 0)
       .map((r) => ({ id: r.id, capacity: r.capacity ?? 0 }));
 
     const ygStudentCounts = await this.computeYgSubjectStudentCounts(tenantId);
 
-    // Expand configs into exams (handle 2-paper subjects)
+    return { session, config, subjectConfigs, pool, rooms, ygStudentCounts };
+  }
+
+  // ─── Build the solver-side exam list (handles 2-paper subjects) ───────────
+
+  private buildExams(
+    subjectConfigs: Array<{
+      id: string;
+      year_group_id: string;
+      subject_id: string;
+      paper_count: number;
+      paper_1_duration_mins: number;
+      paper_2_duration_mins: number | null;
+      mode: string;
+      invigilators_required: number;
+    }>,
+    ygStudentCounts: Map<string, number>,
+  ): ExamSolverExam[] {
     const exams: ExamSolverExam[] = [];
     for (const cfg of subjectConfigs) {
       const key = `${cfg.year_group_id}:${cfg.subject_id}`;
       const studentCount = ygStudentCounts.get(key) ?? 0;
       if (studentCount === 0) continue;
+
+      const mode: 'in_person' | 'online' = cfg.mode === 'online' ? 'online' : 'in_person';
 
       exams.push({
         exam_subject_config_id: cfg.id,
@@ -169,7 +217,7 @@ export class ExamSolverOrchestrationService {
         duration_minutes: cfg.paper_1_duration_mins,
         student_count: studentCount,
         invigilators_required: cfg.invigilators_required,
-        mode: (cfg.mode === 'online' ? 'online' : 'in_person') as 'in_person' | 'online',
+        mode,
       });
 
       if (cfg.paper_count === 2 && cfg.paper_2_duration_mins) {
@@ -181,162 +229,56 @@ export class ExamSolverOrchestrationService {
           duration_minutes: cfg.paper_2_duration_mins,
           student_count: studentCount,
           invigilators_required: cfg.invigilators_required,
-          mode: (cfg.mode === 'online' ? 'online' : 'in_person') as 'in_person' | 'online',
+          mode,
         });
       }
     }
+    return exams;
+  }
 
-    // Greedy placement: biggest cohorts first, then by duration desc
-    exams.sort((a, b) => {
-      if (b.student_count !== a.student_count) return b.student_count - a.student_count;
-      return b.duration_minutes - a.duration_minutes;
-    });
+  // ─── Sidecar call ─────────────────────────────────────────────────────────
 
-    const allowedDates = eachAllowedDate(
-      session.start_date,
-      session.end_date,
-      config.allowed_weekdays,
-    );
-    if (allowedDates.length === 0) {
-      throw new BadRequestException({
-        error: {
-          code: 'NO_ALLOWED_DATES',
-          message: 'Session window has no allowed weekdays',
-        },
-      });
+  private async callSidecar(
+    input: ExamSolverInput,
+    maxDurationSeconds: number,
+  ): Promise<ExamSolverOutput> {
+    const baseUrl = process.env.SOLVER_PY_URL ?? 'http://127.0.0.1:5557';
+    // Give the sidecar an extra 60 s of breathing room on top of its own
+    // wall-clock ceiling so AbortController doesn't trip during presolve.
+    const floorMs = parseInt(process.env.CP_SAT_REQUEST_TIMEOUT_FLOOR_MS ?? '120000', 10);
+    const timeoutMs = Math.max(floorMs, (maxDurationSeconds + 60) * 1000);
+
+    try {
+      return await solveExamViaCpSat(input, { baseUrl, timeoutMs });
+    } catch (err) {
+      if (err instanceof CpSatSolveError) {
+        this.logger.error(
+          `Exam solver sidecar error: ${err.code} (${err.status}) — ${err.message}`,
+        );
+        throw new BadRequestException({
+          error: {
+            code: err.code,
+            message: err.message,
+          },
+        });
+      }
+      throw err;
+    }
+  }
+
+  // ─── DB write (clear + insert fresh slots) ───────────────────────────────
+
+  private async persistSolverOutput(
+    tenantId: string,
+    sessionId: string,
+    exams: ExamSolverExam[],
+    output: ExamSolverOutput,
+  ): Promise<number> {
+    const examByKey = new Map<string, ExamSolverExam>();
+    for (const e of exams) {
+      examByKey.set(`${e.exam_subject_config_id}:${e.paper_number}`, e);
     }
 
-    const morningStart = timeToHhmm(config.morning_start);
-    const morningEnd = timeToHhmm(config.morning_end);
-    const afternoonStart = timeToHhmm(config.afternoon_start);
-    const afternoonEnd = timeToHhmm(config.afternoon_end);
-
-    // Solver state trackers
-    const ygDaySlotCount = new Map<string, number>(); // `${yg}:${dateKey}` -> exam count
-    const ygDayTimes = new Map<string, Array<{ start: string; end: string }>>(); // for min-gap
-    const roomSlotBusy = new Map<string, Set<string>>(); // `${roomId}:${dateKey}:${slot}` -> used
-    const invigilatorBusy = new Map<string, Set<string>>(); // `${staffId}:${dateKey}:${slot}` -> used
-    const invigilatorCount = new Map<string, number>(); // fairness
-    const paperDates = new Map<string, string>(); // `${cfgId}:paperNum` -> date to enforce paper-1 vs paper-2 different days
-
-    const placed: PlacedExam[] = [];
-    const unplaced: string[] = [];
-
-    for (const exam of exams) {
-      let placedExam: PlacedExam | null = null;
-
-      outer: for (const date of allowedDates) {
-        const dk = dateKey(date);
-
-        const existingPaperDate = paperDates.get(`${exam.exam_subject_config_id}:1`);
-        if (exam.paper_number === 2 && existingPaperDate === dk) continue;
-
-        const ygKey = `${exam.year_group_id}:${dk}`;
-        const ygCount = ygDaySlotCount.get(ygKey) ?? 0;
-        if (ygCount >= config.max_exams_per_day_per_yg) continue;
-
-        for (const slotName of ['morning', 'afternoon'] as const) {
-          const slotStart = slotName === 'morning' ? morningStart : afternoonStart;
-          const slotEnd = slotName === 'morning' ? morningEnd : afternoonEnd;
-          const examEnd = addMinutes(slotStart, exam.duration_minutes);
-          if (examEnd > slotEnd) continue;
-
-          const ygTimes = ygDayTimes.get(ygKey) ?? [];
-          let clash = false;
-          for (const t of ygTimes) {
-            // Same-slot clash (different exams for same year group on same day, same slot)
-            if (t.start === slotStart) {
-              clash = true;
-              break;
-            }
-            // Min-gap check across morning<->afternoon same day
-            const earlier = t.start < slotStart ? t : { start: slotStart, end: examEnd };
-            const later = t.start < slotStart ? { start: slotStart, end: examEnd } : t;
-            if (diffMinutes(earlier.end, later.start) < config.min_gap_minutes_same_student) {
-              clash = true;
-              break;
-            }
-          }
-          if (clash) continue;
-
-          // Try to assign rooms (in-person only)
-          const roomAssignments: PlacedExam['room_assignments'] = [];
-          if (exam.mode === 'in_person') {
-            const sortedRooms = [...inPersonRooms]
-              .filter((r) => {
-                const key = `${r.id}:${dk}:${slotName}`;
-                return !roomSlotBusy.get(key)?.size;
-              })
-              .sort((a, b) => b.capacity - a.capacity); // biggest first
-
-            let remaining = exam.student_count;
-            for (const r of sortedRooms) {
-              if (remaining <= 0) break;
-              const take = Math.min(r.capacity, remaining);
-              roomAssignments.push({
-                room_id: r.id,
-                capacity: r.capacity,
-                student_count_in_room: take,
-              });
-              remaining -= take;
-            }
-            if (remaining > 0) continue; // not enough room capacity
-          }
-
-          // Pick invigilators (fairness-sorted, available in this slot)
-          const available = pool
-            .map((p) => p.staff_profile_id)
-            .filter((sid) => !invigilatorBusy.get(`${sid}:${dk}:${slotName}`)?.size)
-            .sort((a, b) => (invigilatorCount.get(a) ?? 0) - (invigilatorCount.get(b) ?? 0));
-
-          if (available.length < exam.invigilators_required) continue;
-          const chosen = available.slice(0, exam.invigilators_required);
-
-          // Commit tentatively
-          placedExam = {
-            exam_subject_config_id: exam.exam_subject_config_id,
-            paper_number: exam.paper_number,
-            year_group_id: exam.year_group_id,
-            subject_id: exam.subject_id,
-            date,
-            start_time: slotStart,
-            end_time: examEnd,
-            duration_minutes: exam.duration_minutes,
-            student_count: exam.student_count,
-            mode: exam.mode,
-            room_assignments: roomAssignments,
-            invigilator_ids: chosen,
-          };
-
-          ygDaySlotCount.set(ygKey, ygCount + 1);
-          ygDayTimes.set(ygKey, [...ygTimes, { start: slotStart, end: examEnd }]);
-          for (const r of roomAssignments) {
-            const key = `${r.room_id}:${dk}:${slotName}`;
-            const set = roomSlotBusy.get(key) ?? new Set<string>();
-            set.add(exam.exam_subject_config_id);
-            roomSlotBusy.set(key, set);
-          }
-          for (const sid of chosen) {
-            const key = `${sid}:${dk}:${slotName}`;
-            const set = invigilatorBusy.get(key) ?? new Set<string>();
-            set.add(exam.exam_subject_config_id);
-            invigilatorBusy.set(key, set);
-            invigilatorCount.set(sid, (invigilatorCount.get(sid) ?? 0) + 1);
-          }
-          paperDates.set(`${exam.exam_subject_config_id}:${exam.paper_number}`, dk);
-
-          break outer;
-        }
-      }
-
-      if (placedExam) {
-        placed.push(placedExam);
-      } else {
-        unplaced.push(`${exam.exam_subject_config_id}:${exam.paper_number}`);
-      }
-    }
-
-    // Persist: clear existing slots, write new ones
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     let slotsWritten = 0;
@@ -346,26 +288,30 @@ export class ExamSolverOrchestrationService {
         where: { tenant_id: tenantId, exam_session_id: sessionId },
       });
 
-      for (const p of placed) {
+      for (const s of output.slots) {
+        const key = `${s.exam_subject_config_id}:${s.paper_number}`;
+        const exam = examByKey.get(key);
+        if (!exam) continue;
+
         const slot = await db.examSlot.create({
           data: {
             tenant_id: tenantId,
             exam_session_id: sessionId,
-            subject_id: p.subject_id,
-            year_group_id: p.year_group_id,
-            date: p.date,
-            start_time: new Date(`1970-01-01T${p.start_time}:00.000Z`),
-            end_time: new Date(`1970-01-01T${p.end_time}:00.000Z`),
-            duration_minutes: p.duration_minutes,
-            student_count: p.student_count,
-            paper_number: p.paper_number,
-            exam_subject_config_id: p.exam_subject_config_id,
-            room_id: p.room_assignments[0]?.room_id ?? null,
+            subject_id: exam.subject_id,
+            year_group_id: exam.year_group_id,
+            date: new Date(`${s.date}T00:00:00.000Z`),
+            start_time: new Date(`1970-01-01T${s.start_time}:00.000Z`),
+            end_time: new Date(`1970-01-01T${s.end_time}:00.000Z`),
+            duration_minutes: exam.duration_minutes,
+            student_count: exam.student_count,
+            paper_number: exam.paper_number,
+            exam_subject_config_id: exam.exam_subject_config_id,
+            room_id: s.room_assignments[0]?.room_id ?? null,
           },
         });
 
         const slotRoomRecords: Array<{ room_id: string; slot_room_id: string }> = [];
-        for (const r of p.room_assignments) {
+        for (const r of s.room_assignments) {
           const roomRow = await db.examSlotRoom.create({
             data: {
               tenant_id: tenantId,
@@ -377,10 +323,11 @@ export class ExamSolverOrchestrationService {
           slotRoomRecords.push({ room_id: r.room_id, slot_room_id: roomRow.id });
         }
 
-        for (let i = 0; i < p.invigilator_ids.length; i++) {
-          const staffId = p.invigilator_ids[i];
+        for (let i = 0; i < s.invigilator_ids.length; i++) {
+          const staffId = s.invigilator_ids[i];
           if (!staffId) continue;
-          const assignedRoom = slotRoomRecords[i % Math.max(1, slotRoomRecords.length)];
+          const assignedRoom =
+            slotRoomRecords.length > 0 ? slotRoomRecords[i % slotRoomRecords.length] : undefined;
           await db.examInvigilation.create({
             data: {
               tenant_id: tenantId,
@@ -395,25 +342,7 @@ export class ExamSolverOrchestrationService {
       }
     });
 
-    const solveMs = Date.now() - start;
-    const status: SolveResult['status'] =
-      unplaced.length === 0 ? 'optimal' : placed.length > 0 ? 'feasible' : 'infeasible';
-
-    this.logger.log(
-      `Exam solve for session ${sessionId}: placed ${placed.length}/${exams.length} in ${solveMs}ms`,
-    );
-
-    return {
-      status,
-      placed: placed.length,
-      total: exams.length,
-      slots_written: slotsWritten,
-      message:
-        unplaced.length > 0
-          ? `${unplaced.length} exam(s) could not be placed — try widening the session window or adding more rooms/invigilators`
-          : undefined,
-      solve_time_ms: solveMs,
-    };
+    return slotsWritten;
   }
 
   // ─── Compute (year_group, subject) student counts ──────────────────────────

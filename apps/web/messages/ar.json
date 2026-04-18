@@ -5634,7 +5634,9 @@
       "pickTeacher": "اختر المعلم...",
       "pickStudent": "اختر الطالب...",
       "pickChild": "اختر الطفل...",
-      "searchPlaceholder": "بحث..."
+      "searchPlaceholder": "بحث...",
+      "examSuspensionBanner": "لا توجد حصص — جلسة الامتحان جارية",
+      "examInvigilationHint": "تظهر مناوبات المراقبة لهذا الأسبوع أدناه."
     },
     "dashboard": {
       "health": {

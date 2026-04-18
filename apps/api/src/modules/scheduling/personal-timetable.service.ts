@@ -20,7 +20,19 @@ export interface TimetableEntry {
   teacher_name?: string | null;
   room_name: string | null;
   rotation_week: number | null;
+  /** Set on entries that came from an exam-session invigilation shift overlay. */
+  is_exam_invigilation?: boolean;
 }
+
+export interface TimetableResponse {
+  data: TimetableEntry[];
+  /** True when the displayed week falls inside a published exam session. */
+  exam_session_active?: boolean;
+  /** Human-readable explanation shown in place of the weekly grid. */
+  exam_session_message?: string;
+}
+
+const SUSPENSION_MESSAGE = 'No classes — exam session in progress';
 
 @Injectable()
 export class PersonalTimetableService {
@@ -30,30 +42,113 @@ export class PersonalTimetableService {
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
+  // ─── Exam-session suspension helpers ──────────────────────────────────────
+
+  private weekWindow(weekDateIso?: string | null): { weekStart: Date; weekEnd: Date } {
+    const ref = weekDateIso ? new Date(weekDateIso) : new Date();
+    const dow = ref.getUTCDay();
+    const mondayOffset = (dow + 6) % 7;
+    const weekStart = new Date(ref);
+    weekStart.setUTCDate(ref.getUTCDate() - mondayOffset);
+    weekStart.setUTCHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+    return { weekStart, weekEnd };
+  }
+
+  private async sessionOverlappingWeek(
+    tenantId: string,
+    weekStart: Date,
+    weekEnd: Date,
+  ): Promise<{ id: string; name: string; start_date: Date; end_date: Date } | null> {
+    return this.prisma.examSession.findFirst({
+      where: {
+        tenant_id: tenantId,
+        status: 'published',
+        start_date: { lte: weekEnd },
+        end_date: { gte: weekStart },
+      },
+      select: { id: true, name: true, start_date: true, end_date: true },
+      orderBy: { start_date: 'asc' },
+    });
+  }
+
+  private async buildTeacherInvigilationOverlay(
+    tenantId: string,
+    staffId: string,
+    weekStart: Date,
+    weekEnd: Date,
+  ): Promise<TimetableEntry[]> {
+    const invigilations = await this.prisma.examInvigilation.findMany({
+      where: {
+        tenant_id: tenantId,
+        staff_profile_id: staffId,
+        exam_slot: {
+          date: { gte: weekStart, lte: weekEnd },
+        },
+      },
+      select: {
+        id: true,
+        role: true,
+        exam_slot: {
+          select: {
+            id: true,
+            date: true,
+            start_time: true,
+            end_time: true,
+            subject: { select: { name: true } },
+            year_group: { select: { name: true } },
+            room: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { exam_slot: { date: 'asc' } },
+    });
+
+    return invigilations
+      .filter((row) => row.exam_slot != null)
+      .map((row) => {
+        const slot = row.exam_slot!;
+        return {
+          schedule_id: `invigilation-${row.id}`,
+          weekday: slot.date.getUTCDay(),
+          period_order: null,
+          start_time: slot.start_time.toISOString().slice(11, 16),
+          end_time: slot.end_time.toISOString().slice(11, 16),
+          class_name: slot.year_group?.name
+            ? `Invigilating · ${slot.year_group.name}`
+            : 'Invigilating',
+          subject_name: slot.subject?.name ?? null,
+          room_name: slot.room?.name ?? null,
+          rotation_week: null,
+          is_exam_invigilation: true,
+        };
+      });
+  }
+
   // ─── Get Teacher Timetable ────────────────────────────────────────────────
 
   async getTeacherTimetable(
     tenantId: string,
     staffId: string,
     query: TimetableQuery,
-  ): Promise<{ data: TimetableEntry[] }> {
+  ): Promise<TimetableResponse> {
     const today = query.week_date ? new Date(query.week_date) : new Date();
+    const { weekStart, weekEnd } = this.weekWindow(query.week_date);
 
-    const where: {
-      tenant_id: string;
-      teacher_staff_id: string;
-      effective_start_date: { lte: Date };
-      OR: ({ effective_end_date: null } | { effective_end_date: { gte: Date } })[];
-      rotation_week?: number;
-    } = {
-      tenant_id: tenantId,
-      teacher_staff_id: staffId,
-      effective_start_date: { lte: today },
-      OR: [{ effective_end_date: null }, { effective_end_date: { gte: today } }],
-    };
-
-    if (query.rotation_week !== undefined) {
-      where.rotation_week = query.rotation_week;
+    const activeSession = await this.sessionOverlappingWeek(tenantId, weekStart, weekEnd);
+    if (activeSession) {
+      const invigilationOverlay = await this.buildTeacherInvigilationOverlay(
+        tenantId,
+        staffId,
+        weekStart,
+        weekEnd,
+      );
+      return {
+        data: invigilationOverlay,
+        exam_session_active: true,
+        exam_session_message: SUSPENSION_MESSAGE,
+      };
     }
 
     const schedules = await this.schedulesReadFacade.findTeacherTimetable(tenantId, staffId, {
@@ -82,7 +177,7 @@ export class PersonalTimetableService {
     tenantId: string,
     userId: string,
     query: TimetableQuery,
-  ): Promise<{ data: TimetableEntry[] }> {
+  ): Promise<TimetableResponse> {
     const staffProfile = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
 
     if (!staffProfile) {
@@ -103,24 +198,17 @@ export class PersonalTimetableService {
     tenantId: string,
     classId: string,
     query: TimetableQuery,
-  ): Promise<{ data: TimetableEntry[] }> {
+  ): Promise<TimetableResponse> {
     const today = query.week_date ? new Date(query.week_date) : new Date();
+    const { weekStart, weekEnd } = this.weekWindow(query.week_date);
 
-    const where: {
-      tenant_id: string;
-      class_id: string;
-      effective_start_date: { lte: Date };
-      OR: ({ effective_end_date: null } | { effective_end_date: { gte: Date } })[];
-      rotation_week?: number;
-    } = {
-      tenant_id: tenantId,
-      class_id: classId,
-      effective_start_date: { lte: today },
-      OR: [{ effective_end_date: null }, { effective_end_date: { gte: today } }],
-    };
-
-    if (query.rotation_week !== undefined) {
-      where.rotation_week = query.rotation_week;
+    const activeSession = await this.sessionOverlappingWeek(tenantId, weekStart, weekEnd);
+    if (activeSession) {
+      return {
+        data: [],
+        exam_session_active: true,
+        exam_session_message: SUSPENSION_MESSAGE,
+      };
     }
 
     const schedules = await this.schedulesReadFacade.findClassTimetable(tenantId, classId, {

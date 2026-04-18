@@ -66,7 +66,13 @@ describe('PersonalTimetableService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         delete: jest.fn(),
       },
-    };
+      examSession: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      examInvigilation: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as unknown as typeof mockPrisma;
 
     mockTx.calendarSubscriptionToken.create.mockResolvedValue({
       id: TOKEN_ID,
