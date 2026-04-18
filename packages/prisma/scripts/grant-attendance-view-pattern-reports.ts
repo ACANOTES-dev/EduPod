@@ -16,7 +16,12 @@
 /* eslint-disable no-console */
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+// Use DATABASE_MIGRATE_URL (BYPASSRLS) so we can see and write role rows
+// across every tenant. DATABASE_URL runs under the RLS-bound role and
+// would only return platform-scoped rows.
+const connectionString = process.env.DATABASE_MIGRATE_URL ?? process.env.DATABASE_URL;
+if (!connectionString) throw new Error('DATABASE_MIGRATE_URL or DATABASE_URL must be set');
+const prisma = new PrismaClient({ datasources: { db: { url: connectionString } } });
 
 async function main() {
   const permissionKey = 'attendance.view_pattern_reports';
