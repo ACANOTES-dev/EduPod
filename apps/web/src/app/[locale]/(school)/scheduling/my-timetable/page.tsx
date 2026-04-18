@@ -35,11 +35,23 @@ import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type PeriodType = 'teaching' | 'break_supervision' | 'lunch_duty' | 'assembly' | 'free';
+
+interface PeriodSlot {
+  weekday: number;
+  period_order: number;
+  start_time: string;
+  end_time: string;
+  period_type: PeriodType;
+  year_group_id?: string | null;
+}
+
 interface NormalizedCell {
   schedule_id: string;
   weekday: number;
   period_order: number;
-  period_name: string;
+  start_time: string;
+  end_time: string;
   subject_name: string;
   class_name: string;
   teacher_name: string | null;
@@ -55,7 +67,7 @@ interface NormalizedTimetable {
   week_end: string | null;
   rotation_week_label: string | null;
   cells: NormalizedCell[];
-  periods: Array<{ order: number; name: string; start_time: string }>;
+  period_slots: PeriodSlot[];
   weekdays: number[];
   exam_session_active?: boolean;
   exam_session_message?: string;
@@ -76,6 +88,7 @@ interface MyEndpointEntry {
 
 interface MyEndpointResponse {
   data: MyEndpointEntry[];
+  period_slots?: PeriodSlot[];
   exam_session_active?: boolean;
   exam_session_message?: string;
 }
@@ -116,6 +129,7 @@ interface ParentTimetableResponse {
 
 interface TimetableEnvelope {
   data: TimetableEntryDto[];
+  period_slots?: PeriodSlot[];
   exam_session_active?: boolean;
   exam_session_message?: string;
 }
@@ -128,35 +142,35 @@ interface LookupItem {
 
 type ViewMode = 'mine' | 'class' | 'teacher' | 'student' | 'child';
 
-// ─── Colour helpers ────────────────────────────────────────────────────────────
-
-const SUBJECT_COLOURS = [
-  'bg-blue-100 text-blue-800 border-blue-200',
-  'bg-purple-100 text-purple-800 border-purple-200',
-  'bg-green-100 text-green-800 border-green-200',
-  'bg-orange-100 text-orange-800 border-orange-200',
-  'bg-pink-100 text-pink-800 border-pink-200',
-  'bg-cyan-100 text-cyan-800 border-cyan-200',
-  'bg-yellow-100 text-yellow-800 border-yellow-200',
-  'bg-red-100 text-red-800 border-red-200',
-];
-
-function subjectColour(subjectName: string): string {
-  if (!subjectName) return 'bg-surface-secondary text-text-secondary border-border';
-  let hash = 0;
-  for (let i = 0; i < subjectName.length; i++) {
-    hash = subjectName.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return SUBJECT_COLOURS[Math.abs(hash) % SUBJECT_COLOURS.length] ?? SUBJECT_COLOURS[0]!;
-}
+// ─── Constants ─────────────────────────────────────────────────────────────────
 
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // ─── Normalizers ──────────────────────────────────────────────────────────────
 
 function formatTime(t: string): string {
-  // Accept "HH:MM:SS" or "HH:MM" — return "HH:MM"
   return t.slice(0, 5);
+}
+
+function derivePeriodOrderFromEntries(
+  entries: Array<{ weekday: number; start_time: string }>,
+): Map<string, number> {
+  // Fallback: when no period_slots are provided, derive per-day period_order
+  // from ascending start_time on that weekday. This preserves the row alignment
+  // so that "the 2nd slot of the day" sits in row 2 across every day, even if
+  // absolute start times differ between days.
+  const byDay = new Map<number, string[]>();
+  for (const e of entries) {
+    const key = e.weekday;
+    const list = byDay.get(key) ?? byDay.set(key, []).get(key)!;
+    if (!list.includes(e.start_time)) list.push(e.start_time);
+  }
+  const result = new Map<string, number>();
+  for (const [day, times] of byDay) {
+    times.sort();
+    times.forEach((t, i) => result.set(`${day}|${t}`, i + 1));
+  }
+  return result;
 }
 
 function normalizeMyEndpoint(
@@ -165,11 +179,19 @@ function normalizeMyEndpoint(
   weekEnd: Date,
 ): NormalizedTimetable {
   const entries = response.data ?? [];
+  const periodSlots = response.period_slots ?? [];
+
+  // Build day-local period_order when the server didn't provide one.
+  const derived = entries.some((e) => !e.period_order)
+    ? derivePeriodOrderFromEntries(entries)
+    : null;
+
   const cells: NormalizedCell[] = entries.map((e) => ({
     schedule_id: e.schedule_id,
     weekday: e.weekday,
-    period_order: e.period_order || 1,
-    period_name: e.period_order ? `P${e.period_order}` : formatTime(e.start_time),
+    period_order: e.period_order || (derived?.get(`${e.weekday}|${e.start_time}`) ?? 1),
+    start_time: formatTime(e.start_time),
+    end_time: formatTime(e.end_time),
     subject_name: e.subject_name ?? '',
     class_name: e.class_name,
     teacher_name: null,
@@ -178,25 +200,15 @@ function normalizeMyEndpoint(
     cover_for_name: null,
     is_exam_invigilation: e.is_exam_invigilation === true,
   }));
-  const periodMap = new Map<number, { order: number; name: string; start_time: string }>();
-  for (const e of entries) {
-    const order = e.period_order || 1;
-    if (!periodMap.has(order)) {
-      periodMap.set(order, {
-        order,
-        name: e.period_order ? `P${order}` : formatTime(e.start_time),
-        start_time: formatTime(e.start_time),
-      });
-    }
-  }
-  const weekdays = [...new Set(entries.map((e) => e.weekday))].sort((a, b) => a - b);
+
+  const weekdays = buildWeekdays(cells, periodSlots);
   return {
     label: null,
     week_start: weekStart.toISOString(),
     week_end: weekEnd.toISOString(),
     rotation_week_label: null,
     cells,
-    periods: [...periodMap.values()].sort((a, b) => a.order - b.order),
+    period_slots: periodSlots,
     weekdays,
     exam_session_active: response.exam_session_active === true,
     exam_session_message: response.exam_session_message,
@@ -209,17 +221,27 @@ function normalizeTimetableEntries(
   weekEnd: Date,
 ): NormalizedTimetable {
   const entries = envelope.data ?? [];
-  // Derive period_order per unique start_time across the whole week.
-  const uniqueTimes = [...new Set(entries.map((e) => e.start_time))].sort();
-  const timeToOrder = new Map(uniqueTimes.map((t, i) => [t, i + 1]));
+  const periodSlots = envelope.period_slots ?? [];
+
+  // Map (weekday, start_time) -> period_order using the period_slots grid
+  // (authoritative). Fall back to per-day derivation if the grid is missing.
+  const slotOrderByTime = new Map<string, number>();
+  for (const s of periodSlots) {
+    const key = `${s.weekday}|${s.start_time}`;
+    if (!slotOrderByTime.has(key)) slotOrderByTime.set(key, s.period_order);
+  }
+
+  const derived = slotOrderByTime.size === 0 ? derivePeriodOrderFromEntries(entries) : null;
 
   const cells: NormalizedCell[] = entries.map((e) => {
-    const order = timeToOrder.get(e.start_time) ?? 0;
+    const key = `${e.weekday}|${formatTime(e.start_time)}`;
+    const order = slotOrderByTime.get(key) ?? derived?.get(`${e.weekday}|${e.start_time}`) ?? 0;
     return {
       schedule_id: e.schedule_id,
       weekday: e.weekday,
       period_order: order,
-      period_name: `P${order}`,
+      start_time: formatTime(e.start_time),
+      end_time: formatTime(e.end_time),
       subject_name: e.subject_name ?? '',
       class_name: e.class_name,
       teacher_name: e.teacher_name ?? null,
@@ -229,21 +251,14 @@ function normalizeTimetableEntries(
     };
   });
 
-  const periods = uniqueTimes.map((t, i) => ({
-    order: i + 1,
-    name: `P${i + 1}`,
-    start_time: formatTime(t),
-  }));
-
-  const weekdays = [...new Set(entries.map((e) => e.weekday))].sort((a, b) => a - b);
-
+  const weekdays = buildWeekdays(cells, periodSlots);
   return {
     label: null,
     week_start: weekStart.toISOString(),
     week_end: weekEnd.toISOString(),
     rotation_week_label: null,
     cells,
-    periods,
+    period_slots: periodSlots,
     weekdays,
     exam_session_active: envelope.exam_session_active === true,
     exam_session_message: envelope.exam_session_message,
@@ -251,32 +266,59 @@ function normalizeTimetableEntries(
 }
 
 function normalizeParentEndpoint(res: ParentTimetableResponse): NormalizedTimetable {
-  return {
-    label: res.class_name,
-    week_start: res.week_start,
-    week_end: res.week_end,
-    rotation_week_label: res.rotation_week_label,
-    cells: res.cells.map((c) => ({
+  const cells: NormalizedCell[] = res.cells.map((c) => {
+    const p = res.periods.find((pp) => pp.order === c.period_order);
+    return {
       schedule_id: `${c.weekday}-${c.period_order}`,
       weekday: c.weekday,
       period_order: c.period_order,
-      period_name: c.period_name,
+      start_time: p ? formatTime(p.start_time) : '',
+      end_time: p ? formatTime(p.end_time) : '',
       subject_name: c.subject_name,
       class_name: res.class_name,
       teacher_name: c.teacher_name,
       room_name: c.room_name,
       is_cover_duty: false,
       cover_for_name: null,
-    })),
-    periods: res.periods.map((p) => ({
-      order: p.order,
-      name: p.name,
-      start_time: formatTime(p.start_time),
-    })),
+    };
+  });
+
+  // Parent endpoint uses a single periods[] array that applies to every
+  // weekday — expand into per-weekday period_slots so the review-style grid
+  // has something to render (including any declared breaks/lunches will follow
+  // once the parent endpoint surfaces period_type; for now all marked teaching).
+  const periodSlots: PeriodSlot[] = [];
+  for (const day of res.weekdays) {
+    for (const p of res.periods) {
+      periodSlots.push({
+        weekday: day,
+        period_order: p.order,
+        start_time: formatTime(p.start_time),
+        end_time: formatTime(p.end_time),
+        period_type: 'teaching',
+        year_group_id: null,
+      });
+    }
+  }
+
+  return {
+    label: res.class_name,
+    week_start: res.week_start,
+    week_end: res.week_end,
+    rotation_week_label: res.rotation_week_label,
+    cells,
+    period_slots: periodSlots,
     weekdays: res.weekdays,
     exam_session_active: res.exam_session_active === true,
     exam_session_message: res.exam_session_message,
   };
+}
+
+function buildWeekdays(cells: NormalizedCell[], slots: PeriodSlot[]): number[] {
+  const set = new Set<number>();
+  for (const c of cells) set.add(c.weekday);
+  for (const s of slots) set.add(s.weekday);
+  return [...set].sort((a, b) => a - b);
 }
 
 // ─── Rendering ─────────────────────────────────────────────────────────────────
@@ -313,7 +355,7 @@ function CoverAlert({ cells }: { cells: NormalizedCell[] }) {
         <p className="text-sm font-medium text-warning-800">{t('coverDutyAlert')}</p>
         {covers.map((c) => (
           <p key={c.schedule_id} className="text-xs text-warning-700">
-            {c.period_name}: {t('coveringFor', { name: c.cover_for_name ?? '—' })}
+            {c.start_time}: {t('coveringFor', { name: c.cover_for_name ?? '—' })}
           </p>
         ))}
       </div>
@@ -321,73 +363,137 @@ function CoverAlert({ cells }: { cells: NormalizedCell[] }) {
   );
 }
 
-function WeeklyGrid({ data, todayWeekday }: { data: NormalizedTimetable; todayWeekday: number }) {
-  const t = useTranslations('scheduling.myTimetable');
-  const cellMap = new Map<string, NormalizedCell>();
-  for (const c of data.cells) {
-    cellMap.set(`${c.weekday}-${c.period_order}`, c);
-  }
+// Review-style grid — matches the post-generate run review UI. Rows are the
+// union of period_order values across the week; each cell resolves its own
+// day-accurate start/end via the period_slots grid, and break/lunch/free
+// slots render as styled non-teaching rows so the grid no longer drops the
+// school's break row (see `ClassTimetable` in runs/[id]/review/page.tsx).
+function WeeklyGrid({
+  data,
+  todayWeekday,
+  hideClassLabel,
+  hideTeacherName,
+}: {
+  data: NormalizedTimetable;
+  todayWeekday: number;
+  hideClassLabel: boolean;
+  hideTeacherName: boolean;
+}) {
+  const cellByKey = React.useMemo(() => {
+    const m = new Map<string, NormalizedCell>();
+    for (const c of data.cells) m.set(`${c.weekday}:${c.period_order}`, c);
+    return m;
+  }, [data.cells]);
+
+  const slotByKey = React.useMemo(() => {
+    const m = new Map<string, PeriodSlot>();
+    for (const s of data.period_slots) m.set(`${s.weekday}:${s.period_order}`, s);
+    return m;
+  }, [data.period_slots]);
+
+  const periodOrders = React.useMemo(() => {
+    const set = new Set<number>();
+    for (const s of data.period_slots) set.add(s.period_order);
+    for (const c of data.cells) set.add(c.period_order);
+    return [...set].sort((a, b) => a - b);
+  }, [data.period_slots, data.cells]);
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm">
+    <div className="overflow-x-auto rounded-xl border border-border bg-surface">
+      <table className="w-full min-w-[640px] table-fixed">
         <thead>
-          <tr>
-            <th className="w-20 border border-border bg-surface-secondary px-3 py-2 text-start text-xs font-semibold text-text-tertiary uppercase">
-              {t('period')}
-            </th>
-            {data.weekdays.map((wd) => (
+          <tr className="border-b border-border">
+            {data.weekdays.map((day) => (
               <th
-                key={wd}
-                className={`border border-border px-3 py-2 text-center text-xs font-semibold uppercase ${
-                  wd === todayWeekday
-                    ? 'bg-primary/10 text-primary'
-                    : 'bg-surface-secondary text-text-tertiary'
+                key={day}
+                className={`px-3 py-3 text-start text-xs font-semibold uppercase tracking-wider ${
+                  day === todayWeekday ? 'text-primary' : 'text-text-tertiary'
                 }`}
               >
-                {WEEKDAY_SHORT[wd] ?? wd}
-                {wd === todayWeekday && (
-                  <span className="ms-1 rounded-full bg-primary px-1 py-0.5 text-[9px] text-white">
-                    {t('today')}
-                  </span>
-                )}
+                {WEEKDAY_SHORT[day] ?? `Day ${day}`}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {data.periods.map((period) => (
-            <tr key={period.order}>
-              <td className="border border-border bg-surface-secondary px-3 py-2 text-xs font-medium text-text-secondary">
-                <p>{period.name}</p>
-                <p className="text-text-tertiary font-normal">{period.start_time}</p>
-              </td>
-              {data.weekdays.map((wd) => {
-                const cell = cellMap.get(`${wd}-${period.order}`);
-                const isToday = wd === todayWeekday;
-                return (
-                  <td
-                    key={wd}
-                    className={`border border-border p-1.5 align-top ${isToday ? 'bg-primary/5' : 'bg-surface'}`}
-                  >
-                    {cell ? (
+          {periodOrders.map((period) => (
+            <tr key={period} className="border-b border-border last:border-b-0">
+              {data.weekdays.map((day) => {
+                const entry = cellByKey.get(`${day}:${period}`);
+                const slot = slotByKey.get(`${day}:${period}`);
+                const isNonTeaching =
+                  slot != null &&
+                  (slot.period_type === 'break_supervision' ||
+                    slot.period_type === 'lunch_duty' ||
+                    slot.period_type === 'assembly' ||
+                    slot.period_type === 'free');
+
+                if (isNonTeaching && !entry) {
+                  return (
+                    <td key={day} className="px-2 py-1.5 align-top">
                       <div
-                        className={`rounded-lg border p-2 text-xs space-y-0.5 ${
-                          cell.is_exam_invigilation
-                            ? 'border-amber-300 bg-amber-50 text-amber-900'
-                            : cell.is_cover_duty
-                              ? 'border-warning-300 bg-warning-50'
-                              : subjectColour(cell.subject_name)
+                        className={`h-14 rounded-lg border border-dashed flex flex-col items-center justify-center text-[11px] font-semibold uppercase tracking-wide ${
+                          slot.period_type === 'lunch_duty'
+                            ? 'border-sky-200 bg-sky-50 text-sky-700'
+                            : 'border-amber-200 bg-amber-50 text-amber-800'
                         }`}
                       >
-                        <p className="font-semibold">{cell.subject_name || '—'}</p>
-                        <p className="opacity-80">{cell.class_name}</p>
-                        {cell.teacher_name && <p className="opacity-70">{cell.teacher_name}</p>}
-                        {cell.room_name && <p className="opacity-70">{cell.room_name}</p>}
-                        {cell.is_cover_duty && (
-                          <p className="font-medium text-warning-700">{t('cover')}</p>
+                        <span>{periodTypeLabel(slot.period_type)}</span>
+                        {slot.start_time && slot.end_time && (
+                          <span className="font-mono text-[10px] font-normal opacity-75">
+                            {slot.start_time}–{slot.end_time}
+                          </span>
                         )}
                       </div>
-                    ) : null}
+                    </td>
+                  );
+                }
+
+                if (entry) {
+                  const start = slot?.start_time || entry.start_time;
+                  const end = slot?.end_time || entry.end_time;
+                  return (
+                    <td key={day} className="px-2 py-1.5 align-top">
+                      <div
+                        className={`rounded-lg px-2.5 py-2 text-xs ${
+                          entry.is_exam_invigilation
+                            ? 'bg-amber-50 border border-amber-200 text-amber-900'
+                            : entry.is_cover_duty
+                              ? 'bg-warning-50 border border-warning-200'
+                              : 'bg-emerald-50 border border-dashed border-emerald-200'
+                        }`}
+                      >
+                        {entry.subject_name && (
+                          <div className="font-medium text-text-primary truncate">
+                            {entry.subject_name}
+                          </div>
+                        )}
+                        {!hideClassLabel && (
+                          <div className="text-text-secondary truncate">{entry.class_name}</div>
+                        )}
+                        {!hideTeacherName && entry.teacher_name && (
+                          <div className="text-text-secondary truncate">{entry.teacher_name}</div>
+                        )}
+                        {entry.room_name && (
+                          <div className="text-text-tertiary truncate">{entry.room_name}</div>
+                        )}
+                        {(start || end) && (
+                          <div className="font-mono text-[10px] text-text-tertiary mt-0.5 truncate">
+                            {start}
+                            {start && end ? '–' : ''}
+                            {end}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  );
+                }
+
+                return (
+                  <td key={day} className="px-2 py-1.5 align-top">
+                    <div className="h-14 rounded-lg border border-dashed border-border/60 bg-background/40 flex items-center justify-center text-[10px] font-medium text-text-tertiary/70">
+                      Free
+                    </div>
                   </td>
                 );
               })}
@@ -399,44 +505,119 @@ function WeeklyGrid({ data, todayWeekday }: { data: NormalizedTimetable; todayWe
   );
 }
 
-function DailyList({ data, day }: { data: NormalizedTimetable; day: number }) {
-  const t = useTranslations('scheduling.myTimetable');
-  const dayCells = data.cells
-    .filter((c) => c.weekday === day)
-    .sort((a, b) => a.period_order - b.period_order);
+function periodTypeLabel(type: PeriodType): string {
+  switch (type) {
+    case 'break_supervision':
+      return 'Break';
+    case 'lunch_duty':
+      return 'Lunch';
+    case 'assembly':
+      return 'Assembly';
+    case 'free':
+      return 'Free';
+    default:
+      return '';
+  }
+}
 
-  if (dayCells.length === 0) {
+function DailyList({
+  data,
+  day,
+  hideClassLabel,
+  hideTeacherName,
+}: {
+  data: NormalizedTimetable;
+  day: number;
+  hideClassLabel: boolean;
+  hideTeacherName: boolean;
+}) {
+  const t = useTranslations('scheduling.myTimetable');
+  // Merge teaching cells + non-teaching slots into a single day-ordered list.
+  const dayCells = data.cells.filter((c) => c.weekday === day);
+  const daySlots = data.period_slots.filter(
+    (s) =>
+      s.weekday === day &&
+      (s.period_type === 'break_supervision' ||
+        s.period_type === 'lunch_duty' ||
+        s.period_type === 'assembly'),
+  );
+  const cellMap = new Map(dayCells.map((c) => [c.period_order, c]));
+  const slotMap = new Map(daySlots.map((s) => [s.period_order, s]));
+  const orders = [...new Set([...cellMap.keys(), ...slotMap.keys()])].sort((a, b) => a - b);
+
+  if (orders.length === 0) {
     return <p className="py-8 text-center text-sm text-text-secondary">{t('noPeriods')}</p>;
   }
+
   return (
     <div className="space-y-2">
-      {dayCells.map((cell) => (
-        <div
-          key={cell.schedule_id}
-          className={`rounded-xl border p-4 ${
-            cell.is_exam_invigilation
-              ? 'border-amber-300 bg-amber-50 text-amber-900'
-              : cell.is_cover_duty
-                ? 'border-warning-300 bg-warning-50'
-                : subjectColour(cell.subject_name)
-          }`}
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold">{cell.subject_name || '—'}</p>
-              <p className="text-xs opacity-80 mt-0.5">{cell.class_name}</p>
-              {cell.teacher_name && <p className="text-xs opacity-75">{cell.teacher_name}</p>}
-              {cell.room_name && <p className="text-xs opacity-70">{cell.room_name}</p>}
+      {orders.map((order) => {
+        const cell = cellMap.get(order);
+        const slot = slotMap.get(order);
+        if (cell) {
+          const start = slot?.start_time || cell.start_time;
+          const end = slot?.end_time || cell.end_time;
+          return (
+            <div
+              key={`cell-${order}`}
+              className={`rounded-xl border p-4 ${
+                cell.is_exam_invigilation
+                  ? 'border-amber-200 bg-amber-50 text-amber-900'
+                  : cell.is_cover_duty
+                    ? 'border-warning-200 bg-warning-50'
+                    : 'border-emerald-200 bg-emerald-50'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  {cell.subject_name && (
+                    <p className="text-sm font-semibold truncate">{cell.subject_name}</p>
+                  )}
+                  {!hideClassLabel && (
+                    <p className="text-xs opacity-80 mt-0.5">{cell.class_name}</p>
+                  )}
+                  {!hideTeacherName && cell.teacher_name && (
+                    <p className="text-xs opacity-75">{cell.teacher_name}</p>
+                  )}
+                  {cell.room_name && <p className="text-xs opacity-70">{cell.room_name}</p>}
+                </div>
+                <div className="text-end shrink-0">
+                  {(start || end) && (
+                    <p className="font-mono text-xs text-text-tertiary">
+                      {start}
+                      {start && end ? '–' : ''}
+                      {end}
+                    </p>
+                  )}
+                  {cell.is_cover_duty && (
+                    <p className="text-xs text-warning-700 mt-0.5">{t('coverDutyBadge')}</p>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="text-end">
-              <p className="text-xs font-medium">{cell.period_name}</p>
-              {cell.is_cover_duty && (
-                <p className="text-xs text-warning-700 mt-0.5">{t('coverDutyBadge')}</p>
+          );
+        }
+        if (slot) {
+          return (
+            <div
+              key={`slot-${order}`}
+              className={`rounded-xl border border-dashed px-4 py-3 text-xs font-semibold uppercase tracking-wide ${
+                slot.period_type === 'lunch_duty'
+                  ? 'border-sky-200 bg-sky-50 text-sky-700'
+                  : 'border-amber-200 bg-amber-50 text-amber-800'
+              }`}
+            >
+              <span>{periodTypeLabel(slot.period_type)}</span>
+              {slot.start_time && slot.end_time && (
+                <span className="ms-2 font-mono text-[10px] font-normal opacity-75">
+                  {slot.start_time}–{slot.end_time}
+                </span>
               )}
             </div>
-          </div>
-        </div>
-      ))}
+          );
+        }
+        return null;
+      })}
     </div>
   );
 }
@@ -568,7 +749,6 @@ export default function MyTimetablePage() {
 
   const todayWeekday = new Date().getDay();
 
-  // Sync default mode to the first allowed mode when role resolves
   React.useEffect(() => {
     if (modes.length > 0 && !modes.includes(mode)) {
       setMode(modes[0]!);
@@ -576,7 +756,6 @@ export default function MyTimetablePage() {
     }
   }, [modes, mode]);
 
-  // Week range
   const { weekStart, weekEnd, weekDateIso } = React.useMemo(() => {
     const today = new Date();
     const mondayOffset = (today.getDay() + 6) % 7;
@@ -588,7 +767,6 @@ export default function MyTimetablePage() {
     return { weekStart: ws, weekEnd: we, weekDateIso: we.toISOString().slice(0, 10) };
   }, [weekOffset]);
 
-  // Academic year (for admin + teacher "class" endpoints)
   React.useEffect(() => {
     if (!isAdmin && !isTeacher) return;
     apiClient<{ data: Array<{ id: string; name: string }> }>('/api/v1/academic-years?pageSize=20', {
@@ -603,7 +781,6 @@ export default function MyTimetablePage() {
       });
   }, [isAdmin, isTeacher]);
 
-  // Load picker options based on mode
   React.useEffect(() => {
     setPickerLoading(true);
     const load = async () => {
@@ -689,13 +866,11 @@ export default function MyTimetablePage() {
     selectedId,
   ]);
 
-  // Fetch timetable based on mode
   const fetchTimetable = React.useCallback(async () => {
     setLoading(true);
     setData(null);
     try {
       if (mode === 'mine') {
-        // Teacher's own or student's own
         if (isStudent) {
           const res = await apiClient<ParentTimetableResponse>('/api/v1/parent/timetable/self', {
             silent: true,
@@ -792,6 +967,16 @@ export default function MyTimetablePage() {
     return '';
   })();
 
+  // Class-scoped views (class, student, child, mine-student) all filter to a
+  // single class — no need to repeat the class label in every cell.
+  // Teacher-scoped views ('teacher', 'mine' as teacher) benefit from class
+  // labels because a teacher teaches across multiple classes.
+  const hideClassLabel =
+    mode === 'class' || mode === 'student' || mode === 'child' || (mode === 'mine' && isStudent);
+  // Same logic for teacher names — when the viewer IS a teacher looking at
+  // their own grid ('mine'), the teacher name is self-evident.
+  const hideTeacherName = mode === 'teacher' || (mode === 'mine' && isTeacher);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -849,7 +1034,7 @@ export default function MyTimetablePage() {
         />
       )}
 
-      {/* Week navigation — hidden for parent/student self-views (their endpoints return current week) */}
+      {/* Week navigation */}
       {(mode === 'mine' || mode === 'class' || mode === 'teacher' || mode === 'student') &&
         !isStudent && (
           <div className="flex items-center justify-between">
@@ -903,7 +1088,12 @@ export default function MyTimetablePage() {
           {data.exam_session_active && data.cells.length === 0 ? null : (
             <>
               <div className="hidden md:block print:block">
-                <WeeklyGrid data={data} todayWeekday={todayWeekday} />
+                <WeeklyGrid
+                  data={data}
+                  todayWeekday={todayWeekday}
+                  hideClassLabel={hideClassLabel}
+                  hideTeacherName={hideTeacherName}
+                />
               </div>
 
               <div className="md:hidden">
@@ -926,7 +1116,12 @@ export default function MyTimetablePage() {
                   ))}
                 </div>
                 <div className="mt-4">
-                  <DailyList data={data} day={mobileDay} />
+                  <DailyList
+                    data={data}
+                    day={mobileDay}
+                    hideClassLabel={hideClassLabel}
+                    hideTeacherName={hideTeacherName}
+                  />
                 </div>
               </div>
             </>

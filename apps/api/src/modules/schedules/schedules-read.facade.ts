@@ -51,6 +51,7 @@ const SCHEDULE_CORE_SELECT = {
   academic_year_id: true,
   room_id: true,
   teacher_staff_id: true,
+  scheduling_run_id: true,
   weekday: true,
   period_order: true,
   start_time: true,
@@ -86,6 +87,7 @@ export interface ScheduleCoreRow {
   academic_year_id: string;
   room_id: string | null;
   teacher_staff_id: string | null;
+  scheduling_run_id: string | null;
   weekday: number;
   period_order: number | null;
   start_time: Date;

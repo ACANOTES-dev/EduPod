@@ -15,13 +15,17 @@ const CLASS_ID = 'class-uuid-1';
 function buildScheduleRow(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id: 'sched-1',
+    class_id: CLASS_ID,
     weekday: 1,
+    period_order: 1,
     start_time: new Date('1970-01-01T08:00:00.000Z'),
     end_time: new Date('1970-01-01T09:00:00.000Z'),
     teacher_staff_id: STAFF_ID,
+    scheduling_run_id: null,
     class_entity: {
       id: CLASS_ID,
       name: 'Y1A Math',
+      year_group_id: null,
       subject: { name: 'Mathematics' },
     },
     room: { id: ROOM_ID, name: 'Room 101' },
@@ -37,6 +41,8 @@ describe('TimetablesService', () => {
   let service: TimetablesService;
   let mockPrisma: {
     schedule: { findMany: jest.Mock };
+    schedulingRun: { findMany: jest.Mock };
+    schedulePeriodTemplate: { findMany: jest.Mock };
   };
 
   const mockClassesReadFacade = {
@@ -46,6 +52,8 @@ describe('TimetablesService', () => {
   beforeEach(async () => {
     mockPrisma = {
       schedule: { findMany: jest.fn() },
+      schedulingRun: { findMany: jest.fn().mockResolvedValue([]) },
+      schedulePeriodTemplate: { findMany: jest.fn().mockResolvedValue([]) },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -73,12 +81,12 @@ describe('TimetablesService', () => {
         academic_year_id: AY_ID,
       });
 
-      expect(result).toHaveLength(1);
-      expect(result[0]?.start_time).toBe('08:00');
-      expect(result[0]?.end_time).toBe('09:00');
-      expect(result[0]?.teacher_name).toBe('John Doe');
-      expect(result[0]?.class_name).toBe('Y1A Math');
-      expect(result[0]?.subject_name).toBe('Mathematics');
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.start_time).toBe('08:00');
+      expect(result.data[0]?.end_time).toBe('09:00');
+      expect(result.data[0]?.teacher_name).toBe('John Doe');
+      expect(result.data[0]?.class_name).toBe('Y1A Math');
+      expect(result.data[0]?.subject_name).toBe('Mathematics');
     });
 
     it('should return empty array when no schedules found', async () => {
@@ -88,7 +96,7 @@ describe('TimetablesService', () => {
         academic_year_id: AY_ID,
       });
 
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
     });
 
     it('should use week_start as reference date when provided', async () => {
@@ -125,9 +133,9 @@ describe('TimetablesService', () => {
         academic_year_id: AY_ID,
       });
 
-      expect(result).toHaveLength(1);
-      expect(result[0]?.room_id).toBe(ROOM_ID);
-      expect(result[0]?.room_name).toBe('Room 101');
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.room_id).toBe(ROOM_ID);
+      expect(result.data[0]?.room_name).toBe('Room 101');
     });
 
     it('should use week_start as reference date when provided', async () => {
@@ -151,8 +159,8 @@ describe('TimetablesService', () => {
         academic_year_id: AY_ID,
       });
 
-      expect(result).toHaveLength(1);
-      expect(result[0]?.class_id).toBe(CLASS_ID);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.class_id).toBe(CLASS_ID);
       const callArgs = mockPrisma.schedule.findMany.mock.calls[0][0];
       expect(callArgs.where.class_id).toBe(CLASS_ID);
     });
@@ -179,8 +187,8 @@ describe('TimetablesService', () => {
         academic_year_id: AY_ID,
       });
 
-      expect(result).toHaveLength(1);
-      expect(result[0]?.class_id).toBe(CLASS_ID);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.class_id).toBe(CLASS_ID);
     });
 
     it('should return empty array when student has no enrolments', async () => {
@@ -190,7 +198,7 @@ describe('TimetablesService', () => {
         academic_year_id: AY_ID,
       });
 
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
       expect(mockPrisma.schedule.findMany).not.toHaveBeenCalled();
     });
 
@@ -330,9 +338,9 @@ describe('TimetablesService', () => {
         academic_year_id: AY_ID,
       });
 
-      expect(result).toHaveLength(1);
-      expect(result[0]?.room_id).toBeUndefined();
-      expect(result[0]?.teacher_staff_id).toBeUndefined();
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.room_id).toBeUndefined();
+      expect(result.data[0]?.teacher_staff_id).toBeUndefined();
     });
 
     it('should handle entries without subject', async () => {
@@ -349,8 +357,8 @@ describe('TimetablesService', () => {
         academic_year_id: AY_ID,
       });
 
-      expect(result).toHaveLength(1);
-      expect(result[0]?.subject_name).toBeUndefined();
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.subject_name).toBeUndefined();
     });
   });
 });

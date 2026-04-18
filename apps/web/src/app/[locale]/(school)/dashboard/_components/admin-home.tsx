@@ -41,6 +41,9 @@ export type PriorityData = {
   pending_unlock_requests?: number;
   /** Count of pending report card teacher requests awaiting admin review */
   pending_report_card_requests?: number;
+  /** Count of today's class slots for absent teachers that still lack a
+   *  confirmed substitute. Non-zero => admin has cover decisions to make. */
+  pending_substitution_slots?: number;
 };
 
 // ─── API response types ─────────────────────────────────────────────────────
@@ -105,6 +108,9 @@ export function AdminHome({
   // ─── Weekly metrics state ─────────────────────────────────────────────────
   const [weeklyMetrics, setWeeklyMetrics] = React.useState<WeeklyMetrics | undefined>(undefined);
   const [weeklyLoading, setWeeklyLoading] = React.useState(true);
+
+  // ─── Pending substitutions (today's unassigned cover slots) ───────────────
+  const [pendingSubstitutionSlots, setPendingSubstitutionSlots] = React.useState<number>(0);
 
   // ─── Fetch events ─────────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -213,6 +219,49 @@ export function AdminHome({
     };
   }, []);
 
+  // ─── Fetch today's cover gap (for priority-feed) ─────────────────────────
+  // Surfaces class slots an absent teacher left uncovered today. Uses the
+  // existing substitutions endpoint so no backend change is required; a
+  // 403/permission shortfall falls back to zero silently.
+  React.useEffect(() => {
+    let cancelled = false;
+    async function fetchPendingSubs() {
+      try {
+        const today = todayISODate();
+        interface AbsenceSlotLite {
+          substitute_status: string;
+        }
+        interface AbsenceLite {
+          slots?: AbsenceSlotLite[];
+        }
+        const res = await apiClient<{ data: AbsenceLite[] }>(
+          `/api/v1/scheduling/absences?date=${today}`,
+          { silent: true },
+        );
+        if (cancelled) return;
+        let count = 0;
+        for (const absence of res.data ?? []) {
+          for (const slot of absence.slots ?? []) {
+            if (slot.substitute_status === 'unassigned') count += 1;
+          }
+        }
+        setPendingSubstitutionSlots(count);
+      } catch (err) {
+        console.error('[AdminHome.fetchPendingSubs]', err);
+      }
+    }
+    void fetchPendingSubs();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Merge live-fetched substitution count into the server-provided priority data.
+  const mergedPriorityData = React.useMemo<PriorityData>(
+    () => ({ ...priorityData, pending_substitution_slots: pendingSubstitutionSlots }),
+    [priorityData, pendingSubstitutionSlots],
+  );
+
   // ─── Derive calendar event date strings for the mini calendar ─────────────
   const eventDates = React.useMemo(
     () => calendarEvents.filter((e) => e.start_date).map((e) => e.start_date as string),
@@ -230,7 +279,7 @@ export function AdminHome({
           <SafeguardingAlertsWidget />
         </div>
 
-        <PriorityFeed priorityData={priorityData} />
+        <PriorityFeed priorityData={mergedPriorityData} />
 
         {/* Bottom row: Calendar | Upcoming Events | Activity Feed */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -5,7 +5,6 @@ import {
   BarChart3,
   BookOpen,
   Calendar,
-  CheckCircle2,
   ClipboardList,
   Clock,
   DoorClosed,
@@ -512,7 +511,7 @@ export default function SchedulingHubPage() {
           <KpiCard
             label={t('auto.completionPct')}
             value={loading ? '…' : `${completionPct}%`}
-            icon={CheckCircle2}
+            icon={BarChart3}
             href="/scheduling/dashboard"
             gradient="from-emerald-400 to-emerald-600"
             accent="bg-emerald-100 text-emerald-700"

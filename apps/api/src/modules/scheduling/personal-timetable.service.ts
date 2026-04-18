@@ -24,8 +24,21 @@ export interface TimetableEntry {
   is_exam_invigilation?: boolean;
 }
 
+export interface PeriodSlot {
+  weekday: number;
+  period_order: number;
+  start_time: string;
+  end_time: string;
+  period_type: string;
+  year_group_id: string | null;
+}
+
 export interface TimetableResponse {
   data: TimetableEntry[];
+  /** Full per-weekday period grid (teaching + break + lunch) for the year
+   *  groups involved. Consumers render this alongside `data` so break/lunch
+   *  rows don't disappear from the grid. */
+  period_slots?: PeriodSlot[];
   /** True when the displayed week falls inside a published exam session. */
   exam_session_active?: boolean;
   /** Human-readable explanation shown in place of the weekly grid. */
@@ -156,6 +169,8 @@ export class PersonalTimetableService {
       rotationWeek: query.rotation_week,
     });
 
+    const subjectBySchedule = await this.resolveSubjectsFromRuns(tenantId, schedules);
+
     const data: TimetableEntry[] = schedules.map((s) => ({
       schedule_id: s.id,
       weekday: s.weekday,
@@ -163,12 +178,21 @@ export class PersonalTimetableService {
       start_time: s.start_time.toISOString().slice(11, 16),
       end_time: s.end_time.toISOString().slice(11, 16),
       class_name: s.class_entity?.name ?? '',
-      subject_name: s.class_entity?.subject?.name ?? null,
+      subject_name: subjectBySchedule.get(s.id) ?? s.class_entity?.subject?.name ?? null,
       room_name: s.room?.name ?? null,
       rotation_week: s.rotation_week,
     }));
 
-    return { data };
+    const yearGroupIds = new Set<string>();
+    for (const s of schedules) {
+      if (s.class_entity?.year_group_id) yearGroupIds.add(s.class_entity.year_group_id);
+    }
+    const academicYearId = schedules[0]?.academic_year_id ?? null;
+    const period_slots = academicYearId
+      ? await this.loadPeriodSlots(tenantId, academicYearId, [...yearGroupIds])
+      : [];
+
+    return { data, period_slots };
   }
 
   // ─── Get Teacher Timetable By User ID ────────────────────────────────────
@@ -216,6 +240,8 @@ export class PersonalTimetableService {
       rotationWeek: query.rotation_week,
     });
 
+    const subjectBySchedule = await this.resolveSubjectsFromRuns(tenantId, schedules);
+
     const data = schedules.map((s) => ({
       schedule_id: s.id,
       weekday: s.weekday,
@@ -223,7 +249,7 @@ export class PersonalTimetableService {
       start_time: s.start_time.toISOString().slice(11, 16),
       end_time: s.end_time.toISOString().slice(11, 16),
       class_name: s.class_entity?.name ?? '',
-      subject_name: s.class_entity?.subject?.name ?? null,
+      subject_name: subjectBySchedule.get(s.id) ?? s.class_entity?.subject?.name ?? null,
       teacher_name: s.teacher
         ? `${s.teacher.user.first_name} ${s.teacher.user.last_name}`.trim()
         : null,
@@ -231,7 +257,131 @@ export class PersonalTimetableService {
       rotation_week: s.rotation_week,
     }));
 
-    return { data };
+    const yearGroupIds = new Set<string>();
+    for (const s of schedules) {
+      if (s.class_entity?.year_group_id) yearGroupIds.add(s.class_entity.year_group_id);
+    }
+    const academicYearId = schedules[0]?.academic_year_id ?? null;
+    const period_slots = academicYearId
+      ? await this.loadPeriodSlots(tenantId, academicYearId, [...yearGroupIds])
+      : [];
+
+    return { data, period_slots };
+  }
+
+  // ─── Enrichment helpers ──────────────────────────────────────────────────
+
+  private async resolveSubjectsFromRuns(
+    tenantId: string,
+    schedules: Array<{
+      id: string;
+      class_id: string;
+      weekday: number;
+      period_order: number | null;
+      scheduling_run_id: string | null;
+    }>,
+  ): Promise<Map<string, string>> {
+    const result = new Map<string, string>();
+    const runIds = new Set<string>();
+    for (const s of schedules) if (s.scheduling_run_id) runIds.add(s.scheduling_run_id);
+    if (runIds.size === 0) return result;
+
+    // eslint-disable-next-line school/no-cross-module-prisma-access -- read-only lookup of scheduling_run result/config to recover subject_name for applied schedule entries (Schedule table has no subject_id column; subject lives per-lesson in the solver output)
+    const runs = await this.prisma.schedulingRun.findMany({
+      where: { tenant_id: tenantId, id: { in: [...runIds] } },
+      select: { id: true, result_json: true, config_snapshot: true },
+    });
+
+    const subjectNameByRun = new Map<string, Map<string, string>>();
+    const entrySubjectIdByRun = new Map<string, Map<string, string>>();
+
+    for (const run of runs) {
+      const snapshot = (run.config_snapshot ?? {}) as Record<string, unknown>;
+      const subjects = Array.isArray(snapshot['subjects'])
+        ? (snapshot['subjects'] as Array<Record<string, unknown>>)
+        : [];
+      const nameMap = new Map<string, string>();
+      for (const s of subjects) {
+        if (typeof s['subject_id'] === 'string' && typeof s['subject_name'] === 'string') {
+          nameMap.set(s['subject_id'], s['subject_name']);
+        }
+      }
+      const curriculum = Array.isArray(snapshot['curriculum'])
+        ? (snapshot['curriculum'] as Array<Record<string, unknown>>)
+        : [];
+      for (const c of curriculum) {
+        if (
+          typeof c['subject_id'] === 'string' &&
+          typeof c['subject_name'] === 'string' &&
+          !nameMap.has(c['subject_id'])
+        ) {
+          nameMap.set(c['subject_id'], c['subject_name']);
+        }
+      }
+      subjectNameByRun.set(run.id, nameMap);
+
+      const resultJson = (run.result_json ?? {}) as Record<string, unknown>;
+      const entries = Array.isArray(resultJson['entries'])
+        ? (resultJson['entries'] as Array<Record<string, unknown>>)
+        : [];
+      const entryMap = new Map<string, string>();
+      for (const e of entries) {
+        const classId = typeof e['class_id'] === 'string' ? e['class_id'] : null;
+        const weekday = Number(e['weekday'] ?? -1);
+        const periodOrder = Number(e['period_order'] ?? -1);
+        const subjectId = typeof e['subject_id'] === 'string' ? e['subject_id'] : null;
+        if (classId && subjectId && weekday >= 0 && periodOrder >= 0) {
+          entryMap.set(`${classId}|${weekday}|${periodOrder}`, subjectId);
+        }
+      }
+      entrySubjectIdByRun.set(run.id, entryMap);
+    }
+
+    for (const s of schedules) {
+      if (!s.scheduling_run_id || s.period_order === null) continue;
+      const entryMap = entrySubjectIdByRun.get(s.scheduling_run_id);
+      const nameMap = subjectNameByRun.get(s.scheduling_run_id);
+      if (!entryMap || !nameMap) continue;
+      const subjectId = entryMap.get(`${s.class_id}|${s.weekday}|${s.period_order}`);
+      if (!subjectId) continue;
+      const name = nameMap.get(subjectId);
+      if (name) result.set(s.id, name);
+    }
+    return result;
+  }
+
+  private async loadPeriodSlots(
+    tenantId: string,
+    academicYearId: string,
+    yearGroupIds: string[],
+  ): Promise<PeriodSlot[]> {
+    const rows = await this.prisma.schedulePeriodTemplate.findMany({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: academicYearId,
+        OR:
+          yearGroupIds.length > 0
+            ? [{ year_group_id: { in: yearGroupIds } }, { year_group_id: null }]
+            : undefined,
+      },
+      select: {
+        weekday: true,
+        period_order: true,
+        start_time: true,
+        end_time: true,
+        schedule_period_type: true,
+        year_group_id: true,
+      },
+      orderBy: [{ weekday: 'asc' }, { period_order: 'asc' }],
+    });
+    return rows.map((r) => ({
+      weekday: r.weekday,
+      period_order: r.period_order,
+      start_time: r.start_time.toISOString().slice(11, 16),
+      end_time: r.end_time.toISOString().slice(11, 16),
+      period_type: r.schedule_period_type,
+      year_group_id: r.year_group_id,
+    }));
   }
 
   // ─── Generate ICS Calendar ────────────────────────────────────────────────

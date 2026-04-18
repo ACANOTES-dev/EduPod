@@ -510,30 +510,37 @@ function TodayTab({ isAdmin }: { isAdmin: boolean }) {
           </div>
 
           <div className="divide-y divide-border">
-            {(absence.slots ?? []).map((slot) => (
-              <div key={slot.schedule_id} className="flex flex-wrap items-center gap-3 px-5 py-3">
-                <div className="flex-1 min-w-0 space-y-0.5">
-                  <p className="text-sm font-medium text-text-primary">
-                    {slot.period_name} &middot; {slot.subject_name}
-                  </p>
-                  <p className="text-xs text-text-secondary">{slot.class_name}</p>
-                </div>
-                <StatusBadge status={slot.substitute_status} />
-                {slot.substitute_name && (
-                  <span className="text-xs text-text-secondary">{slot.substitute_name}</span>
-                )}
-                {slot.substitute_status === 'unassigned' && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void handleFindSub(absence.id, slot)}
-                  >
-                    <Search className="h-3.5 w-3.5 me-1" />
-                    {t('findSub')}
-                  </Button>
-                )}
+            {(absence.slots ?? []).length === 0 ? (
+              <div className="flex items-center gap-2 px-5 py-4 text-sm text-text-secondary">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                <span>{t('noClassesOnDate')}</span>
               </div>
-            ))}
+            ) : (
+              (absence.slots ?? []).map((slot) => (
+                <div key={slot.schedule_id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                  <div className="flex-1 min-w-0 space-y-0.5">
+                    <p className="text-sm font-medium text-text-primary">
+                      {slot.period_name} &middot; {slot.subject_name}
+                    </p>
+                    <p className="text-xs text-text-secondary">{slot.class_name}</p>
+                  </div>
+                  <StatusBadge status={slot.substitute_status} />
+                  {slot.substitute_name && (
+                    <span className="text-xs text-text-secondary">{slot.substitute_name}</span>
+                  )}
+                  {slot.substitute_status === 'unassigned' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void handleFindSub(absence.id, slot)}
+                    >
+                      <Search className="h-3.5 w-3.5 me-1" />
+                      {t('findSub')}
+                    </Button>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       ))}

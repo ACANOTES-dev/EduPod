@@ -8,6 +8,7 @@ import {
   GraduationCap,
   Inbox,
   LockOpen,
+  UserX,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -75,6 +76,23 @@ function buildCards(
       description: t('followUpsAndAlerts'),
       actionLabel: t('viewIncidents'),
       href: '/behaviour/incidents',
+    });
+  }
+
+  if (data.pending_substitution_slots && data.pending_substitution_slots > 0) {
+    const count = data.pending_substitution_slots;
+    cards.push({
+      id: 'pending-substitutions',
+      icon: UserX,
+      iconBg: 'bg-sky-100 dark:bg-sky-500/20',
+      iconColor: 'text-sky-600 dark:text-sky-400',
+      title:
+        count === 1
+          ? t('pendingSubstitutionSingular', { count })
+          : t('pendingSubstitutionPlural', { count }),
+      description: t('pendingSubstitutionDescription'),
+      actionLabel: t('assignCover'),
+      href: '/scheduling/substitutions',
     });
   }
 
