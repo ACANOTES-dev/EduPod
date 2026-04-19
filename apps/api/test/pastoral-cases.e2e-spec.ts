@@ -84,6 +84,10 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
   let alNoorStudentId: string;
   let alNoorAdminUserId: string;
   let alNoorConcernId: string;
+  // Track fixtures this suite created (vs inherited from seed/other tests)
+  // so afterAll only deletes what it owns.
+  let createdHouseholdId: string | null = null;
+  let createdStudentId: string | null = null;
 
   beforeAll(async () => {
     tablesExist = await pastoralCaseTablesExist();
@@ -111,11 +115,40 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
     });
     alNoorTenantId = alNoorDomain!.tenant_id;
 
-    // Get an Al Noor student
-    const alNoorStudent = await directPrisma.student.findFirst({
+    // Find or create an Al Noor student.
+    // The `pnpm db:seed` pipeline creates tenants/users but not students for
+    // the test tenants; students only exist if another parallel test already
+    // created them. To make this suite self-sufficient (and immune to test
+    // ordering), create our own household + student if none exists.
+    let alNoorStudent = await directPrisma.student.findFirst({
       where: { tenant_id: alNoorTenantId },
     });
-    alNoorStudentId = alNoorStudent!.id;
+    if (!alNoorStudent) {
+      const household = await directPrisma.household.create({
+        data: {
+          tenant_id: alNoorTenantId,
+          household_name: `PC test household ${UNIQUE_MARKER}`,
+          status: 'active',
+        },
+      });
+      createdHouseholdId = household.id;
+      alNoorStudent = await directPrisma.student.create({
+        data: {
+          tenant_id: alNoorTenantId,
+          household_id: household.id,
+          student_number: `PC-STU-${UNIQUE_MARKER}`.slice(0, 50),
+          first_name: 'PCTest',
+          last_name: 'Student',
+          date_of_birth: new Date('2015-01-01'),
+          status: 'active',
+          gender: 'other',
+          national_id: `PC-NID-${UNIQUE_MARKER}`.slice(0, 50),
+          nationality: 'Irish',
+        },
+      });
+      createdStudentId = alNoorStudent.id;
+    }
+    alNoorStudentId = alNoorStudent.id;
 
     // Get Al Noor admin user ID
     const alNoorAdmin = await directPrisma.user.findFirst({
@@ -158,10 +191,16 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
 
     // ── Create Al Noor test case via direct DB insert ─────────────────────
 
+    // case_number has a UNIQUE([tenant_id, case_number]) constraint and a
+    // VARCHAR(20) limit. Include pid + full ms timestamp (truncated) so
+    // multiple parallel Jest workers cannot collide even if they fire within
+    // the same ms. `% 100000` (the previous impl) had only 5 digits of
+    // entropy and cycled every 100 seconds.
+    const caseNumber = `PC-${process.pid}-${Date.now() % 1_000_000}`.slice(0, 20);
     const testCase = await directPrisma.pastoralCase.create({
       data: {
         tenant_id: alNoorTenantId,
-        case_number: `PC-${Date.now() % 100000}`,
+        case_number: caseNumber,
         status: 'open',
         student_id: alNoorStudentId,
         owner_user_id: alNoorAdminUserId,
@@ -249,6 +288,14 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
           await directPrisma.pastoralCase.delete({
             where: { id: alNoorCaseId },
           });
+        }
+
+        // Only delete the household + student if this suite created them.
+        if (createdStudentId) {
+          await directPrisma.student.delete({ where: { id: createdStudentId } });
+        }
+        if (createdHouseholdId) {
+          await directPrisma.household.delete({ where: { id: createdHouseholdId } });
         }
 
         await directPrisma.$executeRawUnsafe(`SET session_replication_role = 'origin'`);
