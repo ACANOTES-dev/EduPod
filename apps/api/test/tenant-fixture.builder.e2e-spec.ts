@@ -77,12 +77,26 @@ describe('createTenantFixture', () => {
         const attendance = modules.find((m) => m.module_key === 'attendance');
         expect(attendance?.is_enabled).toBe(true);
 
-        // Roles: 4 tenant-scoped roles for the 4 users
+        // Roles: all tenant-scoped system roles are provisioned — not just the
+        // ones for the 4 default users. Service-layer flows (e.g. creating a
+        // student auto-creates a parent user & assigns the 'parent' role) rely
+        // on every role existing even when no test user carries it.
         const roles = await prisma.role.findMany({
           where: { tenant_id: fixture.tenantId },
         });
-        expect(roles.map((r) => r.role_key).sort()).toEqual(
-          ['admin', 'parent', 'school_principal', 'teacher'].sort(),
+        expect(roles.map((r) => r.role_key)).toEqual(
+          expect.arrayContaining([
+            'school_principal',
+            'admin',
+            'teacher',
+            'parent',
+            'school_owner',
+            'attendance_officer',
+            'accounting',
+            'front_office',
+            'school_vice_principal',
+            'student',
+          ]),
         );
 
         // Membership roles linked
@@ -111,22 +125,24 @@ describe('createTenantFixture', () => {
       }
     });
 
-    it('respects narrowed users option', async () => {
+    it('respects narrowed users option (only creates requested users)', async () => {
       const fixture = await createTenantFixture(prisma, {
         slug: `narrow-${Date.now()}`,
         users: ['admin'],
       });
 
       try {
+        // Narrowing `users` only skips user provisioning — roles are still
+        // provisioned in full (see above).
         expect(fixture.adminUserId).toBeDefined();
         expect(fixture.teacherUserId).toBeUndefined();
         expect(fixture.parentUserId).toBeUndefined();
 
-        // Only the admin role is provisioned
-        const roles = await prisma.role.findMany({
+        // Tenant-scoped memberships: owner + admin (the 2 user rows created).
+        const memberships = await prisma.tenantMembership.findMany({
           where: { tenant_id: fixture.tenantId },
         });
-        expect(roles.map((r) => r.role_key)).toEqual(['admin']);
+        expect(memberships).toHaveLength(2);
       } finally {
         await deleteTenantFixture(prisma, fixture);
       }
