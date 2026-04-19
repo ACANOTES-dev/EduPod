@@ -268,14 +268,19 @@ jobs:
           path: coverage-shards/
 
       - name: Arrange shards for merge
+        # actions/upload-artifact@v4 strips the common ancestor from paths, so
+        # the artifact root is \`apps/\` and the files live at
+        # \`<artifact>/api/coverage/shard-N/\` and \`<artifact>/worker/coverage/shard-N/\`
+        # (NOT \`<artifact>/apps/api/...\`). Rearrange into the structure the
+        # merge script expects.
         run: |
           mkdir -p coverage-shards-api coverage-shards-worker
           for shard in 1 2 3; do
-            if [ -d "coverage-shards/coverage-shard-$shard/apps/api/coverage/shard-$shard" ]; then
-              cp -r "coverage-shards/coverage-shard-$shard/apps/api/coverage/shard-$shard" "coverage-shards-api/shard-$shard"
+            if [ -d "coverage-shards/coverage-shard-$shard/api/coverage/shard-$shard" ]; then
+              cp -r "coverage-shards/coverage-shard-$shard/api/coverage/shard-$shard" "coverage-shards-api/shard-$shard"
             fi
-            if [ -d "coverage-shards/coverage-shard-$shard/apps/worker/coverage/shard-$shard" ]; then
-              cp -r "coverage-shards/coverage-shard-$shard/apps/worker/coverage/shard-$shard" "coverage-shards-worker/shard-$shard"
+            if [ -d "coverage-shards/coverage-shard-$shard/worker/coverage/shard-$shard" ]; then
+              cp -r "coverage-shards/coverage-shard-$shard/worker/coverage/shard-$shard" "coverage-shards-worker/shard-$shard"
             fi
           done
           echo "=== api shards ==="

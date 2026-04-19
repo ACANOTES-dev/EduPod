@@ -48,7 +48,11 @@ def _minimal_input():
 
 def test_happy_path_returns_output_and_no_diagnostics():
     payload = _minimal_input()
-    cancel = multiprocessing.Event()
+    # Event must come from the same context as subprocess_solve._mp_context
+    # (forkserver). Under Python 3.12 on Linux, mixing a default-context Event
+    # into a forkserver-context Process raises "SemLock created in a fork
+    # context is being shared with a process in a spawn context."
+    cancel = multiprocessing.get_context("forkserver").Event()
     result = solve_in_subprocess(payload, cancel, capture_telemetry=False)
     assert result.output is not None
     assert result.diagnostics is None
@@ -57,7 +61,7 @@ def test_happy_path_returns_output_and_no_diagnostics():
 
 def test_happy_path_with_telemetry_returns_diagnostics():
     payload = _minimal_input()
-    cancel = multiprocessing.Event()
+    cancel = multiprocessing.get_context("forkserver").Event()
     result = solve_in_subprocess(payload, cancel, capture_telemetry=True)
     assert result.output is not None
     assert result.diagnostics is not None
