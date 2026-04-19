@@ -309,6 +309,22 @@ class WallClockWatchdog:
 
     def _run(self) -> None:
         while not self._stop_event.wait(self._poll_interval):
+            # Gate: only fire after CP-SAT has reported at least one feasible
+            # solution. Silence BEFORE the first incumbent is "still searching"
+            # (presolve, initial LNS exploration, tough feasibility problem)
+            # — not a plateau. The watchdog was designed for the NHQS case
+            # where CP-SAT accepts the greedy hint immediately and then
+            # plateaus silently; that case is still caught because hint
+            # acceptance counts as the first solution. Supervision-heavy
+            # fixtures (tier-3-supervision-realistic-medium) legitimately
+            # need ~60–90 s before CP-SAT's LNS produces a feasible
+            # placement — firing at 8 s truncated those to UNKNOWN and
+            # forced the supervision-unaware greedy fallback, which
+            # surfaced as 0 supervision duties on 2026-04-19. ``max_time_in_seconds``
+            # is the hard cap for the initial-feasible hunt; the watchdog
+            # is only needed once we're past it.
+            if self._callback.first_solution_objective is None:
+                continue
             silent_for = time.monotonic() - self._callback.last_callback_monotonic
             if silent_for >= self._threshold:
                 self._fired = True
