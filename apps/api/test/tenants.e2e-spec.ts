@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_OWNER_EMAIL,
   PLATFORM_ADMIN_EMAIL,
   authGet,
   authPatch,
@@ -10,19 +10,29 @@ import {
   createTestApp,
   getAuthToken,
 } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Tenants Admin Endpoints (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let platformToken: string;
-  let alNoorOwnerToken: string;
+  // A non-platform tenant owner used to prove platform-admin routes reject
+  // non-platform callers — we need any valid tenant-owner token, not the
+  // shared al-noor one.
+  let nonPlatformOwnerToken: string;
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma, { users: ['owner'] });
     platformToken = await getAuthToken(app, PLATFORM_ADMIN_EMAIL);
-    alNoorOwnerToken = await getAuthToken(app, AL_NOOR_OWNER_EMAIL, 'al-noor.edupod.app');
+    nonPlatformOwnerToken = await getAuthToken(app, fixture.ownerEmail, fixture.domainName);
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
     await closeTestApp();
   });
 
@@ -50,7 +60,7 @@ describe('Tenants Admin Endpoints (e2e)', () => {
 
   it('should reject non-platform-owner', async () => {
     const slug = `test-reject-${Date.now()}`;
-    await authPost(app, '/api/v1/admin/tenants', alNoorOwnerToken, {
+    await authPost(app, '/api/v1/admin/tenants', nonPlatformOwnerToken, {
       name: 'Unauthorised School',
       slug,
       default_locale: 'en',
