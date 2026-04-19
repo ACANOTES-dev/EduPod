@@ -18,9 +18,13 @@
 set -euo pipefail
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  pre-push: running full validate:ci (≈3-4 min)"
+echo "  pre-push: running full validate:ci (≈2 min)"
 echo "  bypass:   HUSKY=0 git push   OR   git push --no-verify"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# api type-check on the full monorepo needs ~6-8 GB of V8 heap;
+# without this, turbo type-check OOMs with exit 137 during pre-push.
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=8192}"
 
 # Architecture docs freshness — NOT covered by validate:ci, must stay here.
 bash scripts/check-architecture-freshness.sh
