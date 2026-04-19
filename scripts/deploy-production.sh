@@ -179,14 +179,18 @@ create_predeploy_backup() {
 
 install_dependencies() {
   log 'Installing dependencies'
-  # NODE_ENV=development is required during install so pnpm includes
-  # devDependencies. The build step below needs prisma, turbo, tsx,
-  # typescript and friends even though the runtime .env sets
-  # NODE_ENV=production for PM2. Without this, pnpm skips devDeps and
-  # `prisma generate` either can't find prisma locally (falling back to
-  # whatever stale copy is in the npx/npm cache, which caused a v7-CLI-
-  # vs-v6-schema mismatch on 2026-04-19) or fails outright.
-  CI=true NODE_ENV=development pnpm install --frozen-lockfile --force --config.confirmModulesPurge=false
+  # The build step needs prisma, turbo, tsx, typescript, etc — all
+  # declared as devDependencies. The server's runtime .env sets
+  # NODE_ENV=production for PM2, which would cause pnpm to skip
+  # devDependencies. An inline `NODE_ENV=development` prefix proved
+  # unreliable under the drone-ssh wrapper used by appleboy/ssh-action
+  # (observed 2026-04-19: prod-only install despite the prefix, leading
+  # to a stale prisma v7 being picked up from the npx cache and
+  # rejecting the v6-schema).
+  # `--config.production=false` is the explicit pnpm CLI flag that
+  # disables the production-install short-circuit regardless of
+  # NODE_ENV. This is deterministic and wrapper-proof.
+  CI=true pnpm install --frozen-lockfile --force --config.confirmModulesPurge=false --config.production=false
 
   cleanup_build_outputs
 }
