@@ -1,16 +1,26 @@
 #!/usr/bin/env bash
 # Runs @school/api integration/e2e tests in two passes.
 #
-# Pass 1 runs a small set of "collider" files in-band (they share DB fixtures,
-# CREATE ROLE, or race on tuple updates). Pass 2 runs everything else in
-# parallel via --maxWorkers (default 4, override with INTEGRATION_MAX_WORKERS).
+# Pass 1 (serial): a small set of "collider" files that share DB fixtures,
+#   CREATE ROLE, or race on tuple updates — run with --runInBand.
+# Pass 2 (parallel): everything else — run with --maxWorkers (default 4,
+#   override with INTEGRATION_MAX_WORKERS).
 #
-# Both passes use --bail=0 so we see every failure instead of stopping at the
-# first one — the overall script exits non-zero if either pass failed.
+# Usage:
+#   run-integration-tests.sh [serial|parallel|both]
 #
-# The Option A plan to eliminate Pass 1 entirely lives in SURGICAL-FIX.md.
+# Default "both" preserves legacy behaviour (run both passes sequentially in
+# one invocation). CI splits the job in two and calls with "serial" /
+# "parallel" so they run in separate runners in parallel — see ci.yml jobs
+# `backend-serial` and `backend-parallel`.
 
 set -euo pipefail
+
+MODE="${1:-both}"
+case "$MODE" in
+  serial|parallel|both) ;;
+  *) echo "Usage: $0 [serial|parallel|both]" >&2; exit 2 ;;
+esac
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT/apps/api"
@@ -27,22 +37,26 @@ MAX_WORKERS="${INTEGRATION_MAX_WORKERS:-4}"
 SERIAL_EXIT=0
 PARALLEL_EXIT=0
 
-echo ""
-echo "=== Pass 1/2: serial colliders (--runInBand) ==="
-npx jest --config jest.integration.config.js --runInBand --bail=0 --forceExit \
-  --testPathPattern="$COLLIDERS_PATTERN" \
-  || SERIAL_EXIT=$?
+if [ "$MODE" = "serial" ] || [ "$MODE" = "both" ]; then
+  echo ""
+  echo "=== Serial colliders (--runInBand) ==="
+  npx jest --config jest.integration.config.js --runInBand --bail=0 --forceExit \
+    --testPathPattern="$COLLIDERS_PATTERN" \
+    || SERIAL_EXIT=$?
+fi
+
+if [ "$MODE" = "parallel" ] || [ "$MODE" = "both" ]; then
+  echo ""
+  echo "=== Parallel (--maxWorkers=$MAX_WORKERS) ==="
+  npx jest --config jest.integration.config.js --maxWorkers="$MAX_WORKERS" --bail=0 --forceExit \
+    --testPathIgnorePatterns "/node_modules/" "$COLLIDERS_PATTERN" \
+    || PARALLEL_EXIT=$?
+fi
 
 echo ""
-echo "=== Pass 2/2: parallel (--maxWorkers=$MAX_WORKERS) ==="
-npx jest --config jest.integration.config.js --maxWorkers="$MAX_WORKERS" --bail=0 --forceExit \
-  --testPathIgnorePatterns "/node_modules/" "$COLLIDERS_PATTERN" \
-  || PARALLEL_EXIT=$?
-
-echo ""
-echo "=== Summary ==="
-echo "Pass 1 (serial):   exit=$SERIAL_EXIT"
-echo "Pass 2 (parallel): exit=$PARALLEL_EXIT"
+echo "=== Summary (mode=$MODE) ==="
+[ "$MODE" != "parallel" ] && echo "Serial:   exit=$SERIAL_EXIT"
+[ "$MODE" != "serial" ] && echo "Parallel: exit=$PARALLEL_EXIT"
 
 if [ "$SERIAL_EXIT" -ne 0 ] || [ "$PARALLEL_EXIT" -ne 0 ]; then
   exit 1

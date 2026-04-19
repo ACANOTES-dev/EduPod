@@ -27,6 +27,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      solver: ${{ steps.filter.outputs.solver }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -53,6 +54,9 @@ jobs:
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'turbo.json'
+            solver:
+              - 'apps/solver-py/**'
+              - 'packages/shared/src/scheduler/**'
 
   ci:
     if: github.event_name != 'schedule'
@@ -351,13 +355,18 @@ jobs:
       - name: Build
         run: pnpm build
 
-  backend-verification:
+  # Integration tests are split into two parallel jobs (backend-serial and
+  # backend-parallel). Both share identical setup — keep them in lockstep when
+  # editing. See scripts/run-integration-tests.sh for the serial-vs-parallel
+  # file split; critical-path analysis justifying the split is in the
+  # 2026-04-19 CI optimization note.
+  backend-serial:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true'
     needs: [changes]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     concurrency:
-      group: backend-verification-${{ github.workflow }}-${{ github.ref }}
+      group: backend-serial-${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
     env:
       SENTRY_ENVIRONMENT: ci
@@ -424,9 +433,6 @@ jobs:
         run: |
           psql "postgresql://prisma:password@localhost:5432/edupod_test" -c "DO \$\$ BEGIN CREATE TYPE timerange AS RANGE (subtype = time); EXCEPTION WHEN duplicate_object THEN null; END \$\$;"
           pnpm --filter @school/prisma exec prisma db push --skip-generate --accept-data-loss
-          # Apply canonical RLS policies (db push doesn't run migration.sql, so the
-          # WITH CHECK + FORCE policies from packages/prisma/rls/policies.sql need
-          # to be applied explicitly on top).
           psql "postgresql://prisma:password@localhost:5432/edupod_test" -f packages/prisma/rls/policies.sql
           pnpm db:post-migrate
           pnpm db:seed
@@ -434,8 +440,103 @@ jobs:
           DATABASE_URL: postgresql://prisma:password@localhost:5432/edupod_test?schema=public
           REDIS_URL: redis://localhost:6379
 
-      - name: Run backend integration and e2e tests
-        run: pnpm --filter @school/api run test:integration
+      - name: Run backend integration — serial colliders (--runInBand)
+        run: pnpm --filter @school/api run test:integration:serial
+        env:
+          API_PORT: '0'
+          APP_URL: http://localhost:3000
+          DATABASE_URL: postgresql://prisma:password@localhost:5432/edupod_test?schema=public
+          ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          INTEGRATION_MAX_WORKERS: '2'
+          JWT_REFRESH_SECRET: 1a5be597a11a3d357ec51c55b88bdd4fe6a138f9f816dd0e8f048d802f87b2b3
+          JWT_SECRET: 73e10ad593c9fb3e3c0aaef14332e1f4f38dfe27bb579e35ef57e8303a767d48
+          MFA_ISSUER: SchoolOS-Test
+          NODE_ENV: test
+          PLATFORM_DOMAIN: edupod.app
+          REDIS_URL: redis://localhost:6379
+
+  backend-parallel:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true'
+    needs: [changes]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: backend-parallel-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      SENTRY_ENVIRONMENT: ci
+      SENTRY_RELEASE: ${{ github.sha }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: prisma
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: edupod_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          package-manager-cache: false
+
+      - name: Cache node_modules
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+          key: deps-${{ runner.os }}-node24-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        if: steps.deps-cache.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Prisma generated client
+        id: prisma-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/.pnpm/@prisma+client*/node_modules/.prisma
+            node_modules/@prisma/client
+          key: prisma-${{ runner.os }}-${{ hashFiles('packages/prisma/schema.prisma') }}
+
+      - name: Generate Prisma client
+        if: steps.prisma-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @school/prisma exec prisma generate
+
+      - name: Setup test database
+        run: |
+          psql "postgresql://prisma:password@localhost:5432/edupod_test" -c "DO \$\$ BEGIN CREATE TYPE timerange AS RANGE (subtype = time); EXCEPTION WHEN duplicate_object THEN null; END \$\$;"
+          pnpm --filter @school/prisma exec prisma db push --skip-generate --accept-data-loss
+          psql "postgresql://prisma:password@localhost:5432/edupod_test" -f packages/prisma/rls/policies.sql
+          pnpm db:post-migrate
+          pnpm db:seed
+        env:
+          DATABASE_URL: postgresql://prisma:password@localhost:5432/edupod_test?schema=public
+          REDIS_URL: redis://localhost:6379
+
+      - name: Run backend integration — parallel (--maxWorkers)
+        run: pnpm --filter @school/api run test:integration:parallel
         env:
           API_PORT: '0'
           APP_URL: http://localhost:3000
@@ -458,7 +559,11 @@ jobs:
     # known tier-3 solver hangs (each ~3 min under the hard deadline) plus
     # legitimate full-budget solves on the others. Gated on changed paths
     # to keep the fast-PR loop honest.
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true'
+    #
+    # Gate tightened 2026-04-19: previously ran on every push (was top source
+    # of red-X notifications on healthy runs). Now fires only when the sidecar
+    # code or the CP-SAT contract actually changes, or on manual dispatch.
+    if: needs.changes.outputs.solver == 'true' || github.event_name == 'workflow_dispatch'
     needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -692,7 +797,7 @@ jobs:
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [ci, unit-tests-merge, build, backend-verification]
+    needs: [ci, unit-tests-merge, build, backend-serial, backend-parallel]
     runs-on: ubuntu-latest
     env:
       SENTRY_ENVIRONMENT: production

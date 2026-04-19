@@ -14,6 +14,8 @@
     "test:changed": "jest --changedSince=main --passWithNoTests",
     "test:coverage": "jest --coverage",
     "test:integration": "bash ../../scripts/run-integration-tests.sh",
+    "test:integration:serial": "bash ../../scripts/run-integration-tests.sh serial",
+    "test:integration:parallel": "bash ../../scripts/run-integration-tests.sh parallel",
     "test:rls": "jest --config jest.rls.config.js --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "coverage:modules": "jest --coverage --coverageReporters=json --silent && tsx ../../scripts/coverage-by-module.ts",
