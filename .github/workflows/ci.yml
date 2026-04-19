@@ -124,6 +124,8 @@ jobs:
         run: node scripts/check-raw-sql-governance.js
 
       - name: Lint (errors only)
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: pnpm lint:ci
 
       - name: Type check
@@ -203,11 +205,13 @@ jobs:
         run: pnpm --filter @school/prisma exec prisma generate
 
       - name: Run sharded tests — api + worker (shard ${{ matrix.shard }}/3)
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: |
-          pnpm --filter @school/api run test:coverage -- \
+          pnpm --filter @school/api run test:coverage \
             --shard=${{ matrix.shard }}/3 \
             --coverageDirectory=coverage/shard-${{ matrix.shard }}
-          pnpm --filter @school/worker run test:coverage -- \
+          pnpm --filter @school/worker run test:coverage \
             --shard=${{ matrix.shard }}/3 \
             --coverageDirectory=coverage/shard-${{ matrix.shard }}
 
@@ -415,6 +419,10 @@ jobs:
         run: |
           psql "postgresql://prisma:password@localhost:5432/edupod_test" -c "DO \$\$ BEGIN CREATE TYPE timerange AS RANGE (subtype = time); EXCEPTION WHEN duplicate_object THEN null; END \$\$;"
           pnpm --filter @school/prisma exec prisma db push --skip-generate --accept-data-loss
+          # Apply canonical RLS policies (db push doesn't run migration.sql, so the
+          # WITH CHECK + FORCE policies from packages/prisma/rls/policies.sql need
+          # to be applied explicitly on top).
+          psql "postgresql://prisma:password@localhost:5432/edupod_test" -f packages/prisma/rls/policies.sql
           pnpm db:post-migrate
           pnpm db:seed
         env:

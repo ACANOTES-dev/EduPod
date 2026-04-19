@@ -264,7 +264,7 @@ class WallClockWatchdog:
     def __init__(
         self,
         solver: cp_model.CpSolver,
-        callback: "EarlyStopCallback",
+        callback: EarlyStopCallback,
         threshold_seconds: float,
         poll_interval_seconds: float = 2.0,
     ) -> None:

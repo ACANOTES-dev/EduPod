@@ -114,7 +114,7 @@ def _child_entrypoint(
         telemetry = SolverTelemetry() if capture_telemetry else None
         # cancel_event is an mp.Event; EarlyStopCallback only calls
         # .is_set() on it so duck-typing works across the fork boundary.
-        output = solve(payload, cancel_event, telemetry)  # type: ignore[arg-type]
+        output = solve(payload, cancel_event, telemetry)
         diagnostics = telemetry.to_diagnostics() if telemetry is not None else None
         result_queue.put(("ok", pickle.dumps((output, diagnostics))))
     except SolveError as exc:

@@ -25,14 +25,12 @@ import multiprocessing
 import os
 import pickle
 import signal
-from typing import Any
 
 import pytest
 
 from solver_py.solver.solve import SolveError
 from solver_py.solver.subprocess_solve import (
     SolverCrashError,
-    _child_entrypoint,
     solve_in_subprocess,
 )
 from tests._builders import build_input, competency, curriculum_entry, teacher
@@ -116,7 +114,7 @@ def test_crash_raises_solver_crash_error(monkeypatch):
     class _CtxWithCrashingChild:
         Queue = ctx.Queue
 
-        def Process(self, target=None, args=(), daemon=False):
+        def Process(self, target=None, args=(), daemon=False):  # noqa: N802 — mirrors multiprocessing.Process API
             return ctx.Process(target=_child_that_exits_1, args=args, daemon=daemon)
 
     monkeypatch.setattr(subprocess_solve, "_mp_context", _CtxWithCrashingChild())
@@ -168,7 +166,7 @@ def test_abnormal_exit_with_enqueued_result_returns_the_result(monkeypatch):
     class _CtxThatEnqueuesThenCrashes:
         Queue = ctx.Queue
 
-        def Process(self, target=None, args=(), daemon=False):
+        def Process(self, target=None, args=(), daemon=False):  # noqa: N802 — mirrors multiprocessing.Process API
             return ctx.Process(
                 target=_child_enqueues_then_exits_1, args=args, daemon=daemon
             )
@@ -207,7 +205,7 @@ def test_child_raises_non_solve_error_is_wrapped_as_runtime_error(monkeypatch):
     class _CtxRaisingValueError:
         Queue = ctx.Queue
 
-        def Process(self, target=None, args=(), daemon=False):
+        def Process(self, target=None, args=(), daemon=False):  # noqa: N802 — mirrors multiprocessing.Process API
             return ctx.Process(
                 target=_child_raises_value_error, args=args, daemon=daemon
             )
@@ -233,7 +231,7 @@ def test_child_raises_solve_error_is_preserved(monkeypatch):
     class _CtxRaisingSolveError:
         Queue = ctx.Queue
 
-        def Process(self, target=None, args=(), daemon=False):
+        def Process(self, target=None, args=(), daemon=False):  # noqa: N802 — mirrors multiprocessing.Process API
             return ctx.Process(
                 target=_child_raises_solve_error, args=args, daemon=daemon
             )

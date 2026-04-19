@@ -96,7 +96,11 @@ def test_all_tier_fixtures_feasibility_guardrail() -> None:
         demand = 0
         for c in parsed.curriculum:
             sections = next(
-                (len(yg.sections) for yg in parsed.year_groups if yg.year_group_id == c.year_group_id),
+                (
+                    len(yg.sections)
+                    for yg in parsed.year_groups
+                    if yg.year_group_id == c.year_group_id
+                ),
                 0,
             )
             demand += c.min_periods_per_week * sections

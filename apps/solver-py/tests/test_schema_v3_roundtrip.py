@@ -14,7 +14,7 @@ import pytest
 from pydantic import ValidationError
 
 from solver_py.schema.v3 import SolverInputV3, SolverOutputV3
-from solver_py.schema.v3.adapters import v2_output_to_v3, v3_input_to_v2
+from solver_py.schema.v3.adapters import v3_input_to_v2
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "solver_input_v3_minimal.json"
 

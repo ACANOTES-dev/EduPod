@@ -43,6 +43,14 @@ packages = ["solver_py"]
 module = ["ortools.*"]
 ignore_missing_imports = true
 
+# ortools ships partial/inaccurate stubs that don't cover the PascalCase
+# CpModel.NewBoolVar / Add / etc. methods — everything in files that use them
+# gets attr-defined errors. Suppress in the two files that drive most of the
+# CP-SAT model-building until ortools' stubs catch up.
+[[tool.mypy.overrides]]
+module = ["solver_py.solver.exam_solver", "solver_py.solver.main_solver"]
+disable_error_code = ["attr-defined"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]

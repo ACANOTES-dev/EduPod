@@ -102,7 +102,7 @@ app = FastAPI(
 # mutations happen on the asyncio event-loop thread (the dict is
 # read/written from the /solve and DELETE handlers, never from inside
 # the child process running CP-SAT).
-_inflight: dict[str, "multiprocessing.Event"] = {}  # type: ignore[type-arg]
+_inflight: dict[str, multiprocessing.Event] = {}  # type: ignore[valid-type]
 _inflight_lock = threading.Lock()
 
 # Single-solve concurrency cap. Lifting this requires the Part 2 memory

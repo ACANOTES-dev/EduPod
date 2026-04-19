@@ -316,7 +316,7 @@ def solve_exam_schedule(payload: ExamSolverInput) -> ExamSolverOutput:
     paper_groups: dict[str, list[int]] = {}
     for e_idx, exam in enumerate(exams):
         paper_groups.setdefault(exam.exam_subject_config_id, []).append(e_idx)
-    for cfg_id, group in paper_groups.items():
+    for _cfg_id, group in paper_groups.items():
         if len(group) < 2:
             continue
         # All papers of the same config must live on distinct days.
@@ -335,7 +335,7 @@ def solve_exam_schedule(payload: ExamSolverInput) -> ExamSolverOutput:
     for e_idx, exam in enumerate(exams):
         yg_exams.setdefault(exam.year_group_id, []).append(e_idx)
 
-    for yg_id, members in yg_exams.items():
+    for _yg_id, members in yg_exams.items():
         if len(members) == 0:
             continue
         for d_idx in range(num_days):
@@ -493,7 +493,7 @@ def solve_exam_schedule(payload: ExamSolverInput) -> ExamSolverOutput:
     callback = ExamEarlyStopCallback()
     watchdog = WallClockWatchdog(
         solver,
-        callback,
+        callback,  # type: ignore[arg-type]  # ExamEarlyStopCallback structurally matches EarlyStopCallback
         threshold_seconds=_EXAM_STAGNATION_SECONDS,
     )
     watchdog.start()
@@ -529,11 +529,7 @@ def solve_exam_schedule(payload: ExamSolverInput) -> ExamSolverOutput:
     )
 
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        status_label: str
-        if status == cp_model.INFEASIBLE:
-            status_label = "infeasible"
-        else:
-            status_label = "unknown"
+        status_label: str = "infeasible" if status == cp_model.INFEASIBLE else "unknown"
         return ExamSolverOutput(
             status=status_label,  # type: ignore[arg-type]
             slots=[],
@@ -578,7 +574,7 @@ def solve_exam_schedule(payload: ExamSolverInput) -> ExamSolverOutput:
                 for r in range(num_rooms)
                 if solver.Value(uses_room[e_idx][r]) == 1
             ],
-            rooms=payload.rooms,
+            rooms=payload.rooms,  # type: ignore[arg-type]  # list invariance — covariant read only
         )
 
         invig_ids = [
@@ -599,7 +595,7 @@ def solve_exam_schedule(payload: ExamSolverInput) -> ExamSolverOutput:
             )
         )
 
-    status_label: str = "optimal" if status == cp_model.OPTIMAL else "feasible"
+    status_label = "optimal" if status == cp_model.OPTIMAL else "feasible"
     return ExamSolverOutput(
         status=status_label,  # type: ignore[arg-type]
         slots=out_slots,
@@ -628,18 +624,18 @@ def _assign_rooms_to_exam(
     """
     if exam.mode != "in_person" or exam.student_count == 0 or not used_room_indices:
         return []
-    picked = [rooms[r] for r in used_room_indices]  # type: ignore[index]
-    picked.sort(key=lambda r: getattr(r, "capacity"), reverse=True)  # type: ignore[attr-defined]
+    picked = [rooms[r] for r in used_room_indices]
+    picked.sort(key=lambda r: r.capacity, reverse=True)
     remaining = exam.student_count
     assignments: list[ExamSolverRoomAssignment] = []
     for r in picked:
         if remaining <= 0:
             break
-        cap = int(getattr(r, "capacity"))  # type: ignore[attr-defined]
+        cap = int(r.capacity)
         take = min(cap, remaining)
         assignments.append(
             ExamSolverRoomAssignment(
-                room_id=str(getattr(r, "room_id")),  # type: ignore[attr-defined]
+                room_id=str(r.room_id),
                 capacity=cap,
                 student_count_in_room=take,
             )
