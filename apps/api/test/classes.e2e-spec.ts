@@ -1,9 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
   closeTestApp,
   createTestApp,
   DEV_PASSWORD,
@@ -13,9 +11,12 @@ import {
   authPost,
   login,
 } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Classes (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let academicYearId: string;
   let yearGroupId: string;
@@ -31,12 +32,14 @@ describe('Classes (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
     // Get teacher user id for staff profile
-    const teacherLogin = await login(app, AL_NOOR_TEACHER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const teacherLogin = await login(app, fixture.teacherEmail!, DEV_PASSWORD, fixture.domainName);
     const teacherUserId = teacherLogin.user.id as string;
 
     // Create an academic year
@@ -50,7 +53,7 @@ describe('Classes (e2e)', () => {
         end_date: `${baseYear + 1}-06-30`,
         status: 'planned',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     academicYearId = (yearRes.body.data ?? yearRes.body).id;
 
@@ -60,7 +63,7 @@ describe('Classes (e2e)', () => {
       '/api/v1/year-groups',
       ownerToken,
       { name: `Class Test YG ${uniqueSuffix}` },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     yearGroupId = (yearGroupRes.body.data ?? yearGroupRes.body).id;
 
@@ -69,7 +72,7 @@ describe('Classes (e2e)', () => {
       app,
       '/api/v1/staff-profiles',
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const staffList = staffListRes.body.data ?? staffListRes.body;
@@ -82,7 +85,9 @@ describe('Classes (e2e)', () => {
     } else {
       // Teacher staff profile should exist from seed data.
       // If not, look up the teacher role and create one with the full schema.
-      const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, AL_NOOR_DOMAIN).expect(200);
+      const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, fixture.domainName).expect(
+        200,
+      );
       const roles = rolesRes.body.data ?? rolesRes.body;
       const teacherRole = Array.isArray(roles)
         ? roles.find((r: Record<string, unknown>) => r.role_key === 'teacher')
@@ -95,12 +100,12 @@ describe('Classes (e2e)', () => {
         {
           first_name: 'Test',
           last_name: 'Teacher',
-          email: AL_NOOR_TEACHER_EMAIL,
+          email: fixture.teacherEmail!,
           phone: '+1234567890',
           role_id: teacherRole?.id ?? (teacherLogin.user as Record<string, unknown>).role_id,
           employment_status: 'active',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
       staffProfileId = (staffRes.body.data ?? staffRes.body).id;
     }
@@ -116,7 +121,7 @@ describe('Classes (e2e)', () => {
           { contact_name: 'Test Contact', phone: '+1234567890', display_order: 1 },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     const householdId = (householdRes.body.data ?? householdRes.body).id;
 
@@ -133,7 +138,7 @@ describe('Classes (e2e)', () => {
         nationality: 'Irish',
         status: 'active',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     studentId = (studentRes.body.data ?? studentRes.body).id;
 
@@ -150,12 +155,15 @@ describe('Classes (e2e)', () => {
         nationality: 'Irish',
         status: 'active',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     secondStudentId = (student2Res.body.data ?? student2Res.body).id;
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -172,7 +180,7 @@ describe('Classes (e2e)', () => {
         class_type: 'floating',
         status: 'active',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const body = res.body.data ?? res.body;
@@ -187,7 +195,7 @@ describe('Classes (e2e)', () => {
       app,
       `/api/v1/classes?academic_year_id=${academicYearId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -202,7 +210,7 @@ describe('Classes (e2e)', () => {
       app,
       `/api/v1/classes/${createdClassId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -222,7 +230,7 @@ describe('Classes (e2e)', () => {
         staff_profile_id: staffProfileId,
         assignment_role: 'teacher',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const body = res.body.data ?? res.body;
@@ -237,7 +245,7 @@ describe('Classes (e2e)', () => {
       app,
       `/api/v1/classes/${createdClassId}/staff/${staffProfileId}/role/teacher`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(204);
   });
 
@@ -253,7 +261,7 @@ describe('Classes (e2e)', () => {
         student_id: studentId,
         start_date: `${baseYear}-09-01`,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const body = res.body.data ?? res.body;
@@ -274,7 +282,7 @@ describe('Classes (e2e)', () => {
         student_id: studentId,
         start_date: `${baseYear}-09-01`,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(409);
   });
 
@@ -290,7 +298,7 @@ describe('Classes (e2e)', () => {
         student_ids: [secondStudentId],
         start_date: `${baseYear}-09-01`,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -301,7 +309,7 @@ describe('Classes (e2e)', () => {
       app,
       `/api/v1/classes/${createdClassId}/enrolments`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const enrolments = enrolmentsRes.body.data ?? enrolmentsRes.body;
@@ -315,7 +323,7 @@ describe('Classes (e2e)', () => {
         `/api/v1/class-enrolments/${secondEnrolment.id}/status`,
         ownerToken,
         { status: 'completed', end_date: `${baseYear + 1}-06-30` },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
       completedEnrolmentId = secondEnrolment.id as string;
     }
@@ -329,7 +337,7 @@ describe('Classes (e2e)', () => {
       `/api/v1/class-enrolments/${enrolmentId}/status`,
       ownerToken,
       { status: 'dropped' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -344,7 +352,7 @@ describe('Classes (e2e)', () => {
       `/api/v1/class-enrolments/${completedEnrolmentId}/status`,
       ownerToken,
       { status: 'active' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
   });
 
@@ -355,7 +363,7 @@ describe('Classes (e2e)', () => {
       app,
       `/api/v1/classes/${createdClassId}/preview`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;

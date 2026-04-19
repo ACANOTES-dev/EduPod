@@ -1,34 +1,33 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_PARENT_EMAIL,
-  closeTestApp,
-  createTestApp,
-  DEV_PASSWORD,
-  authGet,
-  authPost,
-  login,
-} from './helpers';
+import { closeTestApp, createTestApp, DEV_PASSWORD, authGet, authPost, login } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Admission Forms (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let parentToken: string;
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const parentLogin = await login(app, AL_NOOR_PARENT_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const parentLogin = await login(app, fixture.parentEmail!, DEV_PASSWORD, fixture.domainName);
     parentToken = parentLogin.accessToken;
   }, 60_000);
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -37,7 +36,7 @@ describe('Admission Forms (e2e)', () => {
       app,
       '/api/v1/admission-forms/system',
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -62,7 +61,7 @@ describe('Admission Forms (e2e)', () => {
   it('GET /admission-forms/system rejects unauthenticated requests', async () => {
     await request(app.getHttpServer())
       .get('/api/v1/admission-forms/system')
-      .set('Host', AL_NOOR_DOMAIN)
+      .set('Host', fixture.domainName)
       .expect(401);
   });
 
@@ -72,7 +71,7 @@ describe('Admission Forms (e2e)', () => {
       '/api/v1/admission-forms/system/rebuild',
       ownerToken,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const body = res.body.data ?? res.body;
@@ -90,14 +89,14 @@ describe('Admission Forms (e2e)', () => {
       '/api/v1/admission-forms/system/rebuild',
       parentToken,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(403);
   });
 
   it('GET /public/admissions/form returns the same system form publicly', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/v1/public/admissions/form')
-      .set('Host', AL_NOOR_DOMAIN)
+      .set('Host', fixture.domainName)
       .expect(200);
 
     const body = res.body.data ?? res.body;

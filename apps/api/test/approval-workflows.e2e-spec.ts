@@ -1,9 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
   closeTestApp,
   createTestApp,
   DEV_PASSWORD,
@@ -13,9 +11,12 @@ import {
   authDelete,
   login,
 } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Approval Workflows (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let teacherToken: string;
 
@@ -25,15 +26,19 @@ describe('Approval Workflows (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const teacherLogin = await login(app, AL_NOOR_TEACHER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const teacherLogin = await login(app, fixture.teacherEmail!, DEV_PASSWORD, fixture.domainName);
     teacherToken = teacherLogin.accessToken;
 
     // Resolve a valid role_id to use as the approver role — use school_owner system role
-    const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, fixture.domainName).expect(
+      200,
+    );
     const ownerRole = rolesRes.body.data.find(
       (r: { role_key: string }) => r.role_key === 'school_principal',
     );
@@ -42,6 +47,9 @@ describe('Approval Workflows (e2e)', () => {
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -50,7 +58,7 @@ describe('Approval Workflows (e2e)', () => {
       app,
       '/api/v1/approval-workflows',
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(res.body.data).toBeDefined();
@@ -67,7 +75,7 @@ describe('Approval Workflows (e2e)', () => {
         approver_role_id: approverRoleId,
         is_enabled: true,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const body = res.body.data ?? res.body;
@@ -88,7 +96,7 @@ describe('Approval Workflows (e2e)', () => {
       `/api/v1/approval-workflows/${createdWorkflowId}`,
       ownerToken,
       { is_enabled: false },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -103,24 +111,19 @@ describe('Approval Workflows (e2e)', () => {
       app,
       `/api/v1/approval-workflows/${createdWorkflowId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
     expect(body.deleted).toBe(true);
 
     // Verify the workflow is gone
-    await authGet(
-      app,
-      '/api/v1/approval-workflows',
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    ).expect(200).then((listRes) => {
-      const found = listRes.body.data.find(
-        (w: { id: string }) => w.id === createdWorkflowId,
-      );
-      expect(found).toBeUndefined();
-    });
+    await authGet(app, '/api/v1/approval-workflows', ownerToken, fixture.domainName)
+      .expect(200)
+      .then((listRes) => {
+        const found = listRes.body.data.find((w: { id: string }) => w.id === createdWorkflowId);
+        expect(found).toBeUndefined();
+      });
   });
 
   it('should reject without approvals.manage permission', async () => {
@@ -133,7 +136,7 @@ describe('Approval Workflows (e2e)', () => {
         approver_role_id: approverRoleId,
         is_enabled: true,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(403);
   });
 });

@@ -1,20 +1,14 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
-  closeTestApp,
-  createTestApp,
-  DEV_PASSWORD,
-  authGet,
-  authPost,
-  login,
-} from './helpers';
+import { closeTestApp, createTestApp, DEV_PASSWORD, authGet, authPost, login } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Invitations (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let teacherToken: string;
 
@@ -24,15 +18,19 @@ describe('Invitations (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const teacherLogin = await login(app, AL_NOOR_TEACHER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const teacherLogin = await login(app, fixture.teacherEmail!, DEV_PASSWORD, fixture.domainName);
     teacherToken = teacherLogin.accessToken;
 
     // Resolve a valid role_id to use in invitation tests — use the teacher system role
-    const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, fixture.domainName).expect(
+      200,
+    );
     const teacherRole = rolesRes.body.data.find(
       (r: { role_key: string }) => r.role_key === 'teacher',
     );
@@ -41,6 +39,9 @@ describe('Invitations (e2e)', () => {
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -55,7 +56,7 @@ describe('Invitations (e2e)', () => {
         email: uniqueEmail,
         role_ids: [staffRoleId],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const body = res.body.data ?? res.body;
@@ -67,7 +68,9 @@ describe('Invitations (e2e)', () => {
   });
 
   it('should list invitations', async () => {
-    const res = await authGet(app, '/api/v1/invitations', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const res = await authGet(app, '/api/v1/invitations', ownerToken, fixture.domainName).expect(
+      200,
+    );
 
     const body = res.body.data ?? res.body;
     expect(Array.isArray(body)).toBe(true);
@@ -86,18 +89,24 @@ describe('Invitations (e2e)', () => {
       `/api/v1/invitations/${createdInvitationId}/revoke`,
       ownerToken,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
     expect(body.status).toBe('revoked');
   });
 
-  it.todo('should accept invitation for existing user — requires token extraction from creation flow');
+  it.todo(
+    'should accept invitation for existing user — requires token extraction from creation flow',
+  );
 
-  it.todo('should accept invitation for new user — requires actual invitation token from creation response');
+  it.todo(
+    'should accept invitation for new user — requires actual invitation token from creation response',
+  );
 
-  it.todo('should reject expired invitation — requires time manipulation or dedicated expired seed');
+  it.todo(
+    'should reject expired invitation — requires time manipulation or dedicated expired seed',
+  );
 
   it('should reject without users.invite permission', async () => {
     const uniqueEmail = `test-invite-noperm-${Date.now()}@test.com`;
@@ -110,7 +119,7 @@ describe('Invitations (e2e)', () => {
         email: uniqueEmail,
         role_ids: [staffRoleId],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(403);
   });
 
@@ -119,7 +128,7 @@ describe('Invitations (e2e)', () => {
     // not 401 (unauthenticated). This verifies the endpoint is reachable without a Bearer token.
     const res = await request(app.getHttpServer())
       .post('/api/v1/invitations/accept')
-      .set('Host', AL_NOOR_DOMAIN)
+      .set('Host', fixture.domainName)
       .send({ token: 'not-a-real-token' })
       .expect((r) => {
         // 400 means the request reached the handler (bad token), not 401 (auth guard rejected it)

@@ -4,22 +4,15 @@ import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_PARENT_EMAIL,
-  closeTestApp,
-  createTestApp,
-  DEV_PASSWORD,
-  authGet,
-  authPost,
-  login,
-} from './helpers';
+import { closeTestApp, createTestApp, DEV_PASSWORD, authGet, authPost, login } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 jest.setTimeout(60_000);
 
 describe('Compliance Requests (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let ownerUserId: string;
   let parentToken: string;
@@ -34,12 +27,14 @@ describe('Compliance Requests (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
     ownerUserId = ownerLogin.user.id as string;
 
-    const parentLogin = await login(app, AL_NOOR_PARENT_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const parentLogin = await login(app, fixture.parentEmail!, DEV_PASSWORD, fixture.domainName);
     parentToken = parentLogin.accessToken;
     parentUserId = parentLogin.user.id as string;
 
@@ -62,6 +57,9 @@ describe('Compliance Requests (e2e)', () => {
       });
       await directPrisma.$disconnect();
     }
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -78,7 +76,7 @@ describe('Compliance Requests (e2e)', () => {
           subject_type: 'user',
           subject_id: ownerUserId,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       // Service returns plain object → interceptor wraps to {data: {...}}
@@ -96,7 +94,7 @@ describe('Compliance Requests (e2e)', () => {
     it('should return 401 when no auth token', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/compliance-requests')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send({
           request_type: 'access_export',
           subject_type: 'user',
@@ -115,7 +113,7 @@ describe('Compliance Requests (e2e)', () => {
           subject_type: 'user',
           subject_id: ownerUserId,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -128,7 +126,7 @@ describe('Compliance Requests (e2e)', () => {
           request_type: 'access_export',
           subject_id: ownerUserId,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
     });
 
@@ -142,7 +140,7 @@ describe('Compliance Requests (e2e)', () => {
           subject_type: 'user',
           subject_id: '00000000-0000-0000-0000-000000000099',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
 
@@ -158,7 +156,7 @@ describe('Compliance Requests (e2e)', () => {
           subject_type: 'user',
           subject_id: ownerUserId,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(409);
     });
   });
@@ -171,7 +169,7 @@ describe('Compliance Requests (e2e)', () => {
         app,
         '/api/v1/compliance-requests',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns {data, meta} → interceptor passes through as-is
@@ -186,12 +184,14 @@ describe('Compliance Requests (e2e)', () => {
     it('should return 401 when no auth token', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/compliance-requests')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
     it('should return 403 when user lacks compliance.view', async () => {
-      await authGet(app, '/api/v1/compliance-requests', parentToken, AL_NOOR_DOMAIN).expect(403);
+      await authGet(app, '/api/v1/compliance-requests', parentToken, fixture.domainName).expect(
+        403,
+      );
     });
 
     it('should filter by status query param', async () => {
@@ -199,7 +199,7 @@ describe('Compliance Requests (e2e)', () => {
         app,
         '/api/v1/compliance-requests?status=submitted',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns {data, meta} → interceptor passes through as-is
@@ -218,7 +218,7 @@ describe('Compliance Requests (e2e)', () => {
         app,
         `/api/v1/compliance-requests/${createdRequestId}`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns plain object → interceptor wraps to {data: {...}}
@@ -232,7 +232,7 @@ describe('Compliance Requests (e2e)', () => {
     it('should return 401 when no auth token', async () => {
       await request(app.getHttpServer())
         .get(`/api/v1/compliance-requests/${createdRequestId}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
@@ -241,7 +241,7 @@ describe('Compliance Requests (e2e)', () => {
         app,
         `/api/v1/compliance-requests/${createdRequestId}`,
         parentToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -250,7 +250,7 @@ describe('Compliance Requests (e2e)', () => {
         app,
         '/api/v1/compliance-requests/00000000-0000-0000-0000-000000000099',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
   });
@@ -264,7 +264,7 @@ describe('Compliance Requests (e2e)', () => {
         `/api/v1/compliance-requests/${createdRequestId}/classify`,
         ownerToken,
         { classification: 'anonymise', decision_notes: 'e2e test classification' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns plain object → interceptor wraps to {data: {...}}
@@ -278,7 +278,7 @@ describe('Compliance Requests (e2e)', () => {
     it('should return 401 when no auth token', async () => {
       await request(app.getHttpServer())
         .post(`/api/v1/compliance-requests/${createdRequestId}/classify`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send({ classification: 'anonymise' })
         .expect(401);
     });
@@ -289,7 +289,7 @@ describe('Compliance Requests (e2e)', () => {
         `/api/v1/compliance-requests/${createdRequestId}/classify`,
         parentToken,
         { classification: 'anonymise' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -300,7 +300,7 @@ describe('Compliance Requests (e2e)', () => {
         `/api/v1/compliance-requests/${createdRequestId}/classify`,
         ownerToken,
         { classification: 'erase' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
     });
   });
@@ -315,7 +315,7 @@ describe('Compliance Requests (e2e)', () => {
         `/api/v1/compliance-requests/${createdRequestId}/approve`,
         ownerToken,
         { decision_notes: 'approved for e2e test' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns plain object → interceptor wraps to {data: {...}}
@@ -332,7 +332,7 @@ describe('Compliance Requests (e2e)', () => {
         `/api/v1/compliance-requests/${createdRequestId}/approve`,
         ownerToken,
         { decision_notes: 'duplicate approve' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
     });
   });
@@ -352,7 +352,7 @@ describe('Compliance Requests (e2e)', () => {
           subject_type: 'user',
           subject_id: parentUserId,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
       if (res.status === 201) {
         // Service returns plain object → interceptor wraps to {data: {...}}
@@ -364,7 +364,7 @@ describe('Compliance Requests (e2e)', () => {
           `/api/v1/compliance-requests/${rejectableRequestId}/classify`,
           ownerToken,
           { classification: 'erase', decision_notes: 'classify before reject test' },
-          AL_NOOR_DOMAIN,
+          fixture.domainName,
         ).expect(200);
       }
     });
@@ -377,7 +377,7 @@ describe('Compliance Requests (e2e)', () => {
         `/api/v1/compliance-requests/${rejectableRequestId}/reject`,
         ownerToken,
         { decision_notes: 'rejected for e2e test' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns plain object → interceptor wraps to {data: {...}}
@@ -396,7 +396,7 @@ describe('Compliance Requests (e2e)', () => {
         `/api/v1/compliance-requests/${rejectableRequestId}/reject`,
         ownerToken,
         { decision_notes: 'duplicate reject' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
     });
   });
@@ -420,7 +420,7 @@ describe('Compliance Requests (e2e)', () => {
           subject_type: 'user',
           subject_id: parentUserId,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
       if (createRes.status === 201) {
         executableRequestId = createRes.body.data.id;
@@ -435,7 +435,7 @@ describe('Compliance Requests (e2e)', () => {
         `/api/v1/compliance-requests/${executableRequestId}/classify`,
         ownerToken,
         { classification: 'retain_legal_basis', decision_notes: 'retain for e2e test' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Approve
@@ -444,7 +444,7 @@ describe('Compliance Requests (e2e)', () => {
         `/api/v1/compliance-requests/${executableRequestId}/approve`,
         ownerToken,
         { decision_notes: 'approved for e2e execute test' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
     });
 
@@ -456,7 +456,7 @@ describe('Compliance Requests (e2e)', () => {
         `/api/v1/compliance-requests/${executableRequestId}/execute`,
         ownerToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns plain object → interceptor wraps to {data: {...}}
@@ -475,7 +475,7 @@ describe('Compliance Requests (e2e)', () => {
         `/api/v1/compliance-requests/${executableRequestId}/execute`,
         ownerToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
     });
   });
@@ -491,7 +491,7 @@ describe('Compliance Requests (e2e)', () => {
         app,
         `/api/v1/compliance-requests/${createdRequestId}/export`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data).toBeDefined();
@@ -506,7 +506,7 @@ describe('Compliance Requests (e2e)', () => {
         app,
         `/api/v1/compliance-requests/${createdRequestId}/export`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
 
@@ -518,7 +518,7 @@ describe('Compliance Requests (e2e)', () => {
         app,
         `/api/v1/compliance-requests/${rejectableRequestId}/export`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
   });

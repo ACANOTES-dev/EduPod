@@ -1,23 +1,18 @@
 import './setup-env';
 
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_PARENT_EMAIL,
-  closeTestApp,
-  createTestApp,
-  DEV_PASSWORD,
-  authGet,
-  login,
-} from './helpers';
+import { closeTestApp, createTestApp, DEV_PASSWORD, authGet, login } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 jest.setTimeout(60_000);
 
 describe('Imports (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let parentToken: string;
 
@@ -26,15 +21,20 @@ describe('Imports (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const parentLogin = await login(app, AL_NOOR_PARENT_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const parentLogin = await login(app, fixture.parentEmail!, DEV_PASSWORD, fixture.domainName);
     parentToken = parentLogin.accessToken;
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -50,7 +50,7 @@ describe('Imports (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/imports/upload')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .attach('file', Buffer.from(csvContent), {
           filename: 'test-students.csv',
           contentType: 'text/csv',
@@ -73,7 +73,7 @@ describe('Imports (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/api/v1/imports/upload')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .attach('file', Buffer.from(csvContent), {
           filename: 'test.csv',
           contentType: 'text/csv',
@@ -88,7 +88,7 @@ describe('Imports (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/imports/upload')
         .set('Authorization', `Bearer ${parentToken}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .attach('file', Buffer.from(csvContent), {
           filename: 'test.csv',
           contentType: 'text/csv',
@@ -101,7 +101,7 @@ describe('Imports (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/imports/upload')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .field('import_type', 'students')
         .expect(400);
     });
@@ -112,7 +112,7 @@ describe('Imports (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/imports/upload')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .attach('file', Buffer.from(csvContent), {
           filename: 'test.csv',
           contentType: 'text/csv',
@@ -125,7 +125,7 @@ describe('Imports (e2e)', () => {
 
   describe('GET /api/v1/imports', () => {
     it('should return 200 with paginated import jobs', async () => {
-      const res = await authGet(app, '/api/v1/imports', ownerToken, AL_NOOR_DOMAIN).expect(200);
+      const res = await authGet(app, '/api/v1/imports', ownerToken, fixture.domainName).expect(200);
 
       // Service returns {data, meta} → interceptor passes through as-is
       expect(res.body.data).toBeInstanceOf(Array);
@@ -139,12 +139,12 @@ describe('Imports (e2e)', () => {
     it('should return 401 when no auth token', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/imports')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
     it('should return 403 when user lacks settings.manage', async () => {
-      await authGet(app, '/api/v1/imports', parentToken, AL_NOOR_DOMAIN).expect(403);
+      await authGet(app, '/api/v1/imports', parentToken, fixture.domainName).expect(403);
     });
 
     it('should filter by status query param', async () => {
@@ -152,7 +152,7 @@ describe('Imports (e2e)', () => {
         app,
         '/api/v1/imports?status=uploaded',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns {data, meta} → interceptor passes through as-is
@@ -170,7 +170,7 @@ describe('Imports (e2e)', () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/imports/template?import_type=students')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(200);
 
       expect(res.headers['content-type']).toContain(
@@ -192,7 +192,7 @@ describe('Imports (e2e)', () => {
       await request(app.getHttpServer())
         .get('/api/v1/imports/template?import_type=invalid_type')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(400);
     });
   });
@@ -204,7 +204,7 @@ describe('Imports (e2e)', () => {
       // Since upload test is skipped (no S3), fetch an existing job from the list
       // to use in the single-job GET test. If none exist, the test will be skipped.
       if (!importJobId) {
-        const listRes = await authGet(app, '/api/v1/imports', ownerToken, AL_NOOR_DOMAIN);
+        const listRes = await authGet(app, '/api/v1/imports', ownerToken, fixture.domainName);
         if (listRes.status === 200 && listRes.body.data?.length > 0) {
           importJobId = listRes.body.data[0].id;
         }
@@ -221,7 +221,7 @@ describe('Imports (e2e)', () => {
         app,
         `/api/v1/imports/${importJobId}`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns plain object → interceptor wraps to {data: {...}}
@@ -235,7 +235,7 @@ describe('Imports (e2e)', () => {
         app,
         '/api/v1/imports/00000000-0000-0000-0000-000000000099',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
   });
@@ -252,7 +252,7 @@ describe('Imports (e2e)', () => {
       await request(app.getHttpServer())
         .post(`/api/v1/imports/${importJobId}/confirm`)
         .set('Authorization', `Bearer ${ownerToken}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(400);
     });
 
@@ -260,7 +260,7 @@ describe('Imports (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/imports/00000000-0000-0000-0000-000000000099/confirm')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(404);
     });
   });

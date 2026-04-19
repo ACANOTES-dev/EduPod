@@ -1,12 +1,10 @@
 import './setup-env';
 
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
 import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_PARENT_EMAIL,
   PLATFORM_ADMIN_EMAIL,
   closeTestApp,
   createTestApp,
@@ -15,28 +13,36 @@ import {
   login,
   getAuthToken,
 } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 jest.setTimeout(60_000);
 
 describe('Audit Logs (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let parentToken: string;
   let platformToken: string;
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const parentLogin = await login(app, AL_NOOR_PARENT_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const parentLogin = await login(app, fixture.parentEmail!, DEV_PASSWORD, fixture.domainName);
     parentToken = parentLogin.accessToken;
 
     platformToken = await getAuthToken(app, PLATFORM_ADMIN_EMAIL);
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -44,12 +50,9 @@ describe('Audit Logs (e2e)', () => {
 
   describe('GET /api/v1/audit-logs', () => {
     it('should return 200 with paginated audit logs for authenticated user', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/audit-logs',
-        ownerToken,
-        AL_NOOR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/audit-logs', ownerToken, fixture.domainName).expect(
+        200,
+      );
 
       // ResponseTransformInterceptor passes through {data, meta} as-is
       expect(res.body.data).toBeInstanceOf(Array);
@@ -62,17 +65,12 @@ describe('Audit Logs (e2e)', () => {
     it('should return 401 when no auth token', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/audit-logs')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
     it('should return 403 when user lacks analytics.view permission', async () => {
-      await authGet(
-        app,
-        '/api/v1/audit-logs',
-        parentToken,
-        AL_NOOR_DOMAIN,
-      ).expect(403);
+      await authGet(app, '/api/v1/audit-logs', parentToken, fixture.domainName).expect(403);
     });
 
     it('should filter by entity_type query param', async () => {
@@ -80,7 +78,7 @@ describe('Audit Logs (e2e)', () => {
         app,
         '/api/v1/audit-logs?entity_type=auth',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns {data, meta} → interceptor passes through as-is
@@ -95,7 +93,7 @@ describe('Audit Logs (e2e)', () => {
         app,
         '/api/v1/audit-logs?action=login',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns {data, meta} → interceptor passes through as-is
@@ -113,7 +111,7 @@ describe('Audit Logs (e2e)', () => {
         app,
         `/api/v1/audit-logs?start_date=${startDate}&end_date=${endDate}`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns {data, meta} → interceptor passes through as-is
@@ -126,7 +124,7 @@ describe('Audit Logs (e2e)', () => {
         app,
         '/api/v1/audit-logs?page=2&pageSize=1',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns {data, meta} → interceptor passes through as-is
@@ -140,11 +138,7 @@ describe('Audit Logs (e2e)', () => {
 
   describe('GET /api/v1/admin/audit-logs', () => {
     it('should return 200 with cross-tenant audit logs for platform admin', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/admin/audit-logs',
-        platformToken,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/admin/audit-logs', platformToken).expect(200);
 
       // Service returns {data, meta} → interceptor passes through as-is
       expect(res.body.data).toBeInstanceOf(Array);
@@ -161,28 +155,17 @@ describe('Audit Logs (e2e)', () => {
     });
 
     it('should return 401 when no auth token', async () => {
-      await request(app.getHttpServer())
-        .get('/api/v1/admin/audit-logs')
-        .expect(401);
+      await request(app.getHttpServer()).get('/api/v1/admin/audit-logs').expect(401);
     });
 
     it('should return 403 when non-platform-owner accesses admin audit logs', async () => {
       // PlatformOwnerGuard rejects tenant owners — they are not platform owners
-      await authGet(
-        app,
-        '/api/v1/admin/audit-logs',
-        ownerToken,
-        AL_NOOR_DOMAIN,
-      ).expect(403);
+      await authGet(app, '/api/v1/admin/audit-logs', ownerToken, fixture.domainName).expect(403);
     });
 
     it('should filter by tenant_id query param', async () => {
       // First get some logs to find a tenant_id
-      const allRes = await authGet(
-        app,
-        '/api/v1/admin/audit-logs',
-        platformToken,
-      ).expect(200);
+      const allRes = await authGet(app, '/api/v1/admin/audit-logs', platformToken).expect(200);
 
       // Service returns {data, meta} → interceptor passes through as-is
       if (allRes.body.data.length === 0) return; // skip if no logs

@@ -1,18 +1,13 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  closeTestApp,
-  createTestApp,
-  DEV_PASSWORD,
-  authGet,
-  authPost,
-  login,
-} from './helpers';
+import { closeTestApp, createTestApp, DEV_PASSWORD, authGet, authPost, login } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Academic Periods (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let academicYearId: string;
 
@@ -22,8 +17,10 @@ describe('Academic Periods (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
     // Create an academic year to attach periods to
@@ -37,7 +34,7 @@ describe('Academic Periods (e2e)', () => {
         end_date: `${baseYear + 1}-06-30`,
         status: 'planned',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const yearBody = yearRes.body.data ?? yearRes.body;
@@ -45,6 +42,9 @@ describe('Academic Periods (e2e)', () => {
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -62,7 +62,7 @@ describe('Academic Periods (e2e)', () => {
         end_date: `${baseYear}-12-20`,
         status: 'planned',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const body = res.body.data ?? res.body;
@@ -86,7 +86,7 @@ describe('Academic Periods (e2e)', () => {
         end_date: `${baseYear + 5}-06-30`,
         status: 'planned',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
   });
 
@@ -97,7 +97,7 @@ describe('Academic Periods (e2e)', () => {
       app,
       `/api/v1/academic-years/${academicYearId}/periods`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
