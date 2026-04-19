@@ -77,6 +77,10 @@ function createAutoMockFacade(): Record<string, jest.Mock> {
           lp.includes('byids')
         )
           defaultReturn = new Map();
+        // System-user auto-creation flows call findPrimaryDomain and
+        // feed it into buildLoginEmail; default to a valid domain so
+        // tests don't need to override this everywhere.
+        else if (lp === 'findprimarydomain') defaultReturn = 'test.edupod.app';
         fnCache.set(prop, jest.fn().mockResolvedValue(defaultReturn));
       }
       return fnCache.get(prop);

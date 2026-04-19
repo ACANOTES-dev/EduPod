@@ -33,6 +33,20 @@ const mockRlsTx = {
   classEnrolment: {
     updateMany: jest.fn(),
   },
+  // Required for createSystemUser (student auto-login creation)
+  role: {
+    findFirst: jest.fn().mockResolvedValue({ id: 'role-student' }),
+  },
+  user: {
+    findUnique: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockResolvedValue({ id: 'user-new' }),
+  },
+  tenantMembership: {
+    create: jest.fn().mockResolvedValue({ id: 'mem-1' }),
+  },
+  membershipRole: {
+    create: jest.fn().mockResolvedValue({}),
+  },
 };
 
 jest.mock('../../common/middleware/rls.middleware', () => ({

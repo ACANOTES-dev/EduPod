@@ -35,6 +35,16 @@ const mockRlsTx = {
     findUnique: jest.fn(),
     delete: jest.fn(),
   },
+  // Parent.create now resolves user_id via the household's shared login.
+  household: {
+    findFirst: jest.fn().mockResolvedValue(null),
+  },
+  tenantDomain: {
+    findFirst: jest.fn().mockResolvedValue({ domain: 'test.edupod.app' }),
+  },
+  user: {
+    findUnique: jest.fn().mockResolvedValue(null),
+  },
 };
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
@@ -108,16 +118,20 @@ describe('ParentsService — create', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  it('should create a parent and link to user by email when user exists', async () => {
-    const USER_ID = 'user-uuid-0001';
-    mockAuthFacade.findUserByEmail.mockResolvedValue({ id: USER_ID });
+  it('links the parent to the household shared user when household_id is set', async () => {
+    const SHARED_USER_ID = 'user-uuid-0001';
+    mockRlsTx.household.findFirst.mockResolvedValueOnce({ household_number: 'ABC123' });
+    mockRlsTx.user.findUnique.mockResolvedValueOnce({ id: SHARED_USER_ID });
 
-    const result = await service.create(TENANT_ID, baseCreateDto);
+    const result = await service.create(TENANT_ID, {
+      ...baseCreateDto,
+      household_id: 'household-uuid-0001',
+    });
     expect(mockRlsTx.parent.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           tenant_id: TENANT_ID,
-          user_id: USER_ID,
+          user_id: SHARED_USER_ID,
           first_name: 'Alice',
           last_name: 'Smith',
         }),

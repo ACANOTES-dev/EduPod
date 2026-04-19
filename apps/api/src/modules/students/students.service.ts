@@ -5,6 +5,7 @@ import type { PreviewResponse } from '@school/shared';
 import { CONSENT_TYPES } from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { createSystemUser } from '../../common/utils/system-user-factory';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { GdprReadFacade } from '../gdpr/gdpr-read.facade';
@@ -14,6 +15,7 @@ import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { SequenceService } from '../sequence/sequence.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import type { CreateStudentDto } from './dto/create-student.dto';
 import type { UpdateStudentStatusDto } from './dto/update-student-status.dto';
@@ -154,6 +156,7 @@ export class StudentsService {
     private readonly classesReadFacade: ClassesReadFacade,
     private readonly parentReadFacade: ParentReadFacade,
     private readonly gdprReadFacade: GdprReadFacade,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   /**
@@ -181,6 +184,9 @@ export class StudentsService {
       }
     }
 
+    // Resolve the tenant's primary domain upfront (used for the student login email).
+    const tenantDomain = await this.tenantReadFacade.findPrimaryDomain(tenantId);
+
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
@@ -193,10 +199,23 @@ export class StudentsService {
         dto.household_id,
       );
 
+      // Create the student's system-managed login before the Student row so
+      // we can link Student.user_id atomically. Email = `{student_number}@{tenant-domain}`,
+      // initial password = student_number.
+      const studentUser = await createSystemUser(db, {
+        tenantId,
+        roleKey: 'student',
+        localPart: studentNumber,
+        tenantDomain,
+        firstName: dto.first_name,
+        lastName: dto.last_name,
+      });
+
       const student = await db.student.create({
         data: {
           tenant_id: tenantId,
           household_id: dto.household_id,
+          user_id: studentUser.userId,
           first_name: dto.first_name,
           middle_name: dto.middle_name ?? null,
           last_name: dto.last_name,

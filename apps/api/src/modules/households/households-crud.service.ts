@@ -1,11 +1,13 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import type { CreateHouseholdDto, UpdateHouseholdDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { createSystemUser } from '../../common/utils/system-user-factory';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { HouseholdNumberService } from './household-number.service';
 import { buildCompletionIssues } from './households.helpers';
@@ -24,10 +26,13 @@ interface HouseholdQueryParams {
 
 @Injectable()
 export class HouseholdsCrudService {
+  private readonly logger = new Logger(HouseholdsCrudService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly householdNumberService: HouseholdNumberService,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   // ─── Preview ─────────────────────────────────────────────────────────────
@@ -46,12 +51,16 @@ export class HouseholdsCrudService {
   // ─── Create ──────────────────────────────────────────────────────────────
 
   async create(tenantId: string, dto: CreateHouseholdDto) {
+    // Resolve the tenant's primary domain upfront (outside the transaction).
+    const tenantDomain = await this.tenantReadFacade.findPrimaryDomain(tenantId);
+
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      // Auto-generate random 6-char household number (AAA999 format)
+      // Auto-generate random 6-char household number (AAA999 format).
+      // Shares the tenant code pool with staff_number so codes cannot collide.
       const householdNumber = await this.householdNumberService.generateUniqueForTenant(
         db,
         tenantId,
@@ -70,6 +79,19 @@ export class HouseholdsCrudService {
           status: 'active',
           needs_completion: true, // will be recalculated after contacts created
         },
+      });
+
+      // Create the shared household parent login.
+      // One User + TenantMembership per household; every parent record
+      // subsequently linked to this household will point at this user_id.
+      // Password = household_number (expected to be rotated on first login).
+      await createSystemUser(db, {
+        tenantId,
+        roleKey: 'parent',
+        localPart: householdNumber,
+        tenantDomain,
+        firstName: dto.household_name,
+        lastName: 'Household',
       });
 
       // Create emergency contacts

@@ -80,20 +80,36 @@ export class ParentsService {
   // ─── Create ──────────────────────────────────────────────────────────────
 
   async create(tenantId: string, dto: CreateParentDto) {
-    // Try to find matching user by email (platform-level table — no RLS)
-    let userId: string | null = null;
-
-    if (dto.email) {
-      const user = await this.authReadFacade.findUserByEmail(tenantId, dto.email);
-      if (user) {
-        userId = user.id;
-      }
-    }
-
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
+
+      // If the parent is being attached to a household, share that household's
+      // login account (one user per household, created at household creation).
+      // Parents without a household_id have user_id = null — they are contact
+      // records only until attached to a household.
+      let userId: string | null = null;
+      if (dto.household_id) {
+        const household = await db.household.findFirst({
+          where: { id: dto.household_id, tenant_id: tenantId },
+          select: { household_number: true },
+        });
+        if (household?.household_number) {
+          const domainRow = await db.tenantDomain.findFirst({
+            where: { tenant_id: tenantId, is_primary: true, domain_type: 'app' },
+            select: { domain: true },
+          });
+          if (domainRow) {
+            const expectedEmail = `${household.household_number.toLowerCase()}@${domainRow.domain.toLowerCase()}`;
+            const sharedUser = await db.user.findUnique({
+              where: { email: expectedEmail },
+              select: { id: true },
+            });
+            if (sharedUser) userId = sharedUser.id;
+          }
+        }
+      }
 
       let parent: ParentListItem;
 

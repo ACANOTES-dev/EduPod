@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { SequenceService } from '../sequence/sequence.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { HouseholdNumberService } from './household-number.service';
 import { HouseholdsCrudService } from './households-crud.service';
@@ -48,9 +49,27 @@ const mockRlsTx = {
   },
   student: {
     updateMany: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+  },
+  studentParent: {
+    createMany: jest.fn().mockResolvedValue({ count: 0 }),
   },
   parent: {
     findFirst: jest.fn(),
+  },
+  // Required for createSystemUser (shared household parent login)
+  role: {
+    findFirst: jest.fn().mockResolvedValue({ id: 'role-parent' }),
+  },
+  user: {
+    findUnique: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockResolvedValue({ id: 'user-new' }),
+  },
+  tenantMembership: {
+    create: jest.fn().mockResolvedValue({ id: 'mem-1' }),
+  },
+  membershipRole: {
+    create: jest.fn().mockResolvedValue({}),
   },
 };
 
@@ -100,6 +119,15 @@ function resetAllMockRlsTx() {
     }
   });
   mockRlsTx.$queryRaw.mockResolvedValue([]);
+  // Restore defaults used by createSystemUser (new in email convention wave).
+  mockRlsTx.role.findFirst.mockResolvedValue({ id: 'role-parent' });
+  mockRlsTx.user.findUnique.mockResolvedValue(null);
+  mockRlsTx.user.create.mockResolvedValue({ id: 'user-new' });
+  mockRlsTx.tenantMembership.create.mockResolvedValue({ id: 'mem-1' });
+  mockRlsTx.membershipRole.create.mockResolvedValue({});
+  // Default: no students in household (linkParent auto-link path).
+  mockRlsTx.student.findMany.mockResolvedValue([]);
+  mockRlsTx.studentParent.createMany.mockResolvedValue({ count: 0 });
 }
 
 const baseHousehold = {
@@ -180,6 +208,10 @@ describe('HouseholdsService — create', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
         { provide: HouseholdNumberService, useValue: mockHouseholdNum },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('test.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -340,6 +372,10 @@ describe('HouseholdsService — findAll', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
         { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('test.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -472,6 +508,10 @@ describe('HouseholdsService — findOne', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
         { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('test.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -570,6 +610,10 @@ describe('HouseholdsService — update', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
         { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('test.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -688,6 +732,10 @@ describe('HouseholdsService — updateStatus', () => {
         { provide: RedisService, useValue: buildMockRedis() },
         { provide: SequenceService, useValue: buildMockSequence() },
         { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('test.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -763,6 +811,10 @@ describe('HouseholdsService — addEmergencyContact', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
         { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('test.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -839,6 +891,10 @@ describe('HouseholdsService — updateEmergencyContact', () => {
         { provide: RedisService, useValue: buildMockRedis() },
         { provide: SequenceService, useValue: buildMockSequence() },
         { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('test.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -920,6 +976,10 @@ describe('HouseholdsService — removeEmergencyContact', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
         { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('test.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -1001,6 +1061,10 @@ describe('HouseholdsService — linkParent', () => {
         { provide: RedisService, useValue: buildMockRedis() },
         { provide: SequenceService, useValue: buildMockSequence() },
         { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('test.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -1126,6 +1190,10 @@ describe('HouseholdsService — unlinkParent', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
         { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('test.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -1209,6 +1277,10 @@ describe('HouseholdsService — setBillingParent', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
         { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('test.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -1326,6 +1398,10 @@ describe('HouseholdsService — merge', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
         { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('test.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -1526,6 +1602,10 @@ describe('HouseholdsService — split', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
         { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('test.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -1783,6 +1863,10 @@ describe('HouseholdsService — preview', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: buildMockSequence() },
         { provide: HouseholdNumberService, useValue: buildMockHouseholdNumber() },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('test.edupod.app') },
+        },
       ],
     }).compile();
 

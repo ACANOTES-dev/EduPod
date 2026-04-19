@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { RegistrationModule } from '../registration/registration.module';
 import { SequenceModule } from '../sequence/sequence.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
 import { HouseholdNumberService } from './household-number.service';
 import { HouseholdReadFacade } from './household-read.facade';
@@ -13,7 +14,7 @@ import { HouseholdsController } from './households.controller';
 import { HouseholdsService } from './households.service';
 
 @Module({
-  imports: [AuthModule, SequenceModule, RegistrationModule],
+  imports: [AuthModule, SequenceModule, RegistrationModule, TenantsModule],
   controllers: [HouseholdsController],
   providers: [
     HouseholdsCrudService,
