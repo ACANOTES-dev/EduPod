@@ -15,6 +15,7 @@ SMOKE_API_URL="${SMOKE_API_URL:-http://localhost:3001/api/health}"
 SMOKE_API_READY_URL="${SMOKE_API_READY_URL:-http://localhost:3001/api/health}"
 SMOKE_AUTH_URL="${SMOKE_AUTH_URL:-http://localhost:3001/api/v1/auth/login}"
 SMOKE_WORKER_URL="${SMOKE_WORKER_URL:-http://localhost:5556/health}"
+SMOKE_SOLVER_URL="${SMOKE_SOLVER_URL:-http://localhost:5557/health}"
 
 # ─── Migration Policy ──────────────────────────────────────────────────────────
 # All schema migrations follow the expand/contract pattern.
@@ -68,6 +69,7 @@ run_smoke_test() {
   local api_ready_ok=0
   local auth_ok=0
   local worker_ok=0
+  local solver_ok=0
   local auth_status
 
   if curl -sf "$SMOKE_WEB_URL" > /dev/null; then
@@ -106,6 +108,23 @@ run_smoke_test() {
     run_as_pm2_user pm2 logs worker --lines 80 --nostream || true
   fi
 
+  # solver-py is a loopback-only CP-SAT sidecar exec'd by pm2 with
+  # `interpreter: 'none'`. A Mac venv once landed on the Linux server
+  # (shebangs + pyvenv.cfg pointed to /Users/... and /opt/homebrew),
+  # which bricked uvicorn without leaving any error-log output — pm2
+  # showed "online pid=undefined" and the worker surfaced every solve
+  # as CP_SAT_UNREACHABLE. The omission of a solver health probe here
+  # meant two-plus days of crashed runs passed deploy. Curl /health so
+  # a dead sidecar fails the deploy.
+  if curl -sf "$SMOKE_SOLVER_URL" > /dev/null; then
+    log 'SOLVER OK'
+    solver_ok=1
+  else
+    log 'SOLVER FAILED'
+    run_as_pm2_user pm2 describe solver-py || true
+    run_as_pm2_user pm2 logs solver-py --lines 80 --nostream || true
+  fi
+
   auth_status="$(
     curl -s -o /dev/null -w '%{http_code}' \
       -H 'Content-Type: application/json' \
@@ -122,7 +141,7 @@ run_smoke_test() {
       ;;
   esac
 
-  if [[ "$web_ok" -ne 1 || "$api_ok" -ne 1 || "$api_ready_ok" -ne 1 || "$auth_ok" -ne 1 || "$worker_ok" -ne 1 ]]; then
+  if [[ "$web_ok" -ne 1 || "$api_ok" -ne 1 || "$api_ready_ok" -ne 1 || "$auth_ok" -ne 1 || "$worker_ok" -ne 1 || "$solver_ok" -ne 1 ]]; then
     return 1
   fi
 }
@@ -202,6 +221,40 @@ install_dependencies() {
   CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false --config.production=false
 
   cleanup_build_outputs
+}
+
+rebuild_solver_venv_if_broken() {
+  # The solver-py sidecar runs from apps/solver-py/.venv, which is git-
+  # ignored and was bootstrapped once on the server on 2026-04-15. It's
+  # not managed by pnpm. If anyone ever rsyncs their local workspace to
+  # the server the Mac venv gets copied over the Linux one — shebangs
+  # point at /Users/... and pyvenv.cfg home= /opt/homebrew/..., so exec
+  # of the uvicorn wrapper fails ENOENT, pm2 burns through max_restarts
+  # instantly, and the process ghosts "online" with no pid and 0-byte
+  # logs. Rebuild the venv in place whenever it's absent, unexecutable,
+  # or flagged as foreign (Homebrew header in pyvenv.cfg).
+  local cfg=apps/solver-py/.venv/pyvenv.cfg
+  local needs_rebuild=0
+  if [[ ! -x apps/solver-py/.venv/bin/uvicorn ]]; then
+    needs_rebuild=1
+  elif ! apps/solver-py/.venv/bin/python --version > /dev/null 2>&1; then
+    needs_rebuild=1
+  elif [[ -f "$cfg" ]] && grep -Eq '^(home|executable|command) = /(opt/homebrew|Users/)' "$cfg"; then
+    needs_rebuild=1
+  fi
+
+  if [[ "$needs_rebuild" -eq 1 ]]; then
+    log 'solver-py venv missing/unexecutable/foreign — rebuilding from requirements.txt'
+    rm -rf apps/solver-py/.venv
+    (
+      cd apps/solver-py
+      python3.12 -m venv .venv
+      .venv/bin/pip install -q -U pip setuptools wheel
+      .venv/bin/pip install -q -r requirements.txt
+      .venv/bin/pip install -q -e . --no-deps
+    )
+    log 'solver-py venv rebuilt'
+  fi
 }
 
 generate_prisma_client() {
@@ -353,6 +406,7 @@ rollback_release() {
   log "Smoke test failed — rolling back to ${previous_sha}"
   git checkout "$previous_sha"
   install_dependencies
+  rebuild_solver_venv_if_broken
   generate_prisma_client
   run_build "$previous_sha"
   restore_pm2_services "$previous_sha"
@@ -395,6 +449,7 @@ main() {
 
   load_runtime_env
   install_dependencies
+  rebuild_solver_venv_if_broken
   generate_prisma_client
   run_deploy_preflight
   run_build "$deployed_sha"
