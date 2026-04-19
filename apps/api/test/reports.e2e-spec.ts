@@ -1,23 +1,18 @@
 import './setup-env';
 
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_PARENT_EMAIL,
-  closeTestApp,
-  createTestApp,
-  DEV_PASSWORD,
-  authGet,
-  login,
-} from './helpers';
+import { closeTestApp, createTestApp, DEV_PASSWORD, authGet, login } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 jest.setTimeout(60_000);
 
 describe('Reports (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let parentToken: string;
 
@@ -28,21 +23,18 @@ describe('Reports (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const parentLogin = await login(app, AL_NOOR_PARENT_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const parentLogin = await login(app, fixture.parentEmail!, DEV_PASSWORD, fixture.domainName);
     parentToken = parentLogin.accessToken;
 
     // Discover academic year ID from seeded data
     // These list endpoints return {data, meta} → interceptor passes through as-is
-    const ayRes = await authGet(
-      app,
-      '/api/v1/academic-years',
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    );
+    const ayRes = await authGet(app, '/api/v1/academic-years', ownerToken, fixture.domainName);
     const years = ayRes.body.data;
     if (years && years.length > 0) {
       academicYearId = years[0].id;
@@ -53,7 +45,7 @@ describe('Reports (e2e)', () => {
       app,
       '/api/v1/students?pageSize=1',
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
     const students = studRes.body.data;
     if (students && students.length > 0) {
@@ -65,7 +57,7 @@ describe('Reports (e2e)', () => {
       app,
       '/api/v1/households?pageSize=1',
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
     const households = hhRes.body.data;
     if (households && households.length > 0) {
@@ -74,6 +66,9 @@ describe('Reports (e2e)', () => {
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -87,7 +82,7 @@ describe('Reports (e2e)', () => {
         app,
         `/api/v1/reports/promotion-rollover?academic_year_id=${academicYearId}`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns plain object → interceptor wraps to {data: {...}}
@@ -105,7 +100,7 @@ describe('Reports (e2e)', () => {
 
       await request(app.getHttpServer())
         .get(`/api/v1/reports/promotion-rollover?academic_year_id=${academicYearId}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
@@ -116,7 +111,7 @@ describe('Reports (e2e)', () => {
         app,
         `/api/v1/reports/promotion-rollover?academic_year_id=${academicYearId}`,
         parentToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -125,7 +120,7 @@ describe('Reports (e2e)', () => {
         app,
         '/api/v1/reports/promotion-rollover',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
     });
   });
@@ -138,7 +133,7 @@ describe('Reports (e2e)', () => {
         app,
         '/api/v1/reports/fee-generation-runs',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns {data, meta} → interceptor passes through as-is
@@ -152,7 +147,7 @@ describe('Reports (e2e)', () => {
     it('should return 401 when no auth token', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/reports/fee-generation-runs')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
@@ -161,7 +156,7 @@ describe('Reports (e2e)', () => {
         app,
         '/api/v1/reports/fee-generation-runs',
         parentToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
   });
@@ -174,7 +169,7 @@ describe('Reports (e2e)', () => {
         app,
         '/api/v1/reports/write-offs',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns {data: WriteOffReport, meta} → interceptor passes through as-is
@@ -190,17 +185,12 @@ describe('Reports (e2e)', () => {
     it('should return 401 when no auth token', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/reports/write-offs')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
     it('should return 403 when user lacks finance.view', async () => {
-      await authGet(
-        app,
-        '/api/v1/reports/write-offs',
-        parentToken,
-        AL_NOOR_DOMAIN,
-      ).expect(403);
+      await authGet(app, '/api/v1/reports/write-offs', parentToken, fixture.domainName).expect(403);
     });
 
     it('should apply date range filters', async () => {
@@ -211,7 +201,7 @@ describe('Reports (e2e)', () => {
         app,
         `/api/v1/reports/write-offs?start_date=${startDate}&end_date=${endDate}`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns {data: WriteOffReport, meta} → interceptor passes through as-is
@@ -228,7 +218,7 @@ describe('Reports (e2e)', () => {
         app,
         '/api/v1/reports/notification-delivery',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns plain object → interceptor wraps to {data: {...}}
@@ -245,7 +235,7 @@ describe('Reports (e2e)', () => {
     it('should return 401 when no auth token', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/reports/notification-delivery')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
@@ -254,7 +244,7 @@ describe('Reports (e2e)', () => {
         app,
         '/api/v1/reports/notification-delivery',
         parentToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
   });
@@ -269,7 +259,7 @@ describe('Reports (e2e)', () => {
         app,
         `/api/v1/reports/student-export/${studentId}`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns ExportPack (plain object) → interceptor wraps to {data: {...}}
@@ -291,7 +281,7 @@ describe('Reports (e2e)', () => {
 
       await request(app.getHttpServer())
         .get(`/api/v1/reports/student-export/${studentId}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
@@ -304,7 +294,7 @@ describe('Reports (e2e)', () => {
         app,
         `/api/v1/reports/student-export/${studentId}`,
         parentToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       // The parent role typically lacks students.view permission
@@ -317,7 +307,7 @@ describe('Reports (e2e)', () => {
         app,
         '/api/v1/reports/student-export/00000000-0000-0000-0000-000000000099',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
   });
@@ -332,7 +322,7 @@ describe('Reports (e2e)', () => {
         app,
         `/api/v1/reports/household-export/${householdId}`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Service returns ExportPack (plain object) → interceptor wraps to {data: {...}}
@@ -354,7 +344,7 @@ describe('Reports (e2e)', () => {
 
       await request(app.getHttpServer())
         .get(`/api/v1/reports/household-export/${householdId}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
@@ -365,7 +355,7 @@ describe('Reports (e2e)', () => {
         app,
         `/api/v1/reports/household-export/${householdId}`,
         parentToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -374,7 +364,7 @@ describe('Reports (e2e)', () => {
         app,
         '/api/v1/reports/household-export/00000000-0000-0000-0000-000000000099',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
   });

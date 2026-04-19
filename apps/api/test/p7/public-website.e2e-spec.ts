@@ -1,20 +1,16 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
-import {
-  createTestApp,
-  closeTestApp,
-  getAuthToken,
-  authPost,
-  cleanupRedisKeys,
-  AL_NOOR_ADMIN_EMAIL,
-  AL_NOOR_DOMAIN,
-} from '../helpers';
+import { createTestApp, closeTestApp, getAuthToken, authPost, cleanupRedisKeys } from '../helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from '../tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('Public Website (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let adminToken: string;
 
   // Track pages we create so we can reference their slugs
@@ -23,7 +19,9 @@ describe('Public Website (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
-    adminToken = await getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN);
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    adminToken = await getAuthToken(app, fixture.adminEmail!, fixture.domainName);
 
     // Create and publish a page for public tests
     publishedSlug = `pub-test-${Date.now()}`;
@@ -37,7 +35,7 @@ describe('Public Website (e2e)', () => {
         title: 'Published Page',
         body_html: '<p>Public content</p>',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     await authPost(
@@ -45,7 +43,7 @@ describe('Public Website (e2e)', () => {
       `/api/v1/website/pages/${pubRes.body.data.id}/publish`,
       adminToken,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     // Create a draft page (should NOT appear in public)
@@ -60,12 +58,15 @@ describe('Public Website (e2e)', () => {
         title: 'Draft Page',
         body_html: '<p>Draft content</p>',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
   }, 60_000);
 
   afterAll(async () => {
     await cleanupRedisKeys(['rate:contact:*']);
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -75,7 +76,7 @@ describe('Public Website (e2e)', () => {
     it('happy path — returns published pages', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/public/pages')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(200);
 
       expect(res.body.data).toBeDefined();
@@ -88,7 +89,7 @@ describe('Public Website (e2e)', () => {
     it('does not return draft pages', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/public/pages')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(200);
 
       const slugs = res.body.data.map((p: Record<string, unknown>) => p.slug);
@@ -102,7 +103,7 @@ describe('Public Website (e2e)', () => {
     it('happy path — returns full page content', async () => {
       const res = await request(app.getHttpServer())
         .get(`/api/v1/public/pages/${publishedSlug}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(200);
 
       expect(res.body.data).toBeDefined();
@@ -114,7 +115,7 @@ describe('Public Website (e2e)', () => {
     it('not found — draft page → 404', async () => {
       await request(app.getHttpServer())
         .get(`/api/v1/public/pages/${draftSlug}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(404);
     });
   });
@@ -125,7 +126,7 @@ describe('Public Website (e2e)', () => {
     it('happy path — valid contact submission', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/public/contact')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send({
           name: 'Jane Doe',
           email: 'jane@example.com',
@@ -141,7 +142,7 @@ describe('Public Website (e2e)', () => {
     it('honeypot filled — stored as spam', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/public/contact')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send({
           name: 'Bot User',
           email: 'bot@spam.com',
@@ -172,7 +173,7 @@ describe('Public Website (e2e)', () => {
       for (let i = 0; i < 6; i++) {
         const res = await request(app.getHttpServer())
           .post('/api/v1/public/contact')
-          .set('Host', AL_NOOR_DOMAIN)
+          .set('Host', fixture.domainName)
           .send(payload);
         statuses.push(res.status);
       }
@@ -187,7 +188,7 @@ describe('Public Website (e2e)', () => {
     it('validation failure — invalid email → 400', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/public/contact')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send({
           name: 'Bad Email',
           email: 'not-an-email',

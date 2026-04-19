@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
 import {
@@ -8,30 +9,32 @@ import {
   authGet,
   authPatch,
   cleanupRedisKeys,
-  AL_NOOR_ADMIN_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
-  AL_NOOR_DOMAIN,
 } from '../helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from '../tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('Contact Submissions (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let adminToken: string;
   let teacherToken: string;
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
     [adminToken, teacherToken] = await Promise.all([
-      getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN),
-      getAuthToken(app, AL_NOOR_TEACHER_EMAIL, AL_NOOR_DOMAIN),
+      getAuthToken(app, fixture.adminEmail!, fixture.domainName),
+      getAuthToken(app, fixture.teacherEmail!, fixture.domainName),
     ]);
 
     // Ensure at least one contact submission exists
     await cleanupRedisKeys(['rate:contact:*']);
     await request(app.getHttpServer())
       .post('/api/v1/public/contact')
-      .set('Host', AL_NOOR_DOMAIN)
+      .set('Host', fixture.domainName)
       .send({
         name: 'Seed Contact',
         email: 'seed@example.com',
@@ -43,6 +46,9 @@ describe('Contact Submissions (e2e)', () => {
 
   afterAll(async () => {
     await cleanupRedisKeys(['rate:contact:*']);
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -54,7 +60,7 @@ describe('Contact Submissions (e2e)', () => {
         app,
         '/api/v1/contact-submissions',
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data).toBeDefined();
@@ -65,12 +71,14 @@ describe('Contact Submissions (e2e)', () => {
     it('auth failure → 401', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/contact-submissions')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
     it('permission failure — teacher token → 403', async () => {
-      await authGet(app, '/api/v1/contact-submissions', teacherToken, AL_NOOR_DOMAIN).expect(403);
+      await authGet(app, '/api/v1/contact-submissions', teacherToken, fixture.domainName).expect(
+        403,
+      );
     });
   });
 
@@ -84,7 +92,7 @@ describe('Contact Submissions (e2e)', () => {
       await cleanupRedisKeys(['rate:contact:*']);
       const contactRes = await request(app.getHttpServer())
         .post('/api/v1/public/contact')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send({
           name: 'Status Test',
           email: 'status@example.com',
@@ -102,7 +110,7 @@ describe('Contact Submissions (e2e)', () => {
         `/api/v1/contact-submissions/${submissionId}/status`,
         adminToken,
         { status: 'reviewed' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.status).toBe('reviewed');
@@ -115,7 +123,7 @@ describe('Contact Submissions (e2e)', () => {
         `/api/v1/contact-submissions/${submissionId}/status`,
         adminToken,
         { status: 'closed' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Try invalid transition back to reviewed
@@ -124,7 +132,7 @@ describe('Contact Submissions (e2e)', () => {
         `/api/v1/contact-submissions/${submissionId}/status`,
         adminToken,
         { status: 'reviewed' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
 
       expect(res.body.error.code).toBe('INVALID_STATUS_TRANSITION');
@@ -133,7 +141,7 @@ describe('Contact Submissions (e2e)', () => {
     it('auth failure → 401', async () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/contact-submissions/${submissionId}/status`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send({ status: 'reviewed' })
         .expect(401);
     });
@@ -145,7 +153,7 @@ describe('Contact Submissions (e2e)', () => {
         `/api/v1/contact-submissions/${fakeId}/status`,
         adminToken,
         { status: 'reviewed' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
   });

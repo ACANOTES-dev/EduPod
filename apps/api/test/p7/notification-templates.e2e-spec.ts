@@ -1,11 +1,9 @@
 import { randomUUID } from 'crypto';
 
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_ADMIN_EMAIL,
-  AL_NOOR_DOMAIN,
-  AL_NOOR_TEACHER_EMAIL,
   DEV_PASSWORD,
   authGet,
   authPatch,
@@ -15,26 +13,34 @@ import {
   createTestApp,
   login,
 } from '../helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from '../tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('Notification Templates (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let adminToken: string;
   let teacherToken: string;
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
 
-    const adminLogin = await login(app, AL_NOOR_ADMIN_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const adminLogin = await login(app, fixture.adminEmail!, DEV_PASSWORD, fixture.domainName);
     adminToken = adminLogin.accessToken;
 
-    const teacherLogin = await login(app, AL_NOOR_TEACHER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const teacherLogin = await login(app, fixture.teacherEmail!, DEV_PASSWORD, fixture.domainName);
     teacherToken = teacherLogin.accessToken;
   }, 60_000);
 
   afterAll(async () => {
     await cleanupRedisKeys(['bull:*']);
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -46,7 +52,7 @@ describe('Notification Templates (e2e)', () => {
         app,
         '/api/v1/notification-templates',
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data).toBeDefined();
@@ -56,13 +62,13 @@ describe('Notification Templates (e2e)', () => {
     });
 
     it('should return 401 when no token provided', async () => {
-      const res = await authGet(app, '/api/v1/notification-templates', '', AL_NOOR_DOMAIN);
+      const res = await authGet(app, '/api/v1/notification-templates', '', fixture.domainName);
 
       expect([401, 403]).toContain(res.status);
     });
 
     it('should return 403 when teacher lacks communications.manage', async () => {
-      await authGet(app, '/api/v1/notification-templates', teacherToken, AL_NOOR_DOMAIN).expect(
+      await authGet(app, '/api/v1/notification-templates', teacherToken, fixture.domainName).expect(
         403,
       );
     });
@@ -85,7 +91,7 @@ describe('Notification Templates (e2e)', () => {
           subject_template: 'Test Template Subject',
           body_template: 'Hello {{name}}, this is a test notification.',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       expect(res.body.data).toBeDefined();
@@ -107,7 +113,7 @@ describe('Notification Templates (e2e)', () => {
           subject_template: 'No Auth',
           body_template: 'No auth body',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       expect([401, 403]).toContain(res.status);
@@ -126,7 +132,7 @@ describe('Notification Templates (e2e)', () => {
           subject_template: 'Duplicate Subject',
           body_template: 'Duplicate body',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(409);
     });
   });
@@ -147,7 +153,7 @@ describe('Notification Templates (e2e)', () => {
           subject_template: 'Original Subject',
           body_template: 'Original body content',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       const templateId = createRes.body.data.id;
@@ -160,7 +166,7 @@ describe('Notification Templates (e2e)', () => {
           body_template: 'Updated body content with {{variable}}',
           subject_template: 'Updated Subject',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data).toBeDefined();
@@ -174,7 +180,7 @@ describe('Notification Templates (e2e)', () => {
         `/api/v1/notification-templates/${randomUUID()}`,
         '',
         { body_template: 'No auth' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       expect([401, 403]).toContain(res.status);
@@ -186,7 +192,7 @@ describe('Notification Templates (e2e)', () => {
         `/api/v1/notification-templates/${randomUUID()}`,
         adminToken,
         { body_template: 'Ghost template' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
   });

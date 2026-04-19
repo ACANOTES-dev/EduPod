@@ -1,9 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
   closeTestApp,
   createTestApp,
   DEV_PASSWORD,
@@ -14,9 +12,12 @@ import {
   authDelete,
   login,
 } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Roles (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let teacherToken: string;
 
@@ -29,20 +30,25 @@ describe('Roles (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const teacherLogin = await login(app, AL_NOOR_TEACHER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const teacherLogin = await login(app, fixture.teacherEmail!, DEV_PASSWORD, fixture.domainName);
     teacherToken = teacherLogin.accessToken;
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
   it('should list roles', async () => {
-    const res = await authGet(app, '/api/v1/roles', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const res = await authGet(app, '/api/v1/roles', ownerToken, fixture.domainName).expect(200);
 
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -75,7 +81,7 @@ describe('Roles (e2e)', () => {
         role_tier: 'staff',
         permission_ids: [],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     expect(res.body.data ?? res.body).toMatchObject({
@@ -100,7 +106,7 @@ describe('Roles (e2e)', () => {
       app,
       `/api/v1/roles/${createdRoleId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -118,7 +124,7 @@ describe('Roles (e2e)', () => {
       `/api/v1/roles/${createdRoleId}`,
       ownerToken,
       { display_name: 'Custom Test Updated' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -133,7 +139,7 @@ describe('Roles (e2e)', () => {
       `/api/v1/roles/${systemRoleId}`,
       ownerToken,
       { display_name: 'Hacked Name' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
 
     const error = res.body.error ?? res.body;
@@ -149,7 +155,7 @@ describe('Roles (e2e)', () => {
       app,
       `/api/v1/roles/${systemRoleId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
 
     const error = res.body.error ?? res.body;
@@ -160,7 +166,9 @@ describe('Roles (e2e)', () => {
     expect(createdRoleId).toBeDefined();
 
     // Get the teacher role detail to find staff-tier permission IDs
-    const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, fixture.domainName).expect(
+      200,
+    );
     const teacherRole = rolesRes.body.data.find(
       (r: { role_key: string }) => r.role_key === 'teacher',
     );
@@ -170,7 +178,7 @@ describe('Roles (e2e)', () => {
       app,
       `/api/v1/roles/${teacherRole.id}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const teacherDetail = teacherDetailRes.body.data ?? teacherDetailRes.body;
@@ -191,7 +199,7 @@ describe('Roles (e2e)', () => {
       `/api/v1/roles/${createdRoleId}/permissions`,
       ownerToken,
       { permission_ids: staffPermIds },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -207,7 +215,7 @@ describe('Roles (e2e)', () => {
       app,
       `/api/v1/roles/${systemRoleId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const ownerDetail = ownerDetailRes.body.data ?? ownerDetailRes.body;
@@ -226,7 +234,7 @@ describe('Roles (e2e)', () => {
       `/api/v1/roles/${createdRoleId}/permissions`,
       ownerToken,
       { permission_ids: [adminTierPermissionId] },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
 
     const error = res.body.error ?? res.body;
@@ -242,14 +250,14 @@ describe('Roles (e2e)', () => {
       `/api/v1/roles/${createdRoleId}/permissions`,
       ownerToken,
       { permission_ids: [] },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const res = await authDelete(
       app,
       `/api/v1/roles/${createdRoleId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -267,7 +275,7 @@ describe('Roles (e2e)', () => {
         role_tier: 'staff',
         permission_ids: [],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(403);
   });
 });

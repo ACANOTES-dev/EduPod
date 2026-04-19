@@ -1,29 +1,29 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_TEACHER_EMAIL,
-  closeTestApp,
-  createTestApp,
-  DEV_PASSWORD,
-  authGet,
-  authPatch,
-  login,
-} from './helpers';
+import { closeTestApp, createTestApp, DEV_PASSWORD, authGet, authPatch, login } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Preferences (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let teacherToken: string;
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
 
-    const teacherLogin = await login(app, AL_NOOR_TEACHER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const teacherLogin = await login(app, fixture.teacherEmail!, DEV_PASSWORD, fixture.domainName);
     teacherToken = teacherLogin.accessToken;
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -32,7 +32,7 @@ describe('Preferences (e2e)', () => {
       app,
       '/api/v1/me/preferences',
       teacherToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     // Either an empty object or previously saved preferences — must be an object
@@ -47,7 +47,7 @@ describe('Preferences (e2e)', () => {
       '/api/v1/me/preferences',
       teacherToken,
       { theme: 'dark' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -60,7 +60,7 @@ describe('Preferences (e2e)', () => {
   it('should reject unauthenticated request', async () => {
     await request(app.getHttpServer())
       .get('/api/v1/me/preferences')
-      .set('Host', AL_NOOR_DOMAIN)
+      .set('Host', fixture.domainName)
       .expect(401);
   });
 });

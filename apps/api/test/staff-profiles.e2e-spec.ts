@@ -1,9 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_PARENT_EMAIL,
   closeTestApp,
   createTestApp,
   DEV_PASSWORD,
@@ -12,28 +10,37 @@ import {
   authPost,
   login,
 } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Staff Profiles (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let parentToken: string;
   let createdProfileId: string;
   let teacherRoleId: string;
 
-  // Unique email per test run to avoid conflicts
-  const testEmail = `staff-test-${Date.now()}@alnoor.test`;
+  // Unique email per test run to avoid conflicts. Populated in beforeAll
+  // once the fixture's domain is known.
+  let testEmail: string;
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    testEmail = `staff-test-${Date.now()}@${fixture.domainName}`;
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const parentLogin = await login(app, AL_NOOR_PARENT_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const parentLogin = await login(app, fixture.parentEmail!, DEV_PASSWORD, fixture.domainName);
     parentToken = parentLogin.accessToken;
 
     // Get a valid role_id (teacher role) for staff creation
-    const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, fixture.domainName).expect(
+      200,
+    );
     const teacherRole = rolesRes.body.data.find(
       (r: { role_key: string }) => r.role_key === 'teacher',
     );
@@ -42,6 +49,9 @@ describe('Staff Profiles (e2e)', () => {
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -64,7 +74,7 @@ describe('Staff Profiles (e2e)', () => {
         bank_account_number: '1234567890',
         bank_iban: 'SA0380000000608010167519',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
 
     if (res.status === 201) {
@@ -82,7 +92,7 @@ describe('Staff Profiles (e2e)', () => {
         app,
         '/api/v1/staff-profiles',
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       const profiles = listRes.body.data ?? [];
@@ -102,17 +112,17 @@ describe('Staff Profiles (e2e)', () => {
       {
         first_name: 'Unauthorized',
         last_name: 'Staff',
-        email: `unauth-${Date.now()}@alnoor.test`,
+        email: `unauth-${Date.now()}@${fixture.domainName}`,
         phone: '+971501234569',
         role_id: teacherRoleId,
         employment_status: 'active',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(403);
   });
 
   it('GET /staff-profiles — should list with masked bank details -> 200', async () => {
-    const res = await authGet(app, '/api/v1/staff-profiles', ownerToken, AL_NOOR_DOMAIN).expect(
+    const res = await authGet(app, '/api/v1/staff-profiles', ownerToken, fixture.domainName).expect(
       200,
     );
 
@@ -135,7 +145,7 @@ describe('Staff Profiles (e2e)', () => {
       app,
       `/api/v1/staff-profiles/${createdProfileId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -151,7 +161,7 @@ describe('Staff Profiles (e2e)', () => {
       `/api/v1/staff-profiles/${createdProfileId}`,
       ownerToken,
       { job_title: 'Senior Mathematics Teacher', department: 'STEM' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -166,7 +176,7 @@ describe('Staff Profiles (e2e)', () => {
       app,
       `/api/v1/staff-profiles/${createdProfileId}/bank-details`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -189,7 +199,7 @@ describe('Staff Profiles (e2e)', () => {
       app,
       `/api/v1/staff-profiles/${createdProfileId}/bank-details`,
       parentToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(403);
   });
 
@@ -200,7 +210,7 @@ describe('Staff Profiles (e2e)', () => {
       app,
       `/api/v1/staff-profiles/${createdProfileId}/preview`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;

@@ -1,9 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_PARENT_EMAIL,
   closeTestApp,
   createTestApp,
   getAuthToken,
@@ -12,9 +10,12 @@ import {
   authPatch,
   authDelete,
 } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Parents (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let parentToken: string;
 
@@ -25,12 +26,17 @@ describe('Parents (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
 
-    ownerToken = await getAuthToken(app, AL_NOOR_OWNER_EMAIL, AL_NOOR_DOMAIN);
-    parentToken = await getAuthToken(app, AL_NOOR_PARENT_EMAIL, AL_NOOR_DOMAIN);
+    ownerToken = await getAuthToken(app, fixture.ownerEmail, fixture.domainName);
+    parentToken = await getAuthToken(app, fixture.parentEmail!, fixture.domainName);
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -44,7 +50,7 @@ describe('Parents (e2e)', () => {
         last_name: 'Parent',
         preferred_contact_channels: ['email'],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     expect(res.body.data).toBeDefined();
@@ -65,12 +71,12 @@ describe('Parents (e2e)', () => {
         last_name: 'Parent',
         preferred_contact_channels: ['email'],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(403);
   });
 
   it('GET /parents — should list parents', async () => {
-    const res = await authGet(app, '/api/v1/parents', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const res = await authGet(app, '/api/v1/parents', ownerToken, fixture.domainName).expect(200);
 
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -84,7 +90,7 @@ describe('Parents (e2e)', () => {
       app,
       `/api/v1/parents/${createdParentId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -103,7 +109,7 @@ describe('Parents (e2e)', () => {
       {
         first_name: 'Updated',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -128,7 +134,7 @@ describe('Parents (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     householdId = householdRes.body.data.id;
@@ -148,7 +154,7 @@ describe('Parents (e2e)', () => {
         national_id: `NID-PAR-${Date.now()}`,
         nationality: 'Irish',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     studentId = studentRes.body.data.id;
@@ -163,7 +169,7 @@ describe('Parents (e2e)', () => {
         student_id: studentId,
         relationship_label: 'Father',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     expect(res.body.data).toBeDefined();
@@ -177,7 +183,7 @@ describe('Parents (e2e)', () => {
       app,
       `/api/v1/parents/${createdParentId}/students/${studentId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(204);
   });
 });

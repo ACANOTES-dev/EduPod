@@ -1,18 +1,27 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
-import { createTestApp, closeTestApp, AL_NOOR_DOMAIN } from '../helpers';
+import { createTestApp, closeTestApp } from '../helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from '../tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('Webhooks (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
   }, 60_000);
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -34,7 +43,7 @@ describe('Webhooks (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/webhooks/resend')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send(resendEvent);
 
       expect([200, 201]).toContain(res.status);
@@ -55,7 +64,7 @@ describe('Webhooks (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/webhooks/resend')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send(resendEvent);
 
       expect([200, 201]).toContain(res.status);
@@ -76,7 +85,7 @@ describe('Webhooks (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/webhooks/twilio')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .type('form')
         .send(twilioEvent);
 
@@ -95,7 +104,7 @@ describe('Webhooks (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/webhooks/twilio')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .type('form')
         .send(twilioEvent);
 

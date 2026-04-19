@@ -1,33 +1,33 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
-import {
-  createTestApp,
-  closeTestApp,
-  getAuthToken,
-  authPost,
-  authDelete,
-  AL_NOOR_ADMIN_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
-  AL_NOOR_DOMAIN,
-} from '../helpers';
+import { createTestApp, closeTestApp, getAuthToken, authPost, authDelete } from '../helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from '../tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('Website Pages (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let adminToken: string;
   let teacherToken: string;
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
     [adminToken, teacherToken] = await Promise.all([
-      getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN),
-      getAuthToken(app, AL_NOOR_TEACHER_EMAIL, AL_NOOR_DOMAIN),
+      getAuthToken(app, fixture.adminEmail!, fixture.domainName),
+      getAuthToken(app, fixture.teacherEmail!, fixture.domainName),
     ]);
   }, 60_000);
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -42,7 +42,7 @@ describe('Website Pages (e2e)', () => {
       body_html: '<p>Hello world</p>',
       ...overrides,
     };
-    return authPost(app, '/api/v1/website/pages', adminToken, body, AL_NOOR_DOMAIN);
+    return authPost(app, '/api/v1/website/pages', adminToken, body, fixture.domainName);
   }
 
   // ─── POST /api/v1/website/pages ───────────────────────────────────────────────
@@ -60,7 +60,7 @@ describe('Website Pages (e2e)', () => {
     it('auth failure → 401', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/website/pages')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send({
           page_type: 'custom',
           slug: 'no-auth',
@@ -81,7 +81,7 @@ describe('Website Pages (e2e)', () => {
           title: 'Teacher Page',
           body_html: '<p>Nope</p>',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -113,7 +113,7 @@ describe('Website Pages (e2e)', () => {
         `/api/v1/website/pages/${id}/publish`,
         adminToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.status).toBe('published');
@@ -125,7 +125,7 @@ describe('Website Pages (e2e)', () => {
 
       await request(app.getHttpServer())
         .post(`/api/v1/website/pages/${id}/publish`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
@@ -136,7 +136,7 @@ describe('Website Pages (e2e)', () => {
         `/api/v1/website/pages/${fakeId}/publish`,
         adminToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
   });
@@ -150,7 +150,12 @@ describe('Website Pages (e2e)', () => {
       }).expect(201);
       const id = createRes.body.data.id;
 
-      const res = await authDelete(app, `/api/v1/website/pages/${id}`, adminToken, AL_NOOR_DOMAIN);
+      const res = await authDelete(
+        app,
+        `/api/v1/website/pages/${id}`,
+        adminToken,
+        fixture.domainName,
+      );
 
       expect([200, 204]).toContain(res.status);
     });
@@ -167,11 +172,13 @@ describe('Website Pages (e2e)', () => {
         `/api/v1/website/pages/${id}/publish`,
         adminToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Try to delete
-      await authDelete(app, `/api/v1/website/pages/${id}`, adminToken, AL_NOOR_DOMAIN).expect(400);
+      await authDelete(app, `/api/v1/website/pages/${id}`, adminToken, fixture.domainName).expect(
+        400,
+      );
     });
 
     it('auth failure → 401', async () => {
@@ -180,15 +187,18 @@ describe('Website Pages (e2e)', () => {
 
       await request(app.getHttpServer())
         .delete(`/api/v1/website/pages/${id}`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
     it('not found → 404', async () => {
       const fakeId = '00000000-0000-0000-0000-000000000000';
-      await authDelete(app, `/api/v1/website/pages/${fakeId}`, adminToken, AL_NOOR_DOMAIN).expect(
-        404,
-      );
+      await authDelete(
+        app,
+        `/api/v1/website/pages/${fakeId}`,
+        adminToken,
+        fixture.domainName,
+      ).expect(404);
     });
   });
 });

@@ -66,18 +66,23 @@ function migrateFile(filePath) {
     return { filePath, skipped: 'already migrated' };
   }
 
-  // 1. Strip AL_NOOR_* and CEDAR_* import names from the ./helpers import block.
+  // Detect the helpers import path used by this file (./helpers or ../helpers).
+  const helpersPathMatch = content.match(/from\s*(['"])((?:\.\.?\/)+helpers)\1/);
+  const helpersPath = helpersPathMatch?.[2] ?? './helpers';
+  const fixturePath = helpersPath.replace(/helpers$/, 'tenant-fixture.builder');
+
+  // 1. Strip AL_NOOR_* and CEDAR_* import names from the helpers import block.
   const allImportNames = [...AL_NOOR_IMPORT_NAMES, ...CEDAR_IMPORT_NAMES];
-  content = content.replace(
-    /import\s*\{([^}]+)\}\s*from\s*['"]\.\/helpers['"]/,
-    (_full, body) => {
-      const names = body
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0 && !allImportNames.includes(s));
-      return `import {\n  ${names.join(',\n  ')},\n} from './helpers'`;
-    },
+  const helpersImportRegex = new RegExp(
+    `import\\s*\\{([^}]+)\\}\\s*from\\s*['"]${helpersPath.replace(/\./g, '\\.')}['"]`,
   );
+  content = content.replace(helpersImportRegex, (_full, body) => {
+    const names = body
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && !allImportNames.includes(s));
+    return `import {\n  ${names.join(',\n  ')},\n} from '${helpersPath}'`;
+  });
 
   // 2. Add PrismaClient import. Insert after the @nestjs/common import or at top.
   if (!content.includes("import { PrismaClient } from '@prisma/client'")) {
@@ -92,11 +97,14 @@ function migrateFile(filePath) {
     }
   }
 
-  // 3. Add fixture builder import after the ./helpers import.
-  if (!content.includes("from './tenant-fixture.builder'")) {
+  // 3. Add fixture builder import after the helpers import.
+  if (!content.includes(`from '${fixturePath}'`)) {
+    const helpersImportLineRegex = new RegExp(
+      `(import\\s*\\{[^}]*\\}\\s*from\\s*['"]${helpersPath.replace(/\./g, '\\.')}['"];?\\n)`,
+    );
     content = content.replace(
-      /(import\s*\{[^}]*\}\s*from\s*['"]\.\/helpers['"];?\n)/,
-      `$1import {\n  createTenantFixture,\n  deleteTenantFixture,\n  TenantFixture,\n} from './tenant-fixture.builder';\n`,
+      helpersImportLineRegex,
+      `$1import {\n  createTenantFixture,\n  deleteTenantFixture,\n  TenantFixture,\n} from '${fixturePath}';\n`,
     );
   }
 

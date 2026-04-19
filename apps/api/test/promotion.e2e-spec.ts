@@ -1,8 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
   closeTestApp,
   createTestApp,
   DEV_PASSWORD,
@@ -11,9 +10,12 @@ import {
   authPost,
   login,
 } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Promotion (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let academicYearId: string;
   let yearGroupId: string;
@@ -27,8 +29,10 @@ describe('Promotion (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
     // Create year groups for promotion
@@ -37,7 +41,7 @@ describe('Promotion (e2e)', () => {
       '/api/v1/year-groups',
       ownerToken,
       { name: `Promo Grade 1 ${uniqueSuffix}`, display_order: 1 },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     yearGroupId = (yg1Res.body.data ?? yg1Res.body).id;
 
@@ -46,7 +50,7 @@ describe('Promotion (e2e)', () => {
       '/api/v1/year-groups',
       ownerToken,
       { name: `Promo Grade 2 ${uniqueSuffix}`, display_order: 2 },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     nextYearGroupId = (yg2Res.body.data ?? yg2Res.body).id;
 
@@ -56,7 +60,7 @@ describe('Promotion (e2e)', () => {
       '/api/v1/year-groups',
       ownerToken,
       { name: `Promo Final Grade ${uniqueSuffix}`, display_order: 10 },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     graduateYearGroupId = (ygGradRes.body.data ?? ygGradRes.body).id;
 
@@ -71,7 +75,7 @@ describe('Promotion (e2e)', () => {
         end_date: `${baseYear + 1}-06-30`,
         status: 'planned',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     academicYearId = (yearRes.body.data ?? yearRes.body).id;
 
@@ -81,7 +85,7 @@ describe('Promotion (e2e)', () => {
       `/api/v1/academic-years/${academicYearId}/status`,
       ownerToken,
       { status: 'active' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     // Create a household
@@ -95,7 +99,7 @@ describe('Promotion (e2e)', () => {
           { contact_name: 'Promo Contact', phone: '+1234567890', display_order: 1 },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     const householdId = (householdRes.body.data ?? householdRes.body).id;
 
@@ -114,7 +118,7 @@ describe('Promotion (e2e)', () => {
         national_id: `NID-PR-${uniqueSuffix}-1`,
         nationality: 'Irish',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     studentToPromoteId = (s1Res.body.data ?? s1Res.body).id;
 
@@ -132,12 +136,15 @@ describe('Promotion (e2e)', () => {
         national_id: `NID-PR-${uniqueSuffix}-2`,
         nationality: 'Irish',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     studentToGraduateId = (s2Res.body.data ?? s2Res.body).id;
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -148,7 +155,7 @@ describe('Promotion (e2e)', () => {
       app,
       `/api/v1/promotion/preview?academic_year_id=${academicYearId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -181,7 +188,7 @@ describe('Promotion (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -205,7 +212,7 @@ describe('Promotion (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
