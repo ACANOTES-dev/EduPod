@@ -1,11 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_PARENT_EMAIL,
-  CEDAR_DOMAIN,
-  CEDAR_OWNER_EMAIL,
   closeTestApp,
   createTestApp,
   DEV_PASSWORD,
@@ -16,12 +12,14 @@ import {
   authPut,
   login,
 } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Households (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let parentToken: string;
-  let _cedarOwnerToken: string;
 
   // IDs populated during tests
   let householdId: string;
@@ -34,18 +32,19 @@ describe('Households (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma, { users: ['owner', 'parent'] });
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const parentLogin = await login(app, AL_NOOR_PARENT_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const parentLogin = await login(app, fixture.parentEmail!, DEV_PASSWORD, fixture.domainName);
     parentToken = parentLogin.accessToken;
-
-    const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
-    _cedarOwnerToken = cedarLogin.accessToken;
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
     await closeTestApp();
   });
 
@@ -68,7 +67,7 @@ describe('Households (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -100,7 +99,7 @@ describe('Households (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(403);
   });
 
@@ -120,14 +119,16 @@ describe('Households (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
   });
 
   // ─── 4. GET /households — list households ────────────────────────────────
 
   it('should list households (200)', async () => {
-    const res = await authGet(app, '/api/v1/households', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const res = await authGet(app, '/api/v1/households', ownerToken, fixture.domainName).expect(
+      200,
+    );
 
     const body = res.body;
     expect(body).toBeDefined();
@@ -147,7 +148,7 @@ describe('Households (e2e)', () => {
       app,
       `/api/v1/households/${householdId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;
@@ -161,7 +162,7 @@ describe('Households (e2e)', () => {
 
   it('should return 404 for non-existent household', async () => {
     const fakeId = '00000000-0000-4000-a000-000000000000';
-    await authGet(app, `/api/v1/households/${fakeId}`, ownerToken, AL_NOOR_DOMAIN).expect(404);
+    await authGet(app, `/api/v1/households/${fakeId}`, ownerToken, fixture.domainName).expect(404);
   });
 
   // ─── 7. PATCH /households/:id — update name ──────────────────────────────
@@ -175,7 +176,7 @@ describe('Households (e2e)', () => {
       `/api/v1/households/${householdId}`,
       ownerToken,
       { household_name: newName },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;
@@ -193,11 +194,11 @@ describe('Households (e2e)', () => {
       {
         first_name: 'Test',
         last_name: `Parent ${Date.now()}`,
-        email: `test-parent-${Date.now()}@alnoor.test`,
+        email: `test-parent-${Date.now()}@${fixture.domainName}`,
         phone: '+971501111111',
         preferred_contact_channels: ['email'],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -217,7 +218,7 @@ describe('Households (e2e)', () => {
       `/api/v1/households/${householdId}/parents`,
       ownerToken,
       { parent_id: parentId },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -237,7 +238,7 @@ describe('Households (e2e)', () => {
       `/api/v1/households/${householdId}/billing-parent`,
       ownerToken,
       { parent_id: parentId },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;
@@ -256,7 +257,7 @@ describe('Households (e2e)', () => {
       `/api/v1/households/${householdId}/billing-parent`,
       ownerToken,
       { parent_id: fakeParentId },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
   });
 
@@ -275,7 +276,7 @@ describe('Households (e2e)', () => {
         relationship_label: 'Aunt',
         display_order: 2,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -300,7 +301,7 @@ describe('Households (e2e)', () => {
         relationship_label: 'Grandmother',
         display_order: 3,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     emergencyContactIds.push(res3.body.data.id);
@@ -315,7 +316,7 @@ describe('Households (e2e)', () => {
         phone: '+971504444444',
         display_order: 1,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
   });
 
@@ -332,7 +333,7 @@ describe('Households (e2e)', () => {
       app,
       `/api/v1/households/${householdId}/emergency-contacts/${contactToRemove}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(204);
 
     emergencyContactIds.pop();
@@ -356,7 +357,7 @@ describe('Households (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const singleHouseholdId = res.body.data.id;
@@ -366,7 +367,7 @@ describe('Households (e2e)', () => {
       app,
       `/api/v1/households/${singleHouseholdId}/emergency-contacts/${soleContactId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
   });
 
@@ -383,9 +384,9 @@ describe('Households (e2e)', () => {
         last_name: `Parent ${Date.now()}`,
         phone: '+971505555555',
         preferred_contact_channels: ['email'],
-        email: `unlink-parent-${Date.now()}@alnoor.test`,
+        email: `unlink-parent-${Date.now()}@${fixture.domainName}`,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const unlinkParentId = parentRes.body.data.id;
@@ -396,7 +397,7 @@ describe('Households (e2e)', () => {
       `/api/v1/households/${householdId}/parents`,
       ownerToken,
       { parent_id: unlinkParentId },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     // Unlink the parent
@@ -404,7 +405,7 @@ describe('Households (e2e)', () => {
       app,
       `/api/v1/households/${householdId}/parents/${unlinkParentId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(204);
   });
 
@@ -426,7 +427,7 @@ describe('Households (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const sourceId = res1.body.data.id;
@@ -445,7 +446,7 @@ describe('Households (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const targetId = res2.body.data.id;
@@ -458,7 +459,7 @@ describe('Households (e2e)', () => {
         source_household_id: sourceId,
         target_household_id: targetId,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = mergeRes.body.data;
@@ -470,7 +471,7 @@ describe('Households (e2e)', () => {
       app,
       `/api/v1/households/${sourceId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(sourceRes.body.data.status).toBe('archived');
@@ -494,7 +495,7 @@ describe('Households (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const splitSourceId = hhRes.body.data.id;
@@ -514,7 +515,7 @@ describe('Households (e2e)', () => {
         nationality: 'Irish',
         status: 'active',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const splitStudentId = studentRes.body.data.id;
@@ -537,7 +538,7 @@ describe('Households (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = splitRes.body.data;
@@ -559,7 +560,7 @@ describe('Households (e2e)', () => {
       app,
       `/api/v1/households/${householdId}/preview`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;

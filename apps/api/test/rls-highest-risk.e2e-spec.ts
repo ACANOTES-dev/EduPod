@@ -34,9 +34,17 @@ describe('Highest-Risk Tables RLS Leakage Preventer', () => {
       datasources: { db: { url: process.env.DATABASE_URL } },
     });
 
-    // Create totally isolated tenant environments using our new fixture builder
-    tenantA = await createTenantFixture(prisma, { slug: `rls-a-${Date.now()}` });
-    tenantB = await createTenantFixture(prisma, { slug: `rls-b-${Date.now()}` });
+    // Create totally isolated tenant environments using our new fixture builder.
+    // These tests do direct-DB RLS checks, never HTTP auth — skip the heavy
+    // user/role/module provisioning for a ~20× faster setup.
+    tenantA = await createTenantFixture(prisma, {
+      slug: `rls-a-${Date.now()}`,
+      authReady: false,
+    });
+    tenantB = await createTenantFixture(prisma, {
+      slug: `rls-b-${Date.now()}`,
+      authReady: false,
+    });
 
     // Seed Tenant A with high-risk sensitive data
     await prisma.$executeRawUnsafe(`

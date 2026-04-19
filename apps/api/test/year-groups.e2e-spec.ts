@@ -1,8 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
   closeTestApp,
   createTestApp,
   DEV_PASSWORD,
@@ -11,9 +10,12 @@ import {
   authPost,
   login,
 } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Year Groups (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let createdYearGroupId: string;
   let inUseYearGroupId: string;
@@ -22,8 +24,10 @@ describe('Year Groups (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma, { users: ['owner'] });
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
     // Create a year group that will be "in use" by a student
@@ -32,7 +36,7 @@ describe('Year Groups (e2e)', () => {
       '/api/v1/year-groups',
       ownerToken,
       { name: `In Use YG ${uniqueSuffix}`, display_order: 99 },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const ygBody = ygRes.body.data ?? ygRes.body;
@@ -49,7 +53,7 @@ describe('Year Groups (e2e)', () => {
           { contact_name: 'Test Contact', phone: '+1234567890', display_order: 1 },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const householdBody = householdRes.body.data ?? householdRes.body;
@@ -70,11 +74,13 @@ describe('Year Groups (e2e)', () => {
         national_id: `NID-YG-${uniqueSuffix}`,
         nationality: 'Irish',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
     await closeTestApp();
   });
 
@@ -84,7 +90,7 @@ describe('Year Groups (e2e)', () => {
       '/api/v1/year-groups',
       ownerToken,
       { name: `Grade Test ${uniqueSuffix}`, display_order: 50 },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const body = res.body.data ?? res.body;
@@ -95,7 +101,9 @@ describe('Year Groups (e2e)', () => {
   });
 
   it('GET /year-groups — should list ordered → 200', async () => {
-    const res = await authGet(app, '/api/v1/year-groups', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const res = await authGet(app, '/api/v1/year-groups', ownerToken, fixture.domainName).expect(
+      200,
+    );
 
     const body = res.body.data ?? res.body;
     expect(Array.isArray(body)).toBe(true);
@@ -114,7 +122,7 @@ describe('Year Groups (e2e)', () => {
       app,
       `/api/v1/year-groups/${createdYearGroupId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(204);
   });
 
@@ -125,7 +133,7 @@ describe('Year Groups (e2e)', () => {
       app,
       `/api/v1/year-groups/${inUseYearGroupId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
   });
 });

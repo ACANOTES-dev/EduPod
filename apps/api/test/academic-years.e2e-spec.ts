@@ -1,8 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
   closeTestApp,
   createTestApp,
   DEV_PASSWORD,
@@ -11,9 +10,12 @@ import {
   authPost,
   login,
 } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Academic Years (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let createdYearId: string;
   let closedYearId: string;
@@ -23,8 +25,10 @@ describe('Academic Years (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma, { users: ['owner'] });
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
     // Create a year that we will transition to closed for the invalid transition test
@@ -38,7 +42,7 @@ describe('Academic Years (e2e)', () => {
         end_date: `${baseYear + 1}-06-30`,
         status: 'planned',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const closedBody = closedRes.body.data ?? closedRes.body;
@@ -50,7 +54,7 @@ describe('Academic Years (e2e)', () => {
       `/api/v1/academic-years/${closedYearId}/status`,
       ownerToken,
       { status: 'active' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     await authPatch(
@@ -58,11 +62,13 @@ describe('Academic Years (e2e)', () => {
       `/api/v1/academic-years/${closedYearId}/status`,
       ownerToken,
       { status: 'closed' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
     await closeTestApp();
   });
 
@@ -77,7 +83,7 @@ describe('Academic Years (e2e)', () => {
         end_date: `${baseYear + 3}-06-30`,
         status: 'planned',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const body = res.body.data ?? res.body;
@@ -99,17 +105,14 @@ describe('Academic Years (e2e)', () => {
         end_date: `${baseYear + 3}-06-30`,
         status: 'planned',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(409);
   });
 
   it('GET /academic-years — should list → 200', async () => {
-    const res = await authGet(
-      app,
-      '/api/v1/academic-years',
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    ).expect(200);
+    const res = await authGet(app, '/api/v1/academic-years', ownerToken, fixture.domainName).expect(
+      200,
+    );
 
     const body = res.body.data ?? res.body;
     expect(Array.isArray(body)).toBe(true);
@@ -123,7 +126,7 @@ describe('Academic Years (e2e)', () => {
       app,
       `/api/v1/academic-years/${createdYearId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -143,7 +146,7 @@ describe('Academic Years (e2e)', () => {
       `/api/v1/academic-years/${createdYearId}/status`,
       ownerToken,
       { status: 'active' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -158,7 +161,7 @@ describe('Academic Years (e2e)', () => {
       `/api/v1/academic-years/${closedYearId}/status`,
       ownerToken,
       { status: 'active' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
   });
 });

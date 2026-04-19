@@ -1,19 +1,13 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_PARENT_EMAIL,
-  authGet,
-  authPatch,
-  authPost,
-  closeTestApp,
-  createTestApp,
-  getAuthToken,
-} from './helpers';
+import { authGet, authPatch, authPost, closeTestApp, createTestApp, getAuthToken } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Students (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let parentToken: string;
   let householdId: string;
@@ -21,9 +15,11 @@ describe('Students (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma, { users: ['owner', 'parent'] });
 
-    ownerToken = await getAuthToken(app, AL_NOOR_OWNER_EMAIL, AL_NOOR_DOMAIN);
-    parentToken = await getAuthToken(app, AL_NOOR_PARENT_EMAIL, AL_NOOR_DOMAIN);
+    ownerToken = await getAuthToken(app, fixture.ownerEmail, fixture.domainName);
+    parentToken = await getAuthToken(app, fixture.parentEmail!, fixture.domainName);
 
     // Create a household to use for student creation
     const householdRes = await authPost(
@@ -34,12 +30,14 @@ describe('Students (e2e)', () => {
         household_name: `Test Household ${Date.now()}`,
         emergency_contacts: [{ contact_name: 'Contact', phone: '+1234567', display_order: 1 }],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     householdId = householdRes.body.data.id;
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
     await closeTestApp();
   });
 
@@ -59,7 +57,7 @@ describe('Students (e2e)', () => {
         national_id: `NID-${Date.now()}-create`,
         nationality: 'Irish',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     expect(res.body.data).toBeDefined();
@@ -87,7 +85,7 @@ describe('Students (e2e)', () => {
         national_id: `NID-${Date.now()}-blocked`,
         nationality: 'Irish',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(403);
   });
 
@@ -106,7 +104,7 @@ describe('Students (e2e)', () => {
         national_id: `NID-${Date.now()}-allergy`,
         nationality: 'Irish',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
 
     const body = res.body.error ?? res.body;
@@ -121,7 +119,7 @@ describe('Students (e2e)', () => {
       app,
       '/api/v1/students?status=applicant',
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(res.body.data).toBeDefined();
@@ -145,7 +143,7 @@ describe('Students (e2e)', () => {
       app,
       `/api/v1/students/${studentId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(res.body.data).toBeDefined();
@@ -167,7 +165,7 @@ describe('Students (e2e)', () => {
         first_name: 'Updated',
         medical_notes: 'No issues',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(res.body.data).toBeDefined();
@@ -185,7 +183,7 @@ describe('Students (e2e)', () => {
       `/api/v1/students/${studentId}/status`,
       ownerToken,
       { status: 'active' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(res.body.data).toBeDefined();
@@ -200,7 +198,7 @@ describe('Students (e2e)', () => {
       `/api/v1/students/${studentId}/status`,
       ownerToken,
       { status: 'withdrawn', reason: 'Family relocating' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(res.body.data).toBeDefined();
@@ -222,7 +220,7 @@ describe('Students (e2e)', () => {
         national_id: `NID-${Date.now()}-transition`,
         nationality: 'Irish',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     const freshId = createRes.body.data.id;
 
@@ -231,7 +229,7 @@ describe('Students (e2e)', () => {
       `/api/v1/students/${freshId}/status`,
       ownerToken,
       { status: 'graduated' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
   });
 
@@ -250,7 +248,7 @@ describe('Students (e2e)', () => {
         national_id: `NID-${Date.now()}-noreason`,
         nationality: 'Irish',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     const freshId = createRes.body.data.id;
 
@@ -260,7 +258,7 @@ describe('Students (e2e)', () => {
       `/api/v1/students/${freshId}/status`,
       ownerToken,
       { status: 'active' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     // Attempt withdrawal without reason — should fail
@@ -269,7 +267,7 @@ describe('Students (e2e)', () => {
       `/api/v1/students/${freshId}/status`,
       ownerToken,
       { status: 'withdrawn' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
   });
 
@@ -282,7 +280,7 @@ describe('Students (e2e)', () => {
       app,
       `/api/v1/students/${studentId}/preview`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(res.body.data).toBeDefined();
@@ -295,7 +293,7 @@ describe('Students (e2e)', () => {
       app,
       `/api/v1/students/${studentId}/export-pack`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(res.body.data).toBeDefined();
@@ -308,7 +306,7 @@ describe('Students (e2e)', () => {
       app,
       '/api/v1/students/allergy-report',
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(res.body.data).toBeDefined();

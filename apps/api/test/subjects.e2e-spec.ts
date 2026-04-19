@@ -1,8 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
   closeTestApp,
   createTestApp,
   DEV_PASSWORD,
@@ -12,9 +11,12 @@ import {
   authPost,
   login,
 } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Subjects (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let ownerToken: string;
   let createdSubjectId: string;
   let inUseSubjectId: string;
@@ -24,8 +26,10 @@ describe('Subjects (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma, { users: ['owner'] });
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
     // Create a subject that will be "in use" by a class
@@ -34,7 +38,7 @@ describe('Subjects (e2e)', () => {
       '/api/v1/subjects',
       ownerToken,
       { name: `In Use Subject ${uniqueSuffix}` },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const subjectBody = subjectRes.body.data ?? subjectRes.body;
@@ -51,7 +55,7 @@ describe('Subjects (e2e)', () => {
         end_date: `${baseYear + 1}-06-30`,
         status: 'planned',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const yearBody = yearRes.body.data ?? yearRes.body;
@@ -62,7 +66,7 @@ describe('Subjects (e2e)', () => {
       '/api/v1/year-groups',
       ownerToken,
       { name: `Subject YG ${uniqueSuffix}` },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const ygBody = ygRes.body.data ?? ygRes.body;
@@ -80,7 +84,7 @@ describe('Subjects (e2e)', () => {
         class_type: 'floating',
         status: 'active',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const classBody = classRes.body.data ?? classRes.body;
@@ -91,11 +95,13 @@ describe('Subjects (e2e)', () => {
       `/api/v1/classes/${classBody.id}`,
       ownerToken,
       { subject_id: inUseSubjectId },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
     await closeTestApp();
   });
 
@@ -105,7 +111,7 @@ describe('Subjects (e2e)', () => {
       '/api/v1/subjects',
       ownerToken,
       { name: `Test Subject ${uniqueSuffix}` },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const body = res.body.data ?? res.body;
@@ -119,7 +125,7 @@ describe('Subjects (e2e)', () => {
       app,
       '/api/v1/subjects?subject_type=academic',
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -134,15 +140,18 @@ describe('Subjects (e2e)', () => {
       app,
       `/api/v1/subjects/${createdSubjectId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(204);
   });
 
   it('DELETE /subjects/:id — should block when in use → 400', async () => {
     expect(inUseSubjectId).toBeDefined();
 
-    await authDelete(app, `/api/v1/subjects/${inUseSubjectId}`, ownerToken, AL_NOOR_DOMAIN).expect(
-      400,
-    );
+    await authDelete(
+      app,
+      `/api/v1/subjects/${inUseSubjectId}`,
+      ownerToken,
+      fixture.domainName,
+    ).expect(400);
   });
 });
