@@ -1,6 +1,7 @@
 'use client';
 
 import { Copy, FileText, Filter } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -14,12 +15,10 @@ import {
   SelectValue,
 } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { HomeworkCard } from '../_components/homework-card';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,6 +48,9 @@ interface TemplateHomework {
 
 export default function HomeworkTemplatesPage() {
   const t = useTranslations('homework');
+  const router = useRouter();
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const [loading, setLoading] = React.useState(true);
   const [classes, setClasses] = React.useState<ClassOption[]>([]);
   const [subjects, setSubjects] = React.useState<SubjectOption[]>([]);
@@ -131,8 +133,7 @@ export default function HomeworkTemplatesPage() {
       });
       setShowCopyDialog(false);
       setSelectedTemplate(null);
-      // Show success toast or redirect
-      window.location.href = window.location.pathname.replace('/templates', '');
+      router.push(`/${locale}/homework`);
     } catch (err) {
       console.error('[Templates] Failed to copy:', err);
     } finally {

@@ -1,8 +1,8 @@
 'use client';
 
-import { BookOpen, LayoutGrid, Plus } from 'lucide-react';
+import { BookOpen, LayoutGrid, Plus, Repeat } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -31,6 +31,7 @@ interface HomeworkItem {
 export default function HomeworkDashboardPage() {
   const t = useTranslations('homework');
   const pathname = usePathname();
+  const router = useRouter();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [todayItems, setTodayItems] = React.useState<HomeworkItem[]>([]);
@@ -72,6 +73,12 @@ export default function HomeworkDashboardPage() {
                 {t('myClasses.title')}
               </span>
             </Link>
+            <Link href={`/${locale}/homework/new-recurring`}>
+              <span className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-primary px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-secondary transition-colors">
+                <Repeat className="h-4 w-4" />
+                {t('recurring.title')}
+              </span>
+            </Link>
             <Link href={`/${locale}/homework/new`}>
               <span className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors">
                 <Plus className="h-4 w-4" />
@@ -108,9 +115,7 @@ export default function HomeworkDashboardPage() {
                 homework_type={item.homework_type}
                 due_date={item.due_date}
                 status={item.status}
-                onClick={() => {
-                  window.location.href = `/${locale}/homework/${item.id}`;
-                }}
+                onClick={() => router.push(`/${locale}/homework/${item.id}`)}
               />
             ))}
           </div>
@@ -137,9 +142,7 @@ export default function HomeworkDashboardPage() {
                 homework_type={item.homework_type}
                 due_date={item.due_date}
                 status={item.status}
-                onClick={() => {
-                  window.location.href = `/${locale}/homework/${item.id}`;
-                }}
+                onClick={() => router.push(`/${locale}/homework/${item.id}`)}
               />
             ))}
           </div>

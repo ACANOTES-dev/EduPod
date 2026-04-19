@@ -40,6 +40,8 @@ interface HomeworkQuickFormProps {
   isSubmitting: boolean;
   defaultClassId?: string | null;
   defaultSubjectId?: string | null;
+  initialValues?: Partial<CreateHomeworkDto>;
+  submitLabel?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -61,20 +63,33 @@ export function HomeworkQuickForm({
   isSubmitting,
   defaultClassId,
   defaultSubjectId,
+  initialValues,
+  submitLabel,
 }: HomeworkQuickFormProps) {
   const t = useTranslations('homework');
-  const [showMore, setShowMore] = React.useState(Boolean(defaultSubjectId));
+  const hasAdvancedDefaults = Boolean(
+    defaultSubjectId ||
+    initialValues?.subject_id ||
+    initialValues?.description ||
+    initialValues?.max_points ||
+    initialValues?.due_time ||
+    initialValues?.academic_period_id,
+  );
+  const [showMore, setShowMore] = React.useState(hasAdvancedDefaults);
 
   const form = useForm<CreateHomeworkDto>({
     resolver: zodResolver(createHomeworkSchema),
     defaultValues: {
-      title: '',
-      class_id: defaultClassId ?? '',
-      subject_id: defaultSubjectId ?? undefined,
-      homework_type: 'written',
-      due_date: tomorrow(),
-      due_time: '09:00',
-      academic_year_id: academicYears[0]?.id ?? '',
+      title: initialValues?.title ?? '',
+      class_id: initialValues?.class_id ?? defaultClassId ?? '',
+      subject_id: initialValues?.subject_id ?? defaultSubjectId ?? undefined,
+      homework_type: initialValues?.homework_type ?? 'written',
+      due_date: initialValues?.due_date ?? tomorrow(),
+      due_time: initialValues?.due_time ?? '09:00',
+      academic_year_id: initialValues?.academic_year_id ?? academicYears[0]?.id ?? '',
+      academic_period_id: initialValues?.academic_period_id,
+      description: initialValues?.description,
+      max_points: initialValues?.max_points,
     },
   });
 
@@ -261,7 +276,7 @@ export function HomeworkQuickForm({
       <p className="text-xs text-text-tertiary">{t('publishImmediately')}</p>
 
       <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
-        {isSubmitting ? t('loading') : t('setHomework')}
+        {isSubmitting ? t('loading') : (submitLabel ?? t('setHomework'))}
       </Button>
     </form>
   );

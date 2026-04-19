@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -93,7 +94,17 @@ export default function NewHomeworkPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('newHomework')} />
+      <PageHeader
+        title={t('newHomework')}
+        actions={
+          <Link
+            href={`/${locale}/homework/new-recurring`}
+            className="text-sm font-medium text-primary-600 hover:text-primary-700"
+          >
+            {t('recurring.title')} →
+          </Link>
+        }
+      />
       <div className="rounded-2xl bg-surface-secondary p-4 sm:p-6">
         <HomeworkQuickForm
           classes={classes}
