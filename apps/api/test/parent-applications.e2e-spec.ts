@@ -7,20 +7,12 @@ import {
   createPublicApplication,
   ensureAdmissionsTargets,
 } from './admissions-test-helpers';
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_PARENT_EMAIL,
-  closeTestApp,
-  createTestApp,
-  DEV_PASSWORD,
-  authGet,
-  authPost,
-  login,
-} from './helpers';
+import { closeTestApp, createTestApp, DEV_PASSWORD, authGet, authPost, login } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Parent Applications (e2e)', () => {
   let app: INestApplication;
+  let fixture: TenantFixture;
   let prisma: PrismaClient;
   let ownerToken: string;
   let parentToken: string;
@@ -30,19 +22,21 @@ describe('Parent Applications (e2e)', () => {
   beforeAll(async () => {
     app = await createTestApp();
     prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
     await prisma.$connect();
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const parentLogin = await login(app, AL_NOOR_PARENT_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const parentLogin = await login(app, fixture.parentEmail!, DEV_PASSWORD, fixture.domainName);
     parentToken = parentLogin.accessToken;
     parentUserId = (parentLogin.user as { id: string }).id;
 
-    const targets = await ensureAdmissionsTargets(app, ownerToken, AL_NOOR_DOMAIN);
+    const targets = await ensureAdmissionsTargets(app, ownerToken, fixture.domainName);
     const created = await createPublicApplication(
       app,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
       buildPublicApplicationSeed(targets),
     );
     applicationId = created.body.id as string;
@@ -54,17 +48,17 @@ describe('Parent Applications (e2e)', () => {
       {
         first_name: 'Test',
         last_name: 'Parent',
-        email: AL_NOOR_PARENT_EMAIL,
+        email: fixture.parentEmail!,
         phone: '+353871111111',
         preferred_contact_channels: ['email'],
         user_id: parentUserId,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
 
     const parent = await prisma.parent.findFirstOrThrow({
       where: {
-        tenant: { slug: 'al-noor' },
+        tenant_id: fixture.tenantId,
         user_id: parentUserId,
       },
       select: { id: true },
@@ -80,12 +74,15 @@ describe('Parent Applications (e2e)', () => {
       `/api/v1/applications/${applicationId}/notes`,
       ownerToken,
       { note: 'Internal-only admissions note', is_internal: true },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
   }, 60_000);
 
   afterAll(async () => {
     await prisma.$disconnect();
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -94,7 +91,7 @@ describe('Parent Applications (e2e)', () => {
       app,
       '/api/v1/parent/applications',
       parentToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data ?? res.body;
@@ -107,7 +104,7 @@ describe('Parent Applications (e2e)', () => {
       app,
       `/api/v1/parent/applications/${applicationId}`,
       parentToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -126,7 +123,7 @@ describe('Parent Applications (e2e)', () => {
       `/api/v1/parent/applications/${applicationId}/withdraw`,
       parentToken,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const body = res.body.data ?? res.body;
@@ -136,7 +133,7 @@ describe('Parent Applications (e2e)', () => {
   it('returns 401 when listing applications without auth', async () => {
     await request(app.getHttpServer())
       .get('/api/v1/parent/applications')
-      .set('Host', AL_NOOR_DOMAIN)
+      .set('Host', fixture.domainName)
       .expect(401);
   });
 });

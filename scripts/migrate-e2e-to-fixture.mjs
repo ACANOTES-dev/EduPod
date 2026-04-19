@@ -108,15 +108,25 @@ function migrateFile(filePath) {
     );
   }
 
-  // 4. Inject let declarations after `let app: INestApplication;`.
-  const letInject = isDual
-    ? `  let prisma: PrismaClient;\n  let fixture: TenantFixture;\n  let cedarFixture: TenantFixture;\n`
-    : `  let prisma: PrismaClient;\n  let fixture: TenantFixture;\n`;
-
-  content = content.replace(
-    /(\s{2}let app:\s*INestApplication;\n)/,
-    `$1${letInject}`,
-  );
+  // 4. Inject let declarations after `let app: INestApplication;`, but only
+  //    for declarations that don't already exist (files written with a manual
+  //    prisma declaration should not get a duplicate).
+  const letLines = [];
+  if (!/\s{2}let prisma:\s*PrismaClient;/.test(content)) {
+    letLines.push('  let prisma: PrismaClient;');
+  }
+  if (!/\s{2}let fixture:\s*TenantFixture;/.test(content)) {
+    letLines.push('  let fixture: TenantFixture;');
+  }
+  if (isDual && !/\s{2}let cedarFixture:\s*TenantFixture;/.test(content)) {
+    letLines.push('  let cedarFixture: TenantFixture;');
+  }
+  if (letLines.length > 0) {
+    content = content.replace(
+      /(\s{2}let app:\s*INestApplication;\n)/,
+      `$1${letLines.join('\n')}\n`,
+    );
+  }
 
   // 5. Inject fixture creation after `app = await createTestApp();`.
   const createInject = isDual
