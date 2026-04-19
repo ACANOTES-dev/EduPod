@@ -66,7 +66,7 @@ const recurringFormSchema = z
     path: ['end_date'],
     message: 'end_date must be on or after start_date',
   })
-  .refine((v) => v.frequency !== 'custom' || v.days_of_week.length > 0, {
+  .refine((v) => v.frequency === 'daily' || v.days_of_week.length > 0, {
     path: ['days_of_week'],
     message: 'days_required',
   });
@@ -152,12 +152,12 @@ export default function NewRecurringHomeworkPage() {
   const handleSubmit = form.handleSubmit(async (values) => {
     setIsSubmitting(true);
     try {
-      const rule = await apiClient<{ id: string }>('/api/v1/homework/recurrence-rules', {
+      const rule = await apiClient<{ data: { id: string } }>('/api/v1/homework/recurrence-rules', {
         method: 'POST',
         body: JSON.stringify({
           frequency: values.frequency,
           interval: values.interval,
-          days_of_week: values.frequency === 'custom' ? values.days_of_week : [],
+          days_of_week: values.frequency === 'daily' ? [] : values.days_of_week,
           start_date: values.start_date,
           end_date: values.end_date,
         }),
@@ -168,7 +168,7 @@ export default function NewRecurringHomeworkPage() {
         {
           method: 'POST',
           body: JSON.stringify({
-            recurrence_rule_id: rule.id,
+            recurrence_rule_id: rule.data.id,
             class_id: values.class_id,
             subject_id: values.subject_id || undefined,
             academic_year_id: values.academic_year_id,
@@ -449,7 +449,7 @@ export default function NewRecurringHomeworkPage() {
             </div>
           </div>
 
-          {frequency === 'custom' && (
+          {frequency !== 'daily' && (
             <div className="space-y-2">
               <Label>{tRec('daysOfWeek')} *</Label>
               <div className="flex flex-wrap gap-2">
