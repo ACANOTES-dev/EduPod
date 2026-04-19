@@ -709,7 +709,13 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 20m
-          envs: DEPLOY_SHA
+          # TURBO_* passed through so ``pnpm build`` on the server hits the
+          # same remote cache (turbo.edupod.app) that the CI build warmed
+          # a few minutes earlier for the same SHA — turns the 2 min server
+          # build into a ~10 s cache pull.
+          envs: DEPLOY_SHA,TURBO_API,TURBO_TEAM,TURBO_TOKEN
           script: |
             cd /opt/edupod/app
-            DEPLOY_SHA="$DEPLOY_SHA" SENTRY_ENVIRONMENT="$SENTRY_ENVIRONMENT" bash scripts/deploy-production.sh
+            DEPLOY_SHA="$DEPLOY_SHA" SENTRY_ENVIRONMENT="$SENTRY_ENVIRONMENT" \
+              TURBO_API="$TURBO_API" TURBO_TEAM="$TURBO_TEAM" TURBO_TOKEN="$TURBO_TOKEN" \
+              bash scripts/deploy-production.sh

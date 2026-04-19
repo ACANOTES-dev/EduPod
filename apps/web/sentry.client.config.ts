@@ -47,9 +47,23 @@ function getReplayOnErrorSampleRate(): number {
   return 0;
 }
 
+// Sentry environment is resolved at RUNTIME from a server-rendered meta
+// tag in ``[locale]/layout.tsx`` rather than ``process.env`` — Next.js
+// inlines ``process.env.*`` references in client bundles at build time,
+// which would bake CI's ``SENTRY_ENVIRONMENT=ci`` into the shipped
+// production artifact and break error-environment tagging. Reading from
+// the DOM keeps the bundle byte-identical across CI/prod builds (enabling
+// Turbo-cache reuse) while still tagging browser errors with the right
+// environment at page-load time.
+function readSentryEnvironment(): string | undefined {
+  if (typeof document === 'undefined') return undefined;
+  const meta = document.querySelector('meta[name="sentry-environment"]');
+  return meta?.getAttribute('content') || undefined;
+}
+
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV,
+  environment: readSentryEnvironment() || process.env.NODE_ENV,
   release: process.env.SENTRY_RELEASE,
   sendDefaultPii: false,
   tracesSampleRate: 0.1,

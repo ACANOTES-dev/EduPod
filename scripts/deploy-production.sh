@@ -287,7 +287,19 @@ run_build() {
   local release_sha="$1"
 
   log 'Building all packages'
-  NEXT_PUBLIC_API_URL= SENTRY_ENVIRONMENT="$SENTRY_ENVIRONMENT" SENTRY_RELEASE="$release_sha" pnpm build --force
+  # Build env deliberately aligned with the CI `build` job so Turbo's
+  # content hash matches and the remote cache (turbo.edupod.app) hits
+  # instead of rebuilding from scratch. The CI job sets SENTRY_RELEASE =
+  # ${{ github.sha }} which equals $release_sha here for the same commit;
+  # SENTRY_ENVIRONMENT used to be part of the build env but is now read
+  # at runtime from a server-rendered meta tag (see
+  # apps/web/sentry.client.config.ts + [locale]/layout.tsx), so the
+  # client bundle no longer bakes environment in at build time.
+  # --force is removed for the same reason: with env aligned there's a
+  # real cache to hit.
+  # Any NEXT_PUBLIC_* env var listed here would be webpack-inlined into
+  # the client bundle — keep this invocation in strict step with CI.
+  SENTRY_RELEASE="$release_sha" pnpm build
 }
 
 verify_migrations() {
