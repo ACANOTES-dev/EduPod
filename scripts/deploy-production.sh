@@ -179,7 +179,14 @@ create_predeploy_backup() {
 
 install_dependencies() {
   log 'Installing dependencies'
-  CI=true pnpm install --frozen-lockfile --force --config.confirmModulesPurge=false
+  # NODE_ENV=development is required during install so pnpm includes
+  # devDependencies. The build step below needs prisma, turbo, tsx,
+  # typescript and friends even though the runtime .env sets
+  # NODE_ENV=production for PM2. Without this, pnpm skips devDeps and
+  # `prisma generate` either can't find prisma locally (falling back to
+  # whatever stale copy is in the npx/npm cache, which caused a v7-CLI-
+  # vs-v6-schema mismatch on 2026-04-19) or fails outright.
+  CI=true NODE_ENV=development pnpm install --frozen-lockfile --force --config.confirmModulesPurge=false
 
   cleanup_build_outputs
 }
