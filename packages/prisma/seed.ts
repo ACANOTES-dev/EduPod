@@ -564,6 +564,26 @@ async function main() {
         }
       }
 
+      // Staff profile for teacher-role users — attendance/scheduling services
+      // key scope checks off staff_profile.user_id, so a teacher user without a
+      // linked profile can't save attendance records under attendance.take.
+      if (u.role_key === 'teacher') {
+        const existingProfile = await prisma.staffProfile.findFirst({
+          where: { tenant_id: tenantId, user_id: user.id },
+        });
+        if (!existingProfile) {
+          await prisma.staffProfile.create({
+            data: {
+              tenant_id: tenantId,
+              user_id: user.id,
+              employment_status: 'active',
+              employment_type: 'full_time',
+              job_title: 'Teacher',
+            },
+          });
+        }
+      }
+
       console.log(`  User "${u.email}" → ${u.role_key} @ ${u.tenant_slug}`);
     }
 

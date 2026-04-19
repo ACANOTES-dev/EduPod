@@ -185,6 +185,10 @@ export class AttendanceSessionService {
             status: 'open',
             override_reason: isClosure ? dto.override_reason : null,
             default_present: effectiveDefaultPresent,
+            // Record the creator as the session teacher so they can save/submit
+            // records under the attendance.take scope check. Admins with
+            // attendance.take_any_class bypass that check regardless.
+            teacher_staff_id: userStaffProfileId ?? null,
           },
           include: {
             class_entity: {
