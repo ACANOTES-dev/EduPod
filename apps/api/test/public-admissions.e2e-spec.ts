@@ -1,38 +1,42 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
 import { buildPublicApplicationSeed, ensureAdmissionsTargets } from './admissions-test-helpers';
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  CEDAR_DOMAIN,
-  cleanupRedisKeys,
-  closeTestApp,
-  createTestApp,
-  getAuthToken,
-} from './helpers';
+import { cleanupRedisKeys, closeTestApp, createTestApp, getAuthToken } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 describe('Public Admissions (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let ownerToken: string;
   let ipCounter = 1;
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
 
-    ownerToken = await getAuthToken(app, AL_NOOR_OWNER_EMAIL, AL_NOOR_DOMAIN);
-    await ensureAdmissionsTargets(app, ownerToken, AL_NOOR_DOMAIN);
+    ownerToken = await getAuthToken(app, fixture.ownerEmail, fixture.domainName);
+    await ensureAdmissionsTargets(app, ownerToken, fixture.domainName);
   }, 60_000);
 
   afterAll(async () => {
     await cleanupRedisKeys(['ratelimit:admissions:*']);
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
   it('returns the published public form with parent-visible fields only', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/v1/public/admissions/form')
-      .set('Host', AL_NOOR_DOMAIN)
+      .set('Host', fixture.domainName)
       .expect(200);
 
     const body = res.body.data ?? res.body;
@@ -48,7 +52,7 @@ describe('Public Admissions (e2e)', () => {
   it('auto-provisions a public system form for other tenants too', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/v1/public/admissions/form')
-      .set('Host', CEDAR_DOMAIN)
+      .set('Host', cedarFixture.domainName)
       .expect(200);
 
     const body = res.body.data ?? res.body;
@@ -57,13 +61,13 @@ describe('Public Admissions (e2e)', () => {
   });
 
   it('creates an application via the public endpoint', async () => {
-    const targets = await ensureAdmissionsTargets(app, ownerToken, AL_NOOR_DOMAIN);
+    const targets = await ensureAdmissionsTargets(app, ownerToken, fixture.domainName);
     const seed = buildPublicApplicationSeed(targets);
     ipCounter += 1;
 
     const res = await request(app.getHttpServer())
       .post('/api/v1/public/admissions/applications')
-      .set('Host', AL_NOOR_DOMAIN)
+      .set('Host', fixture.domainName)
       .set('X-Forwarded-For', `10.0.0.${ipCounter}`)
       .send(seed)
       .expect(201);
@@ -76,13 +80,13 @@ describe('Public Admissions (e2e)', () => {
   });
 
   it('rejects the 4th submission from the same IP within the rate-limit window', async () => {
-    const targets = await ensureAdmissionsTargets(app, ownerToken, AL_NOOR_DOMAIN);
+    const targets = await ensureAdmissionsTargets(app, ownerToken, fixture.domainName);
     const seed = buildPublicApplicationSeed(targets);
 
     for (let i = 0; i < 3; i++) {
       await request(app.getHttpServer())
         .post('/api/v1/public/admissions/applications')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .set('X-Forwarded-For', '10.99.99.99')
         .send(buildPublicApplicationSeed(targets))
         .expect(201);
@@ -90,7 +94,7 @@ describe('Public Admissions (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .post('/api/v1/public/admissions/applications')
-      .set('Host', AL_NOOR_DOMAIN)
+      .set('Host', fixture.domainName)
       .set('X-Forwarded-For', '10.99.99.99')
       .send(seed)
       .expect(400);
@@ -100,13 +104,13 @@ describe('Public Admissions (e2e)', () => {
   });
 
   it('silently ignores submissions that fill the honeypot field', async () => {
-    const targets = await ensureAdmissionsTargets(app, ownerToken, AL_NOOR_DOMAIN);
+    const targets = await ensureAdmissionsTargets(app, ownerToken, fixture.domainName);
     const seed = buildPublicApplicationSeed(targets);
     ipCounter += 1;
 
     const res = await request(app.getHttpServer())
       .post('/api/v1/public/admissions/applications')
-      .set('Host', AL_NOOR_DOMAIN)
+      .set('Host', fixture.domainName)
       .set('X-Forwarded-For', `10.0.0.${ipCounter}`)
       .send({ ...seed, website_url: 'https://spam.invalid' })
       .expect(201);
@@ -116,13 +120,13 @@ describe('Public Admissions (e2e)', () => {
   });
 
   it('returns 404 when the form_definition_id does not exist', async () => {
-    const targets = await ensureAdmissionsTargets(app, ownerToken, AL_NOOR_DOMAIN);
+    const targets = await ensureAdmissionsTargets(app, ownerToken, fixture.domainName);
     const seed = buildPublicApplicationSeed(targets);
     ipCounter += 1;
 
     const res = await request(app.getHttpServer())
       .post('/api/v1/public/admissions/applications')
-      .set('Host', AL_NOOR_DOMAIN)
+      .set('Host', fixture.domainName)
       .set('X-Forwarded-For', `10.0.0.${ipCounter}`)
       .send({
         ...seed,
@@ -135,13 +139,13 @@ describe('Public Admissions (e2e)', () => {
   });
 
   it('returns 400 when students array is empty', async () => {
-    const targets = await ensureAdmissionsTargets(app, ownerToken, AL_NOOR_DOMAIN);
+    const targets = await ensureAdmissionsTargets(app, ownerToken, fixture.domainName);
     const seed = buildPublicApplicationSeed(targets);
     ipCounter += 1;
 
     const res = await request(app.getHttpServer())
       .post('/api/v1/public/admissions/applications')
-      .set('Host', AL_NOOR_DOMAIN)
+      .set('Host', fixture.domainName)
       .set('X-Forwarded-For', `10.0.0.${ipCounter}`)
       .send({
         ...seed,

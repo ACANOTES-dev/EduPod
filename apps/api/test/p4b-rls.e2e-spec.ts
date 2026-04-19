@@ -28,17 +28,17 @@ import {
   authPost,
   authPatch,
   authDelete,
-  AL_NOOR_ADMIN_EMAIL,
-  AL_NOOR_DOMAIN,
-  CEDAR_ADMIN_EMAIL,
-  CEDAR_DOMAIN,
 } from './helpers';
 import { setupP4ATestData, P4ATestData } from './p4a-test-data.helper';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('P4B RLS Leakage Tests (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let alNoorAdminToken: string;
   let cedarAdminToken: string;
   let td: P4ATestData;
@@ -59,11 +59,18 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
-    alNoorAdminToken = await getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN);
-    cedarAdminToken = await getAuthToken(app, CEDAR_ADMIN_EMAIL, CEDAR_DOMAIN);
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
+    alNoorAdminToken = await getAuthToken(app, fixture.adminEmail!, fixture.domainName);
+    cedarAdminToken = await getAuthToken(app, cedarFixture.adminEmail!, cedarFixture.domainName);
 
     // Set up Al Noor P4A base data (academic year, class, room, teacher, student)
-    td = await setupP4ATestData(app, alNoorAdminToken);
+    td = await setupP4ATestData(app, alNoorAdminToken, {
+      domain: fixture.domainName,
+      teacherEmail: fixture.teacherEmail!,
+      ownerEmail: fixture.ownerEmail,
+    });
 
     // Direct Prisma client for creating P4B entities
     directPrisma = new PrismaClient({
@@ -85,13 +92,13 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         end_date: `${cedarBaseYear + 1}-06-30`,
         status: 'active',
       },
-      CEDAR_DOMAIN,
+      cedarFixture.domainName,
     ).expect(201);
     cedarAcademicYearId = cedarAyRes.body.data.id;
 
     // ── Look up Al Noor tenant_id ──────────────────────────────────────────
     const alNoorDomain = await directPrisma.tenantDomain.findFirst({
-      where: { domain: AL_NOOR_DOMAIN },
+      where: { domain: fixture.domainName },
     });
     const alNoorTenantId = alNoorDomain!.tenant_id;
 
@@ -170,13 +177,13 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         end_time: '09:45',
         effective_start_date: td.dateInYear(9, 1),
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     alNoorScheduleId = (schedRes.body.data?.data ?? schedRes.body.data ?? schedRes.body).id;
 
     // 6. Scheduling run (created via direct DB insert)
     const alNoorUser = await directPrisma.user.findFirst({
-      where: { email: AL_NOOR_ADMIN_EMAIL },
+      where: { email: fixture.adminEmail! },
     });
     const schedulingRun = await directPrisma.schedulingRun.create({
       data: {
@@ -204,6 +211,10 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
       }
       await directPrisma.$disconnect();
     }
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -215,7 +226,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/period-grid?academic_year_id=${cedarAcademicYearId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data ?? [];
@@ -229,7 +240,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/period-grid?academic_year_id=${td.academicYearId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data ?? [];
@@ -242,7 +253,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         `/api/v1/period-grid/${alNoorPeriodTemplateId}`,
         cedarAdminToken,
         { period_name: 'Hacked Period' },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -251,7 +262,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/period-grid/${alNoorPeriodTemplateId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });
@@ -264,7 +275,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/class-scheduling-requirements?academic_year_id=${cedarAcademicYearId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data?.data ?? res.body.data ?? [];
@@ -277,7 +288,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/class-scheduling-requirements?academic_year_id=${td.academicYearId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data?.data ?? res.body.data ?? [];
@@ -290,7 +301,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/class-scheduling-requirements/${alNoorClassRequirementId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -300,7 +311,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         `/api/v1/class-scheduling-requirements/${alNoorClassRequirementId}`,
         cedarAdminToken,
         { periods_per_week: 10 },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });
@@ -313,7 +324,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/staff-availability?academic_year_id=${cedarAcademicYearId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data ?? [];
@@ -327,7 +338,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/staff-availability?academic_year_id=${td.academicYearId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data ?? [];
@@ -340,7 +351,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/staff-availability/${alNoorAvailabilityId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });
@@ -353,7 +364,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/staff-scheduling-preferences?academic_year_id=${cedarAcademicYearId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data?.data ?? res.body.data ?? [];
@@ -367,7 +378,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/staff-scheduling-preferences?academic_year_id=${td.academicYearId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data?.data ?? res.body.data ?? [];
@@ -380,7 +391,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/staff-scheduling-preferences/${alNoorPreferenceId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });
@@ -393,7 +404,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/scheduling-runs?academic_year_id=${cedarAcademicYearId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data?.data ?? res.body.data ?? [];
@@ -407,7 +418,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/scheduling-runs?academic_year_id=${td.academicYearId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data?.data ?? res.body.data ?? [];
@@ -420,7 +431,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/scheduling-runs/${alNoorSchedulingRunId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -430,7 +441,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         `/api/v1/scheduling-runs/${alNoorSchedulingRunId}/cancel`,
         cedarAdminToken,
         {},
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
       // 403 = permission denied (run_auto required), 404 = tenant isolation
       // Either outcome prevents cross-tenant access.
@@ -442,7 +453,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/scheduling-runs/${alNoorSchedulingRunId}/progress`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
       // 403 = permission denied (run_auto required), 404 = tenant isolation
       // Either outcome prevents cross-tenant access.
@@ -459,7 +470,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         `/api/v1/schedules/${alNoorScheduleId}/pin`,
         cedarAdminToken,
         { pin_reason: 'RLS test pin attempt' },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -469,7 +480,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         `/api/v1/schedules/${alNoorScheduleId}/unpin`,
         cedarAdminToken,
         {},
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -478,7 +489,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/schedules/${alNoorScheduleId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -487,7 +498,7 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
         app,
         '/api/v1/schedules?page=1&pageSize=100',
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data?.data ?? res.body.data ?? [];

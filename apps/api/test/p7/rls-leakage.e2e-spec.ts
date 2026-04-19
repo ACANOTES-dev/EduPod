@@ -10,6 +10,7 @@
  */
 
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
 import {
@@ -19,20 +20,18 @@ import {
   authGet,
   authPost,
   authPatch,
-  AL_NOOR_ADMIN_EMAIL,
-  AL_NOOR_PARENT_EMAIL,
-  CEDAR_ADMIN_EMAIL,
-  CEDAR_PARENT_EMAIL,
   DEV_PASSWORD,
-  AL_NOOR_DOMAIN,
-  CEDAR_DOMAIN,
   cleanupRedisKeys,
 } from '../helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from '../tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('P7 — RLS Leakage Tests (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
 
   // Tokens
   let alNoorAdminToken: string;
@@ -54,13 +53,16 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
 
     const [alNoorAdminLogin, alNoorParentLogin, cedarAdminLogin, cedarParentLogin] =
       await Promise.all([
-        login(app, AL_NOOR_ADMIN_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN),
-        login(app, AL_NOOR_PARENT_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN),
-        login(app, CEDAR_ADMIN_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN),
-        login(app, CEDAR_PARENT_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN),
+        login(app, fixture.adminEmail!, DEV_PASSWORD, fixture.domainName),
+        login(app, fixture.parentEmail!, DEV_PASSWORD, fixture.domainName),
+        login(app, cedarFixture.adminEmail!, DEV_PASSWORD, cedarFixture.domainName),
+        login(app, cedarFixture.parentEmail!, DEV_PASSWORD, cedarFixture.domainName),
       ]);
 
     alNoorAdminToken = alNoorAdminLogin.accessToken;
@@ -71,6 +73,10 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
 
   afterAll(async () => {
     await cleanupRedisKeys(['rate:contact:*', 'tenant:*:user:*:unread_notifications', 'bull:*']);
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -91,7 +97,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
           scope: 'school',
           target_payload: {},
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
       alNoorAnnouncementDraftId = draftRes.body.data.id;
 
@@ -105,7 +111,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
           scope: 'school',
           target_payload: {},
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
       const pubDraftId = pubDraftRes.body.data.id;
 
@@ -115,7 +121,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         `/api/v1/announcements/${pubDraftId}/publish`,
         alNoorAdminToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
       alNoorAnnouncementPublishedId = pubDraftId;
 
@@ -124,7 +130,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         '/api/v1/announcements',
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const cedarAnnouncementIds = (listRes.body.data || []).map(
@@ -138,7 +144,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/announcements/${alNoorAnnouncementPublishedId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });
@@ -161,7 +167,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
           subject_template: `RLS Test Template ${suffix}`,
           body_template: 'Hello {{name}}',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
       alNoorCustomTemplateId = templateRes.body.data.id;
 
@@ -170,7 +176,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         '/api/v1/notification-templates',
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const cedarTemplateIds = (listRes.body.data || []).map((t: Record<string, unknown>) => t.id);
@@ -181,7 +187,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/notification-templates/${alNoorCustomTemplateId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });
@@ -200,7 +206,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         '/api/v1/notifications',
         cedarParentToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const cedarNotifications = listRes.body.data || [];
@@ -216,7 +222,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         '/api/v1/notifications/unread-count',
         cedarParentToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       // The count should be 0 or only reflect Cedar's own unread notifications
@@ -228,7 +234,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         '/api/v1/notifications',
         alNoorParentToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       const alNoorNotifs = alNoorNotifRes.body.data || [];
@@ -241,7 +247,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         '/api/v1/notifications/admin/failed',
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // May return 200 with empty data or 404 — either way, no Al Noor data
@@ -269,7 +275,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
             scope: 'school',
             target_payload: {},
           },
-          AL_NOOR_DOMAIN,
+          fixture.domainName,
         ).expect(201);
 
         await authPost(
@@ -277,7 +283,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
           `/api/v1/announcements/${annRes.body.data.id}/publish`,
           alNoorAdminToken,
           {},
-          AL_NOOR_DOMAIN,
+          fixture.domainName,
         ).expect(200);
 
         // Wait briefly for notifications to be created
@@ -287,7 +293,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
           app,
           '/api/v1/notifications',
           alNoorParentToken,
-          AL_NOOR_DOMAIN,
+          fixture.domainName,
         ).expect(200);
 
         const notifs = notifRes.body.data || [];
@@ -303,7 +309,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
           `/api/v1/notifications/${alNoorNotificationId}/read`,
           cedarParentToken,
           {},
-          CEDAR_DOMAIN,
+          cedarFixture.domainName,
         ).expect(404);
       }
     });
@@ -324,14 +330,17 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
           subject: `RLS Inquiry Test ${suffix}`,
           message: 'This is a test inquiry from Al Noor parent.',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
       alNoorInquiryId = inquiryRes.body.data.id;
 
       // Cedar admin: list inquiries — should not contain Al Noor's inquiry
-      const listRes = await authGet(app, '/api/v1/inquiries', cedarAdminToken, CEDAR_DOMAIN).expect(
-        200,
-      );
+      const listRes = await authGet(
+        app,
+        '/api/v1/inquiries',
+        cedarAdminToken,
+        cedarFixture.domainName,
+      ).expect(200);
 
       const cedarInquiryIds = (listRes.body.data || []).map((i: Record<string, unknown>) => i.id);
       expect(cedarInquiryIds).not.toContain(alNoorInquiryId);
@@ -341,7 +350,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/inquiries/${alNoorInquiryId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });
@@ -359,7 +368,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/inquiries/${alNoorInquiryId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
 
       // Also try fetching messages endpoint directly if it exists
@@ -367,7 +376,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/inquiries/${alNoorInquiryId}/messages`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });
@@ -392,7 +401,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
           body_html: '<p>English content</p>',
           locale: 'en',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
       alNoorPageId = pageRes.body.data.id;
 
@@ -402,7 +411,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         `/api/v1/website/pages/${alNoorPageId}/publish`,
         alNoorAdminToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Cedar admin: list pages — should NOT contain Al Noor's page
@@ -410,7 +419,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         '/api/v1/website/pages',
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const cedarPageIds = (listRes.body.data || []).map((p: Record<string, unknown>) => p.id);
@@ -421,7 +430,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/website/pages/${alNoorPageId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -429,7 +438,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
       // Public request with Cedar domain: GET /api/v1/public/pages/:slug → 404
       await request(app.getHttpServer())
         .get(`/api/v1/public/pages/${alNoorPageSlug}`)
-        .set('Host', CEDAR_DOMAIN)
+        .set('Host', cedarFixture.domainName)
         .expect(404);
     });
   });
@@ -443,7 +452,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
       // Submit a contact form to Al Noor's public endpoint
       const contactRes = await request(app.getHttpServer())
         .post('/api/v1/public/contact')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send({
           name: `RLS Test Contact ${suffix}`,
           email: `rls-test-${suffix}@example.com`,
@@ -462,7 +471,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         '/api/v1/contact-submissions',
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const cedarSubmissions = listRes.body.data || [];
@@ -488,7 +497,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/announcements/${alNoorAnnouncementPublishedId}/delivery-status`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -502,7 +511,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
           subject: `RLS Inquiry Test 2 ${suffix}`,
           message: 'Second test inquiry from Al Noor parent.',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       // Cedar admin: list open inquiries — 0 results for Al Noor's inquiries
@@ -510,7 +519,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         app,
         '/api/v1/inquiries?status=open',
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const cedarInquiries = listRes.body.data || [];

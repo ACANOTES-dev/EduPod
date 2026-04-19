@@ -1,14 +1,9 @@
 import { randomUUID } from 'crypto';
 
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_ADMIN_EMAIL,
-  AL_NOOR_DOMAIN,
-  AL_NOOR_PARENT_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
-  CEDAR_ADMIN_EMAIL,
-  CEDAR_DOMAIN,
   DEV_PASSWORD,
   authGet,
   authPatch,
@@ -18,11 +13,15 @@ import {
   createTestApp,
   login,
 } from '../helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from '../tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('Notifications (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let adminToken: string;
   let parentToken: string;
   let _teacherToken: string;
@@ -30,17 +29,25 @@ describe('Notifications (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
 
-    const adminLogin = await login(app, AL_NOOR_ADMIN_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const adminLogin = await login(app, fixture.adminEmail!, DEV_PASSWORD, fixture.domainName);
     adminToken = adminLogin.accessToken;
 
-    const parentLogin = await login(app, AL_NOOR_PARENT_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const parentLogin = await login(app, fixture.parentEmail!, DEV_PASSWORD, fixture.domainName);
     parentToken = parentLogin.accessToken;
 
-    const teacherLogin = await login(app, AL_NOOR_TEACHER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const teacherLogin = await login(app, fixture.teacherEmail!, DEV_PASSWORD, fixture.domainName);
     _teacherToken = teacherLogin.accessToken;
 
-    const cedarLogin = await login(app, CEDAR_ADMIN_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
+    const cedarLogin = await login(
+      app,
+      cedarFixture.adminEmail!,
+      DEV_PASSWORD,
+      cedarFixture.domainName,
+    );
     cedarAdminToken = cedarLogin.accessToken;
 
     // Publish a school-wide announcement so notifications are created for users
@@ -49,6 +56,10 @@ describe('Notifications (e2e)', () => {
 
   afterAll(async () => {
     await cleanupRedisKeys(['bull:*']);
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -65,7 +76,7 @@ describe('Notifications (e2e)', () => {
         scope: 'school',
         target_payload: {},
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const announcementId = createRes.body.data.id;
@@ -75,7 +86,7 @@ describe('Notifications (e2e)', () => {
       `/api/v1/announcements/${announcementId}/publish`,
       adminToken,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     // Allow a small window for async notification creation
@@ -86,16 +97,19 @@ describe('Notifications (e2e)', () => {
 
   describe('GET /api/v1/notifications', () => {
     it('happy path — returns current user notifications', async () => {
-      const res = await authGet(app, '/api/v1/notifications', parentToken, AL_NOOR_DOMAIN).expect(
-        200,
-      );
+      const res = await authGet(
+        app,
+        '/api/v1/notifications',
+        parentToken,
+        fixture.domainName,
+      ).expect(200);
 
       expect(res.body.data).toBeDefined();
       expect(Array.isArray(res.body.data)).toBe(true);
     });
 
     it('should return 401 when no token provided', async () => {
-      const res = await authGet(app, '/api/v1/notifications', '', AL_NOOR_DOMAIN);
+      const res = await authGet(app, '/api/v1/notifications', '', fixture.domainName);
 
       expect([401, 403]).toContain(res.status);
     });
@@ -109,7 +123,7 @@ describe('Notifications (e2e)', () => {
         app,
         '/api/v1/notifications/unread-count',
         parentToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // getUnreadCount returns a number, wrapped as { data: number }
@@ -118,7 +132,7 @@ describe('Notifications (e2e)', () => {
     });
 
     it('should return 401 when no token provided', async () => {
-      const res = await authGet(app, '/api/v1/notifications/unread-count', '', AL_NOOR_DOMAIN);
+      const res = await authGet(app, '/api/v1/notifications/unread-count', '', fixture.domainName);
 
       expect([401, 403]).toContain(res.status);
     });
@@ -133,7 +147,7 @@ describe('Notifications (e2e)', () => {
         app,
         '/api/v1/notifications',
         parentToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       const notifications = listRes.body.data;
@@ -144,7 +158,7 @@ describe('Notifications (e2e)', () => {
           `/api/v1/notifications/${randomUUID()}/read`,
           parentToken,
           {},
-          AL_NOOR_DOMAIN,
+          fixture.domainName,
         ).expect(404);
         return;
       }
@@ -155,7 +169,7 @@ describe('Notifications (e2e)', () => {
         `/api/v1/notifications/${notificationId}/read`,
         parentToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
     });
 
@@ -165,7 +179,7 @@ describe('Notifications (e2e)', () => {
         `/api/v1/notifications/${randomUUID()}/read`,
         '',
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       expect([401, 403]).toContain(res.status);
@@ -177,7 +191,7 @@ describe('Notifications (e2e)', () => {
         `/api/v1/notifications/${randomUUID()}/read`,
         parentToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
   });
@@ -191,7 +205,7 @@ describe('Notifications (e2e)', () => {
         '/api/v1/notifications/mark-all-read',
         parentToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
     });
 
@@ -201,7 +215,7 @@ describe('Notifications (e2e)', () => {
         '/api/v1/notifications/mark-all-read',
         '',
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       expect([401, 403]).toContain(res.status);
@@ -216,7 +230,7 @@ describe('Notifications (e2e)', () => {
         app,
         '/api/v1/notifications/admin/failed',
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data).toBeDefined();
@@ -224,15 +238,18 @@ describe('Notifications (e2e)', () => {
     });
 
     it('should return 401 when no token provided', async () => {
-      const res = await authGet(app, '/api/v1/notifications/admin/failed', '', AL_NOOR_DOMAIN);
+      const res = await authGet(app, '/api/v1/notifications/admin/failed', '', fixture.domainName);
 
       expect([401, 403]).toContain(res.status);
     });
 
     it('should return 403 when parent tries to access', async () => {
-      await authGet(app, '/api/v1/notifications/admin/failed', parentToken, AL_NOOR_DOMAIN).expect(
-        403,
-      );
+      await authGet(
+        app,
+        '/api/v1/notifications/admin/failed',
+        parentToken,
+        fixture.domainName,
+      ).expect(403);
     });
   });
 
@@ -240,9 +257,12 @@ describe('Notifications (e2e)', () => {
 
   describe('RLS — cross-tenant notification isolation', () => {
     it('Cedar admin cannot see Al Noor notifications', async () => {
-      const res = await authGet(app, '/api/v1/notifications', cedarAdminToken, CEDAR_DOMAIN).expect(
-        200,
-      );
+      const res = await authGet(
+        app,
+        '/api/v1/notifications',
+        cedarAdminToken,
+        cedarFixture.domainName,
+      ).expect(200);
 
       // Cedar admin should not have Al Noor's announcement notifications
       const notifications = res.body.data;

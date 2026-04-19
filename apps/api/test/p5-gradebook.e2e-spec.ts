@@ -1,14 +1,8 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
 import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_ADMIN_EMAIL,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
-  AL_NOOR_PARENT_EMAIL,
-  CEDAR_ADMIN_EMAIL,
-  CEDAR_DOMAIN,
   createTestApp,
   closeTestApp,
   getAuthToken,
@@ -20,11 +14,15 @@ import {
   cleanupRedisKeys,
 } from './helpers';
 import { setupP5TestData, P5TestData } from './p5-test-data.helper';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('P5 Gradebook (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let adminToken: string;
   let ownerToken: string;
   let teacherToken: string;
@@ -37,24 +35,31 @@ describe('P5 Gradebook (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
-    adminToken = await getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN);
-    ownerToken = await getAuthToken(app, AL_NOOR_OWNER_EMAIL, AL_NOOR_DOMAIN);
-    teacherToken = await getAuthToken(app, AL_NOOR_TEACHER_EMAIL, AL_NOOR_DOMAIN);
-    parentToken = await getAuthToken(app, AL_NOOR_PARENT_EMAIL, AL_NOOR_DOMAIN);
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
+    adminToken = await getAuthToken(app, fixture.adminEmail!, fixture.domainName);
+    ownerToken = await getAuthToken(app, fixture.ownerEmail, fixture.domainName);
+    teacherToken = await getAuthToken(app, fixture.teacherEmail!, fixture.domainName);
+    parentToken = await getAuthToken(app, fixture.parentEmail!, fixture.domainName);
 
-    td = await setupP5TestData(app, adminToken);
+    td = await setupP5TestData(app, adminToken, {
+      domain: fixture.domainName,
+      teacherEmail: fixture.teacherEmail!,
+      ownerEmail: fixture.ownerEmail,
+    });
 
     // Find parent profile for parent@alnoor.test
     const parentsRes = await authGet(
       app,
       '/api/v1/parents?page=1&pageSize=50',
       adminToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const parentProfile = parentsRes.body.data.find((p: Record<string, unknown>) => {
       const user = p['user'] as Record<string, string> | undefined;
-      return user?.email === AL_NOOR_PARENT_EMAIL;
+      return user?.email === fixture.parentEmail!;
     });
     parentId = parentProfile?.id as string;
 
@@ -73,7 +78,7 @@ describe('P5 Gradebook (e2e)', () => {
           status: 'active',
           parent_links: [{ parent_id: parentId, relationship_label: 'mother' }],
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
       parentLinkedStudentId = stuRes.body.data.id;
 
@@ -83,13 +88,17 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/classes/${td.classId}/enrolments`,
         adminToken,
         { student_id: parentLinkedStudentId, start_date: td.dateInYear(9, 1) },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
     }
   });
 
   afterAll(async () => {
     await cleanupRedisKeys(['transcript:*']);
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -119,7 +128,7 @@ describe('P5 Gradebook (e2e)', () => {
             passing_threshold: 2,
           },
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       expect(res.body.data.id).toBeDefined();
@@ -132,7 +141,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         '/api/v1/gradebook/grading-scales?page=1&pageSize=10',
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -146,7 +155,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/gradebook/grading-scales/${createdScaleId}`,
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.id).toBe(createdScaleId);
@@ -160,7 +169,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/grading-scales/${createdScaleId}`,
         adminToken,
         { name: newName },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.name).toBe(newName);
@@ -179,21 +188,21 @@ describe('P5 Gradebook (e2e)', () => {
             ranges: [{ min: 0, max: 100, label: 'Pass', gpa_value: 4 }],
           },
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       await authDelete(
         app,
         `/api/v1/gradebook/grading-scales/${tempRes.body.data.id}`,
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
     });
 
     it('POST → 401 (no auth)', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/gradebook/grading-scales')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send({
           name: 'Should Fail',
           config_json: {
@@ -216,7 +225,7 @@ describe('P5 Gradebook (e2e)', () => {
             ranges: [{ min: 0, max: 100, label: 'P', gpa_value: 4 }],
           },
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -234,7 +243,7 @@ describe('P5 Gradebook (e2e)', () => {
             ranges: [{ min: 0, max: 100, label: 'P', gpa_value: 4 }],
           },
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       const res = await authPost(
@@ -248,7 +257,7 @@ describe('P5 Gradebook (e2e)', () => {
             ranges: [{ min: 0, max: 100, label: 'P', gpa_value: 4 }],
           },
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(409);
 
       expect(res.body.error?.code).toBe('GRADING_SCALE_NAME_EXISTS');
@@ -267,7 +276,7 @@ describe('P5 Gradebook (e2e)', () => {
         {
           grades: [{ student_id: td.studentId, raw_score: 85, is_missing: false }],
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Now try to update config_json on the in-use scale
@@ -281,7 +290,7 @@ describe('P5 Gradebook (e2e)', () => {
             ranges: [{ min: 0, max: 100, label: 'Modified', gpa_value: 5 }],
           },
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(409);
 
       expect(res.body.error?.code).toBe('GRADING_SCALE_IMMUTABLE');
@@ -293,7 +302,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/gradebook/grading-scales/${td.gradingScaleId}`,
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(409);
 
       expect(res.body.error?.code).toBe('GRADING_SCALE_IN_USE');
@@ -316,7 +325,7 @@ describe('P5 Gradebook (e2e)', () => {
           name: `Test Category ${Date.now()}`,
           default_weight: 25,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       expect(res.body.data.id).toBeDefined();
@@ -329,7 +338,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         '/api/v1/gradebook/assessment-categories',
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -343,7 +352,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessment-categories/${createdCategoryId}`,
         adminToken,
         { name: newName, default_weight: 30 },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.name).toBe(newName);
@@ -359,14 +368,14 @@ describe('P5 Gradebook (e2e)', () => {
           name: `Deletable Cat ${Date.now()}`,
           default_weight: 10,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       await authDelete(
         app,
         `/api/v1/gradebook/assessment-categories/${tempRes.body.data.id}`,
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
     });
 
@@ -379,7 +388,7 @@ describe('P5 Gradebook (e2e)', () => {
           name: `Teacher Cat ${Date.now()}`,
           default_weight: 20,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -389,7 +398,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/gradebook/assessment-categories/${td.categoryHomeworkId}`,
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(409);
 
       expect(res.body.error?.code).toBe('CATEGORY_IN_USE');
@@ -418,7 +427,7 @@ describe('P5 Gradebook (e2e)', () => {
           max_score: 100,
           due_date: td.dateInYear(11, 1),
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       expect(res.body.data.id).toBeDefined();
@@ -431,7 +440,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/gradebook/assessments?class_id=${td.classId}`,
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -444,7 +453,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${newAssessmentId}/status`,
         adminToken,
         { status: 'open' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.status).toBe('open');
@@ -456,7 +465,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${newAssessmentId}/status`,
         adminToken,
         { status: 'submitted_locked' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.status).toBe('submitted_locked');
@@ -468,7 +477,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${newAssessmentId}/status`,
         adminToken,
         { status: 'open' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
 
       expect(res.body.error?.code).toBe('INVALID_STATUS_TRANSITION');
@@ -487,7 +496,7 @@ describe('P5 Gradebook (e2e)', () => {
           title: `Cancellable Draft ${Date.now()}`,
           max_score: 75,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
       cancellableAssessmentId = draftRes.body.data.id;
 
@@ -496,7 +505,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${cancellableAssessmentId}/status`,
         adminToken,
         { status: 'closed' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
 
       expect(res.body.error?.code).toBe('CANCELLATION_REASON_REQUIRED');
@@ -508,7 +517,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${cancellableAssessmentId}/status`,
         adminToken,
         { status: 'closed', cancellation_reason: 'Assessment withdrawn before grading' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.status).toBe('closed');
@@ -520,7 +529,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${newAssessmentId}/status`,
         adminToken,
         { status: 'final_locked' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
 
       expect(res.body.error?.code).toBe('INVALID_STATUS_TRANSITION');
@@ -549,7 +558,7 @@ describe('P5 Gradebook (e2e)', () => {
             { student_id: td.studentId2, raw_score: 78, is_missing: false },
           ],
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -561,7 +570,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/gradebook/assessments/${td.assessmentId}/grades`,
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -585,7 +594,7 @@ describe('P5 Gradebook (e2e)', () => {
           title: `Locked Assessment ${Date.now()}`,
           max_score: 100,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
       const lockedAssessmentId = lockedAssessmentRes.body.data.id;
 
@@ -594,7 +603,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${lockedAssessmentId}/status`,
         adminToken,
         { status: 'open' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       await authPatch(
@@ -602,7 +611,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/assessments/${lockedAssessmentId}/status`,
         adminToken,
         { status: 'submitted_locked' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       const res = await authPut(
@@ -612,7 +621,7 @@ describe('P5 Gradebook (e2e)', () => {
         {
           grades: [{ student_id: td.studentId, raw_score: 95, is_missing: false }],
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(409);
 
       expect(res.body.error?.code).toBe('ASSESSMENT_NOT_GRADEABLE');
@@ -627,7 +636,7 @@ describe('P5 Gradebook (e2e)', () => {
         {
           grades: [{ student_id: fakeStudentId, raw_score: 50, is_missing: false }],
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
 
       expect(res.body.error?.code).toBe('STUDENTS_NOT_ENROLLED');
@@ -642,7 +651,7 @@ describe('P5 Gradebook (e2e)', () => {
         {
           grades: [{ student_id: td.studentId, raw_score: 150, is_missing: false }],
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
 
       expect(res.body.error?.code).toBe('SCORE_EXCEEDS_MAX');
@@ -667,7 +676,7 @@ describe('P5 Gradebook (e2e)', () => {
           subject_id: td.subjectId,
           academic_period_id: td.academicPeriodId,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -691,7 +700,7 @@ describe('P5 Gradebook (e2e)', () => {
           overridden_value: 'A+',
           override_reason: 'Student showed exceptional improvement',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       expect(res.body.data.overridden_value).toBe('A+');
@@ -709,7 +718,7 @@ describe('P5 Gradebook (e2e)', () => {
           overridden_value: 'B',
           // override_reason is missing
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
 
       expect(res.body.error).toBeDefined();
@@ -726,7 +735,7 @@ describe('P5 Gradebook (e2e)', () => {
           overridden_value: 'C',
           override_reason: 'Teacher override attempt',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
   });
@@ -747,7 +756,7 @@ describe('P5 Gradebook (e2e)', () => {
           student_ids: [td.studentId],
           academic_period_id: td.academicPeriodId,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -761,7 +770,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/report-cards?academic_period_id=${td.academicPeriodId}`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -775,7 +784,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/report-cards/${reportCardId}`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.id).toBe(reportCardId);
@@ -795,7 +804,7 @@ describe('P5 Gradebook (e2e)', () => {
           teacher_comment: 'Good progress this term.',
           principal_comment: 'Keep up the good work.',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.teacher_comment).toBe('Good progress this term.');
@@ -810,7 +819,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/report-cards/${reportCardId}/publish`,
         ownerToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       expect(res.body.data.status).toBe('published');
@@ -825,7 +834,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/report-cards/${reportCardId}/revise`,
         ownerToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       expect(res.body.data.status).toBe('draft');
@@ -843,7 +852,7 @@ describe('P5 Gradebook (e2e)', () => {
           student_ids: [td.studentId2],
           academic_period_id: td.academicPeriodId,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
       const freshCardId = genRes.body.data[0].id;
 
@@ -852,7 +861,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/report-cards/${freshCardId}/publish`,
         ownerToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       const res = await authPatch(
@@ -860,7 +869,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/report-cards/${freshCardId}`,
         ownerToken,
         { teacher_comment: 'Should not work' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(409);
 
       expect(res.body.error?.code).toBe('REPORT_CARD_NOT_DRAFT');
@@ -873,7 +882,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/report-cards?student_id=${td.studentId2}&status=published`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(listRes.body.data.length).toBeGreaterThan(0);
@@ -885,7 +894,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/report-cards/${publishedCardId}/publish`,
         ownerToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(409);
 
       expect(res.body.error?.code).toBe('REPORT_CARD_NOT_DRAFT');
@@ -898,7 +907,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/report-cards?student_id=${td.studentId}&status=draft`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(listRes.body.data.length).toBeGreaterThan(0);
@@ -909,7 +918,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/report-cards/${draftCardId}/publish`,
         teacherToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
   });
@@ -935,7 +944,7 @@ describe('P5 Gradebook (e2e)', () => {
         {
           grades: [{ student_id: parentLinkedStudentId, raw_score: 88, is_missing: false }],
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       // Compute period grades
@@ -948,7 +957,7 @@ describe('P5 Gradebook (e2e)', () => {
           subject_id: td.subjectId,
           academic_period_id: td.academicPeriodId,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       // Generate and publish report card
@@ -960,7 +969,7 @@ describe('P5 Gradebook (e2e)', () => {
           student_ids: [parentLinkedStudentId],
           academic_period_id: td.academicPeriodId,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       const cardId = genRes.body.data[0].id;
@@ -971,7 +980,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/report-cards/${cardId}/publish`,
         adminToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
     });
 
@@ -984,7 +993,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/parent/students/${parentLinkedStudentId}/grades`,
         parentToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data).toBeDefined();
@@ -999,7 +1008,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/parent/students/${publishedReportCardStudentId}/report-cards`,
         parentToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -1016,7 +1025,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/parent/students/${unlinkedStudentId}/grades`,
         parentToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       // Should be 403 (NOT_LINKED_TO_STUDENT) or 404 (PARENT_NOT_FOUND if no parent profile)
@@ -1032,7 +1041,7 @@ describe('P5 Gradebook (e2e)', () => {
     let cedarAdminToken: string;
 
     beforeAll(async () => {
-      cedarAdminToken = await getAuthToken(app, CEDAR_ADMIN_EMAIL, CEDAR_DOMAIN);
+      cedarAdminToken = await getAuthToken(app, cedarFixture.adminEmail!, cedarFixture.domainName);
     });
 
     it('Cedar admin cannot see Al Noor grading scales', async () => {
@@ -1040,7 +1049,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/gradebook/grading-scales/${td.gradingScaleId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
 
       expect(res.body.error?.code).toBe('GRADING_SCALE_NOT_FOUND');
@@ -1051,7 +1060,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/gradebook/assessment-categories/${td.categoryHomeworkId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
 
       expect(res.body.error?.code).toBe('CATEGORY_NOT_FOUND');
@@ -1062,7 +1071,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/gradebook/assessments/${td.assessmentId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
 
       expect(res.body.error?.code).toBe('ASSESSMENT_NOT_FOUND');
@@ -1073,7 +1082,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/gradebook/assessments/${td.assessmentId}/grades`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
 
       expect(res.body.error?.code).toBe('ASSESSMENT_NOT_FOUND');
@@ -1085,7 +1094,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/gradebook/grading-scales/${td.gradingScaleId}`,
         cedarAdminToken,
         { name: 'Hijacked Scale' },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -1094,7 +1103,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/gradebook/assessment-categories/${td.categoryHomeworkId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -1106,7 +1115,7 @@ describe('P5 Gradebook (e2e)', () => {
         {
           grades: [{ student_id: td.studentId, raw_score: 50, is_missing: false }],
         },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
 
       expect(res.body.error?.code).toBe('ASSESSMENT_NOT_FOUND');
@@ -1123,7 +1132,7 @@ describe('P5 Gradebook (e2e)', () => {
           subject_id: td.subjectId,
           academic_period_id: td.academicPeriodId,
         },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Should either be 404 or return empty results since the entities belong to Al Noor
@@ -1143,7 +1152,7 @@ describe('P5 Gradebook (e2e)', () => {
           student_ids: [td.studentId],
           academic_period_id: td.academicPeriodId,
         },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Should fail because period or students don't exist in Cedar tenant
@@ -1171,7 +1180,7 @@ describe('P5 Gradebook (e2e)', () => {
             ],
           },
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       expect([200, 201]).toContain(res.status);
@@ -1183,7 +1192,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/gradebook/classes/${td.classId}/grade-configs`,
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -1195,7 +1204,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/gradebook/classes/${td.classId}/subjects/${td.subjectId}/grade-config`,
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.id).toBeDefined();
@@ -1213,7 +1222,7 @@ describe('P5 Gradebook (e2e)', () => {
             weights: [{ category_id: td.categoryHomeworkId, weight: 100 }],
           },
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -1222,7 +1231,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/gradebook/classes/${td.classId}/grade-configs`,
         teacherToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -1239,7 +1248,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/gradebook/assessments?class_id=${td.classId}`,
         teacherToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -1253,7 +1262,7 @@ describe('P5 Gradebook (e2e)', () => {
         {
           grades: [{ student_id: td.studentId, raw_score: 90, is_missing: false }],
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.length).toBe(1);
@@ -1272,7 +1281,7 @@ describe('P5 Gradebook (e2e)', () => {
           title: `Teacher Quiz ${Date.now()}`,
           max_score: 20,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       expect(res.body.data.status).toBe('draft');
@@ -1290,7 +1299,7 @@ describe('P5 Gradebook (e2e)', () => {
             ranges: [{ min: 0, max: 100, label: 'P', gpa_value: 4 }],
           },
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -1303,7 +1312,7 @@ describe('P5 Gradebook (e2e)', () => {
           name: 'Nope',
           default_weight: 10,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -1317,7 +1326,7 @@ describe('P5 Gradebook (e2e)', () => {
           subject_id: td.subjectId,
           academic_period_id: td.academicPeriodId,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -1330,7 +1339,7 @@ describe('P5 Gradebook (e2e)', () => {
           student_ids: [td.studentId],
           academic_period_id: td.academicPeriodId,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -1340,7 +1349,7 @@ describe('P5 Gradebook (e2e)', () => {
         app,
         `/api/v1/report-cards?student_id=${td.studentId2}&status=published`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(listRes.body.data.length).toBeGreaterThan(0);
@@ -1352,7 +1361,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/report-cards/${publishedId}/revise`,
         ownerToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       const draftCardId = reviseRes.body.data.id;
@@ -1363,7 +1372,7 @@ describe('P5 Gradebook (e2e)', () => {
         `/api/v1/report-cards/${draftCardId}/publish`,
         teacherToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
   });

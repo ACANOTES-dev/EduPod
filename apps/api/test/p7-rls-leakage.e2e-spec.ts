@@ -21,18 +21,8 @@
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  CEDAR_DOMAIN,
-  CEDAR_OWNER_EMAIL,
-  DEV_PASSWORD,
-  authGet,
-  authPost,
-  closeTestApp,
-  createTestApp,
-  login,
-} from './helpers';
+import { DEV_PASSWORD, authGet, authPost, closeTestApp, createTestApp, login } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -49,6 +39,9 @@ jest.setTimeout(120_000);
 
 describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let alNoorToken: string;
   let cedarToken: string;
   let alNoorUserId: string;
@@ -81,13 +74,21 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
 
     // Authenticate as both tenants
-    const alNoorLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const alNoorLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     alNoorToken = alNoorLogin.accessToken;
     alNoorUserId = (alNoorLogin.user as Record<string, string>).id!;
 
-    const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
+    const cedarLogin = await login(
+      app,
+      cedarFixture.ownerEmail,
+      DEV_PASSWORD,
+      cedarFixture.domainName,
+    );
     cedarToken = cedarLogin.accessToken;
 
     // ── Direct Prisma for data setup / table-level tests ──────────────────
@@ -119,7 +120,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         scope: 'school',
         target_payload: {},
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     const announcementBody = announcementRes.body.data ?? announcementRes.body;
     alNoorAnnouncementId = announcementBody.id;
@@ -187,7 +188,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         body_html: `<p>${UNIQUE_MARKER} page content</p>`,
         page_type: 'custom',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     const pageBody = pageRes.body.data ?? pageRes.body;
     alNoorWebsitePageId = pageBody.id;
@@ -273,6 +274,10 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
       }
       await directPrisma.$disconnect();
     }
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -318,7 +323,12 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
 
   describe('API-level: Cedar must not see Al Noor communications data (list endpoints)', () => {
     it('GET /v1/announcements as Cedar should not return Al Noor announcements', async () => {
-      const res = await authGet(app, '/api/v1/announcements', cedarToken, CEDAR_DOMAIN).expect(200);
+      const res = await authGet(
+        app,
+        '/api/v1/announcements',
+        cedarToken,
+        cedarFixture.domainName,
+      ).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
@@ -332,7 +342,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/announcements/${alNoorAnnouncementId}`,
         cedarToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // RLS hides the record — either 404 or empty/forbidden
@@ -340,7 +350,12 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
     });
 
     it('GET /v1/notifications as Cedar should not return Al Noor notifications', async () => {
-      const res = await authGet(app, '/api/v1/notifications', cedarToken, CEDAR_DOMAIN).expect(200);
+      const res = await authGet(
+        app,
+        '/api/v1/notifications',
+        cedarToken,
+        cedarFixture.domainName,
+      ).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
@@ -354,7 +369,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         app,
         '/api/v1/notification-templates',
         cedarToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const items: Array<{ id: string; tenant_id?: string | null }> = res.body.data ?? [];
@@ -371,7 +386,12 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
     });
 
     it('GET /v1/inquiries as Cedar should not return Al Noor parent inquiries', async () => {
-      const res = await authGet(app, '/api/v1/inquiries', cedarToken, CEDAR_DOMAIN).expect(200);
+      const res = await authGet(
+        app,
+        '/api/v1/inquiries',
+        cedarToken,
+        cedarFixture.domainName,
+      ).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
@@ -381,7 +401,12 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
     });
 
     it('GET /v1/website/pages as Cedar should not return Al Noor website pages', async () => {
-      const res = await authGet(app, '/api/v1/website/pages', cedarToken, CEDAR_DOMAIN).expect(200);
+      const res = await authGet(
+        app,
+        '/api/v1/website/pages',
+        cedarToken,
+        cedarFixture.domainName,
+      ).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
@@ -395,7 +420,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         app,
         '/api/v1/contact-submissions',
         cedarToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
@@ -416,7 +441,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/announcements/${alNoorAnnouncementId}`,
         cedarToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -425,14 +450,17 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/announcements/${alNoorAnnouncementId}/delivery-status`,
         cedarToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
     it('GET /v1/inquiries/:id with Al Noor ID should return 404', async () => {
-      await authGet(app, `/api/v1/inquiries/${alNoorInquiryId}`, cedarToken, CEDAR_DOMAIN).expect(
-        404,
-      );
+      await authGet(
+        app,
+        `/api/v1/inquiries/${alNoorInquiryId}`,
+        cedarToken,
+        cedarFixture.domainName,
+      ).expect(404);
     });
 
     it('GET /v1/website/pages/:id with Al Noor ID should return 404', async () => {
@@ -440,7 +468,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/website/pages/${alNoorWebsitePageId}`,
         cedarToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });
@@ -456,7 +484,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         `/api/v1/announcements/${alNoorAnnouncementId}/publish`,
         cedarToken,
         {},
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       expect([400, 404]).toContain(res.status);
@@ -468,7 +496,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         `/api/v1/announcements/${alNoorAnnouncementId}/archive`,
         cedarToken,
         {},
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       expect([400, 404]).toContain(res.status);
@@ -480,7 +508,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         `/api/v1/inquiries/${alNoorInquiryId}/messages`,
         cedarToken,
         { message: 'RLS cross-tenant message attempt' },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       expect([400, 404]).toContain(res.status);
@@ -492,7 +520,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         `/api/v1/inquiries/${alNoorInquiryId}/close`,
         cedarToken,
         {},
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       expect([400, 404]).toContain(res.status);
@@ -504,7 +532,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         `/api/v1/website/pages/${alNoorWebsitePageId}/publish`,
         cedarToken,
         {},
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       expect([400, 404]).toContain(res.status);
@@ -516,7 +544,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         `/api/v1/website/pages/${alNoorWebsitePageId}/unpublish`,
         cedarToken,
         {},
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       expect([400, 404]).toContain(res.status);

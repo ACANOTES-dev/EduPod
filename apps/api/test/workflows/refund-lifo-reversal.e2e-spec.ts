@@ -1,22 +1,16 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  CEDAR_DOMAIN,
-  CEDAR_OWNER_EMAIL,
-  closeTestApp,
-  createTestApp,
-  DEV_PASSWORD,
-  authGet,
-  authPost,
-  login,
-} from '../helpers';
+import { closeTestApp, createTestApp, DEV_PASSWORD, authGet, authPost, login } from '../helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from '../tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('Workflow: Refund LIFO Reversal (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let ownerToken: string;
   let cedarOwnerToken: string;
 
@@ -30,11 +24,19 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
+    const cedarLogin = await login(
+      app,
+      cedarFixture.ownerEmail,
+      DEV_PASSWORD,
+      cedarFixture.domainName,
+    );
     cedarOwnerToken = cedarLogin.accessToken;
 
     // Create a household for finance tests
@@ -53,13 +55,17 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     householdId = hhRes.body.data.id;
   }, 60_000);
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -78,7 +84,7 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
           { description: 'Lab Fee', quantity: 1, unit_amount: 500 },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -97,7 +103,7 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
       `/api/v1/finance/invoices/${invoiceId}/issue`,
       ownerToken,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;
@@ -118,7 +124,7 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
         amount: 3500,
         received_at: '2026-03-16T00:00:00Z',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -136,7 +142,7 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
       app,
       `/api/v1/finance/invoices/${invoiceId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     if (!['issued', 'overdue', 'partially_paid'].includes(invoiceCheck.body.data.status)) {
@@ -150,11 +156,9 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
       `/api/v1/finance/payments/${paymentId}/allocations`,
       ownerToken,
       {
-        allocations: [
-          { invoice_id: invoiceId, amount: 3500 },
-        ],
+        allocations: [{ invoice_id: invoiceId, amount: 3500 }],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -168,7 +172,7 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
       app,
       `/api/v1/finance/invoices/${invoiceId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(invoiceRes.body.data.balance_amount).toBe(0);
@@ -184,7 +188,7 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
       app,
       `/api/v1/finance/payments/${paymentId}/receipt`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
 
     // Receipt may or may not exist depending on allocation status
@@ -210,7 +214,7 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
         amount: 500,
         reason: 'Lab fee refund - student withdrew from lab course',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -231,15 +235,13 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
       app,
       '/api/v1/finance/refunds',
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(Array.isArray(res.body.data)).toBe(true);
     expect(res.body.meta).toBeDefined();
 
-    const found = res.body.data.find(
-      (r: { id: string }) => r.id === refundId,
-    );
+    const found = res.body.data.find((r: { id: string }) => r.id === refundId);
     expect(found).toBeDefined();
     expect(found.status).toBe('pending_approval');
   });
@@ -252,7 +254,7 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
       `/api/v1/finance/refunds/${refundId}/approve`,
       ownerToken,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
 
     expect(res.body.error.code).toBe('SELF_APPROVAL_BLOCKED');
@@ -266,7 +268,7 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
       `/api/v1/finance/refunds/${refundId}/reject`,
       ownerToken,
       { comment: 'Need documentation before processing refund' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;
@@ -279,7 +281,7 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
       `/api/v1/finance/refunds/${refundId}/execute`,
       ownerToken,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(400);
 
     expect(res.body.error.code).toBe('INVALID_STATUS');
@@ -297,7 +299,7 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
       app,
       `/api/v1/finance/payments/${paymentId}/receipt`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data ?? res.body;
@@ -313,7 +315,7 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
       app,
       `/api/v1/finance/invoices/${invoiceId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;
@@ -332,13 +334,11 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
         app,
         '/api/v1/finance/refunds',
         cedarOwnerToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const refunds = res.body.data ?? [];
-      const leaked = refunds.find(
-        (r: { id: string }) => r.id === refundId,
-      );
+      const leaked = refunds.find((r: { id: string }) => r.id === refundId);
       expect(leaked).toBeUndefined();
     });
 
@@ -347,13 +347,11 @@ describe('Workflow: Refund LIFO Reversal (e2e)', () => {
         app,
         '/api/v1/finance/payments',
         cedarOwnerToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const payments = res.body.data ?? [];
-      const leaked = payments.find(
-        (p: { id: string }) => p.id === paymentId,
-      );
+      const leaked = payments.find((p: { id: string }) => p.id === paymentId);
       expect(leaked).toBeUndefined();
     });
   });

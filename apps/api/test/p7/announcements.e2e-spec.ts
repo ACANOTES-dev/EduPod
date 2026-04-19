@@ -1,15 +1,9 @@
 import { randomUUID } from 'crypto';
 
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_ADMIN_EMAIL,
-  AL_NOOR_DOMAIN,
-  AL_NOOR_PARENT_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
-  CEDAR_ADMIN_EMAIL,
-  CEDAR_PARENT_EMAIL,
-  CEDAR_DOMAIN,
   DEV_PASSWORD,
   authGet,
   authPost,
@@ -19,11 +13,15 @@ import {
   createTestApp,
   login,
 } from '../helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from '../tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('Announcements (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let adminToken: string;
   let teacherToken: string;
   let parentToken: string;
@@ -32,25 +30,42 @@ describe('Announcements (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
 
-    const adminLogin = await login(app, AL_NOOR_ADMIN_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const adminLogin = await login(app, fixture.adminEmail!, DEV_PASSWORD, fixture.domainName);
     adminToken = adminLogin.accessToken;
 
-    const teacherLogin = await login(app, AL_NOOR_TEACHER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const teacherLogin = await login(app, fixture.teacherEmail!, DEV_PASSWORD, fixture.domainName);
     teacherToken = teacherLogin.accessToken;
 
-    const parentLogin = await login(app, AL_NOOR_PARENT_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const parentLogin = await login(app, fixture.parentEmail!, DEV_PASSWORD, fixture.domainName);
     parentToken = parentLogin.accessToken;
 
-    const cedarLogin = await login(app, CEDAR_ADMIN_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
+    const cedarLogin = await login(
+      app,
+      cedarFixture.adminEmail!,
+      DEV_PASSWORD,
+      cedarFixture.domainName,
+    );
     cedarAdminToken = cedarLogin.accessToken;
 
-    const cedarParentLogin = await login(app, CEDAR_PARENT_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
+    const cedarParentLogin = await login(
+      app,
+      cedarFixture.parentEmail!,
+      DEV_PASSWORD,
+      cedarFixture.domainName,
+    );
     cedarParentToken = cedarParentLogin.accessToken;
   }, 60_000);
 
   afterAll(async () => {
     await cleanupRedisKeys(['bull:*']);
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -68,9 +83,13 @@ describe('Announcements (e2e)', () => {
       ...overrides,
     };
 
-    const res = await authPost(app, '/api/v1/announcements', token, payload, AL_NOOR_DOMAIN).expect(
-      201,
-    );
+    const res = await authPost(
+      app,
+      '/api/v1/announcements',
+      token,
+      payload,
+      fixture.domainName,
+    ).expect(201);
 
     return res.body.data;
   }
@@ -81,7 +100,7 @@ describe('Announcements (e2e)', () => {
       `/api/v1/announcements/${id}/publish`,
       token,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     return res.body.data;
@@ -101,7 +120,7 @@ describe('Announcements (e2e)', () => {
           scope: 'school',
           target_payload: {},
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       expect(res.body.data).toBeDefined();
@@ -122,7 +141,7 @@ describe('Announcements (e2e)', () => {
           scope: 'school',
           target_payload: {},
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       expect([401, 403]).toContain(res.status);
@@ -139,7 +158,7 @@ describe('Announcements (e2e)', () => {
           scope: 'school',
           target_payload: {},
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -153,7 +172,7 @@ describe('Announcements (e2e)', () => {
           scope: 'school',
           target_payload: {},
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
     });
   });
@@ -169,7 +188,7 @@ describe('Announcements (e2e)', () => {
         `/api/v1/announcements/${draft.id}`,
         adminToken,
         { title: 'Updated Title' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.title).toBe('Updated Title');
@@ -181,7 +200,7 @@ describe('Announcements (e2e)', () => {
         `/api/v1/announcements/${randomUUID()}`,
         adminToken,
         { title: 'Ghost' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
 
@@ -194,7 +213,7 @@ describe('Announcements (e2e)', () => {
         `/api/v1/announcements/${draft.id}`,
         adminToken,
         { title: 'Cannot Edit Published' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
     });
   });
@@ -210,7 +229,7 @@ describe('Announcements (e2e)', () => {
         `/api/v1/announcements/${draft.id}/publish`,
         adminToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.status).toBe('published');
@@ -224,7 +243,7 @@ describe('Announcements (e2e)', () => {
         `/api/v1/announcements/${draft.id}/publish`,
         '',
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       expect([401, 403]).toContain(res.status);
@@ -239,7 +258,7 @@ describe('Announcements (e2e)', () => {
         `/api/v1/announcements/${draft.id}/publish`,
         adminToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
     });
   });
@@ -256,7 +275,7 @@ describe('Announcements (e2e)', () => {
         `/api/v1/announcements/${draft.id}/archive`,
         adminToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.status).toBe('archived');
@@ -270,7 +289,7 @@ describe('Announcements (e2e)', () => {
         `/api/v1/announcements/${draft.id}/archive`,
         adminToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.status).toBe('archived');
@@ -284,7 +303,7 @@ describe('Announcements (e2e)', () => {
         `/api/v1/announcements/${draft.id}/archive`,
         '',
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       expect([401, 403]).toContain(res.status);
@@ -296,7 +315,7 @@ describe('Announcements (e2e)', () => {
         `/api/v1/announcements/${randomUUID()}/archive`,
         adminToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
   });
@@ -312,7 +331,7 @@ describe('Announcements (e2e)', () => {
         app,
         `/api/v1/announcements/${draft.id}/delivery-status`,
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data).toBeDefined();
@@ -327,7 +346,7 @@ describe('Announcements (e2e)', () => {
         app,
         `/api/v1/announcements/${draft.id}/delivery-status`,
         '',
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       expect([401, 403]).toContain(res.status);
@@ -338,7 +357,7 @@ describe('Announcements (e2e)', () => {
         app,
         `/api/v1/announcements/${randomUUID()}/delivery-status`,
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
   });
@@ -355,7 +374,7 @@ describe('Announcements (e2e)', () => {
         app,
         '/api/v1/announcements/my',
         parentToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data).toBeDefined();
@@ -363,7 +382,7 @@ describe('Announcements (e2e)', () => {
     });
 
     it('should return 401 when no token provided', async () => {
-      const res = await authGet(app, '/api/v1/announcements/my', '', AL_NOOR_DOMAIN);
+      const res = await authGet(app, '/api/v1/announcements/my', '', fixture.domainName);
 
       expect([401, 403]).toContain(res.status);
     });
@@ -374,7 +393,7 @@ describe('Announcements (e2e)', () => {
         app,
         '/api/v1/announcements/my',
         cedarParentToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       expect(res.body.data).toBeDefined();
@@ -389,9 +408,12 @@ describe('Announcements (e2e)', () => {
       const draft = await createDraftAnnouncement(adminToken);
 
       // Cedar admin tries to access Al Noor announcement
-      await authGet(app, `/api/v1/announcements/${draft.id}`, cedarAdminToken, CEDAR_DOMAIN).expect(
-        404,
-      );
+      await authGet(
+        app,
+        `/api/v1/announcements/${draft.id}`,
+        cedarAdminToken,
+        cedarFixture.domainName,
+      ).expect(404);
     });
 
     it('Cedar admin cannot publish Al Noor announcement', async () => {
@@ -402,7 +424,7 @@ describe('Announcements (e2e)', () => {
         `/api/v1/announcements/${draft.id}/publish`,
         cedarAdminToken,
         {},
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       expect([403, 404]).toContain(res.status);

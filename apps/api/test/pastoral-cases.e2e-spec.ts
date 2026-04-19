@@ -22,18 +22,8 @@ import './setup-env';
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_ADMIN_EMAIL,
-  CEDAR_DOMAIN,
-  CEDAR_ADMIN_EMAIL,
-  authGet,
-  authPost,
-  authPatch,
-  closeTestApp,
-  createTestApp,
-  getAuthToken,
-} from './helpers';
+import { authGet, authPost, authPatch, closeTestApp, createTestApp, getAuthToken } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -71,6 +61,9 @@ async function pastoralCaseTablesExist(): Promise<boolean> {
 
 describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let alNoorAdminToken: string;
   let cedarAdminToken: string;
   let tablesExist: boolean;
@@ -100,9 +93,12 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
     }
 
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
 
-    alNoorAdminToken = await getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN);
-    cedarAdminToken = await getAuthToken(app, CEDAR_ADMIN_EMAIL, CEDAR_DOMAIN);
+    alNoorAdminToken = await getAuthToken(app, fixture.adminEmail!, fixture.domainName);
+    cedarAdminToken = await getAuthToken(app, cedarFixture.adminEmail!, cedarFixture.domainName);
 
     directPrisma = new PrismaClient({
       datasources: { db: { url: process.env.DATABASE_URL } },
@@ -111,7 +107,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
 
     // Look up tenant IDs
     const alNoorDomain = await directPrisma.tenantDomain.findFirst({
-      where: { domain: AL_NOOR_DOMAIN },
+      where: { domain: fixture.domainName },
     });
     alNoorTenantId = alNoorDomain!.tenant_id;
 
@@ -153,7 +149,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
     // Get Al Noor admin user ID
     const alNoorAdmin = await directPrisma.user.findFirst({
       where: {
-        email: AL_NOOR_ADMIN_EMAIL,
+        email: fixture.adminEmail!,
         memberships: { some: { tenant_id: alNoorTenantId } },
       },
     });
@@ -310,6 +306,10 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
       }
       await directPrisma.$disconnect();
     }
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -319,7 +319,12 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
     it('tenant isolation -- Tenant B cannot see Tenant A cases via GET /cases', async () => {
       if (!tablesExist) return;
 
-      const res = await authGet(app, '/api/v1/pastoral/cases', cedarAdminToken, CEDAR_DOMAIN);
+      const res = await authGet(
+        app,
+        '/api/v1/pastoral/cases',
+        cedarAdminToken,
+        cedarFixture.domainName,
+      );
 
       if (res.status === 200) {
         const cases = res.body.data ?? [];
@@ -339,7 +344,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
         app,
         `/api/v1/pastoral/cases/${alNoorCaseId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Must not return 200 with Al Noor data
@@ -353,7 +358,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
         app,
         `/api/v1/pastoral/cases/${alNoorCaseId}/students`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Must not return 200 with Al Noor data
@@ -379,7 +384,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
         '/api/v1/pastoral/cases',
         cedarAdminToken,
         body,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // If module not enabled or user lacks permission, should be 403
@@ -392,7 +397,12 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
     it('403 without pastoral.manage_cases on GET /cases', async () => {
       if (!tablesExist) return;
 
-      const res = await authGet(app, '/api/v1/pastoral/cases', cedarAdminToken, CEDAR_DOMAIN);
+      const res = await authGet(
+        app,
+        '/api/v1/pastoral/cases',
+        cedarAdminToken,
+        cedarFixture.domainName,
+      );
 
       // If pastoral module not enabled or user lacks manage_cases, should be 403
       expect([200, 403]).toContain(res.status);
@@ -408,7 +418,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
         `/api/v1/pastoral/cases/${fakeId}/status`,
         cedarAdminToken,
         { status: 'active', reason: 'Test transition.' },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Should get 403 (no permission) or 404 (no such case in Cedar tenant)
@@ -435,7 +445,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
           owner_user_id: alNoorAdminUserId,
           opened_reason: `Lifecycle test ${UNIQUE_MARKER}`,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       // If creation succeeds, continue the lifecycle
@@ -454,7 +464,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
             status: 'active',
             reason: 'Beginning active case management.',
           },
-          AL_NOOR_DOMAIN,
+          fixture.domainName,
         );
 
         if (activateRes.status === 200) {
@@ -470,7 +480,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
               status: 'resolved',
               reason: 'Interventions succeeded, issue resolved.',
             },
-            AL_NOOR_DOMAIN,
+            fixture.domainName,
           );
 
           if (resolveRes.status === 200) {
@@ -487,7 +497,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
                 status: 'closed',
                 reason: 'No further action required.',
               },
-              AL_NOOR_DOMAIN,
+              fixture.domainName,
             );
 
             if (closeRes.status === 200) {

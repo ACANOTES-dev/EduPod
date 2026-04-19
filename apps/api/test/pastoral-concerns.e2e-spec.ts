@@ -1,3 +1,4 @@
+/* eslint-disable school/no-raw-sql-outside-rls -- e2e test checks table existence via raw SQL */
 /**
  * Pastoral Concerns — RLS Leakage & Permission Tests (e2e)
  *
@@ -23,18 +24,8 @@ import './setup-env';
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_ADMIN_EMAIL,
-  CEDAR_DOMAIN,
-  CEDAR_ADMIN_EMAIL,
-  authGet,
-  authPost,
-  authPatch,
-  closeTestApp,
-  createTestApp,
-  getAuthToken,
-} from './helpers';
+import { authGet, authPost, authPatch, closeTestApp, createTestApp, getAuthToken } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -72,6 +63,9 @@ async function pastoralTablesExist(): Promise<boolean> {
 
 describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let alNoorAdminToken: string;
   let cedarAdminToken: string;
   let tablesExist: boolean;
@@ -97,9 +91,12 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
     }
 
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
 
-    alNoorAdminToken = await getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN);
-    cedarAdminToken = await getAuthToken(app, CEDAR_ADMIN_EMAIL, CEDAR_DOMAIN);
+    alNoorAdminToken = await getAuthToken(app, fixture.adminEmail!, fixture.domainName);
+    cedarAdminToken = await getAuthToken(app, cedarFixture.adminEmail!, cedarFixture.domainName);
 
     // Direct Prisma client for raw data setup
     directPrisma = new PrismaClient({
@@ -109,7 +106,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
 
     // Look up tenant IDs
     const alNoorDomain = await directPrisma.tenantDomain.findFirst({
-      where: { domain: AL_NOOR_DOMAIN },
+      where: { domain: fixture.domainName },
     });
     alNoorTenantId = alNoorDomain!.tenant_id;
 
@@ -122,7 +119,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
     // Get an Al Noor admin user ID for logged_by
     const alNoorAdmin = await directPrisma.user.findFirst({
       where: {
-        email: AL_NOOR_ADMIN_EMAIL,
+        email: fixture.adminEmail!,
         memberships: { some: { tenant_id: alNoorTenantId } },
       },
     });
@@ -230,11 +227,17 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
             where: { id: { in: idsToClean } },
           });
         }
-      } catch {
-        // Cleanup failures are non-fatal in test teardown
+      } catch (err) {
+        // Cleanup failures are non-fatal in test teardown — the subsequent
+        // deleteTenantFixture cascade will remove whatever survives.
+        console.error('[pastoral-concerns teardown]', err);
       }
       await directPrisma.$disconnect();
     }
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -248,7 +251,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
         app,
         '/api/v1/pastoral/concerns',
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Cedar should get 200 but no Al Noor data
@@ -270,7 +273,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
         app,
         `/api/v1/pastoral/concerns/${alNoorConcernId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Must not return 200 with Al Noor data
@@ -285,7 +288,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
         app,
         '/api/v1/pastoral/concerns',
         alNoorAdminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       if (listRes.status === 200) {
@@ -301,7 +304,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
             where: {
               tenant_id: alNoorTenantId,
               user_id: (await directPrisma.user.findFirst({
-                where: { email: AL_NOOR_ADMIN_EMAIL },
+                where: { email: fixture.adminEmail! },
               }))!.id,
               revoked_at: null,
             },
@@ -319,7 +322,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
 
       // Create a DLP user with cp_access_grant if one does not exist
       const alNoorAdmin = await directPrisma.user.findFirst({
-        where: { email: AL_NOOR_ADMIN_EMAIL },
+        where: { email: fixture.adminEmail! },
       });
 
       // Ensure admin has cp_access_grant for this test
@@ -348,7 +351,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
           app,
           `/api/v1/pastoral/concerns/${alNoorTier3ConcernId}`,
           alNoorAdminToken,
-          AL_NOOR_DOMAIN,
+          fixture.domainName,
         );
 
         // DLP user should be able to see tier 3
@@ -375,7 +378,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
         app,
         `/api/v1/pastoral/concerns/${alNoorConcernId}/versions`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Must not return 200 with Al Noor version data
@@ -390,7 +393,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
         app,
         `/api/v1/pastoral/chronology/${alNoorStudentId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       if (res.status === 200) {
@@ -424,7 +427,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
         '/api/v1/pastoral/concerns',
         cedarAdminToken,
         body,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // If the module is not enabled or user lacks permission, should be 403
@@ -441,7 +444,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
         app,
         '/api/v1/pastoral/concerns',
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // If pastoral module is not enabled or user lacks view_tier1, should be 403
@@ -458,7 +461,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
         `/api/v1/pastoral/concerns/${fakeId}`,
         cedarAdminToken,
         { severity: 'elevated' },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Should get 403 (no permission) or 404 (no such concern in Cedar tenant)
@@ -475,7 +478,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
         `/api/v1/pastoral/concerns/${fakeId}/escalate`,
         cedarAdminToken,
         { new_tier: 2, reason: 'Test escalation' },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Should get 403 (no permission) or 404 (no such concern)

@@ -23,12 +23,9 @@ import {
   authPost,
   authPut,
   authPatch,
-  AL_NOOR_ADMIN_EMAIL,
-  AL_NOOR_DOMAIN,
-  CEDAR_ADMIN_EMAIL,
-  CEDAR_DOMAIN,
 } from './helpers';
 import { setupP4ATestData, P4ATestData } from './p4a-test-data.helper';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
@@ -38,6 +35,9 @@ const RLS_TEST_ROLE = 'rls_test_user';
 
 describe('P5 RLS Leakage (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let alNoorAdminToken: string;
   let cedarAdminToken: string;
   let directPrisma: PrismaClient;
@@ -69,11 +69,18 @@ describe('P5 RLS Leakage (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
-    alNoorAdminToken = await getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN);
-    cedarAdminToken = await getAuthToken(app, CEDAR_ADMIN_EMAIL, CEDAR_DOMAIN);
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
+    alNoorAdminToken = await getAuthToken(app, fixture.adminEmail!, fixture.domainName);
+    cedarAdminToken = await getAuthToken(app, cedarFixture.adminEmail!, cedarFixture.domainName);
 
     // Set up Al Noor base data (academic year, class, student, teacher)
-    td = await setupP4ATestData(app, alNoorAdminToken);
+    td = await setupP4ATestData(app, alNoorAdminToken, {
+      domain: fixture.domainName,
+      teacherEmail: fixture.teacherEmail!,
+      ownerEmail: fixture.ownerEmail,
+    });
 
     // Direct Prisma client for low-level RLS tests
     directPrisma = new PrismaClient({
@@ -107,7 +114,7 @@ describe('P5 RLS Leakage (e2e)', () => {
       '/api/v1/subjects',
       alNoorAdminToken,
       { name: `P5 RLS Subject ${ts}`, code: `P5RLS${ts}`, subject_type: 'academic' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     alNoorSubjectId = subjectRes.body.data.id;
 
@@ -123,7 +130,7 @@ describe('P5 RLS Leakage (e2e)', () => {
         end_date: td.dateInYear(12, 15),
         status: 'active',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     alNoorAcademicPeriodId = periodRes.body.data.id;
 
@@ -144,7 +151,7 @@ describe('P5 RLS Leakage (e2e)', () => {
           ],
         },
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     alNoorGradingScaleId = scaleRes.body.data.id;
 
@@ -154,7 +161,7 @@ describe('P5 RLS Leakage (e2e)', () => {
       '/api/v1/gradebook/assessment-categories',
       alNoorAdminToken,
       { name: `P5 RLS Category ${ts}`, default_weight: 100 },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     alNoorCategoryId = catRes.body.data.id;
 
@@ -169,7 +176,7 @@ describe('P5 RLS Leakage (e2e)', () => {
           weights: [{ category_id: alNoorCategoryId, weight: 100 }],
         },
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
     _alNoorGradeConfigId = gradeConfigRes.body.data.id;
 
@@ -186,7 +193,7 @@ describe('P5 RLS Leakage (e2e)', () => {
         title: `P5 RLS Assessment ${ts}`,
         max_score: 100,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     alNoorAssessmentId = assessRes.body.data.id;
 
@@ -196,7 +203,7 @@ describe('P5 RLS Leakage (e2e)', () => {
       `/api/v1/gradebook/assessments/${alNoorAssessmentId}/status`,
       alNoorAdminToken,
       { status: 'open' },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     // ── Enter a grade for the student via API ─────────────────────────────
@@ -207,7 +214,7 @@ describe('P5 RLS Leakage (e2e)', () => {
       {
         grades: [{ student_id: td.studentId, raw_score: 85, is_missing: false }],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     // ── Compute period grades to populate period_grade_snapshots ──────────
@@ -220,7 +227,7 @@ describe('P5 RLS Leakage (e2e)', () => {
         subject_id: alNoorSubjectId,
         academic_period_id: alNoorAcademicPeriodId,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     // ── Generate report card to populate report_cards ─────────────────────
@@ -232,7 +239,7 @@ describe('P5 RLS Leakage (e2e)', () => {
         student_ids: [td.studentId],
         academic_period_id: alNoorAcademicPeriodId,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
   });
 
@@ -250,6 +257,10 @@ describe('P5 RLS Leakage (e2e)', () => {
       }
       await directPrisma.$disconnect();
     }
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -328,7 +339,7 @@ describe('P5 RLS Leakage (e2e)', () => {
         app,
         '/api/v1/gradebook/grading-scales',
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data?.data ?? res.body.data ?? [];
@@ -342,7 +353,7 @@ describe('P5 RLS Leakage (e2e)', () => {
         app,
         `/api/v1/gradebook/grading-scales/${alNoorGradingScaleId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -351,7 +362,7 @@ describe('P5 RLS Leakage (e2e)', () => {
         app,
         '/api/v1/gradebook/assessment-categories',
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data?.data ?? res.body.data ?? [];
@@ -365,7 +376,7 @@ describe('P5 RLS Leakage (e2e)', () => {
         app,
         `/api/v1/gradebook/assessment-categories/${alNoorCategoryId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -374,7 +385,7 @@ describe('P5 RLS Leakage (e2e)', () => {
         app,
         '/api/v1/gradebook/assessments',
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data?.data ?? res.body.data ?? [];
@@ -388,7 +399,7 @@ describe('P5 RLS Leakage (e2e)', () => {
         app,
         `/api/v1/gradebook/assessments/${alNoorAssessmentId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -397,14 +408,17 @@ describe('P5 RLS Leakage (e2e)', () => {
         app,
         `/api/v1/gradebook/assessments/${alNoorAssessmentId}/grades`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
     it('GET /api/v1/report-cards as Cedar returns no Al Noor data', async () => {
-      const res = await authGet(app, '/api/v1/report-cards', cedarAdminToken, CEDAR_DOMAIN).expect(
-        200,
-      );
+      const res = await authGet(
+        app,
+        '/api/v1/report-cards',
+        cedarAdminToken,
+        cedarFixture.domainName,
+      ).expect(200);
 
       const data = res.body.data?.data ?? res.body.data ?? [];
       const items = Array.isArray(data) ? data : [];
@@ -418,7 +432,7 @@ describe('P5 RLS Leakage (e2e)', () => {
         app,
         `/api/v1/gradebook/classes/${td.classId}/grade-configs`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data ?? [];
@@ -442,7 +456,7 @@ describe('P5 RLS Leakage (e2e)', () => {
           subject_id: alNoorSubjectId,
           academic_period_id: alNoorAcademicPeriodId,
         },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Should get 404 (class not found in Cedar context) or 400
@@ -458,7 +472,7 @@ describe('P5 RLS Leakage (e2e)', () => {
           student_ids: [td.studentId],
           academic_period_id: alNoorAcademicPeriodId,
         },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Should get 404 (student not found in Cedar context) or 400
@@ -476,7 +490,7 @@ describe('P5 RLS Leakage (e2e)', () => {
             weights: [{ category_id: alNoorCategoryId, weight: 100 }],
           },
         },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Should get 404 (class or grading scale not found) or 400
@@ -496,7 +510,7 @@ describe('P5 RLS Leakage (e2e)', () => {
           title: 'RLS Cross-Tenant Assessment',
           max_score: 100,
         },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Should get 404 (class not found) or 400 (validation)
@@ -511,7 +525,7 @@ describe('P5 RLS Leakage (e2e)', () => {
         {
           grades: [{ student_id: td.studentId, raw_score: 99, is_missing: false }],
         },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // Should get 404 (assessment not found in Cedar context) or 400
@@ -523,7 +537,7 @@ describe('P5 RLS Leakage (e2e)', () => {
         app,
         `/api/v1/gradebook/period-grades?class_id=${td.classId}&subject_id=${alNoorSubjectId}&academic_period_id=${alNoorAcademicPeriodId}`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data ?? [];
@@ -537,7 +551,7 @@ describe('P5 RLS Leakage (e2e)', () => {
         app,
         `/api/v1/gradebook/students/${td.studentId}/period-grades`,
         cedarAdminToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const data = res.body.data ?? [];

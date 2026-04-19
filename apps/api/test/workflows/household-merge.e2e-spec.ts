@@ -1,22 +1,16 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  CEDAR_DOMAIN,
-  CEDAR_OWNER_EMAIL,
-  closeTestApp,
-  createTestApp,
-  DEV_PASSWORD,
-  authGet,
-  authPost,
-  login,
-} from '../helpers';
+import { closeTestApp, createTestApp, DEV_PASSWORD, authGet, authPost, login } from '../helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from '../tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('Workflow: Household Merge (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let ownerToken: string;
   let cedarOwnerToken: string;
 
@@ -34,15 +28,27 @@ describe('Workflow: Household Merge (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
+    const cedarLogin = await login(
+      app,
+      cedarFixture.ownerEmail,
+      DEV_PASSWORD,
+      cedarFixture.domainName,
+    );
     cedarOwnerToken = cedarLogin.accessToken;
   }, 60_000);
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -65,7 +71,7 @@ describe('Workflow: Household Merge (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -93,7 +99,7 @@ describe('Workflow: Household Merge (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -118,7 +124,7 @@ describe('Workflow: Household Merge (e2e)', () => {
         national_id: `NID-MERGE-${ts}`,
         nationality: 'Irish',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -137,11 +143,11 @@ describe('Workflow: Household Merge (e2e)', () => {
       {
         first_name: 'Merge',
         last_name: `Parent ${Date.now()}`,
-        email: `merge-parent-${Date.now()}@alnoor.test`,
+        email: `merge-parent-${Date.now()}@${fixture.domainName}`,
         phone: '+971503333333',
         preferred_contact_channels: ['email'],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     parentInBId = parentRes.body.data.id;
@@ -151,7 +157,7 @@ describe('Workflow: Household Merge (e2e)', () => {
       `/api/v1/households/${householdBId}/parents`,
       ownerToken,
       { parent_id: parentInBId },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
   });
 
@@ -162,7 +168,7 @@ describe('Workflow: Household Merge (e2e)', () => {
       app,
       `/api/v1/households/${householdAId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(resA.body.data.status).toBe('active');
@@ -171,7 +177,7 @@ describe('Workflow: Household Merge (e2e)', () => {
       app,
       `/api/v1/households/${householdBId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(resB.body.data.status).toBe('active');
@@ -188,7 +194,7 @@ describe('Workflow: Household Merge (e2e)', () => {
         source_household_id: householdBId,
         target_household_id: householdAId,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = mergeRes.body.data;
@@ -203,7 +209,7 @@ describe('Workflow: Household Merge (e2e)', () => {
       app,
       `/api/v1/households/${householdBId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(res.body.data.status).toBe('archived');
@@ -216,7 +222,7 @@ describe('Workflow: Household Merge (e2e)', () => {
       app,
       `/api/v1/households/${householdAId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;
@@ -233,7 +239,7 @@ describe('Workflow: Household Merge (e2e)', () => {
         app,
         `/api/v1/students/${studentInBId}`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       const studentData = studentRes.body.data;
@@ -248,7 +254,7 @@ describe('Workflow: Household Merge (e2e)', () => {
       app,
       `/api/v1/households/${householdAId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(res.body.data.status).toBe('active');
@@ -272,7 +278,7 @@ describe('Workflow: Household Merge (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const freshId = freshRes.body.data.id;
@@ -286,7 +292,7 @@ describe('Workflow: Household Merge (e2e)', () => {
         source_household_id: freshId,
         target_household_id: householdBId,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
 
     // Should fail because target is archived
@@ -304,7 +310,7 @@ describe('Workflow: Household Merge (e2e)', () => {
         source_household_id: householdAId,
         target_household_id: householdAId,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
 
     expect([400, 409, 422]).toContain(res.status);
@@ -314,9 +320,12 @@ describe('Workflow: Household Merge (e2e)', () => {
 
   describe('Cross-tenant isolation', () => {
     it('should prevent Cedar from seeing Al Noor merged households', async () => {
-      const res = await authGet(app, '/api/v1/households', cedarOwnerToken, CEDAR_DOMAIN).expect(
-        200,
-      );
+      const res = await authGet(
+        app,
+        '/api/v1/households',
+        cedarOwnerToken,
+        cedarFixture.domainName,
+      ).expect(200);
 
       const households = res.body.data ?? [];
 
@@ -333,7 +342,7 @@ describe('Workflow: Household Merge (e2e)', () => {
         app,
         `/api/v1/households/${householdAId}`,
         cedarOwnerToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });

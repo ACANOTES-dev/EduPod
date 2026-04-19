@@ -1,11 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
-  CEDAR_DOMAIN,
-  CEDAR_OWNER_EMAIL,
   closeTestApp,
   createTestApp,
   DEV_PASSWORD,
@@ -14,11 +10,15 @@ import {
   authPost,
   login,
 } from '../helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from '../tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('Workflow: Payroll Finalisation (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let ownerToken: string;
   let teacherToken: string;
   let cedarOwnerToken: string;
@@ -48,7 +48,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
           period_year: periodYear,
           total_working_days: totalWorkingDays,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       if (res.status !== 409) {
@@ -63,25 +63,39 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const teacherLogin = await login(app, AL_NOOR_TEACHER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const teacherLogin = await login(app, fixture.teacherEmail!, DEV_PASSWORD, fixture.domainName);
     teacherToken = teacherLogin.accessToken;
 
-    const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
+    const cedarLogin = await login(
+      app,
+      cedarFixture.ownerEmail,
+      DEV_PASSWORD,
+      cedarFixture.domainName,
+    );
     cedarOwnerToken = cedarLogin.accessToken;
   }, 60_000);
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
   // ─── 1. List existing payroll runs ──────────────────────────────────────
 
   it('should list payroll runs', async () => {
-    const res = await authGet(app, '/api/v1/payroll/runs', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const res = await authGet(app, '/api/v1/payroll/runs', ownerToken, fixture.domainName).expect(
+      200,
+    );
 
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -122,7 +136,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
       app,
       `/api/v1/payroll/runs/${payrollRunId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;
@@ -148,7 +162,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
       `/api/v1/payroll/runs/${payrollRunId}/refresh-entries`,
       ownerToken,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;
@@ -159,7 +173,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
       app,
       `/api/v1/payroll/runs/${payrollRunId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const runData = runRes.body.data;
@@ -188,7 +202,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
       {
         days_worked: 22,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;
@@ -205,7 +219,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
       app,
       `/api/v1/payroll/runs/${payrollRunId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     payrollRunUpdatedAt = runRes.body.data.updated_at;
@@ -217,7 +231,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
       {
         expected_updated_at: payrollRunUpdatedAt,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
 
     // Finalisation may result in 'finalised', 'pending_approval', or remain 'draft'
@@ -241,7 +255,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
       app,
       `/api/v1/payroll/runs/${payrollRunId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     if (runRes.body.data.status === 'finalised') {
@@ -249,7 +263,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
         app,
         `/api/v1/payroll/payslips?payroll_run_id=${payrollRunId}`,
         ownerToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data).toBeDefined();
@@ -275,7 +289,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
       app,
       `/api/v1/payroll/runs/${payrollRunId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     if (runRes.body.data.status === 'finalised') {
@@ -286,7 +300,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
         `/api/v1/payroll/entries/${entryId}`,
         ownerToken,
         { days_worked: 10 },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       // Should be rejected since the run is finalised
@@ -302,7 +316,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
       app,
       `/api/v1/payroll/runs/${payrollRunId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     if (runRes.body.data.status === 'finalised') {
@@ -311,7 +325,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
         `/api/v1/payroll/runs/${payrollRunId}/cancel`,
         ownerToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       // Cancelling a finalised run should fail
@@ -333,7 +347,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
       `/api/v1/payroll/runs/${draftRunId}/cancel`,
       ownerToken,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     expect(cancelRes.body.data.status).toBe('cancelled');
@@ -343,7 +357,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
 
   describe('Permission enforcement', () => {
     it('should reject teacher from listing payroll runs', async () => {
-      await authGet(app, '/api/v1/payroll/runs', teacherToken, AL_NOOR_DOMAIN).expect(403);
+      await authGet(app, '/api/v1/payroll/runs', teacherToken, fixture.domainName).expect(403);
     });
 
     it('should reject teacher from creating payroll runs', async () => {
@@ -357,7 +371,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
           period_year: 2029,
           total_working_days: 20,
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
   });
@@ -366,9 +380,12 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
 
   describe('Cross-tenant isolation', () => {
     it('should prevent Cedar from seeing Al Noor payroll runs', async () => {
-      const res = await authGet(app, '/api/v1/payroll/runs', cedarOwnerToken, CEDAR_DOMAIN).expect(
-        200,
-      );
+      const res = await authGet(
+        app,
+        '/api/v1/payroll/runs',
+        cedarOwnerToken,
+        cedarFixture.domainName,
+      ).expect(200);
 
       const runs = res.body.data ?? [];
       const leaked = runs.find((r: { id: string }) => r.id === payrollRunId);
@@ -381,7 +398,7 @@ describe('Workflow: Payroll Finalisation (e2e)', () => {
         app,
         `/api/v1/payroll/runs/${payrollRunId}`,
         cedarOwnerToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });

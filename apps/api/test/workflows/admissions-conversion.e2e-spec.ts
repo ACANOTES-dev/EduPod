@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
   buildPublicApplicationSeed,
@@ -6,23 +7,16 @@ import {
   ensureAdmissionsTargets,
   getAdmissionsDashboardSummary,
 } from '../admissions-test-helpers';
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  CEDAR_DOMAIN,
-  CEDAR_OWNER_EMAIL,
-  closeTestApp,
-  createTestApp,
-  DEV_PASSWORD,
-  authGet,
-  authPost,
-  login,
-} from '../helpers';
+import { closeTestApp, createTestApp, DEV_PASSWORD, authGet, authPost, login } from '../helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from '../tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('Workflow: Admissions Queue Flow (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let ownerToken: string;
   let cedarOwnerToken: string;
   let applicationId: string;
@@ -31,17 +25,25 @@ describe('Workflow: Admissions Queue Flow (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
+    const cedarLogin = await login(
+      app,
+      cedarFixture.ownerEmail,
+      DEV_PASSWORD,
+      cedarFixture.domainName,
+    );
     cedarOwnerToken = cedarLogin.accessToken;
 
-    const targets = await ensureAdmissionsTargets(app, ownerToken, AL_NOOR_DOMAIN);
+    const targets = await ensureAdmissionsTargets(app, ownerToken, fixture.domainName);
     const created = await createPublicApplication(
       app,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
       buildPublicApplicationSeed(targets),
     );
 
@@ -52,7 +54,7 @@ describe('Workflow: Admissions Queue Flow (e2e)', () => {
       app,
       `/api/v1/applications/${applicationId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const detailBody = detailRes.body.data ?? detailRes.body;
@@ -60,6 +62,10 @@ describe('Workflow: Admissions Queue Flow (e2e)', () => {
   }, 60_000);
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -69,13 +75,15 @@ describe('Workflow: Admissions Queue Flow (e2e)', () => {
         ? '/api/v1/applications/queues/ready-to-admit'
         : '/api/v1/applications/queues/waiting-list';
 
-    const res = await authGet(app, queuePath, ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const res = await authGet(app, queuePath, ownerToken, fixture.domainName).expect(200);
     const body = res.body.data ?? res.body;
     const queueData = body.data ?? body;
     if (initialStatus === 'ready_to_admit') {
-      const queueMeta = body.meta ?? {};
+      // ready-to-admit queue may or may not include pagination meta depending
+      // on result size. Check the array itself rather than meta.total which
+      // is optional in the response contract.
       expect(Array.isArray(queueData)).toBe(true);
-      expect(queueMeta.total).toBeGreaterThanOrEqual(1);
+      expect(queueData.length).toBeGreaterThanOrEqual(1);
       return;
     }
 
@@ -89,7 +97,7 @@ describe('Workflow: Admissions Queue Flow (e2e)', () => {
       `/api/v1/applications/${applicationId}/notes`,
       ownerToken,
       { note: 'Queue workflow note', is_internal: true },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const body = res.body.data ?? res.body;
@@ -106,7 +114,7 @@ describe('Workflow: Admissions Queue Flow (e2e)', () => {
         expected_updated_at: applicationUpdatedAt,
         rejection_reason: 'Workflow rejection check',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
 
     expect([200, 201]).toContain(res.status);
@@ -120,7 +128,7 @@ describe('Workflow: Admissions Queue Flow (e2e)', () => {
       app,
       '/api/v1/applications/queues/rejected?page=1&pageSize=20',
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const buckets = res.body.data ?? [];
@@ -132,7 +140,7 @@ describe('Workflow: Admissions Queue Flow (e2e)', () => {
   });
 
   it('updates the admissions dashboard summary', async () => {
-    const summary = await getAdmissionsDashboardSummary(app, ownerToken, AL_NOOR_DOMAIN);
+    const summary = await getAdmissionsDashboardSummary(app, ownerToken, fixture.domainName);
 
     const payload = summary.data ?? summary;
     expect(payload.counts).toBeDefined();
@@ -145,7 +153,7 @@ describe('Workflow: Admissions Queue Flow (e2e)', () => {
       app,
       `/api/v1/applications/${applicationId}`,
       cedarOwnerToken,
-      CEDAR_DOMAIN,
+      cedarFixture.domainName,
     ).expect(404);
   });
 });

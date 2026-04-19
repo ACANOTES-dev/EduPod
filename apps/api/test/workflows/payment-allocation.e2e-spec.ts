@@ -1,23 +1,16 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
-  CEDAR_DOMAIN,
-  CEDAR_OWNER_EMAIL,
-  closeTestApp,
-  createTestApp,
-  DEV_PASSWORD,
-  authGet,
-  authPost,
-  login,
-} from '../helpers';
+import { closeTestApp, createTestApp, DEV_PASSWORD, authGet, authPost, login } from '../helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from '../tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('Workflow: Payment Allocation (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let ownerToken: string;
   let teacherToken: string;
   let cedarOwnerToken: string;
@@ -36,14 +29,22 @@ describe('Workflow: Payment Allocation (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const ownerLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     ownerToken = ownerLogin.accessToken;
 
-    const teacherLogin = await login(app, AL_NOOR_TEACHER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const teacherLogin = await login(app, fixture.teacherEmail!, DEV_PASSWORD, fixture.domainName);
     teacherToken = teacherLogin.accessToken;
 
-    const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
+    const cedarLogin = await login(
+      app,
+      cedarFixture.ownerEmail,
+      DEV_PASSWORD,
+      cedarFixture.domainName,
+    );
     cedarOwnerToken = cedarLogin.accessToken;
 
     // Create a household
@@ -62,13 +63,17 @@ describe('Workflow: Payment Allocation (e2e)', () => {
           },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     householdId = hhRes.body.data.id;
   }, 60_000);
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -89,7 +94,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
           { description: 'Activity Fee', quantity: 1, unit_amount: 500 },
         ],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -110,7 +115,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
       `/api/v1/finance/invoices/${invoiceId}/issue`,
       ownerToken,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;
@@ -133,7 +138,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
         amount: 800,
         received_at: '2026-03-16T10:00:00Z',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -152,7 +157,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
       app,
       `/api/v1/finance/payments/${partialPaymentId}/allocations/suggest`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;
@@ -184,7 +189,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
       {
         allocations: [{ invoice_id: invoiceId, amount: 800 }],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -205,7 +210,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
       app,
       `/api/v1/finance/invoices/${invoiceId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;
@@ -224,7 +229,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
       app,
       `/api/v1/finance/payments/${partialPaymentId}/receipt`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
 
     // Receipt may be auto-generated on allocation or on-demand
@@ -253,7 +258,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
         amount: remainingAmount,
         received_at: '2026-03-17T10:00:00Z',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -278,7 +283,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
       {
         allocations: [{ invoice_id: invoiceId, amount: remainingAmount }],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const data = res.body.data;
@@ -298,7 +303,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
       app,
       `/api/v1/finance/invoices/${invoiceId}`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const data = res.body.data;
@@ -317,7 +322,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
       app,
       `/api/v1/finance/payments/${fullPaymentId}/receipt`,
       ownerToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
 
     if (res.status === 200) {
@@ -346,7 +351,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
           due_date: '2026-12-31',
           lines: [{ description: 'Over-alloc Test', quantity: 1, unit_amount: 100 }],
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       overAllocInvoiceId = invRes.body.data.id;
@@ -357,7 +362,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
         `/api/v1/finance/invoices/${overAllocInvoiceId}/issue`,
         ownerToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       overAllocInvoiceIssued = issueRes.body.data.status === 'issued';
@@ -374,7 +379,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
           amount: 50,
           received_at: '2026-03-16T00:00:00Z',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       overAllocPaymentId = payRes.body.data.id;
@@ -393,7 +398,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
         {
           allocations: [{ invoice_id: overAllocInvoiceId, amount: 200 }],
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
 
       expect(res.body.error.code).toBe('ALLOCATION_EXCEEDS_PAYMENT');
@@ -416,7 +421,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
           amount: 5000,
           received_at: '2026-03-16T00:00:00Z',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       const bigPaymentId = bigPayRes.body.data.id;
@@ -429,7 +434,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
         {
           allocations: [{ invoice_id: overAllocInvoiceId, amount: 5000 }],
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       );
 
       // Should reject: allocation exceeds invoice balance
@@ -441,7 +446,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
 
   describe('Permission enforcement', () => {
     it('should reject teacher from listing payments', async () => {
-      await authGet(app, '/api/v1/finance/payments', teacherToken, AL_NOOR_DOMAIN).expect(403);
+      await authGet(app, '/api/v1/finance/payments', teacherToken, fixture.domainName).expect(403);
     });
 
     it('should reject teacher from creating payments', async () => {
@@ -456,12 +461,12 @@ describe('Workflow: Payment Allocation (e2e)', () => {
           amount: 100,
           received_at: '2026-03-16T00:00:00Z',
         },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
     it('should reject teacher from viewing invoices', async () => {
-      await authGet(app, '/api/v1/finance/invoices', teacherToken, AL_NOOR_DOMAIN).expect(403);
+      await authGet(app, '/api/v1/finance/invoices', teacherToken, fixture.domainName).expect(403);
     });
   });
 
@@ -473,7 +478,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
         app,
         '/api/v1/finance/invoices',
         cedarOwnerToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const invoices = res.body.data ?? [];
@@ -486,7 +491,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
         app,
         '/api/v1/finance/payments',
         cedarOwnerToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const payments = res.body.data ?? [];
@@ -499,7 +504,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
         app,
         `/api/v1/finance/invoices/${invoiceId}`,
         cedarOwnerToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });

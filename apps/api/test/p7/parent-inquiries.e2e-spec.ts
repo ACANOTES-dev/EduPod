@@ -1,24 +1,17 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
-import {
-  createTestApp,
-  closeTestApp,
-  getAuthToken,
-  authGet,
-  authPost,
-  AL_NOOR_ADMIN_EMAIL,
-  AL_NOOR_PARENT_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
-  CEDAR_PARENT_EMAIL,
-  AL_NOOR_DOMAIN,
-  CEDAR_DOMAIN,
-} from '../helpers';
+import { createTestApp, closeTestApp, getAuthToken, authGet, authPost } from '../helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from '../tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('Parent Inquiries (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let adminToken: string;
   let parentToken: string;
   let teacherToken: string;
@@ -26,15 +19,22 @@ describe('Parent Inquiries (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
     [adminToken, parentToken, teacherToken, cedarParentToken] = await Promise.all([
-      getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN),
-      getAuthToken(app, AL_NOOR_PARENT_EMAIL, AL_NOOR_DOMAIN),
-      getAuthToken(app, AL_NOOR_TEACHER_EMAIL, AL_NOOR_DOMAIN),
-      getAuthToken(app, CEDAR_PARENT_EMAIL, CEDAR_DOMAIN),
+      getAuthToken(app, fixture.adminEmail!, fixture.domainName),
+      getAuthToken(app, fixture.parentEmail!, fixture.domainName),
+      getAuthToken(app, fixture.teacherEmail!, fixture.domainName),
+      getAuthToken(app, cedarFixture.parentEmail!, cedarFixture.domainName),
     ]);
   }, 60_000);
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -46,7 +46,7 @@ describe('Parent Inquiries (e2e)', () => {
       message: 'I have a question about my child.',
       ...overrides,
     };
-    return authPost(app, '/api/v1/inquiries', token, body, AL_NOOR_DOMAIN);
+    return authPost(app, '/api/v1/inquiries', token, body, fixture.domainName);
   }
 
   // ─── POST /api/v1/inquiries (Parent) ──────────────────────────────────────────
@@ -63,7 +63,7 @@ describe('Parent Inquiries (e2e)', () => {
     it('auth failure → 401', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/inquiries')
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send({ subject: 'Test', message: 'Hello' })
         .expect(401);
     });
@@ -74,7 +74,7 @@ describe('Parent Inquiries (e2e)', () => {
         '/api/v1/inquiries',
         adminToken,
         { subject: 'Test', message: 'Hello' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -84,7 +84,7 @@ describe('Parent Inquiries (e2e)', () => {
         '/api/v1/inquiries',
         parentToken,
         { message: 'No subject' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
     });
   });
@@ -105,7 +105,7 @@ describe('Parent Inquiries (e2e)', () => {
         `/api/v1/inquiries/${inquiryId}/messages`,
         adminToken,
         { message: 'We will look into this.' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       expect(res.body.data).toBeDefined();
@@ -115,7 +115,7 @@ describe('Parent Inquiries (e2e)', () => {
         app,
         `/api/v1/inquiries/${inquiryId}`,
         adminToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(inquiryRes.body.data.status).toBe('in_progress');
@@ -124,7 +124,7 @@ describe('Parent Inquiries (e2e)', () => {
     it('auth failure → 401', async () => {
       await request(app.getHttpServer())
         .post(`/api/v1/inquiries/${inquiryId}/messages`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send({ message: 'No auth' })
         .expect(401);
     });
@@ -135,7 +135,7 @@ describe('Parent Inquiries (e2e)', () => {
         `/api/v1/inquiries/${inquiryId}/messages`,
         teacherToken,
         { message: 'Teacher reply' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(403);
     });
 
@@ -144,9 +144,13 @@ describe('Parent Inquiries (e2e)', () => {
       const createRes = await createInquiry(parentToken).expect(201);
       const id = createRes.body.data.id;
 
-      await authPost(app, `/api/v1/inquiries/${id}/close`, adminToken, {}, AL_NOOR_DOMAIN).expect(
-        200,
-      );
+      await authPost(
+        app,
+        `/api/v1/inquiries/${id}/close`,
+        adminToken,
+        {},
+        fixture.domainName,
+      ).expect(200);
 
       // Try to add message to closed inquiry
       const res = await authPost(
@@ -154,7 +158,7 @@ describe('Parent Inquiries (e2e)', () => {
         `/api/v1/inquiries/${id}/messages`,
         adminToken,
         { message: 'Too late' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
 
       expect(res.body.error.code).toBe('INQUIRY_CLOSED');
@@ -167,7 +171,7 @@ describe('Parent Inquiries (e2e)', () => {
         `/api/v1/inquiries/${fakeId}/messages`,
         adminToken,
         { message: 'Ghost' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(404);
     });
   });
@@ -187,7 +191,7 @@ describe('Parent Inquiries (e2e)', () => {
         `/api/v1/inquiries/${inquiryId}/messages`,
         adminToken,
         { message: 'Admin response here.' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
     });
 
@@ -196,7 +200,7 @@ describe('Parent Inquiries (e2e)', () => {
         app,
         `/api/v1/inquiries/${inquiryId}/parent`,
         parentToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       const data = res.body.data;
@@ -218,7 +222,7 @@ describe('Parent Inquiries (e2e)', () => {
     it('auth failure → 401', async () => {
       await request(app.getHttpServer())
         .get(`/api/v1/inquiries/${inquiryId}/parent`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
@@ -227,7 +231,7 @@ describe('Parent Inquiries (e2e)', () => {
         app,
         `/api/v1/inquiries/${inquiryId}/parent`,
         cedarParentToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });
@@ -244,7 +248,7 @@ describe('Parent Inquiries (e2e)', () => {
         `/api/v1/inquiries/${id}/close`,
         adminToken,
         {},
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       expect(res.body.data.status).toBe('closed');
@@ -256,7 +260,7 @@ describe('Parent Inquiries (e2e)', () => {
 
       await request(app.getHttpServer())
         .post(`/api/v1/inquiries/${id}/close`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .expect(401);
     });
 
@@ -265,14 +269,22 @@ describe('Parent Inquiries (e2e)', () => {
       const id = createRes.body.data.id;
 
       // Close it
-      await authPost(app, `/api/v1/inquiries/${id}/close`, adminToken, {}, AL_NOOR_DOMAIN).expect(
-        200,
-      );
+      await authPost(
+        app,
+        `/api/v1/inquiries/${id}/close`,
+        adminToken,
+        {},
+        fixture.domainName,
+      ).expect(200);
 
       // Try to close again
-      await authPost(app, `/api/v1/inquiries/${id}/close`, adminToken, {}, AL_NOOR_DOMAIN).expect(
-        400,
-      );
+      await authPost(
+        app,
+        `/api/v1/inquiries/${id}/close`,
+        adminToken,
+        {},
+        fixture.domainName,
+      ).expect(400);
     });
   });
 
@@ -292,7 +304,7 @@ describe('Parent Inquiries (e2e)', () => {
         `/api/v1/inquiries/${inquiryId}/messages/parent`,
         parentToken,
         { message: 'Follow-up from parent' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(201);
 
       expect(res.body.data).toBeDefined();
@@ -303,9 +315,13 @@ describe('Parent Inquiries (e2e)', () => {
       const id = createRes.body.data.id;
 
       // Close it
-      await authPost(app, `/api/v1/inquiries/${id}/close`, adminToken, {}, AL_NOOR_DOMAIN).expect(
-        200,
-      );
+      await authPost(
+        app,
+        `/api/v1/inquiries/${id}/close`,
+        adminToken,
+        {},
+        fixture.domainName,
+      ).expect(200);
 
       // Parent tries to message
       const res = await authPost(
@@ -313,7 +329,7 @@ describe('Parent Inquiries (e2e)', () => {
         `/api/v1/inquiries/${id}/messages/parent`,
         parentToken,
         { message: 'Too late' },
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(400);
 
       expect(res.body.error.code).toBe('INQUIRY_CLOSED');
@@ -322,7 +338,7 @@ describe('Parent Inquiries (e2e)', () => {
     it('auth failure → 401', async () => {
       await request(app.getHttpServer())
         .post(`/api/v1/inquiries/${inquiryId}/messages/parent`)
-        .set('Host', AL_NOOR_DOMAIN)
+        .set('Host', fixture.domainName)
         .send({ message: 'No auth' })
         .expect(401);
     });

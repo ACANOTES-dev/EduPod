@@ -17,18 +17,8 @@
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
-import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  CEDAR_DOMAIN,
-  CEDAR_OWNER_EMAIL,
-  DEV_PASSWORD,
-  authGet,
-  authPost,
-  closeTestApp,
-  createTestApp,
-  login,
-} from './helpers';
+import { DEV_PASSWORD, authGet, authPost, closeTestApp, createTestApp, login } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -45,6 +35,9 @@ jest.setTimeout(120_000);
 
 describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let _alNoorToken: string;
   let cedarToken: string;
   let alNoorUserId: string;
@@ -75,13 +68,21 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
 
     // Authenticate as both tenants
-    const alNoorLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const alNoorLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     _alNoorToken = alNoorLogin.accessToken;
     alNoorUserId = (alNoorLogin.user as Record<string, string>).id!;
 
-    const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
+    const cedarLogin = await login(
+      app,
+      cedarFixture.ownerEmail,
+      DEV_PASSWORD,
+      cedarFixture.domainName,
+    );
     cedarToken = cedarLogin.accessToken;
 
     // ── Direct Prisma for data setup / table-level tests ──────────────────
@@ -226,6 +227,10 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
       }
       await directPrisma.$disconnect();
     }
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -275,7 +280,7 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
         app,
         '/api/v1/payroll/compensation',
         cedarToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
@@ -286,7 +291,12 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
     });
 
     it('GET /v1/payroll/runs as Cedar should not return Al Noor payroll runs', async () => {
-      const res = await authGet(app, '/api/v1/payroll/runs', cedarToken, CEDAR_DOMAIN).expect(200);
+      const res = await authGet(
+        app,
+        '/api/v1/payroll/runs',
+        cedarToken,
+        cedarFixture.domainName,
+      ).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
@@ -296,9 +306,12 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
     });
 
     it('GET /v1/payroll/payslips as Cedar should not return Al Noor payslips', async () => {
-      const res = await authGet(app, '/api/v1/payroll/payslips', cedarToken, CEDAR_DOMAIN).expect(
-        200,
-      );
+      const res = await authGet(
+        app,
+        '/api/v1/payroll/payslips',
+        cedarToken,
+        cedarFixture.domainName,
+      ).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const payslipNumbers = Array.isArray(items)
@@ -310,9 +323,12 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
     });
 
     it('GET /v1/payroll/dashboard as Cedar should not contain Al Noor data', async () => {
-      const res = await authGet(app, '/api/v1/payroll/dashboard', cedarToken, CEDAR_DOMAIN).expect(
-        200,
-      );
+      const res = await authGet(
+        app,
+        '/api/v1/payroll/dashboard',
+        cedarToken,
+        cedarFixture.domainName,
+      ).expect(200);
 
       const dashboard = res.body.data ?? res.body;
 
@@ -331,7 +347,7 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/payroll/compensation/${alNoorCompensationId}`,
         cedarToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -340,7 +356,7 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/payroll/runs/${alNoorPayrollRunId}`,
         cedarToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });
@@ -356,7 +372,7 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
         `/api/v1/payroll/runs/${alNoorPayrollRunId}/finalise`,
         cedarToken,
         {},
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       expect([400, 404]).toContain(res.status);
@@ -368,7 +384,7 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
         `/api/v1/payroll/runs/${alNoorPayrollRunId}/cancel`,
         cedarToken,
         {},
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       expect([400, 404]).toContain(res.status);
@@ -380,7 +396,7 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
         `/api/v1/payroll/runs/${alNoorPayrollRunId}/refresh-entries`,
         cedarToken,
         {},
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       expect([400, 404]).toContain(res.status);
@@ -392,7 +408,7 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
         `/api/v1/payroll/runs/${alNoorPayrollRunId}/mass-export`,
         cedarToken,
         {},
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // The endpoint may return 200 with empty result (RLS hides the run),

@@ -627,6 +627,11 @@ async function createTenantUser(
  * platform-level user rows (users are not tenant-scoped, so they must be
  * deleted explicitly).
  *
+ * Some tables (pastoral_events, pastoral_concern_versions, audit_logs,
+ * behaviour_incident_events, etc.) have DB-level "append-only" triggers that
+ * raise on DELETE. We temporarily flip `session_replication_role = replica`
+ * so the cascade from DELETE FROM tenants can tear down child rows silently.
+ *
  * Idempotent — safe to call multiple times / on a partially-created fixture.
  */
 export async function deleteTenantFixture(
@@ -636,16 +641,22 @@ export async function deleteTenantFixture(
     'tenantId' | 'ownerUserId' | 'adminUserId' | 'teacherUserId' | 'parentUserId'
   >,
 ): Promise<void> {
-  await prisma.$executeRawUnsafe(`DELETE FROM tenants WHERE id = $1::uuid`, fixture.tenantId);
+  try {
+    await prisma.$executeRawUnsafe(`SET session_replication_role = 'replica'`);
+    await prisma.$executeRawUnsafe(`DELETE FROM tenants WHERE id = $1::uuid`, fixture.tenantId);
 
-  const userIds = [
-    fixture.ownerUserId,
-    fixture.adminUserId,
-    fixture.teacherUserId,
-    fixture.parentUserId,
-  ].filter((id): id is string => typeof id === 'string' && id.length > 0);
+    const userIds = [
+      fixture.ownerUserId,
+      fixture.adminUserId,
+      fixture.teacherUserId,
+      fixture.parentUserId,
+    ].filter((id): id is string => typeof id === 'string' && id.length > 0);
 
-  for (const userId of userIds) {
-    await prisma.$executeRawUnsafe(`DELETE FROM users WHERE id = $1::uuid`, userId);
+    for (const userId of userIds) {
+      await prisma.$executeRawUnsafe(`DELETE FROM users WHERE id = $1::uuid`, userId);
+    }
+  } finally {
+    // Always restore trigger mode even on error.
+    await prisma.$executeRawUnsafe(`SET session_replication_role = 'origin'`);
   }
 }

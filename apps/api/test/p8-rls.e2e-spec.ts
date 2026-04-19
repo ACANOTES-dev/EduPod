@@ -24,10 +24,6 @@ import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 import {
-  AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
-  CEDAR_DOMAIN,
-  CEDAR_OWNER_EMAIL,
   DEV_PASSWORD,
   PLATFORM_ADMIN_EMAIL,
   authGet,
@@ -37,6 +33,7 @@ import {
   getAuthToken,
   login,
 } from './helpers';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -50,6 +47,9 @@ jest.setTimeout(120_000);
 
 describe('P8 — RLS Leakage Tests (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let alNoorToken: string;
   let cedarToken: string;
   let platformToken: string;
@@ -87,13 +87,21 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
 
     // Authenticate as both tenants + platform admin
-    const alNoorLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    const alNoorLogin = await login(app, fixture.ownerEmail, DEV_PASSWORD, fixture.domainName);
     alNoorToken = alNoorLogin.accessToken;
     alNoorUserId = (alNoorLogin.user as Record<string, string>).id!;
 
-    const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
+    const cedarLogin = await login(
+      app,
+      cedarFixture.ownerEmail,
+      DEV_PASSWORD,
+      cedarFixture.domainName,
+    );
     cedarToken = cedarLogin.accessToken;
 
     platformToken = await getAuthToken(app, PLATFORM_ADMIN_EMAIL);
@@ -253,6 +261,10 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
       }
       await directPrisma.$disconnect();
     }
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -297,7 +309,12 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
 
   describe('3.1 audit_logs — Tenant isolation with nullable tenant_id', () => {
     it('Tenant B cannot see Tenant A audit logs via GET /api/v1/audit-logs', async () => {
-      const res = await authGet(app, '/api/v1/audit-logs', cedarToken, CEDAR_DOMAIN).expect(200);
+      const res = await authGet(
+        app,
+        '/api/v1/audit-logs',
+        cedarToken,
+        cedarFixture.domainName,
+      ).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const ids = items.map((i) => i.id);
@@ -313,7 +330,7 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/audit-logs?entity_type=${encodeURIComponent(entityType)}`,
         cedarToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
@@ -327,7 +344,7 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/audit-logs?entity_type=${encodeURIComponent(entityType)}`,
         alNoorToken,
-        AL_NOOR_DOMAIN,
+        fixture.domainName,
       ).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
@@ -364,7 +381,7 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
         app,
         '/api/v1/compliance-requests',
         cedarToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
@@ -380,7 +397,7 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/compliance-requests/${complianceRequestId}`,
         cedarToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
 
@@ -394,7 +411,7 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
           classification: 'erase',
           decision_notes: 'RLS cross-tenant classify attempt',
         },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       expect([400, 404]).toContain(res.status);
@@ -409,7 +426,7 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
         {
           decision_notes: 'RLS cross-tenant approve attempt',
         },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       expect([400, 404]).toContain(res.status);
@@ -422,7 +439,7 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
         `/api/v1/compliance-requests/${approvedRequestId}/execute`,
         cedarToken,
         {},
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       expect([400, 404]).toContain(res.status);
@@ -437,7 +454,7 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
         {
           decision_notes: 'RLS cross-tenant reject attempt',
         },
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       expect([400, 404]).toContain(res.status);
@@ -448,7 +465,7 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
         app,
         `/api/v1/compliance-requests/${approvedRequestId}/export`,
         cedarToken,
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       ).expect(404);
     });
   });
@@ -459,7 +476,9 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
 
   describe('3.3 import_jobs — Tenant isolation', () => {
     it('Tenant B cannot list Tenant A import jobs', async () => {
-      const res = await authGet(app, '/api/v1/imports', cedarToken, CEDAR_DOMAIN).expect(200);
+      const res = await authGet(app, '/api/v1/imports', cedarToken, cedarFixture.domainName).expect(
+        200,
+      );
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const ids = items.map((i) => i.id);
@@ -468,7 +487,12 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
     });
 
     it('Tenant B cannot get Tenant A import job by ID', async () => {
-      await authGet(app, `/api/v1/imports/${importJobId}`, cedarToken, CEDAR_DOMAIN).expect(404);
+      await authGet(
+        app,
+        `/api/v1/imports/${importJobId}`,
+        cedarToken,
+        cedarFixture.domainName,
+      ).expect(404);
     });
 
     it('Tenant B cannot confirm Tenant A import job', async () => {
@@ -479,7 +503,7 @@ describe('P8 — RLS Leakage Tests (e2e)', () => {
         `/api/v1/imports/${importJobId}/confirm`,
         cedarToken,
         {},
-        CEDAR_DOMAIN,
+        cedarFixture.domainName,
       );
 
       // 404 = tenant isolation working (job not found in Cedar's context)
