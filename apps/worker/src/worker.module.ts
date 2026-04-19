@@ -228,6 +228,15 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
         },
       },
       {
+        name: QUEUE_NAMES.EXAM_SCHEDULING,
+        defaultJobOptions: {
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 10000 },
+          removeOnComplete: 50,
+          removeOnFail: 200,
+        },
+      },
+      {
         name: QUEUE_NAMES.GRADEBOOK,
         defaultJobOptions: {
           attempts: 3,
