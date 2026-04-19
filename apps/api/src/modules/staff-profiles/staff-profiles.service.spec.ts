@@ -2,10 +2,12 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { TenantCodePoolService } from '../../common/services/tenant-code-pool.service';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { SequenceService } from '../sequence/sequence.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { StaffProfilesService } from './staff-profiles.service';
 
@@ -80,18 +82,20 @@ function buildMockEncryption() {
 const baseCreateDto = {
   first_name: 'Alice',
   last_name: 'Smith',
-  email: 'alice@example.com',
   phone: '+353871234567',
   role_id: 'role-uuid-0001-0001-0001-000100010001',
   employment_status: 'active' as const,
   employment_type: 'full_time' as const,
 };
 
+const GENERATED_STAFF_NUMBER = 'ABC123';
+const EXPECTED_EMAIL = `${GENERATED_STAFF_NUMBER.toLowerCase()}@nhqs.edupod.app`;
+
 const baseStaffProfile = {
   id: STAFF_ID,
   tenant_id: TENANT_ID,
   user_id: USER_ID,
-  staff_number: 'ABC1234-5',
+  staff_number: GENERATED_STAFF_NUMBER,
   job_title: 'Teacher',
   employment_status: 'active',
   department: 'Science',
@@ -106,7 +110,7 @@ const baseStaffProfile = {
     id: USER_ID,
     first_name: 'Alice',
     last_name: 'Smith',
-    email: 'alice@example.com',
+    email: EXPECTED_EMAIL,
   },
 };
 
@@ -118,12 +122,21 @@ describe('StaffProfilesService — create', () => {
   let mockRedis: ReturnType<typeof buildMockRedis>;
   let mockEncryption: ReturnType<typeof buildMockEncryption>;
   let mockSequence: { nextNumber: jest.Mock };
+  let mockPool: { generateUnique: jest.Mock; isTaken: jest.Mock };
+  let mockTenantFacade: { findPrimaryDomain: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRedis = buildMockRedis();
     mockEncryption = buildMockEncryption();
     mockSequence = { nextNumber: jest.fn() };
+    mockPool = {
+      generateUnique: jest.fn().mockResolvedValue(GENERATED_STAFF_NUMBER),
+      isTaken: jest.fn().mockResolvedValue(false),
+    };
+    mockTenantFacade = {
+      findPrimaryDomain: jest.fn().mockResolvedValue('nhqs.edupod.app'),
+    };
 
     mockRlsTx.user.findUnique.mockReset().mockResolvedValue(null);
     mockRlsTx.user.create.mockReset().mockResolvedValue({ id: USER_ID });
@@ -139,6 +152,8 @@ describe('StaffProfilesService — create', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: EncryptionService, useValue: mockEncryption },
         { provide: SequenceService, useValue: mockSequence },
+        { provide: TenantCodePoolService, useValue: mockPool },
+        { provide: TenantReadFacade, useValue: mockTenantFacade },
       ],
     }).compile();
 
@@ -147,13 +162,15 @@ describe('StaffProfilesService — create', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  it('should create a staff profile with new user account', async () => {
+  it('generates email from staff_number + tenant domain', async () => {
     const result = await service.create(TENANT_ID, baseCreateDto);
 
+    expect(mockPool.generateUnique).toHaveBeenCalledWith(mockRlsTx, TENANT_ID);
+    expect(mockTenantFacade.findPrimaryDomain).toHaveBeenCalledWith(TENANT_ID);
     expect(mockRlsTx.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          email: 'alice@example.com',
+          email: EXPECTED_EMAIL,
           first_name: 'Alice',
           last_name: 'Smith',
         }),
@@ -164,10 +181,10 @@ describe('StaffProfilesService — create', () => {
         data: expect.objectContaining({
           tenant_id: TENANT_ID,
           user_id: USER_ID,
+          staff_number: GENERATED_STAFF_NUMBER,
         }),
       }),
     );
-    // masked bank details should be returned, not raw encrypted fields
     expect(result).not.toHaveProperty('bank_account_number_encrypted');
     expect(result).not.toHaveProperty('bank_iban_encrypted');
   });
@@ -192,16 +209,13 @@ describe('StaffProfilesService — create', () => {
     );
   });
 
-  it('should throw ConflictException if staff profile already exists for user', async () => {
-    mockRlsTx.user.findUnique.mockResolvedValue({ id: USER_ID });
-    mockRlsTx.staffProfile.findFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ id: STAFF_ID });
+  it('throws STAFF_EMAIL_COLLISION when the generated email is already in use', async () => {
+    mockRlsTx.user.findUnique.mockResolvedValue({ id: 'pre-existing-user' });
 
     await expect(service.create(TENANT_ID, baseCreateDto)).rejects.toThrow(ConflictException);
   });
 
-  it('should create membership and role for new user', async () => {
+  it('creates membership and role for the new user', async () => {
     await service.create(TENANT_ID, baseCreateDto);
 
     expect(mockRlsTx.tenantMembership.create).toHaveBeenCalledWith(
@@ -222,45 +236,10 @@ describe('StaffProfilesService — create', () => {
     );
   });
 
-  it('should create membership for existing user without one', async () => {
-    mockRlsTx.user.findUnique.mockResolvedValue({ id: USER_ID });
-    mockRlsTx.staffProfile.findFirst.mockResolvedValue(null); // no existing profile
-    mockRlsTx.tenantMembership.findUnique.mockReset().mockResolvedValue(null); // no membership
-
+  it('delegates staff_number generation (and collision retry) to the pool service', async () => {
     await service.create(TENANT_ID, baseCreateDto);
 
-    expect(mockRlsTx.tenantMembership.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          tenant_id: TENANT_ID,
-          user_id: USER_ID,
-        }),
-      }),
-    );
-    expect(mockRlsTx.membershipRole.create).toHaveBeenCalled();
-  });
-
-  it('should skip membership creation for existing user who already has one', async () => {
-    mockRlsTx.user.findUnique.mockResolvedValue({ id: USER_ID });
-    mockRlsTx.staffProfile.findFirst.mockResolvedValue(null); // no existing profile
-    mockRlsTx.tenantMembership.findUnique.mockReset().mockResolvedValue({ id: 'mem-existing' });
-
-    await service.create(TENANT_ID, baseCreateDto);
-
-    // Membership create should NOT be called since one already exists
-    expect(mockRlsTx.tenantMembership.create).not.toHaveBeenCalled();
-  });
-
-  it('should retry staff number generation on collision', async () => {
-    // First findFirst call returns existing (collision), second returns null
-    mockRlsTx.staffProfile.findFirst
-      .mockResolvedValueOnce({ id: 'existing' }) // collision on staff number
-      .mockResolvedValueOnce(null); // unique
-    mockRlsTx.user.findUnique.mockResolvedValue(null);
-
-    await service.create(TENANT_ID, baseCreateDto);
-
-    expect(mockRlsTx.staffProfile.create).toHaveBeenCalled();
+    expect(mockPool.generateUnique).toHaveBeenCalledTimes(1);
   });
 
   it('should throw ConflictException on P2002 Prisma error during create', async () => {
@@ -361,6 +340,17 @@ describe('StaffProfilesService — findAll', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: EncryptionService, useValue: mockEncryption },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: TenantCodePoolService,
+          useValue: {
+            generateUnique: jest.fn().mockResolvedValue('ABC123'),
+            isTaken: jest.fn().mockResolvedValue(false),
+          },
+        },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('nhqs.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -442,6 +432,17 @@ describe('StaffProfilesService — findOne', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: EncryptionService, useValue: mockEncryption },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: TenantCodePoolService,
+          useValue: {
+            generateUnique: jest.fn().mockResolvedValue('ABC123'),
+            isTaken: jest.fn().mockResolvedValue(false),
+          },
+        },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('nhqs.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -533,6 +534,17 @@ describe('StaffProfilesService — update', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: EncryptionService, useValue: mockEncryption },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: TenantCodePoolService,
+          useValue: {
+            generateUnique: jest.fn().mockResolvedValue('ABC123'),
+            isTaken: jest.fn().mockResolvedValue(false),
+          },
+        },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('nhqs.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -642,6 +654,17 @@ describe('StaffProfilesService — getBankDetails', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: EncryptionService, useValue: mockEncryption },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: TenantCodePoolService,
+          useValue: {
+            generateUnique: jest.fn().mockResolvedValue('ABC123'),
+            isTaken: jest.fn().mockResolvedValue(false),
+          },
+        },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('nhqs.edupod.app') },
+        },
       ],
     }).compile();
 
@@ -729,6 +752,17 @@ describe('StaffProfilesService — preview', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: EncryptionService, useValue: mockEncryption },
         { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: TenantCodePoolService,
+          useValue: {
+            generateUnique: jest.fn().mockResolvedValue('ABC123'),
+            isTaken: jest.fn().mockResolvedValue(false),
+          },
+        },
+        {
+          provide: TenantReadFacade,
+          useValue: { findPrimaryDomain: jest.fn().mockResolvedValue('nhqs.edupod.app') },
+        },
       ],
     }).compile();
 

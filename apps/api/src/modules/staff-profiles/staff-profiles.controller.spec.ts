@@ -65,13 +65,12 @@ describe('StaffProfilesController', () => {
     const dto: CreateStaffProfileDto = {
       first_name: 'Alice',
       last_name: 'Smith',
-      email: 'alice@example.com',
       phone: '+353871234567',
       role_id: 'role-uuid-0001-0001-0001-000100010001',
       employment_status: 'active',
       employment_type: 'full_time',
     };
-    const expected = { id: STAFF_ID, staff_number: 'ABC1234-5' };
+    const expected = { id: STAFF_ID, staff_number: 'ABC123' };
     service.create.mockResolvedValue(expected);
 
     const result = await controller.create(mockTenant, dto);

@@ -3,10 +3,10 @@ import { Test } from '@nestjs/testing';
 
 import {
   HOUSEHOLD_MAX_STUDENTS,
-  HOUSEHOLD_NUMBER_GENERATION_MAX_ATTEMPTS,
   HOUSEHOLD_NUMBER_PATTERN,
 } from '@school/shared/households/household-number';
 
+import { TenantCodePoolService } from '../../common/services/tenant-code-pool.service';
 import { SequenceService } from '../sequence/sequence.service';
 
 import { HouseholdNumberService } from './household-number.service';
@@ -24,6 +24,9 @@ function buildMockTx() {
       findFirst: jest.fn(),
       update: jest.fn(),
     },
+    staffProfile: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
     $queryRaw: jest.fn(),
   };
 }
@@ -34,17 +37,34 @@ function buildMockSequenceService() {
   };
 }
 
+function buildMockPool() {
+  let attempt = 0;
+  return {
+    generateUnique: jest.fn().mockImplementation(() => {
+      attempt += 1;
+      return Promise.resolve(`ABC${String(attempt).padStart(3, '0')}`);
+    }),
+    isTaken: jest.fn().mockResolvedValue(false),
+  };
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('HouseholdNumberService', () => {
   let service: HouseholdNumberService;
   let mockSequence: ReturnType<typeof buildMockSequenceService>;
+  let mockPool: ReturnType<typeof buildMockPool>;
 
   beforeEach(async () => {
     mockSequence = buildMockSequenceService();
+    mockPool = buildMockPool();
 
     const module = await Test.createTestingModule({
-      providers: [HouseholdNumberService, { provide: SequenceService, useValue: mockSequence }],
+      providers: [
+        HouseholdNumberService,
+        { provide: SequenceService, useValue: mockSequence },
+        { provide: TenantCodePoolService, useValue: mockPool },
+      ],
     }).compile();
 
     service = module.get(HouseholdNumberService);
@@ -55,54 +75,23 @@ describe('HouseholdNumberService', () => {
   // ─── generateUniqueForTenant ──────────────────────────────────────────────
 
   describe('generateUniqueForTenant', () => {
-    it('should return a value matching the AAA999 format', async () => {
+    it('delegates to TenantCodePoolService.generateUnique', async () => {
       const tx = buildMockTx();
-      tx.household.findFirst.mockResolvedValue(null);
+      mockPool.generateUnique.mockResolvedValueOnce('ABC123');
 
       const result = await service.generateUniqueForTenant(tx as never, TENANT_ID);
 
+      expect(mockPool.generateUnique).toHaveBeenCalledWith(tx, TENANT_ID);
+      expect(result).toBe('ABC123');
       expect(result).toMatch(HOUSEHOLD_NUMBER_PATTERN);
-      expect(result).toHaveLength(6);
     });
 
-    it('should retry on collision and return a unique value', async () => {
+    it('propagates errors from the pool service', async () => {
       const tx = buildMockTx();
-      // First attempt: collision (existing household found)
-      tx.household.findFirst.mockResolvedValueOnce({ id: 'existing' });
-      // Second attempt: no collision
-      tx.household.findFirst.mockResolvedValueOnce(null);
-
-      const result = await service.generateUniqueForTenant(tx as never, TENANT_ID);
-
-      expect(result).toMatch(HOUSEHOLD_NUMBER_PATTERN);
-      expect(tx.household.findFirst).toHaveBeenCalledTimes(2);
-    });
-
-    it('should throw HOUSEHOLD_NUMBER_GENERATION_EXHAUSTED after max attempts', async () => {
-      const tx = buildMockTx();
-      // All attempts collide
-      for (let i = 0; i < HOUSEHOLD_NUMBER_GENERATION_MAX_ATTEMPTS; i++) {
-        tx.household.findFirst.mockResolvedValueOnce({ id: 'existing' });
-      }
+      mockPool.generateUnique.mockRejectedValueOnce(new InternalServerErrorException('pool full'));
 
       await expect(service.generateUniqueForTenant(tx as never, TENANT_ID)).rejects.toThrow(
         InternalServerErrorException,
-      );
-      expect(tx.household.findFirst).toHaveBeenCalledTimes(
-        HOUSEHOLD_NUMBER_GENERATION_MAX_ATTEMPTS,
-      );
-    });
-
-    it('should check within the correct tenant scope', async () => {
-      const tx = buildMockTx();
-      tx.household.findFirst.mockResolvedValue(null);
-
-      await service.generateUniqueForTenant(tx as never, TENANT_ID);
-
-      expect(tx.household.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ tenant_id: TENANT_ID }),
-        }),
       );
     });
   });
@@ -112,7 +101,7 @@ describe('HouseholdNumberService', () => {
   describe('previewForTenant', () => {
     it('should return a valid household number', async () => {
       const tx = buildMockTx();
-      tx.household.findFirst.mockResolvedValue(null);
+      mockPool.generateUnique.mockResolvedValueOnce('XYZ987');
 
       const result = await service.previewForTenant(tx as never, TENANT_ID);
 

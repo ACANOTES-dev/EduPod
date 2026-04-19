@@ -213,4 +213,24 @@ export class TenantReadFacade {
     });
     return (row?.settings as Record<string, unknown>) ?? null;
   }
+
+  /**
+   * Resolve the tenant's primary app domain (e.g., `nhqs.edupod.app`). Used
+   * by the auto-email generator when creating system-managed user logins
+   * for staff / students / parents. Throws if no primary domain is set.
+   */
+  async findPrimaryDomain(tenantId: string): Promise<string> {
+    const row = await this.prisma.tenantDomain.findFirst({
+      where: {
+        tenant_id: tenantId,
+        is_primary: true,
+        domain_type: 'app',
+      },
+      select: { domain: true },
+    });
+    if (!row) {
+      throw new Error(`Tenant "${tenantId}" has no primary app domain configured`);
+    }
+    return row.domain;
+  }
 }

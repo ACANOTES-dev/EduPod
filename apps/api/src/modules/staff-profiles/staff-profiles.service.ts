@@ -10,10 +10,13 @@ import type {
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { TenantCodePoolService } from '../../common/services/tenant-code-pool.service';
+import { buildLoginEmail } from '../../common/utils/login-email';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { SequenceService } from '../sequence/sequence.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 // ─── Local types for include results ─────────────────────────────────────────
 
@@ -82,26 +85,18 @@ export class StaffProfilesService {
     private readonly redis: RedisService,
     private readonly encryptionService: EncryptionService,
     private readonly sequenceService: SequenceService,
+    private readonly tenantCodePool: TenantCodePoolService,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   /**
-   * Generate a random staff number in format: ABC1234-5
-   * (3 uppercase letters + 4 digits + hyphen + 1 digit)
-   */
-  private generateStaffNumber(): string {
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const letterPart = Array.from(
-      { length: 3 },
-      () => letters[Math.floor(Math.random() * 26)],
-    ).join('');
-    const numberPart = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-    const lastDigit = Math.floor(Math.random() * 10);
-    return `${letterPart}${numberPart}-${lastDigit}`;
-  }
-
-  /**
    * Create a new staff profile, user account, membership, and role assignment.
-   * The staff number is auto-generated and used as the initial password.
+   *
+   * The login email is auto-generated from the tenant-wide unique 6-char
+   * code (shared with households) + the tenant's primary app domain, e.g.
+   * `abc123@nhqs.edupod.app`. The staff_number is used as the initial
+   * password — the onboarded staff member is expected to change it on
+   * first login.
    */
   async create(tenantId: string, dto: CreateStaffProfileDto) {
     // Encrypt bank details if provided
@@ -121,8 +116,7 @@ export class StaffProfilesService {
       bankEncryptionKeyRef = bankEncryptionKeyRef ?? result.keyRef;
     }
 
-    // Generate unique staff number (retry on collision)
-    let staffNumber = this.generateStaffNumber();
+    const tenantDomain = await this.tenantReadFacade.findPrimaryDomain(tenantId);
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -130,110 +124,58 @@ export class StaffProfilesService {
       const profile = (await prismaWithRls.$transaction(async (tx) => {
         const db = tx as unknown as PrismaService;
 
-        // Ensure staff number is unique within this tenant
-        for (let attempt = 0; attempt < 5; attempt++) {
-          const existing = await db.staffProfile.findFirst({
-            where: { tenant_id: tenantId, staff_number: staffNumber },
-            select: { id: true },
-          });
-          if (!existing) break;
-          staffNumber = this.generateStaffNumber();
-        }
-
-        // Hash the staff number as the initial password
+        // Generate staff_number from the shared tenant code pool
+        // (unique across both staff_number AND household_number).
+        const staffNumber = await this.tenantCodePool.generateUnique(db, tenantId);
+        const email = buildLoginEmail(staffNumber, tenantDomain);
         const passwordHash = await hash(staffNumber, 12);
 
-        // Check if user with this email already exists
+        // Email is auto-generated and pool-unique; duplicates would indicate
+        // a bug in the pool or a pre-existing user captured the same code
+        // across tenants. Fail loudly if that happens.
         const existingUser = await db.user.findUnique({
-          where: { email: dto.email.toLowerCase() },
+          where: { email },
           select: { id: true },
         });
-
-        let userId: string;
-
         if (existingUser) {
-          // User exists — check they don't already have a staff profile here
-          const existingProfile = await db.staffProfile.findFirst({
-            where: { tenant_id: tenantId, user_id: existingUser.id },
-            select: { id: true },
-          });
-          if (existingProfile) {
-            throw new ConflictException({
-              code: 'STAFF_PROFILE_EXISTS',
-              message: 'A staff profile already exists for this email in this school',
-            });
-          }
-
-          userId = existingUser.id;
-
-          // Ensure they have an active membership in this tenant
-          const existingMembership = await db.tenantMembership.findUnique({
-            where: {
-              idx_tenant_memberships_tenant_user: {
-                tenant_id: tenantId,
-                user_id: userId,
-              },
-            },
-            select: { id: true },
-          });
-
-          if (!existingMembership) {
-            const membership = await db.tenantMembership.create({
-              data: {
-                tenant_id: tenantId,
-                user_id: userId,
-                membership_status: 'active',
-                joined_at: new Date(),
-              },
-            });
-
-            await db.membershipRole.create({
-              data: {
-                membership_id: membership.id,
-                role_id: dto.role_id,
-                tenant_id: tenantId,
-              },
-            });
-          }
-        } else {
-          // Create new user account with staff number as password
-          const newUser = await db.user.create({
-            data: {
-              email: dto.email.toLowerCase(),
-              password_hash: passwordHash,
-              first_name: dto.first_name,
-              last_name: dto.last_name,
-              phone: dto.phone,
-              email_verified_at: new Date(),
-            },
-          });
-
-          userId = newUser.id;
-
-          // Create tenant membership
-          const membership = await db.tenantMembership.create({
-            data: {
-              tenant_id: tenantId,
-              user_id: userId,
-              membership_status: 'active',
-              joined_at: new Date(),
-            },
-          });
-
-          // Assign role
-          await db.membershipRole.create({
-            data: {
-              membership_id: membership.id,
-              role_id: dto.role_id,
-              tenant_id: tenantId,
-            },
+          throw new ConflictException({
+            code: 'STAFF_EMAIL_COLLISION',
+            message: `Generated staff email "${email}" already in use — retry or inspect tenant code pool`,
           });
         }
+
+        const newUser = await db.user.create({
+          data: {
+            email,
+            password_hash: passwordHash,
+            first_name: dto.first_name,
+            last_name: dto.last_name,
+            phone: dto.phone,
+            email_verified_at: new Date(),
+          },
+        });
+
+        const membership = await db.tenantMembership.create({
+          data: {
+            tenant_id: tenantId,
+            user_id: newUser.id,
+            membership_status: 'active',
+            joined_at: new Date(),
+          },
+        });
+
+        await db.membershipRole.create({
+          data: {
+            membership_id: membership.id,
+            role_id: dto.role_id,
+            tenant_id: tenantId,
+          },
+        });
 
         return db.staffProfile.create({
           data: {
             tenant_id: tenantId,
-            user_id: userId,
+            user_id: newUser.id,
             staff_number: staffNumber,
             job_title: dto.job_title ?? null,
             employment_status: dto.employment_status ?? 'active',

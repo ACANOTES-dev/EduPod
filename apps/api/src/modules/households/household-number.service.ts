@@ -1,51 +1,37 @@
-import { randomInt } from 'node:crypto';
-
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import {
   formatStudentNumberFromHousehold,
   HOUSEHOLD_MAX_STUDENTS,
-  HOUSEHOLD_NUMBER_GENERATION_MAX_ATTEMPTS,
 } from '@school/shared/households/household-number';
 
+import { TenantCodePoolService } from '../../common/services/tenant-code-pool.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const LETTER_COUNT = 26; // A–Z
-const DIGIT_COUNT = 10; // 0–9
-const LETTER_A_CODE = 65; // 'A'.charCodeAt(0)
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class HouseholdNumberService {
-  constructor(private readonly sequenceService: SequenceService) {}
+  constructor(
+    private readonly sequenceService: SequenceService,
+    private readonly tenantCodePool: TenantCodePoolService,
+  ) {}
 
   // ─── Household number generation ──────────────────────────────────────────
 
   /**
-   * Generates a fresh 6-char household number unique within the given tenant.
-   * Retries up to HOUSEHOLD_NUMBER_GENERATION_MAX_ATTEMPTS times on collision.
+   * Generates a fresh 6-char household number unique within the given tenant
+   * AND unique against every existing `staff_profiles.staff_number` in the
+   * same tenant (shared 6-char pool). Retries on collision via the pool
+   * service.
    *
    * Must be called inside an active interactive transaction that has already
    * set the tenant RLS context — the caller's transaction client is passed in.
    */
   async generateUniqueForTenant(tx: PrismaService, tenantId: string): Promise<string> {
-    for (let attempt = 0; attempt < HOUSEHOLD_NUMBER_GENERATION_MAX_ATTEMPTS; attempt++) {
-      const candidate = this.randomHouseholdNumber();
-      const existing = await tx.household.findFirst({
-        where: { tenant_id: tenantId, household_number: candidate },
-        select: { id: true },
-      });
-      if (!existing) return candidate;
-    }
-    throw new InternalServerErrorException({
-      code: 'HOUSEHOLD_NUMBER_GENERATION_EXHAUSTED',
-      message: `Could not generate a unique household number after ${HOUSEHOLD_NUMBER_GENERATION_MAX_ATTEMPTS} attempts`,
-    });
+    return this.tenantCodePool.generateUnique(tx, tenantId);
   }
 
   /**
@@ -133,22 +119,5 @@ export class HouseholdNumberService {
 
     // Legacy path — global tenant sequence
     return this.sequenceService.nextNumber(tenantId, 'student', tx, 'STU');
-  }
-
-  // ─── Private ──────────────────────────────────────────────────────────────
-
-  /**
-   * Generates a random 6-character household number: AAA999.
-   * Three uppercase letters followed by three digits.
-   * Uses crypto.randomInt for unpredictability.
-   */
-  private randomHouseholdNumber(): string {
-    const l1 = String.fromCharCode(LETTER_A_CODE + randomInt(LETTER_COUNT));
-    const l2 = String.fromCharCode(LETTER_A_CODE + randomInt(LETTER_COUNT));
-    const l3 = String.fromCharCode(LETTER_A_CODE + randomInt(LETTER_COUNT));
-    const d1 = randomInt(DIGIT_COUNT);
-    const d2 = randomInt(DIGIT_COUNT);
-    const d3 = randomInt(DIGIT_COUNT);
-    return `${l1}${l2}${l3}${d1}${d2}${d3}`;
   }
 }

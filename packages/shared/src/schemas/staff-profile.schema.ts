@@ -3,7 +3,9 @@ import { z } from 'zod';
 export const createStaffProfileSchema = z.object({
   first_name: z.string().min(1).max(100),
   last_name: z.string().min(1).max(100),
-  email: z.string().email().max(255),
+  // `email` intentionally NOT part of the DTO. Staff login email is derived
+  // from the auto-generated 6-char staff_number + tenant primary domain
+  // (e.g., `abc123@nhqs.edupod.app`). See buildLoginEmail + StaffProfilesService.create.
   phone: z.string().min(1).max(50),
   role_id: z.string().uuid(),
   job_title: z.string().max(255).optional(),
@@ -24,9 +26,7 @@ export const updateStaffProfileSchema = z.object({
   job_title: z.string().max(255).nullable().optional(),
   employment_status: z.enum(['active', 'inactive']).optional(),
   department: z.string().max(255).nullable().optional(),
-  employment_type: z
-    .enum(['full_time', 'part_time', 'contract', 'substitute'])
-    .optional(),
+  employment_type: z.enum(['full_time', 'part_time', 'contract', 'substitute']).optional(),
   bank_name: z.string().max(255).nullable().optional(),
   bank_account_number: z.string().max(100).nullable().optional(),
   bank_iban: z.string().max(50).nullable().optional(),

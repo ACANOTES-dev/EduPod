@@ -7,6 +7,7 @@ import { StructuredLoggerService } from './services/logger.service';
 import { LokiLogShipper } from './services/loki-log-shipper.service';
 import { PermissionCacheService } from './services/permission-cache.service';
 import { RequestContextService } from './services/request-context.service';
+import { TenantCodePoolService } from './services/tenant-code-pool.service';
 
 /**
  * Global common module.
@@ -22,8 +23,15 @@ import { RequestContextService } from './services/request-context.service';
     PermissionCacheService,
     RequestContextService,
     RlsRoleCheckService,
+    TenantCodePoolService,
   ],
-  exports: [CircuitBreakerRegistry, LokiLogShipper, PermissionCacheService, RequestContextService],
+  exports: [
+    CircuitBreakerRegistry,
+    LokiLogShipper,
+    PermissionCacheService,
+    RequestContextService,
+    TenantCodePoolService,
+  ],
 })
 export class CommonModule implements OnModuleInit {
   constructor(private readonly lokiShipper: LokiLogShipper) {}
