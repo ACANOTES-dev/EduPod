@@ -18,6 +18,10 @@
     "done": "Done",
     "remove": "Remove",
     "actions": "Actions",
+    "grade": "Grade",
+    "grades": "Grades",
+    "score": "Score",
+    "subject": "Subject",
     "errorGeneric": "An error occurred. Please try again.",
     "clearFilters": "Clear filters",
     "dismiss": "Dismiss",
@@ -12394,6 +12398,7 @@
   },
   "homework": {
     "title": "Homework",
+    "subjectlessClass": "Class (no subject)",
     "setHomework": "Set Homework",
     "newHomework": "New Homework",
     "todaysAssignments": "Today's Assignments",

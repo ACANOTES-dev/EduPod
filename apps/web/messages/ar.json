@@ -18,6 +18,10 @@
     "done": "تم",
     "remove": "حذف",
     "actions": "الإجراءات",
+    "grade": "التقدير",
+    "grades": "التقديرات",
+    "score": "الدرجة",
+    "subject": "المادة",
     "errorGeneric": "حدث خطأ. يرجى المحاولة مرة أخرى.",
     "clearFilters": "مسح الفلاتر",
     "dismiss": "إغلاق",
@@ -12385,6 +12389,7 @@
   },
   "homework": {
     "title": "الواجبات المنزلية",
+    "subjectlessClass": "الفصل (بدون مادة)",
     "setHomework": "إعطاء واجب",
     "newHomework": "واجب جديد",
     "todaysAssignments": "واجبات اليوم",
