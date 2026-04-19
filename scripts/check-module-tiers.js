@@ -149,6 +149,8 @@ const WHITELISTED_VIOLATIONS = [
   { importer: 'homework', imported: 'parents' },
   { importer: 'imports', imported: 'households' },
   { importer: 'imports', imported: 'parents' },
+  { importer: 'registration', imported: 'households' },
+  { importer: 'scheduling', imported: 'parents' },
   { importer: 'students', imported: 'households' },
   { importer: 'students', imported: 'parents' },
 

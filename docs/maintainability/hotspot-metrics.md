@@ -1,6 +1,6 @@
 # Hotspot Metrics
 
-Generated: 2026-04-04
+Generated: 2026-04-19
 
 Tracked maintainability hotspots and their current cyclomatic complexity budgets and file-level line counts. The CI check fails if any monitored function exceeds its complexity budget or any file exceeds its line budget. This report should be refreshed after each maintainability wave.
 
@@ -30,33 +30,14 @@ Behaviour student views still aggregate history, summary, and parent-facing info
 | BehaviourStudentsService.listStudents      | 42   | 6                  | 6      | PASS   |
 | BehaviourStudentsService.getStudentProfile | 139  | 2                  | 2      | PASS   |
 
-### apps/api/src/modules/staff-wellbeing/services/workload-compute.service.ts
-
-Workload calculations mix personal, aggregate, and trend concerns; budgets help keep future additions inside the extracted helpers rather than back in the facade.
-
-| Function                                                         | Line | Current complexity | Budget | Status       |
-| ---------------------------------------------------------------- | ---- | ------------------ | ------ | ------------ |
-| WorkloadComputeService.getAggregateTimetableQuality::closure@617 | —    | Missing            | 12     | Needs review |
-| WorkloadComputeService.getAggregateWorkloadSummary::closure@459  | —    | Missing            | 10     | Needs review |
-
 ### apps/api/src/modules/gradebook/report-cards/report-cards.service.ts
 
 Report cards remain a high-change module with lifecycle orchestration, approval flow, and query responsibilities that can regress into a god service without guardrails.
 
 | Function                   | Line | Current complexity | Budget | Status |
 | -------------------------- | ---- | ------------------ | ------ | ------ |
-| ReportCardsService.publish | 128  | 3                  | 12     | PASS   |
-| ReportCardsService.update  | 61   | 5                  | 10     | PASS   |
-
-### apps/api/src/modules/households/households.service.ts
-
-Household operations (create, merge, split) coordinate multi-entity writes across students, parents, addresses, and contacts with complex validation logic.
-
-| Function                              | Line | Current complexity | Budget | Status       |
-| ------------------------------------- | ---- | ------------------ | ------ | ------------ |
-| HouseholdsService.split::closure@903  | —    | Missing            | 12     | Needs review |
-| HouseholdsService.create::closure@116 | —    | Missing            | 11     | Needs review |
-| HouseholdsService.merge::closure@726  | —    | Missing            | 11     | Needs review |
+| ReportCardsService.publish | 136  | 3                  | 12     | PASS   |
+| ReportCardsService.update  | 69   | 5                  | 10     | PASS   |
 
 ### apps/api/src/modules/homework/homework-analytics.service.ts
 
@@ -67,16 +48,6 @@ Homework analytics aggregates trend, correlation, and pattern data across multip
 | HomeworkAnalyticsService.studentTrends       | 64   | 1                  | 23     | PASS   |
 | HomeworkAnalyticsService.correlationAnalysis | 74   | 1                  | 16     | PASS   |
 | HomeworkAnalyticsService.loadAnalysis        | 52   | 1                  | 11     | PASS   |
-
-### apps/api/src/modules/behaviour/behaviour-sanctions.service.ts
-
-Sanction lifecycle involves creation with approval routing, conflict detection, and status transition logic that can grow unbounded without guardrails.
-
-| Function                                      | Line | Current complexity | Budget | Status       |
-| --------------------------------------------- | ---- | ------------------ | ------ | ------------ |
-| BehaviourSanctionsService.create::closure@55  | —    | Missing            | 27     | Needs review |
-| BehaviourSanctionsService.update::closure@412 | —    | Missing            | 24     | Needs review |
-| BehaviourSanctionsService.checkConflicts      | 107  | 1                  | 16     | PASS         |
 
 ### apps/api/src/modules/safeguarding/safeguarding-concerns.service.ts
 
@@ -92,31 +63,11 @@ Safeguarding concern reporting and triage involves access-controlled detail mapp
 
 DSAR processing aggregates records across all pastoral entities with complex record-type routing, summary assembly, and multi-entity fetch logic.
 
-| Function                                        | Line | Current complexity | Budget | Status       |
-| ----------------------------------------------- | ---- | ------------------ | ------ | ------------ |
-| PastoralDsarService.getRecordSummary            | 902  | 28                 | 30     | PASS         |
-| PastoralDsarService.routeForReview::closure@162 | —    | Missing            | 22     | Needs review |
-| PastoralDsarService.fetchEntityRecord           | 767  | 18                 | 20     | PASS         |
-
-### apps/api/src/modules/attendance/attendance-upload.service.ts
-
-Attendance bulk upload parses CSV/XLSX with row-level validation, conflict detection, and transactional commit that concentrates branching in a single flow.
-
-| Function                              | Line | Current complexity | Budget | Status       |
-| ------------------------------------- | ---- | ------------------ | ------ | ------------ |
-| AttendanceUploadService.processUpload | 61   | 1                  | 27     | PASS         |
-| AttendanceUploadService.parseXlsx     | —    | Missing            | 17     | Needs review |
-| AttendanceUploadService.parseCsv      | —    | Missing            | 14     | Needs review |
-
-### apps/api/src/modules/behaviour/behaviour.service.ts
-
-Core behaviour incident service with the highest single-function complexity in the codebase; createIncident orchestrates validation, participant handling, escalation, and notification dispatch.
-
-| Function                                     | Line | Current complexity | Budget | Status       |
-| -------------------------------------------- | ---- | ------------------ | ------ | ------------ |
-| BehaviourService.createIncident::closure@71  | —    | Missing            | 48     | Needs review |
-| BehaviourService.addParticipant::closure@787 | —    | Missing            | 21     | Needs review |
-| BehaviourService.listIncidents               | 35   | 1                  | 19     | PASS         |
+| Function                                        | Line | Current complexity | Budget | Status |
+| ----------------------------------------------- | ---- | ------------------ | ------ | ------ |
+| PastoralDsarService.getRecordSummary            | 902  | 28                 | 30     | PASS   |
+| PastoralDsarService.routeForReview::closure@164 | 164  | 20                 | 22     | PASS   |
+| PastoralDsarService.fetchEntityRecord           | 767  | 18                 | 20     | PASS   |
 
 ### apps/api/src/modules/behaviour/behaviour-appeals.service.ts
 
@@ -134,9 +85,9 @@ Homework service manages CRUD, recurrence generation, and bulk operations with d
 
 | Function                                | Line | Current complexity | Budget | Status       |
 | --------------------------------------- | ---- | ------------------ | ------ | ------------ |
-| HomeworkService.update::closure@250     | —    | Missing            | 19     | Needs review |
-| HomeworkService.generateRecurrenceDates | 927  | 17                 | 19     | PASS         |
-| HomeworkService.bulkCreate::closure@894 | —    | Missing            | 16     | Needs review |
+| HomeworkService.update::closure@252     | —    | Missing            | 19     | Needs review |
+| HomeworkService.generateRecurrenceDates | 1148 | 17                 | 19     | PASS         |
+| HomeworkService.bulkCreate::closure@892 | —    | Missing            | 16     | Needs review |
 
 ### apps/worker/src/processors/early-warning/signal-collection.utils.ts
 
@@ -154,7 +105,7 @@ Cron scheduler is low-complexity per method but extremely long; line budget is t
 
 | Function                          | Line | Current complexity | Budget | Status |
 | --------------------------------- | ---- | ------------------ | ------ | ------ |
-| CronSchedulerService.onModuleInit | 77   | 1                  | 3      | PASS   |
+| CronSchedulerService.onModuleInit | 92   | 1                  | 3      | PASS   |
 
 ### apps/worker/src/processors/communications/dispatch-notifications.processor.ts
 
@@ -162,9 +113,9 @@ Notification dispatch handles multi-channel routing (email, SMS, WhatsApp, push)
 
 | Function                                  | Line | Current complexity | Budget | Status |
 | ----------------------------------------- | ---- | ------------------ | ------ | ------ |
-| DispatchNotificationsJob.dispatchEmail    | 356  | 10                 | 12     | PASS   |
-| DispatchNotificationsJob.dispatchAll      | 305  | 8                  | 10     | PASS   |
-| DispatchNotificationsJob.dispatchWhatsApp | 429  | 8                  | 10     | PASS   |
+| DispatchNotificationsJob.dispatchEmail    | 357  | 10                 | 12     | PASS   |
+| DispatchNotificationsJob.dispatchAll      | 306  | 8                  | 10     | PASS   |
+| DispatchNotificationsJob.dispatchWhatsApp | 430  | 8                  | 10     | PASS   |
 
 ### apps/web/src/app/[locale]/(school)/sen/plans/[planId]/page.tsx
 
@@ -197,19 +148,19 @@ Behaviour admin settings page contains multiple tab components (operations, scop
 
 | File                                                                          | Current lines | Budget | Utilisation | Status |
 | ----------------------------------------------------------------------------- | ------------- | ------ | ----------- | ------ |
-| apps/api/src/modules/staff-wellbeing/services/workload-compute.service.ts     | 322           | 1211   | 27%         | PASS   |
-| apps/api/src/modules/households/households.service.ts                         | 184           | 1173   | 16%         | PASS   |
+| apps/api/src/modules/staff-wellbeing/services/workload-compute.service.ts     | 322           | 372    | 87%         | PASS   |
+| apps/api/src/modules/households/households.service.ts                         | 191           | 234    | 82%         | PASS   |
 | apps/api/src/modules/homework/homework-analytics.service.ts                   | 78            | 1139   | 7%          | PASS   |
-| apps/api/src/modules/behaviour/behaviour-sanctions.service.ts                 | 117           | 1129   | 10%         | PASS   |
+| apps/api/src/modules/behaviour/behaviour-sanctions.service.ts                 | 117           | 167    | 70%         | PASS   |
 | apps/api/src/modules/safeguarding/safeguarding-concerns.service.ts            | 1071          | 1120   | 96%         | PASS   |
 | apps/api/src/modules/pastoral/services/pastoral-dsar.service.ts               | 1051          | 1106   | 95%         | PASS   |
-| apps/api/src/modules/attendance/attendance-upload.service.ts                  | 98            | 1091   | 9%          | PASS   |
-| apps/api/src/modules/behaviour/behaviour.service.ts                           | 96            | 1062   | 9%          | PASS   |
+| apps/api/src/modules/attendance/attendance-upload.service.ts                  | 98            | 148    | 66%         | PASS   |
+| apps/api/src/modules/behaviour/behaviour.service.ts                           | 96            | 146    | 66%         | PASS   |
 | apps/api/src/modules/behaviour/behaviour-appeals.service.ts                   | 997           | 1038   | 96%         | PASS   |
-| apps/api/src/modules/homework/homework.service.ts                             | 984           | 1036   | 95%         | PASS   |
+| apps/api/src/modules/homework/homework.service.ts                             | 1205          | 1036   | 116%        | FAIL   |
 | apps/worker/src/processors/early-warning/signal-collection.utils.ts           | 1332          | 1382   | 96%         | PASS   |
-| apps/worker/src/cron/cron-scheduler.service.ts                                | 745           | 792    | 94%         | PASS   |
-| apps/worker/src/processors/communications/dispatch-notifications.processor.ts | 732           | 778    | 94%         | PASS   |
+| apps/worker/src/cron/cron-scheduler.service.ts                                | 938           | 792    | 118%        | FAIL   |
+| apps/worker/src/processors/communications/dispatch-notifications.processor.ts | 748           | 778    | 96%         | PASS   |
 | apps/web/src/app/[locale]/(school)/sen/plans/[planId]/page.tsx                | 965           | 1011   | 95%         | PASS   |
 | apps/web/src/app/[locale]/(school)/behaviour/appeals/[id]/page.tsx            | 934           | 989    | 94%         | PASS   |
 | apps/web/src/app/[locale]/(school)/settings/behaviour-admin/page.tsx          | 905           | 988    | 92%         | PASS   |
@@ -218,13 +169,15 @@ Behaviour admin settings page contains multiple tab components (operations, scop
 
 Files above 80% of their line budget:
 
+- **apps/api/src/modules/staff-wellbeing/services/workload-compute.service.ts**: 322/372 lines (87%) — Workload compute service mixes personal, aggregate, and trend logic now thin facade, across 322 lines
+- **apps/api/src/modules/households/households.service.ts**: 191/234 lines (82%) — Household CRUD with merge/split orchestration now thin facade, across 184 lines
 - **apps/api/src/modules/safeguarding/safeguarding-concerns.service.ts**: 1071/1120 lines (96%) — Safeguarding concern triage and access-controlled detail mapping across 1070 lines
 - **apps/api/src/modules/pastoral/services/pastoral-dsar.service.ts**: 1051/1106 lines (95%) — DSAR processing with multi-entity record aggregation across 1056 lines
 - **apps/api/src/modules/behaviour/behaviour-appeals.service.ts**: 997/1038 lines (96%) — Appeal lifecycle with decision branching and sanction reversal across 988 lines
-- **apps/api/src/modules/homework/homework.service.ts**: 984/1036 lines (95%) — Homework CRUD with recurrence generation and bulk operations across 986 lines
+- **apps/api/src/modules/homework/homework.service.ts**: 1205/1036 lines (116%) — Homework CRUD with recurrence generation and bulk operations across 986 lines
 - **apps/worker/src/processors/early-warning/signal-collection.utils.ts**: 1332/1382 lines (96%) — Signal collection utilities with the highest complexity functions in the codebase across 1332 lines
-- **apps/worker/src/cron/cron-scheduler.service.ts**: 745/792 lines (94%) — Cron scheduler grows as new jobs are added; line budget prevents unbounded expansion from 742 lines
-- **apps/worker/src/processors/communications/dispatch-notifications.processor.ts**: 732/778 lines (94%) — Multi-channel notification dispatch with per-channel formatting across 728 lines
+- **apps/worker/src/cron/cron-scheduler.service.ts**: 938/792 lines (118%) — Cron scheduler grows as new jobs are added; line budget prevents unbounded expansion from 742 lines
+- **apps/worker/src/processors/communications/dispatch-notifications.processor.ts**: 748/778 lines (96%) — Multi-channel notification dispatch with per-channel formatting across 728 lines
 - **apps/web/src/app/[locale]/(school)/sen/plans/[planId]/page.tsx**: 965/1011 lines (95%) — Largest frontend file; monolithic SEN plan detail component across 961 lines
 - **apps/web/src/app/[locale]/(school)/behaviour/appeals/[id]/page.tsx**: 934/989 lines (94%) — Appeal detail page with status-dependent UI and decision forms across 939 lines
 - **apps/web/src/app/[locale]/(school)/settings/behaviour-admin/page.tsx**: 905/988 lines (92%) — Multi-tab behaviour admin settings page across 938 lines

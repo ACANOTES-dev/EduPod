@@ -2640,3 +2640,67 @@ DROP POLICY IF EXISTS homework_submission_attachments_tenant_isolation ON homewo
 CREATE POLICY homework_submission_attachments_tenant_isolation ON homework_submission_attachments
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- Class Year Group Links (Stage 6: class↔year-group mapping)
+ALTER TABLE class_year_group_links ENABLE ROW LEVEL SECURITY;
+ALTER TABLE class_year_group_links FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS class_year_group_links_tenant_isolation ON class_year_group_links;
+CREATE POLICY class_year_group_links_tenant_isolation ON class_year_group_links
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- Substitute Teacher Competencies (Stage 7: pinned vs pool competency)
+ALTER TABLE substitute_teacher_competencies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE substitute_teacher_competencies FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS substitute_teacher_competencies_tenant_isolation ON substitute_teacher_competencies;
+CREATE POLICY substitute_teacher_competencies_tenant_isolation ON substitute_teacher_competencies
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- Exam Solve Jobs (exam scheduling async solver run)
+ALTER TABLE exam_solve_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE exam_solve_jobs FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS exam_solve_jobs_tenant_isolation ON exam_solve_jobs;
+CREATE POLICY exam_solve_jobs_tenant_isolation ON exam_solve_jobs
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- Exam Session Configs (exam scheduling session settings)
+ALTER TABLE exam_session_configs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE exam_session_configs FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS exam_session_configs_tenant_isolation ON exam_session_configs;
+CREATE POLICY exam_session_configs_tenant_isolation ON exam_session_configs
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- Exam Subject Configs (exam scheduling per-subject rules)
+ALTER TABLE exam_subject_configs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE exam_subject_configs FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS exam_subject_configs_tenant_isolation ON exam_subject_configs;
+CREATE POLICY exam_subject_configs_tenant_isolation ON exam_subject_configs
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- Exam Invigilator Pool (exam scheduling invigilator pool)
+ALTER TABLE exam_invigilator_pool ENABLE ROW LEVEL SECURITY;
+ALTER TABLE exam_invigilator_pool FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS exam_invigilator_pool_tenant_isolation ON exam_invigilator_pool;
+CREATE POLICY exam_invigilator_pool_tenant_isolation ON exam_invigilator_pool
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- Exam Slot Rooms (exam scheduling slot-to-room assignment)
+ALTER TABLE exam_slot_rooms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE exam_slot_rooms FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS exam_slot_rooms_tenant_isolation ON exam_slot_rooms;
+CREATE POLICY exam_slot_rooms_tenant_isolation ON exam_slot_rooms
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- Fee Types (finance: per-tenant fee type catalogue)
+ALTER TABLE fee_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fee_types FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS fee_types_tenant_isolation ON fee_types;
+CREATE POLICY fee_types_tenant_isolation ON fee_types
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);

@@ -116,6 +116,18 @@
       "reason": "SELECT FOR UPDATE for payment processing lock within RLS transaction"
     },
     {
+      "file": "apps/api/src/modules/households/household-number.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "sequence-lock",
+      "reason": "SELECT FOR UPDATE on tenant_sequences for household number generation within RLS transaction"
+    },
+    {
+      "file": "apps/api/src/modules/inbox/search/inbox-search.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "aggregate-query",
+      "reason": "Postgres full-text search (ts_rank, ts_headline) with tenant filter — expressible only in raw SQL, runs inside RLS transaction"
+    },
+    {
       "file": "apps/api/src/modules/scheduling-runs/scheduling-apply.service.ts",
       "methods": ["$queryRaw"],
       "category": "select-for-update",

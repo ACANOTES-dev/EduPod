@@ -461,3 +461,21 @@ Before changing any exported service, shared enum, queue payload, or core table:
 4. check architecture docs for matching state-machine and danger-zone entries
 
 If a change touches any of those layers, it is not a local refactor.
+
+---
+
+## Recent Additions (documented edges)
+
+### ClassSubjectRequirementsModule
+
+Owner of per-class/per-subject scheduling requirements (Stage 6 of the solver).
+
+- **Imports**: ClassesModule, RoomsModule (needs class metadata and room availability when validating requirements)
+- **Consumed by**: SchedulingModule (the solver reads aggregated requirements)
+
+### LeaveModule
+
+Staff leave request lifecycle (apply → approve → coverage planning).
+
+- **Imports**: StaffProfilesModule (staff identity and contract data), SchedulingModule (generates substitution coverage when leave is approved)
+- **Consumed by**: HR/payroll workflows (payroll reads approved leave days)

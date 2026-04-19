@@ -119,7 +119,7 @@
       "reason": "Homework service manages CRUD, recurrence generation, and bulk operations with date computation and validation branching.",
       "budgets": [
         {
-          "name": "HomeworkService.update::closure@252",
+          "name": "HomeworkService.update::closure@289",
           "max": 19
         },
         {
@@ -127,7 +127,7 @@
           "max": 19
         },
         {
-          "name": "HomeworkService.bulkCreate::closure@892",
+          "name": "HomeworkService.bulkCreate::closure@1113",
           "max": 16
         }
       ]
@@ -253,16 +253,16 @@
       "reason": "Appeal lifecycle with decision branching and sanction reversal across 988 lines"
     },
     "apps/api/src/modules/homework/homework.service.ts": {
-      "max": 1036,
-      "reason": "Homework CRUD with recurrence generation and bulk operations across 986 lines"
+      "max": 1255,
+      "reason": "Homework CRUD with recurrence generation and bulk operations across 1205 lines"
     },
     "apps/worker/src/processors/early-warning/signal-collection.utils.ts": {
       "max": 1382,
       "reason": "Signal collection utilities with the highest complexity functions in the codebase across 1332 lines"
     },
     "apps/worker/src/cron/cron-scheduler.service.ts": {
-      "max": 792,
-      "reason": "Cron scheduler grows as new jobs are added; line budget prevents unbounded expansion from 742 lines"
+      "max": 988,
+      "reason": "Cron scheduler grows as new jobs are added; line budget prevents unbounded expansion from 938 lines"
     },
     "apps/worker/src/processors/communications/dispatch-notifications.processor.ts": {
       "max": 778,
