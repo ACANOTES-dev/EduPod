@@ -11,6 +11,7 @@
 /* eslint-disable school/no-cross-module-internal-import */
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { AuthReadFacade } from '../auth/auth-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { StudentReadFacade } from '../students/student-read.facade';
@@ -61,6 +62,7 @@ export class ParentTimetableService {
     private readonly parentReadFacade: ParentReadFacade,
     private readonly studentReadFacade: StudentReadFacade,
     private readonly authReadFacade: AuthReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
   ) {}
 
   /** Parent-of-child view — verifies the parent-student link first. */
@@ -138,11 +140,11 @@ export class ParentTimetableService {
     // 2. Classroom model comes from the year group (falls back to fixed_homeroom).
     let classroomModel: 'fixed_homeroom' | 'free_movement' = 'fixed_homeroom';
     if (classRow.year_group_id) {
-      const yg = await this.prisma.yearGroup.findFirst({
-        where: { id: classRow.year_group_id, tenant_id: tenantId },
-        select: { classroom_model: true },
-      });
-      if (yg?.classroom_model === 'free_movement') classroomModel = 'free_movement';
+      const model = await this.academicReadFacade.findYearGroupClassroomModel(
+        tenantId,
+        classRow.year_group_id,
+      );
+      if (model === 'free_movement') classroomModel = 'free_movement';
     }
 
     // 3. Period templates — prefer year-group-scoped rows; fall back to

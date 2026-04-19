@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 
+import { AcademicsModule } from '../academics/academics.module';
 import { AuthModule } from '../auth/auth.module';
 import { StudentsModule } from '../students/students.module';
 
@@ -12,7 +13,7 @@ import { ParentsService } from './parents.service';
 @Module({
   // StudentsModule already imports ParentsModule (StudentsService writes
   // student-parent links) — forwardRef breaks the cycle.
-  imports: [AuthModule, forwardRef(() => StudentsModule)],
+  imports: [AuthModule, AcademicsModule, forwardRef(() => StudentsModule)],
   controllers: [ParentsController, ParentTimetableController],
   providers: [ParentsService, ParentReadFacade, ParentTimetableService],
   exports: [ParentsService, ParentReadFacade],

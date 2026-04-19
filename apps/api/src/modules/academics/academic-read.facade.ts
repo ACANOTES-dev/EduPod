@@ -438,6 +438,22 @@ export class AcademicReadFacade {
     });
   }
 
+  /**
+   * Look up the classroom model ('fixed_homeroom' | 'free_movement') for a
+   * year group. Used by parent timetable rendering to decide whether to show
+   * a single homeroom or per-subject rooms. Returns null if not found.
+   */
+  async findYearGroupClassroomModel(
+    tenantId: string,
+    yearGroupId: string,
+  ): Promise<'fixed_homeroom' | 'free_movement' | null> {
+    const row = await this.prisma.yearGroup.findFirst({
+      where: { id: yearGroupId, tenant_id: tenantId },
+      select: { classroom_model: true },
+    });
+    return row?.classroom_model ?? null;
+  }
+
   // ─── Subjects ──────────────────────────────────────────────────────────────
 
   /**
