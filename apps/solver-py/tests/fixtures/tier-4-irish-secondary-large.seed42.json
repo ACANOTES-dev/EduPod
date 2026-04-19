@@ -8508,6 +8508,7 @@
       "workload_balance": 1,
       "break_duty_balance": 1
     },
-    "solver_seed": 42
+    "solver_seed": 42,
+    "num_search_workers": null
   }
 }

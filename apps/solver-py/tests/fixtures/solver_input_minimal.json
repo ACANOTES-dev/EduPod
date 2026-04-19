@@ -4,8 +4,16 @@
       "year_group_id": "yg-1",
       "year_group_name": "Year 1",
       "sections": [
-        { "class_id": "class-A", "class_name": "Y1-A", "student_count": 20 },
-        { "class_id": "class-B", "class_name": "Y1-B", "student_count": null }
+        {
+          "class_id": "class-A",
+          "class_name": "Y1-A",
+          "student_count": 20
+        },
+        {
+          "class_id": "class-B",
+          "class_name": "Y1-B",
+          "student_count": null
+        }
       ],
       "period_grid": [
         {
@@ -62,15 +70,32 @@
       "staff_profile_id": "t1",
       "name": "Teacher One",
       "competencies": [
-        { "subject_id": "maths", "year_group_id": "yg-1", "class_id": null },
-        { "subject_id": "maths", "year_group_id": "yg-1", "class_id": "class-A" }
+        {
+          "subject_id": "maths",
+          "year_group_id": "yg-1",
+          "class_id": null
+        },
+        {
+          "subject_id": "maths",
+          "year_group_id": "yg-1",
+          "class_id": "class-A"
+        }
       ],
-      "availability": [{ "weekday": 0, "from": "08:00", "to": "12:00" }],
+      "availability": [
+        {
+          "weekday": 0,
+          "from": "08:00",
+          "to": "12:00"
+        }
+      ],
       "preferences": [
         {
           "id": "pref-1",
           "preference_type": "subject",
-          "preference_payload": { "subject_id": "maths", "wants": true },
+          "preference_payload": {
+            "subject_id": "maths",
+            "wants": true
+          },
           "priority": "high"
         }
       ],
@@ -87,7 +112,13 @@
       "is_exclusive": true
     }
   ],
-  "room_closures": [{ "room_id": "room-1", "date_from": "2026-04-01", "date_to": "2026-04-02" }],
+  "room_closures": [
+    {
+      "room_id": "room-1",
+      "date_from": "2026-04-01",
+      "date_to": "2026-04-02"
+    }
+  ],
   "break_groups": [
     {
       "break_group_id": "bg-1",
@@ -108,7 +139,12 @@
       "period_order": 0
     }
   ],
-  "student_overlaps": [{ "class_id_a": "class-A", "class_id_b": "class-B" }],
+  "student_overlaps": [
+    {
+      "class_id_a": "class-A",
+      "class_id_b": "class-B"
+    }
+  ],
   "class_room_overrides": [
     {
       "class_id": "class-A",
@@ -128,7 +164,11 @@
   ],
   "settings": {
     "max_solver_duration_seconds": 10,
-    "preference_weights": { "low": 1, "medium": 3, "high": 5 },
+    "preference_weights": {
+      "low": 1,
+      "medium": 3,
+      "high": 5
+    },
     "global_soft_weights": {
       "even_subject_spread": 1,
       "minimise_teacher_gaps": 1,
@@ -136,6 +176,7 @@
       "workload_balance": 1,
       "break_duty_balance": 1
     },
-    "solver_seed": 0
+    "solver_seed": 0,
+    "num_search_workers": null
   }
 }

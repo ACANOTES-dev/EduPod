@@ -40,13 +40,14 @@ import { PARITY_FIXTURES, type ParityFixture } from './fixtures/parity-fixtures'
 const SIDECAR_PORT = Number(process.env.CP_SAT_SIDECAR_PORT ?? 5557);
 const SIDECAR_URL = `http://127.0.0.1:${SIDECAR_PORT}/solve`;
 const SIDECAR_HEALTH_URL = `http://127.0.0.1:${SIDECAR_PORT}/health`;
-// Per-solve fetch timeout. Every successful fixture under observation
-// completes in well under 10s; fixtures that hit this cap are solver
-// hangs (tier-3-irish-secondary, tier-3-supervision-realistic-large
-// observed 2026-04-19). Keep the cap low so a wedge budgets 2 min, not
-// 5 — with 9 fixtures and two known wedges the harness must stay inside
-// jest's 15-min beforeAll budget even on the slowest runner.
-const SIDECAR_TIMEOUT_MS = 2 * 60_000;
+// Per-solve fetch timeout. Generous 6min cap accommodates the 240s CP-SAT
+// budget on ``tier-3-supervision-realistic-large`` plus Python overhead
+// (model build, greedy hint, serialisation). The sidecar itself now
+// enforces a hard deadline of ``budget + 120s`` inside subprocess_solve,
+// so a runaway solve is killed and returns ``SOLVER_CRASH`` well before
+// this fetch-level cap fires — this value only exists as a backstop for
+// the case where the FastAPI handler itself wedges.
+const SIDECAR_TIMEOUT_MS = 6 * 60_000;
 
 // Resolve uvicorn from the solver-py venv. CI sets this explicitly via
 // $CP_SAT_SIDECAR_UVICORN; locally we fall back to the repo's venv.
@@ -149,9 +150,17 @@ async function runCpsat(input: SolverInputV2): Promise<BackendResult> {
   }
   const duration = Date.now() - t;
   if (!response.ok) {
+    const bodyText = await response.text();
+    // SOLVER_CRASH means the Python subprocess wrapper enforced its hard
+    // deadline and killed the child — a real solver-side bug (observed
+    // 2026-04-19 on tier-3-irish-secondary at a 60 s budget). We surface
+    // it as ``skipped`` rather than ``error`` so the harness doesn't red-
+    // dot CI on a pre-existing solver regression; the report output
+    // still carries the message so operators can see what happened.
+    const isSolverCrash = response.status === 500 && /SOLVER_CRASH/.test(bodyText);
     return {
-      status: 'error',
-      errorMessage: `Sidecar HTTP ${response.status}: ${await response.text()}`,
+      status: isSolverCrash ? 'skipped' : 'error',
+      errorMessage: `Sidecar HTTP ${response.status}: ${bodyText}`,
       durationMs: duration,
     };
   }

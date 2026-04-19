@@ -68,6 +68,10 @@ function defaultSettings(seed = 0, maxSeconds = 30): SolverSettingsV2 {
       break_duty_balance: 1,
     },
     solver_seed: seed,
+    // Explicit null keeps snapshot generators and the pydantic roundtrip
+    // test in agreement — the Python schema declares the field optional,
+    // but emits ``null`` on re-dump, so TS-side JSON must carry the key.
+    num_search_workers: null,
   };
 }
 

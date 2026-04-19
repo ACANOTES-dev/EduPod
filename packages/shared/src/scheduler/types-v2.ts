@@ -140,6 +140,10 @@ export interface SolverSettingsV2 {
     break_duty_balance: number;
   };
   solver_seed: number | null;
+  /** Per-solve override for CP-SAT's ``num_search_workers``. When null the
+   *  solver uses its module-level default (8 in production). Only set to 1
+   *  for tests that need deterministic output; production must stay at 8. */
+  num_search_workers?: number | null;
 }
 
 /**

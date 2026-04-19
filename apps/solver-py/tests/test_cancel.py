@@ -261,33 +261,28 @@ async def test_concurrent_posts_are_serialised(client: httpx.AsyncClient) -> Non
 @pytest.mark.asyncio
 async def test_async_refactor_preserves_determinism(
     client: httpx.AsyncClient,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Two non-cancelled sequential solves return byte-identical output
     (strip only the timing fields that naturally drift).
 
     SCHED-041 §B caveat: CP-SAT multi-worker is non-deterministic. This
-    test pins ``CP_SAT_NUM_SEARCH_WORKERS=1`` via the environment to
-    validate the async refactor's determinism invariant independently
-    of CP-SAT's multi-worker indeterminacy. Production runs with 8
-    workers per the Phase B fix.
+    test pins ``num_search_workers=1`` via the solve payload to validate
+    the async refactor's determinism invariant independently of CP-SAT's
+    multi-worker indeterminacy. Production runs with 8 workers per the
+    Phase B fix.
 
-    2026-04: the crash-isolation wrapper uses ``forkserver`` rather
-    than ``fork``, which re-imports ``solver_py.config`` in each solve
-    child. In-process ``monkeypatch.setattr`` on the module attribute
-    therefore no longer propagates — we use the env var instead so the
-    re-imported config reads it.
+    2026-04-19: we pin the worker count via the payload field rather than
+    the env var. The crash-isolation wrapper uses ``forkserver`` which
+    starts lazily on the first solve of the process and caches whatever
+    env it inherited at that moment. A later ``monkeypatch.setenv`` in
+    pytest never reaches forkserver children — observed failing reliably
+    on commit e18958d9 after earlier tests triggered the daemon first.
+    ``num_search_workers`` on ``SolverSettingsV2`` sidesteps the whole
+    process-boundary problem: the parent reads the value from the
+    payload and the child uses whatever the parent resolved.
     """
-    monkeypatch.setenv("CP_SAT_NUM_SEARCH_WORKERS", "1")
-    import importlib
-
-    solve_mod = importlib.import_module("solver_py.solver.solve")
-    # In-process (non-subprocess) callers still read the module-level
-    # constant — keep the monkeypatch so mixed test setups see the same
-    # single-worker behaviour on both paths.
-    monkeypatch.setattr(solve_mod, "_CP_SAT_NUM_SEARCH_WORKERS", 1)
-
     payload = _tiny_payload(max_seconds=5)
+    payload["settings"]["num_search_workers"] = 1
 
     async with client:
         resp_a = await client.post(

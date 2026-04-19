@@ -163,6 +163,15 @@ class SolverSettingsV2(_Strict):
     preference_weights: PreferenceWeights
     global_soft_weights: GlobalSoftWeights
     solver_seed: int | None
+    # Per-solve override for CP-SAT's ``num_search_workers`` parameter. When
+    # ``None`` the solver uses the module-level default sourced from the
+    # ``CP_SAT_NUM_SEARCH_WORKERS`` env var at import time (8 in production).
+    # Tests that need single-worker determinism (e.g. the async-refactor
+    # determinism check) must set this via payload rather than env vars —
+    # the forkserver daemon is started lazily on the first solve and caches
+    # whatever env it inherited at that moment, so later ``monkeypatch.setenv``
+    # in pytest never reaches its children.
+    num_search_workers: int | None = None
 
 
 class SolverInputV2(_Strict):

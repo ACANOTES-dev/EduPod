@@ -128,6 +128,9 @@ function defaultSettings(seed: number, maxSeconds: number): SolverSettingsV2 {
       break_duty_balance: 1,
     },
     solver_seed: seed,
+    // Explicit null so regenerated snapshots stay in step with the
+    // pydantic round-trip test (see parity-fixtures.ts for context).
+    num_search_workers: null,
   };
 }
 

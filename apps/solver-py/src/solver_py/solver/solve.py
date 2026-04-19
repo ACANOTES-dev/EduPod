@@ -159,13 +159,19 @@ def solve(
     # The setting is configurable via the ``CP_SAT_NUM_SEARCH_WORKERS``
     # env var (see ``solver_py.config``) so tenants hitting the pm2
     # ``max_memory_restart`` ceiling at Tier-5 can fall back to 1 worker
-    # per-deployment without a code change.
+    # per-deployment without a code change. Tests that need a specific
+    # worker count should set ``settings.num_search_workers`` in the
+    # payload instead — env-var monkeypatch doesn't cross the forkserver
+    # boundary reliably (the daemon starts lazily and caches env).
     #
     # Do NOT set ``repair_hint = True`` alongside multi-worker on CP-SAT
     # 9.15 — it crashes with ``std::bad_function_call`` (validated in the
     # SCHED-041 §A experiment matrix on 2026-04-17). Safe to revisit when
     # OR-Tools upgrades fix the underlying CP-SAT bug.
-    solver.parameters.num_search_workers = _CP_SAT_NUM_SEARCH_WORKERS
+    payload_workers = input_payload.settings.num_search_workers
+    solver.parameters.num_search_workers = (
+        payload_workers if payload_workers is not None else _CP_SAT_NUM_SEARCH_WORKERS
+    )
 
     # Stage 9.5.1 §A — early-stop callback halts CP-SAT when it stops
     # finding improvements past the greedy floor or when the relative

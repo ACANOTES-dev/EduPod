@@ -177,7 +177,40 @@ def solve_in_subprocess(
         daemon=True,
     )
     proc.start()
-    proc.join()
+
+    # Hard deadline. CP-SAT ``max_time_in_seconds`` is a soft target — OR-Tools
+    # occasionally overshoots (observed ≫5 min on tier-3-irish-secondary with a
+    # 60 s budget, 2026-04-19). Without an enforced ceiling the parent blocks
+    # on ``proc.join()`` indefinitely, the FastAPI handler never returns, and
+    # the client sees a hung connection. We compute the deadline from the
+    # payload's own budget plus an extra 120 s for model build / greedy hint
+    # / result serialisation overhead, which is plenty on every fixture under
+    # observation. If the child blows past it we SIGTERM (then SIGKILL as
+    # backstop) and surface a ``SolverCrashError`` so the caller knows the
+    # result isn't coming.
+    budget_seconds = float(payload.settings.max_solver_duration_seconds)
+    hard_deadline_seconds = budget_seconds + 120.0
+    proc.join(timeout=hard_deadline_seconds)
+    if proc.is_alive():
+        logger.error(
+            "solver subprocess exceeded hard deadline; terminating",
+            extra={
+                "budget_seconds": budget_seconds,
+                "hard_deadline_seconds": hard_deadline_seconds,
+            },
+        )
+        proc.terminate()
+        proc.join(timeout=5)
+        if proc.is_alive():
+            proc.kill()
+            proc.join(timeout=5)
+        raise SolverCrashError(
+            -1,
+            detail=(
+                f"child exceeded hard deadline of {hard_deadline_seconds:.0f}s "
+                f"(budget was {budget_seconds:.0f}s)"
+            ),
+        )
 
     exitcode = proc.exitcode if proc.exitcode is not None else -1
 
