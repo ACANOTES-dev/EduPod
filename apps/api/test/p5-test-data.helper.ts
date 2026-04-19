@@ -48,12 +48,13 @@ export interface P5TestData {
 export async function setupP5TestData(
   app: INestApplication,
   adminToken: string,
-  options: P5TestDataOptions,
+  options?: P5TestDataOptions,
 ): Promise<P5TestData> {
   const ts = Date.now();
   let baseYear = allocateAcademicYearBase();
-  const domain = options.domain;
-  const teacherEmailToMatch = options.teacherEmail ?? 'teacher@alnoor.test';
+  // Legacy default targets shared al-noor for unmigrated callers.
+  const domain = options?.domain ?? 'al-noor.edupod.app';
+  const teacherEmailToMatch = options?.teacherEmail ?? 'teacher@alnoor.test';
 
   const dateInYear = (month: number, day: number): string => {
     // Months 9-12 are in baseYear, months 1-6 are in baseYear+1
@@ -390,11 +391,12 @@ export interface CedarP5TestData {
 export async function setupCedarP5TestData(
   app: INestApplication,
   cedarAdminToken: string,
-  options: CedarP5TestDataOptions,
+  options?: CedarP5TestDataOptions,
 ): Promise<CedarP5TestData> {
   const ts = Date.now();
   const baseYear = allocateAcademicYearBase(4000);
-  const domain = options.domain;
+  // Legacy default: shared cedar tenant.
+  const domain = options?.domain ?? 'cedar.edupod.app';
 
   const dateInYear = (month: number, day: number): string => {
     const year = month >= 9 ? baseYear : baseYear + 1;

@@ -21,11 +21,13 @@ export interface P4BTestData extends P4ATestData {
 export async function setupP4BTestData(
   app: INestApplication,
   adminToken: string,
-  options: P4ATestDataOptions,
+  options?: P4ATestDataOptions,
 ): Promise<P4BTestData> {
   const p4aData = await setupP4ATestData(app, adminToken, options);
   const ts = Date.now();
-  const domain = options.domain;
+  // Same legacy default as setupP4ATestData — keeps unmigrated collider
+  // suites pointing at al-noor.
+  const domain = options?.domain ?? 'al-noor.edupod.app';
 
   // 1. Create a subject (defaults to subject_type='academic')
   const subjectRes = await authPost(

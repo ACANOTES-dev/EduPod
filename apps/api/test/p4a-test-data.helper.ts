@@ -39,13 +39,15 @@ export interface P4ATestData {
 export async function setupP4ATestData(
   app: INestApplication,
   adminToken: string,
-  options: P4ATestDataOptions,
+  options?: P4ATestDataOptions,
 ): Promise<P4ATestData> {
   const ts = Date.now();
   let baseYear = allocateAcademicYearBase();
-  const domain = options.domain;
-  const teacherEmailToMatch = options.teacherEmail ?? 'teacher@alnoor.test';
-  const ownerFallbackEmail = options.ownerEmail ?? 'owner@alnoor.test';
+  // Legacy callers that haven't migrated to per-test fixtures still target
+  // the shared al-noor tenant. New callers pass fixture.domainName etc.
+  const domain = options?.domain ?? 'al-noor.edupod.app';
+  const teacherEmailToMatch = options?.teacherEmail ?? 'teacher@alnoor.test';
+  const ownerFallbackEmail = options?.ownerEmail ?? 'owner@alnoor.test';
 
   const dateInYear = (month: number, day: number): string => {
     // Months 9-12 are in baseYear, months 1-6 are in baseYear+1
