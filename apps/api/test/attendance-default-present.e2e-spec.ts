@@ -1,24 +1,17 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
-import {
-  createTestApp,
-  closeTestApp,
-  getAuthToken,
-  authGet,
-  authPost,
-  authPatch,
-  AL_NOOR_ADMIN_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
-  AL_NOOR_DOMAIN,
-  CEDAR_ADMIN_EMAIL,
-  CEDAR_DOMAIN,
-} from './helpers';
+import { createTestApp, closeTestApp, getAuthToken, authGet, authPost, authPatch } from './helpers';
 import { setupP4ATestData, P4ATestData } from './p4a-test-data.helper';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('Attendance Default Present (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let cedarFixture: TenantFixture;
   let adminToken: string;
   let teacherToken: string;
   let cedarAdminToken: string;
@@ -26,10 +19,17 @@ describe('Attendance Default Present (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
-    adminToken = await getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN);
-    teacherToken = await getAuthToken(app, AL_NOOR_TEACHER_EMAIL, AL_NOOR_DOMAIN);
-    cedarAdminToken = await getAuthToken(app, CEDAR_ADMIN_EMAIL, CEDAR_DOMAIN);
-    td = await setupP4ATestData(app, adminToken);
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    cedarFixture = await createTenantFixture(prisma);
+    adminToken = await getAuthToken(app, fixture.adminEmail!, fixture.domainName);
+    teacherToken = await getAuthToken(app, fixture.teacherEmail!, fixture.domainName);
+    cedarAdminToken = await getAuthToken(app, cedarFixture.adminEmail!, cedarFixture.domainName);
+    td = await setupP4ATestData(app, adminToken, {
+      domain: fixture.domainName,
+      teacherEmail: fixture.teacherEmail!,
+      ownerEmail: fixture.ownerEmail,
+    });
 
     // Enable default present and set workDays to all 7 days to avoid
     // random far-future dates landing on non-work-day failures.
@@ -43,7 +43,7 @@ describe('Attendance Default Present (e2e)', () => {
           workDays: [0, 1, 2, 3, 4, 5, 6],
         },
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
   });
 
@@ -59,8 +59,11 @@ describe('Attendance Default Present (e2e)', () => {
           workDays: [1, 2, 3, 4, 5],
         },
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
+    await deleteTenantFixture(prisma, fixture);
+    await deleteTenantFixture(prisma, cedarFixture);
+    await prisma.$disconnect();
 
     await closeTestApp();
   });
@@ -77,7 +80,7 @@ describe('Attendance Default Present (e2e)', () => {
         session_date: td.dateInYear(11, 3),
         default_present: true,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const session = res.body.data ?? res.body;
@@ -88,7 +91,7 @@ describe('Attendance Default Present (e2e)', () => {
       app,
       `/api/v1/attendance-sessions/${session.id}`,
       adminToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const records = (sessDetail.body.data ?? sessDetail.body).records ?? [];
@@ -109,7 +112,7 @@ describe('Attendance Default Present (e2e)', () => {
         session_date: td.dateInYear(11, 7),
         default_present: false,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const session = res.body.data ?? res.body;
@@ -118,7 +121,7 @@ describe('Attendance Default Present (e2e)', () => {
       app,
       `/api/v1/attendance-sessions/${session.id}`,
       adminToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const records = (sessDetail.body.data ?? sessDetail.body).records ?? [];
@@ -138,7 +141,7 @@ describe('Attendance Default Present (e2e)', () => {
         session_date: td.dateInYear(11, 11),
         default_present: true,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const sessionId = (sessRes.body.data ?? sessRes.body).id;
@@ -149,7 +152,7 @@ describe('Attendance Default Present (e2e)', () => {
       app,
       `/api/v1/students/${td.studentId}`,
       adminToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const studentNumber = (studentRes.body.data ?? studentRes.body).student_number;
@@ -164,7 +167,7 @@ describe('Attendance Default Present (e2e)', () => {
         session_date: td.dateInYear(11, 11),
         text: `${studentNumber} A`,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const qmBody = qmRes.body.data ?? qmRes.body;
@@ -187,7 +190,7 @@ describe('Attendance Default Present (e2e)', () => {
         session_date: td.dateInYear(11, 15),
         default_present: true,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const sessionId = (sessRes.body.data ?? sessRes.body).id;
@@ -197,7 +200,7 @@ describe('Attendance Default Present (e2e)', () => {
       app,
       `/api/v1/students/${td.studentId}`,
       adminToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const studentNumber = (studentRes.body.data ?? studentRes.body).student_number;
@@ -211,7 +214,7 @@ describe('Attendance Default Present (e2e)', () => {
         session_date: td.dateInYear(11, 15),
         text: `${studentNumber} A`,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const batchId = (qmRes.body.data ?? qmRes.body).batch_id;
@@ -224,7 +227,7 @@ describe('Attendance Default Present (e2e)', () => {
       {
         batch_id: batchId,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const undoBody = undoRes.body.data ?? undoRes.body;
@@ -239,7 +242,7 @@ describe('Attendance Default Present (e2e)', () => {
       app,
       `/api/v1/attendance-sessions/${sessionId}`,
       adminToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const records = (sessDetail.body.data ?? sessDetail.body).records ?? [];
@@ -261,7 +264,7 @@ describe('Attendance Default Present (e2e)', () => {
       app,
       '/api/v1/attendance/pattern-alerts?page=1&pageSize=100',
       cedarAdminToken,
-      CEDAR_DOMAIN,
+      cedarFixture.domainName,
     );
 
     if (res.status === 200) {
@@ -291,7 +294,7 @@ describe('Attendance Default Present (e2e)', () => {
         session_date: td.dateInYear(11, 19),
         default_present: true,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     // Get student number
@@ -299,7 +302,7 @@ describe('Attendance Default Present (e2e)', () => {
       app,
       `/api/v1/students/${td.studentId}`,
       adminToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const studentNumber = (studentRes.body.data ?? studentRes.body).student_number;
@@ -313,7 +316,7 @@ describe('Attendance Default Present (e2e)', () => {
         session_date: td.dateInYear(11, 19),
         records: [{ student_number: studentNumber, status: 'late', reason: 'Traffic' }],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
 
     const body = res.body.data ?? res.body;
@@ -328,7 +331,7 @@ describe('Attendance Default Present (e2e)', () => {
       app,
       '/api/v1/attendance/pattern-alerts',
       teacherToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
     expect(res.status).toBe(403);
   });

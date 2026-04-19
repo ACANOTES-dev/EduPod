@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 import {
   createTestApp,
@@ -8,16 +9,16 @@ import {
   authPost,
   authPatch,
   authPut,
-  AL_NOOR_ADMIN_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
-  AL_NOOR_DOMAIN,
 } from './helpers';
 import { setupP4ATestData, P4ATestData } from './p4a-test-data.helper';
+import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
 jest.setTimeout(120_000);
 
 describe('P4A Attendance (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
   let adminToken: string;
   let teacherToken: string;
   let td: P4ATestData;
@@ -25,12 +26,21 @@ describe('P4A Attendance (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
-    adminToken = await getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN);
-    teacherToken = await getAuthToken(app, AL_NOOR_TEACHER_EMAIL, AL_NOOR_DOMAIN);
-    td = await setupP4ATestData(app, adminToken);
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    fixture = await createTenantFixture(prisma);
+    adminToken = await getAuthToken(app, fixture.adminEmail!, fixture.domainName);
+    teacherToken = await getAuthToken(app, fixture.teacherEmail!, fixture.domainName);
+    td = await setupP4ATestData(app, adminToken, {
+      domain: fixture.domainName,
+      teacherEmail: fixture.teacherEmail!,
+      ownerEmail: fixture.ownerEmail,
+    });
   });
 
   afterAll(async () => {
+    await deleteTenantFixture(prisma, fixture);
+    await prisma.$disconnect();
+
     await closeTestApp();
   });
 
@@ -43,7 +53,7 @@ describe('P4A Attendance (e2e)', () => {
         class_id: td.classId,
         session_date: td.dateInYear(10, 6),
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     const body = res.body.data ?? res.body;
     expect(body.id).toBeDefined();
@@ -62,7 +72,7 @@ describe('P4A Attendance (e2e)', () => {
         reason: 'Test closure',
         affects_scope: 'all',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const res = await authPost(
@@ -73,7 +83,7 @@ describe('P4A Attendance (e2e)', () => {
         class_id: td.classId,
         session_date: closureDate,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(409);
     expect(res.body.error.code).toBe('DATE_IS_CLOSURE');
   });
@@ -90,7 +100,7 @@ describe('P4A Attendance (e2e)', () => {
         reason: 'Test closure for override',
         affects_scope: 'all',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const res = await authPost(
@@ -103,7 +113,7 @@ describe('P4A Attendance (e2e)', () => {
         override_closure: true,
         override_reason: 'Make-up class',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe('OVERRIDE_NOT_PERMITTED');
@@ -119,7 +129,7 @@ describe('P4A Attendance (e2e)', () => {
         class_id: td.classId,
         session_date: sessionDate,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     const second = await authPost(
@@ -130,7 +140,7 @@ describe('P4A Attendance (e2e)', () => {
         class_id: td.classId,
         session_date: sessionDate,
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
 
     expect((second.body.data ?? second.body).id).toBe((first.body.data ?? first.body).id);
@@ -144,7 +154,7 @@ describe('P4A Attendance (e2e)', () => {
       {
         records: [{ student_id: td.studentId, status: 'present' }],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -158,7 +168,7 @@ describe('P4A Attendance (e2e)', () => {
       `/api/v1/attendance-sessions/${sessionId}/submit`,
       teacherToken,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
     expect((res.body.data ?? res.body).status).toBe('submitted');
   });
@@ -171,7 +181,7 @@ describe('P4A Attendance (e2e)', () => {
       {
         records: [{ student_id: td.studentId, status: 'absent_unexcused' }],
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(409);
     expect(res.body.error.code).toBe('SESSION_NOT_OPEN');
   });
@@ -182,7 +192,7 @@ describe('P4A Attendance (e2e)', () => {
       app,
       `/api/v1/attendance-sessions/${sessionId}`,
       adminToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
     const records = (sessRes.body.data ?? sessRes.body).records ?? [];
     if (records.length === 0) return;
@@ -196,7 +206,7 @@ describe('P4A Attendance (e2e)', () => {
         status: 'absent_excused',
         amendment_reason: 'Parent called in sick',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
     expect(res.status).toBe(403);
   });
@@ -206,7 +216,7 @@ describe('P4A Attendance (e2e)', () => {
       app,
       `/api/v1/attendance-sessions/${sessionId}`,
       adminToken,
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
     const records = (sessRes.body.data ?? sessRes.body).records ?? [];
     if (records.length === 0) return;
@@ -218,7 +228,7 @@ describe('P4A Attendance (e2e)', () => {
       {
         status: 'absent_excused',
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     );
     // Either 400 (Zod validation fails on missing amendment_reason) or 403 (permission check first)
     expect([400, 403]).toContain(res.status);
@@ -233,7 +243,7 @@ describe('P4A Attendance (e2e)', () => {
         class_id: td.classId,
         session_date: td.dateInYear(10, 20),
       },
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(201);
     const newSessionId = (sessRes.body.data ?? sessRes.body).id;
 
@@ -242,7 +252,7 @@ describe('P4A Attendance (e2e)', () => {
       `/api/v1/attendance-sessions/${newSessionId}/cancel`,
       adminToken,
       {},
-      AL_NOOR_DOMAIN,
+      fixture.domainName,
     ).expect(200);
     expect((res.body.data ?? res.body).status).toBe('cancelled');
   });

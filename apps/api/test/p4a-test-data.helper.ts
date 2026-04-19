@@ -4,13 +4,19 @@
  */
 import { INestApplication } from '@nestjs/common';
 
-import {
-  allocateAcademicYearBase,
-  authGet,
-  authPost,
-  getAuthToken,
-  AL_NOOR_DOMAIN,
-} from './helpers';
+import { allocateAcademicYearBase, authGet, authPost, getAuthToken } from './helpers';
+
+export interface P4ATestDataOptions {
+  /** Tenant domain to target (e.g. fixture.domainName). */
+  domain: string;
+  /** Email of the teacher user to assign to the class. Optional — the helper
+   *  falls back to the first active staff profile or creates one. */
+  teacherEmail?: string;
+  /** Email of an owner-tier user used as the fallback for creating a staff
+   *  profile if none exists. Defaults to `'owner@alnoor.test'` for legacy
+   *  callers — new callers should pass their fixture's ownerEmail. */
+  ownerEmail?: string;
+}
 
 export interface P4ATestData {
   academicYearId: string;
@@ -33,9 +39,13 @@ export interface P4ATestData {
 export async function setupP4ATestData(
   app: INestApplication,
   adminToken: string,
+  options: P4ATestDataOptions,
 ): Promise<P4ATestData> {
   const ts = Date.now();
   let baseYear = allocateAcademicYearBase();
+  const domain = options.domain;
+  const teacherEmailToMatch = options.teacherEmail ?? 'teacher@alnoor.test';
+  const ownerFallbackEmail = options.ownerEmail ?? 'owner@alnoor.test';
 
   const dateInYear = (month: number, day: number): string => {
     // Months 9-12 are in baseYear, months 1-6 are in baseYear+1
@@ -67,7 +77,7 @@ export async function setupP4ATestData(
         end_date: `${baseYear + 1}-06-30`,
         status: 'active',
       },
-      AL_NOOR_DOMAIN,
+      domain,
     );
 
     if (ayRes.status === 201) {
@@ -95,7 +105,7 @@ export async function setupP4ATestData(
       name: `Test YG ${ts}`,
       display_order: 1,
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const yearGroupId = ygRes.body.data.id;
 
@@ -112,7 +122,7 @@ export async function setupP4ATestData(
       class_type: 'floating',
       status: 'active',
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const classId = classRes.body.data.id;
 
@@ -127,7 +137,7 @@ export async function setupP4ATestData(
       capacity: 30,
       is_exclusive: true,
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const roomId = roomRes.body.data.id;
 
@@ -137,7 +147,7 @@ export async function setupP4ATestData(
     app,
     '/api/v1/staff-profiles?page=1&pageSize=50',
     adminToken,
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(200);
   // The response may be { data: [...], meta } or { data: { data: [...], meta } }
   const staffList: Array<Record<string, unknown>> = Array.isArray(staffRes.body.data)
@@ -145,7 +155,7 @@ export async function setupP4ATestData(
     : (staffRes.body.data?.data ?? []);
   let teacherProfile = staffList.find((s) => {
     const user = s['user'] as Record<string, string> | undefined;
-    return user?.email === 'teacher@alnoor.test';
+    return user?.email === teacherEmailToMatch;
   });
   // Fallback: pick the first staff profile with an active status
   if (!teacherProfile && staffList.length > 0) {
@@ -154,9 +164,9 @@ export async function setupP4ATestData(
   // Last resort: create a staff profile via the API using owner credentials
   // (admin may not have users.manage permission required by POST /staff-profiles)
   if (!teacherProfile) {
-    const ownerToken = await getAuthToken(app, 'owner@alnoor.test', AL_NOOR_DOMAIN);
+    const ownerToken = await getAuthToken(app, ownerFallbackEmail, domain);
     // Get the teacher role ID for role_id (required field)
-    const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, domain).expect(200);
     const roles: Array<Record<string, unknown>> = rolesRes.body.data ?? rolesRes.body ?? [];
     const teacherRole = roles.find((r) => r['role_key'] === 'teacher');
     const roleId = (teacherRole?.['id'] as string) ?? (roles[0]?.['id'] as string);
@@ -166,7 +176,7 @@ export async function setupP4ATestData(
       '/api/v1/staff-profiles',
       ownerToken,
       {
-        email: `test-teacher-${ts}@alnoor.test`,
+        email: `test-teacher-${ts}@${domain}`,
         first_name: 'Test',
         last_name: `Teacher${ts}`,
         phone: '+353000000000',
@@ -175,7 +185,7 @@ export async function setupP4ATestData(
         employment_status: 'active',
         employment_type: 'full_time',
       },
-      AL_NOOR_DOMAIN,
+      domain,
     ).expect(201);
     teacherProfile = createStaffRes.body.data ?? createStaffRes.body;
   }
@@ -191,7 +201,7 @@ export async function setupP4ATestData(
         staff_profile_id: teacherStaffProfileId,
         assignment_role: 'teacher',
       },
-      AL_NOOR_DOMAIN,
+      domain,
     );
     if (assignRes.status !== 201 && assignRes.status !== 409) {
       throw new Error(`Failed to assign teacher to class: ${JSON.stringify(assignRes.body)}`);
@@ -209,7 +219,7 @@ export async function setupP4ATestData(
         { contact_name: 'Emergency Contact', phone: '+971501234567', display_order: 1 },
       ],
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const householdId = hhRes.body.data.id;
 
@@ -228,7 +238,7 @@ export async function setupP4ATestData(
       national_id: `NID-P4A-${ts}`,
       nationality: 'Irish',
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const studentId = studentRes.body.data.id;
 
@@ -241,7 +251,7 @@ export async function setupP4ATestData(
       student_id: studentId,
       start_date: dateInYear(9, 1),
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
 
   return {

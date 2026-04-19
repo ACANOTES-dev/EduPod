@@ -156,6 +156,22 @@ function migrateFile(filePath) {
     content = content.replace(/@cedar\.test`/g, '@${cedarFixture.domainName}`');
   }
 
+  // 9. Rewrite setupP4A/P4B/P5TestData calls that omit the options arg.
+  //    setupP4ATestData(app, token)       → setupP4ATestData(app, token, { domain: fixture.domainName, teacherEmail: fixture.teacherEmail!, ownerEmail: fixture.ownerEmail })
+  //    setupP5TestData(app, token)        → same
+  //    setupP4BTestData(app, token)       → same
+  //    setupCedarP5TestData(app, token)   → setupCedarP5TestData(app, token, { domain: cedarFixture.domainName })
+  content = content.replace(
+    /setupP(4A|4B|5)TestData\(\s*([^,]+),\s*([^,)]+)\s*\)/g,
+    (_m, variant, appArg, tokenArg) =>
+      `setupP${variant}TestData(${appArg.trim()}, ${tokenArg.trim()}, { domain: fixture.domainName, teacherEmail: fixture.teacherEmail!, ownerEmail: fixture.ownerEmail })`,
+  );
+  content = content.replace(
+    /setupCedarP5TestData\(\s*([^,]+),\s*([^,)]+)\s*\)/g,
+    (_m, appArg, tokenArg) =>
+      `setupCedarP5TestData(${appArg.trim()}, ${tokenArg.trim()}, { domain: cedarFixture.domainName })`,
+  );
+
   if (content === original) {
     return { filePath, skipped: 'no changes' };
   }

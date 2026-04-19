@@ -4,8 +4,8 @@
  */
 import { INestApplication } from '@nestjs/common';
 
-import { authPost, AL_NOOR_DOMAIN } from './helpers';
-import { setupP4ATestData, P4ATestData } from './p4a-test-data.helper';
+import { authPost } from './helpers';
+import { setupP4ATestData, P4ATestData, P4ATestDataOptions } from './p4a-test-data.helper';
 
 export interface P4BTestData extends P4ATestData {
   periodTemplateIds: string[];
@@ -21,9 +21,11 @@ export interface P4BTestData extends P4ATestData {
 export async function setupP4BTestData(
   app: INestApplication,
   adminToken: string,
+  options: P4ATestDataOptions,
 ): Promise<P4BTestData> {
-  const p4aData = await setupP4ATestData(app, adminToken);
+  const p4aData = await setupP4ATestData(app, adminToken, options);
   const ts = Date.now();
+  const domain = options.domain;
 
   // 1. Create a subject (defaults to subject_type='academic')
   const subjectRes = await authPost(
@@ -34,7 +36,7 @@ export async function setupP4BTestData(
       name: `P4B Test Subject ${ts}`,
       code: `P4B${ts}`,
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const subjectId = subjectRes.body.data.id;
 
@@ -52,7 +54,7 @@ export async function setupP4BTestData(
       class_type: 'floating',
       status: 'active',
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const academicClassId = academicClassRes.body.data.id;
 
@@ -66,7 +68,7 @@ export async function setupP4BTestData(
         staff_profile_id: p4aData.teacherStaffProfileId,
         assignment_role: 'teacher',
       },
-      AL_NOOR_DOMAIN,
+      domain,
     );
     if (assignRes.status !== 201 && assignRes.status !== 409) {
       throw new Error(
@@ -119,7 +121,7 @@ export async function setupP4BTestData(
         ...period,
         schedule_period_type: 'teaching',
       },
-      AL_NOOR_DOMAIN,
+      domain,
     ).expect(201);
     periodTemplateIds.push(periodRes.body.data.id);
   }
@@ -134,7 +136,7 @@ export async function setupP4BTestData(
       academic_year_id: p4aData.academicYearId,
       periods_per_week: 4,
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const classRequirementId = reqRes.body.data.id;
 

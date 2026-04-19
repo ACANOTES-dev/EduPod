@@ -6,15 +6,19 @@
  */
 import { INestApplication } from '@nestjs/common';
 
-import {
-  allocateAcademicYearBase,
-  authGet,
-  authPatch,
-  authPost,
-  authPut,
-  AL_NOOR_DOMAIN,
-  CEDAR_DOMAIN,
-} from './helpers';
+import { allocateAcademicYearBase, authGet, authPatch, authPost, authPut } from './helpers';
+
+export interface P5TestDataOptions {
+  /** Tenant domain to target (e.g. fixture.domainName). */
+  domain: string;
+  /** Email of the teacher user to match. Default: teacherEmailToMatch. */
+  teacherEmail?: string;
+}
+
+export interface CedarP5TestDataOptions {
+  /** Tenant domain to target (e.g. cedarFixture.domainName). */
+  domain: string;
+}
 
 // ─── Al Noor Test Data ──────────────────────────────────────────────────────
 
@@ -44,9 +48,12 @@ export interface P5TestData {
 export async function setupP5TestData(
   app: INestApplication,
   adminToken: string,
+  options: P5TestDataOptions,
 ): Promise<P5TestData> {
   const ts = Date.now();
   let baseYear = allocateAcademicYearBase();
+  const domain = options.domain;
+  const teacherEmailToMatch = options.teacherEmail ?? 'teacher@alnoor.test';
 
   const dateInYear = (month: number, day: number): string => {
     // Months 9-12 are in baseYear, months 1-6 are in baseYear+1
@@ -67,7 +74,7 @@ export async function setupP5TestData(
         end_date: `${baseYear + 1}-06-30`,
         status: 'active',
       },
-      AL_NOOR_DOMAIN,
+      domain,
     );
 
     if (ayRes.status === 201) {
@@ -98,7 +105,7 @@ export async function setupP5TestData(
       end_date: dateInYear(12, 20),
       status: 'active',
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const academicPeriodId = apRes.body.data.id;
 
@@ -113,7 +120,7 @@ export async function setupP5TestData(
       subject_type: 'academic',
       active: true,
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const subjectId = subRes.body.data.id;
 
@@ -126,7 +133,7 @@ export async function setupP5TestData(
       name: `P5 Year Group ${ts}`,
       display_order: 1,
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const yearGroupId = ygRes.body.data.id;
 
@@ -143,7 +150,7 @@ export async function setupP5TestData(
       class_type: 'floating',
       status: 'active',
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const classId = classRes.body.data.id;
 
@@ -152,11 +159,11 @@ export async function setupP5TestData(
     app,
     '/api/v1/staff-profiles?page=1&pageSize=50',
     adminToken,
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(200);
   const teacherProfile = staffRes.body.data.find((s: Record<string, unknown>) => {
     const user = s['user'] as Record<string, string> | undefined;
-    return user?.email === 'teacher@alnoor.test';
+    return user?.email === teacherEmailToMatch;
   });
   const teacherStaffProfileId = teacherProfile?.id as string;
 
@@ -170,7 +177,7 @@ export async function setupP5TestData(
         staff_profile_id: teacherStaffProfileId,
         assignment_role: 'teacher',
       },
-      AL_NOOR_DOMAIN,
+      domain,
     );
     if (assignRes.status !== 201 && assignRes.status !== 409) {
       throw new Error(`Failed to assign teacher to class: ${JSON.stringify(assignRes.body)}`);
@@ -188,7 +195,7 @@ export async function setupP5TestData(
         { contact_name: 'Emergency Contact', phone: '+971501234567', display_order: 1 },
       ],
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const householdId = hhRes.body.data.id;
 
@@ -207,7 +214,7 @@ export async function setupP5TestData(
       nationality: 'Irish',
       status: 'active',
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const studentId = student1Res.body.data.id;
 
@@ -226,7 +233,7 @@ export async function setupP5TestData(
       nationality: 'Irish',
       status: 'active',
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const studentId2 = student2Res.body.data.id;
 
@@ -236,7 +243,7 @@ export async function setupP5TestData(
     `/api/v1/classes/${classId}/enrolments`,
     adminToken,
     { student_id: studentId, start_date: dateInYear(9, 1) },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
 
   await authPost(
@@ -244,7 +251,7 @@ export async function setupP5TestData(
     `/api/v1/classes/${classId}/enrolments`,
     adminToken,
     { student_id: studentId2, start_date: dateInYear(9, 1) },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
 
   // 11. Create grading scale (numeric: 0-59=F, 60-79=C, 80-89=B, 90-100=A)
@@ -265,7 +272,7 @@ export async function setupP5TestData(
         passing_threshold: 60,
       },
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const gradingScaleId = scaleRes.body.data.id;
 
@@ -278,7 +285,7 @@ export async function setupP5TestData(
       name: `Homework ${ts}`,
       default_weight: 40,
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const categoryHomeworkId = catHwRes.body.data.id;
 
@@ -290,7 +297,7 @@ export async function setupP5TestData(
       name: `Exams ${ts}`,
       default_weight: 60,
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const categoryExamsId = catExRes.body.data.id;
 
@@ -308,7 +315,7 @@ export async function setupP5TestData(
         ],
       },
     },
-    AL_NOOR_DOMAIN,
+    domain,
   );
   if (gcRes.status !== 200 && gcRes.status !== 201) {
     throw new Error(`Failed to upsert grade config: ${JSON.stringify(gcRes.body)}`);
@@ -328,7 +335,7 @@ export async function setupP5TestData(
       title: `P5 Homework 1 ${ts}`,
       max_score: 100,
     },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(201);
   const assessmentId = asmtRes.body.data.id;
 
@@ -338,7 +345,7 @@ export async function setupP5TestData(
     `/api/v1/gradebook/assessments/${assessmentId}/status`,
     adminToken,
     { status: 'open' },
-    AL_NOOR_DOMAIN,
+    domain,
   ).expect(200);
 
   return {
@@ -383,9 +390,11 @@ export interface CedarP5TestData {
 export async function setupCedarP5TestData(
   app: INestApplication,
   cedarAdminToken: string,
+  options: CedarP5TestDataOptions,
 ): Promise<CedarP5TestData> {
   const ts = Date.now();
   const baseYear = allocateAcademicYearBase(4000);
+  const domain = options.domain;
 
   const dateInYear = (month: number, day: number): string => {
     const year = month >= 9 ? baseYear : baseYear + 1;
@@ -403,7 +412,7 @@ export async function setupCedarP5TestData(
       end_date: `${baseYear + 1}-06-30`,
       status: 'active',
     },
-    CEDAR_DOMAIN,
+    domain,
   ).expect(201);
   const academicYearId = ayRes.body.data.id;
 
@@ -419,7 +428,7 @@ export async function setupCedarP5TestData(
       end_date: dateInYear(12, 20),
       status: 'active',
     },
-    CEDAR_DOMAIN,
+    domain,
   ).expect(201);
   const academicPeriodId = apRes.body.data.id;
 
@@ -434,7 +443,7 @@ export async function setupCedarP5TestData(
       subject_type: 'academic',
       active: true,
     },
-    CEDAR_DOMAIN,
+    domain,
   ).expect(201);
   const subjectId = subRes.body.data.id;
 
@@ -447,7 +456,7 @@ export async function setupCedarP5TestData(
       name: `Cedar P5 Year Group ${ts}`,
       display_order: 1,
     },
-    CEDAR_DOMAIN,
+    domain,
   ).expect(201);
   const cedarYearGroupId = ygRes.body.data.id;
 
@@ -464,7 +473,7 @@ export async function setupCedarP5TestData(
       class_type: 'floating',
       status: 'active',
     },
-    CEDAR_DOMAIN,
+    domain,
   ).expect(201);
   const classId = classRes.body.data.id;
 
@@ -479,7 +488,7 @@ export async function setupCedarP5TestData(
         { contact_name: 'Cedar Contact', phone: '+971509876543', display_order: 1 },
       ],
     },
-    CEDAR_DOMAIN,
+    domain,
   ).expect(201);
   const householdId = hhRes.body.data.id;
 
@@ -497,7 +506,7 @@ export async function setupCedarP5TestData(
       nationality: 'Irish',
       status: 'active',
     },
-    CEDAR_DOMAIN,
+    domain,
   ).expect(201);
   const studentId = stuRes.body.data.id;
 
@@ -507,7 +516,7 @@ export async function setupCedarP5TestData(
     `/api/v1/classes/${classId}/enrolments`,
     cedarAdminToken,
     { student_id: studentId, start_date: dateInYear(9, 1) },
-    CEDAR_DOMAIN,
+    domain,
   ).expect(201);
 
   // 7. Grading scale
@@ -526,7 +535,7 @@ export async function setupCedarP5TestData(
         passing_threshold: 60,
       },
     },
-    CEDAR_DOMAIN,
+    domain,
   ).expect(201);
   const gradingScaleId = scaleRes.body.data.id;
 
@@ -539,7 +548,7 @@ export async function setupCedarP5TestData(
       name: `Cedar Tests ${ts}`,
       default_weight: 100,
     },
-    CEDAR_DOMAIN,
+    domain,
   ).expect(201);
   const categoryId = catRes.body.data.id;
 
@@ -554,7 +563,7 @@ export async function setupCedarP5TestData(
         weights: [{ category_id: categoryId, weight: 100 }],
       },
     },
-    CEDAR_DOMAIN,
+    domain,
   );
   if (gcRes.status !== 200 && gcRes.status !== 201) {
     throw new Error(`Failed to upsert Cedar grade config: ${JSON.stringify(gcRes.body)}`);
@@ -575,7 +584,7 @@ export async function setupCedarP5TestData(
       max_score: 50,
       due_date: dateInYear(10, 10),
     },
-    CEDAR_DOMAIN,
+    domain,
   ).expect(201);
   const assessmentId = asmtRes.body.data.id;
 
@@ -584,7 +593,7 @@ export async function setupCedarP5TestData(
     `/api/v1/gradebook/assessments/${assessmentId}/status`,
     cedarAdminToken,
     { status: 'open' },
-    CEDAR_DOMAIN,
+    domain,
   ).expect(200);
 
   return {
