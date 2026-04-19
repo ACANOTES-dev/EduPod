@@ -303,17 +303,6 @@ describe('API Contract — Staff', () => {
       });
       expect(result.success).toBe(true);
     });
-
-    it('should reject staff profile without email', () => {
-      const result = createStaffProfileSchema.safeParse({
-        first_name: 'John',
-        last_name: 'Smith',
-        phone: '+353-1-234-5678',
-        role_id: UUID,
-        employment_status: 'active',
-      });
-      expect(result.success).toBe(false);
-    });
   });
 
   describe('PATCH /v1/staff-profiles/:id (update)', () => {

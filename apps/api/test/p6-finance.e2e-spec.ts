@@ -777,11 +777,10 @@ describe('P6 Finance Module (e2e)', () => {
     });
 
     it('should suggest allocations in FIFO order (200)', async () => {
-      const res = await authPost(
+      const res = await authGet(
         app,
         `/api/v1/finance/payments/${paymentId}/allocations/suggest`,
         ownerToken,
-        {},
         AL_NOOR_DOMAIN,
       ).expect(200);
 

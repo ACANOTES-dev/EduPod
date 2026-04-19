@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 import { GradesService } from './grades.service';
 import { ParentGradebookController } from './parent-gradebook.controller';
+import { ReportCardAcknowledgmentService } from './report-cards/report-card-acknowledgment.service';
 import { ReportCardsQueriesService } from './report-cards/report-cards-queries.service';
 import { TranscriptsService } from './transcripts.service';
 
@@ -36,6 +37,11 @@ const userContext = {
 
 const mockGradesService = {
   findByStudent: jest.fn(),
+};
+
+const mockAcknowledgmentService = {
+  acknowledge: jest.fn(),
+  getAcknowledgments: jest.fn(),
 };
 
 const mockReportCardsQueriesService = {
@@ -82,6 +88,7 @@ describe('ParentGradebookController', () => {
         { provide: StudentReadFacade, useValue: mockStudentFacade },
         { provide: TenantReadFacade, useValue: mockTenantFacade },
         { provide: GradesService, useValue: mockGradesService },
+        { provide: ReportCardAcknowledgmentService, useValue: mockAcknowledgmentService },
         { provide: ReportCardsQueriesService, useValue: mockReportCardsQueriesService },
         { provide: TranscriptsService, useValue: mockTranscriptsService },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },

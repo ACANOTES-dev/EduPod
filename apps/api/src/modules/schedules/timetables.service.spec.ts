@@ -44,6 +44,7 @@ describe('TimetablesService', () => {
     schedulingRun: { findMany: jest.Mock };
     schedulePeriodTemplate: { findMany: jest.Mock };
     substitutionRecord: { findMany: jest.Mock };
+    examSession: { findFirst: jest.Mock };
   };
 
   const mockClassesReadFacade = {
@@ -59,6 +60,8 @@ describe('TimetablesService', () => {
       // rows where the teacher is the substitute, so every test invoking
       // getTeacherTimetable needs this mock available.
       substitutionRecord: { findMany: jest.fn().mockResolvedValue([]) },
+      // Published ExamSession overlay for timetable week — null means no exams.
+      examSession: { findFirst: jest.fn().mockResolvedValue(null) },
     };
 
     const module: TestingModule = await Test.createTestingModule({

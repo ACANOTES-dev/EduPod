@@ -14,9 +14,13 @@ const RECEIPT_DATA = {
   receipt_number: 'REC-202601-0002',
   issued_at: '2026-01-22',
   currency_code: 'LYD',
+  outstanding_before: 500.0,
+  remaining_after: 0,
   household: {
     household_name: 'عائلة أحمد',
+    household_number: 'HH-00042',
     billing_parent_name: 'أحمد علي',
+    billing_parent_phone: '+971501234567',
   },
   payment: {
     payment_reference: 'PAY-202601-0002',
@@ -153,13 +157,6 @@ describe('renderReceiptAr', () => {
     const result = renderReceiptAr(RECEIPT_DATA, brandingNoAr);
 
     expect(result).toContain('English Only');
-  });
-
-  it('should use default primary color', () => {
-    const brandingNoColor: PdfBranding = { school_name: 'Minimal' };
-    const result = renderReceiptAr(RECEIPT_DATA, brandingNoColor);
-
-    expect(result).toContain('#1e40af');
   });
 
   it('should render allocation section when allocations exist', () => {

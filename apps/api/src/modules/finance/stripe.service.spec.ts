@@ -41,6 +41,7 @@ import { ApplicationStateMachineService } from '../admissions/application-state-
 import { AdmissionsFinanceBridgeService } from '../admissions/admissions-finance-bridge.service';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { InvoicesService } from './invoices.service';
 import { ReceiptsService } from './receipts.service';
@@ -158,6 +159,10 @@ describe('StripeService', () => {
         {
           provide: AdmissionsFinanceBridgeService,
           useValue: mockAdmissionsFinanceBridge,
+        },
+        {
+          provide: SequenceService,
+          useValue: { nextNumber: jest.fn().mockResolvedValue('RCP-202604-000001') },
         },
       ],
     }).compile();
@@ -913,7 +918,11 @@ describe('StripeService', () => {
       const callArgs = mockStripeCheckoutCreate.mock.calls[0]![0];
       expect(callArgs.line_items[0].price_data.unit_amount).toBe(700_000);
       expect(callArgs.line_items[0].price_data.currency).toBe('eur');
-      expect(callArgs.expires_at).toBe(Math.floor(PAYMENT_DEADLINE.getTime() / 1000));
+      // Stripe caps expires_at at 24h; our code caps at 23h regardless of the
+      // payment_deadline. Assert it's ≤ 23h from now rather than == deadline.
+      const now = Math.floor(Date.now() / 1000);
+      expect(callArgs.expires_at).toBeGreaterThan(now);
+      expect(callArgs.expires_at).toBeLessThanOrEqual(now + 23 * 60 * 60);
       expect(callArgs.metadata).toEqual({
         purpose: 'admissions',
         tenant_id: TENANT_ID,

@@ -500,7 +500,7 @@ describe('SchedulingPrerequisitesService', () => {
       const result = await service.check(TENANT_ID, AY_ID);
       const cap = result.checks.find((c) => c.key === 'curriculum_fits_grid')!;
       expect(cap.passed).toBe(true);
-      expect(cap.details?.under_capacity).toEqual([
+      expect((cap.details as Record<string, unknown>)?.under_capacity).toEqual([
         { year_group_id: 'yg-1', year_group_name: 'Year 6', allocated: 22, grid: 29 },
       ]);
     });
@@ -519,7 +519,7 @@ describe('SchedulingPrerequisitesService', () => {
       const result = await service.check(TENANT_ID, AY_ID);
       const cap = result.checks.find((c) => c.key === 'curriculum_fits_grid')!;
       expect(cap.passed).toBe(false);
-      expect(cap.details?.over_capacity).toEqual([
+      expect((cap.details as Record<string, unknown>)?.over_capacity).toEqual([
         { year_group_id: 'yg-1', year_group_name: 'Year 1', allocated: 24, grid: 20 },
       ]);
       // Over-capacity → ready === false (hard block).

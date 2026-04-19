@@ -704,13 +704,17 @@ describe('PaymentsService', () => {
       );
     });
 
-    it('should filter by search (payment_reference)', async () => {
+    it('should filter by search (payment_reference, household name or number)', async () => {
       await service.findAll(TENANT_ID, { page: 1, pageSize: 20, search: 'PAY-2026' });
 
       expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            payment_reference: { contains: 'PAY-2026', mode: 'insensitive' },
+            OR: [
+              { payment_reference: { contains: 'PAY-2026', mode: 'insensitive' } },
+              { household: { household_name: { contains: 'PAY-2026', mode: 'insensitive' } } },
+              { household: { household_number: { contains: 'PAY-2026', mode: 'insensitive' } } },
+            ],
           }),
         }),
       );

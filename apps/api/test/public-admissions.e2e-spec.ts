@@ -69,9 +69,10 @@ describe('Public Admissions (e2e)', () => {
       .expect(201);
 
     const body = res.body.data ?? res.body;
-    expect(body.id).toBeDefined();
-    expect(body.application_number).toBeDefined();
-    expect(['ready_to_admit', 'waiting_list']).toContain(body.status);
+    const firstApp = body.applications?.[0];
+    expect(firstApp?.id).toBeDefined();
+    expect(firstApp?.application_number).toBeDefined();
+    expect(['ready_to_admit', 'waiting_list']).toContain(firstApp?.status);
   });
 
   it('rejects the 4th submission from the same IP within the rate-limit window', async () => {
@@ -111,7 +112,7 @@ describe('Public Admissions (e2e)', () => {
       .expect(201);
 
     const body = res.body.data ?? res.body;
-    expect(body.id).toBe('ignored');
+    expect(body.applications).toEqual([]);
   });
 
   it('returns 404 when the form_definition_id does not exist', async () => {

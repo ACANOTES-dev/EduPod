@@ -272,7 +272,7 @@ describe('ApplicationsService — findOne', () => {
     const result = await service.findOne(TENANT_ID, APPLICATION_ID);
 
     expect(result.payment_events).toHaveLength(1);
-    expect(result.payment_events[0].amount_cents).toBe(50000);
+    expect(result.payment_events[0]?.amount_cents).toBe(50000);
   });
 
   it('should include override record when present', async () => {
@@ -334,10 +334,12 @@ describe('ApplicationsService — findOne', () => {
 
       // Capacity service is an additional call (internally 1 raw SQL query)
       const originalGetAvailableSeats = capacityService.getAvailableSeats;
-      capacityService.getAvailableSeats = jest.fn().mockImplementation((...args: unknown[]) => {
-        prismaCallCount++;
-        return originalGetAvailableSeats.call(capacityService, ...args);
-      });
+      capacityService.getAvailableSeats = jest
+        .fn()
+        .mockImplementation((...args: Parameters<typeof originalGetAvailableSeats>) => {
+          prismaCallCount++;
+          return originalGetAvailableSeats.call(capacityService, ...args);
+        });
 
       await service.findOne(TENANT_ID, APPLICATION_ID);
 
@@ -395,8 +397,8 @@ describe('ApplicationsService — findOne', () => {
     it('should emit Logger.warn when query count exceeds budget', async () => {
       const { service } = buildService();
       const loggerWarnSpy = jest.spyOn(
-        // Access the private logger via any — test-only
-        (service as Record<string, unknown>)['logger'] as { warn: jest.Mock },
+        // Access the private logger via unknown — test-only
+        (service as unknown as Record<string, unknown>)['logger'] as { warn: jest.Mock },
         'warn',
       );
 

@@ -148,11 +148,10 @@ describe('Workflow: Payment Allocation (e2e)', () => {
   // ─── 3. Suggest allocations ────────────────────────────────────────────
 
   it('should suggest allocations in FIFO order', async () => {
-    const res = await authPost(
+    const res = await authGet(
       app,
       `/api/v1/finance/payments/${partialPaymentId}/allocations/suggest`,
       ownerToken,
-      {},
       AL_NOOR_DOMAIN,
     ).expect(200);
 
@@ -162,9 +161,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
 
     if (invoiceIsIssued && data.length > 0) {
       // Should suggest our invoice as a target
-      const suggestion = data.find(
-        (s: { invoice_id: string }) => s.invoice_id === invoiceId,
-      );
+      const suggestion = data.find((s: { invoice_id: string }) => s.invoice_id === invoiceId);
       if (suggestion) {
         expect(suggestion.suggested_amount).toBeDefined();
         expect(typeof suggestion.suggested_amount).toBe('number');
@@ -185,9 +182,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
       `/api/v1/finance/payments/${partialPaymentId}/allocations`,
       ownerToken,
       {
-        allocations: [
-          { invoice_id: invoiceId, amount: 800 },
-        ],
+        allocations: [{ invoice_id: invoiceId, amount: 800 }],
       },
       AL_NOOR_DOMAIN,
     ).expect(201);
@@ -281,9 +276,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
       `/api/v1/finance/payments/${fullPaymentId}/allocations`,
       ownerToken,
       {
-        allocations: [
-          { invoice_id: invoiceId, amount: remainingAmount },
-        ],
+        allocations: [{ invoice_id: invoiceId, amount: remainingAmount }],
       },
       AL_NOOR_DOMAIN,
     ).expect(201);
@@ -351,9 +344,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
         {
           household_id: householdId,
           due_date: '2026-12-31',
-          lines: [
-            { description: 'Over-alloc Test', quantity: 1, unit_amount: 100 },
-          ],
+          lines: [{ description: 'Over-alloc Test', quantity: 1, unit_amount: 100 }],
         },
         AL_NOOR_DOMAIN,
       ).expect(201);
@@ -400,9 +391,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
         `/api/v1/finance/payments/${overAllocPaymentId}/allocations`,
         ownerToken,
         {
-          allocations: [
-            { invoice_id: overAllocInvoiceId, amount: 200 },
-          ],
+          allocations: [{ invoice_id: overAllocInvoiceId, amount: 200 }],
         },
         AL_NOOR_DOMAIN,
       ).expect(400);
@@ -438,9 +427,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
         `/api/v1/finance/payments/${bigPaymentId}/allocations`,
         ownerToken,
         {
-          allocations: [
-            { invoice_id: overAllocInvoiceId, amount: 5000 },
-          ],
+          allocations: [{ invoice_id: overAllocInvoiceId, amount: 5000 }],
         },
         AL_NOOR_DOMAIN,
       );
@@ -454,12 +441,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
 
   describe('Permission enforcement', () => {
     it('should reject teacher from listing payments', async () => {
-      await authGet(
-        app,
-        '/api/v1/finance/payments',
-        teacherToken,
-        AL_NOOR_DOMAIN,
-      ).expect(403);
+      await authGet(app, '/api/v1/finance/payments', teacherToken, AL_NOOR_DOMAIN).expect(403);
     });
 
     it('should reject teacher from creating payments', async () => {
@@ -479,12 +461,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
     });
 
     it('should reject teacher from viewing invoices', async () => {
-      await authGet(
-        app,
-        '/api/v1/finance/invoices',
-        teacherToken,
-        AL_NOOR_DOMAIN,
-      ).expect(403);
+      await authGet(app, '/api/v1/finance/invoices', teacherToken, AL_NOOR_DOMAIN).expect(403);
     });
   });
 
@@ -500,9 +477,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
       ).expect(200);
 
       const invoices = res.body.data ?? [];
-      const leaked = invoices.find(
-        (i: { id: string }) => i.id === invoiceId,
-      );
+      const leaked = invoices.find((i: { id: string }) => i.id === invoiceId);
       expect(leaked).toBeUndefined();
     });
 
@@ -515,9 +490,7 @@ describe('Workflow: Payment Allocation (e2e)', () => {
       ).expect(200);
 
       const payments = res.body.data ?? [];
-      const leaked = payments.find(
-        (p: { id: string }) => p.id === partialPaymentId,
-      );
+      const leaked = payments.find((p: { id: string }) => p.id === partialPaymentId);
       expect(leaked).toBeUndefined();
     });
 

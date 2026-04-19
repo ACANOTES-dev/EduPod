@@ -92,7 +92,9 @@ const RECEIPT_DATA = {
   currency_code: 'AED',
   household: {
     household_name: 'Al-Rashid Family',
+    household_number: 'HH-00042',
     billing_parent_name: 'Ahmed Al-Rashid',
+    billing_parent_phone: '+971501234567',
   },
   payment: {
     payment_reference: 'PAY-202603-0001',
@@ -100,6 +102,8 @@ const RECEIPT_DATA = {
     amount: 16500.0,
     received_at: '2026-03-15',
   },
+  outstanding_before: 16500.0,
+  remaining_after: 0.0,
   allocations: [
     {
       invoice_number: 'INV-202603-0001',

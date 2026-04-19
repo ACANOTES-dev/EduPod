@@ -65,6 +65,12 @@ function buildMockPrisma() {
     assessment: { findMany: jest.fn() },
     dailyAttendanceSummary: { groupBy: jest.fn() },
     reportCard: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn() },
+    reportCardBatchJob: {
+      count: jest.fn().mockResolvedValue(0),
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
     classEnrolment: { findMany: jest.fn() },
     gpaSnapshot: { findMany: jest.fn() },
     attendanceRecord: { findMany: jest.fn() },

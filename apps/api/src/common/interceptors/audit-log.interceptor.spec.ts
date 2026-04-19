@@ -146,7 +146,7 @@ describe('AuditLogInterceptor', () => {
           expect(mockAuditLogService.enqueue).toHaveBeenCalledWith(
             TENANT_ID,
             USER_ID,
-            'staff-profiles',
+            'bank-details',
             UUID_EXAMPLE,
             `GET /api/v1/staff-profiles/${UUID_EXAMPLE}/bank-details`,
             expect.objectContaining({

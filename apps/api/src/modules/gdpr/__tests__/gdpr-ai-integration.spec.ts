@@ -296,7 +296,7 @@ describe('AI Substitution GDPR Integration', () => {
     mockPrisma = {
       schedule: { findFirst: jest.fn(), findMany: jest.fn() },
       staffProfile: { findMany: jest.fn() },
-      teacherCompetency: { findMany: jest.fn() },
+      substituteTeacherCompetency: { findMany: jest.fn().mockResolvedValue([]) },
       substitutionRecord: { findMany: jest.fn() },
     };
 
@@ -401,7 +401,7 @@ describe('AI Substitution GDPR Integration', () => {
       },
     ]);
 
-    mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+    mockPrisma.substituteTeacherCompetency.findMany.mockResolvedValue([
       {
         staff_profile_id: STAFF_A_ID,
       },
@@ -501,7 +501,7 @@ describe('AI Substitution GDPR Integration', () => {
       },
     ]);
 
-    mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+    mockPrisma.substituteTeacherCompetency.findMany.mockResolvedValue([]);
     mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
 
     const tokenMap = { TOKEN_JOHN: 'John Doe' };

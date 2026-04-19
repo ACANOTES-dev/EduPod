@@ -270,7 +270,6 @@ describe('NotificationTemplatesService', () => {
         template_key: 'ignore_tenant_id_in_body',
         locale: 'en',
         body_template: 'Hello',
-        // @ts-expect-error — deliberately testing extra field handling
         tenant_id: null,
       } as const;
       const created = makeTenantTemplate({

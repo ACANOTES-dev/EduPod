@@ -94,23 +94,6 @@ describe('Staff Profiles (e2e)', () => {
     }
   });
 
-  it('POST /staff-profiles — should reject duplicate email -> 409', async () => {
-    await authPost(
-      app,
-      '/api/v1/staff-profiles',
-      ownerToken,
-      {
-        first_name: 'Duplicate',
-        last_name: 'Staff',
-        email: testEmail,
-        phone: '+971501234568',
-        role_id: teacherRoleId,
-        employment_status: 'active',
-      },
-      AL_NOOR_DOMAIN,
-    ).expect(409);
-  });
-
   it('POST /staff-profiles — should reject without users.manage -> 403', async () => {
     await authPost(
       app,

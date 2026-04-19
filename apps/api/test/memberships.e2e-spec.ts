@@ -50,8 +50,13 @@ describe('Memberships (e2e)', () => {
   });
 
   it('should get user detail', async () => {
-    // First list users to find the teacher
-    const listRes = await authGet(app, '/api/v1/users', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    // Seed has grown beyond one page of users — search by email to locate the teacher deterministically.
+    const listRes = await authGet(
+      app,
+      `/api/v1/users?search=${encodeURIComponent(AL_NOOR_TEACHER_EMAIL)}`,
+      ownerToken,
+      AL_NOOR_DOMAIN,
+    ).expect(200);
 
     const teacherMembership = listRes.body.data.find(
       (m: { user: { email: string } }) => m.user.email === AL_NOOR_TEACHER_EMAIL,

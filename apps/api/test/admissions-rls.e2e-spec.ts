@@ -255,7 +255,8 @@ describe('RLS Leakage P3 — Admissions (e2e)', () => {
         .send(seed)
         .expect(201);
 
-      const createdId = (res.body.data ?? res.body).id as string;
+      const body = res.body.data ?? res.body;
+      const createdId = body.applications[0].id as string;
 
       const detailRes = await authGet(
         app,

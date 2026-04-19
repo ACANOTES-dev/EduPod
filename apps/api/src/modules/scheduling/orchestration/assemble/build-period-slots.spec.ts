@@ -22,8 +22,6 @@ function template(
     tenant_id: 't',
     academic_year_id: 'ay',
     year_group_id: null,
-    weekday: overrides.weekday,
-    period_order: overrides.period_order,
     period_name: '',
     period_name_ar: '',
     start_time: '08:00',

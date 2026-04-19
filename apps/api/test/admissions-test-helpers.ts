@@ -187,9 +187,16 @@ export async function createPublicApplication(
     .send(seed)
     .expect(201);
 
+  const fullBody = (res.body.data ?? res.body) as {
+    applications?: Array<Record<string, unknown>>;
+    [key: string]: unknown;
+  };
+  const firstApp = (fullBody.applications?.[0] ?? {}) as Record<string, unknown>;
+
   return {
     response: res,
-    body: (res.body.data ?? res.body) as Record<string, unknown>,
+    body: firstApp,
+    fullBody,
   };
 }
 

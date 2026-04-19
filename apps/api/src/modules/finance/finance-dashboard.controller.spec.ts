@@ -7,6 +7,8 @@ import type { TenantContext } from '@school/shared';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
+import { TenantsService } from '../tenants/tenants.service';
 
 import { FinanceDashboardController } from './finance-dashboard.controller';
 import { FinanceDashboardService } from './finance-dashboard.service';
@@ -24,13 +26,25 @@ const mockService = {
   getDashboardData: jest.fn(),
 };
 
+const mockTenantReadFacade = {
+  findCurrencyCode: jest.fn(),
+};
+
+const mockTenantsService = {
+  updateTenant: jest.fn(),
+};
+
 describe('FinanceDashboardController', () => {
   let controller: FinanceDashboardController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [FinanceDashboardController],
-      providers: [{ provide: FinanceDashboardService, useValue: mockService }],
+      providers: [
+        { provide: FinanceDashboardService, useValue: mockService },
+        { provide: TenantReadFacade, useValue: mockTenantReadFacade },
+        { provide: TenantsService, useValue: mockTenantsService },
+      ],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -70,7 +84,11 @@ describe('FinanceDashboardController — permission denied', () => {
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       controllers: [FinanceDashboardController],
-      providers: [{ provide: FinanceDashboardService, useValue: mockService }],
+      providers: [
+        { provide: FinanceDashboardService, useValue: mockService },
+        { provide: TenantReadFacade, useValue: mockTenantReadFacade },
+        { provide: TenantsService, useValue: mockTenantsService },
+      ],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })

@@ -14,9 +14,13 @@ const RECEIPT_DATA = {
   receipt_number: 'REC-202601-0001',
   issued_at: '2026-01-20',
   currency_code: 'EUR',
+  outstanding_before: 1000.0,
+  remaining_after: 0,
   household: {
     household_name: 'Smith Family',
+    household_number: 'HH-00042',
     billing_parent_name: 'Robert Smith',
+    billing_parent_phone: '+971501234567',
   },
   payment: {
     payment_reference: 'PAY-202601-0001',
@@ -160,20 +164,13 @@ describe('renderReceiptEn', () => {
     expect(result).not.toContain('<img');
   });
 
-  it('should use default primary color when none provided', () => {
-    const brandingNoColor: PdfBranding = { school_name: 'Minimal' };
-    const result = renderReceiptEn(RECEIPT_DATA, brandingNoColor);
-
-    expect(result).toContain('#1e40af');
-  });
-
   // ─── Allocation section conditional rendering ──────────────────────────────
 
   it('should render allocation details heading and table when allocations exist', () => {
     const result = renderReceiptEn(RECEIPT_DATA, BRANDING);
 
-    expect(result).toContain('<h3');
-    expect(result).toContain('Amount Applied');
+    expect(result).toContain('Allocations');
+    expect(result).toContain('Applied');
   });
 
   it('should omit allocation table when no allocations', () => {

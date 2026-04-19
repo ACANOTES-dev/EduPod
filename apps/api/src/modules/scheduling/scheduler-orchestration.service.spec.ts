@@ -9,6 +9,7 @@ import { ConfigurationReadFacade } from '../configuration/configuration-read.fac
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomsReadFacade } from '../rooms/rooms-read.facade';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { FeasibilityService } from '../scheduling-runs/feasibility/feasibility.service';
 import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-read.facade';
 import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
 import { StaffPreferencesReadFacade } from '../staff-preferences/staff-preferences-read.facade';
@@ -65,6 +66,7 @@ describe('SchedulerOrchestrationService', () => {
     curriculumRequirement: { findMany: jest.Mock };
     classSchedulingRequirement: { findMany: jest.Mock };
     classSubjectRequirement: { findMany: jest.Mock };
+    classSubjectGradeConfig: { findMany: jest.Mock };
     teacherCompetency: { findMany: jest.Mock };
     staffAvailability: { findMany: jest.Mock };
     staffSchedulingPreference: { findMany: jest.Mock };
@@ -93,6 +95,7 @@ describe('SchedulerOrchestrationService', () => {
       curriculumRequirement: { findMany: jest.fn().mockResolvedValue([]) },
       classSchedulingRequirement: { findMany: jest.fn().mockResolvedValue([]) },
       classSubjectRequirement: { findMany: jest.fn().mockResolvedValue([]) },
+      classSubjectGradeConfig: { findMany: jest.fn().mockResolvedValue([]) },
       teacherCompetency: { findMany: jest.fn().mockResolvedValue([]) },
       staffAvailability: { findMany: jest.fn().mockResolvedValue([]) },
       staffSchedulingPreference: { findMany: jest.fn().mockResolvedValue([]) },
@@ -248,6 +251,18 @@ describe('SchedulerOrchestrationService', () => {
         SchedulerOrchestrationService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: getQueueToken('scheduling'), useValue: mockQueue },
+        {
+          provide: FeasibilityService,
+          useValue: {
+            runFeasibilitySweep: jest.fn().mockResolvedValue({
+              overall_feasibility: 'feasible',
+              teacher_load: [],
+              room_load: [],
+              class_contact_hours: [],
+              curriculum_coverage: [],
+            }),
+          },
+        },
       ],
     }).compile();
 
