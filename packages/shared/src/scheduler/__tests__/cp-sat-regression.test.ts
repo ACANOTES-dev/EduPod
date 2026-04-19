@@ -20,7 +20,8 @@
  */
 
 /* eslint-disable no-console */
-import { writeFileSync } from 'fs';
+import { type ChildProcess, spawn } from 'child_process';
+import { existsSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { resolve } from 'path';
 
@@ -29,8 +30,82 @@ import { validateSchedule } from '../validation';
 
 import { PARITY_FIXTURES, type ParityFixture } from './fixtures/parity-fixtures';
 
-const SIDECAR_URL = process.env.CP_SAT_SIDECAR_URL ?? 'http://localhost:5557/solve';
+// Per-fixture sidecar lifecycle. Previously the CI workflow started a
+// single uvicorn process in the background and let every fixture share
+// it — but an OR-Tools hang or teardown race inside one fixture would
+// wedge the sidecar for every later fixture. Subsequent fetches would
+// block on the 5-min AbortSignal and the whole job would hit its 15-min
+// timeout (observed 2026-04-19 on tier-3-irish-secondary). The test now
+// spawns a fresh uvicorn per fixture so one wedge can't poison the rest.
+const SIDECAR_PORT = Number(process.env.CP_SAT_SIDECAR_PORT ?? 5557);
+const SIDECAR_URL = `http://127.0.0.1:${SIDECAR_PORT}/solve`;
+const SIDECAR_HEALTH_URL = `http://127.0.0.1:${SIDECAR_PORT}/health`;
 const SIDECAR_TIMEOUT_MS = 5 * 60_000;
+
+// Resolve uvicorn from the solver-py venv. CI sets this explicitly via
+// $CP_SAT_SIDECAR_UVICORN; locally we fall back to the repo's venv.
+const UVICORN_BIN =
+  process.env.CP_SAT_SIDECAR_UVICORN ??
+  resolve(__dirname, '../../../../../apps/solver-py/.venv/bin/uvicorn');
+const SOLVER_PY_CWD =
+  process.env.CP_SAT_SIDECAR_CWD ?? resolve(__dirname, '../../../../../apps/solver-py');
+const SIDECAR_AVAILABLE = existsSync(UVICORN_BIN);
+
+async function waitForHealth(timeoutMs = 20_000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    // Connection errors during startup are expected (uvicorn hasn't bound
+    // the port yet); .catch(() => null) swallows them deliberately without
+    // tripping the no-empty-catch rule.
+    const r = await fetch(SIDECAR_HEALTH_URL, { signal: AbortSignal.timeout(500) }).catch(
+      () => null,
+    );
+    if (r?.ok) return true;
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  return false;
+}
+
+async function startSidecar(): Promise<ChildProcess> {
+  const proc = spawn(
+    UVICORN_BIN,
+    [
+      'solver_py.main:app',
+      '--host',
+      '127.0.0.1',
+      '--port',
+      String(SIDECAR_PORT),
+      '--log-level',
+      'error',
+    ],
+    { cwd: SOLVER_PY_CWD, stdio: 'ignore' },
+  );
+  const ready = await waitForHealth();
+  if (!ready) {
+    proc.kill('SIGKILL');
+    throw new Error(`Sidecar did not become healthy within 20s (port ${SIDECAR_PORT})`);
+  }
+  return proc;
+}
+
+async function stopSidecar(proc: ChildProcess): Promise<void> {
+  if (proc.exitCode !== null || proc.signalCode !== null) return;
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+    proc.once('exit', done);
+    proc.kill('SIGTERM');
+    setTimeout(() => {
+      if (!settled && proc.exitCode === null) proc.kill('SIGKILL');
+    }, 3_000);
+    setTimeout(done, 5_000);
+  });
+}
 
 interface BackendResult {
   status: 'ok' | 'error' | 'skipped';
@@ -134,9 +209,40 @@ describe('CP-SAT regression harness', () => {
   const rows: RegressionRow[] = [];
 
   beforeAll(async () => {
+    if (!SIDECAR_AVAILABLE) {
+      console.log(
+        `[cp-sat-regression] uvicorn not found at ${UVICORN_BIN}; all fixtures marked skipped`,
+      );
+      for (const fixture of PARITY_FIXTURES) {
+        rows.push({
+          fixture: fixture.name,
+          category: fixture.category,
+          cpsat: {
+            status: 'skipped',
+            errorMessage: `uvicorn binary not found at ${UVICORN_BIN}`,
+          },
+        });
+      }
+      return;
+    }
     for (const fixture of PARITY_FIXTURES) {
-      const input = fixture.build();
-      const cpsat = await runCpsat(input);
+      let proc: ChildProcess | null = null;
+      let cpsat: BackendResult;
+      try {
+        proc = await startSidecar();
+        const input = fixture.build();
+        cpsat = await runCpsat(input);
+      } catch (err) {
+        cpsat = {
+          status: 'skipped',
+          errorMessage:
+            err instanceof Error
+              ? `Sidecar lifecycle error: ${err.message}`
+              : 'Sidecar lifecycle error',
+        };
+      } finally {
+        if (proc) await stopSidecar(proc);
+      }
       rows.push({ fixture: fixture.name, category: fixture.category, cpsat });
       console.log(`[${fixture.name}] cp-sat: ${describeResult(cpsat)}`);
     }
@@ -171,26 +277,32 @@ describe('CP-SAT regression harness', () => {
 
   it('cp-sat is deterministic — same input twice → identical body (modulo duration)', async () => {
     const reachable = rows.find((r) => r.cpsat.status === 'ok');
-    if (!reachable) {
+    if (!reachable || !SIDECAR_AVAILABLE) {
       console.log('Sidecar unreachable — determinism check skipped.');
       return;
     }
     const fixture = PARITY_FIXTURES[0]!.build();
-    const a = await runCpsat(fixture);
-    const b = await runCpsat(fixture);
-    expect(a.status).toBe('ok');
-    expect(b.status).toBe('ok');
-    // Stage 9.5.1 §A: time_saved_ms also drifts because it's derived from
-    // solver.wall_time (millisecond jitter in the C++ binding even at
-    // fixed seed). early_stop_reason and triggered MUST match — they're
-    // the deterministic part of the early-stop telemetry.
-    const stripVolatile = (out: SolverOutputV2) => ({
-      ...out,
-      duration_ms: 0,
-      time_saved_ms: 0,
-    });
-    expect(stripVolatile(a.output!)).toEqual(stripVolatile(b.output!));
-  }, 60_000);
+    let proc: ChildProcess | null = null;
+    try {
+      proc = await startSidecar();
+      const a = await runCpsat(fixture);
+      const b = await runCpsat(fixture);
+      expect(a.status).toBe('ok');
+      expect(b.status).toBe('ok');
+      // Stage 9.5.1 §A: time_saved_ms also drifts because it's derived from
+      // solver.wall_time (millisecond jitter in the C++ binding even at
+      // fixed seed). early_stop_reason and triggered MUST match — they're
+      // the deterministic part of the early-stop telemetry.
+      const stripVolatile = (out: SolverOutputV2) => ({
+        ...out,
+        duration_ms: 0,
+        time_saved_ms: 0,
+      });
+      expect(stripVolatile(a.output!)).toEqual(stripVolatile(b.output!));
+    } finally {
+      if (proc) await stopSidecar(proc);
+    }
+  }, 120_000);
 
   // ─── Stage 9.5.1 §B: realistic-density supervision assertions ──────────
   //

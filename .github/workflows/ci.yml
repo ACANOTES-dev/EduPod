@@ -529,40 +529,16 @@ jobs:
         working-directory: apps/solver-py
         run: .venv/bin/pytest -q
 
-      - name: Start sidecar
-        working-directory: apps/solver-py
-        run: |
-          .venv/bin/uvicorn solver_py.main:app --host 127.0.0.1 --port 5557 --log-level error > /tmp/sidecar.log 2>&1 &
-          echo $! > /tmp/sidecar.pid
-          for i in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:5557/health >/dev/null 2>&1; then
-              echo "sidecar up (pid $(cat /tmp/sidecar.pid))"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "sidecar failed to start within 20s"
-          cat /tmp/sidecar.log
-          exit 1
-
       - name: TS CP-SAT regression harness vs live sidecar
+        # The test file spawns a fresh uvicorn per fixture (see
+        # cp-sat-regression.test.ts) so one OR-Tools hang can't wedge
+        # later fixtures. We pass the venv's uvicorn path via env so the
+        # test doesn't have to guess a repo-relative path.
         env:
-          CP_SAT_SIDECAR_URL: http://127.0.0.1:5557/solve
+          CP_SAT_SIDECAR_PORT: '5557'
+          CP_SAT_SIDECAR_UVICORN: ${{ github.workspace }}/apps/solver-py/.venv/bin/uvicorn
+          CP_SAT_SIDECAR_CWD: ${{ github.workspace }}/apps/solver-py
         run: pnpm --filter @school/shared test -- --testPathPattern="cp-sat-regression" --testTimeout=900000
-
-      - name: Stop sidecar
-        if: always()
-        run: |
-          if [ -f /tmp/sidecar.pid ]; then
-            kill $(cat /tmp/sidecar.pid) 2>/dev/null || true
-          fi
-
-      - name: Upload sidecar log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: sidecar-log
-          path: /tmp/sidecar.log
 
   visual:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
