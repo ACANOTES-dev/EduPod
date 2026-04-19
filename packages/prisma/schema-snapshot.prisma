@@ -171,6 +171,7 @@ enum AcademicPeriodType {
   semester
   quarter
   custom
+  end_of_year
 }
 
 enum SubjectType {
@@ -369,6 +370,29 @@ enum AdmissionOverrideType {
   deferred_payment
 }
 
+// ADM-009: machine-parseable action enum on application_notes so the
+// Timeline tab can render distinct labels per event (instead of every
+// row reading "Admin note") AND so audit-by-action filtering and
+// structured exports become possible. Legacy notes (created before
+// the action column was added) carry NULL and the frontend falls
+// back to the inferred-from-status-transition label.
+enum AdmissionNoteAction {
+  submitted
+  auto_routed
+  moved_to_conditional_approval
+  cash_recorded
+  bank_recorded
+  stripe_completed
+  override_approved
+  rejected
+  withdrawn
+  auto_promoted
+  manually_promoted
+  reverted_by_expiry
+  payment_link_regenerated
+  admin_note
+}
+
 enum AdmissionsPaymentEventStatus {
   succeeded
   failed
@@ -523,12 +547,15 @@ model Tenant {
   scheduling_runs               SchedulingRun[]
 
   // P4B-v2 Relations
-  curriculum_requirements    CurriculumRequirement[]
-  teacher_competencies       TeacherCompetency[]
-  break_groups               BreakGroup[]
-  break_group_year_groups    BreakGroupYearGroup[]
-  room_closures              RoomClosure[]
-  teacher_scheduling_configs TeacherSchedulingConfig[]
+  curriculum_requirements         CurriculumRequirement[]
+  class_subject_requirements      ClassSubjectRequirement[]
+  class_year_group_links          ClassYearGroupLink[]
+  teacher_competencies            TeacherCompetency[]
+  substitute_teacher_competencies SubstituteTeacherCompetency[]
+  break_groups                    BreakGroup[]
+  break_group_year_groups         BreakGroupYearGroup[]
+  room_closures                   RoomClosure[]
+  teacher_scheduling_configs      TeacherSchedulingConfig[]
 
   // P5 Relations
   grading_scales              GradingScale[]
@@ -583,6 +610,7 @@ model Tenant {
   report_comment_window_homerooms ReportCommentWindowHomeroom[]
 
   // P6 Relations
+  fee_types                 FeeType[]
   fee_structures            FeeStructure[]
   discounts                 Discount[]
   household_fee_assignments HouseholdFeeAssignment[]
@@ -642,10 +670,19 @@ model Tenant {
   // Scheduling World-Class Relations
   teacher_absences             TeacherAbsence[]
   substitution_records         SubstitutionRecord[]
+  substitution_offers          SubstitutionOffer[]
+  leave_types                  LeaveType[]
+  leave_requests               LeaveRequest[]
+  tenant_scheduling_settings   TenantSchedulingSettings[]
   calendar_subscription_tokens CalendarSubscriptionToken[]
   exam_sessions                ExamSession[]
   exam_slots                   ExamSlot[]
   exam_invigilations           ExamInvigilation[]
+  exam_session_configs         ExamSessionConfig[]
+  exam_subject_configs         ExamSubjectConfig[]
+  exam_invigilator_pool        ExamInvigilatorPool[]
+  exam_slot_rooms              ExamSlotRoom[]
+  exam_solve_jobs              ExamSolveJob[]
   scheduling_scenarios         SchedulingScenario[]
   rotation_configs             RotationConfig[]
 
@@ -769,6 +806,8 @@ model Tenant {
   homework_attachments      HomeworkAttachment[]
   homework_completions      HomeworkCompletion[]
   homework_recurrence_rules HomeworkRecurrenceRule[]
+  homework_submissions      HomeworkSubmission[]
+  homework_submission_attachments HomeworkSubmissionAttachment[]
   diary_notes               DiaryNote[]
   diary_parent_notes        DiaryParentNote[]
 
@@ -1057,6 +1096,7 @@ model User {
   // P2 Relations
   staff_profiles StaffProfile[]
   parents        Parent[]
+  students       Student[]
 
   // P3 Relations
   applications_reviewed    ApplicationNote[]
@@ -1162,7 +1202,10 @@ model User {
 
   // Scheduling World-Class Relations
   absences_reported            TeacherAbsence[]            @relation("absence_reporter")
+  absences_cancelled           TeacherAbsence[]            @relation("absence_canceller")
   substitutions_assigned       SubstitutionRecord[]        @relation("substitution_assigner")
+  leave_requests_submitted     LeaveRequest[]              @relation("leave_request_submitter")
+  leave_requests_reviewed      LeaveRequest[]              @relation("leave_request_reviewer")
   calendar_subscription_tokens CalendarSubscriptionToken[] @relation("calendar_token_owner")
   scheduling_scenarios_created SchedulingScenario[]        @relation("scenario_creator")
 
@@ -1284,6 +1327,7 @@ model User {
   // Homework Relations
   hw_assignments          HomeworkAssignment[] @relation("hw_assigned_by")
   hw_verified_completions HomeworkCompletion[] @relation("hw_verified_by")
+  hw_graded_submissions   HomeworkSubmission[] @relation("hw_submission_graded_by")
   hw_diary_parent_notes   DiaryParentNote[]    @relation("hw_diary_note_author")
 
   // Engagement Relations
@@ -1534,6 +1578,7 @@ model Household {
   tenant_id                 String          @db.Uuid
   household_name            String          @db.VarChar(255)
   household_number          String?         @db.VarChar(50)
+  student_counter           Int             @default(0)
   primary_billing_parent_id String?         @db.Uuid
   address_line_1            String?         @db.VarChar(255)
   address_line_2            String?         @db.VarChar(255)
@@ -1552,6 +1597,9 @@ model Household {
   household_parents  HouseholdParent[]
   students           Student[]
 
+  // Admissions relations
+  applications Application[] @relation("HouseholdApplications")
+
   // P6 Relations
   fee_assignments       HouseholdFeeAssignment[]
   invoices              Invoice[]
@@ -1559,6 +1607,7 @@ model Household {
   credit_notes          CreditNote[]
   payment_plan_requests PaymentPlanRequest[]
 
+  @@unique([tenant_id, household_number], map: "households_tenant_id_household_number_key")
   @@index([tenant_id], name: "idx_households_tenant")
   @@index([tenant_id, status], name: "idx_households_tenant_status")
   @@map("households")
@@ -1657,6 +1706,7 @@ model Student {
   id                        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                 String        @db.Uuid
   household_id              String        @db.Uuid
+  user_id                   String?       @db.Uuid
   student_number            String?       @db.VarChar(50)
   national_id               String?       @db.VarChar(50)
   first_name                String        @db.VarChar(100)
@@ -1685,6 +1735,7 @@ model Student {
   // Relations
   tenant                     Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   household                  Household                @relation(fields: [household_id], references: [id], onDelete: Cascade)
+  user                       User?                    @relation(fields: [user_id], references: [id], onDelete: SetNull)
   year_group                 YearGroup?               @relation(fields: [year_group_id], references: [id], onDelete: SetNull)
   homeroom_class             Class?                   @relation("homeroom_students", fields: [class_homeroom_id], references: [id], onDelete: SetNull)
   student_parents            StudentParent[]
@@ -1692,6 +1743,7 @@ model Student {
   attendance_records         AttendanceRecord[]
   daily_attendance_summaries DailyAttendanceSummary[]
   attendance_pattern_alerts  AttendancePatternAlert[]
+  homework_submissions       HomeworkSubmission[]
 
   // P5 Relations
   grades                 Grade[]
@@ -1827,6 +1879,7 @@ model StaffProfile {
   homeroom_classes         Class[]                       @relation("homeroom_teacher")
   schedules                Schedule[]                    @relation("schedule_teacher")
   comment_window_homerooms ReportCommentWindowHomeroom[] @relation("comment_window_homeroom_staff")
+  attendance_sessions      AttendanceSession[]           @relation("attendance_session_teacher")
 
   // P4B Relations
   staff_availability           StaffAvailability[]
@@ -1844,13 +1897,18 @@ model StaffProfile {
   staff_recurring_deductions   StaffRecurringDeduction[]
 
   // P4B-v2 Relations
-  teacher_competencies       TeacherCompetency[]
-  teacher_scheduling_configs TeacherSchedulingConfig[]
+  teacher_competencies            TeacherCompetency[]
+  substitute_teacher_competencies SubstituteTeacherCompetency[]
+  teacher_scheduling_configs      TeacherSchedulingConfig[]
 
   // Scheduling World-Class Relations
-  teacher_absences     TeacherAbsence[]
-  substitution_records SubstitutionRecord[] @relation("substitute_staff")
-  exam_invigilations   ExamInvigilation[]   @relation("exam_invigilator")
+  teacher_absences       TeacherAbsence[]
+  nominated_for_absences TeacherAbsence[]      @relation("nominated_substitute")
+  substitution_records   SubstitutionRecord[]  @relation("substitute_staff")
+  substitution_offers    SubstitutionOffer[]   @relation("offer_candidate")
+  leave_requests         LeaveRequest[]
+  exam_invigilations     ExamInvigilation[]    @relation("exam_invigilator")
+  exam_pool_memberships  ExamInvigilatorPool[] @relation("exam_pool_member")
 
   // Behaviour Management Relations
   bh_incident_participants BehaviourIncidentParticipant[] @relation("bh_participant_staff")
@@ -1900,10 +1958,12 @@ model AcademicYear {
   scheduling_runs               SchedulingRun[]
 
   // P4B-v2 Relations
-  curriculum_requirements    CurriculumRequirement[]
-  teacher_competencies       TeacherCompetency[]
-  break_groups               BreakGroup[]
-  teacher_scheduling_configs TeacherSchedulingConfig[]
+  curriculum_requirements         CurriculumRequirement[]
+  class_subject_requirements      ClassSubjectRequirement[]
+  teacher_competencies            TeacherCompetency[]
+  substitute_teacher_competencies SubstituteTeacherCompetency[]
+  break_groups                    BreakGroup[]
+  teacher_scheduling_configs      TeacherSchedulingConfig[]
 
   // Scheduling World-Class Relations
   scheduling_scenarios SchedulingScenario[]
@@ -2301,10 +2361,11 @@ model YearGroup {
   fee_structures FeeStructure[]
 
   // P4B-v2 Relations
-  curriculum_requirements   CurriculumRequirement[]
-  teacher_competencies      TeacherCompetency[]
-  break_group_year_groups   BreakGroupYearGroup[]
-  schedule_period_templates SchedulePeriodTemplate[]
+  curriculum_requirements         CurriculumRequirement[]
+  teacher_competencies            TeacherCompetency[]
+  substitute_teacher_competencies SubstituteTeacherCompetency[]
+  break_group_year_groups         BreakGroupYearGroup[]
+  schedule_period_templates       SchedulePeriodTemplate[]
 
   // Gradebook Phase D Relations
   year_group_grade_weights YearGroupGradeWeight[]
@@ -2316,8 +2377,12 @@ model YearGroup {
 
   // Scheduling World-Class Relations
   exam_slots             ExamSlot[]
+  exam_subject_configs   ExamSubjectConfig[]
   subject_period_weights SubjectPeriodWeight[] @relation("SubjectPeriodWeightYearGroup")
   period_year_weights    PeriodYearWeight[]    @relation("PeriodYearWeightYearGroup")
+
+  // SCHED-022: cross-year-group class visibility.
+  class_links ClassYearGroupLink[]
 
   @@unique([tenant_id, name], name: "idx_year_groups_tenant_name")
   @@index([tenant_id], name: "idx_year_groups_tenant")
@@ -2347,8 +2412,10 @@ model Subject {
   report_card_subject_comments ReportCardSubjectComment[]
 
   // P4B-v2 Relations
-  curriculum_requirements CurriculumRequirement[]
-  teacher_competencies    TeacherCompetency[]
+  curriculum_requirements         CurriculumRequirement[]
+  class_subject_requirements      ClassSubjectRequirement[]
+  teacher_competencies            TeacherCompetency[]
+  substitute_teacher_competencies SubstituteTeacherCompetency[]
 
   // P5+ World-Class Gradebook Relations
   rubric_templates             RubricTemplate[]
@@ -2361,7 +2428,8 @@ model Subject {
   grading_weights              TeacherGradingWeight[]     @relation("grading_weight_subject")
 
   // Scheduling World-Class Relations
-  exam_slots ExamSlot[]
+  exam_slots           ExamSlot[]
+  exam_subject_configs ExamSubjectConfig[]
 
   // Behaviour Management Relations
   bh_incidents BehaviourIncident[] @relation("bh_incident_subject")
@@ -2411,6 +2479,9 @@ model Class {
   // P4B Relations
   scheduling_requirements ClassSchedulingRequirement[]
 
+  // P4B-v2 Relations
+  subject_requirements ClassSubjectRequirement[]
+
   // P5 Relations
   class_subject_grade_configs ClassSubjectGradeConfig[]
   assessments                 Assessment[]
@@ -2433,10 +2504,41 @@ model Class {
   subject_period_weights SubjectPeriodWeight[] @relation("SubjectPeriodWeightClass")
   period_year_weights    PeriodYearWeight[]    @relation("PeriodYearWeightClass")
 
+  // Scheduler Rebuild Relations
+  teacher_competencies            TeacherCompetency[]
+  substitute_teacher_competencies SubstituteTeacherCompetency[]
+
+  // SCHED-022: additional year-group links for cross-year-group classes.
+  year_group_links ClassYearGroupLink[]
+
   @@unique([tenant_id, name, academic_year_id], name: "idx_classes_tenant_name_year")
   @@index([tenant_id, academic_year_id], name: "idx_classes_tenant_year")
   @@index([tenant_id, status], name: "idx_classes_tenant_status")
   @@map("classes")
+}
+
+// SCHED-022: junction table allowing a class to be marked as belonging to
+// additional year groups beyond its primary ``Class.year_group_id``. Used
+// by admin UI / reports to surface a class under every year group it
+// serves (e.g. a mixed Y10+Y11 Advanced Music elective). Scheduling uses
+// the primary year_group_id for period-grid selection; cross-year student
+// conflicts are already handled via ``class_enrolments`` → solver
+// ``student_overlaps`` regardless of this junction.
+model ClassYearGroupLink {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String   @db.Uuid
+  class_id      String   @db.Uuid
+  year_group_id String   @db.Uuid
+  created_at    DateTime @default(now()) @db.Timestamptz()
+
+  tenant       Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity Class     @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  year_group   YearGroup @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, class_id, year_group_id], name: "idx_class_year_group_links_unique")
+  @@index([tenant_id, class_id], name: "idx_class_year_group_links_class")
+  @@index([tenant_id, year_group_id], name: "idx_class_year_group_links_year_group")
+  @@map("class_year_group_links")
 }
 
 model ClassStaff {
@@ -2558,6 +2660,9 @@ model Application {
   waiting_list_substatus     ApplicationWaitingListSubstatus?
   override_record_id         String?                          @db.Uuid
   materialised_student_id    String?                          @db.Uuid
+  household_id               String?                          @db.Uuid
+  submission_batch_id        String?                          @db.Uuid
+  is_sibling_application     Boolean                          @default(false)
   created_at                 DateTime                         @default(now()) @db.Timestamptz()
   updated_at                 DateTime                         @default(now()) @updatedAt @db.Timestamptz()
 
@@ -2570,6 +2675,7 @@ model Application {
   target_year_group    YearGroup?               @relation("applications_target_year_group", fields: [target_year_group_id], references: [id], onDelete: SetNull)
   override_record      AdmissionOverride?       @relation("application_override_record", fields: [override_record_id], references: [id], onDelete: SetNull)
   materialised_student Student?                 @relation("application_materialised_student", fields: [materialised_student_id], references: [id], onDelete: SetNull)
+  household            Household?               @relation("HouseholdApplications", fields: [household_id], references: [id], onDelete: SetNull)
   notes                ApplicationNote[]
   overrides            AdmissionOverride[]      @relation("overrides_of_application")
   payment_events       AdmissionsPaymentEvent[]
@@ -2581,6 +2687,8 @@ model Application {
   @@index([tenant_id, payment_status, payment_deadline], name: "idx_applications_payment_deadline")
   @@index([tenant_id, status, target_year_group_id, target_academic_year_id, apply_date], name: "idx_applications_gating")
   @@index([tenant_id, status, payment_deadline], name: "idx_applications_expiry")
+  @@index([tenant_id, household_id], map: "idx_applications_tenant_id_household_id")
+  @@index([tenant_id, submission_batch_id], map: "idx_applications_tenant_id_submission_batch_id")
   @@map("applications")
 }
 
@@ -2627,13 +2735,16 @@ model AdmissionsPaymentEvent {
 
 /// Append-only, no updated_at
 model ApplicationNote {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id      String   @db.Uuid
-  application_id String   @db.Uuid
-  author_user_id String   @db.Uuid
-  note           String   @db.Text
-  is_internal    Boolean  @default(true)
-  created_at     DateTime @default(now()) @db.Timestamptz()
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String               @db.Uuid
+  application_id String               @db.Uuid
+  author_user_id String               @db.Uuid
+  note           String               @db.Text
+  is_internal    Boolean              @default(true)
+  // ADM-009: nullable so legacy rows (predating the column) keep working.
+  // Every new state-machine transition writes a non-null action.
+  action         AdmissionNoteAction?
+  created_at     DateTime             @default(now()) @db.Timestamptz()
 
   // Relations
   tenant      Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -2666,11 +2777,15 @@ model Room {
   class_scheduling_requirements ClassSchedulingRequirement[] @relation("class_req_preferred_room")
 
   // P4B-v2 Relations
+  class_subject_requirements ClassSubjectRequirement[] @relation("class_subject_req_preferred_room")
+
+  // P4B-v2 Relations
   room_closures RoomClosure[]
 
   // Scheduling World-Class Relations
-  homeroom_classes Class[]    @relation("class_homeroom_room")
+  homeroom_classes Class[]        @relation("class_homeroom_room")
   exam_slots       ExamSlot[]
+  exam_slot_rooms  ExamSlotRoom[] @relation("exam_slot_rooms")
 
   // Behaviour Management Relations
   bh_incidents_in_room BehaviourIncident[] @relation("bh_incident_room")
@@ -2715,6 +2830,7 @@ model Schedule {
 
   // Scheduling World-Class Relations
   substitution_records SubstitutionRecord[]
+  substitution_offers  SubstitutionOffer[]
 
   // Payroll World-Class Relations
   class_delivery_records ClassDeliveryRecord[]
@@ -2758,6 +2874,7 @@ model AttendanceSession {
   tenant_id            String                  @db.Uuid
   class_id             String                  @db.Uuid
   schedule_id          String?                 @db.Uuid
+  teacher_staff_id     String?                 @db.Uuid
   session_date         DateTime                @db.Date
   status               AttendanceSessionStatus
   override_reason      String?                 @db.Text
@@ -2768,15 +2885,17 @@ model AttendanceSession {
   updated_at           DateTime                @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant       Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  class_entity Class              @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  schedule     Schedule?          @relation(fields: [schedule_id], references: [id], onDelete: SetNull)
-  submitted_by User?              @relation("session_submitter", fields: [submitted_by_user_id], references: [id], onDelete: SetNull)
-  records      AttendanceRecord[]
+  tenant        Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity  Class              @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  schedule      Schedule?          @relation(fields: [schedule_id], references: [id], onDelete: SetNull)
+  teacher_staff StaffProfile?      @relation("attendance_session_teacher", fields: [teacher_staff_id], references: [id], onDelete: SetNull)
+  submitted_by  User?              @relation("session_submitter", fields: [submitted_by_user_id], references: [id], onDelete: SetNull)
+  records       AttendanceRecord[]
 
   @@index([tenant_id, session_date], name: "idx_attendance_sessions_tenant_date")
   @@index([tenant_id, session_date, status], name: "idx_attendance_sessions_tenant_date_status")
   @@index([tenant_id, class_id, status], name: "idx_attendance_sessions_tenant_class_status")
+  @@index([tenant_id, teacher_staff_id], name: "idx_attendance_sessions_tenant_teacher")
   @@map("attendance_sessions")
 }
 
@@ -2946,6 +3065,9 @@ model SchedulingRun {
   feasibility_report         Json?               @db.JsonB
   diagnostics_refined_report Json?               @db.JsonB
   diagnostics_computed_at    DateTime?           @db.Timestamptz()
+  // SCHED-041 §A — structured CP-SAT telemetry. See SolverDiagnosticsV3 in
+  // packages/shared/src/scheduler/types-v3.ts for the payload shape.
+  solver_diagnostics         Json?               @db.JsonB
   created_by_user_id         String              @db.Uuid
   applied_by_user_id         String?             @db.Uuid
   applied_at                 DateTime?           @db.Timestamptz()
@@ -2995,6 +3117,43 @@ model CurriculumRequirement {
   @@map("curriculum_requirements")
 }
 
+/// Per-(class, subject) override layer on top of year-group CurriculumRequirement.
+/// Lets admins express "Y11-A Physics = 4 periods/week in LAB02" without
+/// touching the year-group curriculum that governs every other class in Y11.
+/// When an override exists for a (class, subject) pair, the solver uses its
+/// periods_per_week / room hints / double-period flags in preference to the
+/// year-group baseline. Tenant flag `scheduling.strict_class_subject_override`
+/// switches the merge policy from "override wins" to "reject if periods don't
+/// match the year-group baseline". See SCHED-023 in BUG-LOG for context.
+model ClassSubjectRequirement {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String    @db.Uuid
+  academic_year_id       String    @db.Uuid
+  class_id               String    @db.Uuid
+  subject_id             String    @db.Uuid
+  periods_per_week       Int       @db.SmallInt
+  max_periods_per_day    Int?      @db.SmallInt
+  preferred_room_id      String?   @db.Uuid
+  required_room_type     RoomType?
+  requires_double_period Boolean   @default(false)
+  double_period_count    Int?      @db.SmallInt
+  notes                  String?   @db.Text
+  created_at             DateTime  @default(now()) @db.Timestamptz()
+  updated_at             DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant         Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year  AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  class_entity   Class        @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  subject        Subject      @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  preferred_room Room?        @relation("class_subject_req_preferred_room", fields: [preferred_room_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, academic_year_id, class_id, subject_id], name: "idx_class_subject_req_unique")
+  @@index([tenant_id, academic_year_id], name: "idx_class_subject_req_tenant_year")
+  @@index([tenant_id, academic_year_id, class_id], name: "idx_class_subject_req_class")
+  @@map("class_subject_requirements")
+}
+
 model TeacherCompetency {
   id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id        String   @db.Uuid
@@ -3002,7 +3161,9 @@ model TeacherCompetency {
   staff_profile_id String   @db.Uuid
   subject_id       String   @db.Uuid
   year_group_id    String   @db.Uuid
-  is_primary       Boolean  @default(false)
+  // class_id = NULL → pool entry (solver picks the section);
+  // class_id = <uuid> → pin (solver must honour this assignment).
+  class_id         String?  @db.Uuid
   created_at       DateTime @default(now()) @db.Timestamptz()
   updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz()
 
@@ -3012,11 +3173,44 @@ model TeacherCompetency {
   staff_profile StaffProfile @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
   subject       Subject      @relation(fields: [subject_id], references: [id], onDelete: Cascade)
   year_group    YearGroup    @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+  class         Class?       @relation(fields: [class_id], references: [id], onDelete: Cascade)
 
-  @@unique([tenant_id, academic_year_id, staff_profile_id, subject_id, year_group_id], name: "idx_teacher_competency_unique")
+  @@unique([tenant_id, academic_year_id, staff_profile_id, subject_id, year_group_id, class_id], name: "idx_teacher_competency_unique")
   @@index([tenant_id, academic_year_id, staff_profile_id], name: "idx_teacher_competency_staff")
   @@index([tenant_id, academic_year_id, subject_id, year_group_id], name: "idx_teacher_competency_subject_year")
+  @@index([tenant_id, class_id], name: "idx_teacher_competencies_tenant_class")
   @@map("teacher_competencies")
+}
+
+// Substitute-competency parallel table. Same pin/pool grain as TeacherCompetency
+// but identifies WHO IS QUALIFIED TO COVER for whom in general — independent of
+// any specific absence date. `teacher_absences` / `substitution_records` handle
+// the date-specific side.
+model SubstituteTeacherCompetency {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String   @db.Uuid
+  academic_year_id String   @db.Uuid
+  staff_profile_id String   @db.Uuid
+  subject_id       String   @db.Uuid
+  year_group_id    String   @db.Uuid
+  // class_id = NULL → pool entry: eligible to cover any section in the year group.
+  // class_id = <uuid> → pin: preferred cover for this specific section.
+  class_id         String?  @db.Uuid
+  created_at       DateTime @default(now()) @db.Timestamptz()
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  subject       Subject      @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  year_group    YearGroup    @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+  class         Class?       @relation(fields: [class_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, academic_year_id, staff_profile_id, subject_id, year_group_id, class_id], name: "idx_substitute_teacher_competency_unique")
+  @@index([tenant_id, academic_year_id, staff_profile_id], name: "idx_substitute_teacher_competency_staff")
+  @@index([tenant_id, academic_year_id, subject_id, year_group_id], name: "idx_substitute_teacher_competency_subject_year")
+  @@index([tenant_id, class_id], name: "idx_substitute_teacher_competencies_tenant_class")
+  @@map("substitute_teacher_competencies")
 }
 
 model BreakGroup {
@@ -3627,12 +3821,48 @@ enum SubstitutionStatus {
   confirmed
   declined
   completed
+  revoked
+}
+
+enum AbsenceType {
+  self_reported
+  approved_leave
+}
+
+enum LeaveRequestStatus {
+  pending
+  approved
+  rejected
+  cancelled
+  withdrawn
+}
+
+enum SubstitutionOfferStatus {
+  pending
+  accepted
+  declined
+  expired
+  revoked
+}
+
+enum SubstitutionRecordSource {
+  cascade
+  nomination
+  manual
 }
 
 enum ExamSessionStatus {
   planning
   published
   completed
+}
+
+enum ExamSolveJobStatus {
+  queued
+  running
+  completed
+  failed
+  cancelled
 }
 
 enum ScenarioStatus {
@@ -4391,6 +4621,7 @@ model ReportCardVerificationToken {
   tenant_id      String   @db.Uuid
   report_card_id String   @db.Uuid
   token          String   @unique @db.VarChar(64)
+  expires_at     DateTime @default(dbgenerated("now() + interval '1 year'")) @db.Timestamptz()
   created_at     DateTime @default(now()) @db.Timestamptz()
 
   // Relations
@@ -4404,53 +4635,176 @@ model ReportCardVerificationToken {
 // ─── Scheduling World-Class Enhancement Models ────────────────────────────
 
 model TeacherAbsence {
-  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id           String   @db.Uuid
-  staff_profile_id    String   @db.Uuid
-  absence_date        DateTime @db.Date
-  full_day            Boolean  @default(true)
-  period_from         Int?     @db.SmallInt
-  period_to           Int?     @db.SmallInt
-  reason              String?  @db.Text
-  reported_by_user_id String   @db.Uuid
-  reported_at         DateTime @db.Timestamptz()
-  created_at          DateTime @default(now()) @db.Timestamptz()
-  updated_at          DateTime @default(now()) @updatedAt @db.Timestamptz()
+  id                      String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String      @db.Uuid
+  staff_profile_id        String      @db.Uuid
+  absence_date            DateTime    @db.Date
+  date_to                 DateTime?   @db.Date
+  absence_type            AbsenceType @default(self_reported)
+  leave_type_id           String?     @db.Uuid
+  leave_request_id        String?     @db.Uuid
+  nominated_substitute_id String?     @db.Uuid
+  full_day                Boolean     @default(true)
+  period_from             Int?        @db.SmallInt
+  period_to               Int?        @db.SmallInt
+  is_paid                 Boolean     @default(true)
+  days_counted            Decimal     @default(1.00) @db.Decimal(5, 2)
+  reason                  String?     @db.Text
+  reported_by_user_id     String      @db.Uuid
+  reported_at             DateTime    @db.Timestamptz()
+  cancelled_at            DateTime?   @db.Timestamptz()
+  cancelled_by_user_id    String?     @db.Uuid
+  cancellation_reason     String?     @db.Text
+  created_at              DateTime    @default(now()) @db.Timestamptz()
+  updated_at              DateTime    @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant               Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   staff_profile        StaffProfile         @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  leave_type           LeaveType?           @relation(fields: [leave_type_id], references: [id], onDelete: SetNull)
+  leave_request        LeaveRequest?        @relation("absence_leave_request", fields: [leave_request_id], references: [id], onDelete: SetNull)
+  nominated_substitute StaffProfile?        @relation("nominated_substitute", fields: [nominated_substitute_id], references: [id], onDelete: SetNull)
   reported_by          User                 @relation("absence_reporter", fields: [reported_by_user_id], references: [id], onDelete: Cascade)
+  cancelled_by         User?                @relation("absence_canceller", fields: [cancelled_by_user_id], references: [id], onDelete: SetNull)
   substitution_records SubstitutionRecord[]
+  substitution_offers  SubstitutionOffer[]
 
-  @@unique([tenant_id, staff_profile_id, absence_date], name: "idx_teacher_absences_unique")
-  @@index([tenant_id, absence_date], name: "idx_teacher_absences_tenant_date")
+  @@index([tenant_id, absence_date, date_to], name: "idx_teacher_absences_tenant_range")
   @@map("teacher_absences")
 }
 
 model SubstitutionRecord {
-  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id           String             @db.Uuid
-  absence_id          String             @db.Uuid
-  schedule_id         String             @db.Uuid
-  substitute_staff_id String             @db.Uuid
-  status              SubstitutionStatus @default(assigned)
-  assigned_by_user_id String             @db.Uuid
-  assigned_at         DateTime           @db.Timestamptz()
-  confirmed_at        DateTime?          @db.Timestamptz()
-  notes               String?            @db.Text
-  created_at          DateTime           @default(now()) @db.Timestamptz()
-  updated_at          DateTime           @default(now()) @updatedAt @db.Timestamptz()
+  id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String                   @db.Uuid
+  absence_id          String                   @db.Uuid
+  schedule_id         String                   @db.Uuid
+  substitute_staff_id String                   @db.Uuid
+  offer_id            String?                  @db.Uuid
+  absence_date        DateTime?                @db.Date
+  source              SubstitutionRecordSource @default(manual)
+  status              SubstitutionStatus       @default(assigned)
+  assigned_by_user_id String                   @db.Uuid
+  assigned_at         DateTime                 @db.Timestamptz()
+  confirmed_at        DateTime?                @db.Timestamptz()
+  notes               String?                  @db.Text
+  created_at          DateTime                 @default(now()) @db.Timestamptz()
+  updated_at          DateTime                 @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant      Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  absence     TeacherAbsence @relation(fields: [absence_id], references: [id], onDelete: Cascade)
-  schedule    Schedule       @relation(fields: [schedule_id], references: [id], onDelete: Cascade)
-  substitute  StaffProfile   @relation("substitute_staff", fields: [substitute_staff_id], references: [id], onDelete: Cascade)
-  assigned_by User           @relation("substitution_assigner", fields: [assigned_by_user_id], references: [id], onDelete: Cascade)
+  tenant      Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  absence     TeacherAbsence     @relation(fields: [absence_id], references: [id], onDelete: Cascade)
+  schedule    Schedule           @relation(fields: [schedule_id], references: [id], onDelete: Cascade)
+  substitute  StaffProfile       @relation("substitute_staff", fields: [substitute_staff_id], references: [id], onDelete: Cascade)
+  assigned_by User               @relation("substitution_assigner", fields: [assigned_by_user_id], references: [id], onDelete: Cascade)
+  offer       SubstitutionOffer? @relation(fields: [offer_id], references: [id], onDelete: SetNull)
 
   @@index([tenant_id, created_at], name: "idx_substitution_records_tenant_date")
+  @@index([tenant_id, absence_date], name: "idx_substitution_records_tenant_absence_date")
   @@map("substitution_records")
+}
+
+// ─── Leave & Cover ──────────────────────────────────────────────────────────
+
+model LeaveType {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String?  @db.Uuid
+  code                 String   @db.VarChar(50)
+  label                String   @db.VarChar(100)
+  requires_approval    Boolean  @default(true)
+  is_paid_default      Boolean  @default(true)
+  max_days_per_request Int?
+  requires_evidence    Boolean  @default(false)
+  display_order        Int      @default(100)
+  is_active            Boolean  @default(true)
+  created_at           DateTime @default(now()) @db.Timestamptz()
+  updated_at           DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant           Tenant?          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  leave_requests   LeaveRequest[]
+  teacher_absences TeacherAbsence[]
+
+  @@map("leave_types")
+}
+
+model LeaveRequest {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String             @db.Uuid
+  staff_profile_id     String             @db.Uuid
+  leave_type_id        String             @db.Uuid
+  date_from            DateTime           @db.Date
+  date_to              DateTime           @db.Date
+  full_day             Boolean            @default(true)
+  period_from          Int?               @db.SmallInt
+  period_to            Int?               @db.SmallInt
+  reason               String?            @db.Text
+  evidence_url         String?            @db.VarChar(500)
+  status               LeaveRequestStatus @default(pending)
+  submitted_by_user_id String             @db.Uuid
+  submitted_at         DateTime           @default(now()) @db.Timestamptz()
+  reviewed_by_user_id  String?            @db.Uuid
+  reviewed_at          DateTime?          @db.Timestamptz()
+  review_notes         String?            @db.Text
+  created_at           DateTime           @default(now()) @db.Timestamptz()
+  updated_at           DateTime           @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile     @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  leave_type    LeaveType        @relation(fields: [leave_type_id], references: [id], onDelete: Restrict)
+  submitted_by  User             @relation("leave_request_submitter", fields: [submitted_by_user_id], references: [id], onDelete: Cascade)
+  reviewed_by   User?            @relation("leave_request_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
+  absences      TeacherAbsence[] @relation("absence_leave_request")
+
+  @@index([tenant_id, status], name: "idx_leave_requests_tenant_status")
+  @@index([tenant_id, staff_profile_id, submitted_at(sort: Desc)], name: "idx_leave_requests_tenant_staff")
+  @@map("leave_requests")
+}
+
+model SubstitutionOffer {
+  id                 String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String                  @db.Uuid
+  absence_id         String                  @db.Uuid
+  schedule_id        String                  @db.Uuid
+  absence_date       DateTime                @db.Date
+  candidate_staff_id String                  @db.Uuid
+  offered_at         DateTime                @default(now()) @db.Timestamptz()
+  expires_at         DateTime                @db.Timestamptz()
+  status             SubstitutionOfferStatus @default(pending)
+  responded_at       DateTime?               @db.Timestamptz()
+  decline_reason     String?                 @db.Text
+  is_nomination      Boolean                 @default(false)
+  cascade_round      Int                     @default(1) @db.SmallInt
+  created_at         DateTime                @default(now()) @db.Timestamptz()
+  updated_at         DateTime                @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant               Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  absence              TeacherAbsence       @relation(fields: [absence_id], references: [id], onDelete: Cascade)
+  schedule             Schedule             @relation(fields: [schedule_id], references: [id], onDelete: Cascade)
+  candidate            StaffProfile         @relation("offer_candidate", fields: [candidate_staff_id], references: [id], onDelete: Cascade)
+  substitution_records SubstitutionRecord[]
+
+  @@index([tenant_id, absence_id, status], name: "idx_substitution_offers_absence_status")
+  @@index([tenant_id, candidate_staff_id, status], name: "idx_substitution_offers_candidate_status")
+  @@map("substitution_offers")
+}
+
+model TenantSchedulingSettings {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String   @unique @db.Uuid
+  offer_timeout_minutes Int      @default(30)
+  parallel_offer_count  Int      @default(3)
+  sms_enabled           Boolean  @default(false)
+  whatsapp_enabled      Boolean  @default(false)
+  auto_cascade_enabled  Boolean  @default(true)
+  created_at            DateTime @default(now()) @db.Timestamptz()
+  updated_at            DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("tenant_scheduling_settings")
 }
 
 /// Append-only, no updated_at
@@ -4483,36 +4837,70 @@ model ExamSession {
   updated_at         DateTime          @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
-  exam_slots      ExamSlot[]
+  tenant                Tenant                @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_period       AcademicPeriod        @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  exam_slots            ExamSlot[]
+  exam_session_config   ExamSessionConfig?
+  exam_subject_configs  ExamSubjectConfig[]
+  exam_invigilator_pool ExamInvigilatorPool[]
+  exam_solve_jobs       ExamSolveJob[]
 
   @@index([tenant_id, academic_period_id], name: "idx_exam_sessions_tenant_period")
   @@map("exam_sessions")
 }
 
+model ExamSolveJob {
+  id                          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                   String             @db.Uuid
+  exam_session_id             String             @db.Uuid
+  status                      ExamSolveJobStatus @default(queued)
+  max_solver_duration_seconds Int                @default(90)
+  placed                      Int                @default(0)
+  total                       Int                @default(0)
+  slots_written               Int                @default(0)
+  solve_time_ms               Int                @default(0)
+  failure_reason              String?
+  result_meta                 Json?
+  created_at                  DateTime           @default(now()) @db.Timestamptz()
+  updated_at                  DateTime           @default(now()) @updatedAt @db.Timestamptz()
+  started_at                  DateTime?          @db.Timestamptz()
+  finished_at                 DateTime?          @db.Timestamptz()
+  created_by_user_id          String?            @db.Uuid
+
+  tenant       Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_session ExamSession @relation(fields: [exam_session_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, exam_session_id, status], name: "idx_exam_solve_jobs_tenant_session_status")
+  @@map("exam_solve_jobs")
+}
+
 model ExamSlot {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id        String   @db.Uuid
-  exam_session_id  String   @db.Uuid
-  subject_id       String   @db.Uuid
-  year_group_id    String   @db.Uuid
-  date             DateTime @db.Date
-  start_time       DateTime @db.Time
-  end_time         DateTime @db.Time
-  room_id          String?  @db.Uuid
-  duration_minutes Int
-  student_count    Int
-  created_at       DateTime @default(now()) @db.Timestamptz()
-  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz()
+  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String   @db.Uuid
+  exam_session_id         String   @db.Uuid
+  subject_id              String   @db.Uuid
+  year_group_id           String   @db.Uuid
+  date                    DateTime @db.Date
+  start_time              DateTime @db.Time
+  end_time                DateTime @db.Time
+  room_id                 String?  @db.Uuid
+  duration_minutes        Int
+  student_count           Int
+  paper_number            Int?     @db.SmallInt
+  exam_subject_config_id  String?  @db.Uuid
+  gradebook_assessment_id String?  @db.Uuid
+  created_at              DateTime @default(now()) @db.Timestamptz()
+  updated_at              DateTime @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant        Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  exam_session  ExamSession        @relation(fields: [exam_session_id], references: [id], onDelete: Cascade)
-  subject       Subject            @relation(fields: [subject_id], references: [id], onDelete: Cascade)
-  year_group    YearGroup          @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
-  room          Room?              @relation(fields: [room_id], references: [id], onDelete: SetNull)
-  invigilations ExamInvigilation[]
+  tenant              Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_session        ExamSession        @relation(fields: [exam_session_id], references: [id], onDelete: Cascade)
+  subject             Subject            @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  year_group          YearGroup          @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+  room                Room?              @relation(fields: [room_id], references: [id], onDelete: SetNull)
+  exam_subject_config ExamSubjectConfig? @relation(fields: [exam_subject_config_id], references: [id], onDelete: SetNull)
+  invigilations       ExamInvigilation[]
+  exam_slot_rooms     ExamSlotRoom[]
 
   @@index([tenant_id, exam_session_id], name: "idx_exam_slots_tenant_session")
   @@map("exam_slots")
@@ -4520,20 +4908,106 @@ model ExamSlot {
 
 /// Append-only, no updated_at
 model ExamInvigilation {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id        String   @db.Uuid
-  exam_slot_id     String   @db.Uuid
-  staff_profile_id String   @db.Uuid
-  role             String   @db.VarChar(20)
-  created_at       DateTime @default(now()) @db.Timestamptz()
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String   @db.Uuid
+  exam_slot_id      String   @db.Uuid
+  staff_profile_id  String   @db.Uuid
+  role              String   @db.VarChar(20)
+  exam_slot_room_id String?  @db.Uuid
+  created_at        DateTime @default(now()) @db.Timestamptz()
 
   // Relations
-  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  exam_slot     ExamSlot     @relation(fields: [exam_slot_id], references: [id], onDelete: Cascade)
-  staff_profile StaffProfile @relation("exam_invigilator", fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  tenant         Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_slot      ExamSlot      @relation(fields: [exam_slot_id], references: [id], onDelete: Cascade)
+  staff_profile  StaffProfile  @relation("exam_invigilator", fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  exam_slot_room ExamSlotRoom? @relation(fields: [exam_slot_room_id], references: [id], onDelete: SetNull)
 
   @@index([tenant_id, exam_slot_id], name: "idx_exam_invigilation_tenant_slot")
   @@map("exam_invigilation")
+}
+
+// ─── Exam Session Config (one row per session) ────────────────────────────────
+model ExamSessionConfig {
+  id                           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                    String   @db.Uuid
+  exam_session_id              String   @unique @db.Uuid
+  allowed_weekdays             Int[]
+  morning_start                DateTime @db.Time
+  morning_end                  DateTime @db.Time
+  afternoon_start              DateTime @db.Time
+  afternoon_end                DateTime @db.Time
+  min_gap_minutes_same_student Int      @default(0)
+  max_exams_per_day_per_yg     Int      @default(2)
+  created_at                   DateTime @default(now()) @db.Timestamptz()
+  updated_at                   DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant       Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_session ExamSession @relation(fields: [exam_session_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, exam_session_id], name: "idx_exam_session_configs_tenant_session")
+  @@map("exam_session_configs")
+}
+
+// ─── Exam Subject Configs (matrix: session × year_group × subject) ────────────
+model ExamSubjectConfig {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String   @db.Uuid
+  exam_session_id       String   @db.Uuid
+  year_group_id         String   @db.Uuid
+  subject_id            String   @db.Uuid
+  is_examinable         Boolean  @default(true)
+  paper_count           Int      @default(1) @db.SmallInt
+  paper_1_duration_mins Int      @default(90)
+  paper_2_duration_mins Int?
+  mode                  String   @default("in_person") @db.VarChar(20)
+  invigilators_required Int      @default(2)
+  created_at            DateTime @default(now()) @db.Timestamptz()
+  updated_at            DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant       Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_session ExamSession @relation(fields: [exam_session_id], references: [id], onDelete: Cascade)
+  year_group   YearGroup   @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+  subject      Subject     @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  exam_slots   ExamSlot[]
+
+  @@unique([exam_session_id, year_group_id, subject_id], name: "uq_exam_subject_config_session_yg_subject")
+  @@index([tenant_id, exam_session_id], name: "idx_exam_subject_configs_tenant_session")
+  @@map("exam_subject_configs")
+}
+
+// ─── Exam Invigilator Pool (opt-in set per session) ───────────────────────────
+model ExamInvigilatorPool {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String   @db.Uuid
+  exam_session_id  String   @db.Uuid
+  staff_profile_id String   @db.Uuid
+  created_at       DateTime @default(now()) @db.Timestamptz()
+
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_session  ExamSession  @relation(fields: [exam_session_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile @relation("exam_pool_member", fields: [staff_profile_id], references: [id], onDelete: Cascade)
+
+  @@unique([exam_session_id, staff_profile_id], name: "uq_exam_invigilator_pool_session_staff")
+  @@index([tenant_id, exam_session_id], name: "idx_exam_invigilator_pool_tenant_session")
+  @@map("exam_invigilator_pool")
+}
+
+// ─── Exam Slot Room Assignments (supports room splits) ────────────────────────
+model ExamSlotRoom {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String   @db.Uuid
+  exam_slot_id String   @db.Uuid
+  room_id      String   @db.Uuid
+  capacity     Int
+  created_at   DateTime @default(now()) @db.Timestamptz()
+
+  tenant        Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_slot     ExamSlot           @relation(fields: [exam_slot_id], references: [id], onDelete: Cascade)
+  room          Room               @relation("exam_slot_rooms", fields: [room_id], references: [id], onDelete: Cascade)
+  invigilations ExamInvigilation[]
+
+  @@index([tenant_id, exam_slot_id], name: "idx_exam_slot_rooms_tenant_slot")
+  @@map("exam_slot_rooms")
 }
 
 model SchedulingScenario {
@@ -4580,10 +5054,30 @@ model RotationConfig {
 
 // ─── P6: Finance ──────────────────────────────────────────────────────────
 
+model FeeType {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  name        String   @db.VarChar(150)
+  description String?  @db.VarChar(500)
+  is_system   Boolean  @default(false)
+  active      Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamptz()
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant         Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  fee_structures FeeStructure[]
+
+  @@unique([tenant_id, name], name: "idx_fee_types_tenant_name")
+  @@index([tenant_id], name: "idx_fee_types_tenant")
+  @@map("fee_types")
+}
+
 model FeeStructure {
   id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id         String           @db.Uuid
   name              String           @db.VarChar(150)
+  fee_type_id       String?          @db.Uuid
   year_group_id     String?          @db.Uuid
   amount            Decimal          @db.Decimal(12, 2)
   billing_frequency BillingFrequency
@@ -4593,6 +5087,7 @@ model FeeStructure {
 
   // Relations
   tenant                    Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  fee_type                  FeeType?                 @relation(fields: [fee_type_id], references: [id], onDelete: SetNull)
   year_group                YearGroup?               @relation(fields: [year_group_id], references: [id], onDelete: SetNull)
   household_fee_assignments HouseholdFeeAssignment[]
   invoice_lines             InvoiceLine[]
@@ -4601,18 +5096,21 @@ model FeeStructure {
 
   @@unique([tenant_id, name], name: "idx_fee_structures_tenant_name")
   @@index([tenant_id], name: "idx_fee_structures_tenant")
+  @@index([fee_type_id], name: "idx_fee_structures_fee_type")
   @@map("fee_structures")
 }
 
 model Discount {
-  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id     String       @db.Uuid
-  name          String       @db.VarChar(150)
-  discount_type DiscountType
-  value         Decimal      @db.Decimal(12, 2)
-  active        Boolean      @default(true)
-  created_at    DateTime     @default(now()) @db.Timestamptz()
-  updated_at    DateTime     @default(now()) @updatedAt @db.Timestamptz()
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String       @db.Uuid
+  name           String       @db.VarChar(150)
+  discount_type  DiscountType
+  value          Decimal      @db.Decimal(12, 2)
+  active         Boolean      @default(true)
+  auto_apply     Boolean      @default(false)
+  auto_condition Json?
+  created_at     DateTime     @default(now()) @db.Timestamptz()
+  updated_at     DateTime     @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant                    Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -5208,6 +5706,13 @@ model Notification {
   delivered_at        DateTime?           @db.Timestamptz(6)
   read_at             DateTime?           @db.Timestamptz(6)
 
+  // Fallback chain: every notification in a fallback chain
+  // (whatsapp → sms → email → in_app) shares a chain_id. Set on the
+  // first notification in a chain; propagated to each fallback row by
+  // the dispatcher. Nullable so existing rows stay valid. See
+  // COMMS-022.
+  chain_id String? @db.Uuid
+
   // Relations
   tenant    Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   recipient User   @relation("notification_recipient", fields: [recipient_user_id], references: [id])
@@ -5222,6 +5727,7 @@ model Notification {
 
   @@unique([tenant_id, idempotency_key], name: "idx_notifications_idempotency")
   @@index([tenant_id, recipient_user_id, status], name: "idx_notifications_tenant_recipient")
+  @@index([tenant_id, chain_id], name: "idx_notifications_tenant_chain")
   @@map("notifications")
 }
 
@@ -9236,25 +9742,26 @@ model EarlyWarningConfig {
 // ─── Homework & Diary ──────────────────────────────────────────────────────
 
 model HomeworkAssignment {
-  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id           String         @db.Uuid
-  class_id            String         @db.Uuid
-  subject_id          String?        @db.Uuid
-  academic_year_id    String         @db.Uuid
-  academic_period_id  String?        @db.Uuid
-  assigned_by_user_id String         @db.Uuid
-  title               String         @db.VarChar(255)
-  description         String?        @db.Text
-  homework_type       HomeworkType
-  status              HomeworkStatus @default(draft)
-  due_date            DateTime       @db.Date
-  due_time            DateTime?      @db.Time
-  published_at        DateTime?      @db.Timestamptz()
-  copied_from_id      String?        @db.Uuid
-  recurrence_rule_id  String?        @db.Uuid
-  max_points          Int?           @db.SmallInt
-  created_at          DateTime       @default(now()) @db.Timestamptz()
-  updated_at          DateTime       @default(now()) @updatedAt @db.Timestamptz()
+  id                      String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String         @db.Uuid
+  class_id                String         @db.Uuid
+  subject_id              String?        @db.Uuid
+  academic_year_id        String         @db.Uuid
+  academic_period_id      String?        @db.Uuid
+  assigned_by_user_id     String         @db.Uuid
+  title                   String         @db.VarChar(255)
+  description             String?        @db.Text
+  homework_type           HomeworkType
+  status                  HomeworkStatus @default(draft)
+  due_date                DateTime       @db.Date
+  due_time                DateTime?      @db.Time
+  accept_late_submissions Boolean        @default(true)
+  published_at            DateTime?      @db.Timestamptz()
+  copied_from_id          String?        @db.Uuid
+  recurrence_rule_id      String?        @db.Uuid
+  max_points              Int?           @db.SmallInt
+  created_at              DateTime       @default(now()) @db.Timestamptz()
+  updated_at              DateTime       @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant          Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -9268,12 +9775,71 @@ model HomeworkAssignment {
   recurrence_rule HomeworkRecurrenceRule? @relation(fields: [recurrence_rule_id], references: [id], onDelete: SetNull)
   attachments     HomeworkAttachment[]
   completions     HomeworkCompletion[]
+  submissions     HomeworkSubmission[]
 
   @@index([tenant_id, class_id, status], name: "idx_hw_assignments_class_status")
   @@index([tenant_id, due_date], name: "idx_hw_assignments_due_date")
   @@index([tenant_id, assigned_by_user_id], name: "idx_hw_assignments_assigned_by")
   @@index([tenant_id, academic_year_id], name: "idx_hw_assignments_year")
   @@map("homework_assignments")
+}
+
+enum HomeworkSubmissionStatus {
+  submitted
+  returned_for_revision
+  graded
+}
+
+model HomeworkSubmission {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String                   @db.Uuid
+  homework_assignment_id String                   @db.Uuid
+  student_id             String                   @db.Uuid
+  submitted_at           DateTime                 @default(now()) @db.Timestamptz()
+  submission_text        String?                  @db.Text
+  status                 HomeworkSubmissionStatus @default(submitted)
+  is_late                Boolean                  @default(false)
+  teacher_feedback       String?                  @db.Text
+  graded_by_user_id      String?                  @db.Uuid
+  graded_at              DateTime?                @db.Timestamptz()
+  points_awarded         Int?                     @db.SmallInt
+  version                Int                      @default(1)
+  created_at             DateTime                 @default(now()) @db.Timestamptz()
+  updated_at             DateTime                 @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant                         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assignment  HomeworkAssignment             @relation(fields: [homework_assignment_id], references: [id], onDelete: Cascade)
+  student     Student                        @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  graded_by   User?                          @relation("hw_submission_graded_by", fields: [graded_by_user_id], references: [id], onDelete: SetNull)
+  attachments HomeworkSubmissionAttachment[]
+
+  @@unique([tenant_id, homework_assignment_id, student_id], name: "idx_homework_submissions_tenant_assignment_student")
+  @@index([tenant_id, student_id], name: "idx_homework_submissions_tenant_student")
+  @@index([tenant_id, status], name: "idx_homework_submissions_tenant_status")
+  @@map("homework_submissions")
+}
+
+model HomeworkSubmissionAttachment {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String   @db.Uuid
+  homework_submission_id String   @db.Uuid
+  attachment_type        String   @db.VarChar(20)
+  file_name              String?  @db.VarChar(255)
+  file_key               String?  @db.VarChar(500)
+  file_size_bytes        Int?
+  mime_type              String?  @db.VarChar(100)
+  url                    String?  @db.Text
+  display_order          Int      @default(0) @db.SmallInt
+  created_at             DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  submission HomeworkSubmission @relation(fields: [homework_submission_id], references: [id], onDelete: Cascade)
+
+  @@index([homework_submission_id], name: "idx_homework_submission_attachments_submission")
+  @@index([tenant_id], name: "idx_homework_submission_attachments_tenant")
+  @@map("homework_submission_attachments")
 }
 
 model HomeworkAttachment {

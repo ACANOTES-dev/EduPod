@@ -127,6 +127,34 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/queues/:queueName/failed",
+    "controller": "QueueAdminController",
+    "module": "queue-admin",
+    "permission": "settings.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/queues/:queueName/failed/:jobId",
+    "controller": "QueueAdminController",
+    "module": "queue-admin",
+    "permission": "settings.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/queues/:queueName/failed/:jobId/retry",
+    "controller": "QueueAdminController",
+    "module": "queue-admin",
+    "permission": "settings.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/queues/failed",
+    "controller": "QueueAdminController",
+    "module": "queue-admin",
+    "permission": "settings.manage"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/security-incidents",
     "controller": "SecurityIncidentsController",
     "module": "security-incidents",
@@ -627,7 +655,7 @@
     "path": "/v1/attendance-sessions/:id",
     "controller": "AttendanceController",
     "module": "attendance",
-    "permission": "attendance.view"
+    "permission": "attendance.take_any_class"
   },
   {
     "method": "PATCH",
@@ -677,6 +705,13 @@
     "controller": "AttendanceController",
     "module": "attendance",
     "permission": "attendance.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/attendance/officer-dashboard",
+    "controller": "AttendanceController",
+    "module": "attendance",
+    "permission": "attendance.view"
   },
   {
     "method": "GET",
@@ -2311,6 +2346,41 @@
   },
   {
     "method": "GET",
+    "path": "/v1/class-subject-requirements",
+    "controller": "ClassSubjectRequirementsController",
+    "module": "class-subject-requirements",
+    "permission": "schedule.configure_requirements"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/class-subject-requirements",
+    "controller": "ClassSubjectRequirementsController",
+    "module": "class-subject-requirements",
+    "permission": "schedule.configure_requirements"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/class-subject-requirements/:id",
+    "controller": "ClassSubjectRequirementsController",
+    "module": "class-subject-requirements",
+    "permission": "schedule.configure_requirements"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/class-subject-requirements/:id",
+    "controller": "ClassSubjectRequirementsController",
+    "module": "class-subject-requirements",
+    "permission": "schedule.configure_requirements"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/class-subject-requirements/bulk",
+    "controller": "ClassSubjectRequirementsController",
+    "module": "class-subject-requirements",
+    "permission": "schedule.configure_requirements"
+  },
+  {
+    "method": "GET",
     "path": "/v1/classes",
     "controller": "ClassesController",
     "module": "classes",
@@ -2563,10 +2633,17 @@
   },
   {
     "method": "GET",
-    "path": "/v1/dashboard/teacher",
+    "path": "/v1/dashboard/student",
     "controller": "DashboardController",
     "module": "dashboard",
     "permission": "parent.view_own_students"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/dashboard/teacher",
+    "controller": "DashboardController",
+    "module": "dashboard",
+    "permission": "schedule.view_class"
   },
   {
     "method": "GET",
@@ -4589,7 +4666,7 @@
     "path": "/v1/homework/:id",
     "controller": "HomeworkController",
     "module": "homework",
-    "permission": "homework.manage"
+    "permission": "homework.view"
   },
   {
     "method": "GET",
@@ -4662,9 +4739,44 @@
     "permission": "homework.manage"
   },
   {
+    "method": "GET",
+    "path": "/v1/homework/:id/notification-preview",
+    "controller": "HomeworkController",
+    "module": "homework",
+    "permission": "homework.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/homework/:id/notify",
+    "controller": "HomeworkController",
+    "module": "homework",
+    "permission": "homework.manage"
+  },
+  {
     "method": "PATCH",
     "path": "/v1/homework/:id/status",
     "controller": "HomeworkController",
+    "module": "homework",
+    "permission": "homework.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/homework/:id/submissions",
+    "controller": "HomeworkCompletionsController",
+    "module": "homework",
+    "permission": "homework.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/homework/:id/submissions/:submissionId/grade",
+    "controller": "HomeworkCompletionsController",
+    "module": "homework",
+    "permission": "homework.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/homework/:id/submissions/:submissionId/return",
+    "controller": "HomeworkCompletionsController",
     "module": "homework",
     "permission": "homework.manage"
   },
@@ -4755,6 +4867,13 @@
   {
     "method": "GET",
     "path": "/v1/homework/by-class/:classId/week",
+    "controller": "HomeworkController",
+    "module": "homework",
+    "permission": "homework.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/homework/my-classes",
     "controller": "HomeworkController",
     "module": "homework",
     "permission": "homework.view"
@@ -5747,6 +5866,13 @@
     "permission": "parent.view_finances"
   },
   {
+    "method": "POST",
+    "path": "/v1/parent/report-cards/:reportCardId/acknowledge",
+    "controller": "ParentGradebookController",
+    "module": "gradebook",
+    "permission": "parent.view_transcripts"
+  },
+  {
     "method": "GET",
     "path": "/v1/parent/students/:studentId/attendance",
     "controller": "AttendanceController",
@@ -5787,6 +5913,20 @@
     "controller": "ParentGradebookController",
     "module": "gradebook",
     "permission": "parent.view_grades"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/parent/timetable",
+    "controller": "ParentTimetableController",
+    "module": "parents",
+    "permission": "parent.view_timetable"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/parent/timetable/self",
+    "controller": "ParentTimetableController",
+    "module": "parents",
+    "permission": "parent.view_timetable"
   },
   {
     "method": "GET",
@@ -7414,6 +7554,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/people/dashboard-summary",
+    "controller": "PeopleDashboardController",
+    "module": "people-dashboard",
+    "permission": "students.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/period-grid",
     "controller": "PeriodGridController",
     "module": "period-grid",
@@ -8016,6 +8163,20 @@
   },
   {
     "method": "POST",
+    "path": "/v1/report-card-subject-comments/ai-draft-async",
+    "controller": "ReportCardSubjectCommentsController",
+    "module": "gradebook",
+    "permission": "report_cards.comment"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/report-card-subject-comments/ai-draft-jobs/:jobId",
+    "controller": "ReportCardSubjectCommentsController",
+    "module": "gradebook",
+    "permission": "report_cards.comment"
+  },
+  {
+    "method": "POST",
     "path": "/v1/report-card-subject-comments/bulk-finalise",
     "controller": "ReportCardSubjectCommentsController",
     "module": "gradebook",
@@ -8204,8 +8365,22 @@
     "permission": "gradebook.publish_report_cards"
   },
   {
+    "method": "GET",
+    "path": "/v1/report-cards/:id/revision-chain",
+    "controller": "ReportCardsController",
+    "module": "gradebook",
+    "permission": "gradebook.manage"
+  },
+  {
     "method": "POST",
     "path": "/v1/report-cards/:id/submit-approval",
+    "controller": "ReportCardsEnhancedController",
+    "module": "gradebook",
+    "permission": "gradebook.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/report-cards/:id/verification-token",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
     "permission": "gradebook.manage"
@@ -8299,14 +8474,14 @@
     "path": "/v1/report-cards/batch-pdf",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "report_cards.manage"
   },
   {
     "method": "POST",
     "path": "/v1/report-cards/bulk-delete",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "report_cards.view"
   },
   {
     "method": "POST",
@@ -8348,7 +8523,7 @@
     "path": "/v1/report-cards/custom-fields",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "report_cards.manage"
   },
   {
     "method": "DELETE",
@@ -8367,6 +8542,13 @@
   {
     "method": "PATCH",
     "path": "/v1/report-cards/custom-fields/:id",
+    "controller": "ReportCardsEnhancedController",
+    "module": "gradebook",
+    "permission": "gradebook.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/report-cards/deliveries/:deliveryId/retry",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
     "permission": "gradebook.view"
@@ -9556,6 +9738,20 @@
   },
   {
     "method": "POST",
+    "path": "/v1/scheduling-runs/:id/diagnostics/refresh",
+    "controller": "SchedulingRunsController",
+    "module": "scheduling-runs",
+    "permission": "schedule.view_auto_reports"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling-runs/:id/diagnostics/simulate",
+    "controller": "SchedulingRunsController",
+    "module": "scheduling-runs",
+    "permission": "schedule.view_auto_reports"
+  },
+  {
+    "method": "POST",
     "path": "/v1/scheduling-runs/:id/discard",
     "controller": "SchedulingRunsController",
     "module": "scheduling-runs",
@@ -9567,6 +9763,20 @@
     "controller": "SchedulingRunsController",
     "module": "scheduling-runs",
     "permission": "schedule.view_auto_reports"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling-runs/:id/stop-and-accept",
+    "controller": "SchedulingRunsController",
+    "module": "scheduling-runs",
+    "permission": "schedule.run_auto"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/scheduling-runs/feasibility",
+    "controller": "SchedulingRunsController",
+    "module": "scheduling-runs",
+    "permission": "schedule.run_auto"
   },
   {
     "method": "GET",
@@ -9842,9 +10052,37 @@
     "permission": "schedule.manage_exams"
   },
   {
+    "method": "GET",
+    "path": "/v1/scheduling/exam-sessions/:id/config",
+    "controller": "ExamSchedulingV2Controller",
+    "module": "scheduling",
+    "permission": "schedule.manage_exams"
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/scheduling/exam-sessions/:id/config",
+    "controller": "ExamSchedulingV2Controller",
+    "module": "scheduling",
+    "permission": "schedule.manage_exams"
+  },
+  {
     "method": "POST",
     "path": "/v1/scheduling/exam-sessions/:id/generate",
     "controller": "SchedulingEnhancedController",
+    "module": "scheduling",
+    "permission": "schedule.manage_exams"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/scheduling/exam-sessions/:id/invigilator-pool",
+    "controller": "ExamSchedulingV2Controller",
+    "module": "scheduling",
+    "permission": "schedule.manage_exams"
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/scheduling/exam-sessions/:id/invigilator-pool",
+    "controller": "ExamSchedulingV2Controller",
     "module": "scheduling",
     "permission": "schedule.manage_exams"
   },
@@ -9857,8 +10095,71 @@
   },
   {
     "method": "POST",
+    "path": "/v1/scheduling/exam-sessions/:id/publish-v2",
+    "controller": "ExamSchedulingV2Controller",
+    "module": "scheduling",
+    "permission": "schedule.manage_exams"
+  },
+  {
+    "method": "GET",
     "path": "/v1/scheduling/exam-sessions/:id/slots",
     "controller": "SchedulingEnhancedController",
+    "module": "scheduling",
+    "permission": "schedule.manage_exams"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling/exam-sessions/:id/slots",
+    "controller": "SchedulingEnhancedController",
+    "module": "scheduling",
+    "permission": "schedule.manage_exams"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/scheduling/exam-sessions/:id/slots-detailed",
+    "controller": "ExamSchedulingV2Controller",
+    "module": "scheduling",
+    "permission": "schedule.manage_exams"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling/exam-sessions/:id/solve",
+    "controller": "ExamSchedulingV2Controller",
+    "module": "scheduling",
+    "permission": "schedule.manage_exams"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling/exam-sessions/:id/solve-jobs/:jobId/cancel",
+    "controller": "ExamSchedulingV2Controller",
+    "module": "scheduling",
+    "permission": "schedule.manage_exams"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/scheduling/exam-sessions/:id/solve-jobs/:jobId/progress",
+    "controller": "ExamSchedulingV2Controller",
+    "module": "scheduling",
+    "permission": "schedule.manage_exams"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/scheduling/exam-sessions/:id/subject-configs",
+    "controller": "ExamSchedulingV2Controller",
+    "module": "scheduling",
+    "permission": "schedule.manage_exams"
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/scheduling/exam-sessions/:id/subject-configs",
+    "controller": "ExamSchedulingV2Controller",
+    "module": "scheduling",
+    "permission": "schedule.manage_exams"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling/exam-sessions/:id/subject-configs/bulk",
+    "controller": "ExamSchedulingV2Controller",
     "module": "scheduling",
     "permission": "schedule.manage_exams"
   },
@@ -9867,7 +10168,7 @@
     "path": "/v1/scheduling/offers/:id/accept",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.report_own_absence"
+    "permission": "schedule.manage_substitutions"
   },
   {
     "method": "POST",
@@ -9952,6 +10253,13 @@
     "controller": "SchedulerOrchestrationController",
     "module": "scheduling",
     "permission": "schedule.view_auto_reports"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/scheduling/runs/:id/cancel",
+    "controller": "SchedulerOrchestrationController",
+    "module": "scheduling",
+    "permission": "schedule.run_auto"
   },
   {
     "method": "POST",
@@ -10253,6 +10561,13 @@
     "controller": "TeacherSchedulingConfigController",
     "module": "scheduling",
     "permission": "schedule.configure_availability"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/scheduling/teachers",
+    "controller": "SchedulingEnhancedController",
+    "module": "scheduling",
+    "permission": "schedule.report_own_absence"
   },
   {
     "method": "GET",
@@ -10988,6 +11303,62 @@
     "controller": "StripeWebhookController",
     "module": "finance",
     "permission": null
+  },
+  {
+    "method": "GET",
+    "path": "/v1/student/homework",
+    "controller": "HomeworkStudentController",
+    "module": "homework",
+    "permission": "homework.submit.own"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/student/homework/:id",
+    "controller": "HomeworkStudentController",
+    "module": "homework",
+    "permission": "homework.submit.own"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/student/homework/:id/attachments",
+    "controller": "HomeworkStudentController",
+    "module": "homework",
+    "permission": "homework.submit.own"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/student/homework/:id/attachments/:attachmentId",
+    "controller": "HomeworkStudentController",
+    "module": "homework",
+    "permission": "homework.submit.own"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/student/homework/:id/submit",
+    "controller": "HomeworkStudentController",
+    "module": "homework",
+    "permission": "homework.submit.own"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/student/homework/overdue",
+    "controller": "HomeworkStudentController",
+    "module": "homework",
+    "permission": "homework.submit.own"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/student/homework/this-week",
+    "controller": "HomeworkStudentController",
+    "module": "homework",
+    "permission": "homework.submit.own"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/student/homework/today",
+    "controller": "HomeworkStudentController",
+    "module": "homework",
+    "permission": "homework.submit.own"
   },
   {
     "method": "GET",
