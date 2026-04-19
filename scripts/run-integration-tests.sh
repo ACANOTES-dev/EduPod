@@ -29,13 +29,13 @@ PARALLEL_EXIT=0
 
 echo ""
 echo "=== Pass 1/2: serial colliders (--runInBand) ==="
-npx jest --config jest.integration.config.js --runInBand --bail=0 \
+npx jest --config jest.integration.config.js --runInBand --bail=0 --forceExit \
   --testPathPattern="$COLLIDERS_PATTERN" \
   || SERIAL_EXIT=$?
 
 echo ""
 echo "=== Pass 2/2: parallel (--maxWorkers=$MAX_WORKERS) ==="
-npx jest --config jest.integration.config.js --maxWorkers="$MAX_WORKERS" --bail=0 \
+npx jest --config jest.integration.config.js --maxWorkers="$MAX_WORKERS" --bail=0 --forceExit \
   --testPathIgnorePatterns "/node_modules/" "$COLLIDERS_PATTERN" \
   || PARALLEL_EXIT=$?
 
