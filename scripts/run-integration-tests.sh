@@ -25,12 +25,16 @@ esac
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT/apps/api"
 
-# Every *.rls.spec.ts file is pinned serial — they CREATE ROLE / do direct SQL
+# Every *rls.spec.ts file is pinned serial — they CREATE ROLE / do direct SQL
 # and race with each other on shared DB state. Plus a handful of e2e files that
 # share tenant UUIDs or scheduling/dashboard state.
-# Pattern is anchored with `/` to prevent substring matches (e.g.
-# `applications\.e2e-spec` must not match `parent-applications.e2e-spec`).
-COLLIDERS_PATTERN='/([^/]+\.rls\.spec|rls-leakage\.e2e-spec|rls-leakage-p2\.e2e-spec|rls-comprehensive\.e2e-spec|p6-finance\.e2e-spec|admissions-rls\.e2e-spec|applications\.e2e-spec|p4a-dashboard-exceptions\.e2e-spec|p4b-scheduling\.e2e-spec|auth\.e2e-spec)\.ts$'
+# The first alternative `[^/]+[.\-]rls\.spec` matches BOTH `.rls.spec.ts`
+# (e.g. `grades.rls.spec.ts`) and `-rls.spec.ts` (e.g.
+# `child-protection-rls.spec.ts`) — the two naming conventions used in the
+# codebase. Anchored with `/` to prevent substring matches across path
+# components (e.g. `applications\.e2e-spec` must not match
+# `parent-applications.e2e-spec`).
+COLLIDERS_PATTERN='/([^/]+[.\-]rls\.spec|rls-leakage\.e2e-spec|rls-leakage-p2\.e2e-spec|rls-comprehensive\.e2e-spec|p6-finance\.e2e-spec|admissions-rls\.e2e-spec|applications\.e2e-spec|p4a-dashboard-exceptions\.e2e-spec|p4b-scheduling\.e2e-spec|auth\.e2e-spec)\.ts$'
 
 MAX_WORKERS="${INTEGRATION_MAX_WORKERS:-4}"
 
