@@ -190,7 +190,16 @@ install_dependencies() {
   # `--config.production=false` is the explicit pnpm CLI flag that
   # disables the production-install short-circuit regardless of
   # NODE_ENV. This is deterministic and wrapper-proof.
-  CI=true pnpm install --frozen-lockfile --force --config.confirmModulesPurge=false --config.production=false
+  #
+  # `--frozen-lockfile` guarantees pnpm-lock.yaml is authoritative — no
+  # surprise version drift between deploys. Dropped `--force` (which
+  # recreates node_modules/ from scratch) because pnpm's local content-
+  # addressable store on the server is already warm and `--frozen-lockfile`
+  # reconciles against the lockfile without the rebuild overhead
+  # (~50 s per deploy saved, 2026-04-19). If the install ever fails due
+  # to a corrupt node_modules/ the error surfaces loudly at this step,
+  # so the risk is "louder deploy failure", not "silent prod regression".
+  CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false --config.production=false
 
   cleanup_build_outputs
 }
