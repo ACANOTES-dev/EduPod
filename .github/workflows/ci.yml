@@ -452,13 +452,16 @@ jobs:
   solver-py:
     # CP-SAT sidecar (Python) pytest + ruff + mypy + end-to-end integration
     # against the TS regression harness. Runs only when the sidecar or the
-    # shared scheduler contract changes — it's ~2 min for the full harness
-    # once the venv is primed, so gating on changed paths keeps the fast-PR
-    # loop honest.
+    # shared scheduler contract changes — it's ~14 min for the full harness
+    # once the watchdog fix (b3b0d14f) stopped short-circuiting tier-2 and
+    # tier-3 solves at 8 s pre-incumbent. 25 min gives headroom for the two
+    # known tier-3 solver hangs (each ~3 min under the hard deadline) plus
+    # legitimate full-budget solves on the others. Gated on changed paths
+    # to keep the fast-PR loop honest.
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true'
     needs: [changes]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     concurrency:
       group: solver-py-${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
