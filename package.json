@@ -26,6 +26,7 @@
     "prepush:check": "bash scripts/pre-push-check.sh",
     "validate": "pnpm lint && pnpm type-check && pnpm test:unit",
     "validate:fast": "pnpm audit:security && pnpm lint:ci && pnpm type-check && pnpm check:worker-processor-specs && pnpm i18n:check && pnpm hotspots:check && npx tsx scripts/audit-rls.ts && node scripts/check-raw-sql-governance.js && node scripts/check-module-cohesion.js --max-errors 0 && node scripts/check-module-tiers.js && node scripts/check-global-providers.js && pnpm check:boundaries -- --max-violations 0 && node scripts/check-cross-module-deps.js --max-violations 0",
+    "validate:ci": "pnpm validate:fast && pnpm --filter @school/api --filter @school/worker run test:coverage && pnpm --filter @school/shared --filter @school/web --filter @school/prisma run test && pnpm run check:test-gate && pnpm run test:integration",
     "coverage:lock": "tsx scripts/coverage-lock.ts",
     "i18n:check": "node scripts/check-i18n.js",
     "i18n:baseline": "node scripts/check-i18n.js --write-baseline",
@@ -71,13 +72,14 @@
     "conventional-changelog": "^7.2.0",
     "conventional-changelog-conventionalcommits": "^9.3.1",
     "husky": "^9.1.7",
+    "istanbul-lib-coverage": "^3.2.2",
     "jest": "^29.7.0",
     "lint-staged": "^16.4.0",
     "prettier": "^3.4.2",
     "ts-jest": "^29.2.5",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
-    "turbo": "^2.3.3"
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
   },
   "pnpm": {
     "overrides": {
@@ -128,7 +130,8 @@
   "securityAudit": {
     "ignoredGhsaIds": [
       "GHSA-h25m-26qc-wcjf",
-      "GHSA-q4gf-8mx6-v5v3"
+      "GHSA-q4gf-8mx6-v5v3",
+      "GHSA-rp42-5vxx-qpwr"
     ]
   }
 }

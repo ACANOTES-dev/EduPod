@@ -1,0 +1,30 @@
+services:
+  postgres-paralleltest:
+    image: postgres:16
+    container_name: school-db-paralleltest
+    ports:
+      - '5563:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: localpassword
+      POSTGRES_DB: paralleltest
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d paralleltest']
+      interval: 3s
+      timeout: 2s
+      retries: 20
+
+  redis-paralleltest:
+    image: redis:7
+    container_name: school-redis-paralleltest
+    ports:
+      - '5564:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 2s
+      retries: 20

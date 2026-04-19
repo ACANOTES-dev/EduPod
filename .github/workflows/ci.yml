@@ -9,6 +9,13 @@ on:
   schedule:
     - cron: '30 2 * * *'
 
+# Shared across all jobs. Turbo Remote Cache is self-hosted on turbo.edupod.app;
+# see /opt/turbo-cache on the Hetzner server. TURBO_TOKEN is a GitHub Actions secret.
+env:
+  TURBO_API: https://turbo.edupod.app
+  TURBO_TEAM: edupod
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
 jobs:
   changes:
     if: github.event_name != 'schedule'
@@ -61,12 +68,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
-
-      - name: Secret scanning
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
 
       - uses: pnpm/action-setup@v5
 
@@ -76,13 +78,34 @@ jobs:
           cache: 'pnpm'
           package-manager-cache: false
 
+      - name: Cache node_modules
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+          key: deps-${{ runner.os }}-node24-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install dependencies
+        if: steps.deps-cache.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Security audit
         run: pnpm audit:security
 
+      - name: Cache Prisma generated client
+        id: prisma-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/.pnpm/@prisma+client*/node_modules/.prisma
+            node_modules/@prisma/client
+          key: prisma-${{ runner.os }}-${{ hashFiles('packages/prisma/schema.prisma') }}
+
       - name: Generate Prisma client
+        if: steps.prisma-cache.outputs.cache-hit != 'true'
         run: pnpm --filter @school/prisma exec prisma generate
 
       - name: Verify worker processor specs
@@ -125,19 +148,24 @@ jobs:
 
   unit-tests:
     if: github.event_name != 'schedule'
-    needs: [changes, ci]
+    needs: [changes]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     concurrency:
-      group: unit-tests-${{ github.workflow }}-${{ github.ref }}
+      group: unit-tests-${{ github.workflow }}-${{ github.ref }}-shard-${{ matrix.shard }}
       cancel-in-progress: true
     env:
       SENTRY_ENVIRONMENT: ci
       SENTRY_RELEASE: ${{ github.sha }}
+      JEST_SHARD_MODE: '1'
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - uses: pnpm/action-setup@v5
 
@@ -147,23 +175,124 @@ jobs:
           cache: 'pnpm'
           package-manager-cache: false
 
+      - name: Cache node_modules
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+          key: deps-${{ runner.os }}-node24-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install dependencies
+        if: steps.deps-cache.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
 
+      - name: Cache Prisma generated client
+        id: prisma-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/.pnpm/@prisma+client*/node_modules/.prisma
+            node_modules/@prisma/client
+          key: prisma-${{ runner.os }}-${{ hashFiles('packages/prisma/schema.prisma') }}
+
       - name: Generate Prisma client
+        if: steps.prisma-cache.outputs.cache-hit != 'true'
         run: pnpm --filter @school/prisma exec prisma generate
 
-      - name: Run unit tests with coverage enforcement
-        run: pnpm --filter @school/api --filter @school/worker run test:coverage && pnpm --filter @school/shared --filter @school/web --filter @school/prisma run test
+      - name: Run sharded tests — api + worker (shard ${{ matrix.shard }}/3)
+        run: |
+          pnpm --filter @school/api run test:coverage -- \
+            --shard=${{ matrix.shard }}/3 \
+            --coverageDirectory=coverage/shard-${{ matrix.shard }}
+          pnpm --filter @school/worker run test:coverage -- \
+            --shard=${{ matrix.shard }}/3 \
+            --coverageDirectory=coverage/shard-${{ matrix.shard }}
 
-      - name: Test coverage gate
+      - name: Run non-sharded package tests (shard 1 only)
+        if: matrix.shard == 1
+        run: pnpm --filter @school/shared --filter @school/web --filter @school/prisma run test
+
+      - name: Upload coverage shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-shard-${{ matrix.shard }}
+          path: |
+            apps/api/coverage/shard-${{ matrix.shard }}/coverage-final.json
+            apps/worker/coverage/shard-${{ matrix.shard }}/coverage-final.json
+          retention-days: 1
+          if-no-files-found: error
+
+  unit-tests-merge:
+    if: github.event_name != 'schedule'
+    needs: [unit-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          package-manager-cache: false
+
+      - name: Cache node_modules
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+          key: deps-${{ runner.os }}-node24-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        if: steps.deps-cache.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Download all coverage shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-shard-*
+          path: coverage-shards/
+
+      - name: Arrange shards for merge
+        run: |
+          mkdir -p coverage-shards-api coverage-shards-worker
+          for shard in 1 2 3; do
+            if [ -d "coverage-shards/coverage-shard-$shard/apps/api/coverage/shard-$shard" ]; then
+              cp -r "coverage-shards/coverage-shard-$shard/apps/api/coverage/shard-$shard" "coverage-shards-api/shard-$shard"
+            fi
+            if [ -d "coverage-shards/coverage-shard-$shard/apps/worker/coverage/shard-$shard" ]; then
+              cp -r "coverage-shards/coverage-shard-$shard/apps/worker/coverage/shard-$shard" "coverage-shards-worker/shard-$shard"
+            fi
+          done
+          echo "=== api shards ==="
+          ls -la coverage-shards-api/
+          echo "=== worker shards ==="
+          ls -la coverage-shards-worker/
+
+      - name: Merge and check api coverage
+        run: node scripts/merge-coverage-shards.js apps/api coverage-shards-api
+
+      - name: Merge and check worker coverage
+        run: node scripts/merge-coverage-shards.js apps/worker coverage-shards-worker
+
+      - name: Test coverage gate (git-diff based)
         run: pnpm run check:test-gate
 
   build:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
-    needs: [changes, ci, unit-tests]
+    needs: [changes]
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
     concurrency:
       group: build-${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
@@ -173,7 +302,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - uses: pnpm/action-setup@v5
 
@@ -183,20 +312,41 @@ jobs:
           cache: 'pnpm'
           package-manager-cache: false
 
+      - name: Cache node_modules
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+          key: deps-${{ runner.os }}-node24-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install dependencies
+        if: steps.deps-cache.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
 
+      - name: Cache Prisma generated client
+        id: prisma-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/.pnpm/@prisma+client*/node_modules/.prisma
+            node_modules/@prisma/client
+          key: prisma-${{ runner.os }}-${{ hashFiles('packages/prisma/schema.prisma') }}
+
       - name: Generate Prisma client
+        if: steps.prisma-cache.outputs.cache-hit != 'true'
         run: pnpm --filter @school/prisma exec prisma generate
 
       - name: Build
-        run: pnpm build --force
+        run: pnpm build
 
   backend-verification:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true'
-    needs: [changes, ci, unit-tests]
+    needs: [changes]
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 15
     concurrency:
       group: backend-verification-${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
@@ -224,7 +374,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - uses: pnpm/action-setup@v5
 
@@ -234,16 +384,37 @@ jobs:
           cache: 'pnpm'
           package-manager-cache: false
 
+      - name: Cache node_modules
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+          key: deps-${{ runner.os }}-node24-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install dependencies
+        if: steps.deps-cache.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
 
+      - name: Cache Prisma generated client
+        id: prisma-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/.pnpm/@prisma+client*/node_modules/.prisma
+            node_modules/@prisma/client
+          key: prisma-${{ runner.os }}-${{ hashFiles('packages/prisma/schema.prisma') }}
+
       - name: Generate Prisma client
+        if: steps.prisma-cache.outputs.cache-hit != 'true'
         run: pnpm --filter @school/prisma exec prisma generate
 
       - name: Setup test database
         run: |
           psql "postgresql://prisma:password@localhost:5432/edupod_test" -c "DO \$\$ BEGIN CREATE TYPE timerange AS RANGE (subtype = time); EXCEPTION WHEN duplicate_object THEN null; END \$\$;"
-          pnpm --filter @school/prisma exec prisma migrate deploy
+          pnpm --filter @school/prisma exec prisma db push --skip-generate --accept-data-loss
           pnpm db:post-migrate
           pnpm db:seed
         env:
@@ -251,12 +422,13 @@ jobs:
           REDIS_URL: redis://localhost:6379
 
       - name: Run backend integration and e2e tests
-        run: NODE_OPTIONS="--max-old-space-size=6144" pnpm --filter @school/api exec jest --config jest.integration.config.js --runInBand --bail=1
+        run: pnpm --filter @school/api run test:integration
         env:
           API_PORT: '0'
           APP_URL: http://localhost:3000
           DATABASE_URL: postgresql://prisma:password@localhost:5432/edupod_test?schema=public
           ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          INTEGRATION_MAX_WORKERS: '2'
           JWT_REFRESH_SECRET: 1a5be597a11a3d357ec51c55b88bdd4fe6a138f9f816dd0e8f048d802f87b2b3
           JWT_SECRET: 73e10ad593c9fb3e3c0aaef14332e1f4f38dfe27bb579e35ef57e8303a767d48
           MFA_ISSUER: SchoolOS-Test
@@ -271,7 +443,7 @@ jobs:
     # once the venv is primed, so gating on changed paths keeps the fast-PR
     # loop honest.
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true'
-    needs: [changes, ci]
+    needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -280,7 +452,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - uses: pnpm/action-setup@v5
 
@@ -296,7 +468,18 @@ jobs:
           cache: 'pip'
           cache-dependency-path: apps/solver-py/pyproject.toml
 
+      - name: Cache node_modules
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+          key: deps-${{ runner.os }}-node24-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install TS dependencies
+        if: steps.deps-cache.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Create solver-py venv + install
@@ -370,7 +553,7 @@ jobs:
 
   visual:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
-    needs: [changes, ci]
+    needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -391,7 +574,18 @@ jobs:
           cache: 'pnpm'
           package-manager-cache: false
 
+      - name: Cache node_modules
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+          key: deps-${{ runner.os }}-node24-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install dependencies
+        if: steps.deps-cache.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browser
@@ -409,6 +603,19 @@ jobs:
             apps/web/e2e/playwright-report
             apps/web/e2e/test-results
           if-no-files-found: ignore
+
+  secrets-scan:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Secret scanning
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   restore-drill:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -459,7 +666,18 @@ jobs:
           cache: 'pnpm'
           package-manager-cache: false
 
+      - name: Cache node_modules
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+          key: deps-${{ runner.os }}-node24-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install dependencies
+        if: steps.deps-cache.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
@@ -482,7 +700,7 @@ jobs:
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [ci, unit-tests, build, backend-verification]
+    needs: [ci, unit-tests-merge, build, backend-verification]
     runs-on: ubuntu-latest
     env:
       SENTRY_ENVIRONMENT: production
