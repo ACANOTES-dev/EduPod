@@ -32,7 +32,10 @@ interface RoleOption {
 export interface StaffFormValues {
   first_name: string;
   last_name: string;
-  email: string;
+  // `email` is no longer part of the create payload — the system auto-generates
+  // the login email as `{staff_number}@{tenant-domain}`. Retained on the shape
+  // only for display in edit/view mode (read-only, populated from the API).
+  email?: string;
   phone: string;
   role_id: string;
   staff_number: string;
@@ -55,15 +58,18 @@ interface StaffFormProps {
 }
 
 // ─── Staff Number Generator ──────────────────────────────────────────────────
+// Client-side preview only — the server generates the authoritative value via
+// TenantCodePoolService (which enforces tenant-wide uniqueness against the
+// shared household_number / staff_number pool). Matches the 6-char LLLDDD
+// format used by the server.
 
 function generateStaffNumber(): string {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const letterPart = Array.from({ length: 3 }, () => letters[Math.floor(Math.random() * 26)]).join(
     '',
   );
-  const numberPart = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-  const lastDigit = Math.floor(Math.random() * 10);
-  return `${letterPart}${numberPart}-${lastDigit}`;
+  const numberPart = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+  return `${letterPart}${numberPart}`;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -98,7 +104,6 @@ export function StaffForm({
     defaultValues: {
       first_name: initialValues?.first_name ?? '',
       last_name: initialValues?.last_name ?? '',
-      email: initialValues?.email ?? '',
       phone: initialValues?.phone ?? '',
       role_id: initialValues?.role_id ?? '',
       job_title: initialValues?.job_title ?? '',
@@ -121,7 +126,10 @@ export function StaffForm({
         const filtered = res.data.filter((r) => r.role_tier !== 'platform');
         setRoles(filtered);
       })
-      .catch((err) => { console.error('[StaffForm]', err); return setRoles([]); });
+      .catch((err) => {
+        console.error('[StaffForm]', err);
+        return setRoles([]);
+      });
   }, []);
 
   // ─── Staff number regeneration ───────────────────────────────────────────────
@@ -171,19 +179,22 @@ export function StaffForm({
                 </p>
               )}
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="email">{t('fieldEmail')}</Label>
-              <Input
-                id="email"
-                type="email"
-                dir="ltr"
-                {...form.register('email')}
-                className="text-base"
-              />
-              {form.formState.errors.email && (
-                <p className="text-xs text-danger-text">{form.formState.errors.email.message}</p>
-              )}
-            </div>
+            {isEdit && initialValues?.email && (
+              <div className="space-y-1.5">
+                <Label htmlFor="email">{t('fieldEmail')}</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  dir="ltr"
+                  value={initialValues.email}
+                  readOnly
+                  className="text-base bg-surface-secondary"
+                />
+                <p className="text-xs text-text-tertiary">
+                  Auto-generated from staff number — cannot be changed.
+                </p>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="phone">{t('fieldPhone')}</Label>
               <Input

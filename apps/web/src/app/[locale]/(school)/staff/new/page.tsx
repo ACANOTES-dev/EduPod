@@ -7,12 +7,10 @@ import * as React from 'react';
 
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { StaffForm, type StaffFormValues } from '../_components/staff-form';
-
 
 interface CreatedCredentials {
   name: string;
@@ -57,7 +55,6 @@ export default function NewStaffPage() {
     const payload = {
       first_name: values.first_name,
       last_name: values.last_name,
-      email: values.email,
       phone: values.phone,
       role_id: values.role_id,
       job_title: values.job_title || undefined,
@@ -68,15 +65,19 @@ export default function NewStaffPage() {
       bank_account_number: values.bank_account_number || undefined,
       bank_iban: values.bank_iban || undefined,
     };
-    await apiClient('/api/v1/staff-profiles', {
+    const res = await apiClient<{
+      id: string;
+      staff_number: string;
+      user: { email: string; first_name: string; last_name: string };
+    }>('/api/v1/staff-profiles', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
 
     setCredentials({
-      name: `${values.first_name} ${values.last_name}`,
-      email: values.email,
-      staffNumber: values.staff_number,
+      name: `${res.user.first_name} ${res.user.last_name}`,
+      email: res.user.email,
+      staffNumber: res.staff_number,
     });
   };
 
