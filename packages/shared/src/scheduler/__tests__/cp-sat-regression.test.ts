@@ -40,7 +40,13 @@ import { PARITY_FIXTURES, type ParityFixture } from './fixtures/parity-fixtures'
 const SIDECAR_PORT = Number(process.env.CP_SAT_SIDECAR_PORT ?? 5557);
 const SIDECAR_URL = `http://127.0.0.1:${SIDECAR_PORT}/solve`;
 const SIDECAR_HEALTH_URL = `http://127.0.0.1:${SIDECAR_PORT}/health`;
-const SIDECAR_TIMEOUT_MS = 5 * 60_000;
+// Per-solve fetch timeout. Every successful fixture under observation
+// completes in well under 10s; fixtures that hit this cap are solver
+// hangs (tier-3-irish-secondary, tier-3-supervision-realistic-large
+// observed 2026-04-19). Keep the cap low so a wedge budgets 2 min, not
+// 5 — with 9 fixtures and two known wedges the harness must stay inside
+// jest's 15-min beforeAll budget even on the slowest runner.
+const SIDECAR_TIMEOUT_MS = 2 * 60_000;
 
 // Resolve uvicorn from the solver-py venv. CI sets this explicitly via
 // $CP_SAT_SIDECAR_UVICORN; locally we fall back to the repo's venv.
