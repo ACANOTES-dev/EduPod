@@ -54,7 +54,7 @@
     "check:test-gate": "bash scripts/check-test-coverage-gate.sh",
     "drill:restore": "bash scripts/ci-restore-drill.sh",
     "drill:restore-s3": "bash scripts/backup-drill.sh --from-s3",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
