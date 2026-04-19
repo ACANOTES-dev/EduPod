@@ -118,7 +118,12 @@ export class ComplianceAnonymisationCore {
         cleanup.unreadNotificationUserIds.add(subjectId);
         cleanup.sessionUserIds.add(subjectId);
         await this.addMembershipCleanup(tx, tenantId, subjectId, cleanup);
-        await this.anonymiseNotificationRecipientRecords(tx, tenantId, subjectId, buildTag(subjectId));
+        await this.anonymiseNotificationRecipientRecords(
+          tx,
+          tenantId,
+          subjectId,
+          buildTag(subjectId),
+        );
 
         const linkedParentIds = await this.findLinkedParentIds(tx, tenantId, subjectId);
         for (const parentId of linkedParentIds) {
@@ -186,14 +191,16 @@ export class ComplianceAnonymisationCore {
     };
   }
 
-  async anonymiseParent(
-    tenantId: string,
-    parentId: string,
-    tx: PrismaClient,
-  ): Promise<void> {
+  async anonymiseParent(tenantId: string, parentId: string, tx: PrismaClient): Promise<void> {
     const cleanup = this.createCleanupAccumulator();
     const tokenEntityIds = new Set<string>([parentId]);
-    const result = await this.anonymiseParentRecord(tx, tenantId, parentId, cleanup, tokenEntityIds);
+    const result = await this.anonymiseParentRecord(
+      tx,
+      tenantId,
+      parentId,
+      cleanup,
+      tokenEntityIds,
+    );
 
     if (result.anonymised && !result.alreadyAnonymised && tokenEntityIds.size > 0) {
       await tx.gdprAnonymisationToken.deleteMany({
@@ -205,14 +212,16 @@ export class ComplianceAnonymisationCore {
     }
   }
 
-  async anonymiseStudent(
-    tenantId: string,
-    studentId: string,
-    tx: PrismaClient,
-  ): Promise<void> {
+  async anonymiseStudent(tenantId: string, studentId: string, tx: PrismaClient): Promise<void> {
     const cleanup = this.createCleanupAccumulator();
     const tokenEntityIds = new Set<string>([studentId]);
-    const result = await this.anonymiseStudentRecord(tx, tenantId, studentId, cleanup, tokenEntityIds);
+    const result = await this.anonymiseStudentRecord(
+      tx,
+      tenantId,
+      studentId,
+      cleanup,
+      tokenEntityIds,
+    );
 
     if (result.anonymised && !result.alreadyAnonymised && tokenEntityIds.size > 0) {
       await tx.gdprAnonymisationToken.deleteMany({
@@ -224,14 +233,16 @@ export class ComplianceAnonymisationCore {
     }
   }
 
-  async anonymiseHousehold(
-    tenantId: string,
-    householdId: string,
-    tx: PrismaClient,
-  ): Promise<void> {
+  async anonymiseHousehold(tenantId: string, householdId: string, tx: PrismaClient): Promise<void> {
     const cleanup = this.createCleanupAccumulator();
     const tokenEntityIds = new Set<string>([householdId]);
-    const result = await this.anonymiseHouseholdRecord(tx, tenantId, householdId, cleanup, tokenEntityIds);
+    const result = await this.anonymiseHouseholdRecord(
+      tx,
+      tenantId,
+      householdId,
+      cleanup,
+      tokenEntityIds,
+    );
 
     if (result.anonymised && !result.alreadyAnonymised && tokenEntityIds.size > 0) {
       await tx.gdprAnonymisationToken.deleteMany({
@@ -243,11 +254,7 @@ export class ComplianceAnonymisationCore {
     }
   }
 
-  async anonymiseStaff(
-    tenantId: string,
-    staffProfileId: string,
-    tx: PrismaClient,
-  ): Promise<void> {
+  async anonymiseStaff(tenantId: string, staffProfileId: string, tx: PrismaClient): Promise<void> {
     const cleanup = this.createCleanupAccumulator();
     const result = await this.anonymiseStaffRecord(tx, tenantId, staffProfileId, null, cleanup);
 
@@ -305,7 +312,14 @@ export class ComplianceAnonymisationCore {
     await this.anonymiseInquiryThreads(tx, tenantId, inquiryIds, tag, { clearStudentLink: false });
 
     const applicationIds = await this.findApplicationsByParent(tx, tenantId, parentId);
-    await this.anonymiseApplications(tx, tenantId, applicationIds, 'parent', tokenEntityIds, cleanup);
+    await this.anonymiseApplications(
+      tx,
+      tenantId,
+      applicationIds,
+      'parent',
+      tokenEntityIds,
+      cleanup,
+    );
 
     await this.anonymiseBehaviourRecords(tx, tenantId, tag, { parent_id: parentId });
 
@@ -358,7 +372,7 @@ export class ComplianceAnonymisationCore {
     const attendanceRecordIds = await this.findAttendanceRecordIds(tx, tenantId, studentId);
 
     cleanup.searchRemovals.add(encodeSearchRemoval('students', studentId));
-    cleanup.previewKeys.add(`preview:student:${studentId}`);
+    cleanup.previewKeys.add(`preview:student:${tenantId}:${studentId}`);
     cleanup.cachePatterns.add(`ai:progress_summary:${tenantId}:${studentId}:*`);
     cleanup.cachePatterns.add(`behaviour:points:${tenantId}:${studentId}:*`);
     cleanup.cachePatterns.add(`transcript:${tenantId}:${studentId}`);
@@ -427,7 +441,14 @@ export class ComplianceAnonymisationCore {
       },
       parentIds,
     );
-    await this.anonymiseApplications(tx, tenantId, applicationIds, 'student', tokenEntityIds, cleanup);
+    await this.anonymiseApplications(
+      tx,
+      tenantId,
+      applicationIds,
+      'student',
+      tokenEntityIds,
+      cleanup,
+    );
 
     await this.anonymiseBehaviourRecords(tx, tenantId, tag, { student_id: studentId });
 
@@ -473,9 +494,9 @@ export class ComplianceAnonymisationCore {
     const studentIds = students.map((student) => student.id);
 
     cleanup.searchRemovals.add(encodeSearchRemoval('households', householdId));
-    cleanup.previewKeys.add(`preview:household:${householdId}`);
+    cleanup.previewKeys.add(`preview:household:${tenantId}:${householdId}`);
     for (const studentId of studentIds) {
-      cleanup.previewKeys.add(`preview:student:${studentId}`);
+      cleanup.previewKeys.add(`preview:student:${tenantId}:${studentId}`);
     }
     tokenEntityIds.add(householdId);
 
@@ -503,7 +524,14 @@ export class ComplianceAnonymisationCore {
       students,
       parentIds,
     );
-    await this.anonymiseApplications(tx, tenantId, applicationIds, 'household', tokenEntityIds, cleanup);
+    await this.anonymiseApplications(
+      tx,
+      tenantId,
+      applicationIds,
+      'household',
+      tokenEntityIds,
+      cleanup,
+    );
 
     return { anonymised: true };
   }
@@ -535,7 +563,7 @@ export class ComplianceAnonymisationCore {
 
     const tag = buildTag(staffProfileId);
     cleanup.searchRemovals.add(encodeSearchRemoval('staff', staffProfileId));
-    cleanup.previewKeys.add(`preview:staff:${staffProfileId}`);
+    cleanup.previewKeys.add(`preview:staff:${tenantId}:${staffProfileId}`);
 
     if (userId) {
       cleanup.unreadNotificationUserIds.add(userId);
@@ -746,12 +774,8 @@ export class ComplianceAnonymisationCore {
       where: {
         tenant_id: tenantId,
         OR: [
-          ...(params.parentIds.length > 0
-            ? [{ parent_id: { in: params.parentIds } }]
-            : []),
-          ...(params.studentIds.length > 0
-            ? [{ student_id: { in: params.studentIds } }]
-            : []),
+          ...(params.parentIds.length > 0 ? [{ parent_id: { in: params.parentIds } }] : []),
+          ...(params.studentIds.length > 0 ? [{ student_id: { in: params.studentIds } }] : []),
         ],
       },
       select: { id: true },
@@ -924,7 +948,11 @@ export class ComplianceAnonymisationCore {
     const incidentIds = [...new Set(participants.map((p) => p.incident_id))];
 
     // Clear PII on the participant records belonging to this subject
-    const participantData: { notes: null; external_name: null; student_snapshot?: typeof Prisma.DbNull } = {
+    const participantData: {
+      notes: null;
+      external_name: null;
+      student_snapshot?: typeof Prisma.DbNull;
+    } = {
       notes: null,
       external_name: null,
     };
@@ -1231,10 +1259,7 @@ function isJsonObject(value: JsonLike): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function encodeSearchRemoval(
-  entityType: AnonymisationSearchEntityType,
-  entityId: string,
-): string {
+function encodeSearchRemoval(entityType: AnonymisationSearchEntityType, entityId: string): string {
   return `${entityType}:${entityId}`;
 }
 
