@@ -152,8 +152,21 @@ Before touching the server, re-read `wellbeing_new/IMPLEMENTATION_LOG.md` and sc
    - Worker only: `pnpm turbo run build --filter=@school/worker` then `pm2 restart worker --update-env`
    - Web only: clear `.next` → `pnpm turbo run build --filter=@school/web` then `pm2 restart web --update-env`
    - Schema change → full build and restart all three
+
+   **If your impl touches `packages/shared` or `packages/prisma`** (shared schema types, new Zod schemas, new event types, etc.), you MUST also clear both the dist AND the incremental tsbuildinfo before rebuild:
+
+   ```bash
+   # On the server, as edupod:
+   rm -rf packages/shared/dist packages/shared/tsconfig.tsbuildinfo
+   rm -rf packages/prisma/dist packages/prisma/tsconfig.build.tsbuildinfo
+   pnpm --filter @school/shared --filter @school/prisma run build
+   # THEN the api/worker filter build + pm2 restart
+   ```
+
+   **Why:** `packages/shared` and `packages/prisma` use `tsc --incremental`. If you delete `dist/` but leave `tsconfig.tsbuildinfo` behind, tsc thinks nothing changed and emits only a partial (or empty) output. Turbo's cache will happily replay "success" logs on top of this corruption. Symptom: API crash-loops on boot with `Cannot find module '@school/shared/dist/index.js'` from `rls.middleware.js:5`. This cost impl 08 ~500 pm2 restarts before diagnosis. The turbo cache and tsc incremental cache are independent — clearing one without the other produces silent corruption.
+
 7. **Smoke test** against the production URL. Web impl: hit `/en/login` and a representative page from your impl. API impl: curl the health endpoint + one endpoint you just built. Worker impl: check `pm2 logs worker` for the new processor / cron registration.
-8. If smoke test fails, investigate. Common issues: missed env var, stale `.next` build, module registration forgotten. Fix forward with a follow-up commit.
+8. If smoke test fails, investigate. Common issues: missed env var, stale `.next` build, module registration forgotten, or the shared/prisma tsbuildinfo issue in §6. Fix forward with a follow-up commit.
 
 ## Step 7 · Update the log — completion record
 

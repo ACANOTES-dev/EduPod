@@ -55,6 +55,17 @@ The rebuild is split into **24 implementations across 7 waves**. See §3 for the
 
 **Rule 12 — Translations are mandatory in both `en.json` and `ar.json`.** No new English string ships without its Arabic counterpart. The translation backfill in Wave 4 covers existing missing keys; every new key in Waves 5 and 6 lands in both locale files in the same commit.
 
+**Rule 13 — On production, `rm -rf dist` MUST be paired with `rm tsconfig.tsbuildinfo`.** `packages/shared` and `packages/prisma` use `tsc --incremental`. If you delete `dist/` but leave `tsconfig.tsbuildinfo` behind, tsc thinks nothing has changed and emits only a partial (or empty) output — turbo's cache will happily replay "success" logs on top of this. Symptom: API crash-loops on boot with `Cannot find module '@school/shared/dist/index.js'` (usually from `rls.middleware.js:5`). This cost impl 08 about 5 minutes and ~500 pm2 restarts before diagnosis. Always:
+
+```bash
+# BOTH together, every time you bust the dist cache:
+rm -rf packages/shared/dist packages/shared/tsconfig.tsbuildinfo
+rm -rf packages/prisma/dist packages/prisma/tsconfig.build.tsbuildinfo
+pnpm --filter @school/shared --filter @school/prisma run build
+```
+
+Then rebuild api/worker. The turbo cache and tsc incremental cache are independent — clearing one without the other produces silent corruption.
+
 ### 2b. Hardened rules for parallel coding (Waves 4, 5, 6)
 
 These rules exist because the `new-inbox` rebuild's Wave 4 lost work to lint-staged's auto-stash interacting with `git add .` and unstaged sibling files. Apply these on EVERY frontend impl in Waves 4, 5, 6. They are the difference between a clean parallel run and a 90-minute revert war.
