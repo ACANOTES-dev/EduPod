@@ -729,6 +729,7 @@ model Tenant {
   behaviour_guardian_restrictions    BehaviourGuardianRestriction[]
   behaviour_publication_approvals    BehaviourPublicationApproval[]
   behaviour_legal_holds              BehaviourLegalHold[]
+  behaviour_ai_query_history         BehaviourAiQueryHistory[]
   safeguarding_concerns              SafeguardingConcern[]
   safeguarding_actions               SafeguardingAction[]
   safeguarding_concern_incidents     SafeguardingConcernIncident[]
@@ -1280,6 +1281,7 @@ model User {
   bh_publication_approvals_admin    BehaviourPublicationApproval[] @relation("bh_publication_admin")
   bh_legal_holds_set                BehaviourLegalHold[]           @relation("bh_legal_hold_setter")
   bh_legal_holds_released           BehaviourLegalHold[]           @relation("bh_legal_hold_releaser")
+  bh_ai_query_history               BehaviourAiQueryHistory[]      @relation("bh_ai_query_history_user")
   sg_concerns_reported              SafeguardingConcern[]          @relation("sg_concern_reporter")
   sg_concerns_liaison               SafeguardingConcern[]          @relation("sg_concern_liaison")
   sg_concerns_assigned              SafeguardingConcern[]          @relation("sg_concern_assignee")
@@ -8284,6 +8286,29 @@ model BehaviourLegalHold {
 
   @@index([tenant_id, entity_type, entity_id, status], name: "idx_behaviour_legal_holds_entity")
   @@map("behaviour_legal_holds")
+}
+
+// Persisted natural-language AI query history. Each row is one
+// question/answer round-trip. Per-user history is scoped via user_id;
+// admins with `behaviour.view_staff_analytics` read cross-user from
+// the service layer. Added by Wellbeing Rebuild impl 05.
+model BehaviourAiQueryHistory {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String   @db.Uuid
+  user_id      String   @db.Uuid
+  question     String   @db.Text
+  answer       String   @db.Text
+  data_payload Json?    @db.JsonB
+  citations    Json?    @db.JsonB
+  generated_at DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user   User   @relation("bh_ai_query_history_user", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, user_id, generated_at(sort: Desc)], map: "idx_behaviour_ai_query_history_tenant_user_generated")
+  @@index([tenant_id, generated_at(sort: Desc)], map: "idx_behaviour_ai_query_history_tenant_generated")
+  @@map("behaviour_ai_query_history")
 }
 
 // ─── Safeguarding Models ────────────────────────────────────────────────────

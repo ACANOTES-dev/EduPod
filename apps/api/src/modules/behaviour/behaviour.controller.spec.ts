@@ -138,12 +138,6 @@ describe('BehaviourController', () => {
     expect(result).toEqual({ created: 2 });
   });
 
-  it('should return stub response for aiParse', async () => {
-    const result = await controller.aiParse();
-
-    expect(result).toEqual({ data: null, message: 'AI parse not yet implemented' });
-  });
-
   it('should call behaviourService.listIncidents with tenant_id, user_id, permissions, and query', async () => {
     const query = { page: 1, pageSize: 20 };
     const permissions = ['behaviour.view', 'behaviour.manage'];

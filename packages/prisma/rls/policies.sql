@@ -2725,3 +2725,16 @@ DROP POLICY IF EXISTS tenant_notification_preferences_tenant_isolation ON tenant
 CREATE POLICY tenant_notification_preferences_tenant_isolation ON tenant_notification_preferences
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- =============================================================
+-- Wellbeing Rebuild — Impl 05: Behaviour AI query history
+-- =============================================================
+-- Defined in: packages/prisma/migrations/20260420200000_add_behaviour_ai_query_history/post_migrate.sql
+
+-- behaviour_ai_query_history (per-user AI NL query log)
+ALTER TABLE behaviour_ai_query_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE behaviour_ai_query_history FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS behaviour_ai_query_history_tenant_isolation ON behaviour_ai_query_history;
+CREATE POLICY behaviour_ai_query_history_tenant_isolation ON behaviour_ai_query_history
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);

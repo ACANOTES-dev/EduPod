@@ -25,3 +25,4 @@ export * from './document.schema';
 export * from './parent-behaviour.schema';
 export * from './legal-hold.schema';
 export * from './admin-ops.schema';
+export * from './ai-parse.schema';

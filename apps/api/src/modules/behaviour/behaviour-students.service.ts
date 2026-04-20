@@ -96,14 +96,16 @@ export class BehaviourStudentsService {
           },
         },
         orderBy: { last_name: 'asc' },
-      }) as Promise<Array<{
-        id: string;
-        first_name: string;
-        last_name: string;
-        student_number: string | null;
-        year_group: { id: string; name: string } | null;
-        _count: { bh_incident_participants: number };
-      }>>,
+      }) as Promise<
+        Array<{
+          id: string;
+          first_name: string;
+          last_name: string;
+          student_number: string | null;
+          year_group: { id: string; name: string } | null;
+          _count: { bh_incident_participants: number };
+        }>
+      >,
       this.studentReadFacade.count(tenantId, studentFilter),
     ]);
 
@@ -536,15 +538,6 @@ export class BehaviourStudentsService {
   }
 
   // ─── 5. Student AI Summary ─────────────────────────────────────────────────
-
-  /**
-   * Returns null data with a message — the AI service handles NL queries,
-   * not per-student summaries. A dedicated student summary endpoint
-   * would require a separate AI prompt pipeline.
-   */
-  async getStudentAiSummary(_tenantId: string, _studentId: string) {
-    return { data: null, message: 'AI summary not available' };
-  }
 
   // ─── 7. Parent View ────────────────────────────────────────────────────────
 

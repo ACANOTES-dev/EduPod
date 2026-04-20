@@ -1,5 +1,6 @@
 import {
-  ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   ServiceUnavailableException,
@@ -10,17 +11,23 @@ import {
   anonymiseForAI,
   type AnonymiseOptions,
 } from '@school/shared/ai';
-import type { AIQueryHistoryResult, AIQueryInput, AIQueryResult } from '@school/shared/behaviour';
+import type {
+  AIQueryHistoryEntry,
+  AIQueryHistoryResult,
+  AIQueryInput,
+  AIQueryResult,
+} from '@school/shared/behaviour';
 import type { GdprOutboundData } from '@school/shared/gdpr';
 
-import { AnthropicClientService } from '../ai/anthropic-client.service';
-import { AuditLogReadFacade } from '../audit-log/audit-log-read.facade';
-import { AiAuditService } from '../gdpr/ai-audit.service';
-import { GdprTokenService } from '../gdpr/gdpr-token.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AnthropicClientService } from '../../ai/anthropic-client.service';
+import { AiAuditService } from '../../gdpr/ai-audit.service';
+import { GdprTokenService } from '../../gdpr/gdpr-token.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { BehaviourAnalyticsService } from '../behaviour-analytics.service';
+import { BehaviourScopeService } from '../behaviour-scope.service';
 
-import { BehaviourAnalyticsService } from './behaviour-analytics.service';
-import { BehaviourScopeService } from './behaviour-scope.service';
+import { BehaviourAiRateLimiterService } from './behaviour-ai-rate-limiter.service';
 
 /** AI request timeout in milliseconds. */
 const AI_TIMEOUT_MS = 15_000;
@@ -36,7 +43,7 @@ export class BehaviourAIService {
     private readonly anthropicClient: AnthropicClientService,
     private readonly gdprTokenService: GdprTokenService,
     private readonly aiAuditService: AiAuditService,
-    private readonly auditLogReadFacade: AuditLogReadFacade,
+    private readonly rateLimiter: BehaviourAiRateLimiterService,
   ) {}
 
   /**
@@ -48,7 +55,7 @@ export class BehaviourAIService {
     userId: string,
     permissions: string[],
     input: AIQueryInput,
-    settings: Record<string, unknown>,
+    _settings: Record<string, unknown>,
   ): Promise<AIQueryResult> {
     // Check AI availability
     if (!this.anthropicClient.isConfigured) {
@@ -60,14 +67,20 @@ export class BehaviourAIService {
       });
     }
 
-    // Check AI gate
-    if (!settings.ai_nl_query_enabled) {
-      throw new ForbiddenException({
-        error: {
-          code: 'AI_FEATURE_DISABLED',
-          message: 'AI queries are not enabled for your school.',
+    // Rate limit per-user. The @RequiresAiFlag guard has already confirmed
+    // the tenant has AI enabled for behaviour.
+    const rate = this.rateLimiter.check(tenantId, userId);
+    if (!rate.allowed) {
+      throw new HttpException(
+        {
+          error: {
+            code: 'AI_RATE_LIMITED',
+            message: 'AI query rate limit exceeded. Try again later.',
+            details: { retry_after_ms: rate.retryAfterMs },
+          },
         },
-      });
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     // Resolve scope
@@ -154,30 +167,26 @@ export class BehaviourAIService {
     // De-tokenise AI response via GDPR gateway
     const result = await this.gdprTokenService.processInbound(tenantId, aiResponse, tokenMap);
 
-    // Audit log (anonymised prompt only)
-    if (settings.ai_audit_logging) {
-      try {
-        await this.prisma.$transaction(async (tx) => {
-          await tx.auditLog.create({
-            data: {
-              tenant_id: tenantId,
-              actor_user_id: userId,
-              action: 'ai_query',
-              entity_type: 'behaviour_analytics',
-              entity_id: null,
-              metadata_json: {
-                context: 'ai_behaviour',
-                feature: 'nl_query',
-                anonymised_query: input.query,
-                model_used: 'claude-sonnet-4-5',
-                scope: scopeLabel,
-              },
-            },
-          });
+    // Persist the round-trip to behaviour_ai_query_history so the UI can
+    // surface past queries. Best-effort — failure never blocks the response.
+    try {
+      const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+      await rlsClient.$transaction(async (tx) => {
+        const db = tx as unknown as PrismaService;
+        await db.behaviourAiQueryHistory.create({
+          data: {
+            tenant_id: tenantId,
+            user_id: userId,
+            question: input.query,
+            answer: result,
+            data_payload: dataContext as unknown as object,
+          },
         });
-      } catch {
-        this.logger.warn('Failed to write AI audit log');
-      }
+      });
+    } catch (err) {
+      this.logger.warn(
+        `[processNLQuery] history persist failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     return {
@@ -218,36 +227,47 @@ export class BehaviourAIService {
     userId: string,
     page: number,
     pageSize: number,
+    permissions: string[] = [],
   ): Promise<AIQueryHistoryResult> {
-    const _auditWhere = {
-      tenant_id: tenantId,
-      actor_user_id: userId,
-      action: 'ai_query',
-      entity_type: 'behaviour_analytics',
-    };
+    const canSeeAll = permissions.includes('behaviour.view_staff_analytics');
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const [total, entries] = await Promise.all([
-      this.auditLogReadFacade.count(tenantId, {
-        entityType: 'behaviour_analytics',
-        action: 'ai_query',
-      }),
-      this.auditLogReadFacade.findMany(tenantId, {
-        entityType: 'behaviour_analytics',
-        action: 'ai_query',
-        actorUserId: userId,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-    ]);
+    return rlsClient.$transaction(async (txRaw) => {
+      const tx = txRaw as unknown as PrismaService;
+      const where = canSeeAll ? { tenant_id: tenantId } : { tenant_id: tenantId, user_id: userId };
 
-    return {
-      entries: entries.map((e) => ({
-        id: e.id,
-        query: ((e.metadata_json as Record<string, unknown>)?.anonymised_query as string) ?? '',
-        result_summary: '',
-        created_at: e.created_at.toISOString(),
-      })),
-      meta: { page, pageSize, total },
-    };
+      const [total, rows] = await Promise.all([
+        tx.behaviourAiQueryHistory.count({ where }),
+        tx.behaviourAiQueryHistory.findMany({
+          where,
+          orderBy: { generated_at: 'desc' },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          select: {
+            id: true,
+            question: true,
+            answer: true,
+            data_payload: true,
+            citations: true,
+            generated_at: true,
+          },
+        }),
+      ]);
+
+      const entries: AIQueryHistoryEntry[] = rows.map((row) => ({
+        id: row.id,
+        query: row.question,
+        result_summary: AiAuditService.truncate(row.answer, 200),
+        answer: row.answer,
+        data_payload: (row.data_payload as Record<string, unknown> | null) ?? null,
+        citations: (row.citations as Array<Record<string, unknown>> | null) ?? null,
+        created_at: row.generated_at.toISOString(),
+      }));
+
+      return {
+        entries,
+        meta: { page, pageSize, total },
+      };
+    });
   }
 }

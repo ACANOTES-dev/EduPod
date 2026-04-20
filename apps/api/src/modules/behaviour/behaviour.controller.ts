@@ -114,14 +114,6 @@ export class BehaviourController {
     return this.quickLogService.bulkPositive(tenant.tenant_id, user.sub, dto);
   }
 
-  @Post('behaviour/incidents/ai-parse')
-  @RequiresPermission('behaviour.log')
-  @HttpCode(HttpStatus.OK)
-  async aiParse() {
-    // STUB: AI parse endpoint -- will be implemented in a later phase
-    return { data: null, message: 'AI parse not yet implemented' };
-  }
-
   @Get('behaviour/incidents')
   @RequiresPermission('behaviour.view')
   async listIncidents(

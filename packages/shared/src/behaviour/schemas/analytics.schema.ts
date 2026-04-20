@@ -330,13 +330,7 @@ export interface StudentAnalyticsResult {
 // ─── CSV Export ───────────────────────────────────────────────────────────
 
 export const csvExportQuerySchema = behaviourAnalyticsQuerySchema.extend({
-  exportType: z.enum([
-    'incidents',
-    'sanctions',
-    'interventions',
-    'categories',
-    'staff_activity',
-  ]),
+  exportType: z.enum(['incidents', 'sanctions', 'interventions', 'categories', 'staff_activity']),
 });
 
 export type CsvExportQuery = z.infer<typeof csvExportQuerySchema>;
@@ -370,6 +364,9 @@ export interface AIQueryHistoryEntry {
   id: string;
   query: string;
   result_summary: string;
+  answer?: string | null;
+  data_payload?: Record<string, unknown> | null;
+  citations?: Array<Record<string, unknown>> | null;
   created_at: string;
 }
 

@@ -547,6 +547,7 @@ describe('DZ-13: Safeguarding Status Projection Enforcement', () => {
       'behaviour-comparison-analytics.service.ts',
       'behaviour-attachment.service.ts',
       'behaviour-document.service.ts',
+      'behaviour-recognition.service.ts',
     ]);
 
     it('should have all behaviourIncident-reading services in the projection-aware allowlist', () => {

@@ -44,7 +44,6 @@ const mockStudentsService = {
   getStudentSanctions: jest.fn(),
   getStudentInterventions: jest.fn(),
   getStudentAwards: jest.fn(),
-  getStudentAiSummary: jest.fn(),
   getStudentPreview: jest.fn(),
   getParentView: jest.fn(),
   getStudentTasks: jest.fn(),
@@ -197,17 +196,6 @@ describe('BehaviourStudentsController', () => {
 
     expect(mockStudentsService.getStudentAwards).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID, 1, 20);
     expect(result).toEqual({ data: [] });
-  });
-
-  // ─── Student AI Summary ──────────────────────────────────────────────────
-
-  it('should call studentsService.getStudentAiSummary with tenant_id and studentId', async () => {
-    mockStudentsService.getStudentAiSummary.mockResolvedValue({ summary: 'Good student' });
-
-    const result = await controller.getStudentAiSummary(TENANT, STUDENT_ID);
-
-    expect(mockStudentsService.getStudentAiSummary).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
-    expect(result).toEqual({ summary: 'Good student' });
   });
 
   // ─── Student Preview ─────────────────────────────────────────────────────

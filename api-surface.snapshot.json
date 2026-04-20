@@ -365,6 +365,20 @@
   },
   {
     "method": "GET",
+    "path": "/v1/ai-flags",
+    "controller": "AiFlagsController",
+    "module": "ai-flags",
+    "permission": "ai_flag.manage"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/ai-flags/:moduleKey",
+    "controller": "AiFlagsController",
+    "module": "ai-flags",
+    "permission": null
+  },
+  {
+    "method": "GET",
     "path": "/v1/announcements",
     "controller": "AnnouncementsController",
     "module": "communications",
@@ -1115,14 +1129,14 @@
   {
     "method": "POST",
     "path": "/v1/behaviour/analytics/ai-query",
-    "controller": "BehaviourAnalyticsController",
+    "controller": "BehaviourAIController",
     "module": "behaviour",
-    "permission": "behaviour.manage"
+    "permission": "behaviour.view"
   },
   {
     "method": "GET",
     "path": "/v1/behaviour/analytics/ai-query/history",
-    "controller": "BehaviourAnalyticsController",
+    "controller": "BehaviourAIController",
     "module": "behaviour",
     "permission": "behaviour.ai_query"
   },
@@ -1414,6 +1428,13 @@
     "permission": "behaviour.view"
   },
   {
+    "method": "GET",
+    "path": "/v1/behaviour/documents/:id/preview",
+    "controller": "BehaviourDocumentsController",
+    "module": "behaviour",
+    "permission": "behaviour.view"
+  },
+  {
     "method": "POST",
     "path": "/v1/behaviour/documents/:id/send",
     "controller": "BehaviourDocumentsController",
@@ -1426,6 +1447,20 @@
     "controller": "BehaviourDocumentsController",
     "module": "behaviour",
     "permission": "behaviour.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/behaviour/documents/templates",
+    "controller": "BehaviourDocumentsController",
+    "module": "behaviour",
+    "permission": "behaviour.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/behaviour/documents/templates/:id",
+    "controller": "BehaviourDocumentsController",
+    "module": "behaviour",
+    "permission": "behaviour.view"
   },
   {
     "method": "GET",
@@ -1640,7 +1675,7 @@
   {
     "method": "POST",
     "path": "/v1/behaviour/incidents/ai-parse",
-    "controller": "BehaviourController",
+    "controller": "BehaviourAIController",
     "module": "behaviour",
     "permission": "behaviour.log"
   },
@@ -1656,7 +1691,7 @@
     "path": "/v1/behaviour/incidents/feed",
     "controller": "BehaviourController",
     "module": "behaviour",
-    "permission": "behaviour.log"
+    "permission": "behaviour.view"
   },
   {
     "method": "GET",
@@ -1668,6 +1703,13 @@
   {
     "method": "POST",
     "path": "/v1/behaviour/incidents/quick",
+    "controller": "BehaviourController",
+    "module": "behaviour",
+    "permission": "behaviour.log"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/behaviour/incidents/stats",
     "controller": "BehaviourController",
     "module": "behaviour",
     "permission": "behaviour.log"
@@ -1846,6 +1888,13 @@
     "controller": "BehaviourController",
     "module": "behaviour",
     "permission": "behaviour.log"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/behaviour/recognition",
+    "controller": "BehaviourRecognitionController",
+    "module": "behaviour",
+    "permission": "behaviour.view"
   },
   {
     "method": "GET",
@@ -2046,9 +2095,9 @@
   {
     "method": "GET",
     "path": "/v1/behaviour/students/:studentId/ai-summary",
-    "controller": "BehaviourStudentsController",
+    "controller": "BehaviourAIController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.log"
   },
   {
     "method": "GET",
@@ -2097,7 +2146,7 @@
     "path": "/v1/behaviour/students/:studentId/preview",
     "controller": "BehaviourStudentsController",
     "module": "behaviour",
-    "permission": "behaviour.ai_query"
+    "permission": "behaviour.view"
   },
   {
     "method": "GET",
@@ -2175,6 +2224,13 @@
     "controller": "BehaviourTasksController",
     "module": "behaviour",
     "permission": "behaviour.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/behaviour/templates",
+    "controller": "BehaviourController",
+    "module": "behaviour",
+    "permission": "behaviour.log"
   },
   {
     "method": "GET",
@@ -11604,6 +11660,13 @@
     "controller": "WebsitePagesController",
     "module": "website",
     "permission": null
+  },
+  {
+    "method": "GET",
+    "path": "/v1/wellbeing/dashboard-summary",
+    "controller": "WellbeingAggregateController",
+    "module": "wellbeing-aggregate",
+    "permission": "wellbeing.view_dashboard"
   },
   {
     "method": "GET",

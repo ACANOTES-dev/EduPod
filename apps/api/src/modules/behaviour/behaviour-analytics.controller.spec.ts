@@ -7,7 +7,6 @@ import { PermissionCacheService } from '../../common/services/permission-cache.s
 import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
-import { BehaviourAIService } from './behaviour-ai.service';
 import { BehaviourAnalyticsController } from './behaviour-analytics.controller';
 import { BehaviourAnalyticsService } from './behaviour-analytics.service';
 import { BehaviourPulseService } from './behaviour-pulse.service';
@@ -62,11 +61,6 @@ const mockPulseService = {
   getPulse: jest.fn(),
 };
 
-const mockAIService = {
-  processNLQuery: jest.fn(),
-  getQueryHistory: jest.fn(),
-};
-
 const mockPermissionCacheService = {
   getPermissions: jest.fn(),
 };
@@ -91,7 +85,6 @@ describe('BehaviourAnalyticsController', () => {
         ...MOCK_FACADE_PROVIDERS,
         { provide: BehaviourAnalyticsService, useValue: mockAnalyticsService },
         { provide: BehaviourPulseService, useValue: mockPulseService },
-        { provide: BehaviourAIService, useValue: mockAIService },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ConfigurationReadFacade, useValue: mockConfigurationReadFacade },
@@ -388,35 +381,5 @@ describe('BehaviourAnalyticsController', () => {
       'Content-Disposition': 'attachment; filename="export.csv"',
     });
     expect(mockRes.send).toHaveBeenCalledWith('col1,col2\nval1,val2');
-  });
-
-  // ─── AI Query ─────────────────────────────────────────────────────────────
-
-  it('should call aiService.processNLQuery with tenant_id, user_id, permissions, input, settings', async () => {
-    const input = { query: 'Show me top offenders' };
-    mockConfigurationReadFacade.findSettingsJson.mockResolvedValue({
-      behaviour: { ai_enabled: true },
-    });
-    mockAIService.processNLQuery.mockResolvedValue({ answer: 'Top 5 students...' });
-
-    await controller.aiQuery(TENANT, USER, input as never);
-
-    expect(mockAIService.processNLQuery).toHaveBeenCalledWith(
-      TENANT_ID,
-      USER_ID,
-      PERMISSIONS,
-      input,
-      expect.objectContaining({ ai_enabled: true }),
-    );
-  });
-
-  it('should call aiService.getQueryHistory with tenant_id, user_id, page, pageSize', async () => {
-    const query = { page: 1, pageSize: 10 };
-    mockAIService.getQueryHistory.mockResolvedValue({ data: [] });
-
-    const result = await controller.aiQueryHistory(TENANT, USER, query);
-
-    expect(mockAIService.getQueryHistory).toHaveBeenCalledWith(TENANT_ID, USER_ID, 1, 10);
-    expect(result).toEqual({ data: [] });
   });
 });

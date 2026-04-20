@@ -1,20 +1,9 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Post,
-  Query,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { z } from 'zod';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 import {
-  aiQuerySchema,
   behaviourAnalyticsQuerySchema,
   benchmarkQuerySchema,
   csvExportQuerySchema,
@@ -31,14 +20,8 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
 
-import { BehaviourAIService } from './behaviour-ai.service';
 import { BehaviourAnalyticsService } from './behaviour-analytics.service';
 import { BehaviourPulseService } from './behaviour-pulse.service';
-
-const paginationQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
-});
 
 @Controller('v1')
 @ModuleEnabled('behaviour')
@@ -47,7 +30,6 @@ export class BehaviourAnalyticsController {
   constructor(
     private readonly analyticsService: BehaviourAnalyticsService,
     private readonly pulseService: BehaviourPulseService,
-    private readonly aiService: BehaviourAIService,
     private readonly permissionCacheService: PermissionCacheService,
     private readonly configurationReadFacade: ConfigurationReadFacade,
   ) {}
@@ -307,33 +289,6 @@ export class BehaviourAnalyticsController {
       'Content-Disposition': `attachment; filename="${result.filename}"`,
     });
     res.send(result.content);
-  }
-
-  // ─── AI Query ──────────────────────────────────────────────────────────────
-
-  @Post('behaviour/analytics/ai-query')
-  @RequiresPermission('behaviour.ai_query')
-  @HttpCode(HttpStatus.OK)
-  async aiQuery(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-    @Body(new ZodValidationPipe(aiQuerySchema))
-    input: z.infer<typeof aiQuerySchema>,
-  ) {
-    const permissions = await this.getUserPermissions(user.membership_id);
-    const settings = await this.getBehaviourSettings(tenant.tenant_id);
-    return this.aiService.processNLQuery(tenant.tenant_id, user.sub, permissions, input, settings);
-  }
-
-  @Get('behaviour/analytics/ai-query/history')
-  @RequiresPermission('behaviour.ai_query')
-  async aiQueryHistory(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-    @Query(new ZodValidationPipe(paginationQuerySchema))
-    query: z.infer<typeof paginationQuerySchema>,
-  ) {
-    return this.aiService.getQueryHistory(tenant.tenant_id, user.sub, query.page, query.pageSize);
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────

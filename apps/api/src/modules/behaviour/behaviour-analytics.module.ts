@@ -10,7 +10,6 @@ import { GdprModule } from '../gdpr/gdpr.module';
 import { RbacModule } from '../rbac/rbac.module';
 import { StudentsModule } from '../students/students.module';
 
-import { BehaviourAIService } from './behaviour-ai.service';
 import { BehaviourAnalyticsController } from './behaviour-analytics.controller';
 import { BehaviourAnalyticsService } from './behaviour-analytics.service';
 import { BehaviourComparisonAnalyticsService } from './behaviour-comparison-analytics.service';
@@ -38,7 +37,6 @@ import { BehaviourStaffAnalyticsService } from './behaviour-staff-analytics.serv
   providers: [
     BehaviourAnalyticsService,
     BehaviourPulseService,
-    BehaviourAIService,
     BehaviourIncidentAnalyticsService,
     BehaviourComparisonAnalyticsService,
     BehaviourStaffAnalyticsService,

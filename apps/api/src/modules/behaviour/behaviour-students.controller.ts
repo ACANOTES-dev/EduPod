@@ -172,17 +172,6 @@ export class BehaviourStudentsController {
     );
   }
 
-  // ─── Student AI Summary ──────────────────────────────────────────────────
-
-  @Get('behaviour/students/:studentId/ai-summary')
-  @RequiresPermission('behaviour.ai_query')
-  async getStudentAiSummary(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('studentId', ParseUUIDPipe) studentId: string,
-  ) {
-    return this.studentsService.getStudentAiSummary(tenant.tenant_id, studentId);
-  }
-
   // ─── Student Hover Card Preview ───────────────────────────────────────────
 
   @Get('behaviour/students/:studentId/preview')
