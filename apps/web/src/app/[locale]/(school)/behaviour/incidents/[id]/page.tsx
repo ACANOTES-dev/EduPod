@@ -27,6 +27,8 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format-date';
 
+import { ParentAckTimeline } from './_components/parent-ack-timeline';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Participant {
@@ -120,13 +122,19 @@ export default function IncidentDetailPage() {
     setLoading(true);
     apiClient<{ data: IncidentDetail }>(`/api/v1/behaviour/incidents/${incidentId}`)
       .then((res) => setIncident(res.data))
-      .catch((err) => { console.error('[BehaviourIncidentsPage]', err); return setIncident(null); })
+      .catch((err) => {
+        console.error('[BehaviourIncidentsPage]', err);
+        return setIncident(null);
+      })
       .finally(() => setLoading(false));
 
     setHistoryLoading(true);
     apiClient<{ data: HistoryEntry[] }>(`/api/v1/behaviour/incidents/${incidentId}/history`)
       .then((res) => setHistory(res.data ?? []))
-      .catch((err) => { console.error('[BehaviourIncidentsPage]', err); return setHistory([]); })
+      .catch((err) => {
+        console.error('[BehaviourIncidentsPage]', err);
+        return setHistory([]);
+      })
       .finally(() => setHistoryLoading(false));
   }, [incidentId]);
 
@@ -223,7 +231,9 @@ export default function IncidentDetailPage() {
             className={`text-xs font-semibold ${incident.category.point_value > 0 ? 'text-green-600' : 'text-red-600'}`}
           >
             {incident.category.point_value > 0 ? '+' : ''}
-            {incident.category.point_value}{t('pts')}</span>
+            {incident.category.point_value}
+            {t('pts')}
+          </span>
         )}
         {incident.follow_up_required && <Badge variant="danger">{t('followUpRequired')}</Badge>}
       </div>
@@ -297,6 +307,9 @@ export default function IncidentDetailPage() {
             )}
           </div>
 
+          {/* Parent Acknowledgement Timeline */}
+          <ParentAckTimeline incidentId={incident.id} />
+
           {/* History Timeline */}
           <div className="rounded-xl border border-border bg-surface p-5">
             <h3 className="mb-3 text-sm font-semibold text-text-primary">
@@ -323,8 +336,9 @@ export default function IncidentDetailPage() {
                           {entry.action.replace(/_/g, ' ')}
                         </span>
                         {entry.performed_by_user && (
-                          <span className="text-xs text-text-tertiary">{t('by')}{entry.performed_by_user.first_name}{' '}
-                            {entry.performed_by_user.last_name}
+                          <span className="text-xs text-text-tertiary">
+                            {t('by')}
+                            {entry.performed_by_user.first_name} {entry.performed_by_user.last_name}
                           </span>
                         )}
                       </div>
@@ -424,7 +438,9 @@ export default function IncidentDetailPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <p className="mb-1 text-xs text-text-tertiary">{t('current')}<IncidentStatusBadge status={incident.status} />
+              <p className="mb-1 text-xs text-text-tertiary">
+                {t('current')}
+                <IncidentStatusBadge status={incident.status} />
               </p>
             </div>
             <div className="space-y-1.5">
