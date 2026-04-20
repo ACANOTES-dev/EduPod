@@ -211,7 +211,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 20  | Document generation UI                                | 6    | parallel-risky | 06, 14     | `completed`   | 2026-04-20T23:45Z | 9c41fcd2   |
 | 21  | Exclusion + restrictions + amendments + ack UI        | 6    | parallel-risky | 07, 14     | `completed`   | 2026-04-21T00:05Z | 60b63439   |
 | 22  | Pastoral hidden-feature UI                            | 6    | parallel-risky | 08         | `in-progress` |                   |            |
-| 23  | Safeguarding hidden + recognition + policy + admin UI | 6    | parallel-risky | 09, 14, 17 | `in-progress` |                   |            |
+| 23  | Safeguarding hidden + recognition + policy + admin UI | 6    | parallel-risky | 09, 14, 17 | `deploying`   |                   |            |
 | 24  | Polish, Playwright multi-role sweep, docs             | 7    | serial         | 10–23      | `pending`     |                   |            |
 
 `Depends on` lists the minimum cross-wave prerequisites. In strict wave order these are auto-satisfied; the column lets the slash command and human double-check.
