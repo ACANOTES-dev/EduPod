@@ -1009,3 +1009,75 @@ tsconfig.tsbuildinfo` + rebuild. Post-rebuild the full dist landed and
   makes smoke testing in a browser unnecessary for impl 10. Siblings
   11 and 12 are both `in-progress` at sign-off; they own the next
   web-restart slot on a first-come basis.
+
+### [IMPL 11] — Behaviour analytics URL fix + endpoint reconnects
+
+- **Completed:** 2026-04-20T17:38Z Europe/Dublin
+- **Commit:** `99dd039a` (local); applied to production as `13bbc875` via `git am`.
+- **Deployed to production:** yes — web rebuilt (`pnpm turbo build --filter=@school/web` after `.next` clear) and `pm2 restart web`. Smoke test:
+  - `/en/login` → HTTP 200
+  - `/en/behaviour/analytics` → HTTP 200 (previously served 404 via
+    307-redirect to localised path)
+  - `/en/behaviour` → HTTP 200
+  - `/en/behaviour/recognition` → HTTP 200
+  - `/en/behaviour/incidents/new` → HTTP 200
+  - `pm2 logs web` shows only pre-existing SSR-auth `TypeError: fetch
+failed` noise unchanged by this deploy.
+- **Summary (≤ 200 words):**
+  Two-line fix across two files plus a new contract test. All 8 behaviour
+  analytics endpoints (`pulse`, `overview`, `trends`, `categories`,
+  `subjects`, `heatmap`, `comparisons`, `staff`) in
+  `apps/web/src/app/[locale]/(school)/behaviour/analytics/page.tsx` now
+  use the `/api/v1/` prefix. The two AI endpoints
+  (`ai-query/history` GET + `ai-query` POST) in the sibling `ai/page.tsx`
+  got the same treatment. In addition, every typed call was re-typed as
+  `{data: T}` so the frontend reads through the
+  `ResponseTransformInterceptor` envelope that wraps all 200s — previous
+  code was treating the entire wire body as the payload and would have
+  been broken even after the URL fix. New file:
+  `apps/web/src/app/[locale]/(school)/behaviour/analytics/url-prefix.spec.ts`
+  — a 19-test contract assertion that every analytics endpoint URL in
+  both page files uses the `/api/v1/` prefix and no bare
+  `/behaviour/analytics/…` apiClient call survives. Pure frontend; no
+  schema, no backend, no i18n, no shell changes. Spec asked to
+  "update" existing tests — there were none for these pages, so created
+  the contract test instead. Full end-to-end verification is impl 24's
+  job.
+- **Follow-ups:**
+  - **Other hand-rolled `.catch((err) => { setData([]) })` patterns are
+    now compliant.** The impl spec asked to remove defensive error
+    swallowing. I audited the behaviour recognition, Behaviour Pulse
+    (`/behaviour`), Behaviour Tasks, and incidents/new pages — every
+    catch already either logs via `console.error` (background fetch) or
+    defers to the global `onApiError` toast (user-triggered action), per
+    `.claude/rules/code-quality.md`. Nothing to remove.
+  - **incidents/stats + tasks/stats already used `/api/v1/`.** Impl 02's
+    completion record said the new `/behaviour/incidents/stats` endpoint
+    fixed a 400; the frontend call site had always used the correct
+    prefix. The Behaviour Pulse page needed no URL edit — only the
+    analytics page did. Same for tasks/stats. Spec sub-steps 2.3 and 2.4
+    were no-ops.
+  - **Sibling impl 12's stash@{0} still holds `messages/ar.json`,
+    `messages/en.json`, and a snapshot of my 3 analytics files (stale,
+    identical after my commit).** The `.scratch/` translation scratch
+    pad files are in the older `stash@{1}` (created by impl 12 before my
+    coding session began). Impl 12 can recover via `git stash apply
+stash@{0}` (will conflict cleanly on my 3 committed files; those
+    hunks can be dropped) or `git stash apply stash@{1}` for the scratch
+    files. Rule H10 applies — do NOT `git stash drop` these.
+- **Session notes:**
+  Heavy Wave-4 parallel-coding turbulence resolved via Rules H3 + H11:
+  (a) Sibling impl 10 had `early-warnings/settings/page.tsx` unmerged in
+  the tree when I started — left untouched.
+  (b) Sibling impl 12 was mid-session on `messages/*.json` + a
+  `wellbeing_new/.scratch/` scratch-pad. I pre-stashed their work before
+  my in-progress-flip commit (stash@{1}, still intact).
+  (c) After I finished my edits and ran tests, impl 12's session ran
+  lint-staged which stashed my unstaged work as `sibling-work-impl-11-during-12`;
+  their commit then wiped my analytics edits from the tree. Recovered
+  all 3 files (including the untracked test) via `git show stash@{N}:path`
+  into the working tree — stash@{1} preserved for them to recover.
+  (d) Pre-deploy: waited ~3 minutes for impl 10's web deploy to
+  complete (it deployed first-come-first-served per the wave rules).
+  (e) Web deploy was clean: no tsbuildinfo issues, no pm2 crash loops.
+  3-minute build + ~3 seconds pm2 restart.
