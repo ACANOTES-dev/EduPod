@@ -13,14 +13,24 @@ interface Bucket {
  * — multi-instance deploys will allow up to `limit * instances` / hour,
  * which is acceptable for this feature's cost profile.
  */
+const DEFAULT_LIMIT = 30;
+const DEFAULT_WINDOW_MS = 60 * 60 * 1000;
+
 @Injectable()
 export class BehaviourAiRateLimiterService {
   private readonly buckets = new Map<string, Bucket>();
+  private limit: number = DEFAULT_LIMIT;
+  private windowMs: number = DEFAULT_WINDOW_MS;
 
-  constructor(
-    private readonly limit: number = 30,
-    private readonly windowMs: number = 60 * 60 * 1000,
-  ) {}
+  /**
+   * Allows tests or other callers to override the default window/limit
+   * without relying on constructor parameters (which Nest's DI would
+   * attempt to resolve).
+   */
+  configure(limit: number, windowMs: number): void {
+    this.limit = limit;
+    this.windowMs = windowMs;
+  }
 
   /**
    * Returns `{ allowed, remaining, retryAfterMs }`. Increments the bucket
