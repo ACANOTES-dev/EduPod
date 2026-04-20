@@ -4,10 +4,13 @@ import {
   Activity,
   ArrowRight,
   ClipboardList,
+  FileSpreadsheet,
+  Flag,
   ListChecks,
   NotebookPen,
   Send,
   ShieldAlert,
+  ShieldCheck,
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -61,9 +64,24 @@ const WORKSPACE_LANES = [
     icon: Activity,
   },
   {
+    key: 'checkinsFlagged',
+    href: '/pastoral/checkins/flagged',
+    icon: Flag,
+  },
+  {
     key: 'criticalIncidents',
     href: '/pastoral/critical-incidents',
     icon: ShieldAlert,
+  },
+  {
+    key: 'dsar',
+    href: '/pastoral/dsar',
+    icon: ShieldCheck,
+  },
+  {
+    key: 'import',
+    href: '/pastoral/import',
+    icon: FileSpreadsheet,
   },
 ] as const;
 
