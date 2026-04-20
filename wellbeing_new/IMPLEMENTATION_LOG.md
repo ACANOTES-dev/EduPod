@@ -207,8 +207,8 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `completed`   | 2026-04-20T22:45Z | 0728765b   |
 | 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `completed`   | 2026-04-20T22:55Z | 4a321481   |
 | 18  | Tenant admin → AI flags page                          | 5    | parallel-risky | 04, 12     | `completed`   | 2026-04-20T23:25Z | 0a8d8588   |
-| 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `in-progress` |                   |            |
-| 20  | Document generation UI                                | 6    | parallel-risky | 06, 14     | `in-progress` |                   |            |
+| 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `deploying`   |                   |            |
+| 20  | Document generation UI                                | 6    | parallel-risky | 06, 14     | `completed`   | 2026-04-20T23:45Z | 9c41fcd2   |
 | 21  | Exclusion + restrictions + amendments + ack UI        | 6    | parallel-risky | 07, 14     | `in-progress` |                   |            |
 | 22  | Pastoral hidden-feature UI                            | 6    | parallel-risky | 08         | `pending`     |                   |            |
 | 23  | Safeguarding hidden + recognition + policy + admin UI | 6    | parallel-risky | 09, 14, 17 | `pending`     |                   |            |
