@@ -6,8 +6,8 @@ import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import type { OverturnExclusionDto } from '@school/shared/behaviour';
 import { Button } from '@school/ui';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -29,8 +29,8 @@ import {
   HearingSection,
   StatutoryTimeline,
 } from './_components/main-content-sections';
+import { OverturnDialog } from './_components/overturn-dialog';
 import { AppealSidebar, CaseMetaSidebar } from './_components/sidebar-sections';
-
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -69,6 +69,10 @@ export default function ExclusionDetailPage() {
   const [decidedById, setDecidedById] = React.useState('');
   const [decisionSubmitting, setDecisionSubmitting] = React.useState(false);
 
+  // Overturn dialog
+  const [overturnDialogOpen, setOverturnDialogOpen] = React.useState(false);
+  const [overturnSubmitting, setOverturnSubmitting] = React.useState(false);
+
   // ─── Fetch data ─────────────────────────────────────────────────────────
 
   const refreshData = React.useCallback(async () => {
@@ -96,7 +100,10 @@ export default function ExclusionDetailPage() {
     if (!exclusionId) return;
     apiClient<{ data: TimelineStep[] }>(`/api/v1/behaviour/exclusion-cases/${exclusionId}/timeline`)
       .then((res) => setTimeline(res.data ?? []))
-      .catch((err) => { console.error('[BehaviourExclusionsPage]', err); return setTimeline([]); });
+      .catch((err) => {
+        console.error('[BehaviourExclusionsPage]', err);
+        return setTimeline([]);
+      });
   }, [exclusionId]);
 
   React.useEffect(() => {
@@ -104,14 +111,20 @@ export default function ExclusionDetailPage() {
     setHistoryLoading(true);
     apiClient<{ data: HistoryEntry[] }>(`/api/v1/behaviour/incidents/${exclusionId}/history`)
       .then((res) => setHistory(res.data ?? []))
-      .catch((err) => { console.error('[BehaviourExclusionsPage]', err); return setHistory([]); })
+      .catch((err) => {
+        console.error('[BehaviourExclusionsPage]', err);
+        return setHistory([]);
+      })
       .finally(() => setHistoryLoading(false));
   }, [exclusionId]);
 
   React.useEffect(() => {
     apiClient<{ data: StaffOption[] }>('/api/v1/staff-profiles?pageSize=100')
       .then((res) => setStaffOptions(res.data ?? []))
-      .catch((err) => { console.error('[BehaviourExclusionsPage]', err); return setStaffOptions([]); });
+      .catch((err) => {
+        console.error('[BehaviourExclusionsPage]', err);
+        return setStaffOptions([]);
+      });
   }, []);
 
   // ─── Actions ────────────────────────────────────────────────────────────
@@ -121,8 +134,17 @@ export default function ExclusionDetailPage() {
     setGenerating('notice');
     setActionError('');
     try {
-      await apiClient(`/api/v1/behaviour/exclusion-cases/${exclusion.id}/generate-notice`, {
+      // `issue-notice` (impl 07) drives the state transition
+      // initiated → notice_issued and fires the parent-notification
+      // fan-out. For cases already past that phase, fall back to the
+      // idempotent doc-gen endpoint which just re-renders the PDF.
+      const endpoint =
+        exclusion.status === 'initiated'
+          ? `/api/v1/behaviour/exclusion-cases/${exclusion.id}/issue-notice`
+          : `/api/v1/behaviour/exclusion-cases/${exclusion.id}/generate-notice`;
+      await apiClient(endpoint, {
         method: 'POST',
+        body: exclusion.status === 'initiated' ? JSON.stringify({}) : undefined,
       });
       await refreshData();
     } catch (err: unknown) {
@@ -173,7 +195,6 @@ export default function ExclusionDetailPage() {
       );
       setTimeline(res.data ?? []);
     } catch (err) {
-      // silently handled
       console.error('[setTimeline]', err);
     } finally {
       setMarkingComplete(null);
@@ -185,14 +206,29 @@ export default function ExclusionDetailPage() {
     setHearingSubmitting(true);
     setActionError('');
     try {
-      await apiClient(`/api/v1/behaviour/exclusion-cases/${exclusion.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          hearing_date: hearingDate || undefined,
-          hearing_attendees: attendees.length > 0 ? attendees : undefined,
-          student_representation: representation || undefined,
-        }),
-      });
+      // If the case is still in notice_issued, treat the save as
+      // scheduling the hearing via the named endpoint (impl 07) so the
+      // state transitions and parent notifications fire. Later phases
+      // just persist the attendee/representation tweaks via PATCH.
+      if (exclusion.status === 'notice_issued' && hearingDate) {
+        const iso = hearingDate.length === 10 ? `${hearingDate}T09:00:00.000Z` : hearingDate;
+        await apiClient(`/api/v1/behaviour/exclusion-cases/${exclusion.id}/schedule-hearing`, {
+          method: 'POST',
+          body: JSON.stringify({
+            hearing_date: iso,
+            hearing_attendees: attendees.length > 0 ? attendees : undefined,
+          }),
+        });
+      } else {
+        await apiClient(`/api/v1/behaviour/exclusion-cases/${exclusion.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            hearing_date: hearingDate || undefined,
+            hearing_attendees: attendees.length > 0 ? attendees : undefined,
+            student_representation: representation || undefined,
+          }),
+        });
+      }
       await refreshData();
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };
@@ -207,10 +243,23 @@ export default function ExclusionDetailPage() {
     setHearingSubmitting(true);
     setActionError('');
     try {
-      await apiClient(`/api/v1/behaviour/exclusion-cases/${exclusion.id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'hearing_held', reason: 'Hearing marked as held' }),
-      });
+      // Prefer the named record-hearing endpoint when the hearing is
+      // currently scheduled — it captures attendees + representation +
+      // transitions to hearing_held atomically.
+      if (exclusion.status === 'hearing_scheduled') {
+        await apiClient(`/api/v1/behaviour/exclusion-cases/${exclusion.id}/record-hearing`, {
+          method: 'POST',
+          body: JSON.stringify({
+            student_representation: representation || undefined,
+            hearing_attendees: attendees.length > 0 ? attendees : undefined,
+          }),
+        });
+      } else {
+        await apiClient(`/api/v1/behaviour/exclusion-cases/${exclusion.id}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'hearing_held', reason: 'Hearing marked as held' }),
+        });
+      }
       await refreshData();
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };
@@ -254,17 +303,33 @@ export default function ExclusionDetailPage() {
     if (!exclusion) return;
     setActionError('');
     try {
-      await apiClient(`/api/v1/behaviour/exclusion-cases/${exclusion.id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          status: 'finalised',
-          reason: 'Appeal deadline passed with no appeal',
-        }),
+      await apiClient(`/api/v1/behaviour/exclusion-cases/${exclusion.id}/finalise`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: 'Appeal deadline passed with no appeal' }),
       });
       await refreshData();
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };
       setActionError(ex?.error?.message ?? 'Failed to finalise case');
+    }
+  };
+
+  const handleOverturn = async (dto: OverturnExclusionDto) => {
+    if (!exclusion) return;
+    setOverturnSubmitting(true);
+    setActionError('');
+    try {
+      await apiClient(`/api/v1/behaviour/exclusion-cases/${exclusion.id}/overturn`, {
+        method: 'POST',
+        body: JSON.stringify(dto),
+      });
+      setOverturnDialogOpen(false);
+      await refreshData();
+    } catch (err: unknown) {
+      const ex = err as { error?: { message?: string } };
+      setActionError(ex?.error?.message ?? 'Failed to overturn case');
+    } finally {
+      setOverturnSubmitting(false);
     }
   };
 
@@ -287,6 +352,11 @@ export default function ExclusionDetailPage() {
     );
   }
 
+  const canOverturn =
+    exclusion.status === 'decision_made' ||
+    exclusion.status === 'appeal_window' ||
+    exclusion.status === 'finalised';
+
   // ─── Render ─────────────────────────────────────────────────────────────
 
   return (
@@ -295,12 +365,19 @@ export default function ExclusionDetailPage() {
       <PageHeader
         title={`Exclusion ${exclusion.case_number}`}
         actions={
-          <Link href={`/${locale}/behaviour/exclusions`}>
-            <Button variant="ghost">
-              <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-              {t('backToList')}
-            </Button>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {canOverturn && (
+              <Button variant="destructive" onClick={() => setOverturnDialogOpen(true)}>
+                {t('actions.overturn')}
+              </Button>
+            )}
+            <Link href={`/${locale}/behaviour/exclusions`}>
+              <Button variant="ghost">
+                <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
+                {t('backToList')}
+              </Button>
+            </Link>
+          </div>
         }
       />
 
@@ -329,7 +406,9 @@ export default function ExclusionDetailPage() {
           <Link
             href={`/${locale}/behaviour/sanctions/${exclusion.sanction.id}`}
             className="flex items-center gap-1 text-xs text-text-secondary hover:text-primary-600"
-          >{t('sanction')}{exclusion.sanction.sanction_number}
+          >
+            {t('sanction')}
+            {exclusion.sanction.sanction_number}
             <ExternalLink className="h-3 w-3" />
           </Link>
         )}
@@ -337,7 +416,9 @@ export default function ExclusionDetailPage() {
           <Link
             href={`/${locale}/behaviour/incidents/${exclusion.incident.id}`}
             className="flex items-center gap-1 text-xs text-text-secondary hover:text-primary-600"
-          >{t('incident')}{exclusion.incident.incident_number}
+          >
+            {t('incident')}
+            {exclusion.incident.incident_number}
             <ExternalLink className="h-3 w-3" />
           </Link>
         )}
@@ -415,6 +496,15 @@ export default function ExclusionDetailPage() {
         submitting={decisionSubmitting}
         actionError={actionError}
         onSubmit={() => void handleSubmitDecision()}
+      />
+
+      {/* Overturn Dialog */}
+      <OverturnDialog
+        open={overturnDialogOpen}
+        onOpenChange={setOverturnDialogOpen}
+        submitting={overturnSubmitting}
+        actionError={actionError}
+        onSubmit={(dto) => void handleOverturn(dto)}
       />
     </div>
   );
