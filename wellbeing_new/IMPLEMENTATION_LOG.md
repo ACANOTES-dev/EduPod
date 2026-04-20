@@ -187,32 +187,32 @@ Restart target determines deploy serialisation. Deployments only block each othe
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                 | Wave | Mode           | Depends on | Status      | Completed at      | Commit SHA |
-| --- | ----------------------------------------------------- | ---- | -------------- | ---------- | ----------- | ----------------- | ---------- |
-| 01  | Schema foundation + default seeds                     | 1    | serial         | —          | `completed` | 2026-04-20T14:15Z | c5ee2128   |
-| 02  | Fix broken behaviour endpoints                        | 2    | parallel-safe  | 01         | `completed` | 2026-04-20T13:27Z | 16bffbb4   |
-| 03  | Wellbeing dashboard-summary aggregator                | 2    | parallel-safe  | 01         | `completed` | 2026-04-20T13:32Z | 4b749aac   |
-| 04  | AI flag service + notification routing                | 2    | parallel-safe  | 01         | `completed` | 2026-04-20T13:43Z | 815bd9d2   |
-| 05  | Behaviour AI services                                 | 3    | parallel-safe  | 01, 04     | `completed` | 2026-04-20T14:40Z | 8305a4de   |
-| 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `completed` | 2026-04-20T14:10Z | 2a850c21   |
-| 07  | Exclusion + amendment + ack services                  | 3    | parallel-safe  | 01, 04     | `completed` | 2026-04-20T15:15Z | 1a529312   |
-| 08  | Pastoral hidden services (DSAR, import, SST AI, etc.) | 3    | parallel-safe  | 01, 04     | `completed` | 2026-04-20T18:15Z | b9bd7d04   |
-| 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `completed` | 2026-04-20T17:15Z | 80e60532   |
-| 10  | Page crash fixes (5 pages)                            | 4    | parallel-risky | 02, 03     | `completed` | 2026-04-20T19:10Z | 2d7acb80   |
-| 11  | Behaviour analytics URL fix + endpoint reconnects     | 4    | parallel-risky | 02         | `completed` | 2026-04-20T17:38Z | 99dd039a   |
-| 12  | Translation backfill (en + ar)                        | 4    | parallel-risky | 02         | `completed` | 2026-04-20T17:45Z | 802daede   |
-| 13  | Wellbeing super-hub + sub-strip removal               | 5    | parallel-risky | 03, 12     | `completed` | 2026-04-20T21:00Z | 16a0bce4   |
-| 14  | Behaviour sub-hub                                     | 5    | parallel-risky | 03, 12     | `completed` | 2026-04-20T21:15Z | 18c69ef6   |
-| 15  | Staff wellbeing folded sub-hub                        | 5    | parallel-risky | 12         | `completed` | 2026-04-20T21:10Z | 607dab0d   |
-| 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `completed` | 2026-04-20T22:45Z | 0728765b   |
-| 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `completed` | 2026-04-20T22:55Z | 4a321481   |
-| 18  | Tenant admin → AI flags page                          | 5    | parallel-risky | 04, 12     | `completed` | 2026-04-20T23:25Z | 0a8d8588   |
-| 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `completed` | 2026-04-20T23:55Z | 59f95bbe   |
-| 20  | Document generation UI                                | 6    | parallel-risky | 06, 14     | `completed` | 2026-04-20T23:45Z | 9c41fcd2   |
-| 21  | Exclusion + restrictions + amendments + ack UI        | 6    | parallel-risky | 07, 14     | `completed` | 2026-04-21T00:05Z | 60b63439   |
-| 22  | Pastoral hidden-feature UI                            | 6    | parallel-risky | 08         | `deploying` |                   |            |
-| 23  | Safeguarding hidden + recognition + policy + admin UI | 6    | parallel-risky | 09, 14, 17 | `deploying` |                   |            |
-| 24  | Polish, Playwright multi-role sweep, docs             | 7    | serial         | 10–23      | `pending`   |                   |            |
+| #   | Title                                                 | Wave | Mode           | Depends on | Status        | Completed at      | Commit SHA |
+| --- | ----------------------------------------------------- | ---- | -------------- | ---------- | ------------- | ----------------- | ---------- |
+| 01  | Schema foundation + default seeds                     | 1    | serial         | —          | `completed`   | 2026-04-20T14:15Z | c5ee2128   |
+| 02  | Fix broken behaviour endpoints                        | 2    | parallel-safe  | 01         | `completed`   | 2026-04-20T13:27Z | 16bffbb4   |
+| 03  | Wellbeing dashboard-summary aggregator                | 2    | parallel-safe  | 01         | `completed`   | 2026-04-20T13:32Z | 4b749aac   |
+| 04  | AI flag service + notification routing                | 2    | parallel-safe  | 01         | `completed`   | 2026-04-20T13:43Z | 815bd9d2   |
+| 05  | Behaviour AI services                                 | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T14:40Z | 8305a4de   |
+| 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T14:10Z | 2a850c21   |
+| 07  | Exclusion + amendment + ack services                  | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T15:15Z | 1a529312   |
+| 08  | Pastoral hidden services (DSAR, import, SST AI, etc.) | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T18:15Z | b9bd7d04   |
+| 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T17:15Z | 80e60532   |
+| 10  | Page crash fixes (5 pages)                            | 4    | parallel-risky | 02, 03     | `completed`   | 2026-04-20T19:10Z | 2d7acb80   |
+| 11  | Behaviour analytics URL fix + endpoint reconnects     | 4    | parallel-risky | 02         | `completed`   | 2026-04-20T17:38Z | 99dd039a   |
+| 12  | Translation backfill (en + ar)                        | 4    | parallel-risky | 02         | `completed`   | 2026-04-20T17:45Z | 802daede   |
+| 13  | Wellbeing super-hub + sub-strip removal               | 5    | parallel-risky | 03, 12     | `completed`   | 2026-04-20T21:00Z | 16a0bce4   |
+| 14  | Behaviour sub-hub                                     | 5    | parallel-risky | 03, 12     | `completed`   | 2026-04-20T21:15Z | 18c69ef6   |
+| 15  | Staff wellbeing folded sub-hub                        | 5    | parallel-risky | 12         | `completed`   | 2026-04-20T21:10Z | 607dab0d   |
+| 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `completed`   | 2026-04-20T22:45Z | 0728765b   |
+| 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `completed`   | 2026-04-20T22:55Z | 4a321481   |
+| 18  | Tenant admin → AI flags page                          | 5    | parallel-risky | 04, 12     | `completed`   | 2026-04-20T23:25Z | 0a8d8588   |
+| 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `completed`   | 2026-04-20T23:55Z | 59f95bbe   |
+| 20  | Document generation UI                                | 6    | parallel-risky | 06, 14     | `completed`   | 2026-04-20T23:45Z | 9c41fcd2   |
+| 21  | Exclusion + restrictions + amendments + ack UI        | 6    | parallel-risky | 07, 14     | `completed`   | 2026-04-21T00:05Z | 60b63439   |
+| 22  | Pastoral hidden-feature UI                            | 6    | parallel-risky | 08         | `deploying`   |                   |            |
+| 23  | Safeguarding hidden + recognition + policy + admin UI | 6    | parallel-risky | 09, 14, 17 | `in-progress` |                   |            |
+| 24  | Polish, Playwright multi-role sweep, docs             | 7    | serial         | 10–23      | `pending`     |                   |            |
 
 `Depends on` lists the minimum cross-wave prerequisites. In strict wave order these are auto-satisfied; the column lets the slash command and human double-check.
 
