@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable school/no-hand-rolled-forms -- legacy form; migrate to react-hook-form when touched (HR-025) */
 
-import { ArrowLeft, Search, X } from 'lucide-react';
+import { ArrowLeft, Search, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -22,7 +22,14 @@ import {
 
 import { CategoryPicker, type CategoryOption } from '@/components/behaviour/category-picker';
 import { PageHeader } from '@/components/page-header';
+import { useAiFlag } from '@/hooks/use-ai-flag';
 import { apiClient } from '@/lib/api-client';
+
+import { AiParseModal, type AiParseResult } from '../../_components/ai-parse-modal';
+import {
+  clearPrefillFromSession,
+  readPrefillFromSession,
+} from '../../_components/ai-parse-projection';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,9 +63,16 @@ const CONTEXT_TYPE_KEYS = [
 
 export default function CreateIncidentPage() {
   const t = useTranslations('behaviour.newIncident');
+  const tAi = useTranslations('aiFeatures.parseTrigger');
   const pathname = usePathname();
   const router = useRouter();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+  const aiFlag = useAiFlag('behaviour');
+  const aiVisible = aiFlag !== 'disabled';
+
+  // AI parse modal
+  const [aiModalOpen, setAiModalOpen] = React.useState(false);
+  const [aiInitialText, setAiInitialText] = React.useState('');
 
   // Form state
   const [categoryId, setCategoryId] = React.useState<string | null>(null);
@@ -94,10 +108,62 @@ export default function CreateIncidentPage() {
       '/api/v1/behaviour/categories?pageSize=100&is_active=true',
     )
       .then((res) => setCategories(res.data ?? []))
-      .catch((err) => { console.error('[IncidentsNewPage]', err); });
+      .catch((err) => {
+        console.error('[IncidentsNewPage]', err);
+      });
     apiClient<{ data: TemplateOption[] }>('/api/v1/behaviour/templates?pageSize=50')
       .then((res) => setTemplates(res.data ?? []))
-      .catch((err) => { console.error('[IncidentsNewPage]', err); });
+      .catch((err) => {
+        console.error('[IncidentsNewPage]', err);
+      });
+  }, []);
+
+  // Pick up AI parse prefill from the sub-hub composer (impl 14 seam).
+  // When `?from=ai-parse` is in the URL, read the stashed text, pop the
+  // AI parse modal with it pre-populated, and clear the seam.
+  React.useEffect(() => {
+    if (!aiVisible) return;
+    if (typeof window === 'undefined') return;
+    const fromParam = new URLSearchParams(window.location.search).get('from');
+    if (fromParam !== 'ai-parse') return;
+    const prefill = readPrefillFromSession();
+    if (!prefill) return;
+    setAiInitialText(prefill);
+    setAiModalOpen(true);
+    clearPrefillFromSession();
+  }, [aiVisible]);
+
+  // Apply AI parse result onto the form fields
+  const handleAiApply = React.useCallback((result: AiParseResult, parsedDescription: string) => {
+    if (parsedDescription) setDescription(parsedDescription);
+    if (result.suggested_category_id) setCategoryId(result.suggested_category_id);
+    if (result.suggested_location) setLocation(result.suggested_location);
+    if (result.suggested_when) {
+      try {
+        const d = new Date(result.suggested_when);
+        if (!Number.isNaN(d.getTime())) {
+          const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+          setOccurredAt(iso);
+        }
+      } catch (err) {
+        console.warn('[IncidentsNewPage] could not parse AI date', err);
+      }
+    }
+    if (result.suggested_students.length > 0) {
+      const mapped: StudentOption[] = result.suggested_students.map((s) => {
+        const parts = s.full_name.split(' ');
+        return {
+          id: s.id,
+          first_name: parts[0] ?? s.full_name,
+          last_name: parts.slice(1).join(' '),
+        };
+      });
+      setSelectedStudents((prev) => {
+        const byId = new Map(prev.map((p) => [p.id, p]));
+        for (const s of mapped) if (!byId.has(s.id)) byId.set(s.id, s);
+        return Array.from(byId.values());
+      });
+    }
   }, []);
 
   // Student search with debounce
@@ -112,7 +178,9 @@ export default function CreateIncidentPage() {
         `/api/v1/students?search=${encodeURIComponent(studentSearch)}&pageSize=10`,
       )
         .then((res) => setStudentResults(res.data ?? []))
-        .catch((err) => { console.error('[IncidentsNewPage]', err); });
+        .catch((err) => {
+          console.error('[IncidentsNewPage]', err);
+        });
     }, 300);
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -185,13 +253,36 @@ export default function CreateIncidentPage() {
       <PageHeader
         title={t('title')}
         actions={
-          <Link href={`/${locale}/behaviour/incidents`}>
-            <Button variant="outline">
-              <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-              {t('back')}
-            </Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            {aiVisible && (
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => {
+                  setAiInitialText(description);
+                  setAiModalOpen(true);
+                }}
+                aria-label={tAi('trigger')}
+              >
+                <Sparkles className="me-2 h-4 w-4 text-fuchsia-600" aria-hidden="true" />
+                {tAi('trigger')}
+              </Button>
+            )}
+            <Link href={`/${locale}/behaviour/incidents`}>
+              <Button variant="outline">
+                <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
+                {t('back')}
+              </Button>
+            </Link>
+          </div>
         }
+      />
+
+      <AiParseModal
+        open={aiModalOpen}
+        onOpenChange={setAiModalOpen}
+        initialDescription={aiInitialText}
+        onApply={handleAiApply}
       />
 
       <form onSubmit={handleSubmit} className="mx-auto max-w-3xl space-y-6">

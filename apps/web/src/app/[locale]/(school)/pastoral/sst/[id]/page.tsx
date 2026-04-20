@@ -1,6 +1,6 @@
 'use client';
 
-import { RotateCw, Save } from 'lucide-react';
+import { RotateCw, Save, Sparkles } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -19,6 +19,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { SearchPicker } from '@/components/pastoral/search-picker';
+import { useAiFlag } from '@/hooks/use-ai-flag';
 import { apiClient } from '@/lib/api-client';
 import { formatDate, formatDateTime } from '@/lib/format-date';
 import {
@@ -33,7 +34,10 @@ import {
 
 export default function SstMeetingDetailPage() {
   const t = useTranslations('pastoral.sstDetail');
+  const tAi = useTranslations('aiFeatures.sst');
   const sharedT = useTranslations('pastoral.shared');
+  const aiFlag = useAiFlag('pastoral');
+  const aiVisible = aiFlag !== 'disabled';
   const params = useParams();
   const meetingId = params?.id as string;
   const [meeting, setMeeting] = React.useState<SstMeetingDetail | null>(null);
@@ -103,21 +107,28 @@ export default function SstMeetingDetailPage() {
         description={t('description', { status: t(`status.${displayStatus}` as never) })}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              disabled={busyAction === 'refresh'}
-              onClick={() =>
-                void runAction('refresh', async () => {
-                  await apiClient(`/api/v1/pastoral/sst/meetings/${meeting.id}/agenda/refresh`, {
-                    method: 'POST',
-                    silent: true,
-                  });
-                })
-              }
-            >
-              <RotateCw className="me-2 h-4 w-4" />
-              {t('refreshAgenda')}
-            </Button>
+            {aiVisible ? (
+              <Button
+                variant="outline"
+                disabled={busyAction === 'refresh'}
+                onClick={() =>
+                  void runAction('refresh', async () => {
+                    await apiClient(`/api/v1/pastoral/sst/meetings/${meeting.id}/agenda/refresh`, {
+                      method: 'POST',
+                      silent: true,
+                    });
+                  })
+                }
+                aria-label={tAi('refreshAgenda')}
+              >
+                {busyAction === 'refresh' ? (
+                  <RotateCw className="me-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Sparkles className="me-2 h-4 w-4 text-fuchsia-600" aria-hidden="true" />
+                )}
+                {busyAction === 'refresh' ? tAi('refreshing') : tAi('refreshAgenda')}
+              </Button>
+            ) : null}
             {displayStatus === 'scheduled' ? (
               <Button
                 onClick={() =>

@@ -457,29 +457,19 @@ export default function BehaviourSubHubPage() {
   const overdueTotal = tasks?.overdue ?? pulse?.overdue_tasks ?? 0;
 
   // ── AI quick parse handler ──────────────────────────────────────────────
-  async function handleAiParse(event: React.FormEvent) {
+  function handleAiParse(event: React.FormEvent) {
     event.preventDefault();
     const text = aiParseText.trim();
-    if (!text || aiParseLoading) return;
+    if (!text) return;
     setAiParseLoading(true);
+    // Stash the prefill text; the /behaviour/incidents/new page picks it up,
+    // opens the AI parse modal, and does the actual LLM call there.
     try {
-      await apiClient<{ data: unknown }>('/api/v1/behaviour/incidents/ai-parse', {
-        method: 'POST',
-        body: JSON.stringify({ text }),
-        silent: true,
-      });
-      // Stash the prefill text so the new-incident form can pick it up.
-      try {
-        sessionStorage.setItem('behaviourAiParsePrefill', text);
-      } catch (storageErr) {
-        console.warn('[BehaviourSubHub] sessionStorage unavailable', storageErr);
-      }
-      router.push(`/${locale}/behaviour/incidents/new?from=ai-parse`);
-    } catch (err) {
-      console.error('[BehaviourSubHub] ai-parse failed', err);
-    } finally {
-      setAiParseLoading(false);
+      sessionStorage.setItem('behaviourAiParsePrefill', text);
+    } catch (storageErr) {
+      console.warn('[BehaviourSubHub] sessionStorage unavailable', storageErr);
     }
+    router.push(`/${locale}/behaviour/incidents/new?from=ai-parse`);
   }
 
   // ── Render ──────────────────────────────────────────────────────────────
