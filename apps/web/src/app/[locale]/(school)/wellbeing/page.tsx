@@ -42,7 +42,6 @@ import type { RoleKey } from '@/lib/route-roles';
 import { ADMIN_ROLES, STAFF_ROLES } from '@/lib/route-roles';
 
 import {
-  VISIBLE_HUB_KEYS,
   filterHubCards,
   filterQuickActions,
   type HubCardKey,
@@ -608,6 +607,3 @@ function getHubCount(
     }
   }
 }
-
-// Re-export for test coverage without pulling the rest of the page.
-export { VISIBLE_HUB_KEYS };
