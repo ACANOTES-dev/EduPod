@@ -12859,6 +12859,82 @@
       "action_failed": "Action failed"
     }
   },
+  "earlyWarningsHub": {
+    "title": "Early Warnings",
+    "description": "Spot students drifting toward risk, understand why, and act — across attendance, grades, behaviour, wellbeing, and engagement.",
+    "loadError": "We could not load the early-warning signal. Refresh to try again.",
+    "retry": "Retry",
+    "header": {
+      "cohort": "Cohort analysis",
+      "settings": "Settings"
+    },
+    "kpis": {
+      "ariaLabel": "Early-warning KPIs",
+      "red": "Red risk",
+      "redSubtitle": "Urgent action",
+      "amber": "Amber risk",
+      "amberSubtitle": "Monitoring",
+      "newFlags": "Trending up",
+      "newFlagsSubtitle": "Worsening this period",
+      "activeInterventions": "Active interventions",
+      "activeInterventionsSubtitle": "In progress"
+    },
+    "insights": {
+      "title": "Insights this week",
+      "description": "Patterns we noticed across the cohort — review before your next pastoral meeting.",
+      "refresh": "Refresh",
+      "empty": "Not enough signal yet to surface themes. Log more incidents, mark attendance, and the engine will start to see patterns.",
+      "summary": "{flagged, plural, one {# student is flagged} other {# students are flagged}} — {red} at red risk and {amber} at amber.",
+      "themes": {
+        "concentrated_year_group": "A notable share ({count} of {total}) sit in {year_group} — worth raising at the next year-group meeting.",
+        "concentrated_class": "{class_name} has {count} at-risk students — consider a dedicated class review.",
+        "dominant_domain": "{domain} is the dominant concern — {count} students show it as their primary indicator.",
+        "upward_trend": "{count} of {total} flagged students are trending worse over the last 30 days.",
+        "unassigned_reds": "{count, plural, one {# red-tier student has no assigned lead} other {# red-tier students have no assigned lead}} — assign before the end of the week."
+      }
+    },
+    "domains": {
+      "ariaLabel": "Filter by indicator domain",
+      "all": "All indicators",
+      "attendance": "Attendance",
+      "grades": "Grades",
+      "behaviour": "Behaviour",
+      "wellbeing": "Wellbeing",
+      "engagement": "Engagement"
+    },
+    "matrix": {
+      "title": "At-risk students",
+      "description": "Click a student for the signal breakdown, tier history, and action panel.",
+      "totalFlagged": "{count, plural, one {# flagged} other {# flagged}}",
+      "emptyTitle": "No students flagged in this view",
+      "emptyDescription": "Adjust the domain filter or clear filters to see the full picture.",
+      "showMore": "Show {count} more"
+    },
+    "cohort": {
+      "title": "Cohort analysis",
+      "description": "How risk is distributed across year groups, classes, and the wider cohort.",
+      "drillIn": "Full cohort view",
+      "byYearGroup": "By year group",
+      "byClass": "By class",
+      "byComposition": "Composition",
+      "stackedBy": "stacked by tier",
+      "topN": "top {count}",
+      "anonymised": "anonymised",
+      "red": "Red",
+      "amber": "Amber",
+      "emptyYearGroups": "No year-group data available.",
+      "emptyClasses": "No class-level concentration yet.",
+      "compositionTotal": "Total flagged",
+      "compositionYearGroupsAffected": "Year groups affected",
+      "compositionClassesAffected": "Classes affected",
+      "compositionAvgPerClass": "Avg per class"
+    },
+    "cta": {
+      "title": "{count, plural, one {# flagged student awaits follow-up} other {# flagged students await follow-up}}",
+      "description": "Kick off interventions in a guided multi-select flow.",
+      "button": "Trigger interventions"
+    }
+  },
   "homework": {
     "title": "Homework",
     "subjectlessClass": "Class (no subject)",

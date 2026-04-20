@@ -160,19 +160,19 @@ export function CohortPanels({ yearGroups, classes, totalFlagged, isLoading }: C
               <CompositionCard
                 label={t('compositionYearGroupsAffected')}
                 value={yearGroups.length}
-                icon={<span className="text-[11px] font-semibold">YG</span>}
+                icon={<Users className="h-4 w-4" />}
                 tint="bg-amber-50 text-amber-800 ring-amber-200"
               />
               <CompositionCard
                 label={t('compositionClassesAffected')}
                 value={classes.length}
-                icon={<span className="text-[11px] font-semibold">CL</span>}
+                icon={<Users className="h-4 w-4" />}
                 tint="bg-sky-50 text-sky-800 ring-sky-200"
               />
               <CompositionCard
                 label={t('compositionAvgPerClass')}
                 value={classes.length === 0 ? '—' : (totalFlagged / classes.length).toFixed(1)}
-                icon={<span className="text-[11px] font-semibold">avg</span>}
+                icon={<Users className="h-4 w-4" />}
                 tint="bg-rose-50 text-rose-800 ring-rose-200"
               />
             </div>
