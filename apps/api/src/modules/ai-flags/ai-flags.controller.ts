@@ -15,19 +15,19 @@ import { AiFlagsService } from './ai-flags.service';
 
 const moduleKeyParamSchema = wellbeingAiModuleKeySchema;
 
-@Controller('v1/admin/ai-flags')
+@Controller('v1/ai-flags')
 @UseGuards(AuthGuard, PermissionGuard)
 @RequiresPermission('ai_flag.manage')
 export class AiFlagsController {
   constructor(private readonly aiFlags: AiFlagsService) {}
 
-  // GET /v1/admin/ai-flags
+  // GET /v1/ai-flags
   @Get()
   list(@CurrentTenant() tenant: TenantContext) {
     return this.aiFlags.list(tenant.tenant_id);
   }
 
-  // PATCH /v1/admin/ai-flags/:moduleKey
+  // PATCH /v1/ai-flags/:moduleKey
   @Patch(':moduleKey')
   setFlag(
     @CurrentTenant() tenant: TenantContext,

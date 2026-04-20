@@ -98,6 +98,6 @@ describe('AiFlagsController — permission denied', () => {
   });
 
   it('returns 403 when user lacks ai_flag.manage', async () => {
-    await request(app.getHttpServer()).get('/v1/admin/ai-flags').expect(403);
+    await request(app.getHttpServer()).get('/v1/ai-flags').expect(403);
   });
 });
