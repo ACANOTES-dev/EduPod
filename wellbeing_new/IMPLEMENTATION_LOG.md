@@ -149,7 +149,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | #   | Title                                                 | Wave | Mode           | Depends on | Status        | Completed at      | Commit SHA |
 | --- | ----------------------------------------------------- | ---- | -------------- | ---------- | ------------- | ----------------- | ---------- |
 | 01  | Schema foundation + default seeds                     | 1    | serial         | —          | `completed`   | 2026-04-20T14:15Z | c5ee2128   |
-| 02  | Fix broken behaviour endpoints                        | 2    | parallel-safe  | 01         | `pending`     |                   |            |
+| 02  | Fix broken behaviour endpoints                        | 2    | parallel-safe  | 01         | `in-progress` |                   |            |
 | 03  | Wellbeing dashboard-summary aggregator                | 2    | parallel-safe  | 01         | `in-progress` |                   |            |
 | 04  | AI flag service + notification routing                | 2    | parallel-safe  | 01         | `pending`     |                   |            |
 | 05  | Behaviour AI services                                 | 3    | parallel-safe  | 01, 04     | `pending`     |                   |            |
