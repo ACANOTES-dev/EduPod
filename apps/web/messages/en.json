@@ -10284,7 +10284,17 @@
       "noRecognition": "No recognition yet. Log a positive incident to celebrate students.",
       "rankPlace": "{rank} place",
       "reject": "Reject",
-      "unknownStudent": "Unknown student"
+      "unknownStudent": "Unknown student",
+      "description": "Celebrate growth, effort, and character across the school.",
+      "hero": {
+        "title": "Every merit, every milestone — right here",
+        "body": "This wall updates in real time as staff log positive incidents, award merits, and publish recognition."
+      },
+      "podium": {
+        "title": "Top three this period",
+        "rank": "#{rank}",
+        "noYearGroup": "No year group"
+      }
     },
     "amendments": {
       "title": "Amendment Notices",
@@ -10978,6 +10988,161 @@
       }
     }
   },
+  "safeguardingBreakGlass": {
+    "title": "Break-glass grants",
+    "description": "Emergency access to safeguarding records. Every grant is logged and requires an after-action review.",
+    "grantedBy": "Granted by {name}",
+    "expiresIn": "Expires in {remaining}",
+    "scope": {
+      "all_concerns": "All concerns",
+      "specific_concerns": "Specific concerns"
+    },
+    "review": {
+      "filed": "Review filed",
+      "overdue": "Review overdue",
+      "not_yet_due": "Review not yet due",
+      "not_required": "No review required"
+    },
+    "banner": {
+      "title": "Sensitive access record",
+      "body": "Every grant here trails a full audit log. Reviews must be filed within 7 days of expiry. Use only when normal access is not possible."
+    },
+    "active": {
+      "title": "Active grants · {count}",
+      "empty": "No active break-glass grants right now."
+    },
+    "past": {
+      "title": "Past 30 days · {count}",
+      "empty": "No grants issued in the last 30 days."
+    },
+    "request": {
+      "title": "Request break-glass access",
+      "back": "Back",
+      "next": "Next",
+      "cancel": "Cancel",
+      "grant": "Grant access",
+      "submitting": "Granting…",
+      "errors": {
+        "generic": "Unable to grant access right now. Please try again."
+      },
+      "step1": {
+        "staff": "Who is this for?",
+        "staffHint": "Search staff by name. The grantee will see safeguarding records for the duration below.",
+        "searchPlaceholder": "Search staff by name",
+        "searching": "Searching…",
+        "clear": "Clear",
+        "reason": "Justification",
+        "reasonHint": "Describe why normal access is not possible. Minimum 100 characters — this is read in the after-action review.",
+        "reasonPlaceholder": "e.g. Ongoing critical incident; assistant principal needs tier-3 access to coordinate with safeguarding officer…",
+        "reasonCount": "{count} / {required} characters"
+      },
+      "step2": {
+        "intro": "Choose what the grantee will be able to read.",
+        "all": {
+          "title": "All concerns",
+          "desc": "Full tenant-wide safeguarding access for the duration."
+        },
+        "specific": {
+          "title": "Specific concerns",
+          "desc": "Only the concerns you select below."
+        },
+        "noConcerns": "No open concerns to choose from.",
+        "unknownStudent": "Concern",
+        "selectedCount": "{count} selected"
+      },
+      "step3": {
+        "intro": "How long should access last? The default is 4 hours.",
+        "duration": "{hours}h",
+        "longDurationWarning": "Durations over 24 hours are unusual. Verify with the DSL that this is genuinely required."
+      },
+      "step4": {
+        "labels": {
+          "staff": "Staff member",
+          "scope": "Scope",
+          "specificCount": "{count} specific concern(s)",
+          "duration": "Duration"
+        },
+        "acknowledge": {
+          "title": "I understand this access is logged",
+          "body": "All reads are recorded. An after-action review must be filed within 7 days of expiry."
+        }
+      }
+    },
+    "detail": {
+      "title": "Break-glass grant",
+      "description": "Granted to {name}",
+      "backToList": "Back to grants",
+      "notFound": "This grant no longer exists.",
+      "status": {
+        "active": "Active",
+        "expired": "Expired",
+        "revoked": "Revoked",
+        "activeBody": "Expires in {remaining}",
+        "pastBody": "Expired at {at}"
+      },
+      "meta": {
+        "grantedTo": "Granted to",
+        "grantedBy": "Granted by",
+        "scope": "Scope",
+        "specificCount": "{count} concern(s)",
+        "window": "Access window",
+        "reason": "Justification"
+      },
+      "review": {
+        "title": "After-action review",
+        "submit": "File review",
+        "submitting": "Filing…",
+        "placeholder": "Summarise what the grantee actually accessed, any findings, and follow-up actions…",
+        "filedBy": "Filed by",
+        "overdueWarning": "This review is overdue. File as soon as possible.",
+        "stillActive": "The grant is still active. Review can be filed once it expires.",
+        "errors": {
+          "generic": "Unable to save this review. Please try again."
+        }
+      },
+      "accessLog": {
+        "title": "Access log · {count}",
+        "empty": "No access entries recorded against this grant yet.",
+        "concern": "Concern"
+      }
+    }
+  },
+  "safeguardingSealing": {
+    "title": "Sealing",
+    "cancel": "Cancel",
+    "submitting": "Submitting…",
+    "errors": {
+      "generic": "Unable to complete this action. Please try again.",
+      "reasonRequired": "A reason is required."
+    },
+    "notInitiated": {
+      "body": "Sealing closes this concern to all but a very limited audit trail. It is irreversible and requires a second approver.",
+      "cta": "Request seal",
+      "dialogTitle": "Request seal",
+      "dialogBody": "Only the DSL should initiate sealing. Another DSL-authorised user must approve before the record is sealed.",
+      "reasonLabel": "Reason for sealing",
+      "reasonPlaceholder": "Explain why this concern must be sealed. This text is saved to the audit log.",
+      "submit": "Request seal"
+    },
+    "pending": {
+      "title": "Seal awaiting approval",
+      "initiatorNote": "You initiated this request. A different authorised user must approve or reject.",
+      "initiatorReason": "Initiator's reason",
+      "approve": "Approve seal",
+      "reject": "Reject",
+      "approveTitle": "Approve seal",
+      "approveWarning": "Sealing is irreversible. Once approved the record is closed to all but the audit trail.",
+      "approveConfirm": "Approve and seal",
+      "rejectTitle": "Reject seal",
+      "rejectReasonLabel": "Reason for rejection",
+      "rejectReasonPlaceholder": "Optional — noted in the audit log.",
+      "rejectConfirm": "Reject seal"
+    },
+    "sealed": {
+      "badge": "Sealed",
+      "at": "Sealed at {at}"
+    }
+  },
   "pastoral": {
     "workspace": {
       "eyebrow": "Student Wellbeing Workspace",
@@ -11091,9 +11256,21 @@
             "title": "Check-in monitoring",
             "description": "Review flagged check-ins, student history, and aggregate trends that need follow-up."
           },
+          "checkinsFlagged": {
+            "title": "Flagged check-in queue",
+            "description": "Escalate or dismiss student self check-ins that the alert worker has flagged."
+          },
           "criticalIncidents": {
             "title": "Critical incidents",
             "description": "Coordinate incident response plans, affected lists, and external support for major events."
+          },
+          "dsar": {
+            "title": "Data subject access reviews",
+            "description": "Decide include / redact / exclude on pastoral records referenced by an access request."
+          },
+          "import": {
+            "title": "Import historical concerns",
+            "description": "Bulk-upload pastoral concerns from CSV with validation and duplicate detection."
           }
         }
       },
@@ -12022,6 +12199,7 @@
       "supportPending": "Support pending",
       "saveAffected": "Save affected update",
       "recordSupport": "Record support",
+      "viewSupportLog": "View support log",
       "removeAffected": "Remove",
       "addAffected": "Add affected person",
       "addAffectedAction": "Add affected person",
@@ -12662,6 +12840,181 @@
       "new": "New",
       "templates": "Templates",
       "newTemplate": "New template"
+    }
+  },
+  "behaviourPolicyReplay": {
+    "title": "Policy replay",
+    "description": "Run a rule against historical incidents and see exactly what it would have done. Preview first; execute only after review.",
+    "back": "Back to policies",
+    "errors": {
+      "previewFailed": "Unable to run this preview. Please try again."
+    },
+    "banner": {
+      "title": "Historical replay is read-only by default",
+      "body": "Preview shows which incidents a rule would have matched and which actions would have fired. Executing persists those actions — double-check before committing."
+    },
+    "filters": {
+      "title": "Scope",
+      "hint": "Pick one rule and a date range. Only active rules appear here.",
+      "rule": "Rule",
+      "selectRule": "Select a rule",
+      "noRules": "No active rules available.",
+      "from": "From",
+      "to": "To",
+      "preview": "Preview",
+      "previewing": "Previewing…"
+    },
+    "preview": {
+      "title": "Preview",
+      "subtitle": "Rule “{rule}” · {from} → {to}",
+      "evaluated": "Incidents evaluated",
+      "matched": "Incidents matched",
+      "students": "Students affected",
+      "actionsTotal": "Actions that would fire",
+      "actionsBreakdown": "Actions breakdown",
+      "sampleMatches": "Sample matches · {count}",
+      "columns": {
+        "incident": "Incident",
+        "occurredAt": "Occurred",
+        "student": "Student",
+        "category": "Category"
+      }
+    },
+    "execute": {
+      "title": "Execute replay",
+      "warning": "This will persist actions for {matched} incidents across {students} students. Review the breakdown above before continuing.",
+      "followUpNote": "Heads-up: the persisting replay mode is a backend follow-up. If the server rejects execute, the preview above is still authoritative.",
+      "confirmLabel": "Type “{phrase}” to confirm",
+      "cta": "Execute replay",
+      "running": "Running…",
+      "success": "Replay executed. Check audit log for details.",
+      "notWired": "Execute is not yet available — keep the preview for the scheduler."
+    }
+  },
+  "behaviourAdmin": {
+    "title": "Behaviour admin",
+    "description": "Operational repair console. Use sparingly — every action here mutates production data.",
+    "denied": {
+      "body": "Only the school owner or principal can access behaviour admin operations.",
+      "backToHub": "Back to wellbeing"
+    },
+    "banner": {
+      "title": "Mutations without safety nets",
+      "body": "Operations here bypass normal guardrails. Preview first, confirm typed phrase, and coordinate with the team before executing."
+    },
+    "actions": {
+      "preview": "Preview",
+      "execute": "Execute",
+      "close": "Close",
+      "cancel": "Cancel",
+      "executing": "Executing…",
+      "confirmExecute": "Confirm execute",
+      "legalHolds": "Legal holds",
+      "backToBehaviour": "Behaviour"
+    },
+    "errors": {
+      "previewFailed": "Unable to load preview. Please try again.",
+      "executeFailed": "Unable to execute. Please try again."
+    },
+    "preview": {
+      "title": "Preview: {op}",
+      "affectedRecords": "Affected records",
+      "affectedStudents": "Affected students",
+      "estimatedDuration": "Estimated duration",
+      "reversible": "Reversible",
+      "yes": "Yes",
+      "no": "No"
+    },
+    "execute": {
+      "title": "Execute: {op}",
+      "warning": "{op} will run in the background and may take several minutes. Proceed only if you have reviewed the preview.",
+      "confirmLabel": "Type “{phrase}” to confirm",
+      "submitted": "Operation submitted.",
+      "jobId": "Job id:",
+      "affectedCount": "{count} records affected.",
+      "note": "Progress is visible via the job log once submitted."
+    },
+    "operations": {
+      "recomputePoints": {
+        "title": "Recompute points",
+        "description": "Invalidate the Redis cache and rebuild all student point totals from source incidents and awards."
+      },
+      "rebuildAwards": {
+        "title": "Rebuild awards",
+        "description": "Scan every student for missing threshold awards and create them where entitled."
+      },
+      "recomputePulse": {
+        "title": "Recompute pulse",
+        "description": "Invalidate the behaviour pulse cache. The next request will recompute live."
+      },
+      "backfillTasks": {
+        "title": "Backfill tasks",
+        "description": "Scan pending entities (sanctions, appeals, approvals) and recreate any missing behaviour tasks."
+      },
+      "reindexSearch": {
+        "title": "Reindex search",
+        "description": "Rebuild the Meilisearch behaviour index from the database. Runs as a background job."
+      },
+      "retentionSweep": {
+        "title": "Retention sweep",
+        "description": "Archive or anonymise records past their retention horizon. Honours active legal holds — those are skipped."
+      }
+    },
+    "legalHolds": {
+      "title": "Legal holds",
+      "description": "Records under an active hold are never anonymised or deleted by retention. Release the hold to resume normal retention.",
+      "setBy": "Set by {name} · {at}",
+      "legalBasis": "Legal basis",
+      "releasedBy": "Released by {name} · {at}",
+      "actions": {
+        "create": "Create hold",
+        "release": "Release",
+        "backToAdmin": "Admin console"
+      },
+      "filters": {
+        "active": "Active",
+        "released": "Released"
+      },
+      "empty": {
+        "active": "No active legal holds.",
+        "released": "No released legal holds on record."
+      },
+      "open": "Open",
+      "create": {
+        "title": "Create legal hold",
+        "entityType": "Entity type",
+        "entityId": "Entity id",
+        "reason": "Reason",
+        "reasonPlaceholder": "Describe why this entity is being held…",
+        "legalBasis": "Legal basis (optional)",
+        "legalBasisPlaceholder": "e.g. Appeal case AP-000042",
+        "cancel": "Cancel",
+        "create": "Create hold",
+        "submitting": "Creating…",
+        "entityTypes": {
+          "incident": "Incident",
+          "sanction": "Sanction",
+          "intervention": "Intervention",
+          "appeal": "Appeal",
+          "exclusion_case": "Exclusion case"
+        },
+        "errors": {
+          "generic": "Unable to create this hold. Please try again."
+        }
+      },
+      "release": {
+        "title": "Release legal hold",
+        "releasing": "Releasing",
+        "setContext": "{type} · set {at}",
+        "reason": "Release reason",
+        "reasonPlaceholder": "Document why the hold is being released…",
+        "cancel": "Cancel",
+        "release": "Release hold",
+        "submitting": "Releasing…",
+        "errors": {
+          "generic": "Unable to release this hold. Please try again."
+        }
+      }
     }
   },
   "wellbeing": {
@@ -14773,6 +15126,211 @@
       "send": "Send to parent",
       "resend": "Resend",
       "supersededHint": "This document was superseded. No further actions."
+    }
+  },
+  "dsarReview": {
+    "queueTitle": "DSAR review queue",
+    "queueDescription": "Review pastoral records referenced by a data subject access request and decide what is released.",
+    "detailTitle": "Request {id}",
+    "detailDescription": "Decide include, redact, or exclude on each referenced record. Legal basis is required for redactions and exclusions.",
+    "detailEmpty": "No records are linked to this request yet.",
+    "showingPendingOnly": "Showing pending requests",
+    "showingAll": "Showing all requests",
+    "empty": "No open DSAR reviews. New requests will appear here automatically.",
+    "groupsTitle": "Open access requests",
+    "groupsDescription": "Grouped by the requesting compliance request. Oldest pending appear first.",
+    "requestRef": "DSAR-{id}",
+    "pendingBadge": "{count, plural, one {# pending} other {# pending}}",
+    "completeBadge": "All decided",
+    "itemsCount": "{count, plural, one {# item referenced} other {# items referenced}}",
+    "entityTypeCount": "{count, plural, one {# {type}} other {# {type}}}",
+    "oldestItem": "Oldest pending",
+    "review": "Review",
+    "auditNotice": "Every include, redact, and exclude decision is recorded in the audit log with the reviewer and timestamp.",
+    "itemCreated": "Referenced {date}",
+    "tierLabel": "Tier {tier}",
+    "submitDecisions": "Submit decisions",
+    "submitting": "Submitting…",
+    "submitSummary": "{staged, plural, one {# decision ready to submit} other {# decisions ready to submit}} · {pending} still pending · {decided} already decided",
+    "decision": {
+      "include": "Include",
+      "redact": "Redact",
+      "exclude": "Exclude"
+    },
+    "decisionHints": {
+      "include": "Release the full record as part of the DSAR response.",
+      "redact": "Release the record with specific content removed. Legal basis required.",
+      "exclude": "Withhold the record from the DSAR response. Legal basis required."
+    },
+    "stats": {
+      "total": "Total",
+      "pending": "Pending",
+      "included": "Included",
+      "redacted": "Redacted",
+      "excluded": "Excluded",
+      "openRequests": "Open requests"
+    },
+    "fields": {
+      "legalBasis": "Legal basis",
+      "legalBasisPlaceholder": "e.g. Article 15(4), third-party data",
+      "justification": "Justification (optional)",
+      "justificationPlaceholder": "Short note on why this decision was made."
+    },
+    "errors": {
+      "legalBasisRequired": "Legal basis is required when redacting or excluding.",
+      "saveFailed": "Could not save decision. Retry or contact support.",
+      "nothingToSubmit": "Pick an include, redact, or exclude option on at least one pending record before submitting."
+    }
+  },
+  "pastoralImport": {
+    "title": "Import historical pastoral concerns",
+    "description": "Upload a CSV to migrate historical concerns into the pastoral system. Every row is validated before anything is written.",
+    "steps": {
+      "upload": "Upload",
+      "review": "Review",
+      "done": "Done"
+    },
+    "upload": {
+      "title": "Upload your CSV",
+      "description": "Start from the template below, populate student identifiers, categories, and narratives, then drag the file into the box.",
+      "limits": "Maximum {maxMb} MB and {maxRows, number} rows per upload.",
+      "downloadTemplate": "Download template",
+      "dropzoneLabel": "Drop your CSV here",
+      "dropzoneHint": "or use the Choose file button below.",
+      "chooseFile": "Choose file",
+      "validate": "Validate file",
+      "validating": "Validating…"
+    },
+    "review": {
+      "stats": {
+        "total": "Total rows",
+        "valid": "Valid",
+        "errors": "Errors",
+        "skipped": "Skipped"
+      },
+      "errorsTitle": "{count, plural, one {# error} other {# errors}}",
+      "errorRow": "Row {row} · {field}",
+      "errorOverflow": "… and {count, number} more errors. Fix the first batch, re-validate, then continue.",
+      "warningsTitle": "{count, plural, one {# warning} other {# warnings}}",
+      "warningRow": "Row {row}",
+      "previewTitle": "Preview (first valid rows)",
+      "previewHint": "Spot-check the shape of the import before committing.",
+      "columns": {
+        "row": "Row",
+        "student": "Student",
+        "date": "Date",
+        "category": "Category",
+        "severity": "Severity",
+        "narrative": "Narrative"
+      },
+      "confirmSummary": "Ready to import {valid, plural, one {# valid row} other {# valid rows}}.",
+      "confirmHint": "Duplicates are skipped automatically based on the row hash.",
+      "startOver": "Start over",
+      "confirm": "Import {valid, plural, one {# row} other {# rows}}",
+      "confirming": "Importing…"
+    },
+    "done": {
+      "title": "Import complete",
+      "imported": "{count, plural, one {# concern imported} other {# concerns imported}}.",
+      "skippedDuplicates": "{count, plural, one {# duplicate skipped} other {# duplicates skipped}}.",
+      "importAnother": "Import another file",
+      "backToPastoral": "Back to pastoral"
+    },
+    "errors": {
+      "fileTooLarge": "File too large. Maximum size is {maxMb} MB.",
+      "invalidFileType": "Only CSV files are accepted.",
+      "validationFailed": "Could not validate the file. Check the format and try again.",
+      "confirmFailed": "Could not complete the import. Retry or contact support.",
+      "templateFailed": "Could not download the template. Retry."
+    }
+  },
+  "responsePlans": {
+    "supportLog": {
+      "title": "Support log — {name}",
+      "description": "Append-only history of support offered to this person during the incident response.",
+      "notesLabel": "New support entry",
+      "notesPlaceholder": "Describe the support offered — conversation, referral, or service.",
+      "recordEntry": "Record entry",
+      "recording": "Recording…",
+      "historyTitle": "{count, plural, one {# entry} other {# entries}}",
+      "loading": "Loading log…",
+      "empty": "No support entries have been recorded yet.",
+      "noNotesForEntry": "Entry recorded without additional notes.",
+      "close": "Close",
+      "errors": {
+        "loadFailed": "Could not load the support log. Retry or refresh the page.",
+        "notesRequired": "Enter a short description of what support was offered.",
+        "recordFailed": "Could not record the entry. Retry."
+      }
+    },
+    "agendaPanel": {
+      "crossCuttingTitle": "Cross-cutting themes",
+      "crossCuttingDescription": "Agenda items that span multiple students or apply to the whole cohort.",
+      "lastComputed": "Last generated {date}",
+      "studentFallback": "Student {id}",
+      "itemCount": "{count, plural, one {# item} other {# items}}",
+      "aiBadge": "AI",
+      "delete": "Delete item",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "source": {
+        "manual": "Manual",
+        "auto_new_concern": "New concern",
+        "auto_case_review": "Case review",
+        "auto_overdue_action": "Overdue action",
+        "auto_early_warning": "Early warning",
+        "auto_neps": "NEPS visit",
+        "auto_intervention_review": "Intervention review",
+        "other": "Other"
+      }
+    }
+  },
+  "checkinFlagged": {
+    "title": "Flagged check-ins",
+    "description": "Student self check-ins that matched an alert signal and need a monitoring owner to decide the next step.",
+    "viewAllCheckins": "View all check-ins",
+    "queueTitle": "Queue",
+    "queueDescription": "Ordered by urgency (lowest mood first), then by most recent.",
+    "countLabel": "{count, plural, one {# flagged} other {# flagged}}",
+    "empty": "No flagged check-ins. The monitoring backlog is clear.",
+    "moodScore": "Mood {score}/5",
+    "unknownStudent": "Unknown student",
+    "hasAutoConcern": "Auto-concern linked",
+    "viewHistory": "Student history",
+    "escalate": "Escalate",
+    "dismiss": "Dismiss",
+    "confirmEscalate": "Escalate to concern",
+    "escalating": "Escalating…",
+    "confirmDismiss": "Dismiss check-in",
+    "dismissing": "Dismissing…",
+    "cancel": "Cancel",
+    "flagReason": {
+      "low_mood": "Low mood",
+      "flagged_keyword": "Flagged keyword",
+      "consecutive_low": "Consecutive low scores",
+      "manual": "Manual flag",
+      "other": "Other"
+    },
+    "escalateDialog": {
+      "title": "Escalate flagged check-in",
+      "hasAutoConcern": "The alert worker already linked a Tier-2 concern to this check-in. Confirming will route you to it.",
+      "willCreateConcern": "A Tier-2 emotional concern will be created automatically and linked to the check-in.",
+      "summary": "{student} · {date}",
+      "notesLabel": "Notes for the concern (optional)",
+      "notesPlaceholder": "Short context for the concern — who spoke to the student, any immediate actions taken."
+    },
+    "dismissDialog": {
+      "title": "Dismiss without escalating",
+      "description": "Dismissal removes the check-in from the queue. The justification is audit-logged.",
+      "summary": "{student} · {date}",
+      "reasonLabel": "Reason for dismissing",
+      "reasonPlaceholder": "e.g. Student followed up in person, no further action needed."
+    },
+    "errors": {
+      "loadFailed": "Could not load the flagged queue. Retry or refresh.",
+      "dismissReasonRequired": "A dismissal reason is required.",
+      "escalateFailed": "Could not escalate the check-in. Retry.",
+      "dismissFailed": "Could not dismiss the check-in. Retry."
     }
   }
 }

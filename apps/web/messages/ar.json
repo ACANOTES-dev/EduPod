@@ -10275,7 +10275,17 @@
       "noRecognition": "لا يوجد تقدير بعد. سجّل حادثة إيجابية للاحتفاء بالطلاب.",
       "rankPlace": "المركز {rank}",
       "reject": "رفض",
-      "unknownStudent": "طالب غير معروف"
+      "unknownStudent": "طالب غير معروف",
+      "description": "نحتفي بالنموّ والجهد والأخلاق في كل أرجاء المدرسة.",
+      "hero": {
+        "title": "كل إشادة وكل محطة — هنا",
+        "body": "يتحدّث هذا الجدار مباشرةً مع تسجيل الحوادث الإيجابية ومنح النقاط ونشر التقدير."
+      },
+      "podium": {
+        "title": "الثلاثة الأوائل في هذه الفترة",
+        "rank": "#{rank}",
+        "noYearGroup": "لا توجد مجموعة سنوية"
+      }
     },
     "amendments": {
       "title": "إشعارات التعديل",
@@ -10969,6 +10979,161 @@
       }
     }
   },
+  "safeguardingBreakGlass": {
+    "title": "منح الوصول الطارئ",
+    "description": "وصول طارئ إلى سجلات الحماية. كل منح مُوثَّق ويستوجب مراجعة ما بعد الحدث.",
+    "grantedBy": "مُنِح بواسطة {name}",
+    "expiresIn": "ينتهي خلال {remaining}",
+    "scope": {
+      "all_concerns": "جميع البلاغات",
+      "specific_concerns": "بلاغات محددة"
+    },
+    "review": {
+      "filed": "تمّت المراجعة",
+      "overdue": "المراجعة متأخرة",
+      "not_yet_due": "لم يحن موعد المراجعة بعد",
+      "not_required": "لا تُستلزم مراجعة"
+    },
+    "banner": {
+      "title": "سجل وصول حساس",
+      "body": "كل منح هنا يترك أثرًا مُدققًا كاملًا. يجب تقديم المراجعة خلال 7 أيام من انتهاء الصلاحية. استعمل فقط عند تعذّر الوصول الاعتيادي."
+    },
+    "active": {
+      "title": "المنح النشطة · {count}",
+      "empty": "لا توجد منح طارئة نشطة في الوقت الحالي."
+    },
+    "past": {
+      "title": "آخر 30 يومًا · {count}",
+      "empty": "لا توجد منح صادرة في آخر 30 يومًا."
+    },
+    "request": {
+      "title": "طلب وصول طارئ",
+      "back": "رجوع",
+      "next": "التالي",
+      "cancel": "إلغاء",
+      "grant": "منح الوصول",
+      "submitting": "جارٍ المنح…",
+      "errors": {
+        "generic": "تعذّر منح الوصول الآن. يُرجى المحاولة مجددًا."
+      },
+      "step1": {
+        "staff": "لصالح من؟",
+        "staffHint": "ابحث عن الموظف بالاسم. سيرى المُمنوح سجلات الحماية طوال المدة المحددة.",
+        "searchPlaceholder": "ابحث عن موظف بالاسم",
+        "searching": "جاري البحث…",
+        "clear": "مسح",
+        "reason": "المبرر",
+        "reasonHint": "وضّح لماذا لا يمكن اتباع الوصول الاعتيادي. 100 حرف كحد أدنى — ستُقرأ في مراجعة ما بعد الحدث.",
+        "reasonPlaceholder": "مثال: حادثة حرجة مستمرة؛ يحتاج نائب المدير وصول المستوى 3 للتنسيق مع ضابط الحماية…",
+        "reasonCount": "{count} / {required} حرف"
+      },
+      "step2": {
+        "intro": "اختر ما يمكن للمُمنوح قراءته.",
+        "all": {
+          "title": "جميع البلاغات",
+          "desc": "وصول كامل إلى كل بلاغات الحماية في المدرسة طوال المدة."
+        },
+        "specific": {
+          "title": "بلاغات محددة",
+          "desc": "فقط البلاغات التي تختارها أدناه."
+        },
+        "noConcerns": "لا توجد بلاغات مفتوحة لاختيارها.",
+        "unknownStudent": "بلاغ",
+        "selectedCount": "{count} محدد"
+      },
+      "step3": {
+        "intro": "ما المدة المطلوبة؟ الافتراضي 4 ساعات.",
+        "duration": "{hours} ساعة",
+        "longDurationWarning": "المدد فوق 24 ساعة غير اعتيادية. تأكّد مع قائد الحماية (DSL) من الضرورة."
+      },
+      "step4": {
+        "labels": {
+          "staff": "الموظف",
+          "scope": "النطاق",
+          "specificCount": "{count} بلاغ محدد",
+          "duration": "المدة"
+        },
+        "acknowledge": {
+          "title": "أُقرّ بأن هذا الوصول مُوثَّق",
+          "body": "كل قراءة تُسجَّل. يجب تقديم مراجعة ما بعد الحدث خلال 7 أيام من انتهاء الصلاحية."
+        }
+      }
+    },
+    "detail": {
+      "title": "منح الوصول الطارئ",
+      "description": "مُنِح إلى {name}",
+      "backToList": "العودة إلى المنح",
+      "notFound": "لم يعد هذا المنح موجودًا.",
+      "status": {
+        "active": "نشط",
+        "expired": "منتهٍ",
+        "revoked": "مُلغى",
+        "activeBody": "ينتهي خلال {remaining}",
+        "pastBody": "انتهى في {at}"
+      },
+      "meta": {
+        "grantedTo": "مُنِح إلى",
+        "grantedBy": "مُنِح بواسطة",
+        "scope": "النطاق",
+        "specificCount": "{count} بلاغ",
+        "window": "نافذة الوصول",
+        "reason": "المبرر"
+      },
+      "review": {
+        "title": "مراجعة ما بعد الحدث",
+        "submit": "تقديم المراجعة",
+        "submitting": "جاري التقديم…",
+        "placeholder": "لخّص ما اطّلع عليه المُمنوح فعليًا، وأي نتائج، والإجراءات التالية…",
+        "filedBy": "قُدِّمت بواسطة",
+        "overdueWarning": "المراجعة متأخرة. يُرجى تقديمها في أسرع وقت.",
+        "stillActive": "لا يزال المنح نشطًا. يمكن تقديم المراجعة بعد انتهاء صلاحيته.",
+        "errors": {
+          "generic": "تعذّر حفظ المراجعة. يُرجى المحاولة مجددًا."
+        }
+      },
+      "accessLog": {
+        "title": "سجل الوصول · {count}",
+        "empty": "لا توجد إدخالات وصول مُسجَّلة على هذا المنح بعد.",
+        "concern": "بلاغ"
+      }
+    }
+  },
+  "safeguardingSealing": {
+    "title": "الختم",
+    "cancel": "إلغاء",
+    "submitting": "جارٍ الإرسال…",
+    "errors": {
+      "generic": "تعذّر إكمال الإجراء. يُرجى المحاولة مجددًا.",
+      "reasonRequired": "السبب مطلوب."
+    },
+    "notInitiated": {
+      "body": "الختم يُغلق هذا البلاغ نهائيًا ويُبقي فقط أثر تدقيق محدود. هذا إجراء غير قابل للتراجع ويحتاج إلى معتمِد ثانٍ.",
+      "cta": "طلب الختم",
+      "dialogTitle": "طلب الختم",
+      "dialogBody": "يجب ألا يبدأ الختم إلا قائد الحماية (DSL). ويجب أن يعتمد الطلب مستخدم آخر مُفوَّض قبل إغلاق السجل.",
+      "reasonLabel": "سبب الختم",
+      "reasonPlaceholder": "اشرح لماذا يجب ختم هذا البلاغ. يُحفظ النص في سجل التدقيق.",
+      "submit": "طلب الختم"
+    },
+    "pending": {
+      "title": "طلب ختم بانتظار الاعتماد",
+      "initiatorNote": "أنت من بدأ هذا الطلب. يجب أن يعتمد المُفوَّض الآخر الطلب أو يرفضه.",
+      "initiatorReason": "سبب مُقدِّم الطلب",
+      "approve": "اعتماد الختم",
+      "reject": "رفض",
+      "approveTitle": "اعتماد الختم",
+      "approveWarning": "الختم غير قابل للتراجع. بعد الاعتماد يُغلق السجل عدا أثر التدقيق.",
+      "approveConfirm": "اعتماد والختم",
+      "rejectTitle": "رفض الختم",
+      "rejectReasonLabel": "سبب الرفض",
+      "rejectReasonPlaceholder": "اختياري — يُسجّل في التدقيق.",
+      "rejectConfirm": "رفض الختم"
+    },
+    "sealed": {
+      "badge": "مختوم",
+      "at": "تم الختم في {at}"
+    }
+  },
   "pastoral": {
     "workspace": {
       "eyebrow": "مساحة الرفاه والرعاية الطلابية",
@@ -11082,9 +11247,21 @@
             "title": "مراقبة تسجيلات المتابعة",
             "description": "راجع التسجيلات المعلّمة وسجل الطالب والاتجاهات المجمعة التي تحتاج متابعة."
           },
+          "checkinsFlagged": {
+            "title": "قائمة التسجيلات المعلّمة",
+            "description": "صعّد أو استبعد تسجيلات المتابعة الذاتية التي وضع عليها نظام التنبيه علامة."
+          },
           "criticalIncidents": {
             "title": "الحوادث الحرجة",
             "description": "نسّق خطط الاستجابة وقوائم المتأثرين والدعم الخارجي للأحداث الكبرى."
+          },
+          "dsar": {
+            "title": "مراجعات طلبات الوصول إلى البيانات",
+            "description": "قرّر الإدراج أو الحجب أو الاستبعاد للسجلات الرعوية المشار إليها في طلب وصول."
+          },
+          "import": {
+            "title": "استيراد مخاوف سابقة",
+            "description": "حمّل مخاوف رعوية سابقة من ملف CSV مع تحقق كامل ورصد التكرارات."
           }
         }
       },
@@ -12013,6 +12190,7 @@
       "supportPending": "الدعم قيد الانتظار",
       "saveAffected": "حفظ التحديث",
       "recordSupport": "تسجيل الدعم",
+      "viewSupportLog": "عرض سجل الدعم",
       "removeAffected": "إزالة",
       "addAffected": "إضافة شخص متأثر",
       "addAffectedAction": "إضافة شخص متأثر",
@@ -14764,6 +14942,211 @@
       "send": "إرسال لوليّ الأمر",
       "resend": "إعادة إرسال",
       "supersededHint": "تم استبدال هذا المستند. لا مزيد من الإجراءات."
+    }
+  },
+  "dsarReview": {
+    "queueTitle": "قائمة مراجعات طلبات الوصول إلى البيانات",
+    "queueDescription": "راجع السجلات الرعوية المشار إليها في طلب وصول إلى البيانات وقرّر ما الذي سيُفرج عنه.",
+    "detailTitle": "طلب {id}",
+    "detailDescription": "قرّر إدراج، حجب، أو استبعاد كل سجل مرتبط. الأساس القانوني مطلوب للحجب والاستبعاد.",
+    "detailEmpty": "لا توجد سجلات مرتبطة بهذا الطلب بعد.",
+    "showingPendingOnly": "عرض الطلبات المعلقة",
+    "showingAll": "عرض جميع الطلبات",
+    "empty": "لا توجد مراجعات مفتوحة. ستظهر الطلبات الجديدة هنا تلقائياً.",
+    "groupsTitle": "طلبات الوصول المفتوحة",
+    "groupsDescription": "مجمّعة حسب طلب الامتثال. الأقدم المعلق يظهر أولاً.",
+    "requestRef": "DSAR-{id}",
+    "pendingBadge": "{count, plural, one {# معلق} other {# معلقة}}",
+    "completeBadge": "تم البت في الكل",
+    "itemsCount": "{count, plural, one {# عنصر مرجعي} other {# عناصر مرجعية}}",
+    "entityTypeCount": "{count, plural, one {# {type}} other {# {type}}}",
+    "oldestItem": "الأقدم المعلق",
+    "review": "مراجعة",
+    "auditNotice": "كل قرار إدراج أو حجب أو استبعاد يُسجَّل في سجل التدقيق مع المراجع والوقت.",
+    "itemCreated": "مرجعي بتاريخ {date}",
+    "tierLabel": "المستوى {tier}",
+    "submitDecisions": "إرسال القرارات",
+    "submitting": "جارٍ الإرسال…",
+    "submitSummary": "{staged, plural, one {# قرار جاهز للإرسال} other {# قرارات جاهزة للإرسال}} · {pending} معلقة · {decided} تم البت فيها",
+    "decision": {
+      "include": "إدراج",
+      "redact": "حجب",
+      "exclude": "استبعاد"
+    },
+    "decisionHints": {
+      "include": "أفرج عن السجل كاملاً ضمن استجابة الطلب.",
+      "redact": "أفرج عن السجل مع إزالة محتوى محدد. الأساس القانوني مطلوب.",
+      "exclude": "احجب السجل عن استجابة الطلب. الأساس القانوني مطلوب."
+    },
+    "stats": {
+      "total": "الإجمالي",
+      "pending": "معلق",
+      "included": "مدرج",
+      "redacted": "محجوب",
+      "excluded": "مستبعد",
+      "openRequests": "طلبات مفتوحة"
+    },
+    "fields": {
+      "legalBasis": "الأساس القانوني",
+      "legalBasisPlaceholder": "مثال: المادة 15(4)، بيانات طرف ثالث",
+      "justification": "التبرير (اختياري)",
+      "justificationPlaceholder": "ملاحظة قصيرة توضح سبب هذا القرار."
+    },
+    "errors": {
+      "legalBasisRequired": "الأساس القانوني مطلوب عند الحجب أو الاستبعاد.",
+      "saveFailed": "تعذر حفظ القرار. أعد المحاولة أو تواصل مع الدعم.",
+      "nothingToSubmit": "اختر خيار إدراج أو حجب أو استبعاد لسجل معلق واحد على الأقل قبل الإرسال."
+    }
+  },
+  "pastoralImport": {
+    "title": "استيراد مخاوف رعوية سابقة",
+    "description": "حمّل ملف CSV لنقل المخاوف السابقة إلى نظام الرعاية. يتم التحقق من كل صف قبل أي كتابة.",
+    "steps": {
+      "upload": "التحميل",
+      "review": "المراجعة",
+      "done": "الإنجاز"
+    },
+    "upload": {
+      "title": "ارفع ملف CSV",
+      "description": "ابدأ من القالب أدناه، واملأ معرفات الطلاب والتصنيفات والسرود، ثم اسحب الملف إلى المربع.",
+      "limits": "الحد الأقصى {maxMb} ميغابايت و{maxRows, number} صف لكل عملية تحميل.",
+      "downloadTemplate": "تنزيل القالب",
+      "dropzoneLabel": "اسحب ملف CSV هنا",
+      "dropzoneHint": "أو استخدم زر اختيار ملف أدناه.",
+      "chooseFile": "اختر ملف",
+      "validate": "تحقق من الملف",
+      "validating": "جارٍ التحقق…"
+    },
+    "review": {
+      "stats": {
+        "total": "إجمالي الصفوف",
+        "valid": "صالح",
+        "errors": "أخطاء",
+        "skipped": "تم تخطيه"
+      },
+      "errorsTitle": "{count, plural, one {# خطأ} other {# أخطاء}}",
+      "errorRow": "الصف {row} · {field}",
+      "errorOverflow": "… و{count, number} أخطاء إضافية. أصلح الدفعة الأولى ثم أعد التحقق.",
+      "warningsTitle": "{count, plural, one {# تحذير} other {# تحذيرات}}",
+      "warningRow": "الصف {row}",
+      "previewTitle": "معاينة (أول الصفوف الصالحة)",
+      "previewHint": "تأكد من شكل الاستيراد قبل التأكيد.",
+      "columns": {
+        "row": "الصف",
+        "student": "الطالب",
+        "date": "التاريخ",
+        "category": "التصنيف",
+        "severity": "الحدة",
+        "narrative": "السرد"
+      },
+      "confirmSummary": "جاهز لاستيراد {valid, plural, one {# صف صالح} other {# صفوف صالحة}}.",
+      "confirmHint": "يتم تخطي التكرارات تلقائياً استناداً إلى بصمة الصف.",
+      "startOver": "ابدأ من جديد",
+      "confirm": "استيراد {valid, plural, one {# صف} other {# صفوف}}",
+      "confirming": "جارٍ الاستيراد…"
+    },
+    "done": {
+      "title": "اكتمل الاستيراد",
+      "imported": "{count, plural, one {تم استيراد # مخاوف} other {تم استيراد # مخاوف}}.",
+      "skippedDuplicates": "{count, plural, one {تم تخطي # تكرار} other {تم تخطي # تكرارات}}.",
+      "importAnother": "استيراد ملف آخر",
+      "backToPastoral": "العودة إلى الرعاية"
+    },
+    "errors": {
+      "fileTooLarge": "الملف كبير جداً. الحد الأقصى {maxMb} ميغابايت.",
+      "invalidFileType": "يُقبل ملف CSV فقط.",
+      "validationFailed": "تعذر التحقق من الملف. راجع التنسيق وأعد المحاولة.",
+      "confirmFailed": "تعذر إتمام الاستيراد. أعد المحاولة أو تواصل مع الدعم.",
+      "templateFailed": "تعذر تنزيل القالب. أعد المحاولة."
+    }
+  },
+  "responsePlans": {
+    "supportLog": {
+      "title": "سجل الدعم — {name}",
+      "description": "سجل قراءة فقط لتدوين الدعم المقدم لهذا الشخص أثناء الاستجابة للحادث.",
+      "notesLabel": "مدخل دعم جديد",
+      "notesPlaceholder": "صِف الدعم المقدم — محادثة، إحالة، أو خدمة.",
+      "recordEntry": "تسجيل المدخل",
+      "recording": "جارٍ التسجيل…",
+      "historyTitle": "{count, plural, one {# مدخل} other {# مدخلات}}",
+      "loading": "تحميل السجل…",
+      "empty": "لم يُسجّل أي دعم بعد.",
+      "noNotesForEntry": "تم تسجيل المدخل دون ملاحظات إضافية.",
+      "close": "إغلاق",
+      "errors": {
+        "loadFailed": "تعذر تحميل سجل الدعم. أعد المحاولة أو حدّث الصفحة.",
+        "notesRequired": "أدخل وصفاً قصيراً للدعم المقدم.",
+        "recordFailed": "تعذر تسجيل المدخل. أعد المحاولة."
+      }
+    },
+    "agendaPanel": {
+      "crossCuttingTitle": "موضوعات شاملة",
+      "crossCuttingDescription": "بنود أجندة تشمل عدة طلاب أو تطبّق على المجموعة كاملة.",
+      "lastComputed": "آخر توليد {date}",
+      "studentFallback": "طالب {id}",
+      "itemCount": "{count, plural, one {# بند} other {# بنود}}",
+      "aiBadge": "ذكاء اصطناعي",
+      "delete": "حذف البند",
+      "expand": "توسيع",
+      "collapse": "طي",
+      "source": {
+        "manual": "يدوي",
+        "auto_new_concern": "مخاوف جديدة",
+        "auto_case_review": "مراجعة حالة",
+        "auto_overdue_action": "إجراء متأخر",
+        "auto_early_warning": "إنذار مبكر",
+        "auto_neps": "زيارة NEPS",
+        "auto_intervention_review": "مراجعة تدخل",
+        "other": "أخرى"
+      }
+    }
+  },
+  "checkinFlagged": {
+    "title": "تسجيلات معلّمة",
+    "description": "تسجيلات متابعة ذاتية تطابقت مع إشارة تنبيه وتحتاج قرار من مالك المراقبة.",
+    "viewAllCheckins": "عرض كل التسجيلات",
+    "queueTitle": "القائمة",
+    "queueDescription": "مرتبة حسب الإلحاح (أدنى مزاج أولاً)، ثم الأحدث.",
+    "countLabel": "{count, plural, one {# معلّم} other {# معلّمة}}",
+    "empty": "لا توجد تسجيلات معلّمة. قائمة المراقبة خالية.",
+    "moodScore": "المزاج {score}/5",
+    "unknownStudent": "طالب غير معروف",
+    "hasAutoConcern": "مخاوف تلقائية مرتبطة",
+    "viewHistory": "سجل الطالب",
+    "escalate": "تصعيد",
+    "dismiss": "استبعاد",
+    "confirmEscalate": "تصعيد إلى مخاوف",
+    "escalating": "جارٍ التصعيد…",
+    "confirmDismiss": "استبعاد التسجيل",
+    "dismissing": "جارٍ الاستبعاد…",
+    "cancel": "إلغاء",
+    "flagReason": {
+      "low_mood": "مزاج منخفض",
+      "flagged_keyword": "كلمة مفتاحية معلّمة",
+      "consecutive_low": "انخفاض متتالي",
+      "manual": "تعليم يدوي",
+      "other": "أخرى"
+    },
+    "escalateDialog": {
+      "title": "تصعيد تسجيل معلّم",
+      "hasAutoConcern": "قام نظام التنبيه بربط مخاوف من المستوى 2 بهذا التسجيل. التأكيد سينقلك إليه.",
+      "willCreateConcern": "سيتم إنشاء مخاوف عاطفية من المستوى 2 تلقائياً وربطها بالتسجيل.",
+      "summary": "{student} · {date}",
+      "notesLabel": "ملاحظات للمخاوف (اختياري)",
+      "notesPlaceholder": "سياق قصير — من تحدث مع الطالب، وأي إجراءات فورية."
+    },
+    "dismissDialog": {
+      "title": "استبعاد دون تصعيد",
+      "description": "الاستبعاد يزيل التسجيل من القائمة. يتم تسجيل التبرير في التدقيق.",
+      "summary": "{student} · {date}",
+      "reasonLabel": "سبب الاستبعاد",
+      "reasonPlaceholder": "مثال: تم متابعة الطالب شخصياً، ولا حاجة لإجراء إضافي."
+    },
+    "errors": {
+      "loadFailed": "تعذر تحميل قائمة التسجيلات المعلّمة. أعد المحاولة أو حدّث.",
+      "dismissReasonRequired": "سبب الاستبعاد مطلوب.",
+      "escalateFailed": "تعذر تصعيد التسجيل. أعد المحاولة.",
+      "dismissFailed": "تعذر استبعاد التسجيل. أعد المحاولة."
     }
   }
 }
