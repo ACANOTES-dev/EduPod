@@ -135,7 +135,10 @@ jobs:
       - name: Type check
         run: pnpm turbo run type-check
         env:
-          NODE_OPTIONS: '--max-old-space-size=8192'
+          # Bumped from 8192 to 12288 after the per-test fixture migration
+          # added ~50 test files that each drag in the full Prisma type graph
+          # via PrismaClient. Heap usage climbed past the previous cap.
+          NODE_OPTIONS: '--max-old-space-size=12288'
 
       - name: Module cohesion check
         run: node scripts/check-module-cohesion.js --max-errors 0
