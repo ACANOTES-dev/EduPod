@@ -91,6 +91,36 @@ docs(wellbeing): log completion of impl NN   <- log commit, alone
 
 **Rule H10 — If you discover a conflict you cannot resolve (sibling wiped your work, lint-staged destroyed untracked files), STOP and file a follow-up note in the log. Do not blindly re-apply** — you may overwrite a fix someone else just made. Tell the user, attach what you can recover, wait for guidance.
 
+**Rule H11 — Pre-stash sibling work BEFORE committing when siblings have uncommitted state in your tree.** Rule H6 warns about lint-staged's stash/restore cycle contaminating your commit even when you used explicit pathspecs in `git add`. The prevention pattern — proven out on impl 06 — is to isolate the tree yourself before invoking the pre-commit hook:
+
+```bash
+# 1. Stage only your files (explicit pathspec, per H3)
+git add path/to/your/file.ts path/to/your/file.spec.ts
+
+# 2. Before committing, check for sibling work in the tree
+git status --short        # look for unstaged `M` rows and `??` rows NOT yours
+
+# 3. If siblings have work, stash everything NOT staged (tracked + untracked)
+git stash push --keep-index --include-untracked -m "sibling-work-impl-NN"
+
+# 4. Verify your index is intact and the tree now shows ONLY your staged files
+git status --short        # should show only `M` rows matching step 1
+
+# 5. Commit — lint-staged now has nothing to sweep up
+git commit -m "feat(...): ..."
+
+# 6. Restore sibling work
+git stash pop             # may conflict if your committed changes overlap;
+                          # if pop fails, `git stash apply` keeps the stash
+                          # and lets the sibling recover from stash@{0}
+```
+
+**Why this works:** `git stash push --keep-index` saves everything NOT in the index (i.e. sibling work) while preserving your staged changes. `--include-untracked` also captures sibling's new files (e.g. a new `ai/` folder) that would otherwise be pulled in by rename detection. When lint-staged runs its own stash cycle inside the pre-commit hook, the tree is already clean — there's nothing for it to confuse with your edits.
+
+**When to apply:** if `git status` before your commit shows ANY files you did not edit (unstaged `M`, untracked `??`, renames), pre-stash. The cost of an unnecessary stash round-trip is ~5 seconds; the cost of a contaminated commit is a 60-minute recovery. Apply on every commit in Waves 4, 5, 6. Apply whenever sibling sessions are known to be active on the same module directory in Wave 3.
+
+**If `stash pop` fails after your commit lands:** leave the stash in place. Add a follow-up to your completion record naming the stash entry (`stash@{0}`) and listing the files it contains so the sibling session can recover via `git stash apply stash@{N}` or cherry-pick from the stash diff. Do NOT `git stash drop` — you'd destroy their WIP. Rule H10 still applies: tell the user, don't re-apply blindly.
+
 ---
 
 ## 3. Wave structure & deployment matrix
