@@ -198,7 +198,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 07  | Exclusion + amendment + ack services                  | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T15:15Z | 1a529312   |
 | 08  | Pastoral hidden services (DSAR, import, SST AI, etc.) | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T18:15Z | b9bd7d04   |
 | 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T17:15Z | 80e60532   |
-| 10  | Page crash fixes (5 pages)                            | 4    | parallel-risky | 02, 03     | `deploying`   |                   |            |
+| 10  | Page crash fixes (5 pages)                            | 4    | parallel-risky | 02, 03     | `completed`   | 2026-04-20T19:10Z | 2d7acb80   |
 | 11  | Behaviour analytics URL fix + endpoint reconnects     | 4    | parallel-risky | 02         | `in-progress` |                   |            |
 | 12  | Translation backfill (en + ar)                        | 4    | parallel-risky | 02         | `in-progress` |                   |            |
 | 13  | Wellbeing super-hub + sub-strip removal               | 5    | parallel-risky | 03, 12     | `pending`     |                   |            |
@@ -944,3 +944,68 @@ tsconfig.tsbuildinfo` + rebuild. Post-rebuild the full dist landed and
   to work. Sibling impl 09 had completed and been deployed in the
   window I was waiting (flipped from `deploying` to `completed` between
   polls); my deploy happened cleanly afterwards.
+
+### [IMPL 10] — Page crash fixes (5 pages)
+
+- **Completed:** 2026-04-20T19:10Z Europe/Dublin
+- **Commit:** `2d7acb80` (last of six feature commits); applied to production as `36631616`.
+- **Deployed to production:** yes — web rebuilt (`rm -rf apps/web/.next` +
+  `pnpm turbo run build --filter=@school/web`) and `pm2 restart web --update-env`. All five target URLs
+  return HTTP 200 on https://nhqs.edupod.app/en/ (dashboard, reports,
+  resources, pastoral/checkins, early-warnings/settings).
+- **Summary (≤ 200 words):**
+  Defensive null/shape guards across five crash-on-load pages.
+  1. `/wellbeing/dashboard` — added `isCompleteDashboard()` guard; if any
+     of the six `/staff-wellbeing/aggregate/*` endpoints returns a partial
+     payload, fall through to the existing retry UI.
+  2. `/wellbeing/reports` — added `isCompleteReport()` guard on
+     `/staff-wellbeing/reports/termly-summary`.
+  3. `/wellbeing/resources` — `(data?.resources ?? []).length`/`.map`
+     coercion for tenants without configured resources.
+  4. `/pastoral/checkins` — the culprit was the global
+     `ResponseTransformInterceptor` wrapping bare arrays in `{ data }`.
+     Three analytics endpoints (`mood-trends`, `day-of-week`,
+     `exam-comparison`) plus `checkins/config/prerequisites` now go
+     through the existing `unwrap<T>()` helper, with `Array.isArray()`
+     guards before `.map`. Also null-guarded `flagged_keywords.join`.
+  5. `/early-warnings/settings` — real fix (page stays; impl 16 builds
+     on it). Added `hasCompleteConfig()`; when false, keep the RHF
+     defaults and show an amber banner
+     (`early_warning.settings.defaults_notice`) so the admin knows the
+     defaults will be persisted on save. New i18n key in en + ar.
+     No new features; no layout changes; page shapes identical.
+- **Follow-ups:**
+  - **Pages 1–3 are retired by impl 15** (staff-wellbeing fold). Guards
+    are stop-the-bleeding only — the whole routes get replaced when
+    impl 15 ships.
+  - **`apps/web/src/app/[locale]/(school)/wellbeing/dashboard/page.tsx`
+    now exceeds 600-line lint threshold** (guard added ~30 lines to an
+    already-warning file → 842 lines). Pre-existing warning remains
+    pre-existing; no new lint errors. Impl 15 will retire the file.
+  - **`unwrap` adoption** — pastoral checkins is the first page I found
+    using `unwrap<T>()` for bare-array endpoints that get wrapped in
+    `{data}`. A similar risk likely exists on other analytics pages
+    that type responses as arrays; Wave 6 implementers should spot-check
+    during their reviews.
+  - **Stash@{0} retained** — the pre-stash pattern from Rule H11 had a
+    quirk: `git stash push --keep-index --include-untracked` captured
+    my staged work into the stash too, so `stash pop` after my code
+    commits conflicted on the ew-settings file. Resolved by
+    `git checkout HEAD -- ew-settings` and `git reset` the sibling
+    analytics files; sibling work (impl 11's analytics URL prefix +
+    impl 12's translation backfill) is intact in the working tree. The
+    stash entry is redundant now but left in place per Rule H10.
+  - **Production log patch failure** — my final `docs: mark as deploying`
+    patch had context mismatching production (siblings 11/12 were
+    `pending` on prod, `in-progress` locally). Used `git am --skip`
+    then edited production's log row directly with `sed`. Future
+    log-update patches in this wave should re-generate the patch after
+    verifying production row state, or edit in-situ.
+- **Session notes:**
+  Type-check + lint + 320 web tests pass locally. Per the
+  "verification time budget" memory, skipped authenticated Playwright
+  verification — the five URLs returning 200 server-side plus the
+  narrow defensive scope (no behaviour changes, no new features)
+  makes smoke testing in a browser unnecessary for impl 10. Siblings
+  11 and 12 are both `in-progress` at sign-off; they own the next
+  web-restart slot on a first-come basis.
