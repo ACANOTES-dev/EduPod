@@ -12373,6 +12373,7 @@
       "digest_recipients_description": "Select roles that receive the weekly digest email.",
       "save": "Save Changes",
       "saved": "Settings saved",
+      "defaults_notice": "No early-warning settings on file yet. The values below are sensible defaults — review them and click Save to persist the configuration for your school.",
       "roles": {
         "homeroom_teacher": "Homeroom Teacher",
         "year_head": "Year Head",

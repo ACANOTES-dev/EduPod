@@ -38,6 +38,14 @@ const DEFAULT_THRESHOLDS: Record<RiskTier, number> = {
   red: 75,
 };
 
+function hasCompleteConfig(cfg: EarlyWarningConfig | null | undefined): cfg is EarlyWarningConfig {
+  if (!cfg) return false;
+  if (!cfg.weights || typeof cfg.weights.attendance !== 'number') return false;
+  if (!cfg.thresholds || typeof cfg.thresholds.amber !== 'number') return false;
+  if (!cfg.routing_rules) return false;
+  return true;
+}
+
 export default function EarlyWarningSettingsPage() {
   const t = useTranslations('early_warning');
   const pathname = usePathname();
@@ -45,6 +53,9 @@ export default function EarlyWarningSettingsPage() {
 
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
+  // True when no per-tenant config row exists yet. The form shows sensible
+  // defaults; saving will POST them and materialise the row on the backend.
+  const [usingDefaults, setUsingDefaults] = React.useState(false);
 
   const form = useForm<UpdateEarlyWarningConfigDto>({
     resolver: zodResolver(updateEarlyWarningConfigSchema),
@@ -63,10 +74,19 @@ export default function EarlyWarningSettingsPage() {
   });
 
   // ─── Load existing config ──────────────────────────────────────────────────
+  // Backend may return a partial/empty payload on tenants that have never
+  // saved settings. When the config is incomplete, we fall back to the
+  // inline defaults (which mirror the impl 01 seed) and surface a banner so
+  // the admin understands why the form is pre-filled.
   React.useEffect(() => {
-    apiClient<{ data: EarlyWarningConfig }>('/api/v1/early-warnings/config')
+    apiClient<{ data: EarlyWarningConfig | null }>('/api/v1/early-warnings/config')
       .then((res) => {
         const cfg = res.data;
+        if (!hasCompleteConfig(cfg)) {
+          setUsingDefaults(true);
+          return;
+        }
+        setUsingDefaults(false);
         form.reset({
           weights_json: cfg.weights,
           thresholds_json: cfg.thresholds,
@@ -78,7 +98,9 @@ export default function EarlyWarningSettingsPage() {
       })
       .catch((err) => {
         console.error('[EarlyWarningSettings.load]', err);
-        toast.error(t('errors.load_failed'));
+        // Missing config row is a common benign case on fresh tenants; surface
+        // defaults instead of the load-failure toast.
+        setUsingDefaults(true);
       })
       .finally(() => setLoading(false));
   }, [form, t]);
@@ -130,6 +152,12 @@ export default function EarlyWarningSettingsPage() {
           </div>
         }
       />
+
+      {usingDefaults && (
+        <div className="rounded-2xl border border-border bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-900/10 dark:text-amber-200">
+          {t('settings.defaults_notice')}
+        </div>
+      )}
 
       {/* Domain Weights */}
       <section className="rounded-2xl border border-border bg-surface p-5">
