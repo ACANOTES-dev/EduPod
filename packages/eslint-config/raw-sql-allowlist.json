@@ -242,6 +242,12 @@
       "reason": "RLS e2e suite uses explicit SET LOCAL role/context and direct verification queries to assert tenant isolation across Phase 2 tables"
     },
     {
+      "file": "apps/api/test/tenant-fixture.builder.ts",
+      "methods": ["$executeRawUnsafe"],
+      "category": "test-setup",
+      "reason": "Per-test tenant fixture teardown: DELETE FROM tenants cascades to all tenant-scoped children; session_replication_role = replica toggles off append-only triggers on pastoral_events, pastoral_concern_versions, audit_logs so the cascade completes"
+    },
+    {
       "file": "apps/worker/src/processors/communications/dispatch-notifications.processor.ts",
       "methods": ["$executeRaw"],
       "category": "rls-infrastructure",
