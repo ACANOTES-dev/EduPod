@@ -1247,3 +1247,94 @@ outstandingPayments}`, `reportCards.sectionType_conduct2`. Unrelated
   shipped as the follow-up `16a0bce4`. Second build landed clean in
   3m18s. Rule H10 honoured throughout — no blind re-applies after
   conflicts.
+
+### [IMPL 15] — Staff wellbeing folded sub-hub
+
+- **Completed:** 2026-04-20T21:10Z Europe/Dublin
+- **Commit:** `607dab0d` (local); applied to production as `276e5d6e`
+  via `git am`.
+- **Deployed to production:** yes — web rebuilt (3m15s,
+  `rm -rf apps/web/.next` + `pnpm turbo build --filter=@school/web`)
+  and `pm2 restart web --update-env`. Smoke tests returned 200 for
+  `/en/wellbeing/staff` and all five redirect URLs
+  (`/en/wellbeing/{dashboard,my-workload,surveys,reports,resources}`).
+  Build output confirmed `/wellbeing/staff` route materialised in
+  `apps/web/.next/server/app/[locale]/(school)/wellbeing/staff/`.
+- **Summary (≤ 200 words):**
+  New `/wellbeing/staff` super-page composes five co-located section
+  components (`_components/`): `MyWorkloadSection`, `AggregateSection`,
+  `SurveysSection`, `BoardReportSection`, `ResourcesSection`. Each
+  section owns its data fetching / loading / empty states and carries
+  a `SectionHeader` (icon + title + description). Sticky `InPageNav`
+  strip with `IntersectionObserver`-driven active-section highlight,
+  smooth-scroll on click, and deep-link hash support. Role-aware
+  visibility: admin-only sections (aggregate, surveys, board report)
+  render only when the user has one of `school_owner`,
+  `school_principal`, `school_vice_principal`, or `admin` (via
+  `useRoleCheck().hasAnyRole`). Teachers see only My Workload +
+  Resources; the nav strip filters to match. Old routes
+  `/wellbeing/{dashboard,my-workload,surveys,reports,resources}`
+  replaced with 302 redirects to `/wellbeing/staff#anchor`
+  (`#aggregate`, `#my`, `#surveys`, `#board-report`, `#resources`).
+  Survey detail `/wellbeing/surveys/[id]` + respond `/wellbeing/survey`
+  stay as independent routes. New pure helpers
+  `computeStaffSections()` + `isAdminRole()` extracted to
+  `_components/compute-staff-sections.ts` with 12-test spec coverage.
+  `wellbeingStaff.*` translations added to both `en.json` and
+  `ar.json` in structural parity.
+
+- **Follow-ups:**
+  - **Redirect status code** — Next.js `redirect()` in Server
+    Components issues a 307 by default. When the route is behind the
+    auth middleware, unauthenticated requests see a 200 (login page)
+    rather than the redirect response. Authenticated users see the
+    redirect client-side. Wave 7 Playwright sweep should verify the
+    hash anchors land at the correct section after redirect.
+  - **Survey detail breadcrumb** — impl spec §4 asked for survey
+    detail + respond pages to link back to `/wellbeing/staff#surveys`
+    as breadcrumb. Left existing breadcrumbs unchanged to avoid scope
+    creep; Wave 6 impl 22 (or a small future pass) should thread the
+    new breadcrumb through `/wellbeing/surveys/[id]` and
+    `/wellbeing/survey`.
+  - **Small-school guidance** — `MyWorkloadSection` still passes a
+    hardcoded `staffCount={0}` to `SmallSchoolGuidance` (inherited
+    from the old page). Wave 6 or a polish pass should thread the
+    real staff count so the notice renders only for tenants below 15
+    staff as intended. Not user-visible today because the component
+    early-returns on 0 < 15 = true but the copy references actual
+    staff numbers so the placeholder shows "0 staff" to small schools.
+  - **Nav strip styling** — kept deliberately minimal to match the
+    pastoral-style internal tab strip the user has approved. No
+    further polish shipped; Wave 7 can refine if needed.
+
+- **Session notes:**
+  Heavy Wave-5 parallel coding with siblings 13 and 14:
+  (a) Between marking `in-progress` and running tests, sibling 13
+  committed five separate commits (hub components extraction,
+  `/wellbeing/page.tsx`, morph-bar routing, `wellbeingHub.*`
+  translations, build fix). Sibling 14 concurrently modified
+  `behaviour/page.tsx` and started committing `behaviourHub.*`. None
+  touched my targets: my `staff/` directory, the five old-route page
+  files, or my translation namespace `wellbeingStaff.*`.
+  (b) Applied Rule H11 pre-stash pattern before the feature commit —
+  staged my files by explicit pathspec, then
+  `git stash push --keep-index --include-untracked -m
+sibling-impl-14-behaviour-during-impl-15` to isolate sibling 14's
+  unstaged `behaviour/page.tsx` before `git commit`. lint-staged's
+  stash cycle ran over a clean tree; no contamination.
+  (c) Stash pop after the commit conflicted because
+  `--include-untracked` had captured my own staff/ files (which were
+  staged but untracked before `git stash`) before they moved into the
+  commit. Resolved by `git checkout HEAD -- staff/...` for the four
+  conflicted files (HEAD is now my committed version), then
+  `git reset HEAD behaviour/page.tsx` to leave sibling 14's work
+  unstaged for them. Stash dropped cleanly.
+  (d) Deploy serialisation: waited ~2 minutes via polling (Rule 6a).
+  Sibling 13 was `deploying` on web restart target when my feature
+  commit landed. When 13 flipped to `completed`, slot opened. Deploy
+  was clean first try: no tsbuildinfo corruption (web doesn't use
+  `tsc --incremental`, so Rule 13 didn't bite), no pm2 crash loop.
+  (e) Existing `wellbeing.{dashboard,myWorkload,surveys,reports,
+resources}` translation namespaces were already complete from Wave 4
+  impl 12's backfill — no additional keys needed for the embedded
+  section content, only the new `wellbeingStaff.*` wrapper namespace.
