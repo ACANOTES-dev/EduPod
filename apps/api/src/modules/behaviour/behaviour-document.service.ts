@@ -22,6 +22,7 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
+import { WellbeingNotificationsService } from '../wellbeing-notifications/wellbeing-notifications.service';
 
 import { BehaviourDocumentTemplateService } from './behaviour-document-template.service';
 import { BehaviourHistoryService } from './behaviour-history.service';
@@ -38,6 +39,7 @@ export class BehaviourDocumentService {
     private readonly pdfRenderingService: PdfRenderingService,
     private readonly templateService: BehaviourDocumentTemplateService,
     private readonly historyService: BehaviourHistoryService,
+    private readonly wellbeingNotifications: WellbeingNotificationsService,
     @InjectQueue('pdf-rendering') private readonly pdfQueue: Queue,
   ) {}
 
@@ -258,7 +260,7 @@ export class BehaviourDocumentService {
   async sendDocument(tenantId: string, userId: string, documentId: string, dto: SendDocumentDto) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    return rlsClient.$transaction(async (tx) => {
+    const result = await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const document = await db.behaviourDocument.findFirst({
@@ -297,7 +299,10 @@ export class BehaviourDocumentService {
 
         this.logger.log(`Print requested for document ${documentId} — download URL generated`);
 
-        return { data: { ...this.serializeDocument(document), download_url: url } };
+        return {
+          data: { ...this.serializeDocument(document), download_url: url },
+          notify: null as null,
+        };
       }
 
       // Normal send flow (email/whatsapp/in_app)
@@ -314,8 +319,19 @@ export class BehaviourDocumentService {
         },
       });
 
-      // Create acknowledgement row if sending to a parent
+      // Resolve recipient user_id for the wellbeing notification dispatch.
+      // The send DTO carries a parent_id (parent table) — the notification
+      // provider needs the parent's user_id. If the parent has no linked
+      // user account we skip the wellbeing dispatch (common for
+      // unregistered contact rows).
+      let recipientUserId: string | null = null;
       if (dto.recipient_parent_id) {
+        const parent = await db.parent.findFirst({
+          where: { id: dto.recipient_parent_id, tenant_id: tenantId },
+          select: { user_id: true },
+        });
+        recipientUserId = parent?.user_id ?? null;
+
         await db.behaviourParentAcknowledgement.create({
           data: {
             tenant_id: tenantId,
@@ -345,8 +361,45 @@ export class BehaviourDocumentService {
 
       this.logger.log(`Sent document ${documentId} via ${dto.channel}`);
 
-      return { data: this.serializeDocument(updated) };
+      return {
+        data: this.serializeDocument(updated),
+        notify: recipientUserId
+          ? {
+              recipientUserId,
+              documentType: document.document_type,
+              entityType: document.entity_type,
+              entityId: document.entity_id,
+            }
+          : null,
+      };
     });
+
+    // Fan-out wellbeing notification AFTER the transaction commits. In-app is
+    // always-on; email/SMS/WhatsApp respect per-tenant
+    // `tenant_notification_preferences.wellbeing_channels`. Failure here is
+    // logged but does not roll back the already-committed `sent_doc` state —
+    // the send is the source of truth, notifications are best-effort.
+    if (result.notify) {
+      try {
+        await this.wellbeingNotifications.dispatch({
+          tenantId,
+          event: 'document.sent_to_parent',
+          recipients: [{ user_id: result.notify.recipientUserId }],
+          title: `New ${result.notify.documentType.replace(/_/g, ' ')}`,
+          body: 'A new document is available for your review.',
+          href: `/behaviour/documents/${documentId}`,
+          severity: 'info',
+          source_entity_type: 'behaviour_document',
+          source_entity_id: documentId,
+        });
+      } catch (err) {
+        this.logger.error(
+          `Wellbeing dispatch failed for document ${documentId}: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    return { data: result.data };
   }
 
   // ─── Download URL ────────────────────────────────────────────────────
@@ -366,6 +419,42 @@ export class BehaviourDocumentService {
     const url = await this.s3Service.getPresignedUrl(document.file_key, 900); // 15 min
 
     return { data: { url, expires_in: 900 } };
+  }
+
+  // ─── Preview URL ─────────────────────────────────────────────────────
+
+  /**
+   * Return a 1-hour signed URL for the rendered PDF. Sibling of
+   * `getDownloadUrl` (15 min), used by the in-product preview surface
+   * where users need more time to scroll + review before printing/sending.
+   * Only served when the document has been rendered (anything past
+   * `generating`). Response shape mirrors `{ url, expires_at }` per the
+   * impl-06 spec.
+   */
+  async getPreviewUrl(tenantId: string, documentId: string) {
+    const document = await this.prisma.behaviourDocument.findFirst({
+      where: { id: documentId, tenant_id: tenantId },
+    });
+
+    if (!document) {
+      throw new NotFoundException({
+        code: 'BEHAVIOUR_DOCUMENT_NOT_FOUND',
+        message: `Behaviour document with id "${documentId}" not found`,
+      });
+    }
+
+    if (document.status === 'generating') {
+      throw new BadRequestException({
+        code: 'DOCUMENT_NOT_RENDERED',
+        message: 'Document PDF is still rendering — preview is not yet available',
+      });
+    }
+
+    const expiresInSeconds = 3600;
+    const url = await this.s3Service.getPresignedUrl(document.file_key, expiresInSeconds);
+    const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
+
+    return { data: { url, expires_at: expiresAt, expires_in: expiresInSeconds } };
   }
 
   // ─── Supersede Document ──────────────────────────────────────────────

@@ -6,6 +6,7 @@ import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 import { S3Module } from '../s3/s3.module';
 import { SchedulesModule } from '../schedules/schedules.module';
 import { SequenceModule } from '../sequence/sequence.module';
+import { WellbeingNotificationsModule } from '../wellbeing-notifications/wellbeing-notifications.module';
 
 import { BehaviourAmendmentsController } from './behaviour-amendments.controller';
 import { BehaviourAmendmentsService } from './behaviour-amendments.service';
@@ -35,6 +36,7 @@ import { BehaviourSanctionsService } from './behaviour-sanctions.service';
     SchedulesModule,
     SequenceModule,
     BehaviourCoreModule,
+    WellbeingNotificationsModule,
     BullModule.registerQueue({ name: 'notifications' }),
     BullModule.registerQueue({ name: 'behaviour' }),
     BullModule.registerQueue({ name: 'pdf-rendering' }),

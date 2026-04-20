@@ -6,6 +6,7 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
+import { BehaviourDocumentTemplateService } from './behaviour-document-template.service';
 import { BehaviourDocumentService } from './behaviour-document.service';
 import { BehaviourDocumentsController } from './behaviour-documents.controller';
 
@@ -34,6 +35,12 @@ const mockDocumentService = {
   finaliseDocument: jest.fn(),
   sendDocument: jest.fn(),
   getDownloadUrl: jest.fn(),
+  getPreviewUrl: jest.fn(),
+};
+
+const mockTemplateService = {
+  listTemplates: jest.fn(),
+  getTemplate: jest.fn(),
 };
 
 describe('BehaviourDocumentsController', () => {
@@ -42,7 +49,10 @@ describe('BehaviourDocumentsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BehaviourDocumentsController],
-      providers: [{ provide: BehaviourDocumentService, useValue: mockDocumentService }],
+      providers: [
+        { provide: BehaviourDocumentService, useValue: mockDocumentService },
+        { provide: BehaviourDocumentTemplateService, useValue: mockTemplateService },
+      ],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -125,5 +135,35 @@ describe('BehaviourDocumentsController', () => {
 
     expect(mockDocumentService.getDownloadUrl).toHaveBeenCalledWith('tenant-uuid', 'doc-1');
     expect(result).toEqual({ url: 'https://s3/doc.pdf' });
+  });
+
+  it('should call documentService.getPreviewUrl for GET /:id/preview', async () => {
+    mockDocumentService.getPreviewUrl.mockResolvedValue({
+      data: { url: 'https://s3/preview', expires_at: '2026-04-20T15:00:00Z', expires_in: 3600 },
+    });
+
+    const result = await controller.previewDocument(TENANT, 'doc-1');
+
+    expect(mockDocumentService.getPreviewUrl).toHaveBeenCalledWith('tenant-uuid', 'doc-1');
+    expect(result.data.url).toBe('https://s3/preview');
+  });
+
+  it('should call templateService.listTemplates for GET /templates', async () => {
+    const query = { document_type: 'detention_notice' as const };
+    mockTemplateService.listTemplates.mockResolvedValue({ data: [{ id: 't-1' }] });
+
+    const result = await controller.listTemplates(TENANT, query as never);
+
+    expect(mockTemplateService.listTemplates).toHaveBeenCalledWith('tenant-uuid', query);
+    expect(result.data).toHaveLength(1);
+  });
+
+  it('should call templateService.getTemplate for GET /templates/:id', async () => {
+    mockTemplateService.getTemplate.mockResolvedValue({ data: { id: 't-1', name: 'Sample' } });
+
+    const result = await controller.getTemplate(TENANT, 't-1');
+
+    expect(mockTemplateService.getTemplate).toHaveBeenCalledWith('tenant-uuid', 't-1');
+    expect(result.data.id).toBe('t-1');
   });
 });

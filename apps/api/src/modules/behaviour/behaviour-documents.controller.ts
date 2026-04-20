@@ -17,6 +17,7 @@ import {
   finaliseDocumentSchema,
   generateDocumentSchema,
   listDocumentsQuerySchema,
+  listDocumentTemplatesQuerySchema,
   sendDocumentSchema,
 } from '@school/shared/behaviour';
 
@@ -29,13 +30,17 @@ import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
+import { BehaviourDocumentTemplateService } from './behaviour-document-template.service';
 import { BehaviourDocumentService } from './behaviour-document.service';
 
 @Controller('v1/behaviour/documents')
 @ModuleEnabled('behaviour')
 @UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class BehaviourDocumentsController {
-  constructor(private readonly documentService: BehaviourDocumentService) {}
+  constructor(
+    private readonly documentService: BehaviourDocumentService,
+    private readonly templateService: BehaviourDocumentTemplateService,
+  ) {}
 
   @Post('generate')
   @RequiresPermission('behaviour.manage')
@@ -57,6 +62,29 @@ export class BehaviourDocumentsController {
     query: ReturnType<typeof listDocumentsQuerySchema.parse>,
   ) {
     return this.documentService.listDocuments(tenant.tenant_id, query);
+  }
+
+  // Templates — static routes declared BEFORE :id-parameterised handlers so
+  // Nest doesn't route `/templates` through ParseUUIDPipe. Read-only surface
+  // behind `behaviour.view` so Wave 6 impl 20's UI can pick a template
+  // without forcing the admin permission.
+  @Get('templates')
+  @RequiresPermission('behaviour.view')
+  async listTemplates(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(listDocumentTemplatesQuerySchema))
+    query: ReturnType<typeof listDocumentTemplatesQuerySchema.parse>,
+  ) {
+    return this.templateService.listTemplates(tenant.tenant_id, query);
+  }
+
+  @Get('templates/:id')
+  @RequiresPermission('behaviour.view')
+  async getTemplate(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.templateService.getTemplate(tenant.tenant_id, id);
   }
 
   @Get(':id')
@@ -100,5 +128,14 @@ export class BehaviourDocumentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.documentService.getDownloadUrl(tenant.tenant_id, id);
+  }
+
+  @Get(':id/preview')
+  @RequiresPermission('behaviour.view')
+  async previewDocument(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.documentService.getPreviewUrl(tenant.tenant_id, id);
   }
 }

@@ -5,6 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
+import { WellbeingNotificationsService } from '../wellbeing-notifications/wellbeing-notifications.service';
 
 import { BehaviourDocumentTemplateService } from './behaviour-document-template.service';
 import { BehaviourDocumentService } from './behaviour-document.service';
@@ -56,6 +57,9 @@ const mockRlsTx = {
     findFirst: jest.fn(),
   },
   studentParent: {
+    findFirst: jest.fn(),
+  },
+  parent: {
     findFirst: jest.fn(),
   },
 };
@@ -125,6 +129,7 @@ describe('BehaviourDocumentService', () => {
   let mockTemplateService: { getActiveTemplate: jest.Mock };
   let mockHistoryService: { recordHistory: jest.Mock };
   let mockPdfQueue: { add: jest.Mock };
+  let mockWellbeingNotifications: { dispatch: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -156,6 +161,10 @@ describe('BehaviourDocumentService', () => {
       add: jest.fn().mockResolvedValue({}),
     };
 
+    mockWellbeingNotifications = {
+      dispatch: jest.fn().mockResolvedValue(undefined),
+    };
+
     // Reset all RLS tx mocks
     for (const model of Object.values(mockRlsTx)) {
       for (const fn of Object.values(model)) {
@@ -171,6 +180,7 @@ describe('BehaviourDocumentService', () => {
         { provide: PdfRenderingService, useValue: mockPdf },
         { provide: BehaviourDocumentTemplateService, useValue: mockTemplateService },
         { provide: BehaviourHistoryService, useValue: mockHistoryService },
+        { provide: WellbeingNotificationsService, useValue: mockWellbeingNotifications },
         { provide: getQueueToken('pdf-rendering'), useValue: mockPdfQueue },
       ],
     }).compile();
@@ -470,6 +480,7 @@ describe('BehaviourDocumentService', () => {
         student: { id: STUDENT_ID, first_name: 'Alice', last_name: 'Smith' },
       });
       mockRlsTx.behaviourDocument.update.mockResolvedValue(sent);
+      mockRlsTx.parent.findFirst.mockResolvedValue({ user_id: 'parent-user-1' });
       mockRlsTx.behaviourParentAcknowledgement.create.mockResolvedValue({ id: 'ack-1' });
 
       const result = (await service.sendDocument(
@@ -494,6 +505,63 @@ describe('BehaviourDocumentService', () => {
           channel: 'email',
         }),
       });
+      expect(result.data.status).toBe('sent');
+    });
+
+    it('should dispatch document.sent_to_parent notification when parent has user_id', async () => {
+      const finalised = makeDocument({ status: 'finalised' });
+      const sent = makeDocument({ status: 'sent_doc' });
+
+      mockRlsTx.behaviourDocument.findFirst.mockResolvedValue({ ...finalised, student: null });
+      mockRlsTx.behaviourDocument.update.mockResolvedValue(sent);
+      mockRlsTx.parent.findFirst.mockResolvedValue({ user_id: 'parent-user-1' });
+      mockRlsTx.behaviourParentAcknowledgement.create.mockResolvedValue({ id: 'ack-1' });
+
+      await service.sendDocument(TENANT_ID, USER_ID, DOCUMENT_ID, sendDto);
+
+      expect(mockWellbeingNotifications.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          event: 'document.sent_to_parent',
+          recipients: [{ user_id: 'parent-user-1' }],
+          severity: 'info',
+          source_entity_type: 'behaviour_document',
+          source_entity_id: DOCUMENT_ID,
+        }),
+      );
+    });
+
+    it('should skip wellbeing dispatch when parent has no linked user_id', async () => {
+      const finalised = makeDocument({ status: 'finalised' });
+      const sent = makeDocument({ status: 'sent_doc' });
+
+      mockRlsTx.behaviourDocument.findFirst.mockResolvedValue({ ...finalised, student: null });
+      mockRlsTx.behaviourDocument.update.mockResolvedValue(sent);
+      mockRlsTx.parent.findFirst.mockResolvedValue({ user_id: null });
+      mockRlsTx.behaviourParentAcknowledgement.create.mockResolvedValue({ id: 'ack-1' });
+
+      await service.sendDocument(TENANT_ID, USER_ID, DOCUMENT_ID, sendDto);
+
+      expect(mockWellbeingNotifications.dispatch).not.toHaveBeenCalled();
+    });
+
+    it('should not crash send when wellbeing dispatch throws', async () => {
+      const finalised = makeDocument({ status: 'finalised' });
+      const sent = makeDocument({ status: 'sent_doc' });
+
+      mockRlsTx.behaviourDocument.findFirst.mockResolvedValue({ ...finalised, student: null });
+      mockRlsTx.behaviourDocument.update.mockResolvedValue(sent);
+      mockRlsTx.parent.findFirst.mockResolvedValue({ user_id: 'parent-user-1' });
+      mockRlsTx.behaviourParentAcknowledgement.create.mockResolvedValue({ id: 'ack-1' });
+      mockWellbeingNotifications.dispatch.mockRejectedValue(new Error('provider exploded'));
+
+      const result = (await service.sendDocument(
+        TENANT_ID,
+        USER_ID,
+        DOCUMENT_ID,
+        sendDto,
+      )) as DocumentResult;
+
       expect(result.data.status).toBe('sent');
     });
 
@@ -601,6 +669,7 @@ describe('BehaviourDocumentService', () => {
         student: null,
       });
       mockRlsTx.behaviourDocument.update.mockResolvedValue(sent);
+      mockRlsTx.parent.findFirst.mockResolvedValue({ user_id: null });
       mockRlsTx.behaviourParentAcknowledgement.create.mockResolvedValue({ id: 'ack-1' });
 
       await service.sendDocument(TENANT_ID, USER_ID, DOCUMENT_ID, {
@@ -1410,6 +1479,38 @@ describe('BehaviourDocumentService', () => {
       })) as DocumentResult;
 
       expect(result.data).toBeDefined();
+    });
+  });
+
+  // ─── getPreviewUrl ──────────────────────────────────────────────────────
+
+  describe('getPreviewUrl', () => {
+    it('should return a 1h presigned URL with expires_at for rendered documents', async () => {
+      const doc = makeDocument({ status: 'finalised' });
+      mockPrisma.behaviourDocument.findFirst.mockResolvedValue(doc);
+      mockS3.getPresignedUrl.mockResolvedValue('https://s3.example.com/preview?expires=3600');
+
+      const result = await service.getPreviewUrl(TENANT_ID, DOCUMENT_ID);
+
+      expect(mockS3.getPresignedUrl).toHaveBeenCalledWith(S3_KEY, 3600);
+      expect(result.data.url).toBe('https://s3.example.com/preview?expires=3600');
+      expect(result.data.expires_in).toBe(3600);
+      expect(new Date(result.data.expires_at).getTime()).toBeGreaterThan(Date.now());
+    });
+
+    it('should throw BadRequestException when document is still generating', async () => {
+      const doc = makeDocument({ status: 'generating' });
+      mockPrisma.behaviourDocument.findFirst.mockResolvedValue(doc);
+
+      await expect(service.getPreviewUrl(TENANT_ID, DOCUMENT_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw NotFoundException when document does not exist', async () => {
+      mockPrisma.behaviourDocument.findFirst.mockResolvedValue(null);
+
+      await expect(service.getPreviewUrl(TENANT_ID, 'missing')).rejects.toThrow(NotFoundException);
     });
   });
 

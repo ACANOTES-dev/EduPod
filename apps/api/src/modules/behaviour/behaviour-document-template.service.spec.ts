@@ -52,10 +52,16 @@ const makeTemplate = (overrides: Record<string, unknown> = {}) => ({
 
 describe('BehaviourDocumentTemplateService', () => {
   let service: BehaviourDocumentTemplateService;
-  let mockPrisma: Record<string, unknown>;
+  let mockPrisma: {
+    behaviourDocumentTemplate: { findFirst: jest.Mock };
+  };
 
   beforeEach(async () => {
-    mockPrisma = {};
+    mockPrisma = {
+      behaviourDocumentTemplate: {
+        findFirst: jest.fn(),
+      },
+    };
 
     // Reset all RLS tx mocks
     for (const model of Object.values(mockRlsTx)) {
@@ -357,6 +363,28 @@ describe('BehaviourDocumentTemplateService', () => {
           }),
         }),
       );
+    });
+  });
+
+  // ─── getTemplate ──────────────────────────────────────────────────────
+
+  describe('getTemplate', () => {
+    it('should return a template by id', async () => {
+      const template = makeTemplate();
+      mockPrisma.behaviourDocumentTemplate.findFirst.mockResolvedValue(template);
+
+      const result = (await service.getTemplate(TENANT_ID, TEMPLATE_ID)) as { data: unknown };
+
+      expect(result.data).toEqual(template);
+      expect(mockPrisma.behaviourDocumentTemplate.findFirst).toHaveBeenCalledWith({
+        where: { id: TEMPLATE_ID, tenant_id: TENANT_ID },
+      });
+    });
+
+    it('should throw NotFoundException when template does not exist', async () => {
+      mockPrisma.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+
+      await expect(service.getTemplate(TENANT_ID, 'missing')).rejects.toThrow(NotFoundException);
     });
   });
 

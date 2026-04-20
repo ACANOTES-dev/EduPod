@@ -184,6 +184,25 @@ export class BehaviourDocumentTemplateService {
   }
 
   /**
+   * Get a single template by id. Read-only, used by the
+   * `GET /v1/behaviour/documents/templates/:id` surface.
+   */
+  async getTemplate(tenantId: string, templateId: string) {
+    const template = await this.prisma.behaviourDocumentTemplate.findFirst({
+      where: { id: templateId, tenant_id: tenantId },
+    });
+
+    if (!template) {
+      throw new NotFoundException({
+        code: 'DOCUMENT_TEMPLATE_NOT_FOUND',
+        message: `Document template with id "${templateId}" not found`,
+      });
+    }
+
+    return { data: template };
+  }
+
+  /**
    * Find the best active template for a given type+locale.
    * School custom templates (is_system=false) take priority over system ones.
    */
