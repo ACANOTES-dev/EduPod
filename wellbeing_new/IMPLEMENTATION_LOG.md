@@ -1690,3 +1690,107 @@ apps/web/.next`), pm2 web restarted, process online. Smoke:
   `node_modules/.pnpm/lucide-react@*/dist/esm/icons/brain-circuit.js`.
   No tsbuildinfo / turbo-cache issues since the web package doesn't
   use `tsc --incremental`.
+
+### [IMPL 20] — Document generation UI
+
+- **Completed:** 2026-04-20T23:45Z Europe/Dublin
+- **Commit:** `9c41fcd2` (tip of the 4-commit stack: `256b8dbb` list+dialogs,
+  `012eea35` detail, `734e58a5` translations, `9c41fcd2` lint-fix). Applied
+  to production via `git am` on the 5-patch series (+ `4f7c135f` deploying
+  marker).
+- **Deployed to production:** yes — web rebuilt (`rm -rf apps/web/.next` +
+  `pnpm turbo run build --filter=@school/web`, 3m21s) and
+  `pm2 restart web --update-env`. Smoke tests returned HTTP 200 for
+  `/en/login`, `/en/behaviour/documents`, `/ar/behaviour/documents`, and
+  a representative detail URL. Rendered HTML contains the translated
+  strings ("Documents", "Search by student name"; Arabic "المستندات",
+  "ابحث باسم", "إنشاء مستند") with no `MISSING_MESSAGE` warnings.
+
+- **Summary (≤ 200 words):**
+  Full rewrite of `/behaviour/documents` plus a new
+  `/behaviour/documents/[id]` detail page. Five files under `_components/`:
+  `document-types.ts` (shared wire contracts aligned to impl 06's
+  serializeDocument shape), `document-status-badge.tsx`,
+  `generate-document-dialog.tsx` (4-step: template picker filtered by
+  `document_type`+`is_active=true` → entity picker with UUID validation →
+  merge-field overrides auto-derived from the selected template's
+  `merge_fields` → confirm), `send-document-dialog.tsx` (guardians via
+  `GET /v1/students/:id`, primary contact pre-ticked, in-app always on,
+  WhatsApp tooltip flags stub provider, client fan-out to
+  `POST /:id/send` per recipient×channel since impl 06 kept the
+  single-send contract), and the list page with a `DropdownMenu` actions
+  column (preview, download, finalise, send, resend, open-detail).
+  Detail page: signed-URL iframe preview via `GET /:id/preview`,
+  metadata card, action sidebar with state-gated actions, inline
+  finalise dialog with optional audit notes, polling for `generating`
+  (2s × 30 attempts → manual Refresh button). 132 translation keys
+  per locale with structural parity verified.
+
+- **Follow-ups:**
+  - **No `generation_failed` state.** Impl 06 did not ship it so the
+    detail page can only detect a _stuck_ generating state via poll
+    timeout (60s), not a true render failure. When backend adds the
+    state + `last_error`/`retry_count` columns, swap the pollTimeout
+    copy for an actionable "Retry generation" button that calls the
+    yet-to-exist retry endpoint.
+  - **No multi-recipient batched send endpoint.** UI fans out
+    client-side; on a 3-guardian × 2-channel send this is 6 round-trips.
+    Future backend work can add `POST /:id/send-batch` and the UI can
+    switch to a single call.
+  - **No SMS channel.** Shared schema lists only `email | whatsapp |
+in_app | print`. Impl 20 spec mentioned SMS; shipped WhatsApp
+    instead to match backend. Adding SMS needs the channel enum, the
+    shared `sendDocumentSchema`, and the dispatch wiring.
+  - **Resend UX is a cosmetic alias.** Backend rejects `/:id/send`
+    when the doc is already `sent` (not `finalised`). Resend button
+    will 400 until the resend-counter work lands; surfaced as a toast
+    error. Acceptable but suboptimal.
+  - **UUID-paste entity picker, not a searchable selector.** The
+    Step-2 entity picker accepts a raw UUID. A future pass could add
+    an entity search to remove the friction of copying UUIDs.
+  - **`document-types.ts` parallels `packages/shared/src/behaviour/
+schemas/document.schema.ts`.** Kept the frontend copy narrow
+    (only what list+dialogs need) to avoid pulling the full shared
+    schema into the web bundle. Any shared-schema change will surface
+    as a type error on next check.
+  - **No unit tests shipped.** Skipped per the verification-time-budget
+    memory — pure logic is minimal (`isValidUuid`, channel-plan
+    builder). Behaviour is better covered by Wave 7 impl 24's
+    Playwright sweep.
+
+- **Session notes:**
+  Single worst stretch of Wave-6 parallel-coding turbulence in the
+  rebuild. Siblings 19, 21, 22 all active on the same subtree.
+
+  (a) First commit (list + dialogs, 5 files / 1,420 insertions) landed
+  cleanly via `git stash push --keep-index --include-untracked` → commit
+  → stash pop. Sibling 19's untracked `_components/` never touched.
+
+  (b) Second commit (detail page) failed twice. Attempt 1: lint-staged
+  swept sibling 19's 3 untracked ack-timeline files into MY commit
+  under MY message. `git reset HEAD~1` recovered. Attempt 2:
+  lint-staged reported "could not find any staged files" — my file
+  vanished mid-cycle, likely from a sibling `git reset` running
+  concurrently on the shared index. Meanwhile sibling 21 committed
+  MY detail page under THEIR message (`41eefc15`); they amend-fixed
+  to `f67373f9` on their next action. Winning strategy (`012eea35`):
+  stash EVERYTHING via `git stash push --include-untracked` (no
+  `--keep-index`), restore my detail page from a `/tmp/impl-20-detail-page.tsx`
+  backup, stage my single file on a bone-empty tree, commit, then
+  stash pop to restore sibling work.
+
+  (c) Translations commit used path-limited `git stash push
+--include-untracked -- <sibling-paths>` which kept my staged
+  translations in the index while stashing sibling work only. Clean.
+
+  (d) Deploy was clean: 5 patches via `git am`, 3m21s web build, pm2
+  restart. No tsbuildinfo issue (web is not `tsc --incremental`).
+
+  (e) Stash list at end of impl is noisy. Many sibling-named entries
+  - a few lint-staged automatic backups. Per H10 I did NOT drop any
+    sibling-named stashes — the corresponding sessions may need them.
+
+  (f) Sibling 19's impl-19 second (`de54df73`) and third (`b440af9c`)
+  commits landed between my list and detail commits — visible in
+  `git log --oneline` between my shas. Wave 6 is genuinely parallel
+  on web, as the wave structure anticipated.
