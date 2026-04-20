@@ -151,7 +151,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 01  | Schema foundation + default seeds                     | 1    | serial         | —          | `completed` | 2026-04-20T14:15Z | c5ee2128   |
 | 02  | Fix broken behaviour endpoints                        | 2    | parallel-safe  | 01         | `completed` | 2026-04-20T13:27Z | 16bffbb4   |
 | 03  | Wellbeing dashboard-summary aggregator                | 2    | parallel-safe  | 01         | `completed` | 2026-04-20T13:32Z | 4b749aac   |
-| 04  | AI flag service + notification routing                | 2    | parallel-safe  | 01         | `deploying` |                   |            |
+| 04  | AI flag service + notification routing                | 2    | parallel-safe  | 01         | `completed` | 2026-04-20T13:43Z | 815bd9d2   |
 | 05  | Behaviour AI services                                 | 3    | parallel-safe  | 01, 04     | `pending`   |                   |            |
 | 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `pending`   |                   |            |
 | 07  | Exclusion + amendment + ack services                  | 3    | parallel-safe  | 01, 04     | `pending`   |                   |            |
@@ -386,3 +386,74 @@ Append new records below in chronological order. Format:
   and `early_warning` flag-gating is tested via mock (`enabled:false`
   branch asserts facade call is skipped and fallback zero propagates to
   KPIs + hub_counts).
+
+### [IMPL 04] — AI flag service + notification routing
+
+- **Completed:** 2026-04-20T13:43Z Europe/Dublin
+- **Commit:** 815bd9d2 (route fix); module commits at 4a98d810
+  (AiFlagsModule), 491ff2f5 (WellbeingNotificationsModule + RLS
+  test), 9790c2e1 (Prisma compound-key fix). Deployed as a single
+  combined patch series + a follow-up route-fix patch.
+- **Deployed to production:** yes — API + worker restarted; smoke
+  test against `https://nhqs.edupod.app/api/v1/ai-flags` confirmed
+  list returns 4 flag rows, PATCH toggles enabled, GET reflects, PATCH
+  back to false works, audit log captures `updated_by`.
+- **Summary (≤ 200 words):**
+  Two new NestJS modules under `apps/api/src/modules/`:
+  - `ai-flags/` — `AiFlagsService` (list / setFlag / isEnabled with
+    5-minute in-memory TTL cache, invalidated on setFlag),
+    `AiFlagsController` at `/v1/ai-flags` (GET list, PATCH :moduleKey)
+    gated by `ai_flag.manage`, `RequiresAiFlag(moduleKey)` decorator
+    - `AiFlagGuard` registered globally via APP_GUARD. Routes without
+      the decorator pass through; gated routes throw `403 AI_DISABLED`
+      when the per-tenant flag is off. Defensive list backfill creates
+      missing rows lazily.
+  - `wellbeing-notifications/` — `WellbeingNotificationsService.dispatch`
+    fans out a wellbeing event to in-app (always-on, via existing
+    `NotificationsService.createBatch` with channel=in_app) plus
+    optional email/SMS/WhatsApp per `tenant_notification_preferences.wellbeing_channels`
+    (defaults + per-event overrides). Stub providers throw
+    `PROVIDER_NOT_WIRED`; `safeDispatch` swallows it so Wave 3
+    callers can compose `dispatch()` without crashing while delivery
+    hardening is deferred per PLAN.md §8. Real provider failures are
+    isolated per channel and never block in-app delivery.
+    Shared types extended at `packages/shared/src/wellbeing/index.ts`
+    with the full 18-event WELLBEING_NOTIFICATION_EVENT_KEYS list and
+    WELLBEING_DISPATCH_SEVERITIES. RLS leakage test added at
+    `apps/api/test/tenant-ai-flags.rls.spec.ts` (read + update + delete
+    cross-tenant). All 29 unit tests in the impl scope pass; full API
+    type-check is clean.
+- **Follow-ups:**
+  - **Spec said `/v1/admin/ai-flags`** — wrong; that prefix is reserved
+    for platform-admin routes (`TenantResolutionMiddleware` zeroes the
+    tenant context for `/api/v1/admin/*`). Final route is
+    `/v1/ai-flags`. **Wave 5 impl 18 (admin UI) and Wave 3 impls
+    05–09 must call the new path.** Update the impl 18 file before
+    that session starts.
+  - **In-memory AI flag cache is per-process** — multi-instance staleness
+    is bounded by the 5-minute TTL. Add Redis pub/sub invalidation
+    if/when the API runs multi-instance. Wave 5 impl 18 should keep
+    `AiFlagsService.invalidate()` accessible for hot-reload UIs.
+  - **Notification recipient resolution** stays in each calling
+    service. Wave 3 callers pass concrete user_ids to `dispatch()`;
+    they own the "all parents of X" / "all DSLs" expansion.
+  - **Email/SMS/WhatsApp providers are stubs.** Provider hardening is
+    explicitly out of scope per PLAN.md §8. Stub provider key in
+    `WellbeingChannelProvider.send` returns
+    `Promise.reject(NotImplementedException(PROVIDER_NOT_WIRED))`.
+- **Session notes:**
+  Heavy parallel-coding turbulence with siblings 02 and 03:
+  (a) Sibling 03's commit `4b749aac` swept in my AiFlagsModule +
+  WellbeingNotificationsModule registrations on local main but their
+  deploy patch only carried WellbeingAggregateModule, so the server's
+  `app.module.ts` after 03's deploy was missing my imports. Added
+  them back via a one-shot Python script ssh'd to the server, then
+  applied my own patch series.
+  (b) Sibling 03's lint-staged stash/restore restored an OLD copy of
+  my `ai-flags.service.ts` that used the wrong Prisma compound-key
+  name (`uq_tenant_ai_flags_tenant_module` vs the correct
+  `tenant_id_module_key`). Re-applied as commit `9790c2e1`.
+  (c) Initial deploy hit `tenant.tenant_id is null` because the
+  controller path `/v1/admin/ai-flags` matches the platform-admin
+  exclusion in `TenantResolutionMiddleware`. Moved to `/v1/ai-flags`
+  in commit `815bd9d2`. Smoke test then green on the first try.
