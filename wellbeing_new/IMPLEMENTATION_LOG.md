@@ -186,7 +186,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T14:10Z | 2a850c21   |
 | 07  | Exclusion + amendment + ack services                  | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T15:15Z | 1a529312   |
 | 08  | Pastoral hidden services (DSAR, import, SST AI, etc.) | 3    | parallel-safe  | 01, 04     | `in-progress` |                   |            |
-| 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `pending`     |                   |            |
+| 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `in-progress` |                   |            |
 | 10  | Page crash fixes (5 pages)                            | 4    | parallel-risky | 02, 03     | `pending`     |                   |            |
 | 11  | Behaviour analytics URL fix + endpoint reconnects     | 4    | parallel-risky | 02         | `pending`     |                   |            |
 | 12  | Translation backfill (en + ar)                        | 4    | parallel-risky | 02         | `pending`     |                   |            |
