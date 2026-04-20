@@ -121,7 +121,13 @@ const makeIncident = (overrides: Record<string, unknown> = {}) => ({
 describe('BehaviourIncidentsService', () => {
   let service: BehaviourIncidentsService;
   let mockPrisma: {
-    behaviourIncident: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
+    behaviourIncident: {
+      findFirst: jest.Mock;
+      findMany: jest.Mock;
+      count: jest.Mock;
+      groupBy: jest.Mock;
+    };
+    behaviourTask: { count: jest.Mock };
   };
   let mockSequence: { nextNumber: jest.Mock };
   let mockHistory: { recordHistory: jest.Mock };
@@ -137,6 +143,10 @@ describe('BehaviourIncidentsService', () => {
       behaviourIncident: {
         findFirst: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+        groupBy: jest.fn().mockResolvedValue([]),
+      },
+      behaviourTask: {
         count: jest.fn().mockResolvedValue(0),
       },
     };
@@ -984,6 +994,79 @@ describe('BehaviourIncidentsService', () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
+    });
+  });
+
+  // ─── getIncidentsStats ──────────────────────────────────────────────────
+
+  describe('BehaviourIncidentsService — getIncidentsStats', () => {
+    it('should return the canonical PulseStats shape with polarity breakdown', async () => {
+      mockPrisma.behaviourIncident.groupBy.mockResolvedValue([
+        { polarity: 'positive', _count: 7 },
+        { polarity: 'negative', _count: 5 },
+      ]);
+      mockPrisma.behaviourTask.count
+        .mockResolvedValueOnce(3) // open_tasks
+        .mockResolvedValueOnce(1); // overdue_tasks
+
+      const result = await service.getIncidentsStats(TENANT_ID);
+
+      expect(result).toEqual({
+        total_incidents: 12,
+        positive_count: 7,
+        negative_count: 5,
+        open_tasks: 3,
+        overdue_tasks: 1,
+      });
+    });
+
+    it('should default polarity counts to zero when groupBy returns nothing', async () => {
+      mockPrisma.behaviourIncident.groupBy.mockResolvedValue([]);
+      mockPrisma.behaviourTask.count.mockResolvedValue(0);
+
+      const result = await service.getIncidentsStats(TENANT_ID);
+
+      expect(result).toEqual({
+        total_incidents: 0,
+        positive_count: 0,
+        negative_count: 0,
+        open_tasks: 0,
+        overdue_tasks: 0,
+      });
+    });
+
+    it('should exclude withdrawn and converted-to-safeguarding incidents', async () => {
+      mockPrisma.behaviourIncident.groupBy.mockResolvedValue([]);
+      mockPrisma.behaviourTask.count.mockResolvedValue(0);
+
+      await service.getIncidentsStats(TENANT_ID);
+
+      expect(mockPrisma.behaviourIncident.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            retention_status: 'active',
+            status: { notIn: ['withdrawn', 'converted_to_safeguarding'] },
+          }),
+        }),
+      );
+    });
+
+    it('should count open_tasks as status in [pending, in_progress]', async () => {
+      mockPrisma.behaviourIncident.groupBy.mockResolvedValue([]);
+      mockPrisma.behaviourTask.count.mockResolvedValue(0);
+
+      await service.getIncidentsStats(TENANT_ID);
+
+      expect(mockPrisma.behaviourTask.count).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            status: { in: ['pending', 'in_progress'] },
+          }),
+        }),
+      );
     });
   });
 });

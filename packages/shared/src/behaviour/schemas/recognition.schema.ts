@@ -16,7 +16,11 @@ export const createAwardTypeSchema = z.object({
   tier_level: z.number().int().min(1).nullable().optional(),
   supersedes_lower_tiers: z.boolean().default(false),
   icon: z.string().max(50).nullable().optional(),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable()
+    .optional(),
   display_order: z.number().int().default(0),
   is_active: z.boolean().default(true),
 });
@@ -85,6 +89,22 @@ export const wallQuerySchema = z.object({
 
 export type WallQuery = z.infer<typeof wallQuerySchema>;
 
+// ─── Recognition List (top-level /behaviour/recognition) ───────────────────
+
+export const RECOGNITION_LIST_STATUS = ['published', 'pending', 'all'] as const;
+export type RecognitionListStatus = (typeof RECOGNITION_LIST_STATUS)[number];
+
+export const recognitionListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.enum(RECOGNITION_LIST_STATUS).default('published'),
+  academic_year_id: z.string().uuid().optional(),
+  student_id: z.string().uuid().optional(),
+  class_id: z.string().uuid().optional(),
+});
+
+export type RecognitionListQuery = z.infer<typeof recognitionListQuerySchema>;
+
 // ─── Leaderboard ────────────────────────────────────────────────────────────
 
 export const LEADERBOARD_SCOPE = ['year', 'period', 'all_time'] as const;
@@ -102,10 +122,14 @@ export type LeaderboardQuery = z.infer<typeof leaderboardQuerySchema>;
 
 export const bulkHouseAssignSchema = z.object({
   academic_year_id: z.string().uuid(),
-  assignments: z.array(z.object({
-    student_id: z.string().uuid(),
-    house_id: z.string().uuid(),
-  })).min(1),
+  assignments: z
+    .array(
+      z.object({
+        student_id: z.string().uuid(),
+        house_id: z.string().uuid(),
+      }),
+    )
+    .min(1),
 });
 
 export type BulkHouseAssignDto = z.infer<typeof bulkHouseAssignSchema>;

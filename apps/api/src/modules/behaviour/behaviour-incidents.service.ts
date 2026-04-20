@@ -660,4 +660,58 @@ export class BehaviourIncidentsService {
       order: 'desc',
     } as ListIncidentsQuery);
   }
+
+  // ─── Dashboard Stats ─────────────────────────────────────────────────────
+
+  /**
+   * Aggregate counts for the behaviour dashboard KPI strip. Excludes withdrawn
+   * and converted-to-safeguarding incidents (consistent with BehaviourPulseService)
+   * and only counts active retention rows. Tasks counts mirror `/tasks/stats` —
+   * the dashboard depends on both endpoints agreeing so either can drive the
+   * KPIs in isolation if the other call fails.
+   */
+  async getIncidentsStats(tenantId: string) {
+    const [incidentCounts, openTasks, overdueTasks] = await Promise.all([
+      this.prisma.behaviourIncident.groupBy({
+        by: ['polarity'],
+        where: {
+          tenant_id: tenantId,
+          retention_status: 'active' as $Enums.RetentionStatus,
+          status: {
+            notIn: ['withdrawn', 'converted_to_safeguarding'] as $Enums.IncidentStatus[],
+          },
+        },
+        _count: true,
+      }),
+      this.prisma.behaviourTask.count({
+        where: {
+          tenant_id: tenantId,
+          status: {
+            in: ['pending', 'in_progress'] as $Enums.BehaviourTaskStatus[],
+          },
+        },
+      }),
+      this.prisma.behaviourTask.count({
+        where: {
+          tenant_id: tenantId,
+          status: 'overdue' as $Enums.BehaviourTaskStatus,
+        },
+      }),
+    ]);
+
+    const positive =
+      incidentCounts.find((c) => c.polarity === ('positive' as $Enums.BehaviourPolarity))?._count ??
+      0;
+    const negative =
+      incidentCounts.find((c) => c.polarity === ('negative' as $Enums.BehaviourPolarity))?._count ??
+      0;
+
+    return {
+      total_incidents: positive + negative,
+      positive_count: positive,
+      negative_count: negative,
+      open_tasks: openTasks,
+      overdue_tasks: overdueTasks,
+    };
+  }
 }

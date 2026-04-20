@@ -22,6 +22,7 @@ import {
   createIncidentSchema,
   createParticipantSchema,
   listIncidentsQuerySchema,
+  listTemplatesQuerySchema,
   quickLogSchema,
   recordFollowUpSchema,
   statusTransitionSchema,
@@ -147,6 +148,13 @@ export class BehaviourController {
       query.page,
       query.pageSize,
     );
+  }
+
+  // Static route must precede `:id` — otherwise ParseUUIDPipe rejects "stats" with 400.
+  @Get('behaviour/incidents/stats')
+  @RequiresPermission('behaviour.view')
+  async getIncidentsStats(@CurrentTenant() tenant: TenantContext) {
+    return this.behaviourService.getIncidentsStats(tenant.tenant_id);
   }
 
   @Get('behaviour/incidents/feed')
@@ -342,6 +350,18 @@ export class BehaviourController {
       '', // userId not needed for templates
     );
     return { data: context.templates };
+  }
+
+  // ─── Flat Templates Listing ─────────────────────────────────────────────
+
+  @Get('behaviour/templates')
+  @RequiresPermission('behaviour.log')
+  async listTemplates(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(listTemplatesQuerySchema))
+    query: z.infer<typeof listTemplatesQuerySchema>,
+  ) {
+    return this.quickLogService.listTemplates(tenant.tenant_id, query);
   }
 
   // ─── Private Helpers ───────────────────────────────────────────────────────

@@ -69,7 +69,7 @@ describe('BehaviourQuickLogService', () => {
   let service: BehaviourQuickLogService;
   let mockPrisma: {
     behaviourCategory: { findMany: jest.Mock };
-    behaviourDescriptionTemplate: { findMany: jest.Mock };
+    behaviourDescriptionTemplate: { findMany: jest.Mock; count: jest.Mock };
     behaviourIncidentParticipant: { findMany: jest.Mock };
   };
   let mockBehaviourService: {
@@ -83,6 +83,7 @@ describe('BehaviourQuickLogService', () => {
       },
       behaviourDescriptionTemplate: {
         findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
       },
       behaviourIncidentParticipant: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -392,6 +393,75 @@ describe('BehaviourQuickLogService', () => {
           schedule_entry_id: 'sched-1',
         }),
       );
+    });
+  });
+
+  // ─── listTemplates ─────────────────────────────────────────────────────
+
+  describe('listTemplates', () => {
+    const makeFlatTemplate = (overrides: Record<string, unknown> = {}) => ({
+      id: TEMPLATE_ID,
+      tenant_id: TENANT_ID,
+      category_id: CATEGORY_ID,
+      locale: 'en',
+      text: 'Helped a peer with their homework.',
+      display_order: 1,
+      is_active: true,
+      created_at: new Date('2026-03-01'),
+      updated_at: new Date('2026-03-01'),
+      ...overrides,
+    });
+
+    it('should project template rows into the TemplateOption shape (name + body_template)', async () => {
+      mockPrisma.behaviourDescriptionTemplate.findMany.mockResolvedValue([makeFlatTemplate()]);
+      mockPrisma.behaviourDescriptionTemplate.count.mockResolvedValue(1);
+
+      const result = await service.listTemplates(TENANT_ID, { page: 1, pageSize: 50 });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toMatchObject({
+        id: TEMPLATE_ID,
+        category_id: CATEGORY_ID,
+        locale: 'en',
+        name: 'Helped a peer with their homework.',
+        body_template: 'Helped a peer with their homework.',
+      });
+    });
+
+    it('should apply category_id, locale, and is_active filters when provided', async () => {
+      mockPrisma.behaviourDescriptionTemplate.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourDescriptionTemplate.count.mockResolvedValue(0);
+
+      await service.listTemplates(TENANT_ID, {
+        page: 1,
+        pageSize: 50,
+        category_id: CATEGORY_ID,
+        locale: 'ar',
+        is_active: true,
+      });
+
+      expect(mockPrisma.behaviourDescriptionTemplate.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenant_id: TENANT_ID,
+            category_id: CATEGORY_ID,
+            locale: 'ar',
+            is_active: true,
+          },
+        }),
+      );
+    });
+
+    it('should return an empty list (not 404) when no templates exist', async () => {
+      mockPrisma.behaviourDescriptionTemplate.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourDescriptionTemplate.count.mockResolvedValue(0);
+
+      const result = await service.listTemplates(TENANT_ID, { page: 1, pageSize: 50 });
+
+      expect(result).toEqual({
+        data: [],
+        meta: { page: 1, pageSize: 50, total: 0 },
+      });
     });
   });
 

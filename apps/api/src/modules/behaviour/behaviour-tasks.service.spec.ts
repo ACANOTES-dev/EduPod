@@ -71,7 +71,7 @@ describe('BehaviourTasksService', () => {
 
   describe('listTasks', () => {
     it('should list tasks with no filters', async () => {
-      await service.listTasks(TENANT_ID, { page: 1, pageSize: 20 });
+      await service.listTasks(TENANT_ID, USER_ID, { page: 1, pageSize: 20 });
 
       expect(mockPrisma.behaviourTask.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -81,7 +81,7 @@ describe('BehaviourTasksService', () => {
     });
 
     it('should apply status filter', async () => {
-      await service.listTasks(TENANT_ID, { page: 1, pageSize: 20, status: 'pending' });
+      await service.listTasks(TENANT_ID, USER_ID, { page: 1, pageSize: 20, status: 'pending' });
 
       expect(mockPrisma.behaviourTask.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -91,7 +91,7 @@ describe('BehaviourTasksService', () => {
     });
 
     it('should apply priority filter', async () => {
-      await service.listTasks(TENANT_ID, { page: 1, pageSize: 20, priority: 'high' });
+      await service.listTasks(TENANT_ID, USER_ID, { page: 1, pageSize: 20, priority: 'high' });
 
       expect(mockPrisma.behaviourTask.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -101,7 +101,26 @@ describe('BehaviourTasksService', () => {
     });
 
     it('should apply assigned_to_id filter', async () => {
-      await service.listTasks(TENANT_ID, { page: 1, pageSize: 20, assigned_to_id: USER_ID });
+      const OTHER_USER = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+      await service.listTasks(TENANT_ID, USER_ID, {
+        page: 1,
+        pageSize: 20,
+        assigned_to_id: OTHER_USER,
+      });
+
+      expect(mockPrisma.behaviourTask.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ assigned_to_id: OTHER_USER }),
+        }),
+      );
+    });
+
+    it('should resolve the "me" sentinel to the current userId', async () => {
+      await service.listTasks(TENANT_ID, USER_ID, {
+        page: 1,
+        pageSize: 20,
+        assigned_to_id: 'me',
+      });
 
       expect(mockPrisma.behaviourTask.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -111,7 +130,7 @@ describe('BehaviourTasksService', () => {
     });
 
     it('should apply entity_type and entity_id filters', async () => {
-      await service.listTasks(TENANT_ID, {
+      await service.listTasks(TENANT_ID, USER_ID, {
         page: 1,
         pageSize: 20,
         entity_type: 'incident',
@@ -129,7 +148,7 @@ describe('BehaviourTasksService', () => {
     });
 
     it('should override status to overdue when overdue_only is true', async () => {
-      await service.listTasks(TENANT_ID, {
+      await service.listTasks(TENANT_ID, USER_ID, {
         page: 1,
         pageSize: 20,
         overdue_only: true,
@@ -146,7 +165,7 @@ describe('BehaviourTasksService', () => {
       mockPrisma.behaviourTask.findMany.mockResolvedValue([{ id: 'task-1' }]);
       mockPrisma.behaviourTask.count.mockResolvedValue(25);
 
-      const result = await service.listTasks(TENANT_ID, { page: 2, pageSize: 10 });
+      const result = await service.listTasks(TENANT_ID, USER_ID, { page: 2, pageSize: 10 });
 
       expect(result.meta).toEqual({ page: 2, pageSize: 10, total: 25 });
       expect(mockPrisma.behaviourTask.findMany).toHaveBeenCalledWith(

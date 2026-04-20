@@ -23,6 +23,7 @@ import {
   createPublicationSchema,
   leaderboardQuerySchema,
   listAwardsQuerySchema,
+  recognitionListQuerySchema,
   wallQuerySchema,
 } from '@school/shared/behaviour';
 
@@ -63,6 +64,18 @@ export class BehaviourRecognitionController {
     private readonly academicReadFacade: AcademicReadFacade,
     private readonly configurationReadFacade: ConfigurationReadFacade,
   ) {}
+
+  // ─── Recognition List (top-level) ─────────────────────────────────────────
+
+  @Get('behaviour/recognition')
+  @RequiresPermission('behaviour.view')
+  async listRecognition(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(recognitionListQuerySchema))
+    query: z.infer<typeof recognitionListQuerySchema>,
+  ) {
+    return this.recognitionService.listRecognition(tenant.tenant_id, query);
+  }
 
   // ─── Recognition Wall ────────────────────────────────────────────────────
 

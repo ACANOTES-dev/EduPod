@@ -23,15 +23,20 @@ export class BehaviourTasksService {
   ) {}
 
   /**
-   * List tasks with filters and pagination.
+   * List tasks with filters and pagination. The `assigned_to_id` filter
+   * accepts the literal string `"me"` as a sentinel that resolves to the
+   * current user's id server-side — avoids forcing the frontend to know its
+   * own user uuid for the common "my tasks" view.
    */
-  async listTasks(tenantId: string, query: ListTasksQuery) {
+  async listTasks(tenantId: string, userId: string, query: ListTasksQuery) {
     const where: Prisma.BehaviourTaskWhereInput = {
       tenant_id: tenantId,
     };
     if (query.status) where.status = query.status as $Enums.BehaviourTaskStatus;
     if (query.priority) where.priority = query.priority as $Enums.TaskPriority;
-    if (query.assigned_to_id) where.assigned_to_id = query.assigned_to_id;
+    if (query.assigned_to_id) {
+      where.assigned_to_id = query.assigned_to_id === 'me' ? userId : query.assigned_to_id;
+    }
     if (query.entity_type) where.entity_type = query.entity_type as $Enums.BehaviourTaskEntityType;
     if (query.entity_id) where.entity_id = query.entity_id;
     if (query.overdue_only) where.status = 'overdue' as $Enums.BehaviourTaskStatus;

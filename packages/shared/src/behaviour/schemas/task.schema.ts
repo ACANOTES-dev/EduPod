@@ -26,11 +26,20 @@ export const listTasksQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   status: z.enum(['pending', 'in_progress', 'completed', 'cancelled', 'overdue']).optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
-  assigned_to_id: z.string().uuid().optional(),
-  entity_type: z.enum([
-    'incident', 'sanction', 'intervention', 'safeguarding_concern',
-    'appeal', 'break_glass_grant', 'exclusion_case', 'guardian_restriction',
-  ]).optional(),
+  // "me" sentinel resolves to the current user server-side; otherwise a UUID.
+  assigned_to_id: z.union([z.literal('me'), z.string().uuid()]).optional(),
+  entity_type: z
+    .enum([
+      'incident',
+      'sanction',
+      'intervention',
+      'safeguarding_concern',
+      'appeal',
+      'break_glass_grant',
+      'exclusion_case',
+      'guardian_restriction',
+    ])
+    .optional(),
   entity_id: z.string().uuid().optional(),
   overdue_only: z.coerce.boolean().optional(),
 });

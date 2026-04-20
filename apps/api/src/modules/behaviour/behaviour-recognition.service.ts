@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 
+import type { RecognitionListQuery } from '@school/shared/behaviour';
+
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -33,6 +35,95 @@ export class BehaviourRecognitionService {
     private readonly prisma: PrismaService,
     private readonly historyService: BehaviourHistoryService,
   ) {}
+
+  // ─── Recognition List (top-level) ─────────────────────────────────────
+
+  /**
+   * Paginated recognition feed backed by positive behaviour incidents. The
+   * shape matches the frontend's `RecognitionItem` so it plugs into the
+   * Recognition Wall page without a transform. `status` semantics:
+   *   - `published` — incidents no longer draft/withdrawn (visible to staff)
+   *   - `pending`   — draft incidents still awaiting submission
+   *   - `all`       — no status filter
+   * The `award` field is always null here; manual awards are still served by
+   * `GET /behaviour/recognition/awards` and the publication pipeline stays on
+   * `/behaviour/recognition/wall`.
+   */
+  async listRecognition(tenantId: string, query: RecognitionListQuery) {
+    const where: Prisma.BehaviourIncidentWhereInput = {
+      tenant_id: tenantId,
+      polarity: 'positive' as $Enums.BehaviourPolarity,
+      retention_status: 'active' as $Enums.RetentionStatus,
+    };
+    if (query.academic_year_id) where.academic_year_id = query.academic_year_id;
+    if (query.student_id) {
+      where.participants = {
+        some: {
+          student_id: query.student_id,
+          participant_type: 'student' as $Enums.ParticipantType,
+        },
+      };
+    }
+    if (query.status === 'published') {
+      where.status = {
+        notIn: ['draft', 'withdrawn'] as $Enums.IncidentStatus[],
+      };
+    } else if (query.status === 'pending') {
+      where.status = 'draft' as $Enums.IncidentStatus;
+    }
+
+    const [incidents, total] = await Promise.all([
+      this.prisma.behaviourIncident.findMany({
+        where,
+        orderBy: { occurred_at: 'desc' },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+        include: {
+          category: { select: { name: true, color: true, icon: true } },
+          reported_by: { select: { first_name: true, last_name: true } },
+          participants: {
+            where: {
+              participant_type: 'student' as $Enums.ParticipantType,
+              role: 'subject' as $Enums.ParticipantRole,
+            },
+            take: 1,
+            include: {
+              student: { select: { first_name: true, last_name: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.behaviourIncident.count({ where }),
+    ]);
+
+    const data = incidents.map((incident) => {
+      const subject = incident.participants[0]?.student ?? null;
+      return {
+        id: incident.id,
+        student: subject ? { first_name: subject.first_name, last_name: subject.last_name } : null,
+        award: null,
+        category: incident.category
+          ? { name: incident.category.name, color: incident.category.color }
+          : null,
+        points: incident.severity,
+        message: incident.description,
+        status: incident.status,
+        published_at: incident.occurred_at.toISOString(),
+        created_at: incident.created_at.toISOString(),
+        awarded_by_user: incident.reported_by
+          ? {
+              first_name: incident.reported_by.first_name,
+              last_name: incident.reported_by.last_name,
+            }
+          : null,
+      };
+    });
+
+    return {
+      data,
+      meta: { page: query.page, pageSize: query.pageSize, total },
+    };
+  }
 
   // ─── Recognition Wall ─────────────────────────────────────────────────
 
@@ -107,22 +198,19 @@ export class BehaviourRecognitionService {
     tenantId: string,
     dto: CreatePublicationApprovalDto,
   ) {
-    const parentConsentStatus: $Enums.ParentConsentStatus =
-      dto.requires_parent_consent
-        ? ('not_requested' as $Enums.ParentConsentStatus)
-        : ('granted' as $Enums.ParentConsentStatus);
+    const parentConsentStatus: $Enums.ParentConsentStatus = dto.requires_parent_consent
+      ? ('not_requested' as $Enums.ParentConsentStatus)
+      : ('granted' as $Enums.ParentConsentStatus);
 
     const adminApproved = !dto.admin_approval_required;
 
     // Both gates pass immediately if no consent needed and no admin approval needed
-    const bothGatesPass =
-      parentConsentStatus === 'granted' && adminApproved;
+    const bothGatesPass = parentConsentStatus === 'granted' && adminApproved;
 
     const record = await tx.behaviourPublicationApproval.create({
       data: {
         tenant_id: tenantId,
-        publication_type:
-          dto.publication_type as $Enums.PublicationType,
+        publication_type: dto.publication_type as $Enums.PublicationType,
         entity_type: dto.entity_type as $Enums.PublicationEntityType,
         entity_id: dto.entity_id,
         student_id: dto.student_id,
@@ -142,11 +230,7 @@ export class BehaviourRecognitionService {
    * Admin approves a publication. If both gates (consent + admin) now pass,
    * the record is published.
    */
-  async approvePublication(
-    tenantId: string,
-    publicationId: string,
-    userId: string,
-  ) {
+  async approvePublication(tenantId: string, publicationId: string, userId: string) {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -154,10 +238,9 @@ export class BehaviourRecognitionService {
     return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      const publication =
-        await db.behaviourPublicationApproval.findFirst({
-          where: { id: publicationId, tenant_id: tenantId },
-        });
+      const publication = await db.behaviourPublicationApproval.findFirst({
+        where: { id: publicationId, tenant_id: tenantId },
+      });
 
       if (!publication) {
         throw new NotFoundException({
@@ -166,15 +249,13 @@ export class BehaviourRecognitionService {
         });
       }
 
-      const updateData: Prisma.BehaviourPublicationApprovalUpdateInput =
-        {
-          admin_approved: true,
-          admin_approved_by: { connect: { id: userId } },
-        };
+      const updateData: Prisma.BehaviourPublicationApprovalUpdateInput = {
+        admin_approved: true,
+        admin_approved_by: { connect: { id: userId } },
+      };
 
       // Check if both gates now pass
-      const consentGranted =
-        publication.parent_consent_status === 'granted';
+      const consentGranted = publication.parent_consent_status === 'granted';
       if (consentGranted) {
         updateData.published_at = new Date();
       }
@@ -207,11 +288,7 @@ export class BehaviourRecognitionService {
   /**
    * Reject/unpublish a publication approval.
    */
-  async rejectPublication(
-    tenantId: string,
-    publicationId: string,
-    userId: string,
-  ) {
+  async rejectPublication(tenantId: string, publicationId: string, userId: string) {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -219,10 +296,9 @@ export class BehaviourRecognitionService {
     return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      const publication =
-        await db.behaviourPublicationApproval.findFirst({
-          where: { id: publicationId, tenant_id: tenantId },
-        });
+      const publication = await db.behaviourPublicationApproval.findFirst({
+        where: { id: publicationId, tenant_id: tenantId },
+      });
 
       if (!publication) {
         throw new NotFoundException({
@@ -300,25 +376,24 @@ export class BehaviourRecognitionService {
    * Get full publication approval record with related entities.
    */
   async getPublicationDetail(tenantId: string, id: string) {
-    const publication =
-      await this.prisma.behaviourPublicationApproval.findFirst({
-        where: { id, tenant_id: tenantId },
-        include: {
-          student: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              year_group: {
-                select: { id: true, name: true },
-              },
+    const publication = await this.prisma.behaviourPublicationApproval.findFirst({
+      where: { id, tenant_id: tenantId },
+      include: {
+        student: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            year_group: {
+              select: { id: true, name: true },
             },
           },
-          admin_approved_by: {
-            select: { id: true, first_name: true, last_name: true },
-          },
         },
-      });
+        admin_approved_by: {
+          select: { id: true, first_name: true, last_name: true },
+        },
+      },
+    });
 
     if (!publication) {
       throw new NotFoundException({

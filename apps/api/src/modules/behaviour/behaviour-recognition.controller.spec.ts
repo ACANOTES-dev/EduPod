@@ -4,7 +4,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
-import { MOCK_FACADE_PROVIDERS, AcademicReadFacade, ConfigurationReadFacade } from '../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  AcademicReadFacade,
+  ConfigurationReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourAwardService } from './behaviour-award.service';
@@ -46,6 +50,7 @@ const mockRecognitionService = {
   approvePublication: jest.fn(),
   rejectPublication: jest.fn(),
   getPublicFeed: jest.fn(),
+  listRecognition: jest.fn(),
 };
 
 const mockAwardService = {
@@ -117,6 +122,35 @@ describe('BehaviourRecognitionController', () => {
   });
 
   afterEach(() => jest.clearAllMocks());
+
+  // ─── Recognition List (top-level) ────────────────────────────────────────
+
+  it('should call recognitionService.listRecognition with tenant_id and query', async () => {
+    const query = { page: 1, pageSize: 50, status: 'published' };
+    const payload = { data: [], meta: { page: 1, pageSize: 50, total: 0 } };
+    mockRecognitionService.listRecognition.mockResolvedValue(payload);
+
+    const result = await controller.listRecognition(TENANT, query as never);
+
+    expect(mockRecognitionService.listRecognition).toHaveBeenCalledWith(TENANT_ID, query);
+    expect(result).toEqual(payload);
+  });
+
+  it('should return an empty list (not 404) when no positive incidents exist', async () => {
+    mockRecognitionService.listRecognition.mockResolvedValue({
+      data: [],
+      meta: { page: 1, pageSize: 50, total: 0 },
+    });
+
+    const result = await controller.listRecognition(TENANT, {
+      page: 1,
+      pageSize: 50,
+      status: 'published',
+    } as never);
+
+    expect(result.data).toEqual([]);
+    expect(result.meta.total).toBe(0);
+  });
 
   // ─── Recognition Wall ────────────────────────────────────────────────────
 

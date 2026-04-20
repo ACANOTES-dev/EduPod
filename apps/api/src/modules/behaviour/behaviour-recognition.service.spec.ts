@@ -78,6 +78,10 @@ describe('BehaviourRecognitionService', () => {
       findFirst: jest.Mock;
       create: jest.Mock;
     };
+    behaviourIncident: {
+      findMany: jest.Mock;
+      count: jest.Mock;
+    };
   };
   let mockHistory: { recordHistory: jest.Mock };
 
@@ -88,6 +92,10 @@ describe('BehaviourRecognitionService', () => {
         count: jest.fn().mockResolvedValue(0),
         findFirst: jest.fn(),
         create: jest.fn(),
+      },
+      behaviourIncident: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
       },
     };
 
@@ -112,6 +120,136 @@ describe('BehaviourRecognitionService', () => {
   });
 
   afterEach(() => jest.clearAllMocks());
+
+  // ─── listRecognition (top-level /behaviour/recognition) ────────────────
+
+  describe('listRecognition', () => {
+    const makePositiveIncident = (id: string, overrides: Record<string, unknown> = {}) => ({
+      id,
+      tenant_id: TENANT_ID,
+      polarity: 'positive',
+      retention_status: 'active',
+      status: 'submitted',
+      severity: 3,
+      description: 'Great teamwork during the science project.',
+      occurred_at: new Date('2026-04-01T10:00:00Z'),
+      created_at: new Date('2026-04-01T10:00:05Z'),
+      category: { name: 'Teamwork', color: '#4ade80', icon: '🤝' },
+      reported_by: { first_name: 'Anna', last_name: 'Reporter' },
+      participants: [
+        {
+          student: { first_name: 'Sam', last_name: 'Student' },
+        },
+      ],
+      ...overrides,
+    });
+
+    it('should default to status=published, filtering out draft and withdrawn incidents', async () => {
+      mockPrisma.behaviourIncident.findMany.mockResolvedValue([makePositiveIncident('inc-1')]);
+      mockPrisma.behaviourIncident.count.mockResolvedValue(1);
+
+      await service.listRecognition(TENANT_ID, { page: 1, pageSize: 20, status: 'published' });
+
+      expect(mockPrisma.behaviourIncident.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            polarity: 'positive',
+            retention_status: 'active',
+            status: { notIn: ['draft', 'withdrawn'] },
+          }),
+        }),
+      );
+    });
+
+    it('should filter to draft when status=pending', async () => {
+      mockPrisma.behaviourIncident.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourIncident.count.mockResolvedValue(0);
+
+      await service.listRecognition(TENANT_ID, { page: 1, pageSize: 20, status: 'pending' });
+
+      expect(mockPrisma.behaviourIncident.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'draft' }),
+        }),
+      );
+    });
+
+    it('should omit the status filter when status=all', async () => {
+      mockPrisma.behaviourIncident.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourIncident.count.mockResolvedValue(0);
+
+      await service.listRecognition(TENANT_ID, { page: 1, pageSize: 20, status: 'all' });
+
+      const call = mockPrisma.behaviourIncident.findMany.mock.calls[0]![0] as {
+        where: Record<string, unknown>;
+      };
+      expect(call.where).not.toHaveProperty('status');
+      expect(call.where.polarity).toBe('positive');
+    });
+
+    it('should project each incident into the RecognitionItem shape the frontend expects', async () => {
+      mockPrisma.behaviourIncident.findMany.mockResolvedValue([makePositiveIncident('inc-1')]);
+      mockPrisma.behaviourIncident.count.mockResolvedValue(1);
+
+      const result = await service.listRecognition(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'published',
+      });
+
+      expect(result.data).toHaveLength(1);
+      const item = result.data[0]!;
+      expect(item).toMatchObject({
+        id: 'inc-1',
+        student: { first_name: 'Sam', last_name: 'Student' },
+        award: null,
+        category: { name: 'Teamwork', color: '#4ade80' },
+        points: 3,
+        message: 'Great teamwork during the science project.',
+        status: 'submitted',
+        published_at: '2026-04-01T10:00:00.000Z',
+        awarded_by_user: { first_name: 'Anna', last_name: 'Reporter' },
+      });
+    });
+
+    it('should return empty data with correct meta when no positive incidents exist', async () => {
+      mockPrisma.behaviourIncident.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourIncident.count.mockResolvedValue(0);
+
+      const result = await service.listRecognition(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'published',
+      });
+
+      expect(result.data).toEqual([]);
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 0 });
+    });
+
+    it('edge: should scope every query by tenant_id (RLS leakage guard)', async () => {
+      const OTHER_TENANT = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+      mockPrisma.behaviourIncident.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourIncident.count.mockResolvedValue(0);
+
+      await service.listRecognition(OTHER_TENANT, {
+        page: 1,
+        pageSize: 20,
+        status: 'published',
+      });
+
+      expect(mockPrisma.behaviourIncident.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenant_id: OTHER_TENANT }),
+        }),
+      );
+      expect(mockPrisma.behaviourIncident.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenant_id: OTHER_TENANT }),
+        }),
+      );
+    });
+  });
 
   // ─── getWall ──────────────────────────────────────────────────────────
 

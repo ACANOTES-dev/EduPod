@@ -49,12 +49,14 @@ const mockBehaviourService = {
   withdrawIncident: jest.fn(),
   addParticipant: jest.fn(),
   removeParticipant: jest.fn(),
+  getIncidentsStats: jest.fn(),
 };
 
 const mockQuickLogService = {
   quickLog: jest.fn(),
   bulkPositive: jest.fn(),
   getContext: jest.fn(),
+  listTemplates: jest.fn(),
 };
 
 const mockHistoryService = {
@@ -406,5 +408,48 @@ describe('BehaviourController', () => {
 
     expect(mockQuickLogService.getContext).toHaveBeenCalledWith(TENANT_ID, '');
     expect(result).toEqual({ data: [{ id: 't1' }] });
+  });
+
+  // ─── Incidents Stats ────────────────────────────────────────────────────────
+
+  it('should call behaviourService.getIncidentsStats with tenant_id and return the canonical shape', async () => {
+    const stats = {
+      total_incidents: 12,
+      positive_count: 7,
+      negative_count: 5,
+      open_tasks: 3,
+      overdue_tasks: 1,
+    };
+    mockBehaviourService.getIncidentsStats.mockResolvedValue(stats);
+
+    const result = await controller.getIncidentsStats(TENANT);
+
+    expect(mockBehaviourService.getIncidentsStats).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual(stats);
+  });
+
+  // ─── Flat Templates Listing ────────────────────────────────────────────────
+
+  it('should call quickLogService.listTemplates with tenant_id and query', async () => {
+    const query = { page: 1, pageSize: 50 };
+    const payload = { data: [], meta: { page: 1, pageSize: 50, total: 0 } };
+    mockQuickLogService.listTemplates.mockResolvedValue(payload);
+
+    const result = await controller.listTemplates(TENANT, query as never);
+
+    expect(mockQuickLogService.listTemplates).toHaveBeenCalledWith(TENANT_ID, query);
+    expect(result).toEqual(payload);
+  });
+
+  it('should return an empty list (not 404) when the tenant has no templates', async () => {
+    mockQuickLogService.listTemplates.mockResolvedValue({
+      data: [],
+      meta: { page: 1, pageSize: 50, total: 0 },
+    });
+
+    const result = await controller.listTemplates(TENANT, { page: 1, pageSize: 50 } as never);
+
+    expect(result.data).toEqual([]);
+    expect(result.meta.total).toBe(0);
   });
 });

@@ -57,14 +57,23 @@ describe('BehaviourTasksController', () => {
     jest.clearAllMocks();
   });
 
-  it('should call tasksService.listTasks with tenant_id and query', async () => {
+  it('should call tasksService.listTasks with tenant_id, user sub, and query', async () => {
     const query = { page: 1, pageSize: 20, status: 'pending' };
     mockService.listTasks.mockResolvedValue({ data: [], meta: { total: 0 } });
 
-    const result = await controller.listTasks(TENANT, query as never);
+    const result = await controller.listTasks(TENANT, USER, query as never);
 
-    expect(mockService.listTasks).toHaveBeenCalledWith('tenant-uuid', query);
+    expect(mockService.listTasks).toHaveBeenCalledWith('tenant-uuid', 'user-uuid', query);
     expect(result).toEqual({ data: [], meta: { total: 0 } });
+  });
+
+  it('should forward the "me" sentinel to tasksService.listTasks (resolution happens server-side)', async () => {
+    const query = { page: 1, pageSize: 20, assigned_to_id: 'me' };
+    mockService.listTasks.mockResolvedValue({ data: [], meta: { total: 0 } });
+
+    await controller.listTasks(TENANT, USER, query as never);
+
+    expect(mockService.listTasks).toHaveBeenCalledWith('tenant-uuid', 'user-uuid', query);
   });
 
   it('should call tasksService.getMyTasks with tenant_id, user sub, page, and pageSize', async () => {

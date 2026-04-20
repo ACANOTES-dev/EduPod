@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
-import type { BulkPositiveDto, CreateIncidentDto, QuickLogDto } from '@school/shared/behaviour';
+import type {
+  BulkPositiveDto,
+  CreateIncidentDto,
+  ListTemplatesQuery,
+  QuickLogDto,
+} from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -94,6 +100,45 @@ export class BehaviourQuickLogService {
       auto_submit: true,
       idempotency_key: dto.idempotency_key,
     } as CreateIncidentDto);
+  }
+
+  /**
+   * Flat paginated list of behaviour description templates. Shape matches
+   * the frontend's `TemplateOption` — `name` is the same text shown in the
+   * chip, `body_template` is inserted into the incident description when
+   * the chip is clicked. Returns an empty list when no templates exist so
+   * consumers (incident form, quick-log sheet) do not 404.
+   */
+  async listTemplates(tenantId: string, query: ListTemplatesQuery) {
+    const where: Prisma.BehaviourDescriptionTemplateWhereInput = {
+      tenant_id: tenantId,
+    };
+    if (query.category_id) where.category_id = query.category_id;
+    if (query.locale) where.locale = query.locale;
+    if (query.is_active !== undefined) where.is_active = query.is_active;
+
+    const [rows, total] = await Promise.all([
+      this.prisma.behaviourDescriptionTemplate.findMany({
+        where,
+        orderBy: [{ display_order: 'asc' }, { created_at: 'asc' }],
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      this.prisma.behaviourDescriptionTemplate.count({ where }),
+    ]);
+
+    return {
+      data: rows.map((row) => ({
+        id: row.id,
+        category_id: row.category_id,
+        locale: row.locale,
+        name: row.text,
+        body_template: row.text,
+        display_order: row.display_order,
+        is_active: row.is_active,
+      })),
+      meta: { page: query.page, pageSize: query.pageSize, total },
+    };
   }
 
   /**

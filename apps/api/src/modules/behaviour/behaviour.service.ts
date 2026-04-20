@@ -63,6 +63,10 @@ export class BehaviourService {
     return this.incidents.getFeed(tenantId, userId, permissions, page, pageSize);
   }
 
+  async getIncidentsStats(tenantId: string) {
+    return this.incidents.getIncidentsStats(tenantId);
+  }
+
   // ─── Status Transitions ─────────────────────────────────────────────────
 
   async transitionStatus(tenantId: string, id: string, userId: string, dto: StatusTransitionDto) {

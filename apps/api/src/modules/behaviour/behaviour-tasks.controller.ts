@@ -51,10 +51,11 @@ export class BehaviourTasksController {
   @RequiresPermission('behaviour.view')
   async listTasks(
     @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
     @Query(new ZodValidationPipe(listTasksQuerySchema))
     query: z.infer<typeof listTasksQuerySchema>,
   ) {
-    return this.tasksService.listTasks(tenant.tenant_id, query);
+    return this.tasksService.listTasks(tenant.tenant_id, user.sub, query);
   }
 
   // ─── My Pending Tasks ─────────────────────────────────────────────────────
