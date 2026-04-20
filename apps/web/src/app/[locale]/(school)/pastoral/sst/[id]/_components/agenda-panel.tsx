@@ -235,6 +235,9 @@ export function AgendaPanel({
 
 // ─── Inner card ───────────────────────────────────────────────────────────────
 
+type AgendaItemTranslator = ReturnType<typeof useTranslations<'pastoral.sstDetail'>>;
+type AgendaPanelTranslator = ReturnType<typeof useTranslations<'responsePlans.agendaPanel'>>;
+
 function AgendaItemCard({
   item,
   t,
@@ -245,8 +248,8 @@ function AgendaItemCard({
   onDeleteItem,
 }: {
   item: SstAgendaItem;
-  t: (key: string) => string;
-  tAgenda: (key: string, values?: Record<string, unknown>) => string;
+  t: AgendaItemTranslator;
+  tAgenda: AgendaPanelTranslator;
   studentName: string | null;
   busyAction: string | null;
   onSaveItem: AgendaPanelProps['onSaveItem'];

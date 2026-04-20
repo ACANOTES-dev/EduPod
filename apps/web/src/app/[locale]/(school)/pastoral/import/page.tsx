@@ -273,7 +273,10 @@ export default function PastoralImportPage() {
               {file ? (
                 <span className="inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-xs text-text-secondary">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" aria-hidden="true" />
-                  {file.name} · {(file.size / 1024).toFixed(1)} KB
+                  {t('upload.filePicked', {
+                    name: file.name,
+                    size: (file.size / 1024).toFixed(1),
+                  })}
                 </span>
               ) : null}
             </div>

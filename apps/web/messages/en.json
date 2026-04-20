@@ -15198,6 +15198,7 @@
       "dropzoneLabel": "Drop your CSV here",
       "dropzoneHint": "or use the Choose file button below.",
       "chooseFile": "Choose file",
+      "filePicked": "{name} · {size} KB",
       "validate": "Validate file",
       "validating": "Validating…"
     },
