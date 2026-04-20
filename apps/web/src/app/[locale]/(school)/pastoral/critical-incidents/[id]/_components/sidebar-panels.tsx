@@ -29,6 +29,8 @@ import {
   searchStudents,
 } from '@/lib/pastoral';
 
+import { SupportLogDialog } from './support-log-dialog';
+
 // ─── Status Panel ─────────────────────────────────────────────────────────────
 
 interface StatusPanelProps {
@@ -216,6 +218,8 @@ export function AffectedPeoplePanel({
     'directly_affected',
   );
   const [affectedNotes, setAffectedNotes] = React.useState('');
+  const [supportLogTarget, setSupportLogTarget] =
+    React.useState<PastoralCriticalIncidentAffectedPerson | null>(null);
 
   const buildAffectedName = React.useCallback(
     (person: PastoralCriticalIncidentAffectedPerson) => {
@@ -339,29 +343,14 @@ export function AffectedPeoplePanel({
                     >
                       {t('saveAffected')}
                     </Button>
-                    {!person.support_offered ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={busyAction === `support-${person.id}`}
-                        onClick={() => {
-                          const notes = window.prompt(t('supportPrompt'));
-                          if (!notes?.trim()) return;
-                          void onRunAction(`support-${person.id}`, async () => {
-                            await apiClient(
-                              `/api/v1/pastoral/critical-incidents/${incidentId}/affected/${person.id}/support`,
-                              {
-                                method: 'POST',
-                                body: JSON.stringify({ notes: notes.trim() }),
-                                silent: true,
-                              },
-                            );
-                          });
-                        }}
-                      >
-                        {t('recordSupport')}
-                      </Button>
-                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={busyAction === `support-${person.id}`}
+                      onClick={() => setSupportLogTarget(person)}
+                    >
+                      {person.support_offered ? t('viewSupportLog') : t('recordSupport')}
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"
@@ -495,6 +484,31 @@ export function AffectedPeoplePanel({
           </Button>
         </div>
       </div>
+
+      <SupportLogDialog
+        incidentId={incidentId}
+        affectedPersonId={supportLogTarget?.id ?? null}
+        affectedPersonName={
+          supportLogTarget
+            ? supportLogTarget.affected_type === 'student'
+              ? formatStudentName(supportLogTarget.student) || sharedT('notAvailable')
+              : formatStaffProfileName(supportLogTarget.staff_profile) ||
+                t('staffFallback', {
+                  id: supportLogTarget.staff_profile?.id.slice(0, 8).toUpperCase() ?? '—',
+                })
+            : ''
+        }
+        open={!!supportLogTarget}
+        onOpenChange={(open) => {
+          if (!open) setSupportLogTarget(null);
+        }}
+        onAfterRecord={() => {
+          // Refresh the parent incident detail so support_offered flags update
+          void onRunAction('support-log-refresh', async () => {
+            // noop action; triggers refresh via runAction's finally
+          });
+        }}
+      />
     </section>
   );
 }
