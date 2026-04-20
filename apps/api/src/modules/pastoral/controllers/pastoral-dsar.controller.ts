@@ -36,6 +36,14 @@ import { PastoralDsarService } from '../services/pastoral-dsar.service';
 export class PastoralDsarController {
   constructor(private readonly dsarService: PastoralDsarService) {}
 
+  // ─── 0. Tenant-wide Stats (BEFORE :id routes to avoid UUID collision) ───
+
+  @Get('pastoral/dsar-reviews/stats')
+  @RequiresPermission('pastoral.dsar_review')
+  async stats(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
+    return this.dsarService.getStats(tenant.tenant_id, user.sub);
+  }
+
   // ─── 1. List Reviews ────────────────────────────────────────────────────────
 
   @Get('pastoral/dsar-reviews')

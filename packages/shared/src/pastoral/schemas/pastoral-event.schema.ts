@@ -180,10 +180,12 @@ export const interventionCreatedPayloadSchema = z.object({
   case_id: z.string().uuid(),
   type: z.string(),
   continuum_level: pastoralTierSchema,
-  target_outcomes: z.array(z.object({
-    description: z.string(),
-    measurable_target: z.string(),
-  })),
+  target_outcomes: z.array(
+    z.object({
+      description: z.string(),
+      measurable_target: z.string(),
+    }),
+  ),
 });
 
 export type InterventionCreatedPayload = z.infer<typeof interventionCreatedPayloadSchema>;
@@ -197,7 +199,9 @@ export const interventionStatusChangedPayloadSchema = z.object({
   outcome_notes: z.string().optional(),
 });
 
-export type InterventionStatusChangedPayload = z.infer<typeof interventionStatusChangedPayloadSchema>;
+export type InterventionStatusChangedPayload = z.infer<
+  typeof interventionStatusChangedPayloadSchema
+>;
 
 // ─── 14. intervention_updated ──────────────────────────────────────────────
 
@@ -359,7 +363,9 @@ export const historicalImportValidatedPayloadSchema = z.object({
   error_rows: z.number().int(),
 });
 
-export type HistoricalImportValidatedPayload = z.infer<typeof historicalImportValidatedPayloadSchema>;
+export type HistoricalImportValidatedPayload = z.infer<
+  typeof historicalImportValidatedPayloadSchema
+>;
 
 // ─── 26d. historical_import_executed ──────────────────────────────────────
 
@@ -382,6 +388,30 @@ export const checkinAlertGeneratedPayloadSchema = z.object({
 
 export type CheckinAlertGeneratedPayload = z.infer<typeof checkinAlertGeneratedPayloadSchema>;
 
+// ─── 27b. checkin_escalated ────────────────────────────────────────────────
+
+export const checkinEscalatedPayloadSchema = z.object({
+  checkin_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+  concern_id: z.string().uuid(),
+  concern_was_preexisting: z.boolean(),
+  assigned_to_user_id: z.string().uuid().nullable(),
+  assigned_reason: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export type CheckinEscalatedPayload = z.infer<typeof checkinEscalatedPayloadSchema>;
+
+// ─── 27c. checkin_dismissed ────────────────────────────────────────────────
+
+export const checkinDismissedPayloadSchema = z.object({
+  checkin_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+  reason: z.string().optional(),
+});
+
+export type CheckinDismissedPayload = z.infer<typeof checkinDismissedPayloadSchema>;
+
 // ─── 28. critical_concern_unacknowledged ───────────────────────────────────
 
 export const criticalConcernUnacknowledgedPayloadSchema = z.object({
@@ -391,7 +421,9 @@ export const criticalConcernUnacknowledgedPayloadSchema = z.object({
   notification_round: z.number().int().min(1),
 });
 
-export type CriticalConcernUnacknowledgedPayload = z.infer<typeof criticalConcernUnacknowledgedPayloadSchema>;
+export type CriticalConcernUnacknowledgedPayload = z.infer<
+  typeof criticalConcernUnacknowledgedPayloadSchema
+>;
 
 // ─── 29. intervention_reviewed ────────────────────────────────────────────
 
@@ -413,7 +445,9 @@ export const interventionProgressAddedPayloadSchema = z.object({
   note_preview: z.string(),
 });
 
-export type InterventionProgressAddedPayload = z.infer<typeof interventionProgressAddedPayloadSchema>;
+export type InterventionProgressAddedPayload = z.infer<
+  typeof interventionProgressAddedPayloadSchema
+>;
 
 // ─── 31. intervention_review_reminder_sent ────────────────────────────────
 
@@ -424,7 +458,9 @@ export const interventionReviewReminderSentPayloadSchema = z.object({
   recipients_count: z.number().int(),
 });
 
-export type InterventionReviewReminderSentPayload = z.infer<typeof interventionReviewReminderSentPayloadSchema>;
+export type InterventionReviewReminderSentPayload = z.infer<
+  typeof interventionReviewReminderSentPayloadSchema
+>;
 
 // ─── 32. critical_incident_declared ───────────────────────────────────────
 
@@ -446,7 +482,9 @@ export const criticalIncidentStatusChangedPayloadSchema = z.object({
   reason: z.string(),
 });
 
-export type CriticalIncidentStatusChangedPayload = z.infer<typeof criticalIncidentStatusChangedPayloadSchema>;
+export type CriticalIncidentStatusChangedPayload = z.infer<
+  typeof criticalIncidentStatusChangedPayloadSchema
+>;
 
 // ─── 34. critical_incident_updated ────────────────────────────────────────
 
@@ -548,7 +586,9 @@ export const referralAssessmentScheduledPayloadSchema = z.object({
   assessment_date: z.string(),
 });
 
-export type ReferralAssessmentScheduledPayload = z.infer<typeof referralAssessmentScheduledPayloadSchema>;
+export type ReferralAssessmentScheduledPayload = z.infer<
+  typeof referralAssessmentScheduledPayloadSchema
+>;
 
 // ─── 44. referral_assessment_complete ───────────────────────────────────
 
@@ -557,7 +597,9 @@ export const referralAssessmentCompletePayloadSchema = z.object({
   completed_at: z.string(),
 });
 
-export type ReferralAssessmentCompletePayload = z.infer<typeof referralAssessmentCompletePayloadSchema>;
+export type ReferralAssessmentCompletePayload = z.infer<
+  typeof referralAssessmentCompletePayloadSchema
+>;
 
 // ─── 45. referral_report_received ───────────────────────────────────────
 
@@ -574,7 +616,9 @@ export const referralRecommendationsImplementedPayloadSchema = z.object({
   referral_id: z.string().uuid(),
 });
 
-export type ReferralRecommendationsImplementedPayload = z.infer<typeof referralRecommendationsImplementedPayloadSchema>;
+export type ReferralRecommendationsImplementedPayload = z.infer<
+  typeof referralRecommendationsImplementedPayloadSchema
+>;
 
 // ─── 47. referral_withdrawn ─────────────────────────────────────────────
 
@@ -615,7 +659,9 @@ export const recommendationStatusChangedPayloadSchema = z.object({
   changed_by: z.string().uuid(),
 });
 
-export type RecommendationStatusChangedPayload = z.infer<typeof recommendationStatusChangedPayloadSchema>;
+export type RecommendationStatusChangedPayload = z.infer<
+  typeof recommendationStatusChangedPayloadSchema
+>;
 
 // ─── 51. neps_visit_created ─────────────────────────────────────────────
 
@@ -687,6 +733,8 @@ export const pastoralEventPayloadMap = {
   historical_import_validated: historicalImportValidatedPayloadSchema,
   historical_import_executed: historicalImportExecutedPayloadSchema,
   checkin_alert_generated: checkinAlertGeneratedPayloadSchema,
+  checkin_escalated: checkinEscalatedPayloadSchema,
+  checkin_dismissed: checkinDismissedPayloadSchema,
   critical_concern_unacknowledged: criticalConcernUnacknowledgedPayloadSchema,
   critical_incident_declared: criticalIncidentDeclaredPayloadSchema,
   critical_incident_status_changed: criticalIncidentStatusChangedPayloadSchema,

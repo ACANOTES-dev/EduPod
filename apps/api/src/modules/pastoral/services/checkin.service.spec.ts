@@ -7,6 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 import { CheckinAlertService } from './checkin-alert.service';
 import { CheckinService } from './checkin.service';
+import { PastoralEventService } from './pastoral-event.service';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -122,6 +123,10 @@ describe('CheckinService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: CheckinAlertService, useValue: mockAlertService },
         { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
+        {
+          provide: PastoralEventService,
+          useValue: { write: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 

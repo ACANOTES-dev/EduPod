@@ -1,10 +1,22 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { z } from 'zod';
 
-import type { TenantContext } from '@school/shared';
+import type { JwtPayload, TenantContext } from '@school/shared';
 import { checkinAggregateQuerySchema, checkinFiltersSchema } from '@school/shared/pastoral';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';
@@ -13,6 +25,16 @@ import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { CheckinAnalyticsService } from '../services/checkin-analytics.service';
 import { CheckinService } from '../services/checkin.service';
+
+// ─── Inline schemas for escalate/dismiss actions ────────────────────────────
+
+const escalateCheckinSchema = z.object({
+  notes: z.string().max(1000).optional(),
+});
+
+const dismissCheckinSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
 
 // ─── Inline schema for exam comparison (shared barrel not yet exporting) ────
 
@@ -132,7 +154,37 @@ export class CheckinAdminController {
     );
   }
 
-  // ─── 5. Exam Period Comparison ─────────────────────────────────────────
+  // ─── 5a. Escalate Flagged Check-in ─────────────────────────────────────
+
+  @Post('pastoral/checkins/:id/escalate')
+  @RequiresPermission('pastoral.view_checkin_monitoring')
+  @HttpCode(HttpStatus.OK)
+  async escalate(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(escalateCheckinSchema))
+    dto: z.infer<typeof escalateCheckinSchema>,
+  ) {
+    return this.checkinService.escalateCheckin(tenant.tenant_id, user.sub, id, dto);
+  }
+
+  // ─── 5b. Dismiss Flagged Check-in ──────────────────────────────────────
+
+  @Post('pastoral/checkins/:id/dismiss')
+  @RequiresPermission('pastoral.view_checkin_monitoring')
+  @HttpCode(HttpStatus.OK)
+  async dismiss(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(dismissCheckinSchema))
+    dto: z.infer<typeof dismissCheckinSchema>,
+  ) {
+    return this.checkinService.dismissCheckin(tenant.tenant_id, user.sub, id, dto);
+  }
+
+  // ─── 6. Exam Period Comparison ─────────────────────────────────────────
 
   @Get('pastoral/checkins/analytics/exam-comparison')
   @RequiresPermission('pastoral.view_checkin_aggregate')

@@ -20,27 +20,56 @@ export type CaseStatus = z.infer<typeof caseStatusSchema>;
 
 // ─── Intervention Status ───────────────────────────────────────────────────
 
-export const INTERVENTION_STATUSES = ['active', 'achieved', 'partially_achieved', 'not_achieved', 'escalated', 'withdrawn'] as const;
+export const INTERVENTION_STATUSES = [
+  'active',
+  'achieved',
+  'partially_achieved',
+  'not_achieved',
+  'escalated',
+  'withdrawn',
+] as const;
 export const interventionStatusSchema = z.enum(INTERVENTION_STATUSES);
 export type PastoralInterventionStatus = z.infer<typeof interventionStatusSchema>;
 
 // ─── Action Status ─────────────────────────────────────────────────────────
 
-export const ACTION_STATUSES = ['pending', 'in_progress', 'completed', 'overdue', 'cancelled'] as const;
+export const ACTION_STATUSES = [
+  'pending',
+  'in_progress',
+  'completed',
+  'overdue',
+  'cancelled',
+] as const;
 export const actionStatusSchema = z.enum(ACTION_STATUSES);
 export type PastoralActionStatus = z.infer<typeof actionStatusSchema>;
 
 // ─── Referral Status ───────────────────────────────────────────────────────
 
-export const REFERRAL_STATUSES = ['draft', 'submitted', 'acknowledged', 'assessment_scheduled', 'assessment_complete', 'report_received', 'recommendations_implemented', 'withdrawn'] as const;
+export const REFERRAL_STATUSES = [
+  'draft',
+  'submitted',
+  'acknowledged',
+  'assessment_scheduled',
+  'assessment_complete',
+  'report_received',
+  'recommendations_implemented',
+  'withdrawn',
+] as const;
 export const referralStatusSchema = z.enum(REFERRAL_STATUSES);
 export type PastoralReferralStatus = z.infer<typeof referralStatusSchema>;
 
 // ─── Referral Recommendation Status ────────────────────────────────────────
 
-export const REFERRAL_RECOMMENDATION_STATUSES = ['pending', 'in_progress', 'implemented', 'not_applicable'] as const;
+export const REFERRAL_RECOMMENDATION_STATUSES = [
+  'pending',
+  'in_progress',
+  'implemented',
+  'not_applicable',
+] as const;
 export const referralRecommendationStatusSchema = z.enum(REFERRAL_RECOMMENDATION_STATUSES);
-export type PastoralReferralRecommendationStatus = z.infer<typeof referralRecommendationStatusSchema>;
+export type PastoralReferralRecommendationStatus = z.infer<
+  typeof referralRecommendationStatusSchema
+>;
 
 // ─── SST Meeting Status ────────────────────────────────────────────────────
 
@@ -50,13 +79,25 @@ export type SstMeetingStatus = z.infer<typeof sstMeetingStatusSchema>;
 
 // ─── CP Record Type ────────────────────────────────────────────────────────
 
-export const CP_RECORD_TYPES = ['concern', 'mandated_report', 'tusla_correspondence', 'section_26', 'disclosure', 'retrospective_disclosure'] as const;
+export const CP_RECORD_TYPES = [
+  'concern',
+  'mandated_report',
+  'tusla_correspondence',
+  'section_26',
+  'disclosure',
+  'retrospective_disclosure',
+] as const;
 export const cpRecordTypeSchema = z.enum(CP_RECORD_TYPES);
 export type CpRecordType = z.infer<typeof cpRecordTypeSchema>;
 
 // ─── Mandated Report Status ────────────────────────────────────────────────
 
-export const MANDATED_REPORT_STATUSES = ['draft', 'submitted', 'acknowledged', 'outcome_received'] as const;
+export const MANDATED_REPORT_STATUSES = [
+  'draft',
+  'submitted',
+  'acknowledged',
+  'outcome_received',
+] as const;
 export const mandatedReportStatusSchema = z.enum(MANDATED_REPORT_STATUSES);
 export type MandatedReportStatus = z.infer<typeof mandatedReportStatusSchema>;
 
@@ -80,19 +121,41 @@ export type ActionFrequency = z.infer<typeof actionFrequencySchema>;
 
 // ─── Referral Type ─────────────────────────────────────────────────────────
 
-export const REFERRAL_TYPES = ['neps', 'camhs', 'tusla_family_support', 'jigsaw', 'pieta_house', 'other_external'] as const;
+export const REFERRAL_TYPES = [
+  'neps',
+  'camhs',
+  'tusla_family_support',
+  'jigsaw',
+  'pieta_house',
+  'other_external',
+] as const;
 export const referralTypeSchema = z.enum(REFERRAL_TYPES);
 export type ReferralType = z.infer<typeof referralTypeSchema>;
 
 // ─── Agenda Item Source ────────────────────────────────────────────────────
 
-export const AGENDA_ITEM_SOURCES = ['auto_new_concern', 'auto_case_review', 'auto_overdue_action', 'auto_early_warning', 'auto_neps', 'auto_intervention_review', 'manual'] as const;
+export const AGENDA_ITEM_SOURCES = [
+  'auto_new_concern',
+  'auto_case_review',
+  'auto_overdue_action',
+  'auto_early_warning',
+  'auto_neps',
+  'auto_intervention_review',
+  'manual',
+] as const;
 export const agendaItemSourceSchema = z.enum(AGENDA_ITEM_SOURCES);
 export type AgendaItemSource = z.infer<typeof agendaItemSourceSchema>;
 
 // ─── Export Purpose ────────────────────────────────────────────────────────
 
-export const EXPORT_PURPOSES = ['tusla_request', 'section_26_inquiry', 'legal_proceedings', 'school_transfer_cp', 'board_of_management', 'other'] as const;
+export const EXPORT_PURPOSES = [
+  'tusla_request',
+  'section_26_inquiry',
+  'legal_proceedings',
+  'school_transfer_cp',
+  'board_of_management',
+  'other',
+] as const;
 export const exportPurposeSchema = z.enum(EXPORT_PURPOSES);
 export type ExportPurpose = z.infer<typeof exportPurposeSchema>;
 
@@ -104,13 +167,23 @@ export type DsarDecision = z.infer<typeof dsarDecisionSchema>;
 
 // ─── Critical Incident Type ────────────────────────────────────────────────
 
-export const CRITICAL_INCIDENT_TYPES = ['bereavement', 'serious_accident', 'community_trauma', 'other'] as const;
+export const CRITICAL_INCIDENT_TYPES = [
+  'bereavement',
+  'serious_accident',
+  'community_trauma',
+  'other',
+] as const;
 export const criticalIncidentTypeSchema = z.enum(CRITICAL_INCIDENT_TYPES);
 export type CriticalIncidentType = z.infer<typeof criticalIncidentTypeSchema>;
 
 // ─── Critical Incident Scope ───────────────────────────────────────────────
 
-export const CRITICAL_INCIDENT_SCOPES = ['whole_school', 'year_group', 'class_group', 'individual'] as const;
+export const CRITICAL_INCIDENT_SCOPES = [
+  'whole_school',
+  'year_group',
+  'class_group',
+  'individual',
+] as const;
 export const criticalIncidentScopeSchema = z.enum(CRITICAL_INCIDENT_SCOPES);
 export type CriticalIncidentScope = z.infer<typeof criticalIncidentScopeSchema>;
 
@@ -128,13 +201,29 @@ export type CriticalIncidentImpactLevel = z.infer<typeof criticalIncidentImpactL
 
 // ─── Concern Source ────────────────────────────────────────────────────────
 
-export const CONCERN_SOURCES = ['manual', 'historical_import', 'auto_checkin', 'parent_self_referral'] as const;
+export const CONCERN_SOURCES = [
+  'manual',
+  'historical_import',
+  'auto_checkin',
+  'parent_self_referral',
+] as const;
 export const concernSourceSchema = z.enum(CONCERN_SOURCES);
 export type ConcernSource = z.infer<typeof concernSourceSchema>;
 
 // ─── Pastoral Entity Type (for events and DSAR) ───────────────────────────
 
-export const PASTORAL_ENTITY_TYPES = ['concern', 'case', 'intervention', 'referral', 'cp_record', 'checkin', 'critical_incident', 'cp_access_grant', 'dsar_review', 'export'] as const;
+export const PASTORAL_ENTITY_TYPES = [
+  'concern',
+  'case',
+  'intervention',
+  'referral',
+  'cp_record',
+  'checkin',
+  'critical_incident',
+  'cp_access_grant',
+  'dsar_review',
+  'export',
+] as const;
 export const pastoralEntityTypeSchema = z.enum(PASTORAL_ENTITY_TYPES);
 export type PastoralEntityType = z.infer<typeof pastoralEntityTypeSchema>;
 
@@ -190,6 +279,8 @@ export const PASTORAL_EVENT_TYPES = [
   'historical_import_validated',
   'historical_import_executed',
   'checkin_alert_generated',
+  'checkin_escalated',
+  'checkin_dismissed',
   'critical_concern_unacknowledged',
   'critical_incident_declared',
   'critical_incident_status_changed',
@@ -223,7 +314,14 @@ export type PastoralEventType = z.infer<typeof pastoralEventTypeSchema>;
 
 // ─── SST Auto Agenda Source ────────────────────────────────────────────────
 
-export const SST_AUTO_AGENDA_SOURCES = ['new_concerns', 'case_reviews', 'overdue_actions', 'early_warning', 'neps', 'intervention_reviews'] as const;
+export const SST_AUTO_AGENDA_SOURCES = [
+  'new_concerns',
+  'case_reviews',
+  'overdue_actions',
+  'early_warning',
+  'neps',
+  'intervention_reviews',
+] as const;
 export const sstAutoAgendaSourceSchema = z.enum(SST_AUTO_AGENDA_SOURCES);
 export type SstAutoAgendaSource = z.infer<typeof sstAutoAgendaSourceSchema>;
 
@@ -276,8 +374,16 @@ export const DEFAULT_INTERVENTION_TYPES = [
 // ─── Default Flagged Keywords (for check-in alerts) ────────────────────────
 
 export const DEFAULT_FLAGGED_KEYWORDS = [
-  'suicide', 'kill myself', 'end it all', 'want to die', 'self-harm',
-  'cutting', 'hurt myself', 'no point', 'not worth it', 'nobody cares',
+  'suicide',
+  'kill myself',
+  'end it all',
+  'want to die',
+  'self-harm',
+  'cutting',
+  'hurt myself',
+  'no point',
+  'not worth it',
+  'nobody cares',
 ] as const;
 
 // ─── DSAR Exclusion Legal Basis ───────────────────────────────────────────

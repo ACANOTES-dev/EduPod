@@ -64,6 +64,7 @@ const mockAffectedService = {
   updateAffectedPerson: jest.fn(),
   removeAffectedPerson: jest.fn(),
   recordSupportOffered: jest.fn(),
+  listSupportLog: jest.fn(),
   getAffectedSummary: jest.fn(),
   getStudentWellbeingFlags: jest.fn(),
 };

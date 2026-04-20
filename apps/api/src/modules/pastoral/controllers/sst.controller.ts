@@ -36,6 +36,7 @@ import { AuthGuard } from '../../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
+import { RequiresAiFlag } from '../../ai-flags/decorators/requires-ai-flag.decorator';
 import { SstAgendaGeneratorService } from '../services/sst-agenda-generator.service';
 import { SstMeetingService } from '../services/sst-meeting.service';
 import { SstService } from '../services/sst.service';
@@ -295,6 +296,7 @@ export class SstController {
 
   @Post('pastoral/sst/meetings/:id/agenda/refresh')
   @RequiresPermission('pastoral.manage_sst')
+  @RequiresAiFlag('pastoral')
   @HttpCode(HttpStatus.OK)
   async refreshAgenda(
     @CurrentTenant() tenant: TenantContext,

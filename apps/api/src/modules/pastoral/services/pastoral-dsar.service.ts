@@ -560,7 +560,66 @@ export class PastoralDsarService {
     }) as Promise<boolean>;
   }
 
-  // ─── 7. getReviewedRecords ─────────────────────────────────────────────
+  // ─── 7. getStats ───────────────────────────────────────────────────────
+
+  /**
+   * Tenant-wide DSAR review counts by decision bucket + open-request count.
+   * Used by the Wave 6 DSAR dashboard. Tier-3 reviews are excluded when the
+   * caller lacks CP access.
+   */
+  async getStats(
+    tenantId: string,
+    userId: string,
+  ): Promise<{
+    total: number;
+    pending: number;
+    included: number;
+    redacted: number;
+    excluded: number;
+    open_requests: number;
+  }> {
+    const hasCpAccess = await this.checkCpAccess(tenantId, userId);
+
+    const rlsClient = createRlsClient(this.prisma, {
+      tenant_id: tenantId,
+      user_id: userId,
+    });
+
+    return rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const baseWhere: Record<string, unknown> = { tenant_id: tenantId };
+      if (!hasCpAccess) {
+        baseWhere.tier = { not: 3 };
+      }
+
+      const [total, pending, included, redacted, excluded, openRequests] = await Promise.all([
+        db.pastoralDsarReview.count({ where: baseWhere }),
+        db.pastoralDsarReview.count({ where: { ...baseWhere, decision: null } }),
+        db.pastoralDsarReview.count({ where: { ...baseWhere, decision: 'include' } }),
+        db.pastoralDsarReview.count({ where: { ...baseWhere, decision: 'redact' } }),
+        db.pastoralDsarReview.count({ where: { ...baseWhere, decision: 'exclude' } }),
+        db.pastoralDsarReview
+          .findMany({
+            where: { ...baseWhere, decision: null },
+            select: { compliance_request_id: true },
+            distinct: ['compliance_request_id'],
+          })
+          .then((rows) => rows.length),
+      ]);
+
+      return { total, pending, included, redacted, excluded, open_requests: openRequests };
+    }) as Promise<{
+      total: number;
+      pending: number;
+      included: number;
+      redacted: number;
+      excluded: number;
+      open_requests: number;
+    }>;
+  }
+
+  // ─── 8. getReviewedRecords ─────────────────────────────────────────────
 
   async getReviewedRecords(
     tenantId: string,

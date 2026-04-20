@@ -514,11 +514,18 @@ export class AffectedTrackingService {
         });
       }
 
+      const existingNotes = (existing as { support_notes: string | null }).support_notes;
+      const timestamp = new Date().toISOString();
+      const newEntry = `[${timestamp}] ${notes}`;
+      const mergedNotes = existingNotes ? `${existingNotes}\n${newEntry}` : newEntry;
+
       return db.criticalIncidentAffected.update({
         where: { id: affectedPersonId },
         data: {
           support_offered: true,
-          notes: notes,
+          support_offered_at: new Date(),
+          support_offered_by_id: offeredById,
+          support_notes: mergedNotes,
         },
       });
     })) as Record<string, unknown>;
@@ -540,6 +547,75 @@ export class AffectedTrackingService {
     });
 
     return { data: updated };
+  }
+
+  // ─── LIST SUPPORT LOG ────────────────────────────────────────────────────
+
+  /**
+   * Returns the append-only support-offered log for a given affected person
+   * as stored in `pastoral_events`. Each entry has the notes captured at
+   * that moment plus the actor and timestamp. Ordered newest first.
+   */
+  async listSupportLog(
+    tenantId: string,
+    incidentId: string,
+    affectedPersonId: string,
+  ): Promise<{
+    data: Array<{
+      id: string;
+      actor_user_id: string;
+      offered_at: string;
+      notes: string | null;
+    }>;
+  }> {
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const entries = (await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const existing = await db.criticalIncidentAffected.findFirst({
+        where: {
+          id: affectedPersonId,
+          tenant_id: tenantId,
+          incident_id: incidentId,
+        },
+      });
+
+      if (!existing) {
+        throw new NotFoundException({
+          code: 'AFFECTED_PERSON_NOT_FOUND',
+          message: `Affected person ${affectedPersonId} not found`,
+        });
+      }
+
+      return db.pastoralEvent.findMany({
+        where: {
+          tenant_id: tenantId,
+          event_type: 'support_offered',
+          entity_type: 'critical_incident',
+          entity_id: incidentId,
+          payload: {
+            path: ['affected_person_id'],
+            equals: affectedPersonId,
+          },
+        },
+        orderBy: { created_at: 'desc' },
+      });
+    })) as Array<{
+      id: string;
+      actor_user_id: string;
+      created_at: Date;
+      payload: { notes?: string } | null;
+    }>;
+
+    return {
+      data: entries.map((e) => ({
+        id: e.id,
+        actor_user_id: e.actor_user_id,
+        offered_at: e.created_at.toISOString(),
+        notes: e.payload?.notes ?? null,
+      })),
+    };
   }
 
   // ─── GET AFFECTED SUMMARY ────────────────────────────────────────────────

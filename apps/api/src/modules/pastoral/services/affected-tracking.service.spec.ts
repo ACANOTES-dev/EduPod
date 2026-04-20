@@ -584,13 +584,12 @@ describe('AffectedTrackingService', () => {
   // ─── RECORD SUPPORT OFFERED ───────────────────────────────────────────────
 
   describe('recordSupportOffered', () => {
-    it('should set support_offered and notes', async () => {
-      const existing = makeAffectedPerson();
+    it('should set support_offered, support_offered_at, support_offered_by_id, and append to support_notes', async () => {
+      const existing = makeAffectedPerson({ support_notes: null });
       mockRlsTx.criticalIncidentAffected.findFirst.mockResolvedValue(existing);
       mockRlsTx.criticalIncidentAffected.update.mockResolvedValue({
         ...existing,
         support_offered: true,
-        notes: 'Offered counselling session',
       });
 
       const result = await service.recordSupportOffered(
@@ -603,11 +602,28 @@ describe('AffectedTrackingService', () => {
       expect(result.data).toBeDefined();
       expect(mockRlsTx.criticalIncidentAffected.update).toHaveBeenCalledWith({
         where: { id: AFFECTED_PERSON_ID },
-        data: {
+        data: expect.objectContaining({
           support_offered: true,
-          notes: 'Offered counselling session',
-        },
+          support_offered_at: expect.any(Date),
+          support_offered_by_id: USER_ID,
+          support_notes: expect.stringContaining('Offered counselling session'),
+        }),
       });
+    });
+
+    it('should append new entry to existing support_notes', async () => {
+      const existing = makeAffectedPerson({ support_notes: '[2026-03-20T10:00:00.000Z] first' });
+      mockRlsTx.criticalIncidentAffected.findFirst.mockResolvedValue(existing);
+      mockRlsTx.criticalIncidentAffected.update.mockResolvedValue(existing);
+
+      await service.recordSupportOffered(TENANT_ID, AFFECTED_PERSON_ID, USER_ID, 'second entry');
+
+      const call = mockRlsTx.criticalIncidentAffected.update.mock.calls[0][0] as {
+        data: { support_notes: string };
+      };
+      expect(call.data.support_notes).toContain('[2026-03-20T10:00:00.000Z] first');
+      expect(call.data.support_notes).toContain('second entry');
+      expect(call.data.support_notes.split('\n')).toHaveLength(2);
     });
 
     it('should record support_offered audit event', async () => {

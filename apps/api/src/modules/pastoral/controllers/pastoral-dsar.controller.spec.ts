@@ -46,6 +46,7 @@ const mockDsarService = {
   submitDecision: jest.fn(),
   getReviewsByRequest: jest.fn(),
   allReviewsComplete: jest.fn(),
+  getStats: jest.fn(),
 };
 
 // ─── Test Suite ──────────────────────────────────────────────────────────────

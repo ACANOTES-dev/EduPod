@@ -1,4 +1,10 @@
-import { ConflictException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { pastoralTenantSettingsSchema } from '@school/shared/pastoral';
@@ -8,6 +14,7 @@ import { ConfigurationReadFacade } from '../../configuration/configuration-read.
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { CheckinAlertService } from './checkin-alert.service';
+import { PastoralEventService } from './pastoral-event.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -60,6 +67,7 @@ export class CheckinService {
     private readonly prisma: PrismaService,
     private readonly configurationReadFacade: ConfigurationReadFacade,
     private readonly alertService: CheckinAlertService,
+    private readonly eventService: PastoralEventService,
   ) {}
 
   // ─── SUBMIT CHECKIN ─────────────────────────────────────────────────────────
@@ -322,6 +330,180 @@ export class CheckinService {
 
       return { data, meta: { page, pageSize, total } };
     }) as Promise<{ data: MonitoringCheckinResponse[]; meta: PaginationMeta }>;
+  }
+
+  // ─── ESCALATE CHECKIN ──────────────────────────────────────────────────────
+
+  /**
+   * Escalates a flagged check-in to a pastoral concern. If the auto-alert
+   * already created a concern (`auto_concern_id` is set), returns that
+   * concern id with `concern_was_preexisting=true`. Otherwise creates a new
+   * Tier-2 emotional concern and links it. Audited via `checkin_escalated`.
+   */
+  async escalateCheckin(
+    tenantId: string,
+    userId: string,
+    checkinId: string,
+    dto: { notes?: string } = {},
+  ): Promise<{
+    checkin_id: string;
+    concern_id: string;
+    was_preexisting: boolean;
+  }> {
+    const rlsClient = createRlsClient(this.prisma, {
+      tenant_id: tenantId,
+      user_id: userId,
+    });
+
+    const result = (await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const checkin = await db.studentCheckin.findFirst({
+        where: { id: checkinId, tenant_id: tenantId },
+      });
+
+      if (!checkin) {
+        throw new NotFoundException({
+          code: 'CHECKIN_NOT_FOUND',
+          message: `Check-in with id "${checkinId}" not found`,
+        });
+      }
+
+      let concernId = checkin.auto_concern_id;
+      let wasPreexisting = false;
+
+      if (concernId) {
+        wasPreexisting = true;
+      } else {
+        const concern = await db.pastoralConcern.create({
+          data: {
+            tenant_id: tenantId,
+            student_id: checkin.student_id,
+            category: 'emotional',
+            severity: 'elevated',
+            tier: 2,
+            logged_by_user_id: userId,
+            occurred_at: checkin.created_at,
+            location: null,
+            author_masked: false,
+            parent_shareable: false,
+            legal_hold: false,
+            imported: false,
+            follow_up_needed: true,
+            follow_up_suggestion:
+              dto.notes ?? 'Escalated from flagged student self-check-in for review',
+          },
+        });
+        concernId = concern.id;
+
+        await db.studentCheckin.update({
+          where: { id: checkinId },
+          data: { auto_concern_id: concernId },
+        });
+      }
+
+      // Mark the check-in as reviewed (removes from the flagged queue).
+      await db.studentCheckin.update({
+        where: { id: checkinId },
+        data: { flagged: false },
+      });
+
+      return {
+        checkin_id: checkinId,
+        student_id: checkin.student_id,
+        concern_id: concernId,
+        was_preexisting: wasPreexisting,
+      };
+    })) as {
+      checkin_id: string;
+      student_id: string;
+      concern_id: string;
+      was_preexisting: boolean;
+    };
+
+    void this.eventService.write({
+      tenant_id: tenantId,
+      event_type: 'checkin_escalated',
+      entity_type: 'checkin',
+      entity_id: checkinId,
+      student_id: result.student_id,
+      actor_user_id: userId,
+      tier: 2,
+      payload: {
+        checkin_id: checkinId,
+        student_id: result.student_id,
+        concern_id: result.concern_id,
+        concern_was_preexisting: result.was_preexisting,
+        assigned_to_user_id: null,
+        ...(dto.notes ? { notes: dto.notes } : {}),
+      },
+      ip_address: null,
+    });
+
+    return {
+      checkin_id: result.checkin_id,
+      concern_id: result.concern_id,
+      was_preexisting: result.was_preexisting,
+    };
+  }
+
+  // ─── DISMISS CHECKIN ───────────────────────────────────────────────────────
+
+  /**
+   * Dismisses a flagged check-in without escalation. The flag is cleared so
+   * the check-in no longer appears in the flagged queue; the audit event
+   * `checkin_dismissed` records the actor + optional reason.
+   */
+  async dismissCheckin(
+    tenantId: string,
+    userId: string,
+    checkinId: string,
+    dto: { reason?: string } = {},
+  ): Promise<{ checkin_id: string }> {
+    const rlsClient = createRlsClient(this.prisma, {
+      tenant_id: tenantId,
+      user_id: userId,
+    });
+
+    const studentId = (await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const checkin = await db.studentCheckin.findFirst({
+        where: { id: checkinId, tenant_id: tenantId },
+      });
+
+      if (!checkin) {
+        throw new NotFoundException({
+          code: 'CHECKIN_NOT_FOUND',
+          message: `Check-in with id "${checkinId}" not found`,
+        });
+      }
+
+      await db.studentCheckin.update({
+        where: { id: checkinId },
+        data: { flagged: false },
+      });
+
+      return checkin.student_id;
+    })) as string;
+
+    void this.eventService.write({
+      tenant_id: tenantId,
+      event_type: 'checkin_dismissed',
+      entity_type: 'checkin',
+      entity_id: checkinId,
+      student_id: studentId,
+      actor_user_id: userId,
+      tier: 1,
+      payload: {
+        checkin_id: checkinId,
+        student_id: studentId,
+        ...(dto.reason ? { reason: dto.reason } : {}),
+      },
+      ip_address: null,
+    });
+
+    return { checkin_id: checkinId };
   }
 
   // ─── GET CHECKIN STATUS ─────────────────────────────────────────────────────

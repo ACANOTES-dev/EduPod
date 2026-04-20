@@ -260,6 +260,18 @@ export class CriticalIncidentsController {
     );
   }
 
+  // ─── 14b. List Support Log ───────────────────────────────────────────────
+
+  @Get('pastoral/critical-incidents/:id/affected/:personId/support')
+  @RequiresPermission('pastoral.manage_critical_incidents')
+  async listSupportLog(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('personId', ParseUUIDPipe) personId: string,
+  ) {
+    return this.affectedService.listSupportLog(tenant.tenant_id, id, personId);
+  }
+
   // ─── 15. Affected Summary ────────────────────────────────────────────────
 
   @Get('pastoral/critical-incidents/:id/affected/summary')

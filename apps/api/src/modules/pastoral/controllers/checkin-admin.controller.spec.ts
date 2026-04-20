@@ -32,6 +32,8 @@ const TENANT: TenantContext = {
 const mockCheckinService = {
   getFlaggedCheckins: jest.fn(),
   getStudentCheckins: jest.fn(),
+  escalateCheckin: jest.fn(),
+  dismissCheckin: jest.fn(),
 };
 
 const mockAnalyticsService = {
