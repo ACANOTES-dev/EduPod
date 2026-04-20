@@ -210,7 +210,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `completed`   | 2026-04-20T23:55Z | 59f95bbe   |
 | 20  | Document generation UI                                | 6    | parallel-risky | 06, 14     | `completed`   | 2026-04-20T23:45Z | 9c41fcd2   |
 | 21  | Exclusion + restrictions + amendments + ack UI        | 6    | parallel-risky | 07, 14     | `completed`   | 2026-04-21T00:05Z | 60b63439   |
-| 22  | Pastoral hidden-feature UI                            | 6    | parallel-risky | 08         | `deploying`   |                   |            |
+| 22  | Pastoral hidden-feature UI                            | 6    | parallel-risky | 08         | `completed`   | 2026-04-21T00:35Z | 168d4818   |
 | 23  | Safeguarding hidden + recognition + policy + admin UI | 6    | parallel-risky | 09, 14, 17 | `in-progress` |                   |            |
 | 24  | Polish, Playwright multi-role sweep, docs             | 7    | serial         | 10–23      | `pending`     |                   |            |
 
@@ -1958,3 +1958,99 @@ no_communications` type needs an info tooltip in the
   code commits + one translation commit so the most important NEW
   capabilities (parent-ack timeline + overturn workflow + named-endpoint
   wiring) could ship cleanly; the rest are follow-ups above.
+
+### [IMPL 22] — Pastoral hidden-feature UI
+
+- **Completed:** 2026-04-21T00:35Z Europe/Dublin
+- **Commit:** `168d4818` (local, last feature commit of the stack);
+  applied to production as `69881386`.
+- **Deployed to production:** yes — web rebuilt (`rm -rf apps/web/.next`
+  - `pnpm turbo run build --filter=@school/web`) and `pm2 restart web
+--update-env`. Smoke:
+  * `/en/login` → 200
+  * `/en/pastoral` → 200 (existing page, 3 new lanes visible)
+  * `/en/pastoral/dsar` → 200
+  * `/en/pastoral/import` → 200
+  * `/en/pastoral/checkins/flagged` → 200
+  * `/en/pastoral/critical-incidents` → 200
+  * `/ar/pastoral/dsar` → 200
+  * `/ar/pastoral/import` → 200
+  * `/ar/pastoral/checkins/flagged` → 200
+- **Summary (≤ 200 words):**
+  Surfaces the five pastoral hidden capabilities shipped by impl 08.
+  New routes under `/pastoral`:
+  - `/pastoral/dsar` — queue of open DSAR review batches grouped by
+    compliance request (powered by `GET /pastoral/dsar-reviews` +
+    `/stats`); pending/decided/overflow badges; pending-only filter.
+  - `/pastoral/dsar/[complianceRequestId]` — per-item Include / Redact
+    / Exclude panel with legal-basis (required for R/X) and justification,
+    submit-all flow with audit-notice banner.
+  - `/pastoral/import` — 3-step CSV wizard (upload + template download
+    with 5MB/5000-row client guard; validation review with errors,
+    warnings, preview table; confirm + done).
+  - `/pastoral/checkins/flagged` — severity-ordered flagged queue with
+    Escalate / Dismiss dialogs (dismiss justification required).
+  - New `_components/support-log-dialog.tsx` under critical-incident
+    detail replaces the old window.prompt pattern; shows append-only
+    support history and records new entries via the impl-08
+    `/affected/:personId/support` endpoint.
+  - New `_components/agenda-panel.tsx` under SST detail groups agenda
+    items by student with a cross-cutting-themes section at the top,
+    per-item AI source tags (manual / auto_new_concern / auto_case_review
+    / auto_overdue_action / auto_early_warning / auto_neps /
+    auto_intervention_review) and a Delete action for manual items.
+  - Three new lanes on the existing `/pastoral` lane grid
+    (checkinsFlagged, dsar, import) for discoverability. Pastoral
+    landing otherwise unchanged.
+  - Full `dsarReview.*`, `pastoralImport.*`, `responsePlans.*`,
+    `checkinFlagged.*` translation namespaces in en + ar plus
+    `pastoral.overview.workflowLanes.items.*` additions.
+- **Follow-ups:**
+  - **DSAR detail student/staff labels.** The detail page shows
+    `entity_type · entity_id[:8]` for each review item. A richer
+    preview (student name, concern category, occurred-at) would need
+    the backend to either include a summary in the list response or
+    add a per-item summary endpoint. The single-review GET already
+    returns `record_summary` — a future polish pass can call that per
+    item, or the list endpoint can be extended.
+  - **Flagged queue badge counts on /pastoral.** The lane grid does
+    not surface a pending count. The impl-03 dashboard-summary gives
+    a global pending-attention banner; consider wiring a per-lane
+    dynamic counter in Wave 7 polish.
+  - **Support log actor name.** The log shows `actor_user_id` but not
+    the user's name — the GET endpoint does not include an actor join.
+    Resolved client-side for now as the user UUID; a backend follow-up
+    could include the actor's first_name/last_name like other
+    pastoral timelines.
+  - **CSV error overflow beyond 100 rows.** The errors list caps at
+    100 entries with a "… and N more" hint. If a tenant uploads a
+    grossly malformed file, they must fix the first batch, re-validate,
+    and continue. Good enough for now; consider paginated error
+    browser in a future polish.
+  - **Stash@{0} carries impl 23 safeguarding WIP.** During my first
+    commit window, sibling impl 23's break-glass edits appeared in my
+    tree. Per Rule H11 I pre-stashed them. The pop conflicted with
+    my already-committed DSAR files; resolved via `git checkout
+--ours` + `reset HEAD`. Sibling impl 23 has since committed all
+    their work (5f1b1757 … 77c9b134 … d98053da), so stash@{0} is
+    believed to be redundant but retained per Rule H10 — do not drop
+    without verifying sibling work is intact. The behaviour/admin and
+    safeguarding/break-glass directories on main are sibling-owned
+    committed code and should not be re-added by any other session.
+  - **SST student name resolution.** `AgendaPanel.resolveStudent` is
+    stubbed to return a shortened ID because the meeting detail
+    endpoint does not join student names (only attendees, which are
+    staff). A future enhancement can include student projections on
+    the detail payload or call `searchStudents` by id.
+- **Session notes:**
+  Two pre-stash rounds with sibling impl 23 (once during DSAR commit,
+  once during SST agenda commit). Both resolved cleanly using the
+  Rule H11 pattern documented in IMPL 10's session notes — commit
+  with explicit pathspec, stash unknown work with
+  `--keep-index --include-untracked`, commit, resolve any conflicts
+  with `--ours` since my committed version is authoritative. Final
+  `docs: mark as deploying` patch failed on prod because production's
+  log row was at `in-progress` with a different formatting (different
+  column spacing after the sed dialect); resolved by `git am --skip`
+  then an in-situ sed + commit on the server. Pattern carried
+  forward from impls 10, 19, 20, 21.
