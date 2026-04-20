@@ -205,7 +205,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 14  | Behaviour sub-hub                                     | 5    | parallel-risky | 03, 12     | `completed`   | 2026-04-20T21:15Z | 18c69ef6   |
 | 15  | Staff wellbeing folded sub-hub                        | 5    | parallel-risky | 12         | `completed`   | 2026-04-20T21:10Z | 607dab0d   |
 | 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `in-progress` |                   |            |
-| 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `pending`     |                   |            |
+| 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `in-progress` |                   |            |
 | 18  | Tenant admin → AI flags page                          | 5    | parallel-risky | 04, 12     | `pending`     |                   |            |
 | 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `pending`     |                   |            |
 | 20  | Document generation UI                                | 6    | parallel-risky | 06, 14     | `pending`     |                   |            |
