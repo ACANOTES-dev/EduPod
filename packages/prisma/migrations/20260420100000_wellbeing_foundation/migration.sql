@@ -11,7 +11,7 @@
 --
 -- Plus idempotent data seeds for every existing tenant:
 --   - 4 tenant_ai_flags rows (one per module, enabled=false)
---   - 28 default behaviour_categories ONLY when the tenant has zero
+--   - 31 default behaviour_categories ONLY when the tenant has zero
 --   - 1 tenant_notification_preferences row with default channel prefs
 --   - role_permission grants for the 4 new permissions on existing system roles
 --
@@ -113,7 +113,7 @@ SELECT gen_random_uuid(), t.id,
 FROM "tenants" t
 ON CONFLICT ("tenant_id") DO NOTHING;
 
--- ─── Seed 28 default behaviour categories (only for tenants with zero) ──────
+-- ─── Seed 31 default behaviour categories (only for tenants with zero) ──────
 --
 -- The existing behaviour-seed.ts runs at tenant creation and creates 12
 -- sanction-outcome categories (Praise, Verbal Warning, Detention, ...).

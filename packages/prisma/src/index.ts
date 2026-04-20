@@ -15,3 +15,10 @@ export {
   seedInboxDefaultsForAllTenants,
 } from './inbox-defaults';
 export type { MessagingRoleValue, SeverityValue } from './inbox-defaults';
+export {
+  DEFAULT_BEHAVIOUR_CATEGORIES,
+  WELLBEING_AI_MODULE_KEYS,
+  seedWellbeingDefaultsForAllTenants,
+  seedWellbeingDefaultsForTenant,
+} from './wellbeing-defaults';
+export type { WellbeingAiModuleKey, WellbeingDefaultCategorySeed } from './wellbeing-defaults';
