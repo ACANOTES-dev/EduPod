@@ -11897,6 +11897,143 @@
       }
     }
   },
+  "behaviourHub": {
+    "title": "Behaviour",
+    "description": "Track incidents, recognise positive behaviour, manage sanctions and exclusions, and run policy automation.",
+    "loadError": "We could not load the behaviour overview. Refresh to try again.",
+    "retry": "Retry",
+    "header": {
+      "logIncident": "Log incident",
+      "parseWithAi": "Parse with AI"
+    },
+    "kpis": {
+      "ariaLabel": "Behaviour KPIs",
+      "incidentsThisWeek": "Incidents this week",
+      "weeklyUp": "+{count} vs last week",
+      "weeklyDown": "−{count} vs last week",
+      "weeklyFlat": "Unchanged vs last week",
+      "ratio": "Positive : Negative",
+      "allPositive": "All positive",
+      "openTasks": "Open tasks",
+      "overdueActions": "Overdue actions",
+      "tooltips": {
+        "incidentsThisWeek": "Incidents logged in the current week across every category and severity.",
+        "ratio": "Ratio of positive to negative incidents — a quick read on classroom tone.",
+        "openTasks": "Tasks assigned from incidents that are not yet complete.",
+        "overdueActions": "Sanctions, tasks, and follow-ups past their due date."
+      }
+    },
+    "quickActions": {
+      "ariaLabel": "Behaviour quick actions",
+      "allIncidents": "All incidents",
+      "byStudent": "By student",
+      "aiQuery": "Run AI query",
+      "generateDocument": "Generate document",
+      "tooltips": {
+        "allIncidents": "Browse every incident with filters and bulk actions.",
+        "byStudent": "Drill into behaviour history for a specific student.",
+        "aiQuery": "Ask a natural-language question about behaviour patterns.",
+        "generateDocument": "Create letters, notices, and board packs from templates."
+      }
+    },
+    "cards": {
+      "ariaLabel": "Behaviour hub",
+      "incidents": {
+        "title": "Incidents",
+        "description": "Every logged behaviour incident — positive and negative — with category, severity, and status.",
+        "tooltip": "The core behaviour log"
+      },
+      "sanctions": {
+        "title": "Sanctions",
+        "description": "Scheduled and served consequences, with progress tracking and parent visibility.",
+        "tooltip": "Consequences and follow-through"
+      },
+      "exclusions": {
+        "title": "Exclusions",
+        "description": "Statutory exclusion cases, hearings, board packs, and notices.",
+        "tooltip": "Formal exclusion workflow"
+      },
+      "appeals": {
+        "title": "Appeals",
+        "description": "Parent and guardian appeals against sanctions or exclusion decisions.",
+        "tooltip": "Appeals in flight"
+      },
+      "recognition": {
+        "title": "Recognition Wall",
+        "description": "Celebrate positive behaviour, effort, and achievement across the school.",
+        "tooltip": "Praise, merits, and awards"
+      },
+      "houses": {
+        "title": "Houses & Leaderboard",
+        "description": "House points, student leaderboards, and inter-house competition.",
+        "tooltip": "Community and competition"
+      },
+      "documents": {
+        "title": "Documents",
+        "description": "Letters, notices, board packs, and sanction communications generated from templates.",
+        "tooltip": "Generated behaviour documents"
+      },
+      "tasks": {
+        "title": "Tasks",
+        "description": "Follow-up actions assigned to staff — meetings, interventions, calls home.",
+        "tooltip": "Open behaviour tasks"
+      },
+      "alerts": {
+        "title": "Alerts",
+        "description": "Pattern alerts on students, classes, and categories that need attention.",
+        "tooltip": "Emerging behaviour signals"
+      },
+      "amendments": {
+        "title": "Amendments",
+        "description": "Corrections and re-acknowledgements to previously issued documents.",
+        "tooltip": "Document amendments"
+      },
+      "guardianRestrictions": {
+        "title": "Guardian Restrictions",
+        "description": "Who can see what — per-guardian access rules for behaviour information.",
+        "tooltip": "Custody-aware visibility"
+      },
+      "analytics": {
+        "title": "Analytics",
+        "description": "Trends, heatmaps, cohort comparisons, and category breakdowns.",
+        "tooltip": "Dashboards and reports"
+      },
+      "aiAnalytics": {
+        "title": "AI Analytics",
+        "description": "Ask natural-language questions and receive narrative insights from your data.",
+        "tooltip": "Conversational analytics"
+      }
+    },
+    "aiParse": {
+      "title": "Parse an incident with AI",
+      "hint": "Paste a free-text account — we will extract the category, students, severity, and time.",
+      "placeholder": "e.g. Ali pushed Sara during PE this morning — second incident this week.",
+      "submit": "Parse and prefill",
+      "cancel": "Cancel",
+      "parsing": "Parsing…"
+    },
+    "recognitionPreview": {
+      "title": "Recent recognition",
+      "viewAll": "View the wall",
+      "awardedBy": "by {name}",
+      "unnamedStudent": "Student",
+      "positiveNote": "Positive note"
+    },
+    "recentActivity": {
+      "title": "Recent activity",
+      "viewAll": "View all incidents",
+      "system": "System",
+      "justNow": "just now",
+      "minutesAgo": "{count}m ago",
+      "hoursAgo": "{count}h ago",
+      "daysAgo": "{count}d ago"
+    },
+    "emptyState": {
+      "title": "Nothing to show yet",
+      "description": "Log your first incident or award to bring this dashboard to life.",
+      "cta": "Log an incident"
+    }
+  },
   "behaviourSettings": {
     "general": {
       "title": "Behaviour Settings",
