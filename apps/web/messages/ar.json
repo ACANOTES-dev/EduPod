@@ -9846,7 +9846,44 @@
         "statutoryTimeline": "الجدول الزمني القانوني"
       },
       "studentRepresentation": "تمثيل الطالب",
-      "updating": "جارٍ التحديث..."
+      "updating": "جارٍ التحديث...",
+      "actions": {
+        "overturn": "إلغاء القضية"
+      },
+      "overturnCase": "إلغاء قضية الاستبعاد",
+      "overturnDescription": "إلغاء القضية يعكس قرارها ويلغي أي خطوات متبقية في الجدول الزمني القانوني. سيتم إشعار أولياء الأمور.",
+      "overturnReason": "سبب الإلغاء",
+      "overturnReasonPlaceholder": "وضح سبب إلغاء هذا الاستبعاد (مثال: استئناف ناجح، خطأ إجرائي، مخاوف حماية)...",
+      "overturning": "جارٍ الإلغاء...",
+      "confirmOverturn": "تأكيد الإلغاء"
+    },
+    "parentAck": {
+      "title": "إقرار ولي الأمر",
+      "recipientsCount": "{count, plural, zero {لا يوجد مستلمون} one {مستلم واحد} two {مستلمان} few {# مستلمين} many {# مستلمًا} other {# مستلم}}",
+      "noNotifications": "لم تُرسل أي إشعارات لأولياء الأمور عن هذا الحادث بعد.",
+      "loadFailed": "تعذّر تحميل إقرارات أولياء الأمور.",
+      "unknownParent": "مستلم غير معروف",
+      "pending": "قيد الانتظار",
+      "readNotTracked": "لا يتم التتبع للبريد الإلكتروني",
+      "acknowledgedVia": "تم الإقرار عبر {method}",
+      "channel": {
+        "in_app": "داخل التطبيق",
+        "email": "البريد الإلكتروني",
+        "sms": "الرسائل النصية",
+        "whatsapp": "واتساب"
+      },
+      "status": {
+        "sent": "مُرسل",
+        "delivered": "تم التسليم",
+        "read": "مقروء",
+        "acknowledged": "تم الإقرار"
+      },
+      "step": {
+        "sent": "مُرسل",
+        "delivered": "تم التسليم",
+        "read": "مقروء",
+        "acknowledged": "تم الإقرار"
+      }
     },
     "alerts": {
       "title": "تنبيهات السلوك",

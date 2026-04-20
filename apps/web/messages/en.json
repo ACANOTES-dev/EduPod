@@ -9855,7 +9855,44 @@
         "statutoryTimeline": "Statutory timeline"
       },
       "studentRepresentation": "Student representation",
-      "updating": "Updating..."
+      "updating": "Updating...",
+      "actions": {
+        "overturn": "Overturn case"
+      },
+      "overturnCase": "Overturn exclusion case",
+      "overturnDescription": "Overturning reverses the case decision and cancels any remaining statutory timeline steps. Parents will be notified.",
+      "overturnReason": "Reason for overturning",
+      "overturnReasonPlaceholder": "Explain the reason for overturning this exclusion (e.g. successful appeal, procedural error, safeguarding concern)...",
+      "overturning": "Overturning...",
+      "confirmOverturn": "Confirm overturn"
+    },
+    "parentAck": {
+      "title": "Parent acknowledgement",
+      "recipientsCount": "{count, plural, one {# recipient} other {# recipients}}",
+      "noNotifications": "No parent notifications have been sent for this incident yet.",
+      "loadFailed": "Could not load parent acknowledgements.",
+      "unknownParent": "Unknown recipient",
+      "pending": "Pending",
+      "readNotTracked": "Not tracked for email",
+      "acknowledgedVia": "Acknowledged via {method}",
+      "channel": {
+        "in_app": "In-app",
+        "email": "Email",
+        "sms": "SMS",
+        "whatsapp": "WhatsApp"
+      },
+      "status": {
+        "sent": "Sent",
+        "delivered": "Delivered",
+        "read": "Read",
+        "acknowledged": "Acknowledged"
+      },
+      "step": {
+        "sent": "Sent",
+        "delivered": "Delivered",
+        "read": "Read",
+        "acknowledged": "Acknowledged"
+      }
     },
     "alerts": {
       "title": "Behaviour Alerts",
