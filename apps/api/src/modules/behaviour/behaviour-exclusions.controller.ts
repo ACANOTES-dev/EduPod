@@ -18,7 +18,12 @@ import {
   createExclusionCaseSchema,
   exclusionCaseListQuerySchema,
   exclusionStatusTransitionSchema,
+  finaliseExclusionSchema,
+  issueExclusionNoticeSchema,
+  overturnExclusionSchema,
   recordExclusionDecisionSchema,
+  recordExclusionHearingSchema,
+  scheduleExclusionHearingSchema,
   updateExclusionCaseSchema,
   type ExclusionStatusKey,
 } from '@school/shared/behaviour';
@@ -151,6 +156,73 @@ export class BehaviourExclusionsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.exclusionCasesService.getTimeline(tenant.tenant_id, id);
+  }
+
+  // ─── Named action endpoints ─────────────────────────────────────────────────
+
+  @Post('behaviour/exclusion-cases/:id/issue-notice')
+  @RequiresPermission('behaviour.manage')
+  @HttpCode(HttpStatus.OK)
+  async issueNotice(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(issueExclusionNoticeSchema))
+    dto: z.infer<typeof issueExclusionNoticeSchema>,
+  ) {
+    return this.exclusionCasesService.issueNotice(tenant.tenant_id, id, dto, user.sub);
+  }
+
+  @Post('behaviour/exclusion-cases/:id/schedule-hearing')
+  @RequiresPermission('behaviour.manage')
+  @HttpCode(HttpStatus.OK)
+  async scheduleHearing(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(scheduleExclusionHearingSchema))
+    dto: z.infer<typeof scheduleExclusionHearingSchema>,
+  ) {
+    return this.exclusionCasesService.scheduleHearing(tenant.tenant_id, id, dto, user.sub);
+  }
+
+  @Post('behaviour/exclusion-cases/:id/record-hearing')
+  @RequiresPermission('behaviour.manage')
+  @HttpCode(HttpStatus.OK)
+  async recordHearing(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(recordExclusionHearingSchema))
+    dto: z.infer<typeof recordExclusionHearingSchema>,
+  ) {
+    return this.exclusionCasesService.recordHearing(tenant.tenant_id, id, dto, user.sub);
+  }
+
+  @Post('behaviour/exclusion-cases/:id/finalise')
+  @RequiresPermission('behaviour.manage')
+  @HttpCode(HttpStatus.OK)
+  async finalise(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(finaliseExclusionSchema))
+    dto: z.infer<typeof finaliseExclusionSchema>,
+  ) {
+    return this.exclusionCasesService.finalise(tenant.tenant_id, id, dto, user.sub);
+  }
+
+  @Post('behaviour/exclusion-cases/:id/overturn')
+  @RequiresPermission('behaviour.manage')
+  @HttpCode(HttpStatus.OK)
+  async overturn(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(overturnExclusionSchema))
+    dto: z.infer<typeof overturnExclusionSchema>,
+  ) {
+    return this.exclusionCasesService.overturn(tenant.tenant_id, id, dto, user.sub);
   }
 
   @Get('behaviour/exclusion-cases/:id/documents')

@@ -316,6 +316,21 @@ export class StudentReadFacade {
   }
 
   /**
+   * Find parent user_ids for a student, filtered to active parents with a
+   * linked user account. Used for wellbeing notification dispatch in the
+   * behaviour module (impl 07 exclusions + amendments).
+   */
+  async findActiveParentUserIdsForStudent(tenantId: string, studentId: string): Promise<string[]> {
+    const links = await this.prisma.studentParent.findMany({
+      where: { student_id: studentId, tenant_id: tenantId },
+      include: { parent: { select: { user_id: true, status: true } } },
+    });
+    return links
+      .filter((l) => l.parent.status === 'active' && l.parent.user_id)
+      .map((l) => l.parent.user_id as string);
+  }
+
+  /**
    * Check if a parent-student link exists (parent-oriented).
    * Used by ParentReadFacade for authorization checks.
    */

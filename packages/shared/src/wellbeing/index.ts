@@ -106,6 +106,8 @@ export const WELLBEING_NOTIFICATION_EVENT_KEYS = [
   // Behaviour appeal lifecycle
   'appeal.submitted',
   'appeal.decided',
+  // Parent acknowledgement reminders
+  'reminder.acknowledgement',
 ] as const;
 
 export type WellbeingNotificationEventKey = (typeof WELLBEING_NOTIFICATION_EVENT_KEYS)[number];

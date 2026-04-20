@@ -8,6 +8,8 @@ import { SchedulesModule } from '../schedules/schedules.module';
 import { SequenceModule } from '../sequence/sequence.module';
 import { WellbeingNotificationsModule } from '../wellbeing-notifications/wellbeing-notifications.module';
 
+import { BehaviourAcknowledgementsController } from './behaviour-acknowledgements.controller';
+import { BehaviourAcknowledgementsService } from './behaviour-acknowledgements.service';
 import { BehaviourAmendmentsController } from './behaviour-amendments.controller';
 import { BehaviourAmendmentsService } from './behaviour-amendments.service';
 import { BehaviourAppealsController } from './behaviour-appeals.controller';
@@ -46,6 +48,7 @@ import { BehaviourSanctionsService } from './behaviour-sanctions.service';
     BehaviourAppealsController,
     BehaviourExclusionsController,
     BehaviourAmendmentsController,
+    BehaviourAcknowledgementsController,
     BehaviourDocumentsController,
     BehaviourGuardianRestrictionsController,
     BehaviourInterventionsController,
@@ -58,6 +61,7 @@ import { BehaviourSanctionsService } from './behaviour-sanctions.service';
     BehaviourAppealsService,
     BehaviourExclusionCasesService,
     BehaviourAmendmentsService,
+    BehaviourAcknowledgementsService,
     BehaviourLegalHoldService,
     BehaviourDocumentService,
     BehaviourGuardianRestrictionsService,

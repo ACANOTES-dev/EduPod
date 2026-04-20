@@ -11,8 +11,10 @@ import { HOMEWORK_DIGEST_JOB } from '../homework/digest-homework.processor';
 import { BREAK_GLASS_EXPIRY_JOB } from '../safeguarding/break-glass-expiry.processor';
 import { SLA_CHECK_JOB } from '../safeguarding/sla-check.processor';
 
+import { BEHAVIOUR_ACK_REMINDERS_JOB } from './ack-reminders.processor';
 import { BEHAVIOUR_DETECT_PATTERNS_JOB } from './detect-patterns.processor';
 import { BEHAVIOUR_DIGEST_NOTIFICATIONS_JOB } from './digest-notifications.processor';
+import { BEHAVIOUR_EXCLUSION_DEADLINE_CHECK_JOB } from './exclusion-deadline-check.processor';
 import { BEHAVIOUR_GUARDIAN_RESTRICTION_CHECK_JOB } from './guardian-restriction-check.processor';
 import { BEHAVIOUR_RETENTION_CHECK_JOB } from './retention-check.processor';
 import { BEHAVIOUR_SUSPENSION_RETURN_JOB } from './suspension-return.processor';
@@ -119,6 +121,33 @@ export class BehaviourCronDispatchProcessor extends WorkerHost {
             BEHAVIOUR_TASK_REMINDERS_JOB,
             { tenant_id: tenant.id },
             { jobId: `daily:${BEHAVIOUR_TASK_REMINDERS_JOB}:${tenant.id}` },
+          );
+          enqueued++;
+        }
+
+        // Ack reminders — 9am tenant-local (impl 07)
+        if (tenantHour === 9) {
+          await this.behaviourQueue.add(
+            BEHAVIOUR_ACK_REMINDERS_JOB,
+            { tenant_id: tenant.id },
+            { jobId: `daily:${BEHAVIOUR_ACK_REMINDERS_JOB}:${tenant.id}` },
+          );
+          enqueued++;
+        }
+
+        // Exclusion deadline check — every 6 hours, UTC-based (impl 07)
+        if (
+          currentUtcHour === 0 ||
+          currentUtcHour === 6 ||
+          currentUtcHour === 12 ||
+          currentUtcHour === 18
+        ) {
+          await this.behaviourQueue.add(
+            BEHAVIOUR_EXCLUSION_DEADLINE_CHECK_JOB,
+            { tenant_id: tenant.id },
+            {
+              jobId: `6h:${BEHAVIOUR_EXCLUSION_DEADLINE_CHECK_JOB}:${tenant.id}:${currentUtcHour}`,
+            },
           );
           enqueued++;
         }

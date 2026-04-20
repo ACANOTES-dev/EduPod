@@ -805,17 +805,19 @@ describe('BehaviourExclusionCasesService', () => {
     });
   });
 
-  // ─── generateNotice / generateBoardPack stubs ────────────────────────────
+  // ─── generateNotice / generateBoardPack ───────────────────────────────────
 
-  describe('stub methods', () => {
-    it('generateNotice should return not_implemented', async () => {
-      const result = await service.generateNotice(TENANT_ID, CASE_ID, USER_ID);
-      expect(result.status).toBe('not_implemented');
+  describe('document generation', () => {
+    it('generateNotice should return DOCUMENT_SERVICE_UNAVAILABLE when documentService is absent', async () => {
+      await expect(service.generateNotice(TENANT_ID, CASE_ID, USER_ID)).rejects.toThrow(
+        /DOCUMENT_SERVICE_UNAVAILABLE|Document generation/,
+      );
     });
 
-    it('generateBoardPack should return not_implemented', async () => {
-      const result = await service.generateBoardPack(TENANT_ID, CASE_ID, USER_ID);
-      expect(result.status).toBe('not_implemented');
+    it('generateBoardPack should return DOCUMENT_SERVICE_UNAVAILABLE when documentService is absent', async () => {
+      await expect(service.generateBoardPack(TENANT_ID, CASE_ID, USER_ID)).rejects.toThrow(
+        /DOCUMENT_SERVICE_UNAVAILABLE|Document generation/,
+      );
     });
   });
 

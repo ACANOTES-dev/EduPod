@@ -21,12 +21,14 @@ import { AttendancePendingDetectionProcessor } from './processors/attendance-pen
 import { AttendanceQueueDispatcher } from './processors/attendance-queue-dispatcher';
 import { AttendanceSessionGenerationProcessor } from './processors/attendance-session-generation.processor';
 import { AuditLogWriteProcessor } from './processors/audit-log/audit-log-write.processor';
+import { BehaviourAckRemindersProcessor } from './processors/behaviour/ack-reminders.processor';
 import { BehaviourCheckAwardsProcessor } from './processors/behaviour/check-awards.processor';
 import { BehaviourCronDispatchProcessor } from './processors/behaviour/cron-dispatch.processor';
 import { DetectPatternsProcessor } from './processors/behaviour/detect-patterns.processor';
 import { DigestNotificationsProcessor } from './processors/behaviour/digest-notifications.processor';
 import { DocumentReadyProcessor } from './processors/behaviour/document-ready.processor';
 import { EvaluatePolicyProcessor } from './processors/behaviour/evaluate-policy.processor';
+import { BehaviourExclusionDeadlineCheckProcessor } from './processors/behaviour/exclusion-deadline-check.processor';
 import { BehaviourGuardianRestrictionCheckProcessor } from './processors/behaviour/guardian-restriction-check.processor';
 import { NotificationReconciliationProcessor } from './processors/behaviour/notification-reconciliation.processor';
 import { BehaviourParentNotificationProcessor } from './processors/behaviour/parent-notification.processor';
@@ -409,6 +411,9 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     BehaviourGuardianRestrictionCheckProcessor,
     EvaluatePolicyProcessor,
     BehaviourSuspensionReturnProcessor,
+    // Impl 07 — exclusion deadline + ack reminders
+    BehaviourExclusionDeadlineCheckProcessor,
+    BehaviourAckRemindersProcessor,
     // Safeguarding processors (Phase D)
     AttachmentScanProcessor,
     BreakGlassExpiryProcessor,

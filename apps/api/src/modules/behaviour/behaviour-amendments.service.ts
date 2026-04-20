@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 
@@ -7,6 +7,8 @@ import { SANCTION_PARENT_VISIBLE_FIELDS, type AmendmentListQuery } from '@school
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
+import { WellbeingNotificationsService } from '../wellbeing-notifications/wellbeing-notifications.service';
 
 import { BehaviourHistoryService } from './behaviour-history.service';
 
@@ -63,6 +65,9 @@ export class BehaviourAmendmentsService {
     private readonly historyService: BehaviourHistoryService,
     // TODO(M-17): Migrate to BehaviourSideEffectsService
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
+    @Optional()
+    private readonly wellbeingNotifications: WellbeingNotificationsService | null = null,
+    @Optional() private readonly studentReadFacade: StudentReadFacade | null = null,
   ) {}
 
   // ─── Create Amendment Notice ────────────────────────────────────────────────
@@ -419,6 +424,41 @@ export class BehaviourAmendmentsService {
       }
     }
 
+    // ── Wellbeing fan-out (secondary channels per tenant preferences) ──────
+    // Route `amendment.sent` through WellbeingNotificationsService. In-app
+    // rows were already written inside the tx; this dispatch only adds
+    // email/SMS/WhatsApp when the tenant has them enabled. Failure here
+    // is logged but never rolls back the already-committed correction.
+    if (this.wellbeingNotifications) {
+      try {
+        const parentUserIds = await this.resolveParentUserIdsForEntity(
+          tenantId,
+          noticeForEnqueue.entityType,
+          noticeForEnqueue.entityId,
+        );
+        if (parentUserIds.length > 0) {
+          await this.wellbeingNotifications.dispatch({
+            tenantId,
+            event: 'amendment.sent',
+            recipients: parentUserIds.map((user_id) => ({ user_id })),
+            title: noticeForEnqueue.requiresReack
+              ? 'Correction — re-acknowledgement required'
+              : 'Correction notice',
+            body: 'A record that was shared with you has been corrected. Please review.',
+            href: `/parent/behaviour/amendments/${id}`,
+            severity: noticeForEnqueue.requiresReack ? 'warning' : 'info',
+            source_entity_type: 'behaviour_amendment_notice',
+            source_entity_id: id,
+          });
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Wellbeing amendment.sent dispatch failed for amendment ${id} — correction send succeeded`,
+          err instanceof Error ? err.stack : String(err),
+        );
+      }
+    }
+
     return updated;
   }
 
@@ -556,5 +596,23 @@ export class BehaviourAmendmentsService {
       default:
         return [];
     }
+  }
+
+  /**
+   * Resolve the parent user_ids that should receive the correction dispatch.
+   * Incidents resolve via the first `subject` participant; sanctions have
+   * student_id directly. Parents without linked user accounts are dropped.
+   */
+  private async resolveParentUserIdsForEntity(
+    tenantId: string,
+    entityType: string,
+    entityId: string,
+  ): Promise<string[]> {
+    if (!this.studentReadFacade) return [];
+
+    const refs = await this.resolveEntityReferences(this.prisma, tenantId, entityType, entityId);
+    if (!refs.studentId) return [];
+
+    return this.studentReadFacade.findActiveParentUserIdsForStudent(tenantId, refs.studentId);
   }
 }

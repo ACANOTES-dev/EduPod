@@ -1,14 +1,26 @@
 import { z } from 'zod';
 
 export const EXCLUSION_TYPE_VALUES = [
-  'suspension_extended', 'expulsion', 'managed_move', 'permanent_exclusion',
+  'suspension_extended',
+  'expulsion',
+  'managed_move',
+  'permanent_exclusion',
 ] as const;
 export const EXCLUSION_STATUS_VALUES = [
-  'initiated', 'notice_issued', 'hearing_scheduled', 'hearing_held',
-  'decision_made', 'appeal_window', 'finalised', 'overturned',
+  'initiated',
+  'notice_issued',
+  'hearing_scheduled',
+  'hearing_held',
+  'decision_made',
+  'appeal_window',
+  'finalised',
+  'overturned',
 ] as const;
 export const EXCLUSION_DECISION_VALUES = [
-  'exclusion_confirmed', 'exclusion_modified', 'exclusion_reversed', 'alternative_consequence',
+  'exclusion_confirmed',
+  'exclusion_modified',
+  'exclusion_reversed',
+  'alternative_consequence',
 ] as const;
 
 export const createExclusionCaseSchema = z.object({
@@ -19,11 +31,15 @@ export type CreateExclusionCaseDto = z.infer<typeof createExclusionCaseSchema>;
 
 export const updateExclusionCaseSchema = z.object({
   hearing_date: z.string().optional(),
-  hearing_attendees: z.array(z.object({
-    name: z.string(),
-    role: z.string(),
-    relationship: z.string().optional(),
-  })).optional(),
+  hearing_attendees: z
+    .array(
+      z.object({
+        name: z.string(),
+        role: z.string(),
+        relationship: z.string().optional(),
+      }),
+    )
+    .optional(),
   student_representation: z.string().max(2000).optional(),
   conditions_for_return: z.string().max(5000).optional(),
   conditions_for_transfer: z.string().max(5000).optional(),
@@ -68,3 +84,48 @@ export const statutoryTimelineStepSchema = z.object({
 });
 
 export type StatutoryTimelineStep = z.infer<typeof statutoryTimelineStepSchema>;
+
+// ─── Named action endpoints ────────────────────────────────────────────────
+
+export const issueExclusionNoticeSchema = z.object({
+  reason: z.string().max(2000).optional(),
+});
+export type IssueExclusionNoticeDto = z.infer<typeof issueExclusionNoticeSchema>;
+
+export const scheduleExclusionHearingSchema = z.object({
+  hearing_date: z.string().datetime(),
+  hearing_attendees: z
+    .array(
+      z.object({
+        name: z.string(),
+        role: z.string(),
+        relationship: z.string().optional(),
+      }),
+    )
+    .optional(),
+});
+export type ScheduleExclusionHearingDto = z.infer<typeof scheduleExclusionHearingSchema>;
+
+export const recordExclusionHearingSchema = z.object({
+  student_representation: z.string().max(2000).optional(),
+  hearing_attendees: z
+    .array(
+      z.object({
+        name: z.string(),
+        role: z.string(),
+        relationship: z.string().optional(),
+      }),
+    )
+    .optional(),
+});
+export type RecordExclusionHearingDto = z.infer<typeof recordExclusionHearingSchema>;
+
+export const finaliseExclusionSchema = z.object({
+  reason: z.string().max(2000).optional(),
+});
+export type FinaliseExclusionDto = z.infer<typeof finaliseExclusionSchema>;
+
+export const overturnExclusionSchema = z.object({
+  reason: z.string().max(2000).min(1, 'An overturn reason is required'),
+});
+export type OverturnExclusionDto = z.infer<typeof overturnExclusionSchema>;
