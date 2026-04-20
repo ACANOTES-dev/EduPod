@@ -152,7 +152,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 02  | Fix broken behaviour endpoints                        | 2    | parallel-safe  | 01         | `completed` | 2026-04-20T13:27Z | 16bffbb4   |
 | 03  | Wellbeing dashboard-summary aggregator                | 2    | parallel-safe  | 01         | `completed` | 2026-04-20T13:32Z | 4b749aac   |
 | 04  | AI flag service + notification routing                | 2    | parallel-safe  | 01         | `completed` | 2026-04-20T13:43Z | 815bd9d2   |
-| 05  | Behaviour AI services                                 | 3    | parallel-safe  | 01, 04     | `deploying` |                   |            |
+| 05  | Behaviour AI services                                 | 3    | parallel-safe  | 01, 04     | `completed` | 2026-04-20T14:40Z | 8305a4de   |
 | 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `completed` | 2026-04-20T14:10Z | 2a850c21   |
 | 07  | Exclusion + amendment + ack services                  | 3    | parallel-safe  | 01, 04     | `pending`   |                   |            |
 | 08  | Pastoral hidden services (DSAR, import, SST AI, etc.) | 3    | parallel-safe  | 01, 04     | `pending`   |                   |            |
@@ -558,3 +558,95 @@ Append new records below in chronological order. Format:
   /:id/preview routes return 401 (auth required) rather than 404,
   confirming routing is wired. Stale `api-error.log` (210MB, Apr 5
   mtime) noted per impl 01's guidance — unrelated to this deploy.
+
+### [IMPL 05] — Behaviour AI services
+
+- **Completed:** 2026-04-20T14:40Z Europe/Dublin
+- **Commit:** `8305a4de` (local rate-limiter DI fix) on top of `ea27edae`
+  (feature). Applied to production as `2b19a1ee` + `cca412db` via
+  `git am` patch flow. Interim `docs(wbr): mark impl 05 as deploying`
+  at `6df20b9c` (prod) / `662e3cd8` (local).
+- **Deployed to production:** yes — migration + post-migrate applied,
+  API rebuilt, API restarted. Smoke tested on NHQS:
+  - With behaviour AI flag OFF, all four endpoints return
+    `403 AI_DISABLED`.
+  - Toggle flag ON via `PATCH /v1/ai-flags/behaviour`; history endpoint
+    returns `{entries: [], meta:{total:0}}` (empty tenant).
+  - ai-parse with flag ON returns `503 AI_SERVICE_UNAVAILABLE`
+    because production `.env` has no `ANTHROPIC_API_KEY` — expected
+    and gracefully handled (no 500).
+  - Flag restored to OFF at the end of the smoke test.
+- **Summary (≤ 200 words):**
+  Built a dedicated `BehaviourAIModule` under `apps/api/src/modules/
+behaviour/ai/` that owns all four behaviour AI endpoints —
+  `POST /v1/behaviour/incidents/ai-parse`, `GET /v1/behaviour/students/
+:studentId/ai-summary`, `POST /v1/behaviour/analytics/ai-query`, and
+  `GET /v1/behaviour/analytics/ai-query/history`. Every route gated by
+  `@RequiresAiFlag('behaviour')` + per-endpoint `@RequiresPermission`.
+  New services: `BehaviourAiParseService` (real Anthropic parser;
+  StudentReadFacade for student name matching; audit-traced via
+  `AiAuditService` with a `raw_provider_response_id`),
+  `BehaviourAiSummaryService` (minimal behaviour slice per student;
+  24h in-memory cache; returns `cached:true` on hit without invoking
+  LLM), and `BehaviourAiRateLimiterService` (30/hour per user,
+  process-local). The existing NL query `BehaviourAIService` moved
+  into the sub-module, uses the rate limiter, persists every round-trip
+  to a new `behaviour_ai_query_history` table (see follow-ups), and
+  drops the legacy `settings.ai_nl_query_enabled` gate in favour of
+  the per-tenant AI flag. Stubs removed from `BehaviourController`,
+  `BehaviourStudentsController`, and `BehaviourAnalyticsController`.
+  29 new unit tests; full API test run green (15,611 pass).
+- **Follow-ups:**
+  - **Deployment-matrix deviation:** impl file 05 was listed in §3 as
+    migration ❌, but we shipped an additive migration
+    (`20260420200000_add_behaviour_ai_query_history`) because the
+    impl file prescribed the table and the audit confirmed no such
+    table existed. If future impls consult the matrix alone, they
+    should know impl 05 actually applied a migration — a fast one,
+    additive only, behind RLS.
+  - **API response shape for ai-query/history:** the service returns
+    `{entries, meta}`; an interceptor wraps it as `{data:{entries,meta}}`
+    on the wire. Wave 6 impl 19 (AI features UI) must call
+    `res.data.entries` not `res.entries`.
+  - **`ANTHROPIC_API_KEY` not on production.** Flag-gated routes
+    currently return `503 AI_SERVICE_UNAVAILABLE` when exercised.
+    Before Wave 5 impl 18 ships the admin AI-flags UI, ops should
+    add the key to the production `.env` (or the relevant secret
+    manager entry). Otherwise tenants that toggle their flag ON will
+    see the 503 instead of a usable AI feature. Code handles this
+    gracefully (no 500s).
+  - **Rate limit is process-local.** Multi-instance deploys allow
+    `limit * instances` / hour. Wave 7 should consider Redis-backed
+    rate limit if the API scales out horizontally.
+  - **PII in prompts:** per prior impl 04 convention, the existing
+    NL query uses the GDPR token gateway; the new parse service
+    sends raw descriptions to the LLM — student names flow through.
+    The PLAN.md privacy posture accepts this for parse (descriptions
+    are staff-authored and about the subject of the incident) but
+    Wave 7 polish should decide whether to anonymise before the
+    LLM call for parse too.
+- **Session notes:**
+  (a) Production first boot after patch-application crashed with a
+  Nest DI error — `BehaviourAiRateLimiterService` constructor had
+  `number` params (`limit: number = 30`, `windowMs = ...`), and Nest
+  tried to resolve them as dependencies. Fix: removed constructor
+  params, moved defaults to class properties, added a `configure()`
+  method so tests can still tune the window. Shipped as a follow-up
+  commit `8305a4de` on top of the feature commit, applied to
+  production as `2b19a1ee`.
+  (b) `git mv` on `behaviour-ai.service*.ts` into `ai/` did not
+  delete the originals cleanly — both files lived side-by-side until
+  I ran `rm` manually. Worth knowing for any future refactor: after
+  `git mv`, confirm with `git status` that the source side shows
+  `deleted:` before committing.
+  (c) `prisma migrate dev` fails on prod because the shadow DB is not
+  writable; had to switch to `pnpm --filter @school/prisma migrate:deploy`.
+  Wave 1 impl 01 used the same path; keeping a note here so future
+  migration waves don't spend time on the same dead end.
+  (d) DZ-13 safeguarding projection test was already failing before
+  this impl (impl 02 added `behaviour-recognition.service.ts`'s
+  `behaviourIncident.findMany` read without updating the allowlist).
+  I added `behaviour-recognition.service.ts` to `PROJECTION_AWARE_FILES`
+  in `safeguarding-projection.spec.ts` — the service does NOT expose
+  incident status to end users (it projects to the recognition list
+  shape) so this is the correct allowlist entry.
