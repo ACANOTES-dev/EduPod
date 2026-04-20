@@ -185,7 +185,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 05  | Behaviour AI services                                 | 3    | parallel-safe  | 01, 04     | `completed` | 2026-04-20T14:40Z | 8305a4de   |
 | 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `completed` | 2026-04-20T14:10Z | 2a850c21   |
 | 07  | Exclusion + amendment + ack services                  | 3    | parallel-safe  | 01, 04     | `completed` | 2026-04-20T15:15Z | 1a529312   |
-| 08  | Pastoral hidden services (DSAR, import, SST AI, etc.) | 3    | parallel-safe  | 01, 04     | `deploying` |                   |            |
+| 08  | Pastoral hidden services (DSAR, import, SST AI, etc.) | 3    | parallel-safe  | 01, 04     | `completed` | 2026-04-20T18:15Z | b9bd7d04   |
 | 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `completed` | 2026-04-20T17:15Z | 80e60532   |
 | 10  | Page crash fixes (5 pages)                            | 4    | parallel-risky | 02, 03     | `pending`   |                   |            |
 | 11  | Behaviour analytics URL fix + endpoint reconnects     | 4    | parallel-risky | 02         | `pending`   |                   |            |
@@ -859,3 +859,77 @@ tsconfig.tsbuildinfo` + rebuild. Post-rebuild the full dist landed and
   API booted first try. Worth remembering: after `rm -rf dist` on the
   server, also `rm tsconfig.tsbuildinfo` — turbo's cache and tsc's
   incremental mode are independent.
+
+### [IMPL 08] — Pastoral hidden services (DSAR, import, SST AI, critical plans, check-in flagged)
+
+- **Completed:** 2026-04-20T18:15Z Europe/Dublin
+- **Commit:** `b9bd7d04` (local); applied to production as `d969fbc7`.
+- **Deployed to production:** yes — API + worker rebuilt and restarted.
+  Smoke:
+  - `/api/health` → 200
+  - `/api/v1/pastoral/dsar-reviews/stats` → 401 (auth-required; route wired)
+  - `/api/v1/pastoral/sst/meetings/:id/agenda/refresh` → 403 `AI_DISABLED`
+    (pastoral AI flag off on NHQS by default — gate confirmed live)
+  - `/api/v1/pastoral/checkins/:id/escalate` → 401 (auth-required)
+  - `/api/v1/pastoral/checkins/:id/dismiss` → 401 (auth-required)
+  - `/api/v1/pastoral/critical-incidents/:id/affected/:personId/support`
+    → 401 (auth-required)
+- **Summary (≤ 200 words):**
+  Audit-and-polish pass over the five pastoral hidden services. Landed:
+  (1) **DSAR** — new `GET /v1/pastoral/dsar-reviews/stats` returning
+  tenant-wide counts (total/pending/included/redacted/excluded +
+  open_requests), tier-3 gated on CP access, placed before `:id` to
+  avoid UUID collision. The other DSAR routes existed already.
+  (2) **Import** — already complete (template/validate/confirm), no changes.
+  (3) **SST agenda refresh** — added `@RequiresAiFlag('pastoral')` to the
+  existing synchronous endpoint. No rewrite to async LLM flow (see
+  follow-ups).
+  (4) **Critical incident support log** — new
+  `GET /v1/pastoral/critical-incidents/:id/affected/:personId/support`
+  reading from `pastoral_events` (event_type=`support_offered`,
+  JSON-filtered by `affected_person_id`). `recordSupportOffered` hardened
+  to append timestamped entries to `support_notes` and stamp
+  `support_offered_at` / `support_offered_by_id`.
+  (5) **Check-in queue actions** — new `POST /v1/pastoral/checkins/:id/escalate`
+  (idempotent: returns existing `auto_concern_id` if set, else creates a
+  Tier-2 emotional concern) and `POST /v1/pastoral/checkins/:id/dismiss`
+  (clears the flag). Both audited via new `checkin_escalated` /
+  `checkin_dismissed` event types added to shared catalogue.
+- **Follow-ups:**
+  - **No migration shipped.** Matrix said `Migration: ❌`; impl file
+    asked for `flagged_at` / `escalated_at` / `dismissed_at` columns on
+    `student_checkins`. Current semantics use the existing `flagged`
+    boolean + audit events: flagged-queue filter is `flagged=true`,
+    escalate sets `flagged=false` + links concern, dismiss sets
+    `flagged=false` without linking. A future pass may add explicit
+    `escalated_at` / `dismissed_at` columns for richer audit + filtering.
+  - **SST agenda is NOT LLM-backed.** Impl file described an async LLM
+    pipeline with `pastoral:precompute-agenda` worker + `agenda_refresh_started_at`
+    timestamp. The existing `SstAgendaGeneratorService.generateAgenda` is
+    deterministic data-source queries (new_concerns, case_reviews,
+    overdue_actions, early_warning, neps, intervention_reviews). Shipped
+    the `@RequiresAiFlag('pastoral')` gate per plan; the deterministic
+    generator stays as-is. A future rebuild wave can add a true LLM
+    layer and the async job pattern.
+  - **Multi-recipient support log.** The new GET aggregates
+    `pastoral_events` rather than a dedicated `critical_incident_support_log`
+    table. If a per-incident timeline grows very long, consider an
+    indexed log table. No blocker today.
+  - **DSAR stats route order.** Placed BEFORE `:id` route in the
+    controller so `/stats` literal doesn't get interpreted as a UUID.
+    Wave 6 impl 22 (pastoral hidden-feature UI) should consume this
+    endpoint for the DSAR dashboard KPI strip.
+- **Session notes:**
+  Production rebuild hit a prisma+shared dist cache issue similar to
+  impl 01's (recorded in impl 09's session notes too): after
+  `rm -rf packages/*/dist`, turbo replayed cached logs without
+  materialising dist output. Root cause: `tsconfig.tsbuildinfo` told
+  `tsc --incremental` nothing needed to compile. Fix: `rm tsconfig.tsbuildinfo`
+  then re-run `pnpm --filter @school/shared run build`. After that,
+  api + worker came up first try. Smoke test confirmed the AI flag
+  gate is live — NHQS's `pastoral` flag is off by default (impl 01 seed)
+  so SST refresh returns 403 AI_DISABLED. Toggle via
+  `PATCH /v1/ai-flags/pastoral` when a user actually wants the endpoint
+  to work. Sibling impl 09 had completed and been deployed in the
+  window I was waiting (flipped from `deploying` to `completed` between
+  polls); my deploy happened cleanly afterwards.
