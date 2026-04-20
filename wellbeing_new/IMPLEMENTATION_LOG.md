@@ -205,7 +205,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 14  | Behaviour sub-hub                                     | 5    | parallel-risky | 03, 12     | `completed` | 2026-04-20T21:15Z | 18c69ef6   |
 | 15  | Staff wellbeing folded sub-hub                        | 5    | parallel-risky | 12         | `completed` | 2026-04-20T21:10Z | 607dab0d   |
 | 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `completed` | 2026-04-20T22:45Z | 0728765b   |
-| 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `deploying` |                   |            |
+| 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `completed` | 2026-04-20T22:55Z | 4a321481   |
 | 18  | Tenant admin → AI flags page                          | 5    | parallel-risky | 04, 12     | `pending`   |                   |            |
 | 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `pending`   |                   |            |
 | 20  | Document generation UI                                | 6    | parallel-risky | 06, 14     | `pending`   |                   |            |
@@ -1524,3 +1524,98 @@ apps/web/.next`), pm2 web restarted, process online. Smoke:
   "empty state" path renders in production — expected, confirms the
   friendly empty UI. Visual QA with populated data will happen in
   Wave 7 impl 24 or during a manual demo-data seed.
+
+### [IMPL 17] — Safeguarding sub-hub
+
+- **Completed:** 2026-04-20T22:55Z Europe/Dublin
+- **Commit:** `4a321481` (local); applied to production as `589d9737` via `git am`.
+- **Deployed to production:** yes — web rebuilt (3m14s after `rm -rf apps/web/.next`),
+  pm2 web restarted, process online. Smoke: `/en/login`, `/en/safeguarding`,
+  `/en/safeguarding/{sla,sealed,break-glass,reviews}`, `/ar/safeguarding` all
+  return HTTP 200. English strings (`Safeguarding`, `All actions audited`,
+  `Designated safeguarding`) and Arabic strings (`الحماية`, `محدود بالدور`) verified
+  in rendered HTML. No `MISSING_MESSAGE` warnings.
+- **Summary (≤ 200 words):**
+  Replaces the legacy `/safeguarding` → `/pastoral` redirect with a
+  flagship dedicated sub-hub. New page at
+  `apps/web/src/app/[locale]/(school)/safeguarding/page.tsx` (sub-hub
+  landing), plus `sla/page.tsx` (first-response timer dashboard),
+  `sealed/page.tsx` (redacted dual-approval-sealed index), and two
+  placeholder pages (`break-glass/page.tsx`, `reviews/page.tsx`) surfaced
+  for impl 23 to fill. Everything gated by `safeguarding.dedicated_view`
+  (owner/principal/VP — impl 01 seed); sealed-records access additionally
+  gated by `safeguarding.seal`. Pure role + KPI logic extracted to
+  `_components/visibility.ts` and `_components/summary.ts` with 36
+  co-located tests. Data sourced from impl 03's `/wellbeing/dashboard-summary`
+  plus targeted `GET /api/v1/safeguarding/{dashboard,concerns}` calls
+  (via `Promise.allSettled` so any sub-query failure degrades gracefully).
+  Reuses impl 13's `KpiTile` / `QuickAction` / `HubTile` from
+  `@/components/*`. New `safeguardingHub.*` namespace — 115 keys each
+  in `messages/{en,ar}.json` with structural parity (verified via flatten
+  script). Nav-config already listed `/safeguarding` under the wellbeing
+  hub's basePaths (impl 13) — no edit needed.
+
+- **Follow-ups:**
+  - **`critical_awaiting_ack` KPI is approximate.** Composed as
+    `min(open_by_severity.critical, by_status.reported)` from the
+    existing safeguarding dashboard payload because the backend has
+    no direct cross-cut. A Wave 6 backend pass could expose a
+    dedicated count for accuracy; the approximation matches the
+    worst-case upper bound today.
+  - **`sealed_this_year` window start is the 1 Aug of the current
+    calendar year.** Hardcoded because the tenant's academic-year
+    config is not yet surfaced on the frontend. If a tenant has an
+    unusual academic calendar (e.g. January start) the window is
+    wrong. Wave 7 polish — thread the tenant's configured
+    academic-year start through `useAcademicYear()` or similar.
+  - **Break-glass + after-action CTAs open a deferred-feature toast**,
+    not a dialog. Impl 23 (Wave 6) owns the real break-glass dialog
+    and after-action workflow. Current placeholder pages also point
+    to the same copy. When impl 23 ships, replace both the toast
+    handler on the hub CTAs AND the two placeholder page bodies with
+    the real surfaces in the same commit.
+  - **`/safeguarding/concerns` and `/safeguarding/my-reports` still
+    redirect to `/pastoral/concerns`.** Impl 23 owns rebuilding those
+    dedicated concern list + detail pages. The hub cards point at the
+    dedicated URLs which today redirect — the user's path is fine,
+    just one hop through pastoral until impl 23 lands.
+  - **SLA dashboard uses a single 100-row page.** The impl reads
+    `GET /safeguarding/concerns?pageSize=100&sla_status=all` to bucket
+    client-side. Works for any tenant under 100 open concerns. If a
+    tenant exceeds that, add server-side SLA-bucket queries or
+    virtualised pagination. Not blocking on today's dataset.
+  - **`safeguarding.seal` permission is a single scope, not split
+    into `seal.view` vs `seal.act`.** The impl file referenced a
+    hypothetical `safeguarding.seal.view`; kept the existing one-scope
+    model. Wave 7 could split if a lower-tier "read only sealed
+    records" role emerges.
+  - **Max-lines ESLint warning** — `safeguarding/page.tsx` is 616
+    lines (threshold 600). Matches impl 13 + 14 + 16 precedent for
+    flagship hub pages; accepted.
+
+- **Session notes:**
+  Heavy Wave-5 parallel coding with sibling impl 16 (early-warnings)
+  in-flight on the same tree. Applied Rule H11 pre-stash before the
+  feature commit — staged my 11 files by explicit pathspec, no sibling
+  WIP in tree at commit time.
+
+  Partway through coding, a `system-reminder` tool hook reported the
+  safeguarding `page.tsx` as reverted to the 5-line redirect stub — a
+  false alarm: `ls` showed the file at 28 KB (my full sub-hub) and
+  `git diff --stat HEAD` confirmed +672/-3 against the pre-rebuild
+  stub. Rule H10 honoured (didn't blindly re-apply). The stale reminder
+  appeared to reflect an older snapshot, not real tree state.
+
+  Sibling 16 finished deploying in the ~3-minute poll window; grabbed
+  the web slot cleanly afterwards. Deploy was clean first try — no
+  tsbuildinfo issues (web doesn't use `tsc --incremental`), pm2 up
+  immediately. The `docs(wbr): mark as deploying` commit rewrote the
+  whole table via prettier's reflow (26 ins / 26 del) — cosmetic
+  only, no content changes.
+
+  `safeguarding.dedicated_view` permission is owner/principal/VP in
+  the frontend role-tier constants — matches impl 01's actual grant,
+  not the hypothetical `designated_safeguarding_lead` role impl 01's
+  follow-up flagged. If that role is introduced in a later wave,
+  update `SAFEGUARDING_TIER_ROLES` in
+  `_components/visibility.ts` to include it.
