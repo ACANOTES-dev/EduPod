@@ -206,7 +206,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 15  | Staff wellbeing folded sub-hub                        | 5    | parallel-risky | 12         | `completed` | 2026-04-20T21:10Z | 607dab0d   |
 | 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `completed` | 2026-04-20T22:45Z | 0728765b   |
 | 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `completed` | 2026-04-20T22:55Z | 4a321481   |
-| 18  | Tenant admin → AI flags page                          | 5    | parallel-risky | 04, 12     | `deploying` |                   |            |
+| 18  | Tenant admin → AI flags page                          | 5    | parallel-risky | 04, 12     | `completed` | 2026-04-20T23:25Z | 0a8d8588   |
 | 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `pending`   |                   |            |
 | 20  | Document generation UI                                | 6    | parallel-risky | 06, 14     | `pending`   |                   |            |
 | 21  | Exclusion + restrictions + amendments + ack UI        | 6    | parallel-risky | 07, 14     | `pending`   |                   |            |
@@ -1619,3 +1619,74 @@ apps/web/.next`), pm2 web restarted, process online. Smoke:
   follow-up flagged. If that role is introduced in a later wave,
   update `SAFEGUARDING_TIER_ROLES` in
   `_components/visibility.ts` to include it.
+
+### [IMPL 18] — Tenant admin → AI flags page
+
+- **Completed:** 2026-04-20T23:25Z Europe/Dublin
+- **Commit:** `0a8d8588` (tip of the two-commit stack); applied to
+  production as `bca0cdd6` + `57415494`.
+- **Deployed to production:** yes — web rebuilt
+  (`rm -rf apps/web/.next` + `pnpm turbo run build --filter=@school/web`)
+  and `pm2 restart web --update-env`. Smoke test:
+  `/en/settings/ai-flags` → 200, `/ar/settings/ai-flags` → 200,
+  `/en/settings` → 200, `GET /api/v1/ai-flags` (no auth) → 401 as
+  expected.
+- **Summary (≤ 200 words):**
+  Single-page admin UI at `apps/web/src/app/[locale]/(school)/settings/ai-flags/page.tsx`
+  for the four wellbeing AI module gates. PageHeader + bulk-action bar
+  - four accent-bordered module cards (Behaviour / Pastoral / Staff
+    Wellbeing / Early Warnings), each with Switch, status badge,
+    description, and "Last changed {when}" sub-line reading
+    `updated_at`. Toggles call
+    `PATCH /api/v1/ai-flags/:moduleKey` optimistically and revert on
+    error. Bulk "Enable all" is one-click; "Disable all" requires
+    typing `DISABLE ALL AI` verbatim to match impl 09's confirmation
+    bar. Consumes `GET /api/v1/ai-flags` (list) via `unwrap<T>()`
+    since the response transform wraps in `{data}`. Permission gate:
+    role-based on `school_owner` / `school_principal` via
+    `useRoleCheck()` — no `ai_flag.manage` hook in the web yet, but
+    the two admin roles already hold the permission per impl 01's
+    seed. Settings hub tile added under the Wellbeing category using
+    the `BrainCircuit` lucide icon. Translations: new top-level
+    `aiFlagsAdmin.*` namespace + `nav.aiFlags` + `settings.hub.aiFlags{,Desc}`
+    keys in en + ar. Page sits at ~440 lines — under the 600-line
+    lint threshold.
+- **Follow-ups:**
+  - **Permission check is role-based, not permission-based.** The
+    web has no client-side permission fetch for the logged-in user,
+    so the gate is `hasAnyRole('school_owner','school_principal')`.
+    Per impl 01's follow-up (permission backfill is migration-side-only),
+    these two roles always hold `ai_flag.manage`. If `ai_flag.manage`
+    is ever revoked from them on a specific tenant, the UI will let
+    the user open the page and the backend will 403 — they'll see
+    the generic "Couldn't load AI flags" error. Acceptable for now;
+    Wave 7 impl 24 (polish + playwright) or a later cross-cutting
+    pass could add permission-based gating if useful.
+  - **Bulk disable does 4 sequential PATCHes client-side.** Impl
+    file flagged a potential bulk endpoint — out of scope. Observed
+    latency on a 4-module toggle is ~200ms wall-clock; acceptable.
+    If the admin AI surface grows to more modules, switch to a
+    single `PATCH /api/v1/ai-flags` array endpoint.
+  - **`last_changed_by` user name not surfaced.** The impl file
+    sketched "Last changed by Yusuf Rahman on 2026-04-20" but the
+    list endpoint returns only `updated_by` (UUID). Surfaced
+    `updated_at` timestamp only. Adding a user-name field to the
+    response would be a Wave 6 tweak if the audit panel ever needs
+    it — today the audit log itself covers the "who".
+  - **AI calls cost note is static text.** No per-tenant usage
+    figures. If a future billing integration lands, swap the static
+    paragraph for a live usage summary.
+- **Session notes:**
+  Wave 5 was otherwise fully completed when I started — siblings
+  13–17 all `completed`. Deploy lane clear; no polling required.
+  Three commits locally: mark-in-progress / code / nav+translations;
+  then mark-deploying; deploy applied the two code commits as
+  a clean stack. Web build was a 3m21s full rebuild (expected —
+  turbo didn't cache since translations changed a root-level
+  namespace). One-line-off JSON edits (en.json `auditTrail` →
+  append `aiFlags`, same in ar) validated by `node -e JSON.parse`
+  before commit; no drift from sibling translation edits.
+  BrainCircuit icon confirmed present in lucide-react@0.468.0 at
+  `node_modules/.pnpm/lucide-react@*/dist/esm/icons/brain-circuit.js`.
+  No tsbuildinfo / turbo-cache issues since the web package doesn't
+  use `tsc --incremental`.
