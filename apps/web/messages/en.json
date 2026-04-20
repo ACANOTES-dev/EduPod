@@ -10757,6 +10757,187 @@
       }
     }
   },
+  "safeguardingHub": {
+    "title": "Safeguarding",
+    "description": "Designated safeguarding lead workspace. Tier-3 records, SLA tracking, emergency access, and irreversible sealing.",
+    "loadError": "We couldn't load the safeguarding dashboard. Please retry.",
+    "retry": "Retry",
+    "privacyBanner": {
+      "title": "All actions audited",
+      "body": "Access scope is enforced by your role. Every interaction is recorded in the safeguarding audit log.",
+      "scopePill": "Role-scoped"
+    },
+    "denied": {
+      "title": "Restricted workspace",
+      "body": "You do not have access to the safeguarding workspace. Speak to the school's designated safeguarding lead if you need a report looked at.",
+      "backToHub": "Back to wellbeing hub"
+    },
+    "kpis": {
+      "ariaLabel": "Safeguarding key performance indicators",
+      "openConcerns": "Open concerns",
+      "openConcernsBreakdown": "{critical} critical · {high} high",
+      "slaBreaches": "SLA breaches",
+      "criticalAwaitingAck": "Critical awaiting ack",
+      "sealedThisYear": "Sealed this year",
+      "sealedRestricted": "seal view only",
+      "tooltips": {
+        "openConcerns": "Concerns currently in an open or investigation state. Sealed and resolved concerns are excluded.",
+        "slaBreaches": "Concerns where the first-response SLA has lapsed with no action recorded.",
+        "criticalAwaitingAck": "Critical-severity concerns still in reported state — nobody on the safeguarding team has acknowledged them yet.",
+        "sealedThisYear": "Concerns that have been dual-approval sealed since the start of this academic year."
+      }
+    },
+    "quickActions": {
+      "ariaLabel": "Safeguarding quick actions",
+      "reportConcern": "Report a concern",
+      "viewMyReports": "View my reports",
+      "requestBreakGlass": "Request break-glass",
+      "runAfterAction": "Run after-action review",
+      "comingSoon": "Next wave",
+      "tooltips": {
+        "reportConcern": "Log a new safeguarding concern. Routed to the designated safeguarding lead immediately.",
+        "viewMyReports": "See every concern you personally reported, with their current status.",
+        "requestBreakGlass": "Request emergency elevated access to all sealed concerns. Requires dual approval.",
+        "runAfterAction": "Review a completed break-glass grant or serious incident and capture lessons."
+      }
+    },
+    "deferred": {
+      "breakGlass": "Break-glass request dialog ships with Wave 6. CTA intentionally inert until then.",
+      "afterAction": "After-action review workflow ships with Wave 6. CTA intentionally inert until then."
+    },
+    "cards": {
+      "ariaLabel": "Safeguarding navigation",
+      "concerns": {
+        "title": "All concerns",
+        "description": "Every safeguarding concern across the school, filterable by severity, status, and assignee.",
+        "tooltip": "The canonical list view — open, monitoring, referred, resolved, sealed."
+      },
+      "sla": {
+        "title": "SLA dashboard",
+        "description": "Open concerns ranked by SLA progress. Shows breached, due-soon, and on-track buckets at a glance.",
+        "tooltip": "Track first-response timers and prevent breaches before they happen."
+      },
+      "sealed": {
+        "title": "Sealed records",
+        "description": "Concerns under dual-approval seal. Access is audited; details are redacted at the list level.",
+        "tooltip": "Sealed-records index. Opening a record writes a break-glass audit entry."
+      },
+      "breakGlass": {
+        "title": "Break-glass grants",
+        "description": "Emergency access approvals, with active grants and pending after-action reviews highlighted.",
+        "tooltip": "Audit trail of every emergency-access grant and its review status."
+      },
+      "reviews": {
+        "title": "After-action reviews",
+        "description": "Lessons learned from completed break-glass grants and serious incidents.",
+        "tooltip": "Scheduled and overdue review cadence for every incident that required elevated access."
+      },
+      "settings": {
+        "title": "Settings",
+        "description": "Tier and severity matrix, SLA timers, TUSLA/Gardaí referral fields, retention policies.",
+        "tooltip": "Configuration for the safeguarding module — only safeguarding leads should change these."
+      }
+    },
+    "severity": {
+      "all": "All severities",
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "slaBucket": {
+      "breached": "Breached",
+      "due_soon": "Due soon",
+      "on_track": "On track",
+      "unknown": "No SLA"
+    },
+    "slaFeed": {
+      "title": "SLA breach feed",
+      "viewAll": "View all",
+      "overdue": "Overdue",
+      "overdueHours": "{hours}h overdue"
+    },
+    "recentConcerns": {
+      "title": "Recent concerns",
+      "viewAll": "View all",
+      "justNow": "just now",
+      "minutesAgo": "{count} min ago",
+      "hoursAgo": "{count} h ago",
+      "daysAgo": "{count} d ago"
+    },
+    "empty": {
+      "title": "No concerns on record",
+      "body": "Nothing has been reported yet. The workspace will populate as soon as the first concern is logged."
+    },
+    "footer": {
+      "audit": "Every action in this workspace is audit-logged.",
+      "designatedLead": "Designated safeguarding lead oversees this area."
+    },
+    "sla": {
+      "title": "Safeguarding SLA dashboard",
+      "description": "Open concerns with their first-response timer. Sort by deadline and filter by severity or assignee.",
+      "backToHub": "Back to safeguarding",
+      "loadError": "Could not load open concerns. Retry from the banner.",
+      "resultCount": "{count} concerns",
+      "unassigned": "Unassigned",
+      "hoursLeft": "{hours}h remaining",
+      "overdueHours": "{hours}h overdue",
+      "noDueDate": "No SLA deadline set",
+      "filters": {
+        "title": "Filters",
+        "severity": "Severity",
+        "assignee": "Assignee",
+        "allAssignees": "All assignees"
+      },
+      "bucket": {
+        "breached": "Breached",
+        "due_soon": "Due soon",
+        "on_track": "On track",
+        "unknown": "No SLA"
+      },
+      "empty": {
+        "title": "Nothing to chase",
+        "body": "All open concerns are either on track or already resolved. Nice work."
+      }
+    },
+    "sealed": {
+      "title": "Sealed records",
+      "description": "Concerns under dual-approval seal. List view shows redacted metadata only.",
+      "loadError": "Could not load sealed records. Retry from the banner.",
+      "denied": {
+        "body": "Viewing sealed records requires the safeguarding seal permission. Only the designated safeguarding lead, principal, or vice principal can see the full list."
+      },
+      "notice": {
+        "title": "Accessing a sealed record is audit-logged",
+        "body": "Clicking a row opens the full concern and writes a break-glass audit entry. Proceed only with cause."
+      },
+      "unknownApprover": "unknown approver",
+      "unknownDate": "seal date unknown",
+      "openDetails": "Open details — access is audited",
+      "empty": {
+        "title": "No sealed records this year",
+        "body": "No concerns have been dual-approved for sealing since the start of the current academic year."
+      }
+    },
+    "breakGlass": {
+      "title": "Break-glass grants",
+      "description": "Emergency access approvals with activity logs and overdue reviews highlighted.",
+      "placeholder": {
+        "title": "Break-glass workspace coming in Wave 6",
+        "body": "The active grants list, access log, review workflow, and new-grant dialog are built by implementation 23.",
+        "nextWave": "Until then, use the audit log export for break-glass evidence."
+      }
+    },
+    "reviews": {
+      "title": "After-action reviews",
+      "description": "Structured reviews of completed break-glass grants and serious incidents.",
+      "placeholder": {
+        "title": "After-action workspace coming in Wave 6",
+        "body": "The review queue, templated write-up, and completion workflow are built by implementation 23.",
+        "nextWave": "For now, reviews can be recorded as actions on the originating concern."
+      }
+    }
+  },
   "pastoral": {
     "workspace": {
       "eyebrow": "Student Wellbeing Workspace",
