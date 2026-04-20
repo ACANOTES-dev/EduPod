@@ -693,6 +693,10 @@ model Tenant {
   scheduled_reports           ScheduledReport[]
   report_alerts               ReportAlert[]
 
+  // Wellbeing Foundation Relations (Impl 01)
+  tenant_ai_flags                     TenantAiFlag[]
+  tenant_notification_preferences     TenantNotificationPreferences?
+
   // Behaviour Management Relations
   behaviour_categories               BehaviourCategory[]
   behaviour_incidents                BehaviourIncident[]
@@ -1027,6 +1031,40 @@ model TenantNotificationSetting {
 
   @@unique([tenant_id, notification_type])
   @@map("tenant_notification_settings")
+}
+
+// ─── Wellbeing Foundation (Impl 01) ─────────────────────────────────────────
+// Per-module AI feature gating. One row per (tenant, module_key). When `enabled`
+// is false the AI endpoints for that module short-circuit with `AI_DISABLED`.
+model TenantAiFlag {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String   @db.Uuid
+  module_key String   @db.VarChar(64)
+  enabled    Boolean  @default(false)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz()
+  updated_by String?  @db.Uuid
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, module_key], map: "uq_tenant_ai_flags_tenant_module")
+  @@index([tenant_id], map: "idx_tenant_ai_flags_tenant")
+  @@map("tenant_ai_flags")
+}
+
+// Wellbeing-events notification channel preferences. In-app is always on; this
+// table only tracks the secondary channels (email/sms/whatsapp) per event key.
+model TenantNotificationPreferences {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @unique @db.Uuid
+  wellbeing_channels Json     @default("{\"defaults\": {\"email\": false, \"sms\": false, \"whatsapp\": false}, \"overrides\": {}}") @db.JsonB
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id], map: "idx_tenant_notification_preferences_tenant")
+  @@map("tenant_notification_preferences")
 }
 
 model TenantSequence {
@@ -7309,6 +7347,9 @@ model BehaviourCategory {
   icon                         String?           @db.VarChar(50)
   requires_follow_up           Boolean           @default(false)
   requires_parent_notification Boolean           @default(false)
+  requires_parent_ack          Boolean           @default(false)
+  auto_create_pastoral_concern Boolean           @default(false)
+  converts_to_safeguarding     Boolean           @default(false)
   parent_visible               Boolean           @default(true)
   benchmark_category           BenchmarkCategory
   display_order                Int               @default(0)

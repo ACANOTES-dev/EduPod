@@ -2704,3 +2704,24 @@ DROP POLICY IF EXISTS fee_types_tenant_isolation ON fee_types;
 CREATE POLICY fee_types_tenant_isolation ON fee_types
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- =============================================================
+-- Wellbeing Rebuild — Impl 01: Foundation RLS
+-- =============================================================
+-- Defined in: packages/prisma/migrations/20260420100000_wellbeing_foundation/post_migrate.sql
+
+-- tenant_ai_flags (per-module AI feature gate)
+ALTER TABLE tenant_ai_flags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_ai_flags FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_ai_flags_tenant_isolation ON tenant_ai_flags;
+CREATE POLICY tenant_ai_flags_tenant_isolation ON tenant_ai_flags
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- tenant_notification_preferences (wellbeing notification channel prefs)
+ALTER TABLE tenant_notification_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_notification_preferences FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_notification_preferences_tenant_isolation ON tenant_notification_preferences;
+CREATE POLICY tenant_notification_preferences_tenant_isolation ON tenant_notification_preferences
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
