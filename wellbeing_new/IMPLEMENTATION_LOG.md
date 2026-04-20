@@ -204,7 +204,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 13  | Wellbeing super-hub + sub-strip removal               | 5    | parallel-risky | 03, 12     | `completed`   | 2026-04-20T21:00Z | 16a0bce4   |
 | 14  | Behaviour sub-hub                                     | 5    | parallel-risky | 03, 12     | `completed`   | 2026-04-20T21:15Z | 18c69ef6   |
 | 15  | Staff wellbeing folded sub-hub                        | 5    | parallel-risky | 12         | `completed`   | 2026-04-20T21:10Z | 607dab0d   |
-| 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `in-progress` |                   |            |
+| 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `deploying`   |                   |            |
 | 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `in-progress` |                   |            |
 | 18  | Tenant admin → AI flags page                          | 5    | parallel-risky | 04, 12     | `pending`     |                   |            |
 | 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `pending`     |                   |            |
