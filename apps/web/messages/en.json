@@ -190,7 +190,8 @@
     "feeTypes": "Fee Types",
     "feeGeneration": "Fee Generation",
     "debtBreakdown": "Debt Breakdown",
-    "auditTrail": "Audit Trail"
+    "auditTrail": "Audit Trail",
+    "aiFlags": "AI Features"
   },
   "inbox": {
     "title": "Inbox",
@@ -1863,7 +1864,9 @@
       "wellbeing": "Wellbeing",
       "wellbeingDesc": "Special educational needs and student support.",
       "sen": "SEN",
-      "senDesc": "Configure special educational needs categories and provisions."
+      "senDesc": "Configure special educational needs categories and provisions.",
+      "aiFlags": "AI Features",
+      "aiFlagsDesc": "Enable or disable AI across behaviour, pastoral, staff wellbeing, and early warnings."
     },
     "general": "General",
     "security": "Security",
@@ -14438,6 +14441,59 @@
       "resources": {
         "title": "EAP & Resources",
         "description": "Employee Assistance Programme, crisis helplines, and additional support resources."
+      }
+    }
+  },
+  "aiFlagsAdmin": {
+    "title": "AI Features",
+    "description": "Enable or disable AI-powered features per wellbeing module. Disabling a module's AI immediately stops API calls to AI providers and saves cost.",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "enableAll": "Enable all",
+    "disableAll": "Disable all",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "applying": "Applying…",
+    "bulkTitle": "Bulk actions",
+    "bulkDesc": "Turn every wellbeing AI feature on or off in one step. Individual toggles below stay available.",
+    "bulkEnableTitle": "Enable AI on all modules?",
+    "bulkEnableDesc": "All four wellbeing modules will start making AI calls on the next request. Billing resumes for modules that were previously disabled.",
+    "confirmEnableAll": "Enable all",
+    "bulkDisableTitle": "Disable AI on all modules?",
+    "bulkDisableDesc": "All four wellbeing modules will stop making AI calls. Features like incident parsing, SST agenda refresh, and early-warning summaries will return AI_DISABLED until re-enabled.",
+    "bulkDisableWarning": "This is a wide-reaching change. Staff relying on AI features will notice immediately.",
+    "bulkDisableConfirmLabel": "Type {phrase} to confirm.",
+    "disablePhrase": "DISABLE ALL AI",
+    "confirmDisableAll": "Disable all",
+    "toggleEnabled": "AI feature enabled.",
+    "toggleDisabled": "AI feature disabled.",
+    "toggleFailed": "Couldn't change the AI flag. Reverted.",
+    "bulkEnabledAll": "All AI features enabled.",
+    "bulkDisabledAll": "All AI features disabled.",
+    "bulkPartialFailure": "{failed} module(s) didn't update. Retry those individually.",
+    "permissionDeniedTitle": "You don't have access to AI Features",
+    "permissionDeniedDesc": "Only school owners and principals can change AI flags. Ask an admin for access.",
+    "loadFailedTitle": "Couldn't load AI flags. Please try again.",
+    "lastChanged": "Last changed {when}",
+    "neverChanged": "Not changed yet",
+    "toggleAria": "Toggle {module} AI",
+    "costNote": "AI calls are billed per request. See your tenant plan for usage limits and cost breakdowns.",
+    "module": {
+      "behaviour": {
+        "name": "Behaviour",
+        "description": "Incident description parsing, per-student summaries, and natural-language queries across the behaviour log."
+      },
+      "pastoral": {
+        "name": "Pastoral",
+        "description": "SST agenda generation, pastoral concern summaries, and check-in sentiment analysis."
+      },
+      "staff_wellbeing": {
+        "name": "Staff Wellbeing",
+        "description": "Workload anomaly detection, staff survey theme extraction, and cover-fairness alerts."
+      },
+      "early_warning": {
+        "name": "Early Warnings",
+        "description": "Risk score narratives, intervention suggestions, and plain-English explanations for the early-warning signals."
       }
     }
   }
