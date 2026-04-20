@@ -300,9 +300,23 @@ export const hubConfigs: HubConfig[] = [
     roles: [...STAFF_ROLES, 'parent'],
   },
   {
+    // The wellbeing hub lands on its new /wellbeing super-hub dashboard
+    // (impl 13 of the wellbeing rebuild). `/wellbeing` is listed first so
+    // clicking the hub pill in the morph bar always resolves to the
+    // super-hub, not the legacy `/behaviour` page. The remaining base
+    // paths are still here for active-hub detection when the user is
+    // deep inside behaviour / pastoral / sen / early-warnings /
+    // safeguarding sub-modules.
     key: 'wellbeing',
     labelKey: 'nav.wellbeing',
-    basePaths: ['/behaviour', '/pastoral', '/wellbeing', '/sen', '/early-warnings'],
+    basePaths: [
+      '/wellbeing',
+      '/behaviour',
+      '/pastoral',
+      '/sen',
+      '/early-warnings',
+      '/safeguarding',
+    ],
     roles: STAFF_ROLES,
   },
   {
@@ -402,14 +416,11 @@ export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
   // is the navigation surface for this hub (KPI tiles, class enrollment
   // breakdown, and categorised module navigation).
   people: [],
-  wellbeing: [
-    { labelKey: 'nav.behaviour', href: '/behaviour' },
-    { labelKey: 'nav.behaviourIncidents', href: '/behaviour/incidents' },
-    { labelKey: 'nav.pastoral', href: '/pastoral' },
-    { labelKey: 'nav.sen', href: '/sen' },
-    { labelKey: 'nav.wellbeing', href: '/wellbeing', overflow: true },
-    { labelKey: 'nav.earlyWarnings', href: '/early-warnings', overflow: true },
-  ],
+  // The wellbeing hub's /wellbeing super-hub dashboard is the entire
+  // navigation surface for this hub — no sub-strip cascade. Users reach
+  // behaviour / pastoral / sen / early-warnings / safeguarding / staff
+  // wellbeing / settings via the hub tiles on the dashboard itself.
+  wellbeing: [],
   // Operations intentionally has no sub-strip — the /operations dashboard
   // page is the navigation surface for this hub (six cards → six sub-pages).
   // Finance intentionally has no sub-strip — the /finance dashboard
