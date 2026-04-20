@@ -230,6 +230,42 @@ function LoadingSkeleton() {
   );
 }
 
+// ── Shape guard ──────────────────────────────────────────────────────────────
+// The six upstream endpoints occasionally return partial/empty payloads on
+// tenants without prior telemetry. Guard the deep accesses below; if any
+// required slice is missing, fall through to the existing error state.
+// NOTE: this page is retired by impl 15 (staff sub-hub fold). This guard is
+// stop-the-bleeding only.
+
+function isCompleteDashboard(
+  workload: AggregateWorkloadSummary | null | undefined,
+  coverFairness: CoverFairnessResult | null | undefined,
+  timetableQuality: AggregateTimetableQuality | null | undefined,
+  substitutionPressure: SubstitutionPressure | null | undefined,
+  absenceTrends: AbsenceTrends | null | undefined,
+  correlation: CorrelationResult | null | undefined,
+): boolean {
+  if (!workload || !workload.range || typeof workload.range.min !== 'number') return false;
+  if (!coverFairness || !coverFairness.range || !Array.isArray(coverFairness.distribution)) {
+    return false;
+  }
+  if (
+    !timetableQuality ||
+    !timetableQuality.consecutive_periods ||
+    typeof timetableQuality.consecutive_periods.mean !== 'number' ||
+    !timetableQuality.free_period_clumping ||
+    typeof timetableQuality.free_period_clumping.mean !== 'number' ||
+    !timetableQuality.room_changes ||
+    typeof timetableQuality.room_changes.mean !== 'number'
+  ) {
+    return false;
+  }
+  if (!substitutionPressure || !Array.isArray(substitutionPressure.trend)) return false;
+  if (!absenceTrends) return false;
+  if (!correlation || !correlation.status) return false;
+  return true;
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function WellbeingDashboardPage() {
@@ -260,6 +296,19 @@ export default function WellbeingDashboardPage() {
           absenceTrends,
           correlation,
         ]) => {
+          if (
+            !isCompleteDashboard(
+              workload,
+              coverFairness,
+              timetableQuality,
+              substitutionPressure,
+              absenceTrends,
+              correlation,
+            )
+          ) {
+            setError(true);
+            return;
+          }
           setData({
             workload,
             coverFairness,
