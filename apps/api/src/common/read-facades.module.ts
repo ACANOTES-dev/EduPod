@@ -11,6 +11,7 @@ import { ChildProtectionReadFacade } from '../modules/child-protection/child-pro
 import { ClassesReadFacade } from '../modules/classes/classes-read.facade';
 import { CommunicationsReadFacade } from '../modules/communications/communications-read.facade';
 import { ConfigurationReadFacade } from '../modules/configuration/configuration-read.facade';
+import { EarlyWarningReadFacade } from '../modules/early-warning/early-warning-read.facade';
 import { FinanceReadFacade } from '../modules/finance/finance-read.facade';
 import { GdprReadFacade } from '../modules/gdpr/gdpr-read.facade';
 import { GradebookReadFacade } from '../modules/gradebook/gradebook-read.facade';
@@ -21,6 +22,7 @@ import { PastoralReadFacade } from '../modules/pastoral/pastoral-read.facade';
 import { PayrollReadFacade } from '../modules/payroll/payroll-read.facade';
 import { RbacReadFacade } from '../modules/rbac/rbac-read.facade';
 import { RoomsReadFacade } from '../modules/rooms/rooms-read.facade';
+import { SafeguardingReadFacade } from '../modules/safeguarding/safeguarding-read.facade';
 import { SchedulesReadFacade } from '../modules/schedules/schedules-read.facade';
 import { SchedulingReadFacade } from '../modules/scheduling/scheduling-read.facade';
 import { SchedulingRunsReadFacade } from '../modules/scheduling-runs/scheduling-runs-read.facade';
@@ -28,6 +30,7 @@ import { SchoolClosuresReadFacade } from '../modules/school-closures/school-clos
 import { StaffAvailabilityReadFacade } from '../modules/staff-availability/staff-availability-read.facade';
 import { StaffPreferencesReadFacade } from '../modules/staff-preferences/staff-preferences-read.facade';
 import { StaffProfileReadFacade } from '../modules/staff-profiles/staff-profile-read.facade';
+import { StaffWellbeingReadFacade } from '../modules/staff-wellbeing/staff-wellbeing-read.facade';
 import { StudentReadFacade } from '../modules/students/student-read.facade';
 import { TenantReadFacade } from '../modules/tenants/tenant-read.facade';
 import { WebsiteReadFacade } from '../modules/website/website-read.facade';
@@ -51,6 +54,7 @@ const FACADES = [
   ClassesReadFacade,
   CommunicationsReadFacade,
   ConfigurationReadFacade,
+  EarlyWarningReadFacade,
   FinanceReadFacade,
   GdprReadFacade,
   GradebookReadFacade,
@@ -61,6 +65,7 @@ const FACADES = [
   PayrollReadFacade,
   RbacReadFacade,
   RoomsReadFacade,
+  SafeguardingReadFacade,
   SchedulesReadFacade,
   SchedulingReadFacade,
   SchedulingRunsReadFacade,
@@ -68,6 +73,7 @@ const FACADES = [
   StaffAvailabilityReadFacade,
   StaffPreferencesReadFacade,
   StaffProfileReadFacade,
+  StaffWellbeingReadFacade,
   StudentReadFacade,
   TenantReadFacade,
   WebsiteReadFacade,

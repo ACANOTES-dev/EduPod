@@ -13,6 +13,7 @@ import { TenantResolutionMiddleware } from './common/middleware/tenant-resolutio
 import { ReadFacadesModule } from './common/read-facades.module';
 import { AcademicsModule } from './modules/academics/academics.module';
 import { AdmissionsModule } from './modules/admissions/admissions.module';
+import { AiFlagsModule } from './modules/ai-flags/ai-flags.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
@@ -78,6 +79,8 @@ import { StudentsModule } from './modules/students/students.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { TripsModule } from './modules/trips/trips.module';
 import { WebsiteModule } from './modules/website/website.module';
+import { WellbeingAggregateModule } from './modules/wellbeing-aggregate/wellbeing-aggregate.module';
+import { WellbeingNotificationsModule } from './modules/wellbeing-notifications/wellbeing-notifications.module';
 
 @Module({
   providers: [
@@ -175,6 +178,9 @@ import { WebsiteModule } from './modules/website/website.module';
     StaffWellbeingModule,
     SecurityIncidentsModule,
     SenModule,
+    AiFlagsModule,
+    WellbeingAggregateModule,
+    WellbeingNotificationsModule,
   ],
 })
 export class AppModule implements NestModule {

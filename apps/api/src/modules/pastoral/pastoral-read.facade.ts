@@ -166,4 +166,81 @@ export class PastoralReadFacade {
       },
     }) as Promise<CriticalIncidentAffectedRow[]>;
   }
+
+  // ─── Wellbeing Dashboard Aggregator Methods ─────────────────────────────────
+  //
+  // Used by the wellbeing super-hub (`GET /v1/wellbeing/dashboard-summary`).
+
+  /**
+   * Count pastoral cases in an open/active/monitoring state.
+   */
+  async countOpenCases(tenantId: string): Promise<number> {
+    return this.prisma.pastoralCase.count({
+      where: { tenant_id: tenantId, status: { in: ['open', 'active', 'monitoring'] } },
+    });
+  }
+
+  /**
+   * Count pastoral concerns with severity `critical` that have not yet been
+   * acknowledged. Used by the dashboard pending-attention banner.
+   */
+  async countUnacknowledgedCriticalConcerns(tenantId: string): Promise<number> {
+    return this.prisma.pastoralConcern.count({
+      where: {
+        tenant_id: tenantId,
+        severity: 'critical',
+        acknowledged_at: null,
+      },
+    });
+  }
+
+  /**
+   * Find the most recent pastoral concerns for the wellbeing dashboard
+   * activity feed. Honours author masking — returns logged_by only when
+   * `author_masked=false`. Named `ForFeed` to avoid colliding with the
+   * student-scoped `findRecentConcerns` used by early-warning signals.
+   */
+  async findRecentConcernsForFeed(
+    tenantId: string,
+    limit: number,
+  ): Promise<
+    Array<{
+      id: string;
+      category: string;
+      severity: string;
+      occurred_at: Date;
+      author_masked: boolean;
+      logged_by: { first_name: string | null; last_name: string | null } | null;
+    }>
+  > {
+    const rows = await this.prisma.pastoralConcern.findMany({
+      where: { tenant_id: tenantId },
+      orderBy: { created_at: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        category: true,
+        severity: true,
+        occurred_at: true,
+        author_masked: true,
+        logged_by: { select: { first_name: true, last_name: true } },
+      },
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      category: row.category,
+      severity: row.severity,
+      occurred_at: row.occurred_at,
+      author_masked: row.author_masked,
+      logged_by: row.author_masked ? null : row.logged_by,
+    }));
+  }
+
+  /**
+   * Count everything the Pastoral hub tile should show.
+   */
+  async countPastoralHub(tenantId: string): Promise<number> {
+    return this.countOpenCases(tenantId);
+  }
 }

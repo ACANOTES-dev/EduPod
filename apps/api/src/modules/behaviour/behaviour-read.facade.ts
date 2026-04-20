@@ -565,10 +565,7 @@ export class BehaviourReadFacade {
    * Find policy evaluations with action executions and rule version for trace view.
    * Used by policy-engine incident trace.
    */
-  async findPolicyEvaluationTrace(
-    tenantId: string,
-    incidentId: string,
-  ): Promise<unknown[]> {
+  async findPolicyEvaluationTrace(tenantId: string, incidentId: string): Promise<unknown[]> {
     return this.prisma.behaviourPolicyEvaluation.findMany({
       where: { tenant_id: tenantId, incident_id: incidentId },
       include: {
@@ -626,10 +623,7 @@ export class BehaviourReadFacade {
    * Find policy rule version history for a rule.
    * Used by policy-engine version management.
    */
-  async findPolicyRuleVersions(
-    tenantId: string,
-    ruleId: string,
-  ): Promise<unknown[]> {
+  async findPolicyRuleVersions(tenantId: string, ruleId: string): Promise<unknown[]> {
     return this.prisma.behaviourPolicyRuleVersion.findMany({
       where: { rule_id: ruleId, tenant_id: tenantId },
       orderBy: { version: 'desc' },
@@ -664,9 +658,7 @@ export class BehaviourReadFacade {
    * Find behaviour categories for a tenant.
    * Used by policy-engine import/export for category name resolution.
    */
-  async findCategories(
-    tenantId: string,
-  ): Promise<Array<{ id: string; name: string }>> {
+  async findCategories(tenantId: string): Promise<Array<{ id: string; name: string }>> {
     return this.prisma.behaviourCategory.findMany({
       where: { tenant_id: tenantId },
       select: { id: true, name: true },
@@ -677,10 +669,7 @@ export class BehaviourReadFacade {
    * Find a single behaviour category by ID.
    * Used by policy-engine dry-run for category name resolution.
    */
-  async findCategoryById(
-    tenantId: string,
-    categoryId: string,
-  ): Promise<{ name: string } | null> {
+  async findCategoryById(tenantId: string, categoryId: string): Promise<{ name: string } | null> {
     return this.prisma.behaviourCategory.findFirst({
       where: { id: categoryId, tenant_id: tenantId },
       select: { name: true },
@@ -822,15 +811,17 @@ export class BehaviourReadFacade {
     tenantId: string,
     entityType: string,
     entityId: string,
-  ): Promise<Array<{
-    id: string;
-    file_name: string;
-    classification: string;
-    scan_status: string;
-    file_size_bytes: bigint;
-    uploaded_by: { id: string; first_name: string; last_name: string };
-    created_at: Date;
-  }>> {
+  ): Promise<
+    Array<{
+      id: string;
+      file_name: string;
+      classification: string;
+      scan_status: string;
+      file_size_bytes: bigint;
+      uploaded_by: { id: string; first_name: string; last_name: string };
+      created_at: Date;
+    }>
+  > {
     return this.prisma.behaviourAttachment.findMany({
       where: {
         tenant_id: tenantId,
@@ -843,15 +834,17 @@ export class BehaviourReadFacade {
           select: { id: true, first_name: true, last_name: true },
         },
       },
-    }) as Promise<Array<{
-      id: string;
-      file_name: string;
-      classification: string;
-      scan_status: string;
-      file_size_bytes: bigint;
-      uploaded_by: { id: string; first_name: string; last_name: string };
-      created_at: Date;
-    }>>;
+    }) as Promise<
+      Array<{
+        id: string;
+        file_name: string;
+        classification: string;
+        scan_status: string;
+        file_size_bytes: bigint;
+        uploaded_by: { id: string; first_name: string; last_name: string };
+        created_at: Date;
+      }>
+    >;
   }
 
   // ─── Task Methods ───────────────────────────────────────────────────────────
@@ -875,5 +868,210 @@ export class BehaviourReadFacade {
       take: limit,
       orderBy: { due_date: 'asc' },
     }) as Promise<BehaviourTaskRow[]>;
+  }
+
+  // ─── Wellbeing Dashboard Aggregator Methods ─────────────────────────────────
+  //
+  // Used by the wellbeing super-hub (`GET /v1/wellbeing/dashboard-summary`).
+  // All methods take tenantId and use `tenant_id` in the where clause for
+  // isolation; no RLS transaction is needed for counts/shallow reads.
+
+  /**
+   * Count behaviour incidents in an "open" state, bucketed by polarity.
+   * Open statuses: active, investigating, awaiting_approval,
+   * awaiting_parent_meeting, under_review, escalated.
+   */
+  async countOpenIncidentsByPolarity(
+    tenantId: string,
+  ): Promise<{ total: number; positive: number; negative: number }> {
+    const rows = await this.prisma.behaviourIncident.groupBy({
+      by: ['polarity'],
+      where: {
+        tenant_id: tenantId,
+        status: {
+          in: [
+            'active',
+            'investigating',
+            'awaiting_approval',
+            'awaiting_parent_meeting',
+            'under_review',
+            'escalated',
+          ],
+        },
+      },
+      _count: { _all: true },
+    });
+
+    let positive = 0;
+    let negative = 0;
+    for (const row of rows) {
+      if (row.polarity === 'positive') positive = row._count._all;
+      else if (row.polarity === 'negative') negative = row._count._all;
+    }
+
+    return { total: positive + negative, positive, negative };
+  }
+
+  /**
+   * Count sanctions that are scheduled for a past date but haven't been served.
+   * Used by the dashboard "overdue actions" KPI.
+   */
+  async countOverdueSanctions(tenantId: string): Promise<number> {
+    return this.prisma.behaviourSanction.count({
+      where: {
+        tenant_id: tenantId,
+        status: { in: ['scheduled', 'pending_approval', 'rescheduled'] },
+        scheduled_date: { lt: new Date() },
+      },
+    });
+  }
+
+  /**
+   * Count behaviour tasks past their due date and not completed.
+   * Used by the dashboard "overdue actions" KPI.
+   */
+  async countOverdueTasks(tenantId: string): Promise<number> {
+    return this.prisma.behaviourTask.count({
+      where: {
+        tenant_id: tenantId,
+        status: { in: ['pending', 'in_progress', 'overdue'] },
+        due_date: { lt: new Date() },
+      },
+    });
+  }
+
+  /**
+   * Count behaviour incidents with `status='awaiting_parent_meeting'`.
+   * Used by the dashboard pending-attention banner.
+   */
+  async countIncidentsAwaitingParentMeeting(tenantId: string): Promise<number> {
+    return this.prisma.behaviourIncident.count({
+      where: { tenant_id: tenantId, status: 'awaiting_parent_meeting' },
+    });
+  }
+
+  /**
+   * Count behaviour appeals that are in-flight (submitted, under_review,
+   * hearing_scheduled). Used by the dashboard pending-attention banner.
+   */
+  async countPendingAppeals(tenantId: string): Promise<number> {
+    return this.prisma.behaviourAppeal.count({
+      where: {
+        tenant_id: tenantId,
+        status: { in: ['submitted', 'under_review', 'hearing_scheduled'] },
+      },
+    });
+  }
+
+  /**
+   * Find the most recent behaviour incidents for the dashboard activity feed.
+   * Includes reporter name for display.
+   */
+  async findRecentIncidentsForFeed(
+    tenantId: string,
+    limit: number,
+  ): Promise<
+    Array<{
+      id: string;
+      incident_number: string;
+      polarity: string;
+      description: string;
+      occurred_at: Date;
+      reported_by: { first_name: string | null; last_name: string | null } | null;
+    }>
+  > {
+    return this.prisma.behaviourIncident.findMany({
+      where: { tenant_id: tenantId, status: { not: 'draft' } },
+      orderBy: { occurred_at: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        incident_number: true,
+        polarity: true,
+        description: true,
+        occurred_at: true,
+        reported_by: { select: { first_name: true, last_name: true } },
+      },
+    });
+  }
+
+  /**
+   * Find the most recently served sanctions for the dashboard activity feed.
+   */
+  async findRecentServedSanctions(
+    tenantId: string,
+    limit: number,
+  ): Promise<
+    Array<{
+      id: string;
+      sanction_number: string;
+      type: string;
+      served_at: Date | null;
+      served_by: { first_name: string | null; last_name: string | null } | null;
+    }>
+  > {
+    return this.prisma.behaviourSanction.findMany({
+      where: { tenant_id: tenantId, status: 'served', served_at: { not: null } },
+      orderBy: { served_at: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        sanction_number: true,
+        type: true,
+        served_at: true,
+        served_by: { select: { first_name: true, last_name: true } },
+      },
+    });
+  }
+
+  /**
+   * Find the most recent recognition awards for the dashboard activity feed.
+   */
+  async findRecentRecognitionAwards(
+    tenantId: string,
+    limit: number,
+  ): Promise<
+    Array<{
+      id: string;
+      student_id: string;
+      award_type_id: string;
+      points_at_award: number;
+      awarded_at: Date;
+    }>
+  > {
+    return this.prisma.behaviourRecognitionAward.findMany({
+      where: { tenant_id: tenantId },
+      orderBy: { awarded_at: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        student_id: true,
+        award_type_id: true,
+        points_at_award: true,
+        awarded_at: true,
+      },
+    });
+  }
+
+  /**
+   * Count everything the Behaviour hub tile should show: all non-draft
+   * incidents currently in an open status. Used by the dashboard hub_counts.
+   */
+  async countBehaviourHub(tenantId: string): Promise<number> {
+    return this.prisma.behaviourIncident.count({
+      where: {
+        tenant_id: tenantId,
+        status: {
+          in: [
+            'active',
+            'investigating',
+            'awaiting_approval',
+            'awaiting_parent_meeting',
+            'under_review',
+            'escalated',
+          ],
+        },
+      },
+    });
   }
 }
