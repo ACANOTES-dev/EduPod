@@ -48,6 +48,9 @@
       "inbox": [
         "src/inbox/index.ts"
       ],
+      "wellbeing": [
+        "src/wellbeing/index.ts"
+      ],
       "households/*": [
         "src/households/*.ts"
       ]
@@ -129,6 +132,10 @@
     "./inbox": {
       "types": "./src/inbox/index.ts",
       "default": "./dist/inbox/index.js"
+    },
+    "./wellbeing": {
+      "types": "./src/wellbeing/index.ts",
+      "default": "./dist/wellbeing/index.js"
     }
   },
   "scripts": {
