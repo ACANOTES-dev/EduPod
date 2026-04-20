@@ -1,6 +1,14 @@
 'use client';
 
-import { AlertCircle, ArrowDown, ArrowRight, ArrowUp, Minus, Printer, RefreshCw } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  Minus,
+  Printer,
+  RefreshCw,
+} from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -118,6 +126,36 @@ function Divider() {
   return <div className="border-t border-border/50" />;
 }
 
+// ── Shape guard ──────────────────────────────────────────────────────────────
+// /termly-summary can return a partial body (empty sub-objects) on tenants
+// with no prior telemetry. Fall through to the existing "not available"
+// state rather than crashing on deep-field access. This page is retired by
+// impl 15; stop-the-bleeding only.
+
+function isCompleteReport(
+  report: BoardReportSummary | null | undefined,
+): report is BoardReportSummary {
+  if (!report) return false;
+  if (!report.workload_distribution || !report.workload_distribution.range) return false;
+  if (typeof report.workload_distribution.range.min !== 'number') return false;
+  if (!report.cover_fairness || typeof report.cover_fairness.gini_coefficient !== 'number') {
+    return false;
+  }
+  if (!report.timetable_quality || typeof report.timetable_quality.average_score !== 'number') {
+    return false;
+  }
+  if (
+    !report.substitution_pressure ||
+    typeof report.substitution_pressure.composite_score !== 'number'
+  ) {
+    return false;
+  }
+  if (!report.absence_pattern || typeof report.absence_pattern.current_term_rate !== 'number') {
+    return false;
+  }
+  return true;
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BoardReportPage() {
@@ -133,6 +171,10 @@ export default function BoardReportPage() {
 
     apiClient<BoardReportSummary>('/api/v1/staff-wellbeing/reports/termly-summary')
       .then((data) => {
+        if (!isCompleteReport(data)) {
+          setError(true);
+          return;
+        }
         setReport(data);
       })
       .catch((err) => {
@@ -168,7 +210,9 @@ export default function BoardReportPage() {
             onClick={fetchReport}
             className="inline-flex min-h-[44px] min-w-[44px] items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand/90"
           >
-            <RefreshCw className="h-4 w-4" />{t('retry')}</button>
+            <RefreshCw className="h-4 w-4" />
+            {t('retry')}
+          </button>
         </div>
       </div>
     );
@@ -257,9 +301,7 @@ export default function BoardReportPage() {
           <span className="hidden text-text-tertiary sm:inline">&middot;</span>
           <span className="text-text-secondary">{term_name}</span>
         </div>
-        <p className="text-xs text-text-tertiary">
-          {t('generatedAt', { date: generatedDate })}
-        </p>
+        <p className="text-xs text-text-tertiary">{t('generatedAt', { date: generatedDate })}</p>
       </div>
 
       {/* a. Workload Distribution */}
@@ -302,15 +344,9 @@ export default function BoardReportPage() {
           value={<span dir="ltr">{cover_fairness.gini_coefficient.toFixed(3)}</span>}
         />
         <Divider />
-        <DataRow
-          label={t('distributionShape2')}
-          value={cover_fairness.distribution_shape}
-        />
+        <DataRow label={t('distributionShape2')} value={cover_fairness.distribution_shape} />
         <Divider />
-        <DataRow
-          label={t('assessment')}
-          value={cover_fairness.assessment}
-        />
+        <DataRow label={t('assessment')} value={cover_fairness.assessment} />
       </SectionCard>
 
       {/* c. Timetable Quality */}
@@ -343,10 +379,7 @@ export default function BoardReportPage() {
           value={<span dir="ltr">{substitution_pressure.composite_score.toFixed(1)}</span>}
         />
         <Divider />
-        <DataRow
-          label={t('assessment')}
-          value={substitution_pressure.assessment}
-        />
+        <DataRow label={t('assessment')} value={substitution_pressure.assessment} />
         <Divider />
         <DataRow
           label={t('trendDirection')}
@@ -372,19 +405,14 @@ export default function BoardReportPage() {
             <Divider />
             <DataRow
               label={t('previousTermRate')}
-              value={
-                <span dir="ltr">{formatPercent(absence_pattern.previous_term_rate)}</span>
-              }
+              value={<span dir="ltr">{formatPercent(absence_pattern.previous_term_rate)}</span>}
             />
           </>
         )}
         {absence_pattern.highest_day !== null && (
           <>
             <Divider />
-            <DataRow
-              label={t('highestDay')}
-              value={absence_pattern.highest_day}
-            />
+            <DataRow label={t('highestDay')} value={absence_pattern.highest_day} />
           </>
         )}
       </SectionCard>
