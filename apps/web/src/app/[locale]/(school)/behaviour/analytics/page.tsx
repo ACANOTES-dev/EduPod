@@ -127,33 +127,45 @@ export default function BehaviourAnalyticsPage() {
     try {
       const [pulseRes, overviewRes, trendsRes, categoriesRes, subjectsRes, heatmapRes, compRes] =
         await Promise.all([
-          apiClient<PulseResult>('/behaviour/analytics/pulse').catch((err) => { console.error('[BehaviourAnalyticsPage]', err); return null; }),
-          apiClient<OverviewResult>(`/behaviour/analytics/overview?${params}`),
-          apiClient<{ points: TrendPoint[] }>(`/behaviour/analytics/trends?${params}`),
-          apiClient<{ categories: CategoryEntry[] }>(`/behaviour/analytics/categories?${params}`),
-          apiClient<{ subjects: SubjectEntry[] }>(`/behaviour/analytics/subjects?${params}`),
-          apiClient<{ cells: HeatmapCell[] }>(`/behaviour/analytics/heatmap?${params}`),
-          apiClient<{ entries: ComparisonEntry[] }>(`/behaviour/analytics/comparisons?${params}`),
+          apiClient<{ data: PulseResult }>('/api/v1/behaviour/analytics/pulse').catch((err) => {
+            console.error('[BehaviourAnalyticsPage]', err);
+            return null;
+          }),
+          apiClient<{ data: OverviewResult }>(`/api/v1/behaviour/analytics/overview?${params}`),
+          apiClient<{ data: { points: TrendPoint[] } }>(
+            `/api/v1/behaviour/analytics/trends?${params}`,
+          ),
+          apiClient<{ data: { categories: CategoryEntry[] } }>(
+            `/api/v1/behaviour/analytics/categories?${params}`,
+          ),
+          apiClient<{ data: { subjects: SubjectEntry[] } }>(
+            `/api/v1/behaviour/analytics/subjects?${params}`,
+          ),
+          apiClient<{ data: { cells: HeatmapCell[] } }>(
+            `/api/v1/behaviour/analytics/heatmap?${params}`,
+          ),
+          apiClient<{ data: { entries: ComparisonEntry[] } }>(
+            `/api/v1/behaviour/analytics/comparisons?${params}`,
+          ),
         ]);
 
-      if (pulseRes) setPulse(pulseRes);
-      if (overviewRes) setOverview(overviewRes);
-      if (trendsRes?.points) setTrends(trendsRes.points);
-      if (categoriesRes?.categories) setCategories(categoriesRes.categories);
-      if (subjectsRes?.subjects) setSubjects(subjectsRes.subjects);
-      if (heatmapRes?.cells) setHeatmap(heatmapRes.cells);
-      if (compRes?.entries) setComparisons(compRes.entries);
+      if (pulseRes?.data) setPulse(pulseRes.data);
+      if (overviewRes?.data) setOverview(overviewRes.data);
+      if (trendsRes?.data?.points) setTrends(trendsRes.data.points);
+      if (categoriesRes?.data?.categories) setCategories(categoriesRes.data.categories);
+      if (subjectsRes?.data?.subjects) setSubjects(subjectsRes.data.subjects);
+      if (heatmapRes?.data?.cells) setHeatmap(heatmapRes.data.cells);
+      if (compRes?.data?.entries) setComparisons(compRes.data.entries);
     } catch (err) {
-      // Error handling
-      console.error('[all]', err);
+      console.error('[BehaviourAnalyticsPage]', err);
     }
 
     // Staff analytics — separate try/catch; 403 means no permission, silently skip
     try {
-      const staffRes = await apiClient<{ entries: StaffEntry[] }>(
-        `/behaviour/analytics/staff?${params}`,
+      const staffRes = await apiClient<{ data: { entries: StaffEntry[] } }>(
+        `/api/v1/behaviour/analytics/staff?${params}`,
       );
-      if (staffRes?.entries) setStaffData(staffRes.entries);
+      if (staffRes?.data?.entries) setStaffData(staffRes.data.entries);
     } catch (err) {
       console.error('[BehaviourAnalyticsPage]', err);
       // 403 or other error — user lacks behaviour.view_staff_analytics permission

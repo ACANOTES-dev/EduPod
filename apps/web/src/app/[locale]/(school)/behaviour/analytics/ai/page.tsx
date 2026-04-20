@@ -51,13 +51,13 @@ export default function BehaviourAIQueryPage() {
 
   async function loadHistory() {
     try {
-      const res = await apiClient<{ entries: QueryHistoryEntry[] }>(
-        '/behaviour/analytics/ai-query/history?page=1&pageSize=20',
+      const res = await apiClient<{ data: { entries: QueryHistoryEntry[] } }>(
+        '/api/v1/behaviour/analytics/ai-query/history?page=1&pageSize=20',
       );
-      if (res?.entries) setHistory(res.entries);
+      if (res?.data?.entries) setHistory(res.data.entries);
     } catch (err) {
       // History is optional
-      console.error('[res]', err);
+      console.error('[BehaviourAIQueryPage]', err);
     }
   }
 
@@ -68,12 +68,12 @@ export default function BehaviourAIQueryPage() {
     setResult(null);
 
     try {
-      const res = await apiClient<AIQueryResult>('/behaviour/analytics/ai-query', {
+      const res = await apiClient<{ data: AIQueryResult }>('/api/v1/behaviour/analytics/ai-query', {
         method: 'POST',
         body: JSON.stringify({ query }),
       });
-      if (res) {
-        setResult(res);
+      if (res?.data) {
+        setResult(res.data);
         void loadHistory();
       }
     } catch (err: unknown) {
@@ -166,7 +166,9 @@ export default function BehaviourAIQueryPage() {
               <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
                 {t('aiDisclaimer')}
               </span>
-              <span className="text-xs text-muted-foreground">{t('dataAsOf2')}{new Date(result.data_as_of).toLocaleString()}
+              <span className="text-xs text-muted-foreground">
+                {t('dataAsOf2')}
+                {new Date(result.data_as_of).toLocaleString()}
               </span>
               <span className="text-xs text-muted-foreground">
                 {t('scope')}: {result.scope_applied}
