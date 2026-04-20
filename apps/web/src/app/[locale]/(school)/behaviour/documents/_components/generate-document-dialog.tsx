@@ -343,8 +343,10 @@ function Step1TemplatePicker({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              {/* eslint-disable school/no-untranslated-strings -- language names stay in their own script */}
               <SelectItem value="en">English</SelectItem>
               <SelectItem value="ar">العربية</SelectItem>
+              {/* eslint-enable school/no-untranslated-strings */}
             </SelectContent>
           </Select>
         </div>
