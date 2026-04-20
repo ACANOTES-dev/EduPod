@@ -186,7 +186,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T14:10Z | 2a850c21   |
 | 07  | Exclusion + amendment + ack services                  | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T15:15Z | 1a529312   |
 | 08  | Pastoral hidden services (DSAR, import, SST AI, etc.) | 3    | parallel-safe  | 01, 04     | `in-progress` |                   |            |
-| 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `deploying`   |                   |            |
+| 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T17:15Z | 80e60532   |
 | 10  | Page crash fixes (5 pages)                            | 4    | parallel-risky | 02, 03     | `pending`     |                   |            |
 | 11  | Behaviour analytics URL fix + endpoint reconnects     | 4    | parallel-risky | 02         | `pending`     |                   |            |
 | 12  | Translation backfill (en + ar)                        | 4    | parallel-risky | 02         | `pending`     |                   |            |
@@ -759,3 +759,103 @@ studentParent.findMany` calls in exclusions + amendments — routed
   helper which returns the exact slice (active parents with user_id).
   Post-fix: 0 errors, 0 regressions, 92 API + 21 worker tests pass. DI
   smoke test clean.
+
+### [IMPL 09] — Safeguarding (seal + break-glass hardening) + policy ops surfacing
+
+- **Completed:** 2026-04-20T17:15Z Europe/Dublin
+- **Commit:** `80e60532` (local); applied to production as `b53634ce` via `git am`.
+- **Deployed to production:** yes — API rebuilt and restarted. All six new
+  endpoints return 401 (auth required, routing wired). PM2 `api` online
+  and stable post-restart.
+- **Summary (≤ 200 words):**
+  Audit of existing code showed the bulk of impl 09's surface area already
+  shipped: break-glass grant/list/review, seal initiate/approve, every
+  admin data-repair endpoint (recompute-points, rebuild-awards,
+  recompute-pulse, backfill-tasks, reindex-search, retention, legal-holds),
+  and policy engine CRUD + replay + export + import + dry-run all existed.
+  Impl 09 closed the four concrete gaps the Wave 6 UIs need.
+  Safeguarding (`apps/api/src/modules/safeguarding/`):
+  - `POST /v1/safeguarding/concerns/:id/seal/reject` — dual-control
+    rejection, clears `sealed_by_id` + `sealed_reason`, cancels the
+    outstanding seal-approval task, writes `safeguarding_seal_rejected`
+    audit log. Same-user dual-control violation returns 400.
+  - `GET /v1/safeguarding/concerns/:id/seal-status` — returns
+    `{state, initiated_by_id, initiated_reason, approved_by_id, sealed_at}`
+    with state ∈ `not_initiated | pending_approval | sealed`.
+  - `GET /v1/safeguarding/break-glass/:id` — hydrated single-grant view
+    including active flag + `after_action_review.overdue` (true when > 7
+    days past expiry without review).
+  - `GET /v1/safeguarding/break-glass/:id/access-log` — projects
+    break-glass activity from `safeguarding_actions.metadata.break_glass_grant_id`
+    (capped 500 rows). No new table needed; the spec's "access log"
+    inherits from the existing append-only actions trail.
+  - `listActiveGrants` widened to include grants granted in last 30 days
+    (not just currently active); each row now carries `active`,
+    `review_completed_at`, `review_overdue` flags.
+    Behaviour policy ops (`apps/api/src/modules/behaviour/`):
+  - `POST /v1/behaviour/policies/replay/preview` — named alias that forces
+    `dry_run=true` on the existing non-persisting `replayRule` path.
+  - `POST /v1/behaviour/policy-dry-run` — top-level alias of
+    `/admin/policy-dry-run` per impl 09 spec §4 canonical path.
+    Shared schemas: `rejectSealSchema`, `RejectSealDto`, `SealStatusResponse`
+    added to `packages/shared/src/behaviour/schemas/safeguarding.schema.ts`.
+    Tests: +18 seal, +6 break-glass, +4 controller, +2 policy config
+    controller. Full safeguarding (316) + behaviour (1527) test suites pass.
+
+- **Follow-ups:**
+  - **`admin_repair_runs` table NOT shipped.** Impl 09 spec §3 describes a
+    tracking table for who-triggered / started_at / completed_at / affected_count
+    with a polling `GET /admin/repair-runs/:id` endpoint. Deployment matrix
+    has impl 09 as migration=❌ so no schema change was added. Existing
+    long-running endpoints (`reindex-search`, `retention/execute`) already
+    return `{job_id}` from BullMQ — the Wave 6 UI can poll job status
+    through BullMQ instead. Future wave should decide whether to add the
+    dedicated tracking table or formalise the BullMQ polling as the
+    canonical pattern.
+  - **`confirm_phrase` body validation NOT added to execute endpoints.**
+    Spec §"Watch out for" asked for `confirm_phrase: "recompute-points-yes"`
+    (etc.) with backend rejection of `CONFIRMATION_PHRASE_MISMATCH`. Not
+    shipped because the existing Wave 0 UI at
+    `apps/web/src/app/[locale]/(school)/settings/behaviour-admin/page.tsx`
+    already calls `/retention/execute` without the field; adding a required
+    phrase would break it. Wave 6 impl 23 (admin UI rebuild) should add
+    both the typed-confirmation UX AND the required schema field in the
+    same commit so the contract lands atomically.
+  - **Permission scheme deviation:** impl spec proposed new permission
+    keys `safeguarding.break_glass.request | approve | review`. Kept the
+    existing `safeguarding.seal` + `safeguarding.manage` pair — renaming
+    permissions mid-rebuild would ripple across 18+ files. Wave 7 polish
+    could revisit.
+  - **Replay "execute" mode NOT wired.** Spec proposed an executing
+    replay that enqueues `behaviour:policy-replay` with `(rule_id,
+incident_id, replay_run_id)` idempotency. The existing `replayRule`
+    is always a preview (counts would-fire, never persists). Wave 6
+    impl 23 can either make the preview-only nature explicit in the UI
+    or commission a follow-up backend change to ship the persisting mode
+    behind a second endpoint. Default Wave 6 posture: preview only.
+  - **`safeguarding_break_glass_access_log` dedicated table NOT added.**
+    The access log endpoint projects from `safeguarding_actions` metadata
+    instead. Works because every break-glass grant (§2 of existing
+    service) already writes an action row per scoped concern + metadata
+    tag. If a richer log is wanted later (IP, user agent, specific
+    queries), ship a migration + replace the projection.
+
+- **Session notes:**
+  Parallel coding with sibling impl 08 (in-progress at my commit time)
+  required Rule H11 pre-stash: staged my 10 files by explicit pathspec,
+  `git stash push --keep-index --include-untracked` to isolate the 14
+  pastoral files in 08's tree, committed cleanly, then `git stash pop`
+  (clean — no conflict since no file overlap). Applied to both the code
+  commit (`80e60532`) and the log-deploying commit (`623386e4`).
+  Production rebuild surfaced a stale-dist issue: the first `turbo build
+--filter=@school/api` reported cache hit for `@school/shared`, but the
+  actual `packages/shared/dist/` directory on the server only contained
+  the `behaviour/` subdir (not the full tree). `require @school/shared`
+  at `rls.middleware.js:5` then crash-looped the API (473 restarts
+  observed before we fixed it). Root cause: leftover `tsconfig.tsbuildinfo`
+  from a prior partial build was telling `tsc --incremental` nothing
+  needed to compile, while the dist had been removed. Fix: `rm
+tsconfig.tsbuildinfo` + rebuild. Post-rebuild the full dist landed and
+  API booted first try. Worth remembering: after `rm -rf dist` on the
+  server, also `rm tsconfig.tsbuildinfo` — turbo's cache and tsc's
+  incremental mode are independent.
