@@ -1151,3 +1151,99 @@ outstandingPayments}`, `reportCards.sectionType_conduct2`. Unrelated
   3-minute ScheduleWakeup per Rule 6a.
   (d) Web deploy was clean: no tsbuildinfo issues (web doesn't use
   incremental tsc), no pm2 crash loops. Build took 3m17s on the server.
+
+### [IMPL 13] — Wellbeing super-hub + sub-strip removal
+
+- **Completed:** 2026-04-20T21:00Z Europe/Dublin
+- **Commit:** `16a0bce4` (final fix-forward) on top of `eb3c634c`,
+  `60cf7798`, `bcae6621`, `f9741dc3`. Applied to production as
+  `0c2e8718`, `39c7862f`, `7bec40e2`, `1faadd9b`, `2bbeb811`.
+- **Deployed to production:** yes — web rebuilt (`rm -rf .next` +
+  `pnpm turbo build --filter=@school/web`, 3m18s) and `pm2 restart web`.
+  Smoke:
+  - `/en/wellbeing` → HTTP 200, "Wellbeing & Safeguarding" renders in
+    the shell (no `MISSING_MESSAGE` warnings).
+  - `/ar/wellbeing` → HTTP 200, "الرفاه والحماية" renders RTL.
+  - `/en/login` → HTTP 200 (baseline).
+- **Summary (≤ 200 words):**
+  Ships the flagship `/wellbeing` super-hub. New page at
+  `apps/web/src/app/[locale]/(school)/wellbeing/page.tsx` modelled on
+  `/people`: PageHeader → error banner → pending-attention horizontal
+  snap-scroll list → 4-tile KPI strip (sourced from impl 03's
+  `/api/v1/wellbeing/dashboard-summary`) → quick-action grid → 6 hub
+  tiles with dynamic count badges, tooltips, and 60ms staggered
+  fade-in → recent activity feed → staff-only resource ribbon.
+  Role-gating: staff-wellbeing tile hidden from parents/students,
+  settings tile admin-only, declare-critical quick action admin-only.
+
+  **Three shared components extracted for sibling impls 14–17:**
+  `@/components/kpi-tile` (with tooltip prop),
+  `@/components/quick-action`, `@/components/hub-tile` (count badge +
+  staggered fade-in). The old `/people/_components/dashboard-parts.tsx`
+  re-exports from the new location for back-compat.
+
+  Nav-config: reordered `hubConfigs.wellbeing.basePaths` so
+  `/wellbeing` is first (morph-bar pill now lands on the super-hub,
+  not `/behaviour`); added `/safeguarding` to basePaths; set
+  `hubSubStripConfigs.wellbeing = []` — the hub IS the navigation
+  surface.
+
+  Translations: 58-key `wellbeingHub` namespace added to both
+  `messages/en.json` and `messages/ar.json` with identical structure
+  (parity verified via node script). Arabic uses CLDR plural
+  categories (one/two/few/many) for relative-time strings.
+
+  Pure filtering logic in `_components/hub-filters.ts` with a
+  dedicated `.spec.ts` (8 tests, all pass) covering card + action
+  visibility across the role matrix.
+
+- **Follow-ups:**
+  - **`KpiTile` / `QuickAction` / `HubTile` live at `@/components/*`.**
+    Sibling impls 14 (behaviour), 15 (staff), 16 (early-warnings),
+    17 (safeguarding) should import from these canonical paths — not
+    from `/people/_components/dashboard-parts.tsx`. The old location
+    still re-exports for back-compat. Sibling impls 14 and 15 had
+    already started their pages when impl 13 landed — recommend a
+    quick sweep to consolidate imports onto the new shared paths.
+  - **Module-flag filtering NOT shipped.** PLAN.md §2a says "hub tiles
+    filter by module flag — if behaviour is disabled for the tenant,
+    the Behaviour card hides." There is no existing web-side module
+    flag hook. I relied instead on impl 03's aggregator already
+    zeroing `hub_counts` for flag-disabled modules, so tiles show
+    count=0 but stay visible. Consistent with `/people`. If a future
+    wave wants hard hiding, add a `/api/v1/tenants/me/modules`
+    endpoint and a `useTenantModules()` hook, then drop cards by
+    `modules.has(key)`.
+  - **Pending-attention "View more" links to `/behaviour/tasks`** as
+    a placeholder — the dedicated `/wellbeing/attention` page is out
+    of scope per the impl file. Wave 7 polish can revisit.
+  - **No next-intl message-parity Jest test.** Same as impl 12's
+    follow-up — Wave 7 polish should add a regression guard.
+  - **Fix-forward commit `16a0bce4`** drops a named
+    `VISIBLE_HUB_KEYS` re-export from the page file that broke the
+    Next.js App Router build (pages only allow a narrow allowlist of
+    exports). Tests import directly from `_components/hub-filters`
+    so the re-export was redundant. Confirmed green on the second
+    build.
+  - **Production log docs commits edited in-situ.** Patches for
+    `docs(wbr): mark implementation 13 as in-progress` and
+    `as deploying` no longer applied cleanly because sibling impls
+    14/15 had committed interleaving docs edits. Used targeted `sed`
+    (line 204) to flip the row to `deploying`, and this completion
+    commit restores authoritative state on production. Pattern
+    carried forward from impl 10's note.
+- **Session notes:**
+  Parallel coding with siblings 14 (behaviour) and 15 (staff) in-flight
+  on the same module directory. Applied Rule H11 pre-stash on every
+  commit where `git status` showed sibling WIP (untracked `staff/`
+  folder for 15, multiple `wellbeing/*` modifications for 15 and
+  `behaviour/page.tsx` for 14). Every `git add` used explicit
+  pathspec. Two stash-pop conflicts resolved by restoring HEAD and
+  dropping redundant stashes. No sibling work lost.
+
+  Build failure on first deploy — `VISIBLE_HUB_KEYS` named export on
+  the page file — caught by Next.js production build only (the web
+  Jest regex is `.spec.ts`, so the bug didn't surface in `test`). Fix
+  shipped as the follow-up `16a0bce4`. Second build landed clean in
+  3m18s. Rule H10 honoured throughout — no blind re-applies after
+  conflicts.
