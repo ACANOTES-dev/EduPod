@@ -201,7 +201,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 10  | Page crash fixes (5 pages)                            | 4    | parallel-risky | 02, 03     | `completed`   | 2026-04-20T19:10Z | 2d7acb80   |
 | 11  | Behaviour analytics URL fix + endpoint reconnects     | 4    | parallel-risky | 02         | `completed`   | 2026-04-20T17:38Z | 99dd039a   |
 | 12  | Translation backfill (en + ar)                        | 4    | parallel-risky | 02         | `completed`   | 2026-04-20T17:45Z | 802daede   |
-| 13  | Wellbeing super-hub + sub-strip removal               | 5    | parallel-risky | 03, 12     | `in-progress` |                   |            |
+| 13  | Wellbeing super-hub + sub-strip removal               | 5    | parallel-risky | 03, 12     | `deploying`   |                   |            |
 | 14  | Behaviour sub-hub                                     | 5    | parallel-risky | 03, 12     | `in-progress` |                   |            |
 | 15  | Staff wellbeing folded sub-hub                        | 5    | parallel-risky | 12         | `in-progress` |                   |            |
 | 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `pending`     |                   |            |
