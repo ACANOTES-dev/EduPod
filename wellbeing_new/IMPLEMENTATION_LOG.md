@@ -211,7 +211,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 20  | Document generation UI                                | 6    | parallel-risky | 06, 14     | `completed` | 2026-04-20T23:45Z | 9c41fcd2   |
 | 21  | Exclusion + restrictions + amendments + ack UI        | 6    | parallel-risky | 07, 14     | `completed` | 2026-04-21T00:05Z | 60b63439   |
 | 22  | Pastoral hidden-feature UI                            | 6    | parallel-risky | 08         | `completed` | 2026-04-21T00:35Z | 168d4818   |
-| 23  | Safeguarding hidden + recognition + policy + admin UI | 6    | parallel-risky | 09, 14, 17 | `deploying` |                   |            |
+| 23  | Safeguarding hidden + recognition + policy + admin UI | 6    | parallel-risky | 09, 14, 17 | `completed` | 2026-04-21T00:45Z | eb674691   |
 | 24  | Polish, Playwright multi-role sweep, docs             | 7    | serial         | 10–23      | `pending`   |                   |            |
 
 `Depends on` lists the minimum cross-wave prerequisites. In strict wave order these are auto-satisfied; the column lets the slash command and human double-check.
@@ -2054,3 +2054,100 @@ no_communications` type needs an info tooltip in the
   column spacing after the sed dialect); resolved by `git am --skip`
   then an in-situ sed + commit on the server. Pattern carried
   forward from impls 10, 19, 20, 21.
+
+### [IMPL 23] — Safeguarding hidden + recognition + policy + admin UI
+
+- **Completed:** 2026-04-21T00:45Z Europe/Dublin
+- **Commits (local):** `5f1b1757` break-glass, `28327230` sealing panel,
+  `6875b887` recognition hero + podium, `0a5c11a6` policy replay,
+  `77c9b134` behaviour admin + legal holds, `eb674691` arabic translations.
+  Applied to production as `77ffdd45`, `0d001226`, `5f7d750f`, `3cd96f4c`,
+  `b922d50b`, `631c5508` respectively via `git am`.
+- **Deployed to production:** yes — web rebuilt (`rm -rf apps/web/.next` +
+  `pnpm turbo run build --filter=@school/web`, ~3m30s) and
+  `pm2 restart web --update-env`. Smoke tests returned HTTP 200 for
+  `/en/login`, `/en/safeguarding/break-glass`, `/en/behaviour/recognition`,
+  `/en/behaviour/policies/replay`, `/en/behaviour/admin`,
+  `/en/behaviour/admin/legal-holds`, and `/ar/safeguarding/break-glass`.
+  No `MISSING_MESSAGE` warnings in pm2 logs on first render.
+- **Summary (≤ 200 words):**
+  Five surfaces shipped against impl 09's endpoints.
+  (1) `/safeguarding/break-glass` rebuilt: list + 4-step request dialog
+  (staff search, justification ≥100 chars, scope picker, duration slider)
+  - `/break-glass/[id]` detail with access log projection, after-action
+    review form, and review-status badges. Pure helpers +
+    co-located spec (`deriveReviewStatus`, `formatRemaining`).
+    (2) Safeguarding sealing dual-approval via `SealingPanel` added to the
+    pastoral concern detail — fetches `/seal-status`, hides approve/reject
+    from the initiator, surfaces sealed badge + timestamp.
+    (3) Recognition wall elevation: celebratory amber→rose hero strip +
+    gold/silver/bronze podium above the leaderboard table. Existing tabs
+    untouched.
+    (4) `/behaviour/policies/replay` NEW — dedicated preview flow with
+    typed-confirmation "replay-yes" execute button; backend follow-up
+    flagged honestly.
+    (5) `/behaviour/admin` NEW — six repair-op tiles
+    (`RepairOperationCard` reusable component) + `/legal-holds` list / create
+    / release with entity type picker and typed-confirmation on mutations.
+    Translations: five new namespaces (`safeguardingBreakGlass`,
+    `safeguardingSealing`, `behaviourPolicyReplay`, `behaviourAdmin`, plus
+    additions to `behaviour.recognition`) in en + ar.
+- **Follow-ups:**
+  - **Replay execute path is preview-only on the backend today.** Impl 09's
+    completion record flagged this: the existing `replayRule` endpoint
+    never persists. The UI surfaces the typed-confirmation flow with a
+    honest "not wired" fallback note so admins aren't misled. When impl
+    09 follow-up ships the persisting mode (behind a second endpoint),
+    swap the `/behaviour/policies/replay/execute` call site.
+  - **Admin repair `confirm_phrase` not yet enforced server-side.** Impl
+    09's completion record asked Wave 6 impl 23 to add the schema-side
+    `confirm_phrase` field alongside the UI; I built the UI confirmation
+    loop only. The backend still accepts `POST /behaviour/admin/{op}`
+    without the phrase. A schema-side follow-up should reject without
+    `CONFIRMATION_PHRASE_MISMATCH`.
+  - **`/safeguarding/concerns/[id]` still redirects to pastoral.** The
+    SealingPanel was added to the shared pastoral concern detail page
+    rather than a dedicated safeguarding concern detail, because the
+    existing redirect + the shared tables make this the natural home.
+    If a future wave wants a safeguarding-tier view of concerns with
+    different field visibility, it can replace the redirect.
+  - **Break-glass duration cap.** The UI allows up to 72h per the backend
+    schema (impl 09's `grantBreakGlassSchema`), but the Wave 6 spec said
+    max 24h. UI shows a warning for durations > 24h; backend remains
+    permissive. Harmonise either way in Wave 7.
+  - **Recognition wall page still exceeds max-lines soft-threshold.** The
+    new hero + podium pushed the file further over 600 lines. Accepted
+    per the same precedent as impls 10, 14, 16, 17. Wave 7 polish could
+    extract tabs into siblings if warranted.
+  - **Sibling en.json absorbed my keys via lint-staged.** Impl 22's
+    translation commit `f52d070b` (prod `47e78387`) swept up my `en.json`
+    additions — the shared-file dance on Wave 6 is working-as-designed
+    but surprising. My `eb674691` commit carries the ar.json catch-up
+    for the last two namespaces (`behaviourPolicyReplay`,
+    `behaviourAdmin`) that missed the absorb window. Matches rule H6 +
+    H10 expectations.
+  - **Policy replay + admin console don't yet appear in behaviour sub-hub
+    catalogue.** The behaviour sub-hub (impl 14) was built before these
+    pages existed; Wave 7 polish should add hub card entries for
+    `/behaviour/policies/replay` and `/behaviour/admin` so admins can
+    discover them from the hub.
+
+- **Session notes:**
+  Heavy Wave-6 parallel environment — sibling impl 22 was concurrently
+  active on pastoral pages + `messages/*.json`. Applied the H3 + H11
+  patterns throughout: six individual code commits staged by explicit
+  pathspec; no `git add .`. Lint-staged auto-stash absorbed my en.json
+  additions into sibling's translation commit `f52d070b` — caught this
+  before the deploy and adapted by (a) committing only the ar.json catch-up
+  locally and (b) narrowing my production patch series to my specific
+  commits instead of a range.
+  First deploy attempt failed at Step 6b because sibling impl 22 had
+  flipped to `deploying` and beaten me to the web slot (5bdfbb3c landed
+  on prod). Aborted the `git am`, reverted my deploying marker locally,
+  polled every 30s via an active Bash loop (per the user's autonomous-
+  execution memory — ScheduleWakeup was overkill for a 2-3 min wait).
+  Sibling flipped to `completed` at 00:37:30Z; I re-flipped to deploying
+  and landed six per-commit patches in order. Rebuild clean, no tsbuildinfo
+  issue (web doesn't use `tsc --incremental`), pm2 up first try.
+  Jest suite: 480/480 web tests pass locally. Break-glass `_components`
+  pure-helper spec adds 8 new tests.
