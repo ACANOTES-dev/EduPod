@@ -44,10 +44,9 @@ describe('WellbeingInAppProvider', () => {
     });
 
     expect(notifications.createBatch).toHaveBeenCalledTimes(1);
-    const [tenantArg, batchArg] = notifications.createBatch.mock.calls[0] as [
-      string,
-      Array<Record<string, unknown>>,
-    ];
+    const call = notifications.createBatch.mock.calls[0]!;
+    const tenantArg = call[0];
+    const batchArg = call[1];
     expect(tenantArg).toBe(TENANT_ID);
     expect(batchArg).toHaveLength(2);
     expect(batchArg[0]).toMatchObject({
@@ -94,10 +93,7 @@ describe('WellbeingInAppProvider', () => {
       locale: 'ar',
     });
 
-    const [, batchArg] = notifications.createBatch.mock.calls[0] as [
-      string,
-      Array<Record<string, unknown>>,
-    ];
+    const batchArg = notifications.createBatch.mock.calls[0]![1];
     expect(batchArg[0]!.locale).toBe('ar');
   });
 });

@@ -76,7 +76,7 @@ export class AiFlagsService {
       const tx = txClient as unknown as PrismaClient;
       return tx.tenantAiFlag.upsert({
         where: {
-          uq_tenant_ai_flags_tenant_module: { tenant_id: tenantId, module_key: moduleKey },
+          tenant_id_module_key: { tenant_id: tenantId, module_key: moduleKey },
         },
         update: { enabled, updated_by: byUserId },
         create: {
@@ -102,7 +102,7 @@ export class AiFlagsService {
 
     const row = await this.prisma.tenantAiFlag.findUnique({
       where: {
-        uq_tenant_ai_flags_tenant_module: { tenant_id: tenantId, module_key: moduleKey },
+        tenant_id_module_key: { tenant_id: tenantId, module_key: moduleKey },
       },
       select: { enabled: true },
     });

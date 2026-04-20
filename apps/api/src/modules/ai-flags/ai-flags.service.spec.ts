@@ -132,7 +132,7 @@ describe('AiFlagsService', () => {
       });
       expect(tx.tenantAiFlag.upsert).toHaveBeenCalledWith({
         where: {
-          uq_tenant_ai_flags_tenant_module: {
+          tenant_id_module_key: {
             tenant_id: TENANT_ID,
             module_key: 'behaviour',
           },
