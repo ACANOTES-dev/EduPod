@@ -5,9 +5,18 @@ import { z } from 'zod';
 export const reportSafeguardingConcernSchema = z.object({
   student_id: z.string().uuid(),
   concern_type: z.enum([
-    'physical_abuse', 'emotional_abuse', 'sexual_abuse', 'neglect',
-    'self_harm', 'bullying', 'online_safety', 'domestic_violence',
-    'substance_abuse', 'mental_health', 'radicalisation', 'other',
+    'physical_abuse',
+    'emotional_abuse',
+    'sexual_abuse',
+    'neglect',
+    'self_harm',
+    'bullying',
+    'online_safety',
+    'domestic_violence',
+    'substance_abuse',
+    'mental_health',
+    'radicalisation',
+    'other',
   ]),
   severity: z.enum(['low', 'medium', 'high', 'critical']),
   description: z.string().min(10),
@@ -21,11 +30,22 @@ export type ReportSafeguardingConcernDto = z.infer<typeof reportSafeguardingConc
 
 export const updateSafeguardingConcernSchema = z.object({
   description: z.string().min(10).optional(),
-  concern_type: z.enum([
-    'physical_abuse', 'emotional_abuse', 'sexual_abuse', 'neglect',
-    'self_harm', 'bullying', 'online_safety', 'domestic_violence',
-    'substance_abuse', 'mental_health', 'radicalisation', 'other',
-  ]).optional(),
+  concern_type: z
+    .enum([
+      'physical_abuse',
+      'emotional_abuse',
+      'sexual_abuse',
+      'neglect',
+      'self_harm',
+      'bullying',
+      'online_safety',
+      'domestic_violence',
+      'substance_abuse',
+      'mental_health',
+      'radicalisation',
+      'other',
+    ])
+    .optional(),
   severity: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   immediate_actions_taken: z.string().nullable().optional(),
 });
@@ -36,8 +56,13 @@ export type UpdateSafeguardingConcernDto = z.infer<typeof updateSafeguardingConc
 
 export const safeguardingStatusTransitionSchema = z.object({
   status: z.enum([
-    'reported', 'acknowledged', 'under_investigation', 'referred',
-    'monitoring', 'resolved', 'sealed',
+    'reported',
+    'acknowledged',
+    'under_investigation',
+    'referred',
+    'monitoring',
+    'resolved',
+    'sealed',
   ]),
   reason: z.string().min(1, 'Reason is required for all status transitions'),
 });
@@ -57,9 +82,16 @@ export type AssignSafeguardingConcernDto = z.infer<typeof assignSafeguardingConc
 
 export const recordSafeguardingActionSchema = z.object({
   action_type: z.enum([
-    'note_added', 'status_changed', 'assigned', 'meeting_held',
-    'parent_contacted', 'agency_contacted', 'tusla_referred',
-    'garda_referred', 'document_uploaded', 'document_downloaded',
+    'note_added',
+    'status_changed',
+    'assigned',
+    'meeting_held',
+    'parent_contacted',
+    'agency_contacted',
+    'tusla_referred',
+    'garda_referred',
+    'document_uploaded',
+    'document_downloaded',
     'review_completed',
   ]),
   description: z.string().min(1),
@@ -99,18 +131,40 @@ export const approveSealSchema = z.object({
 
 export type ApproveSealDto = z.infer<typeof approveSealSchema>;
 
+export const rejectSealSchema = z.object({
+  reason: z.string().min(1, 'Rejection reason is required'),
+});
+
+export type RejectSealDto = z.infer<typeof rejectSealSchema>;
+
+export interface SealStatusResponse {
+  concern_id: string;
+  state: 'not_initiated' | 'pending_approval' | 'sealed';
+  initiated_by_id: string | null;
+  initiated_reason: string | null;
+  approved_by_id: string | null;
+  sealed_at: string | null;
+}
+
 // ─── Break-Glass ────────────────────────────────────────────────────────────
 
-export const grantBreakGlassSchema = z.object({
-  granted_to_id: z.string().uuid(),
-  reason: z.string().min(1),
-  duration_hours: z.number().int().min(1).max(72),
-  scope: z.enum(['all_concerns', 'specific_concerns']).default('all_concerns'),
-  scoped_concern_ids: z.array(z.string().uuid()).optional(),
-}).refine(
-  (data) => data.scope !== 'specific_concerns' || (data.scoped_concern_ids && data.scoped_concern_ids.length > 0),
-  { message: 'scoped_concern_ids required when scope is specific_concerns', path: ['scoped_concern_ids'] },
-);
+export const grantBreakGlassSchema = z
+  .object({
+    granted_to_id: z.string().uuid(),
+    reason: z.string().min(1),
+    duration_hours: z.number().int().min(1).max(72),
+    scope: z.enum(['all_concerns', 'specific_concerns']).default('all_concerns'),
+    scoped_concern_ids: z.array(z.string().uuid()).optional(),
+  })
+  .refine(
+    (data) =>
+      data.scope !== 'specific_concerns' ||
+      (data.scoped_concern_ids && data.scoped_concern_ids.length > 0),
+    {
+      message: 'scoped_concern_ids required when scope is specific_concerns',
+      path: ['scoped_concern_ids'],
+    },
+  );
 
 export type GrantBreakGlassDto = z.infer<typeof grantBreakGlassSchema>;
 
@@ -124,10 +178,19 @@ export type CompleteBreakGlassReviewDto = z.infer<typeof completeBreakGlassRevie
 
 export const uploadSafeguardingAttachmentSchema = z.object({
   classification: z.enum([
-    'staff_statement', 'student_statement', 'parent_letter',
-    'meeting_minutes', 'screenshot', 'photo', 'scanned_document',
-    'referral_form', 'return_agreement', 'behaviour_contract',
-    'medical_report', 'agency_correspondence', 'other',
+    'staff_statement',
+    'student_statement',
+    'parent_letter',
+    'meeting_minutes',
+    'screenshot',
+    'photo',
+    'scanned_document',
+    'referral_form',
+    'return_agreement',
+    'behaviour_contract',
+    'medical_report',
+    'agency_correspondence',
+    'other',
   ]),
   description: z.string().max(500).nullable().optional(),
   is_redactable: z.boolean().default(false),

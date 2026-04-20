@@ -323,4 +323,33 @@ describe('BehaviourConfigController', () => {
     expect(mockPolicyReplayService.dryRun).toHaveBeenCalledWith(TENANT_ID, dto);
     expect(result).toEqual({ actions: ['notify'] });
   });
+
+  // ─── Top-Level Dry-Run & Replay Preview (impl 09) ─────────────────────────
+
+  it('should expose /behaviour/policy-dry-run that delegates to dryRun', async () => {
+    const dto = { incident_data: { category_id: 'cat-1' } };
+    mockPolicyReplayService.dryRun.mockResolvedValue({ actions: ['notify'] });
+
+    const result = await controller.policyDryRunTopLevel(TENANT, dto as never);
+
+    expect(mockPolicyReplayService.dryRun).toHaveBeenCalledWith(TENANT_ID, dto);
+    expect(result).toEqual({ actions: ['notify'] });
+  });
+
+  it('should expose /policies/replay/preview that forces dry_run=true', async () => {
+    const dto = {
+      rule_id: 'rule-1',
+      replay_period: { from: '2026-01-01', to: '2026-01-31' },
+      dry_run: false,
+    };
+    mockPolicyReplayService.replayRule.mockResolvedValue({ incidents_matched: 3 });
+
+    const result = await controller.replayPolicyPreview(TENANT, dto as never);
+
+    expect(mockPolicyReplayService.replayRule).toHaveBeenCalledWith(TENANT_ID, {
+      ...dto,
+      dry_run: true,
+    });
+    expect(result).toEqual({ incidents_matched: 3 });
+  });
 });

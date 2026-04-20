@@ -52,6 +52,7 @@ const mockPrisma = {
   tenantMembership: { findFirst: jest.fn() },
   safeguardingBreakGlassGrant: { findFirst: jest.fn() },
   cpAccessGrant: { findFirst: jest.fn() },
+  safeguardingAction: { findMany: jest.fn() },
 };
 
 describe('SafeguardingBreakGlassService', () => {
@@ -201,13 +202,20 @@ describe('SafeguardingBreakGlassService', () => {
 
       const result = await service.listActiveGrants(TENANT_ID);
 
-      // Verify filter criteria: revoked_at null, expires_at in the future
+      // Verify filter: tenant scope + OR(active, recent-within-30d)
       expect(mockTx.safeguardingBreakGlassGrant.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             tenant_id: TENANT_ID,
-            revoked_at: null,
-            expires_at: { gt: expect.any(Date) as Date },
+            OR: expect.arrayContaining([
+              expect.objectContaining({
+                revoked_at: null,
+                expires_at: { gt: expect.any(Date) as Date },
+              }),
+              expect.objectContaining({
+                granted_at: { gte: expect.any(Date) as Date },
+              }),
+            ]) as unknown[],
           }),
         }),
       );
@@ -504,6 +512,107 @@ describe('SafeguardingBreakGlassService', () => {
       // Should NOT throw
       const result = await service.grantAccess(TENANT_ID, USER_ID, maxDto);
       expect(result.data).toHaveProperty('id', GRANT_ID);
+    });
+  });
+
+  // ─── getGrant ──────────────────────────────────────────────────────────────
+
+  describe('getGrant', () => {
+    const grantedAt = new Date(Date.now() - 60 * 60 * 1000);
+    const expiresSoon = new Date(Date.now() + 60 * 60 * 1000);
+    const expiredLongAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+
+    it('returns a hydrated grant with active=true and review not overdue while still active', async () => {
+      mockPrisma.safeguardingBreakGlassGrant.findFirst.mockResolvedValue({
+        id: GRANT_ID,
+        granted_to: { id: USER_ID, first_name: 'Dara', last_name: 'DSL' },
+        granted_by: { id: 'user-admin', first_name: 'Ada', last_name: 'Admin' },
+        after_action_review_by: null,
+        reason: 'Child protection review',
+        scope: 'all_concerns',
+        scoped_concern_ids: [],
+        granted_at: grantedAt,
+        expires_at: expiresSoon,
+        revoked_at: null,
+        after_action_review_required: true,
+        after_action_review_completed_at: null,
+        after_action_review_notes: null,
+      });
+
+      const res = await service.getGrant(TENANT_ID, GRANT_ID);
+      expect(res.data.id).toBe(GRANT_ID);
+      expect(res.data.active).toBe(true);
+      expect(res.data.after_action_review.overdue).toBe(false);
+      expect(res.data.after_action_review.required).toBe(true);
+    });
+
+    it('marks review overdue when expired more than 7 days without review', async () => {
+      mockPrisma.safeguardingBreakGlassGrant.findFirst.mockResolvedValue({
+        id: GRANT_ID,
+        granted_to: { id: USER_ID, first_name: 'Dara', last_name: 'DSL' },
+        granted_by: { id: 'user-admin', first_name: 'Ada', last_name: 'Admin' },
+        after_action_review_by: null,
+        reason: 'Emergency',
+        scope: 'all_concerns',
+        scoped_concern_ids: [],
+        granted_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+        expires_at: expiredLongAgo,
+        revoked_at: null,
+        after_action_review_required: true,
+        after_action_review_completed_at: null,
+        after_action_review_notes: null,
+      });
+
+      const res = await service.getGrant(TENANT_ID, GRANT_ID);
+      expect(res.data.active).toBe(false);
+      expect(res.data.after_action_review.overdue).toBe(true);
+    });
+
+    it('throws NotFoundException when grant is missing', async () => {
+      mockPrisma.safeguardingBreakGlassGrant.findFirst.mockResolvedValue(null);
+      await expect(service.getGrant(TENANT_ID, GRANT_ID)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── getAccessLog ──────────────────────────────────────────────────────────
+
+  describe('getAccessLog', () => {
+    it('returns window + action trail filtered by grant metadata', async () => {
+      mockPrisma.safeguardingBreakGlassGrant.findFirst.mockResolvedValue({
+        id: GRANT_ID,
+        granted_to_id: USER_ID,
+        granted_at: new Date('2026-04-20T09:00:00Z'),
+        expires_at: new Date('2026-04-20T15:00:00Z'),
+      });
+      mockPrisma.safeguardingAction.findMany.mockResolvedValue([
+        {
+          id: 'a-1',
+          concern_id: CONCERN_ID,
+          action_by_id: USER_ID,
+          action_type: 'note_added',
+          description: 'Break-glass read: accessed concern',
+          created_at: new Date('2026-04-20T10:00:00Z'),
+        },
+      ]);
+
+      const res = await service.getAccessLog(TENANT_ID, GRANT_ID);
+      expect(res.data.grant_id).toBe(GRANT_ID);
+      expect(res.data.granted_to_id).toBe(USER_ID);
+      expect(res.data.entries).toHaveLength(1);
+      expect(res.data.entries[0]?.actor_id).toBe(USER_ID);
+      expect(mockPrisma.safeguardingAction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            metadata: { path: ['break_glass_grant_id'], equals: GRANT_ID },
+          }),
+        }),
+      );
+    });
+
+    it('throws NotFoundException when grant missing', async () => {
+      mockPrisma.safeguardingBreakGlassGrant.findFirst.mockResolvedValue(null);
+      await expect(service.getAccessLog(TENANT_ID, GRANT_ID)).rejects.toThrow(NotFoundException);
     });
   });
 });

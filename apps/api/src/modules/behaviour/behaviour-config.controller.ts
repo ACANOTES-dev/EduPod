@@ -181,6 +181,21 @@ export class BehaviourConfigController {
     return this.policyReplayService.replayRule(tenant.tenant_id, dto);
   }
 
+  // POST /v1/behaviour/policies/replay/preview — alias surfaced for Wave 6 UI
+  // semantics: the underlying replayRule is non-persisting (dry-run), so the
+  // preview endpoint shares the same service call but names the intent
+  // explicitly for callers that want "just the counts, nothing applied".
+  @Post('behaviour/policies/replay/preview')
+  @RequiresPermission('behaviour.admin')
+  @HttpCode(HttpStatus.OK)
+  async replayPolicyPreview(
+    @CurrentTenant() tenant: TenantContext,
+    @Body(new ZodValidationPipe(ReplayPolicyRuleSchema))
+    dto: z.infer<typeof ReplayPolicyRuleSchema>,
+  ) {
+    return this.policyReplayService.replayRule(tenant.tenant_id, { ...dto, dry_run: true });
+  }
+
   @Get('behaviour/policies/:id')
   @RequiresPermission('behaviour.admin')
   async getPolicy(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
@@ -278,6 +293,20 @@ export class BehaviourConfigController {
   @RequiresPermission('behaviour.admin')
   @HttpCode(HttpStatus.OK)
   async policyDryRun(
+    @CurrentTenant() tenant: TenantContext,
+    @Body(new ZodValidationPipe(PolicyDryRunSchema))
+    dto: z.infer<typeof PolicyDryRunSchema>,
+  ) {
+    return this.policyReplayService.dryRun(tenant.tenant_id, dto);
+  }
+
+  // POST /v1/behaviour/policy-dry-run — top-level alias per impl 09 spec.
+  // Semantically identical to /admin/policy-dry-run; the top-level path is
+  // the canonical surface for the Wave 6 policy UI.
+  @Post('behaviour/policy-dry-run')
+  @RequiresPermission('behaviour.admin')
+  @HttpCode(HttpStatus.OK)
+  async policyDryRunTopLevel(
     @CurrentTenant() tenant: TenantContext,
     @Body(new ZodValidationPipe(PolicyDryRunSchema))
     dto: z.infer<typeof PolicyDryRunSchema>,

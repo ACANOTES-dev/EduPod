@@ -42,6 +42,8 @@ const mockSafeguardingService = {
   recordGardaReferral: jest.fn(),
   initiateSeal: jest.fn(),
   approveSeal: jest.fn(),
+  rejectSeal: jest.fn(),
+  getSealStatus: jest.fn(),
   getDashboard: jest.fn(),
   checkEffectivePermission: jest.fn(),
   generateCaseFile: jest.fn(),
@@ -55,6 +57,8 @@ const mockAttachmentService = {
 const mockBreakGlassService = {
   grantAccess: jest.fn(),
   listActiveGrants: jest.fn(),
+  getGrant: jest.fn(),
+  getAccessLog: jest.fn(),
   completeReview: jest.fn(),
 };
 
@@ -510,5 +514,58 @@ describe('SafeguardingController', () => {
       'mem-1',
       'concern-1',
     );
+  });
+
+  // ─── Seal Reject + Status (impl 09) ───────────────────────────────────
+
+  it('should call safeguardingService.rejectSeal with tenant, user, id, and dto', async () => {
+    mockSafeguardingService.rejectSeal.mockResolvedValue({
+      data: { id: 'concern-1', seal_rejected: true },
+    });
+
+    const dto = { reason: 'Evidence incomplete' };
+    const result = await controller.rejectSeal(TENANT, USER, 'concern-1', dto);
+
+    expect(mockSafeguardingService.rejectSeal).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'user-uuid',
+      'concern-1',
+      dto,
+    );
+    expect(result).toEqual({ data: { id: 'concern-1', seal_rejected: true } });
+  });
+
+  it('should call safeguardingService.getSealStatus with tenant and concern id', async () => {
+    mockSafeguardingService.getSealStatus.mockResolvedValue({
+      concern_id: 'concern-1',
+      state: 'not_initiated',
+    });
+
+    const result = await controller.getSealStatus(TENANT, 'concern-1');
+
+    expect(mockSafeguardingService.getSealStatus).toHaveBeenCalledWith('tenant-uuid', 'concern-1');
+    expect(result).toEqual({ concern_id: 'concern-1', state: 'not_initiated' });
+  });
+
+  // ─── Break-Glass single + access log (impl 09) ────────────────────────
+
+  it('should call breakGlassService.getGrant with tenant and id', async () => {
+    mockBreakGlassService.getGrant.mockResolvedValue({ data: { id: 'grant-1', active: true } });
+
+    const result = await controller.getBreakGlassGrant(TENANT, 'grant-1');
+
+    expect(mockBreakGlassService.getGrant).toHaveBeenCalledWith('tenant-uuid', 'grant-1');
+    expect(result).toEqual({ data: { id: 'grant-1', active: true } });
+  });
+
+  it('should call breakGlassService.getAccessLog with tenant and id', async () => {
+    mockBreakGlassService.getAccessLog.mockResolvedValue({
+      data: { grant_id: 'grant-1', entries: [] },
+    });
+
+    const result = await controller.getBreakGlassAccessLog(TENANT, 'grant-1');
+
+    expect(mockBreakGlassService.getAccessLog).toHaveBeenCalledWith('tenant-uuid', 'grant-1');
+    expect(result).toEqual({ data: { grant_id: 'grant-1', entries: [] } });
   });
 });

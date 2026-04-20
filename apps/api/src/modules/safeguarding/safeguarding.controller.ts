@@ -29,6 +29,7 @@ import {
   listSafeguardingConcernsQuerySchema,
   myReportsQuerySchema,
   recordSafeguardingActionSchema,
+  rejectSealSchema,
   reportSafeguardingConcernSchema,
   safeguardingStatusTransitionSchema,
   tuslaReferralSchema,
@@ -312,6 +313,29 @@ export class SafeguardingController {
     return this.safeguardingService.approveSeal(tenant.tenant_id, user.sub, id);
   }
 
+  // POST /v1/safeguarding/concerns/:id/seal/reject
+  @Post('concerns/:id/seal/reject')
+  @RequiresPermission('safeguarding.seal')
+  async rejectSeal(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(rejectSealSchema))
+    dto: z.infer<typeof rejectSealSchema>,
+  ) {
+    return this.safeguardingService.rejectSeal(tenant.tenant_id, user.sub, id, dto);
+  }
+
+  // GET /v1/safeguarding/concerns/:id/seal-status
+  @Get('concerns/:id/seal-status')
+  @RequiresPermission('safeguarding.view')
+  async getSealStatus(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.safeguardingService.getSealStatus(tenant.tenant_id, id);
+  }
+
   // ─── Dashboard ──────────────────────────────────────────────────────────
 
   @Get('dashboard')
@@ -338,6 +362,26 @@ export class SafeguardingController {
   @RequiresPermission('safeguarding.seal')
   async listBreakGlassGrants(@CurrentTenant() tenant: TenantContext) {
     return this.breakGlassService.listActiveGrants(tenant.tenant_id);
+  }
+
+  // GET /v1/safeguarding/break-glass/:id
+  @Get('break-glass/:id')
+  @RequiresPermission('safeguarding.seal')
+  async getBreakGlassGrant(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.breakGlassService.getGrant(tenant.tenant_id, id);
+  }
+
+  // GET /v1/safeguarding/break-glass/:id/access-log
+  @Get('break-glass/:id/access-log')
+  @RequiresPermission('safeguarding.seal')
+  async getBreakGlassAccessLog(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.breakGlassService.getAccessLog(tenant.tenant_id, id);
   }
 
   @Post('break-glass/:id/review')

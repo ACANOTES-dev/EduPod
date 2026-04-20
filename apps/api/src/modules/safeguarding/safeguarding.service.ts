@@ -9,8 +9,10 @@ import type {
   ListSafeguardingConcernsQuery,
   MyReportsQuery,
   RecordSafeguardingActionDto,
+  RejectSealDto,
   ReportSafeguardingConcernDto,
   SafeguardingStatusTransitionDto,
+  SealStatusResponse,
   TuslaReferralDto,
   UpdateSafeguardingConcernDto,
 } from '@school/shared/behaviour';
@@ -161,6 +163,14 @@ export class SafeguardingService {
 
   async approveSeal(tenantId: string, userId: string, concernId: string) {
     return this.sealService.approveSeal(tenantId, userId, concernId);
+  }
+
+  async rejectSeal(tenantId: string, userId: string, concernId: string, dto: RejectSealDto) {
+    return this.sealService.rejectSeal(tenantId, userId, concernId, dto);
+  }
+
+  async getSealStatus(tenantId: string, concernId: string): Promise<SealStatusResponse> {
+    return this.sealService.getSealStatus(tenantId, concernId);
   }
 
   // ─── Reporting (delegates to SafeguardingReportingService) ──────────────

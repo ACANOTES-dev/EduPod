@@ -209,6 +209,122 @@ export class SafeguardingBreakGlassService {
     }) as Promise<{ data: { id: string; expires_at: string } }>;
   }
 
+  // ─── Single Grant ──────────────────────────────────────────────────────────
+
+  async getGrant(tenantId: string, grantId: string) {
+    const grant = await this.prisma.safeguardingBreakGlassGrant.findFirst({
+      where: { id: grantId, tenant_id: tenantId },
+      include: {
+        granted_to: { select: { id: true, first_name: true, last_name: true } },
+        granted_by: { select: { id: true, first_name: true, last_name: true } },
+        after_action_review_by: { select: { id: true, first_name: true, last_name: true } },
+      },
+    });
+
+    if (!grant) {
+      throw new NotFoundException({
+        code: 'GRANT_NOT_FOUND',
+        message: 'Break-glass grant not found',
+      });
+    }
+
+    const now = new Date();
+    const active = !grant.revoked_at && grant.expires_at > now;
+    const reviewOverdue =
+      !grant.after_action_review_completed_at &&
+      grant.after_action_review_required &&
+      grant.expires_at < now &&
+      now.getTime() - grant.expires_at.getTime() > 7 * 24 * 60 * 60 * 1000;
+
+    return {
+      data: {
+        id: grant.id,
+        granted_to: {
+          id: grant.granted_to.id,
+          name: `${grant.granted_to.first_name} ${grant.granted_to.last_name}`,
+        },
+        granted_by: {
+          id: grant.granted_by.id,
+          name: `${grant.granted_by.first_name} ${grant.granted_by.last_name}`,
+        },
+        reason: grant.reason,
+        scope: grant.scope,
+        scoped_concern_ids: grant.scoped_concern_ids,
+        granted_at: grant.granted_at.toISOString(),
+        expires_at: grant.expires_at.toISOString(),
+        revoked_at: grant.revoked_at?.toISOString() ?? null,
+        active,
+        after_action_review: {
+          required: grant.after_action_review_required,
+          completed_at: grant.after_action_review_completed_at?.toISOString() ?? null,
+          completed_by: grant.after_action_review_by
+            ? {
+                id: grant.after_action_review_by.id,
+                name: `${grant.after_action_review_by.first_name} ${grant.after_action_review_by.last_name}`,
+              }
+            : null,
+          notes: grant.after_action_review_notes,
+          overdue: reviewOverdue,
+        },
+      },
+    };
+  }
+
+  // ─── Access Log (projected from safeguarding_actions) ──────────────────────
+
+  async getAccessLog(tenantId: string, grantId: string) {
+    const grant = await this.prisma.safeguardingBreakGlassGrant.findFirst({
+      where: { id: grantId, tenant_id: tenantId },
+      select: { id: true, granted_to_id: true, granted_at: true, expires_at: true },
+    });
+
+    if (!grant) {
+      throw new NotFoundException({
+        code: 'GRANT_NOT_FOUND',
+        message: 'Break-glass grant not found',
+      });
+    }
+
+    // Access audit is projected from the audit_log entries for reads
+    // performed by the grantee in the grant window, combined with
+    // safeguarding_actions metadata.break_glass_grant_id marker trails.
+    const actionTrail = await this.prisma.safeguardingAction.findMany({
+      where: {
+        tenant_id: tenantId,
+        metadata: { path: ['break_glass_grant_id'], equals: grantId },
+      },
+      orderBy: { created_at: 'desc' },
+      take: 500,
+      select: {
+        id: true,
+        concern_id: true,
+        action_by_id: true,
+        action_type: true,
+        description: true,
+        created_at: true,
+      },
+    });
+
+    return {
+      data: {
+        grant_id: grant.id,
+        granted_to_id: grant.granted_to_id,
+        window: {
+          from: grant.granted_at.toISOString(),
+          to: grant.expires_at.toISOString(),
+        },
+        entries: actionTrail.map((a) => ({
+          id: a.id,
+          concern_id: a.concern_id,
+          actor_id: a.action_by_id,
+          action: a.action_type,
+          description: a.description,
+          at: a.created_at.toISOString(),
+        })),
+      },
+    };
+  }
+
   // ─── List Active Grants ────────────────────────────────────────────────────
 
   async listActiveGrants(tenantId: string) {
@@ -217,11 +333,17 @@ export class SafeguardingBreakGlassService {
     return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      // Active + recent (granted in last 30d OR currently active)
       const grants = await db.safeguardingBreakGlassGrant.findMany({
         where: {
           tenant_id: tenantId,
-          revoked_at: null,
-          expires_at: { gt: new Date() },
+          OR: [
+            { revoked_at: null, expires_at: { gt: now } },
+            { granted_at: { gte: thirtyDaysAgo } },
+          ],
         },
         include: {
           granted_to: { select: { id: true, first_name: true, last_name: true } },
@@ -231,21 +353,32 @@ export class SafeguardingBreakGlassService {
       });
 
       return {
-        data: grants.map((g) => ({
-          id: g.id,
-          granted_to: {
-            id: g.granted_to.id,
-            name: `${g.granted_to.first_name} ${g.granted_to.last_name}`,
-          },
-          granted_by: {
-            id: g.granted_by.id,
-            name: `${g.granted_by.first_name} ${g.granted_by.last_name}`,
-          },
-          reason: g.reason,
-          scope: g.scope,
-          granted_at: g.granted_at.toISOString(),
-          expires_at: g.expires_at.toISOString(),
-        })),
+        data: grants.map((g) => {
+          const active = !g.revoked_at && g.expires_at > now;
+          const reviewOverdue =
+            !g.after_action_review_completed_at &&
+            g.after_action_review_required &&
+            g.expires_at < now &&
+            now.getTime() - g.expires_at.getTime() > 7 * 24 * 60 * 60 * 1000;
+          return {
+            id: g.id,
+            granted_to: {
+              id: g.granted_to.id,
+              name: `${g.granted_to.first_name} ${g.granted_to.last_name}`,
+            },
+            granted_by: {
+              id: g.granted_by.id,
+              name: `${g.granted_by.first_name} ${g.granted_by.last_name}`,
+            },
+            reason: g.reason,
+            scope: g.scope,
+            granted_at: g.granted_at.toISOString(),
+            expires_at: g.expires_at.toISOString(),
+            active,
+            review_completed_at: g.after_action_review_completed_at?.toISOString() ?? null,
+            review_overdue: reviewOverdue,
+          };
+        }),
       };
     }) as Promise<{
       data: Array<{
@@ -256,6 +389,9 @@ export class SafeguardingBreakGlassService {
         scope: string;
         granted_at: string;
         expires_at: string;
+        active: boolean;
+        review_completed_at: string | null;
+        review_overdue: boolean;
       }>;
     }>;
   }
