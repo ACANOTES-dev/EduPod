@@ -216,6 +216,16 @@ export const PERMISSIONS = {
     view: 'safeguarding.view',
     manage: 'safeguarding.manage',
     seal: 'safeguarding.seal',
+    dedicated_view: 'safeguarding.dedicated_view',
+  },
+  // Wellbeing umbrella (super-hub + per-module AI + channel config)
+  wellbeing: {
+    view_dashboard: 'wellbeing.view_dashboard',
+    notifications_configure: 'wellbeing_notifications.configure',
+  },
+  // AI flag management (platform-adjacent, one tier above module permissions)
+  ai_flag: {
+    manage: 'ai_flag.manage',
   },
   // Inbox / messaging (mixed tiers — see PERMISSION_TIER_MAP below)
   inbox: {
@@ -349,6 +359,9 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.safeguarding.view]: 'admin',
   [PERMISSIONS.safeguarding.manage]: 'admin',
   [PERMISSIONS.safeguarding.seal]: 'admin',
+  [PERMISSIONS.safeguarding.dedicated_view]: 'admin',
+  [PERMISSIONS.wellbeing.notifications_configure]: 'admin',
+  [PERMISSIONS.ai_flag.manage]: 'admin',
 
   // Staff tier
   [PERMISSIONS.schedule_staff.view_own]: 'staff',
@@ -369,6 +382,7 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.sen.manage]: 'staff',
   [PERMISSIONS.sen.view_sensitive]: 'staff',
   [PERMISSIONS.safeguarding.report]: 'staff',
+  [PERMISSIONS.wellbeing.view_dashboard]: 'staff',
 
   // Inbox / messaging
   [PERMISSIONS.inbox.settings_read]: 'admin',
@@ -515,6 +529,11 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.safeguarding.view,
     PERMISSIONS.safeguarding.manage,
     PERMISSIONS.safeguarding.seal,
+    PERMISSIONS.safeguarding.dedicated_view,
+    // Wellbeing umbrella + AI flag management (Owner/Principal tier)
+    PERMISSIONS.wellbeing.view_dashboard,
+    PERMISSIONS.wellbeing.notifications_configure,
+    PERMISSIONS.ai_flag.manage,
     // Inbox — admin tier (all five keys)
     PERMISSIONS.inbox.settings_read,
     PERMISSIONS.inbox.settings_write,
@@ -611,6 +630,8 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.safeguarding.report,
     PERMISSIONS.safeguarding.view,
     PERMISSIONS.safeguarding.manage,
+    // Wellbeing super-hub (staff-visible dashboard)
+    PERMISSIONS.wellbeing.view_dashboard,
     // Inbox — school_admin gets send + settings read/write, no oversight
     PERMISSIONS.inbox.settings_read,
     PERMISSIONS.inbox.settings_write,
@@ -636,6 +657,8 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.behaviour.log,
     PERMISSIONS.behaviour.view,
     PERMISSIONS.safeguarding.report,
+    // Wellbeing super-hub is staff-visible
+    PERMISSIONS.wellbeing.view_dashboard,
     // Inbox — teachers can send
     PERMISSIONS.inbox.send,
   ],

@@ -16,6 +16,7 @@ import { LEAVE_TYPE_SEEDS } from './seed/leave-types';
 import { PERMISSION_SEEDS } from './seed/permissions';
 import { SYSTEM_ROLES } from './seed/system-roles';
 import { seedInboxDefaultsForTenant } from './src/inbox-defaults';
+import { seedWellbeingDefaultsForTenant } from './src/wellbeing-defaults';
 
 /**
  * Seed script for the School Operating System.
@@ -469,6 +470,10 @@ async function main() {
       // Seed inbox defaults (settings row, 81-row messaging policy matrix,
       // starter safeguarding keyword list) — idempotent.
       await seedInboxDefaultsForTenant(prisma, tenant.id);
+
+      // Seed wellbeing defaults (AI flags, notification channel prefs,
+      // 31 default behaviour categories when the tenant has zero) — idempotent.
+      await seedWellbeingDefaultsForTenant(prisma, tenant.id);
 
       console.log(`  Tenant "${t.name}" seeded with all defaults.`);
     }

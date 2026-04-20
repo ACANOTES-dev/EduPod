@@ -139,6 +139,12 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'inbox.send',
       'inbox.oversight.read',
       'inbox.oversight.write',
+      // Wellbeing rebuild (Impl 01) — super-hub, AI flags, channel prefs,
+      // dedicated safeguarding sub-hub
+      'wellbeing.view_dashboard',
+      'wellbeing_notifications.configure',
+      'ai_flag.manage',
+      'safeguarding.dedicated_view',
       // Excluded: platform.impersonate (reserved for future platform super-admin role)
     ],
   },
@@ -251,6 +257,11 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'inbox.send',
       'inbox.oversight.read',
       'inbox.oversight.write',
+      // Wellbeing rebuild (Impl 01)
+      'wellbeing.view_dashboard',
+      'wellbeing_notifications.configure',
+      'ai_flag.manage',
+      'safeguarding.dedicated_view',
     ],
   },
   {
@@ -336,6 +347,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'consent.view',
       // Inbox — office-style admin staff get send only
       'inbox.send',
+      // Wellbeing rebuild (Impl 01) — staff-visible dashboard
+      'wellbeing.view_dashboard',
     ],
   },
   {
@@ -371,6 +384,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'homework.view_analytics',
       // Inbox — teachers can send (policy engine gates actual audience)
       'inbox.send',
+      // Wellbeing rebuild (Impl 01) — staff-visible dashboard
+      'wellbeing.view_dashboard',
     ],
   },
   {
@@ -383,6 +398,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'attendance.take',
       'attendance.take_any_class',
       'schedule.view_class',
+      // Wellbeing rebuild (Impl 01) — staff-visible dashboard
+      'wellbeing.view_dashboard',
     ],
   },
   {
@@ -396,6 +413,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'legal.view',
       // Inbox — finance staff can send
       'inbox.send',
+      // Wellbeing rebuild (Impl 01) — staff-visible dashboard
+      'wellbeing.view_dashboard',
     ],
   },
   {
@@ -409,6 +428,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'legal.view',
       // Inbox — front office can send
       'inbox.send',
+      // Wellbeing rebuild (Impl 01) — staff-visible dashboard
+      'wellbeing.view_dashboard',
     ],
   },
   {
@@ -454,6 +475,9 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'inbox.send',
       'inbox.oversight.read',
       'inbox.oversight.write',
+      // Wellbeing rebuild (Impl 01) — super-hub + dedicated safeguarding view
+      'wellbeing.view_dashboard',
+      'safeguarding.dedicated_view',
     ],
   },
   {

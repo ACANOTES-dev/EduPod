@@ -114,6 +114,16 @@ const mockPrisma = {
   safeguardingKeyword: {
     createMany: jest.fn().mockResolvedValue({ count: 31 }),
   },
+  tenantAiFlag: {
+    upsert: jest.fn().mockResolvedValue({}),
+  },
+  behaviourCategory: {
+    count: jest.fn().mockResolvedValue(0),
+    createMany: jest.fn().mockResolvedValue({ count: 31 }),
+  },
+  tenantNotificationPreferences: {
+    upsert: jest.fn().mockResolvedValue({}),
+  },
   $executeRawUnsafe: jest.fn().mockResolvedValue(0),
   $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
     return fn(mockPrisma);
@@ -307,6 +317,101 @@ describe('TenantsService', () => {
       expect(mockPrisma.tenantSequence.create).toHaveBeenCalledTimes(SEQUENCE_TYPES.length);
 
       expect(result).toEqual(fullTenantWithIncludes);
+    });
+
+    it('seeds wellbeing defaults (4 AI flags, 31 categories, 1 channel-prefs row)', async () => {
+      mockPrisma.tenant.findUnique
+        .mockResolvedValueOnce(null) // slug uniqueness
+        .mockResolvedValueOnce(fullTenantWithIncludes); // getTenant at end
+
+      mockPrisma.tenant.create.mockResolvedValue(createdTenant);
+      mockPrisma.tenantDomain.create.mockResolvedValue({});
+      mockPrisma.tenantBranding.create.mockResolvedValue({});
+      mockPrisma.tenantSetting.create.mockResolvedValue({});
+      mockPrisma.tenantModule.create.mockResolvedValue({});
+      mockPrisma.tenantNotificationSetting.create.mockResolvedValue({});
+      mockPrisma.tenantSequence.create.mockResolvedValue({});
+      mockPrisma.role.create.mockResolvedValue({ id: 'role-id' });
+      mockPrisma.behaviourCategory.count.mockResolvedValue(0);
+
+      await service.createTenant(createDto);
+
+      // 4 AI flags: one per module key, all upserted with enabled: false
+      expect(mockPrisma.tenantAiFlag.upsert).toHaveBeenCalledTimes(4);
+      for (const moduleKey of ['behaviour', 'pastoral', 'staff_wellbeing', 'early_warning']) {
+        expect(mockPrisma.tenantAiFlag.upsert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              tenant_id_module_key: expect.objectContaining({
+                tenant_id: 'new-tenant-id',
+                module_key: moduleKey,
+              }),
+            }),
+            create: expect.objectContaining({
+              tenant_id: 'new-tenant-id',
+              module_key: moduleKey,
+              enabled: false,
+            }),
+          }),
+        );
+      }
+
+      // 31 default behaviour categories when count === 0
+      expect(mockPrisma.behaviourCategory.count).toHaveBeenCalledWith({
+        where: { tenant_id: 'new-tenant-id' },
+      });
+      expect(mockPrisma.behaviourCategory.createMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.arrayContaining([
+            expect.objectContaining({
+              name: 'Lateness',
+              tenant_id: 'new-tenant-id',
+            }),
+          ]),
+        }),
+      );
+      const createCall = mockPrisma.behaviourCategory.createMany.mock.calls[0]?.[0];
+      expect((createCall as { data: unknown[] } | undefined)?.data).toHaveLength(31);
+
+      // 1 tenant_notification_preferences row
+      expect(mockPrisma.tenantNotificationPreferences.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenant_id: 'new-tenant-id' },
+          create: expect.objectContaining({
+            tenant_id: 'new-tenant-id',
+            wellbeing_channels: expect.objectContaining({
+              defaults: { email: false, sms: false, whatsapp: false },
+              overrides: {},
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('skips behaviour-category seed when tenant already has categories', async () => {
+      mockPrisma.tenant.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(fullTenantWithIncludes);
+
+      mockPrisma.tenant.create.mockResolvedValue(createdTenant);
+      mockPrisma.tenantDomain.create.mockResolvedValue({});
+      mockPrisma.tenantBranding.create.mockResolvedValue({});
+      mockPrisma.tenantSetting.create.mockResolvedValue({});
+      mockPrisma.tenantModule.create.mockResolvedValue({});
+      mockPrisma.tenantNotificationSetting.create.mockResolvedValue({});
+      mockPrisma.tenantSequence.create.mockResolvedValue({});
+      mockPrisma.role.create.mockResolvedValue({ id: 'role-id' });
+
+      // Simulate a tenant that already has categories seeded by the legacy
+      // behaviour-seed path — wellbeing seed must NOT duplicate them.
+      mockPrisma.behaviourCategory.count.mockResolvedValue(12);
+
+      await service.createTenant(createDto);
+
+      expect(mockPrisma.behaviourCategory.createMany).not.toHaveBeenCalled();
+      // AI flags and notification prefs still upserted (they're idempotent)
+      expect(mockPrisma.tenantAiFlag.upsert).toHaveBeenCalledTimes(4);
+      expect(mockPrisma.tenantNotificationPreferences.upsert).toHaveBeenCalled();
     });
 
     it('should reject duplicate slug', async () => {

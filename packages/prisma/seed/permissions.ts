@@ -996,4 +996,26 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     description: 'Freeze / unfreeze conversations and act on safeguarding flags',
     permission_tier: 'admin',
   },
+
+  // ─── Wellbeing rebuild (Impl 01 foundation) ────────────────────────────────
+  {
+    permission_key: 'ai_flag.manage',
+    description: 'Manage tenant-level AI feature flags',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'wellbeing.view_dashboard',
+    description: 'View the wellbeing super-hub dashboard',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'safeguarding.dedicated_view',
+    description: 'Access the dedicated safeguarding sub-hub',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'wellbeing_notifications.configure',
+    description: 'Configure wellbeing notification channel preferences',
+    permission_tier: 'admin',
+  },
 ];

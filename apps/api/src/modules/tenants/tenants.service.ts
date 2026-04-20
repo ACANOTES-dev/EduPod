@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { seedInboxDefaultsForTenant } from '@school/prisma';
+import { seedInboxDefaultsForTenant, seedWellbeingDefaultsForTenant } from '@school/prisma';
 import {
   MODULE_KEYS,
   NOTIFICATION_TYPES,
@@ -277,6 +277,11 @@ export class TenantsService {
     // Seed inbox defaults (tenant_settings_inbox row, 81-row messaging policy
     // matrix, starter safeguarding keyword list). Idempotent — safe to re-run.
     await seedInboxDefaultsForTenant(this.prisma, tenant.id);
+
+    // Seed wellbeing defaults (per-module AI flags off by default, wellbeing
+    // notification channel preferences, 31 default behaviour categories when
+    // the tenant has none). Idempotent — count checks short-circuit re-runs.
+    await seedWellbeingDefaultsForTenant(this.prisma, tenant.id);
 
     // Backfill inbox.* and safeguarding.* permission grants for the new
     // tenant's admin-tier roles immediately. Without this, a tenant
