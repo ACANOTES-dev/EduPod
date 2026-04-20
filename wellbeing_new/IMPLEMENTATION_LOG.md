@@ -146,32 +146,32 @@ Restart target determines deploy serialisation. Deployments only block each othe
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                 | Wave | Mode           | Depends on | Status      | Completed at | Commit SHA |
-| --- | ----------------------------------------------------- | ---- | -------------- | ---------- | ----------- | ------------ | ---------- |
-| 01  | Schema foundation + default seeds                     | 1    | serial         | —          | `deploying` |              |            |
-| 02  | Fix broken behaviour endpoints                        | 2    | parallel-safe  | 01         | `pending`   |              |            |
-| 03  | Wellbeing dashboard-summary aggregator                | 2    | parallel-safe  | 01         | `pending`   |              |            |
-| 04  | AI flag service + notification routing                | 2    | parallel-safe  | 01         | `pending`   |              |            |
-| 05  | Behaviour AI services                                 | 3    | parallel-safe  | 01, 04     | `pending`   |              |            |
-| 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `pending`   |              |            |
-| 07  | Exclusion + amendment + ack services                  | 3    | parallel-safe  | 01, 04     | `pending`   |              |            |
-| 08  | Pastoral hidden services (DSAR, import, SST AI, etc.) | 3    | parallel-safe  | 01, 04     | `pending`   |              |            |
-| 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `pending`   |              |            |
-| 10  | Page crash fixes (5 pages)                            | 4    | parallel-risky | 02, 03     | `pending`   |              |            |
-| 11  | Behaviour analytics URL fix + endpoint reconnects     | 4    | parallel-risky | 02         | `pending`   |              |            |
-| 12  | Translation backfill (en + ar)                        | 4    | parallel-risky | 02         | `pending`   |              |            |
-| 13  | Wellbeing super-hub + sub-strip removal               | 5    | parallel-risky | 03, 12     | `pending`   |              |            |
-| 14  | Behaviour sub-hub                                     | 5    | parallel-risky | 03, 12     | `pending`   |              |            |
-| 15  | Staff wellbeing folded sub-hub                        | 5    | parallel-risky | 12         | `pending`   |              |            |
-| 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `pending`   |              |            |
-| 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `pending`   |              |            |
-| 18  | Tenant admin → AI flags page                          | 5    | parallel-risky | 04, 12     | `pending`   |              |            |
-| 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `pending`   |              |            |
-| 20  | Document generation UI                                | 6    | parallel-risky | 06, 14     | `pending`   |              |            |
-| 21  | Exclusion + restrictions + amendments + ack UI        | 6    | parallel-risky | 07, 14     | `pending`   |              |            |
-| 22  | Pastoral hidden-feature UI                            | 6    | parallel-risky | 08         | `pending`   |              |            |
-| 23  | Safeguarding hidden + recognition + policy + admin UI | 6    | parallel-risky | 09, 14, 17 | `pending`   |              |            |
-| 24  | Polish, Playwright multi-role sweep, docs             | 7    | serial         | 10–23      | `pending`   |              |            |
+| #   | Title                                                 | Wave | Mode           | Depends on | Status      | Completed at      | Commit SHA |
+| --- | ----------------------------------------------------- | ---- | -------------- | ---------- | ----------- | ----------------- | ---------- |
+| 01  | Schema foundation + default seeds                     | 1    | serial         | —          | `completed` | 2026-04-20T14:15Z | c5ee2128   |
+| 02  | Fix broken behaviour endpoints                        | 2    | parallel-safe  | 01         | `pending`   |                   |            |
+| 03  | Wellbeing dashboard-summary aggregator                | 2    | parallel-safe  | 01         | `pending`   |                   |            |
+| 04  | AI flag service + notification routing                | 2    | parallel-safe  | 01         | `pending`   |                   |            |
+| 05  | Behaviour AI services                                 | 3    | parallel-safe  | 01, 04     | `pending`   |                   |            |
+| 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `pending`   |                   |            |
+| 07  | Exclusion + amendment + ack services                  | 3    | parallel-safe  | 01, 04     | `pending`   |                   |            |
+| 08  | Pastoral hidden services (DSAR, import, SST AI, etc.) | 3    | parallel-safe  | 01, 04     | `pending`   |                   |            |
+| 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `pending`   |                   |            |
+| 10  | Page crash fixes (5 pages)                            | 4    | parallel-risky | 02, 03     | `pending`   |                   |            |
+| 11  | Behaviour analytics URL fix + endpoint reconnects     | 4    | parallel-risky | 02         | `pending`   |                   |            |
+| 12  | Translation backfill (en + ar)                        | 4    | parallel-risky | 02         | `pending`   |                   |            |
+| 13  | Wellbeing super-hub + sub-strip removal               | 5    | parallel-risky | 03, 12     | `pending`   |                   |            |
+| 14  | Behaviour sub-hub                                     | 5    | parallel-risky | 03, 12     | `pending`   |                   |            |
+| 15  | Staff wellbeing folded sub-hub                        | 5    | parallel-risky | 12         | `pending`   |                   |            |
+| 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `pending`   |                   |            |
+| 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `pending`   |                   |            |
+| 18  | Tenant admin → AI flags page                          | 5    | parallel-risky | 04, 12     | `pending`   |                   |            |
+| 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `pending`   |                   |            |
+| 20  | Document generation UI                                | 6    | parallel-risky | 06, 14     | `pending`   |                   |            |
+| 21  | Exclusion + restrictions + amendments + ack UI        | 6    | parallel-risky | 07, 14     | `pending`   |                   |            |
+| 22  | Pastoral hidden-feature UI                            | 6    | parallel-risky | 08         | `pending`   |                   |            |
+| 23  | Safeguarding hidden + recognition + policy + admin UI | 6    | parallel-risky | 09, 14, 17 | `pending`   |                   |            |
+| 24  | Polish, Playwright multi-role sweep, docs             | 7    | serial         | 10–23      | `pending`   |                   |            |
 
 `Depends on` lists the minimum cross-wave prerequisites. In strict wave order these are auto-satisfied; the column lets the slash command and human double-check.
 
@@ -195,3 +195,79 @@ Append new records below in chronological order. Format:
 ```
 
 <!-- ─── Append records below this line ─── -->
+
+### [IMPL 01] — Schema foundation + default seeds
+
+- **Completed:** 2026-04-20T14:15Z Europe/Dublin
+- **Commit:** c5ee2128 (local); rebased to `ef6402ff` on production via `git am`
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Landed the wellbeing rebuild's database foundation. New tables:
+  `tenant_ai_flags` (per-module AI gate; 4 rows per tenant, enabled=false)
+  and `tenant_notification_preferences` (wellbeing_channels JSONB for
+  email/sms/whatsapp per event; in-app always on). Extended
+  `behaviour_categories` with `requires_parent_ack`,
+  `auto_create_pastoral_concern`, `converts_to_safeguarding`. Both new
+  tables ship with `FORCE ROW LEVEL SECURITY` + tenant_isolation
+  policies in post_migrate.sql and in the authoritative
+  `packages/prisma/rls/policies.sql` catalogue. Migration data-seeds
+  all 5 existing tenants (NHQS + stress-a/b/c/d): 20 AI flag rows, 5
+  notification preference rows, 31 × 5 behaviour categories (zero-count
+  tenants only). Four new permissions (`ai_flag.manage`,
+  `wellbeing.view_dashboard`, `safeguarding.dedicated_view`,
+  `wellbeing_notifications.configure`) wired into
+  `packages/shared/src/constants/permissions.ts` PERMISSIONS +
+  PERMISSION_TIER_MAP + SYSTEM_ROLE_PERMISSIONS, the prisma seed catalogues
+  (`seed/permissions.ts`, `seed/system-roles.ts`), and role_permission
+  grants backfilled on existing tenants via migration SQL.
+  New helpers: `packages/prisma/src/wellbeing-defaults.ts` exports
+  `seedWellbeingDefaultsForTenant` / `seedWellbeingDefaultsForAllTenants`.
+  Category list lives at
+  `packages/prisma/src/seed-data/wellbeing-default-categories.ts`.
+  Shared types at `packages/shared/src/wellbeing/index.ts` via
+  subpath export. `TenantsService.createTenant` and dev `seed.ts` both
+  call the new seed helper after the inbox seed.
+
+- **Follow-ups:**
+  - **28 vs 31 categories** — PLAN.md headline says "Twenty-eight
+    categories" but its own enumerated list contains 31. Shipped all 31. Future docs pass: reconcile the count in PLAN.md §5 headline.
+  - **Two behaviour-category seed paths** — `seed/behaviour-seed.ts`
+    still bootstraps new tenants with the legacy 12 sanction-outcome
+    categories (Praise / Merit / Detention …). `seedWellbeingDefaultsForTenant`
+    only touches the table when count === 0, so new tenants keep the
+    legacy 12 and never get the new 31. Existing tenants that happened
+    to have zero categories received the 31. A future rebuild wave
+    should reconcile these two seed paths (probably by merging the 31
+    into `seed/behaviour-seed.ts` with matching policy rules + templates).
+  - **`designated_safeguarding_lead` role** — impl file wanted
+    `safeguarding.dedicated_view` granted to this role, but no such
+    role exists in `TENANT_SYSTEM_ROLES` yet. Permission was granted
+    to school_owner/principal/vice_principal only. When Wave 5 Impl 17
+    (safeguarding sub-hub) or a future impl introduces the DSL role,
+    it MUST also grant `safeguarding.dedicated_view` to it.
+  - **Permission backfill is migration-side-only** — existing
+    tenants' role_permission grants were added by the migration SQL.
+    If the migration SQL hadn't worked, we'd have followed the
+    `SafeguardingPermissionsInit` OnModuleInit pattern. The current
+    implementation doesn't have a boot-time init, so if Wave 5 adds
+    new roles or new tenants created between the migration and a
+    redeploy don't go through `tenants.service.ts` (unlikely), they
+    would be missing grants. Wave 5 Impl 18 (AI flags admin page)
+    should confirm this is still fine or add a boot init.
+  - **Production behaviour_categories count** — both NHQS and stress-a
+    showed 0 categories before migration, so both received the new 31.
+    That implies these tenants were never seeded with the legacy 12 —
+    possibly because they predate `seedBehaviourData` being wired in
+    or because they were stress-tested through a different path.
+    Verify behaviour analytics still work on these tenants on the next
+    Wave 2 backend pass.
+
+- **Session notes:**
+  Production rebuild required chown fixes on `apps/*/dist` and
+  `node_modules/.pnpm/@prisma+client*` before the edupod user could
+  overwrite the existing build artefacts (previous build had been run
+  as root). After rebuild, turbo reported a `@school/prisma` cache
+  hit; had to `rm -rf packages/prisma/dist` and rebuild to force the
+  new compiled output. The old `api-error.log` (210MB, last written
+  Apr 5) contains stale `ERR_MODULE_NOT_FOUND` entries from prior
+  deploys — unrelated to this deployment. New processes start clean.
