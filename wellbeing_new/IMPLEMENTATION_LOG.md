@@ -200,7 +200,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `completed` | 2026-04-20T17:15Z | 80e60532   |
 | 10  | Page crash fixes (5 pages)                            | 4    | parallel-risky | 02, 03     | `completed` | 2026-04-20T19:10Z | 2d7acb80   |
 | 11  | Behaviour analytics URL fix + endpoint reconnects     | 4    | parallel-risky | 02         | `completed` | 2026-04-20T17:38Z | 99dd039a   |
-| 12  | Translation backfill (en + ar)                        | 4    | parallel-risky | 02         | `deploying` |                   |            |
+| 12  | Translation backfill (en + ar)                        | 4    | parallel-risky | 02         | `completed` | 2026-04-20T17:45Z | 802daede   |
 | 13  | Wellbeing super-hub + sub-strip removal               | 5    | parallel-risky | 03, 12     | `pending`   |                   |            |
 | 14  | Behaviour sub-hub                                     | 5    | parallel-risky | 03, 12     | `pending`   |                   |            |
 | 15  | Staff wellbeing folded sub-hub                        | 5    | parallel-risky | 12         | `pending`   |                   |            |
@@ -1081,3 +1081,73 @@ stash@{0}` (will conflict cleanly on my 3 committed files; those
   complete (it deployed first-come-first-served per the wave rules).
   (e) Web deploy was clean: no tsbuildinfo issues, no pm2 crash loops.
   3-minute build + ~3 seconds pm2 restart.
+
+### [IMPL 12] — Translation backfill (en + ar)
+
+- **Completed:** 2026-04-20T17:45Z Europe/Dublin
+- **Commit:** `802daede` (local); applied to production as `2c1d572e` via `git am`.
+- **Deployed to production:** yes — web rebuilt (3m17s), pm2 web restarted.
+  Smoke tests all 200: `/en/login`, `/en/behaviour`, `/ar/behaviour`,
+  `/en/settings/behaviour-general`, `/ar/settings/behaviour-general`. No raw
+  `behaviour.*` keys in rendered HTML; no `MISSING_MESSAGE` warnings.
+- **Summary (≤ 200 words):**
+  Backfilled 283 missing translation keys in `messages/en.json` and
+  `messages/ar.json` across every existing behaviour and
+  behaviour-settings page. Namespaces covered: `behaviour.aiQuery`,
+  `alerts`, `amendments`, `analytics`, `appealDetail`, `dashboard`
+  (stats, quickActions), `documents`, `exclusionDetail`,
+  `incidentDetail`, `incidents`, `interventionDetail`, `newIncident`,
+  `parentPortal`, `recognition`, `students`, `studentProfile`,
+  `tasks`; plus `behaviourSettings.general` (40 labels / descriptions /
+  sections / toasts), `documents`, `policies`. EN and AR have
+  structurally identical keys for every addition.
+  Two stale existing en/ar entries replaced to match source-code
+  contract: `behaviour.incidentDetail.details` (was string "Details",
+  the page uses `t('details.context')`, `t('details.location')`, etc.
+  so now a nested object) and `behaviour.incidents.pagination` (was
+  object `{page, previous, next}`, the page calls
+  `t('pagination', {page, total})` so now a parameterised string). Old
+  object subkeys were verified unused elsewhere. Discovery used a
+  variable-scoped regex scan of all `.ts`/`.tsx` files under
+  `apps/web/src/app/[locale]/(school)/behaviour/` and the seven
+  `settings/behaviour-*/` folders, matching each `useTranslations(ns)`
+  declaration to the `t()` calls using its declared variable.
+- **Follow-ups:**
+  - **9 pre-existing EN-only keys NOT in AR:** `nav.engagement`,
+    `dashboard.parentDashboard.{actionCenterTitle, actionCenterDescription,
+actionCenterClear, actionCenterCta, pendingForms, upcomingActions,
+outstandingPayments}`, `reportCards.sectionType_conduct2`. Unrelated
+    to behaviour backfill. Wave 7 polish should add Arabic counterparts
+    or the next impl that touches those surfaces.
+  - **Audit-flagged bug kept as-is:** the concatenation
+    `behaviour.recognition.filters.currentYearbehaviour.recognition.noRecognition`
+    is a code bug in the recognition page (missing closing quote or
+    JSX), not a translation issue. Wave 5 impl 14 (behaviour sub-hub)
+    should fix when touching the recognition layout. Per impl 12 spec
+    §"Watch out for".
+  - **No parity test shipped.** The impl file suggested a Jest test
+    asserting en/ar key parity — deferred. Current parity validated via
+    node script only. Wave 7 polish should add the test as a regression
+    guard for future contributions.
+  - **Stash left in place:** `stash@{1}` (`sibling-work-impl-11-during-12`)
+    contains sibling impl 11's analytics page edits from the moment I
+    pre-stashed. Impl 11 has since landed those files on main via
+    `99dd039a`, so the stash is redundant and can be dropped by whoever
+    next tidies the stash list. `stash@{0}`
+    (`sibling-impl-12-translations-and-scratch-during-impl-11`) was created
+    by sibling impl 11's pre-stash of my WIP — also redundant now.
+- **Session notes:**
+  (a) Applied Rule H11 pre-stash pattern to isolate sibling impl 11's
+  analytics edits before committing. One resurgence: `git stash pop`
+  after my commit conflicted on `url-prefix.spec.ts` because impl 11
+  committed that file meanwhile; resolved by taking HEAD's version and
+  dropping the stash entry from pop.
+  (b) Extraction regex matches `VAR('key')` and `VAR.rich('key')` scoped
+  to each file's own `useTranslations(ns)` declarations; this removed
+  ~360 false positives produced by a naive all-namespaces approach and
+  gave a clean 283-key inventory.
+  (c) Waited ~6 minutes total for impls 10 and 11 to deploy on the
+  shared web restart target (first-come-first-served). Both polled via
+  3-minute ScheduleWakeup per Rule 6a.
+  (d) Web deploy was clean: no tsbuildinfo issues (web doesn't use
+  incremental tsc), no pm2 crash loops. Build took 3m17s on the server.
