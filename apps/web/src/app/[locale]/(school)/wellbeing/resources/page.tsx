@@ -106,19 +106,25 @@ function EapSection({
       <dl className="grid gap-3 sm:grid-cols-2">
         {eap.hours && (
           <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-text-secondary">{labelHours}</dt>
+            <dt className="text-xs font-medium uppercase tracking-wide text-text-secondary">
+              {labelHours}
+            </dt>
             <dd className="mt-0.5 text-sm text-text-primary">{eap.hours}</dd>
           </div>
         )}
         {eap.management_body && (
           <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-text-secondary">{labelManagementBody}</dt>
+            <dt className="text-xs font-medium uppercase tracking-wide text-text-secondary">
+              {labelManagementBody}
+            </dt>
             <dd className="mt-0.5 text-sm text-text-primary">{eap.management_body}</dd>
           </div>
         )}
         {eap.website && (
           <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-text-secondary">{labelWebsite}</dt>
+            <dt className="text-xs font-medium uppercase tracking-wide text-text-secondary">
+              {labelWebsite}
+            </dt>
             <dd className="mt-0.5">
               <a
                 href={eap.website}
@@ -200,7 +206,9 @@ function ExternalResourceCard({
       <p className="font-semibold text-text-primary">{resource.name}</p>
       {resource.phone && (
         <div>
-          <span className="text-xs font-medium uppercase tracking-wide text-text-secondary">{labelPhone}: </span>
+          <span className="text-xs font-medium uppercase tracking-wide text-text-secondary">
+            {labelPhone}:{' '}
+          </span>
           <a
             href={`tel:${stripSpaces(resource.phone)}`}
             className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 text-base font-semibold text-brand-primary hover:underline"
@@ -212,7 +220,9 @@ function ExternalResourceCard({
       )}
       {resource.website && (
         <div>
-          <span className="text-xs font-medium uppercase tracking-wide text-text-secondary">{labelWebsite}: </span>
+          <span className="text-xs font-medium uppercase tracking-wide text-text-secondary">
+            {labelWebsite}:{' '}
+          </span>
           <a
             href={resource.website}
             target="_blank"
@@ -248,18 +258,62 @@ export default function ResourcesPage() {
   React.useEffect(() => {
     apiClient<ResourcesResult>('/api/v1/staff-wellbeing/resources')
       .then((res) => setData(res))
-      .catch((err) => { console.error('[WellbeingResourcesPage]', err); })
+      .catch((err) => {
+        console.error('[WellbeingResourcesPage]', err);
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
   // Resolve crisis entries inside the component where t() is available
   const crisisEntries: CrisisEntry[] = [
-    { id: 'pieta', name: t('pietaHouse'), desc: t('pietaHouseDesc'), number: '1800247247', displayNumber: '1800 247 247', linkType: 'tel' },
-    { id: 'samaritans', name: t('samaritans'), desc: t('samaritansDesc'), number: '116123', displayNumber: '116 123', linkType: 'tel' },
-    { id: 'text50808', name: t('text50808'), desc: t('text50808Desc'), number: '50808', displayNumber: '50808', linkType: 'sms' },
-    { id: 'into', name: t('into'), desc: t('intoDesc'), number: '018047700', displayNumber: '01 804 7700', linkType: 'tel' },
-    { id: 'tui', name: t('tui'), desc: t('tuiDesc'), number: '014922588', displayNumber: '01 492 2588', linkType: 'tel' },
-    { id: 'asti', name: t('asti'), desc: t('astiDesc'), number: '016040160', displayNumber: '01 604 0160', linkType: 'tel' },
+    {
+      id: 'pieta',
+      name: t('pietaHouse'),
+      desc: t('pietaHouseDesc'),
+      number: '1800247247',
+      displayNumber: '1800 247 247',
+      linkType: 'tel',
+    },
+    {
+      id: 'samaritans',
+      name: t('samaritans'),
+      desc: t('samaritansDesc'),
+      number: '116123',
+      displayNumber: '116 123',
+      linkType: 'tel',
+    },
+    {
+      id: 'text50808',
+      name: t('text50808'),
+      desc: t('text50808Desc'),
+      number: '50808',
+      displayNumber: '50808',
+      linkType: 'sms',
+    },
+    {
+      id: 'into',
+      name: t('into'),
+      desc: t('intoDesc'),
+      number: '018047700',
+      displayNumber: '01 804 7700',
+      linkType: 'tel',
+    },
+    {
+      id: 'tui',
+      name: t('tui'),
+      desc: t('tuiDesc'),
+      number: '014922588',
+      displayNumber: '01 492 2588',
+      linkType: 'tel',
+    },
+    {
+      id: 'asti',
+      name: t('asti'),
+      desc: t('astiDesc'),
+      number: '016040160',
+      displayNumber: '01 604 0160',
+      linkType: 'tel',
+    },
   ];
 
   return (
@@ -296,11 +350,13 @@ export default function ResourcesPage() {
       </section>
 
       {/* ── External / Tenant Resources ─────────────────────────── */}
-      {!isLoading && data && data.resources.length > 0 && (
+      {/* `resources` may be absent when the backend returns a partial payload */}
+      {/* (e.g. {} for a tenant with no configured resources). Coerce to []. */}
+      {!isLoading && (data?.resources ?? []).length > 0 && (
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-text-primary">{t('externalResources')}</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {data.resources.map((resource) => (
+            {(data?.resources ?? []).map((resource) => (
               <ExternalResourceCard
                 key={resource.name}
                 resource={resource}
