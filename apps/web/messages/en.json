@@ -9136,7 +9136,20 @@
       "recentActivity": "Recent Activity",
       "viewAll": "View all",
       "noRecentIncidents": "No recent incidents",
-      "allPositive": "All positive"
+      "allPositive": "All positive",
+      "quickActions": {
+        "allIncidents": "All incidents",
+        "escalated": "Escalated",
+        "students": "By student",
+        "tasks": "Tasks"
+      },
+      "stats": {
+        "needsAttention": "Needs attention",
+        "openTasks": "Open tasks",
+        "overdue": "Overdue actions",
+        "positiveNegative": "Positive : Negative",
+        "totalIncidents": "Total incidents"
+      }
     },
     "incidents": {
       "title": "Behaviour Incidents",
@@ -9170,10 +9183,16 @@
         "resolved": "Resolved",
         "withdrawn": "Withdrawn"
       },
-      "pagination": {
-        "page": "Page {page} of {total}",
-        "previous": "Previous",
-        "next": "Next"
+      "pagination": "Page {page} of {total}",
+      "next": "Next",
+      "noResults": "No incidents match the current filters.",
+      "previous": "Previous",
+      "statuses": {
+        "active": "Active",
+        "escalated": "Escalated",
+        "investigating": "Investigating",
+        "resolved": "Resolved",
+        "withdrawn": "Withdrawn"
       }
     },
     "incidentDetail": {
@@ -9191,7 +9210,13 @@
       "noParticipants": "No participants recorded",
       "history": "History",
       "noHistory": "No history yet",
-      "details": "Details",
+      "details": {
+        "context": "Context",
+        "location": "Location",
+        "logged": "Logged",
+        "occurred": "Occurred",
+        "reporter": "Reporter"
+      },
       "occurred": "Occurred",
       "logged": "Logged",
       "location": "Location",
@@ -9212,7 +9237,8 @@
         "reasonPlaceholder": "Why is this changing?",
         "cancel": "Cancel",
         "update": "Update Status",
-        "updating": "Updating..."
+        "updating": "Updating...",
+        "changeStatus": "Change status"
       },
       "statuses": {
         "active": "Active",
@@ -9233,7 +9259,26 @@
       },
       "current": "Current:",
       "by": "by",
-      "pts": "pts"
+      "pts": "pts",
+      "cancel": "Cancel",
+      "notFound": "Incident not found.",
+      "placeholders": {
+        "attachments": "Attachments will appear here once the attachments workflow ships.",
+        "comingSoon": "Coming soon.",
+        "policyEvaluation": "Policy evaluation will appear here once the policy engine UI ships.",
+        "sanctions": "Sanctions will appear here once the sanctions workflow ships."
+      },
+      "sections": {
+        "contextNotes": "Context notes",
+        "description": "Description",
+        "details": "Details",
+        "history": "History",
+        "parentDescription": "Parent-facing description",
+        "participants": "Participants"
+      },
+      "transitionFailed": "Could not update status. Please try again.",
+      "updateStatus": "Update status",
+      "updating": "Updating..."
     },
     "newIncident": {
       "title": "Log Incident",
@@ -9273,6 +9318,32 @@
         "off_site": "Off-Site",
         "online": "Online",
         "other": "Other"
+      },
+      "errors": {
+        "createFailed": "Could not create the incident. Please try again.",
+        "enterDescription": "Please enter a description.",
+        "selectCategory": "Please select a category.",
+        "selectStudent": "Please select at least one student."
+      },
+      "labels": {
+        "autoSubmit": "Auto-submit",
+        "autoSubmitDescription": "Submit the incident immediately on save instead of keeping it as a draft.",
+        "category": "Category",
+        "context": "Context",
+        "contextType": "Context type",
+        "description": "Description",
+        "location": "Location",
+        "notes": "Notes",
+        "parentDescription": "Parent-facing description",
+        "students": "Students",
+        "when": "When"
+      },
+      "placeholders": {
+        "contextNotes": "Add any context notes for this incident...",
+        "description": "Describe what happened...",
+        "location": "Classroom, yard, corridor...",
+        "parentDescription": "Optional — describe what happened in parent-facing language...",
+        "searchStudents": "Search students..."
       }
     },
     "students": {
@@ -9286,7 +9357,8 @@
         "positive": "Positive",
         "negative": "Negative",
         "lastIncident": "Last Incident"
-      }
+      },
+      "search": "Search students..."
     },
     "studentProfile": {
       "title": "Student Profile",
@@ -9326,7 +9398,8 @@
         "tier": "Tier",
         "dateAwarded": "Date Awarded",
         "reason": "Reason"
-      }
+      },
+      "notFound": "Student not found."
     },
     "sanctions": {
       "title": "Sanctions",
@@ -9544,7 +9617,35 @@
       "newStatus": "New Status",
       "current": "Current:",
       "due": "Due:",
-      "relatedTasks": "Related Tasks ("
+      "relatedTasks": "Related Tasks (",
+      "cancel": "Cancel",
+      "changeStatus": "Change status",
+      "dialog": {
+        "addReview": "Add review",
+        "changeStatus": "Change status"
+      },
+      "noGoals": "No goals recorded.",
+      "noHistory": "No history recorded.",
+      "noLinkedIncidents": "No linked incidents.",
+      "noStrategies": "No strategies recorded.",
+      "noTasks": "No tasks yet.",
+      "notFound": "Intervention not found.",
+      "notFoundDescription": "The intervention you are trying to view does not exist or you do not have access.",
+      "reviewOverdue": "Review overdue",
+      "saveReview": "Save review",
+      "saving": "Saving...",
+      "sections": {
+        "actions": "Actions",
+        "details": "Details",
+        "goals": "Goals",
+        "history": "History",
+        "nextReview": "Next review",
+        "sendNotes": "Session notes",
+        "strategies": "Strategies",
+        "triggerReason": "Trigger reason"
+      },
+      "updateStatus": "Update status",
+      "updating": "Updating..."
     },
     "newIntervention": {
       "title": "New Intervention",
@@ -9721,7 +9822,37 @@
       "viewAppeal": "View Appeal",
       "grounds": "Grounds:",
       "incident": "Incident:",
-      "sanction": "Sanction:"
+      "sanction": "Sanction:",
+      "backToList": "Back to exclusions",
+      "decisionAfterHearing": "Decision after hearing",
+      "generateBoardPack": "Generate board pack",
+      "generateNotice": "Generate notice",
+      "generating": "Generating...",
+      "markFinalised": "Mark finalised",
+      "markHearingHeld": "Mark hearing held",
+      "noAppeal": "No appeal filed.",
+      "noAttendees": "No attendees recorded.",
+      "noDecision": "No decision recorded yet.",
+      "noHistory": "No history recorded.",
+      "noTimeline": "No timeline events yet.",
+      "notFound": "Exclusion not found.",
+      "notFoundDescription": "The exclusion case you are trying to view does not exist or you do not have access.",
+      "notGenerated": "Not generated",
+      "notYetIssued": "Not yet issued",
+      "recordDecision": "Record decision",
+      "recordExclusionDecision": "Record exclusion decision",
+      "sections": {
+        "appeal": "Appeal",
+        "boardPack": "Board pack",
+        "decision": "Decision",
+        "details": "Details",
+        "formalNotice": "Formal notice",
+        "hearing": "Hearing",
+        "history": "History",
+        "statutoryTimeline": "Statutory timeline"
+      },
+      "studentRepresentation": "Student representation",
+      "updating": "Updating..."
     },
     "alerts": {
       "title": "Behaviour Alerts",
@@ -9762,7 +9893,20 @@
         "page": "Page {page} of {total}",
         "previous": "Previous",
         "next": "Next"
-      }
+      },
+      "acknowledge": "Acknowledge",
+      "next": "Next",
+      "noResults": "No alerts match the current filters.",
+      "pageOf": "Page {page} of {total}",
+      "previous": "Previous",
+      "resolve": "Resolve",
+      "snooze": "Snooze",
+      "snoozeEndOfWeek": "Until end of week",
+      "snoozeNextWeek": "Until next week",
+      "snoozeTomorrow": "Until tomorrow",
+      "staffLabel": "Staff",
+      "studentLabel": "Student",
+      "subjectLabel": "Subject"
     },
     "analytics": {
       "title": "Analytics",
@@ -9814,6 +9958,40 @@
         "improving": "improving",
         "declining": "declining",
         "stable": "stable"
+      },
+      "cards": {
+        "activeAlerts": "Active alerts",
+        "openFollowUps": "Open follow-ups",
+        "positiveRatio": "Positive ratio",
+        "totalIncidents": "Total incidents"
+      },
+      "columns": {
+        "incidents": "Incidents",
+        "last30Days": "Last 30 days",
+        "last7Days": "Last 7 days",
+        "lastLogged": "Last logged",
+        "ratePer100": "Rate / 100",
+        "staffName": "Staff",
+        "subject": "Subject",
+        "totalYear": "Year total"
+      },
+      "deltaVsPrior": "vs prior period",
+      "filters": {
+        "last30Days": "Last 30 days",
+        "last7Days": "Last 7 days",
+        "last90Days": "Last 90 days",
+        "thisYear": "This year"
+      },
+      "negative": "Negative",
+      "positive": "Positive",
+      "sections": {
+        "categories": "Categories",
+        "heatmap": "Heatmap",
+        "pulse": "Behaviour pulse",
+        "staffActivity": "Staff activity",
+        "subjects": "Subjects",
+        "trends": "Trends",
+        "yearGroups": "Year groups"
       }
     },
     "aiQuery": {
@@ -9837,7 +10015,8 @@
         "q4": "What are the top 3 behaviour concerns this week?",
         "q5": "Compare positive/negative ratios across year groups"
       },
-      "dataAsOf2": "Data as of"
+      "dataAsOf2": "Data as of",
+      "aiDisclaimer": "AI-generated responses may contain inaccuracies. Verify results before acting on them."
     },
     "tasks": {
       "title": "Behaviour Tasks",
@@ -9868,7 +10047,13 @@
         "medium": "medium",
         "high": "high",
         "urgent": "urgent"
-      }
+      },
+      "next": "Next",
+      "noResults": "No tasks match the current filters.",
+      "previous": "Previous",
+      "statsCompletedToday": "Completed today",
+      "statsOverdue": "Overdue",
+      "statsPending": "Pending"
     },
     "appeals": {
       "title": "Behaviour Appeals",
@@ -9969,7 +10154,36 @@
       "selectStaff": "Select staff...",
       "appellant": "Appellant",
       "reasonForWithdrawalMin5": "Reason for withdrawal (min 5 characters)...",
-      "appeal": "appeal"
+      "appeal": "appeal",
+      "addAmendment": "Add amendment",
+      "amendmentsApplied": "Amendments applied",
+      "appealWithdrawn": "Appeal withdrawn",
+      "backToAppeals": "Back to appeals",
+      "cancel": "Cancel",
+      "confirmWithdraw": "Confirm withdraw",
+      "decisionLetter": "Decision letter",
+      "decisions": {
+        "modified": "Modified",
+        "overturned": "Overturned",
+        "upheld": "Upheld"
+      },
+      "noAmendments": "No amendments yet.",
+      "noAttendees": "No attendees recorded.",
+      "noHistory": "No history recorded.",
+      "notFound": "Appeal not found.",
+      "progress": "Progress",
+      "recordDecision": "Record decision",
+      "saveAttendees": "Save attendees",
+      "sections": {
+        "appellantInfo": "Appellant information",
+        "decisionOutcome": "Decision outcome",
+        "hearing": "Hearing",
+        "history": "History",
+        "reviewer": "Reviewer"
+      },
+      "submitDecision": "Submit decision",
+      "withdraw": "Withdraw",
+      "withdrawThisAppeal": "Withdraw this appeal"
     },
     "recognition": {
       "title": "Recognition Wall",
@@ -10010,7 +10224,27 @@
       "by": "By",
       "pts": "pts",
       "period": "Period",
-      "academicYear": "Academic Year"
+      "academicYear": "Academic Year",
+      "approve": "Approve",
+      "columns": {
+        "points": "Points",
+        "rank": "Rank",
+        "student": "Student",
+        "yearGroup": "Year group"
+      },
+      "filters": {
+        "allTime": "All time",
+        "currentYear": "This year",
+        "thisPeriod": "This period",
+        "thisYear": "This year"
+      },
+      "noHouses": "No house teams configured yet.",
+      "noLeaderboard": "No leaderboard entries for this period.",
+      "noPending": "No recognition awards pending approval.",
+      "noRecognition": "No recognition yet. Log a positive incident to celebrate students.",
+      "rankPlace": "{rank} place",
+      "reject": "Reject",
+      "unknownStudent": "Unknown student"
     },
     "amendments": {
       "title": "Amendment Notices",
@@ -10042,7 +10276,19 @@
         "sending": "Sending...",
         "errorGeneric": "Failed to send correction"
       },
-      "send": "Send"
+      "send": "Send",
+      "allNoticesSent": "All amendment notices have been sent.",
+      "back": "Back",
+      "cancel": "Cancel",
+      "confirmSend": "Confirm send",
+      "next": "Next",
+      "noResults": "No amendments match the current filters.",
+      "pageOf": "Page {page} of {total}",
+      "parentReAckRequired": "Parent re-acknowledgement required",
+      "previous": "Previous",
+      "sendCorrectionDescription": "Sending this correction will notify parents and request re-acknowledgement if required.",
+      "sendCorrectionTitle": "Send correction",
+      "sending": "Sending..."
     },
     "documents": {
       "title": "Documents",
@@ -10103,7 +10349,18 @@
         "sanction": "Sanction",
         "student": "Student"
       },
-      "u2014": "\\u2014"
+      "u2014": "\\u2014",
+      "next": "Next",
+      "noResults": "No documents match the current filters.",
+      "pageOf": "Page {page} of {total}",
+      "previous": "Previous",
+      "statuses": {
+        "draft": "Draft",
+        "finalised": "Finalised",
+        "sent": "Sent",
+        "superseded": "Superseded"
+      },
+      "unknownStudent": "Unknown student"
     },
     "parentPortal": {
       "title": "Behaviour Portal",
@@ -10126,7 +10383,8 @@
       "upcoming": "Upcoming",
       "recent": "Recent",
       "scheduled": "Scheduled",
-      "pending": "pending"
+      "pending": "pending",
+      "sanctions": "Sanctions"
     },
     "parentRecognition": {
       "title": "Recognition Wall",
@@ -11654,7 +11912,69 @@
         "sanctions": "Sanctions",
         "parentVisibility": "Parent Visibility",
         "recognitionWall": "Recognition Wall",
-        "safeguarding": "Safeguarding"
+        "safeguarding": "Safeguarding",
+        "analyticsAi": "Analytics & AI",
+        "analyticsAiDesc": "Configure behaviour analytics features and AI-assisted insights.",
+        "awardsDesc": "Configure automatic recognition awards and award rules.",
+        "houseTeamsDesc": "Configure house teams and leaderboard visibility.",
+        "parentVisibilityDesc": "Control what parents see in the portal and how they are notified.",
+        "pointsDesc": "Configure behaviour points and point-based rewards.",
+        "quickLogDesc": "Configure the quick-log incident FAB and student picker.",
+        "recognitionWallDesc": "Configure the recognition wall and student consent.",
+        "safeguardingDesc": "Configure safeguarding SLAs and escalation thresholds.",
+        "sanctionsDesc": "Configure default sanction durations and approval workflows."
+      },
+      "descriptions": {
+        "ackRequiredSeverity": "Severity at or above this level requires parent acknowledgement.",
+        "aiInsights": "Surface AI-generated insights in analytics and dashboards.",
+        "aiNarrative": "Generate narrative summaries for trend and pulse charts.",
+        "autoAwardsEnabled": "Automatically award recognition when a positive incident is logged.",
+        "autoSubmit": "Submit incidents immediately on save instead of keeping a draft.",
+        "blockDiagnosticLanguage": "Block diagnostic or clinical language in parent-facing fields.",
+        "digestNotifications": "Send parents a digest of negative incidents instead of per-incident alerts.",
+        "houseTeamsEnabled": "Enable house teams and the house leaderboard.",
+        "negativeThreshold": "Severity threshold above which parents are notified of negative incidents.",
+        "nlQueries": "Allow staff to ask the analytics engine natural-language questions.",
+        "notifyPositiveAlways": "Always notify parents when a positive incident is logged.",
+        "pointsEnabled": "Enable behaviour points.",
+        "recentStudentsCount": "How many recent students to remember for quick selection.",
+        "recognitionWallPublic": "Make the recognition wall visible on the parent and student portals.",
+        "showFavourites": "Show favourite students at the top of the quick-log picker."
+      },
+      "labels": {
+        "ackRequiredSeverity": "Acknowledgement-required severity",
+        "aiInsights": "AI insights",
+        "aiNarrative": "AI narrative",
+        "autoAwardsEnabled": "Auto-award recognition",
+        "autoSubmit": "Auto-submit",
+        "behaviourPulse": "Behaviour pulse",
+        "blockDiagnosticLanguage": "Block diagnostic language",
+        "criticalSla": "Critical SLA (hours)",
+        "detentionDuration": "Default detention duration (minutes)",
+        "digestNotifications": "Digest notifications",
+        "expulsionRequiresApproval": "Expulsion requires approval",
+        "highSla": "High SLA (hours)",
+        "houseTeamsEnabled": "House teams",
+        "lowSla": "Low SLA (hours)",
+        "mediumSla": "Medium SLA (hours)",
+        "negativeThreshold": "Negative notification threshold",
+        "nlQueries": "Natural-language queries",
+        "notifyPositiveAlways": "Always notify on positive incidents",
+        "parentPortalEnabled": "Parent portal enabled",
+        "pointsEnabled": "Points enabled",
+        "pointsVisibleToStudents": "Points visible to students",
+        "publicLeaderboard": "Public leaderboard",
+        "recentStudentsCount": "Recent students remembered",
+        "recognitionWallEnabled": "Recognition wall enabled",
+        "recognitionWallPublic": "Recognition wall public",
+        "requiresStudentConsent": "Requires student consent",
+        "showFavourites": "Show favourite students",
+        "showTeacherName": "Show teacher name to parents",
+        "suspensionRequiresApproval": "Suspension requires approval"
+      },
+      "toasts": {
+        "saveFailed": "Could not save settings. Please try again.",
+        "saved": "Settings saved."
       }
     },
     "categories": {
@@ -11775,7 +12095,11 @@
       "by": "By:",
       "reason2": "Reason:",
       "noVersionHistory": "No version history.",
-      "versionHistory": "Version History"
+      "versionHistory": "Version History",
+      "addRule": "Add rule",
+      "export": "Export",
+      "import": "Import",
+      "testMode": "Test mode"
     },
     "houses": {
       "title": "House Teams",
@@ -11978,7 +12302,8 @@
       "backToList": "Back to list",
       "noTemplatesYet": "No templates yet.",
       "new": "New",
-      "templates": "Templates"
+      "templates": "Templates",
+      "newTemplate": "New template"
     }
   },
   "wellbeing": {
