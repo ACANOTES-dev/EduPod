@@ -204,7 +204,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 13  | Wellbeing super-hub + sub-strip removal               | 5    | parallel-risky | 03, 12     | `completed`   | 2026-04-20T21:00Z | 16a0bce4   |
 | 14  | Behaviour sub-hub                                     | 5    | parallel-risky | 03, 12     | `completed`   | 2026-04-20T21:15Z | 18c69ef6   |
 | 15  | Staff wellbeing folded sub-hub                        | 5    | parallel-risky | 12         | `completed`   | 2026-04-20T21:10Z | 607dab0d   |
-| 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `deploying`   |                   |            |
+| 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `completed`   | 2026-04-20T22:45Z | 0728765b   |
 | 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `in-progress` |                   |            |
 | 18  | Tenant admin → AI flags page                          | 5    | parallel-risky | 04, 12     | `pending`     |                   |            |
 | 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `pending`     |                   |            |
@@ -1426,3 +1426,101 @@ apps/web/.next`), pm2 web restarted, process online. Smoke:
   (f) Patch series initially included impl 13's fix commit
   (`16a0bce4`) because I used a commit range. Regenerated with two
   explicit `-1` format-patches for 18c69ef6 + 1d7e49a4 only.
+
+### [IMPL 16] — Early-warnings flagship sub-hub
+
+- **Completed:** 2026-04-20T22:45Z Europe/Dublin
+- **Commit:** `16959fa1` (feature) + `0728765b` (translations). Applied to production as `337fdcf7` + `d0e71ed0` via `git am`.
+- **Deployed to production:** yes — web rebuilt (`rm -rf apps/web/.next` +
+  `pnpm turbo run build --filter=@school/web`, 3m14s) and
+  `pm2 restart web --update-env`. Smoke tests returned HTTP 200 for
+  `/en/early-warnings`, `/ar/early-warnings`,
+  `/en/early-warnings/cohort`, `/en/early-warnings/settings`,
+  `/en/login`. Rendered HTML confirms English keys
+  ("Early Warnings", "Red risk", "Amber risk", "At-risk students",
+  "Cohort analysis") and Arabic counterparts
+  ("الإنذارات المبكرة", "تحليل المجموعة"). No MISSING_MESSAGE warnings.
+
+- **Summary (≤ 200 words):**
+  Full flagship rewrite of
+  `apps/web/src/app/[locale]/(school)/early-warnings/page.tsx`. Uses
+  impl 13-era page patterns but stands up its own visual vocabulary
+  fit for "the showpiece" the user requested. Sections: PageHeader
+  with Cohort + Settings CTAs → amber-gradient hero KPI strip (4 large
+  tiles with sparklines + risk-tier severity borders) → AI insights
+  panel (hidden unless `early_warning` AI flag is affirmatively on) →
+  at-risk matrix (domain chip strip + "show more" windowed student
+  list with trend sparklines) → cohort analysis trio (stacked bar
+  chart of red/amber per year group via Recharts, top-10 class list,
+  anonymised composition cards) → sticky intervention CTA bar.
+  Detail slide-over reuses the existing `StudentDetailPanel`.
+
+  New helpers in `_components/`: `compute-insights.ts` (deterministic
+  theme detection + domain filter + year/class aggregations),
+  `aggregate-trend.ts` (per-index averager for KPI sparklines),
+  plus co-located `kpi-large-tile`, `insights-panel`, `domain-chips`,
+  `at-risk-list`, `cohort-panels`. 21 unit tests across two specs.
+  New `earlyWarningsHub.*` translation namespace (58 keys) in both
+  `en.json` and `ar.json` with parity verified and CLDR plural
+  categories on count-bearing strings.
+
+- **Follow-ups:**
+  - **AI narrative endpoint NOT shipped.** Impl file allowed an inline
+    `GET /api/v1/early-warning/narrative` backend addition but the
+    deployment matrix classifies impl 16 as web-only (no API
+    restart). Shipped a deterministic `computeInsights` client-side
+    helper as the panel content instead. When the real LLM-backed
+    narrative lands (likely Wave 6 impl 19 or a targeted
+    follow-up), swap the panel's data source without touching the
+    layout.
+  - **Interventions multi-select flow OUT OF SCOPE.** The sticky CTA
+    links to `/early-warnings/intervene` which does not yet exist.
+    Wave 6 polish / a future impl owns the flow.
+  - **Virtualisation is soft.** The `AtRiskList` uses a "show more"
+    pattern rather than `react-window` (not in deps). For tenants
+    with >200 flagged students the initial render caps at 40 rows
+    and extends 40 at a time. Good for NHQS scale; if a future
+    tenant pushes into the thousands, promote to true virtualisation.
+  - **KPI "new flags this week" heuristic.** Backend does not expose
+    a week-over-week count; the page derives it from per-student
+    `trend_data` (count of students whose last trend value exceeds
+    their first). Wave 6 or a follow-up could add a dedicated
+    backend count + time-window filter.
+  - **Active interventions source.** Reads from
+    `/api/v1/pastoral/interventions?status=active&pageSize=1` for its
+    `meta.total`. If pastoral's intervention list shape changes,
+    this probe needs to track.
+  - **Theme detection is heuristic.** `inferDomainFromSignal` matches
+    English keywords in `top_signal`. Backend returns
+    server-formatted signal labels; if signals become i18n-dynamic,
+    swap to a stable `domain` field on `RiskProfileListItem`.
+  - **Old `EarlyWarningList` component superseded.** The existing
+    `_components/early-warning-list.tsx` is no longer imported by the
+    hub landing. It still powers no other route and can be removed
+    in a polish pass. Left in place to avoid a parallel-deletion
+    conflict with sibling impl 17.
+
+- **Session notes:**
+  Heavy Wave-5 parallel coding with sibling impl 17 (safeguarding) active
+  in the same tree. Applied Rule H11 pre-stash on both commits (feature
+  - translations). Stash pop after the feature commit conflicted
+    because `--include-untracked` had captured my own new files before
+    they were committed; resolved via `git checkout HEAD --` on my
+    committed early-warnings/ subtree and `git reset HEAD` on the
+    sibling safeguarding file. Sibling's work (M safeguarding/page.tsx +
+    5 untracked sub-directories under safeguarding/) fully intact after
+    both commits. Second stash pop was clean.
+
+  Deploy patch series: feature + translations applied cleanly; the
+  `docs(wbr): mark as deploying` patch failed because production log
+  context had shifted (impl 17 had marked itself in-progress between
+  my local flip and my deploy window). Skipped via `git am --skip`;
+  production log row remains accurate without the stand-alone
+  deploying commit. Rebuild clean, no tsbuildinfo issue (web doesn't
+  use `tsc --incremental`), pm2 up first try.
+
+  Production NHQS tenant shows no flagged students today
+  (early_warning module likely not seeded with risk profiles) so the
+  "empty state" path renders in production — expected, confirms the
+  friendly empty UI. Visual QA with populated data will happen in
+  Wave 7 impl 24 or during a manual demo-data seed.
