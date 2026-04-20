@@ -14497,6 +14497,91 @@
       }
     }
   },
+  "aiFeatures": {
+    "parseTrigger": {
+      "trigger": "Parse with AI"
+    },
+    "parseModal": {
+      "title": "Parse incident with AI",
+      "description": "Paste a free-text description of the incident and AI will suggest the category, students, when, and where.",
+      "inputLabel": "Incident description",
+      "placeholder": "Describe what happened, who was involved, when, and where…",
+      "minLength": "At least {count} characters",
+      "errors": {
+        "generic": "Couldn't parse the description. Try again."
+      },
+      "results": {
+        "title": "Suggested fields",
+        "confidence": "{percent}% confidence",
+        "polarity": "Polarity",
+        "severity": "Severity",
+        "when": "When",
+        "location": "Location",
+        "students": "Students",
+        "reviewNote": "Review and edit any field before applying.",
+        "polarityValues": {
+          "positive": "Positive",
+          "negative": "Negative"
+        },
+        "severityValues": {
+          "minor": "Minor",
+          "moderate": "Moderate",
+          "major": "Major"
+        }
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "parse": "Parse",
+        "parsing": "Parsing…",
+        "apply": "Apply to form"
+      }
+    },
+    "studentSummary": {
+      "title": "AI summary",
+      "ariaLabel": "AI-generated student behaviour summary",
+      "cached": "Cached",
+      "periodLabel": "Summary period",
+      "periods": {
+        "30": "30d",
+        "90": "90d",
+        "180": "180d"
+      },
+      "refresh": "Refresh summary",
+      "generatedAt": "Generated {ts}",
+      "reviewNote": "AI summaries are for professional discussion only.",
+      "errors": {
+        "unavailable": "AI is temporarily unavailable.",
+        "disabled": "AI features are disabled for this tenant.",
+        "generic": "Couldn't load AI summary."
+      }
+    },
+    "nlQuery": {
+      "submit": "Submit query",
+      "hint": "Press Cmd+Enter (Mac) or Ctrl+Enter to submit",
+      "suggestionsTitle": "Try one of these",
+      "refreshHistory": "Refresh history",
+      "prev": "Prev",
+      "next": "Next",
+      "pageOf": "Page {page} of {total}",
+      "disabled": {
+        "title": "AI features are off",
+        "body": "Natural-language queries are disabled for this tenant. Ask a school owner to enable the Behaviour AI flag in Settings → AI Features."
+      },
+      "citations": {
+        "title": "Referenced records"
+      },
+      "errors": {
+        "disabled": "AI features are disabled for this tenant.",
+        "unavailable": "AI is temporarily unavailable.",
+        "rateLimited": "You've hit the AI rate limit. Try again in a few minutes.",
+        "generic": "Couldn't run the query. Try again."
+      }
+    },
+    "sst": {
+      "refreshAgenda": "Refresh agenda with AI",
+      "refreshing": "Refreshing…"
+    }
+  },
   "documentGen": {
     "list": {
       "title": "Documents",
