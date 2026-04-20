@@ -18,7 +18,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { SearchPicker } from '@/components/pastoral/search-picker';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 import {
   PASTORAL_CHECKIN_FLAG_REASONS,
@@ -81,9 +81,13 @@ export default function PastoralCheckinsPage() {
       ),
     ]);
 
+    // The API's global ResponseTransformInterceptor wraps every payload in
+    // { data: T }. Prerequisites endpoint returns a bare object, so unwrap it
+    // here. Config response is already a PastoralApiDetailResponse ({ data }),
+    // so its inner `.data` is accessed directly.
     setConfig(configResponse.data);
-    setKeywordInput(configResponse.data.flagged_keywords.join(', '));
-    setPrerequisites(prerequisitesResponse);
+    setKeywordInput((configResponse.data.flagged_keywords ?? []).join(', '));
+    setPrerequisites(unwrap<PastoralCheckinPrerequisiteStatus>(prerequisitesResponse));
   }, []);
 
   const loadFlagged = React.useCallback(async () => {
@@ -107,26 +111,32 @@ export default function PastoralCheckinsPage() {
   }, [dateFrom, dateTo, flagReason]);
 
   const loadAnalytics = React.useCallback(async () => {
+    // The global ResponseTransformInterceptor wraps bare arrays in { data }.
+    // Unwrap before assigning so .map on these arrays does not crash.
     const [trendResponse, patternResponse] = await Promise.all([
-      apiClient<PastoralMoodTrendDataPoint[]>(
+      apiClient<{ data: PastoralMoodTrendDataPoint[] } | PastoralMoodTrendDataPoint[]>(
         `/api/v1/pastoral/checkins/analytics/mood-trends?date_from=${dateFrom}&date_to=${dateTo}&group_by=week`,
         { silent: true },
       ),
-      apiClient<PastoralDayOfWeekPattern[]>(
+      apiClient<{ data: PastoralDayOfWeekPattern[] } | PastoralDayOfWeekPattern[]>(
         `/api/v1/pastoral/checkins/analytics/day-of-week?date_from=${dateFrom}&date_to=${dateTo}&group_by=week`,
         { silent: true },
       ),
     ]);
 
-    setMoodTrends(trendResponse ?? []);
-    setDayPatterns(patternResponse ?? []);
+    const trends = unwrap<PastoralMoodTrendDataPoint[]>(trendResponse);
+    const patterns = unwrap<PastoralDayOfWeekPattern[]>(patternResponse);
+    setMoodTrends(Array.isArray(trends) ? trends : []);
+    setDayPatterns(Array.isArray(patterns) ? patterns : []);
 
     if (examStart && examEnd) {
-      const examResponse = await apiClient<PastoralExamComparisonResult | null>(
+      const examResponse = await apiClient<
+        { data: PastoralExamComparisonResult | null } | PastoralExamComparisonResult | null
+      >(
         `/api/v1/pastoral/checkins/analytics/exam-comparison?exam_start=${examStart}&exam_end=${examEnd}`,
         { silent: true },
       );
-      setExamComparison(examResponse);
+      setExamComparison(unwrap<PastoralExamComparisonResult | null>(examResponse));
     } else {
       setExamComparison(null);
     }
@@ -151,7 +161,10 @@ export default function PastoralCheckinsPage() {
       { silent: true },
     )
       .then((response) => setStudentHistory(response.data ?? []))
-      .catch((err) => { console.error('[PastoralCheckinsPage]', err); return setStudentHistory([]); });
+      .catch((err) => {
+        console.error('[PastoralCheckinsPage]', err);
+        return setStudentHistory([]);
+      });
   }, [selectedStudent]);
 
   const runAction = async (key: string, action: () => Promise<void>) => {
