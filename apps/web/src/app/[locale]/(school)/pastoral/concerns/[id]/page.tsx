@@ -10,6 +10,7 @@ import { Badge, Button } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { PastoralSeverityBadge, PastoralTierBadge } from '@/components/pastoral/pastoral-badges';
+import { SealingPanel } from '@/components/safeguarding/sealing-panel';
 import { apiClient } from '@/lib/api-client';
 import { formatDate, formatDateTime } from '@/lib/format-date';
 import {
@@ -274,6 +275,8 @@ export default function PastoralConcernDetailPage() {
         </div>
 
         <div className="space-y-6">
+          <SealingPanel concernId={concern.id} />
+
           <section className="rounded-3xl border border-border bg-surface p-5">
             <div className="flex items-center gap-3">
               <Eye className="h-5 w-5 text-emerald-700" />
