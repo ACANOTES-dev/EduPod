@@ -13925,5 +13925,93 @@
     "cancelledBody": "It looks like your payment wasn't completed. Don't worry — your child's seat is still reserved. You can try again using the payment link sent to your email, or contact the school to arrange an alternative payment method.",
     "cancelledHelp": "Your payment window is still open. If you're experiencing difficulties, please contact the school administration — they can help you complete the payment or arrange an alternative.",
     "applicationReference": "Application reference"
+  },
+  "wellbeingHub": {
+    "title": "Wellbeing & Safeguarding",
+    "description": "Monitor student wellbeing, manage incidents and safeguarding, support staff, and surface early warnings — all in one place.",
+    "loadError": "We could not load the wellbeing summary. Refresh to try again.",
+    "retry": "Retry",
+    "kpis": {
+      "ariaLabel": "Wellbeing KPIs",
+      "studentsAtRisk": "At risk",
+      "studentsAtRiskBreakdown": "{amber} amber · {red} red",
+      "openIncidents": "Open incidents",
+      "incidentsBreakdown": "{positive} positive · {negative} negative",
+      "openCases": "Open pastoral cases",
+      "overdueActions": "Overdue actions",
+      "overdueBreakdown": "{sanctions} sanctions · {tasks} tasks",
+      "tooltips": {
+        "studentsAtRisk": "Students flagged amber or red by the early-warning engine this week.",
+        "openIncidents": "Behaviour incidents that have not been resolved or dismissed.",
+        "openCases": "Active pastoral cases across interventions, SST meetings, and referrals.",
+        "overdueActions": "Sanctions awaiting service, tasks past their due date, and SLA breaches."
+      }
+    },
+    "quickActions": {
+      "ariaLabel": "Quick actions",
+      "logIncident": "Log incident",
+      "logConcern": "Log concern",
+      "declareCritical": "Declare critical",
+      "openCase": "Open pastoral case",
+      "tooltips": {
+        "logIncident": "Log a new behaviour incident — positive or negative.",
+        "logConcern": "Raise a pastoral concern for a student.",
+        "declareCritical": "Declare a critical incident requiring immediate escalation.",
+        "openCase": "Open a pastoral case and coordinate support."
+      }
+    },
+    "cards": {
+      "ariaLabel": "Wellbeing modules",
+      "behaviour": {
+        "title": "Behaviour",
+        "description": "Incidents, sanctions, exclusions, recognition, analytics, and AI insights.",
+        "tooltip": "Manage student behaviour end-to-end."
+      },
+      "pastoral": {
+        "title": "Pastoral Care",
+        "description": "Concerns, cases, interventions, referrals, SST meetings, and check-ins.",
+        "tooltip": "Coordinated pastoral support."
+      },
+      "safeguarding": {
+        "title": "Safeguarding",
+        "description": "Concern reporting, SLA tracking, break-glass access, and secure sealing.",
+        "tooltip": "Designated safeguarding workspace."
+      },
+      "earlyWarnings": {
+        "title": "Early Warnings",
+        "description": "Risk indicators across attendance, grades, behaviour, wellbeing, and engagement.",
+        "tooltip": "At-risk student identification."
+      },
+      "staffWellbeing": {
+        "title": "Staff Wellbeing",
+        "description": "Workload analytics, surveys, board reports, and EAP resources.",
+        "tooltip": "Take care of the people who teach."
+      },
+      "settings": {
+        "title": "Settings & Policies",
+        "description": "Categories, policies, awards, houses, document templates, and EAP config.",
+        "tooltip": "Configure the wellbeing module."
+      }
+    },
+    "pendingAttention": {
+      "title": "Needs your attention",
+      "viewMore": "View more",
+      "due": "Due {when}"
+    },
+    "recentActivity": {
+      "title": "Recent activity",
+      "system": "System",
+      "justNow": "just now",
+      "minutesAgo": "{count, plural, one {# minute ago} other {# minutes ago}}",
+      "hoursAgo": "{count, plural, one {# hour ago} other {# hours ago}}",
+      "daysAgo": "{count, plural, one {# day ago} other {# days ago}}"
+    },
+    "resourceRibbon": {
+      "title": "Wellbeing resources",
+      "description": "Curated guidance, EAP contacts, and staff training materials.",
+      "supportDocs": "Support docs",
+      "eap": "Employee Assistance",
+      "training": "Staff training"
+    }
   }
 }
