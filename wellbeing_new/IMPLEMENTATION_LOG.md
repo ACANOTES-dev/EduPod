@@ -198,7 +198,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 07  | Exclusion + amendment + ack services                  | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T15:15Z | 1a529312   |
 | 08  | Pastoral hidden services (DSAR, import, SST AI, etc.) | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T18:15Z | b9bd7d04   |
 | 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T17:15Z | 80e60532   |
-| 10  | Page crash fixes (5 pages)                            | 4    | parallel-risky | 02, 03     | `in-progress` |                   |            |
+| 10  | Page crash fixes (5 pages)                            | 4    | parallel-risky | 02, 03     | `deploying`   |                   |            |
 | 11  | Behaviour analytics URL fix + endpoint reconnects     | 4    | parallel-risky | 02         | `in-progress` |                   |            |
 | 12  | Translation backfill (en + ar)                        | 4    | parallel-risky | 02         | `in-progress` |                   |            |
 | 13  | Wellbeing super-hub + sub-strip removal               | 5    | parallel-risky | 03, 12     | `pending`     |                   |            |
