@@ -11,8 +11,12 @@ import { allocateAcademicYearBase, authGet, authPatch, authPost, authPut } from 
 export interface P5TestDataOptions {
   /** Tenant domain to target (e.g. fixture.domainName). */
   domain: string;
-  /** Email of the teacher user to match. Default: teacherEmailToMatch. */
+  /** Email of the teacher user to match. Default: 'teacher@alnoor.test'. */
   teacherEmail?: string;
+  /** Owner email — accepted for parity with P4ATestDataOptions so migrated
+   *  callers can pass the same spread object to either helper. Currently
+   *  unused by setupP5TestData. */
+  ownerEmail?: string;
 }
 
 export interface CedarP5TestDataOptions {
