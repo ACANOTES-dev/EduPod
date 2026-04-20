@@ -207,7 +207,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `completed`   | 2026-04-20T22:45Z | 0728765b   |
 | 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `completed`   | 2026-04-20T22:55Z | 4a321481   |
 | 18  | Tenant admin → AI flags page                          | 5    | parallel-risky | 04, 12     | `completed`   | 2026-04-20T23:25Z | 0a8d8588   |
-| 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `deploying`   |                   |            |
+| 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `completed`   | 2026-04-20T23:55Z | 59f95bbe   |
 | 20  | Document generation UI                                | 6    | parallel-risky | 06, 14     | `completed`   | 2026-04-20T23:45Z | 9c41fcd2   |
 | 21  | Exclusion + restrictions + amendments + ack UI        | 6    | parallel-risky | 07, 14     | `in-progress` |                   |            |
 | 22  | Pastoral hidden-feature UI                            | 6    | parallel-risky | 08         | `pending`     |                   |            |
@@ -1794,3 +1794,81 @@ schemas/document.schema.ts`.** Kept the frontend copy narrow
   commits landed between my list and detail commits — visible in
   `git log --oneline` between my shas. Wave 6 is genuinely parallel
   on web, as the wave structure anticipated.
+
+### [IMPL 19] — AI features UI
+
+- **Completed:** 2026-04-20T23:55Z Europe/Dublin
+- **Commit:** `59f95bbe` (tip of the six-commit stack; prod applied as `1bc377ea`).
+- **Deployed to production:** yes — web rebuilt (`rm -rf apps/web/.next`
+  - `pnpm turbo run build --filter=@school/web`) and `pm2 restart web
+--update-env`. Smoke:
+  * `/en/login` → 200
+  * `/en/behaviour/incidents/new` → 200
+  * `/en/behaviour/students/<uuid>` → 200 (AI summary panel renders
+    hidden behind the AI flag; with flag off the section collapses)
+  * `/en/behaviour/analytics/ai` → 200 (disabled-state placeholder
+    renders when the behaviour AI flag is off)
+  * `/en/pastoral/sst/<uuid>` → 200 (AI refresh button hidden when
+    pastoral flag off)
+  * `/ar/behaviour/incidents/new` → 200 (RTL, "تحليل بالذكاء الاصطناعي")
+- **Summary (≤ 200 words):**
+  Ships every behaviour AI surface the impl 05 backend exposes plus
+  the pastoral SST refresh gate.
+  New web hook at `apps/web/src/hooks/use-ai-flag.ts` — one `GET
+/api/v1/ai-flags` per session, projected to a `Map<moduleKey,
+enabled>` and cached on the module. Consumers call `useAiFlag
+(moduleKey)`; AI surfaces render when state `!== 'disabled'`.
+  Four new components under `apps/web/src/app/[locale]/(school)/
+behaviour/_components/` and `.../behaviour/analytics/ai/
+_components/`: `ai-parse-modal.tsx` (reusable Dialog with textarea,
+  parse, apply-to-form), `ai-student-summary.tsx` (panel with 30/90/
+  180-day period + refresh), and pure helpers `ai-parse-projection
+.ts`, `ai-student-summary-projection.ts`, `citation-helpers.ts`,
+  each with a co-located `.spec.ts` (32 unit tests, all pass).
+  `/behaviour/analytics/ai/page.tsx` rebuilt: focus-expanding
+  textarea, Cmd+Enter submit, structured suggestions with icons,
+  citation links (access-safe types only), paginated history.
+  New-incident page mounts the modal + picks up the hub's
+  sessionStorage prefill. The hub composer simplified (previous
+  `{ text }` body bug removed). SST detail AI-gated via the
+  pastoral flag. Translations: 53-key `aiFeatures.*` namespace
+  (en + ar, parity verified).
+- **Follow-ups:**
+  - **Delete-history NOT shipped.** The spec asked for a per-user
+    "delete history" option on the NL query page; that needs a
+    backend `DELETE /v1/behaviour/analytics/ai-query/history/:id`
+    endpoint which would require an API restart (outside impl 19's
+    web-only deployment matrix). A future targeted follow-up can
+    add the endpoint + wire the delete button; the paginated
+    history UI is already in place.
+  - **Incident-link citations on NL query** rely on `structured_data
+.citations` from the backend. If the backend service stops
+    emitting citations, the UI simply hides the section. Wave 7
+    polish could validate that citations come through end-to-end
+    on a realistic tenant dataset.
+  - **SessionStorage seam vs direct callback** — the hub composer
+    now only stashes + navigates (no longer invokes the AI endpoint
+    itself). That fixes the `{ text }` body bug flagged in impl 14
+    but means the hub's "parsing…" spinner is gone. The modal on
+    the target page carries the loading state. If the UX team
+    wants a loading hint on the hub itself, we could route through
+    the NL query page or introduce a global AI-status dropdown —
+    not blocking for impl 19.
+  - **`ANTHROPIC_API_KEY` still not on production** — impl 05's
+    follow-up still applies. With the key absent, every AI surface
+    returns 503 `AI_SERVICE_UNAVAILABLE` rather than a usable
+    feature. The UI handles this gracefully (amber banner, no
+    500).
+- **Session notes:**
+  Very heavy Wave 6 parallel coding turbulence with siblings impl
+  20 (documents) and impl 21 (ack/exclusions) actively cycling
+  stashes through the shared tree. Twice my file writes were
+  reverted by sibling stash-pops and I had to recover my WIP from
+  stash@{0} (Rule H10 applied — confirmed the revert was sibling
+  mechanical, not a user fix, before re-applying). Pre-stash pattern
+  (Rule H11) was used on every commit. Six isolated commits landed
+  cleanly in the end. The final `docs: mark as deploying` patch
+  couldn't apply on production because prod's log was already at a
+  different state (impls 20/21 had edited it); resolved with an
+  in-situ `sed` to flip the row to `deploying`. Pattern carried
+  forward from prior Wave 5/6 precedents.
