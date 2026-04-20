@@ -202,7 +202,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 11  | Behaviour analytics URL fix + endpoint reconnects     | 4    | parallel-risky | 02         | `completed` | 2026-04-20T17:38Z | 99dd039a   |
 | 12  | Translation backfill (en + ar)                        | 4    | parallel-risky | 02         | `completed` | 2026-04-20T17:45Z | 802daede   |
 | 13  | Wellbeing super-hub + sub-strip removal               | 5    | parallel-risky | 03, 12     | `completed` | 2026-04-20T21:00Z | 16a0bce4   |
-| 14  | Behaviour sub-hub                                     | 5    | parallel-risky | 03, 12     | `deploying` |                   |            |
+| 14  | Behaviour sub-hub                                     | 5    | parallel-risky | 03, 12     | `completed` | 2026-04-20T21:15Z | 18c69ef6   |
 | 15  | Staff wellbeing folded sub-hub                        | 5    | parallel-risky | 12         | `completed` | 2026-04-20T21:10Z | 607dab0d   |
 | 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `pending`   |                   |            |
 | 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `pending`   |                   |            |
@@ -1338,3 +1338,91 @@ sibling-impl-14-behaviour-during-impl-15` to isolate sibling 14's
 resources}` translation namespaces were already complete from Wave 4
   impl 12's backfill — no additional keys needed for the embedded
   section content, only the new `wellbeingStaff.*` wrapper namespace.
+
+### [IMPL 14] — Behaviour sub-hub
+
+- **Completed:** 2026-04-20T21:15Z Europe/Dublin
+- **Commit:** `18c69ef6` (page + spec) + `1d7e49a4` (translations);
+  applied to production as `03b1de37` + `a8527548` via `git am`.
+- **Deployed to production:** yes — web rebuilt (3m18s after `rm -rf
+apps/web/.next`), pm2 web restarted, process online. Smoke:
+  `/en/behaviour` → 200, `/ar/behaviour` → 200, `/en/login` → 200.
+  English rendered strings verified present (Incidents this week,
+  Log incident, Parse with AI, Positive : Negative, Recognition Wall),
+  Arabic counterparts verified (حوادث هذا الأسبوع، تسجيل حادث،
+  حائط التقدير). No MISSING_MESSAGE warnings.
+- **Summary (≤ 200 words):**
+  Full rewrite of `apps/web/src/app/[locale]/(school)/behaviour/page.tsx`
+  (was 211-line "Behaviour Pulse" → 836-line flagship sub-hub). Uses
+  impl 13's extracted `KpiTile`, `QuickAction`, `HubTile` components
+  from `@/components/`. Sections: header CTAs (Log incident + AI
+  parse toggle), 4 KPI tiles (incidents/week, +/- ratio, open tasks,
+  overdue actions) sourced from `/behaviour/incidents/stats` +
+  `/behaviour/tasks/stats`, 4 quick-action pills (AI-query gated),
+  13-card hub grid covering every behaviour sub-page including hidden
+  capabilities (exclusions, appeals, amendments, guardian restrictions,
+  alerts, AI analytics), Recognition Wall preview (last 4 positives,
+  collapses when zero), recent activity feed projected from
+  `/behaviour/incidents?pageSize=8` with positive→`recognition` /
+  negative→`incident` kind mapping, inline AI quick-parse composer
+  (gated by `/api/v1/ai-flags` with read-only fallback). Co-located
+  13-test spec covering catalogue, AI gating, and projection helper.
+  New `behaviourHub.*` namespace in both `en.json` + `ar.json`
+  (~137 keys each, alphabetical insertion between `behaviour` and
+  `behaviourSettings`). All type-check, lint, and tests pass locally.
+- **Follow-ups:**
+  - **AI flag resolution uses `'unknown'` optimistic fallback** for
+    users without `ai_flag.manage`. Backend `@RequiresAiFlag` decorators
+    remain the authoritative gate. Wave 6 impl 19 (AI features UI)
+    should confirm the same pattern when building the full AI surfaces.
+  - **Weekly delta KPI (`incidents_this_week` / `_last_week`)** is
+    opportunistic — backend stats endpoint doesn't expose these yet,
+    so the tile falls back to `total_incidents` with no subtitle.
+    Future backend enhancement could add a week-over-week breakdown;
+    the frontend is already wired to consume it.
+  - **Inline AI parse stashes prefill text via sessionStorage**
+    (`behaviourAiParsePrefill`) then redirects to
+    `/behaviour/incidents/new?from=ai-parse`. Wave 6 impl 19 owns the
+    full parse modal + incident-form prefill consumer — this teaser
+    hands the text over via sessionStorage as a coordination seam.
+  - **Max-lines ESLint warning** — page is 758 lines (threshold 600).
+    Matches impl 10's precedent (the old 842-line Behaviour Pulse also
+    warned). Acceptable for hub pages with rich catalogues; Wave 7
+    polish can consider extracting sub-components if warranted.
+  - **Bug from impl 12 follow-up not fixed here** — the impl 12
+    completion record flagged a concatenation bug in the recognition
+    page (`behaviour.recognition.filters.currentYearbehaviour...`).
+    That bug is in `/behaviour/recognition/page.tsx`, NOT the sub-hub
+    landing — out of scope. Wave 6 impl 23 (recognition UI rebuild)
+    should fix.
+- **Session notes:**
+  Classic Wave-4/5 parallel-coding turbulence:
+  (a) Impl 13 committed its super-hub commit (`60cf7798`) while my
+  initial Write of the new page was still uncommitted. Husky's
+  lint-staged auto-stash/restore cycle on impl 13's commit DESTROYED
+  my uncommitted file on disk (Rule H6/H10 failure mode — matched the
+  original new-inbox Wave 4 incident). My work was NOT in any stash
+  (the lint-staged backups were all from unrelated admissions
+  sessions). Per Rule H10 I told the user, verified nobody else had
+  touched `behaviour/page.tsx` (that file is owned solely by impl 14
+  in Wave 5), and re-applied from context. Safe because nothing to
+  overwrite.
+  (b) After re-applying, committed IMMEDIATELY (H2 cadence) before any
+  further sibling commits could threaten the tree. Staged by explicit
+  pathspec (H3) — `page.tsx` + `page.spec.ts` only.
+  (c) Pre-commit ESLint caught three errors: two `no-floating-promises`
+  (fixed with `void` prefix on Promise.all/resolveAiFlag chains) and
+  one `no-empty-catch` (fixed with `console.warn` for the
+  sessionStorage fallback). Max-lines warning left as-is.
+  (d) Pre-stashed sibling's `wellbeing/page.tsx` edit before the code
+  commit (H11 pattern) — lint-staged had nothing to sweep. Stash pop
+  after commit conflicted on MY committed files; resolved via
+  `git checkout HEAD --` + `git reset HEAD --` to drop the stash's
+  stale pre-commit versions.
+  (e) Deploy waited ~6 min total: first for impl 13's web deploy, then
+  for impl 15's. Both polled via 3-minute `ScheduleWakeup` per Rule 6a
+  first-come-first-served serialisation. Web deploy itself clean —
+  no tsbuildinfo corruption, pm2 came up first try.
+  (f) Patch series initially included impl 13's fix commit
+  (`16a0bce4`) because I used a commit range. Regenerated with two
+  explicit `-1` format-patches for 18c69ef6 + 1d7e49a4 only.
