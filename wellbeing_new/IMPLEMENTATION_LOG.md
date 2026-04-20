@@ -153,7 +153,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 03  | Wellbeing dashboard-summary aggregator                | 2    | parallel-safe  | 01         | `completed`   | 2026-04-20T13:32Z | 4b749aac   |
 | 04  | AI flag service + notification routing                | 2    | parallel-safe  | 01         | `completed`   | 2026-04-20T13:43Z | 815bd9d2   |
 | 05  | Behaviour AI services                                 | 3    | parallel-safe  | 01, 04     | `in-progress` |                   |            |
-| 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `pending`     |                   |            |
+| 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `in-progress` |                   |            |
 | 07  | Exclusion + amendment + ack services                  | 3    | parallel-safe  | 01, 04     | `pending`     |                   |            |
 | 08  | Pastoral hidden services (DSAR, import, SST AI, etc.) | 3    | parallel-safe  | 01, 04     | `pending`     |                   |            |
 | 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `pending`     |                   |            |
