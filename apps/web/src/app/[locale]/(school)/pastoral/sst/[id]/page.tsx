@@ -28,9 +28,10 @@ import {
   searchStudents,
   type PastoralApiDetailResponse,
   type SearchOption,
-  type SstAgendaItem,
   type SstMeetingDetail,
 } from '@/lib/pastoral';
+
+import { AgendaPanel } from './_components/agenda-panel';
 
 export default function SstMeetingDetailPage() {
   const t = useTranslations('pastoral.sstDetail');
@@ -194,43 +195,33 @@ export default function SstMeetingDetailPage() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
         <div className="space-y-6">
-          <section className="rounded-3xl border border-border bg-surface p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-text-primary">{t('agendaTitle')}</h2>
-                <p className="mt-1 text-sm text-text-secondary">{t('agendaDescription')}</p>
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-4">
-              {meeting.agenda_items.length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-text-tertiary">
-                  {t('emptyAgenda')}
-                </p>
-              ) : (
-                meeting.agenda_items.map((item) => (
-                  <AgendaItemEditor
-                    key={item.id}
-                    item={item}
-                    t={t}
-                    busy={busyAction === `agenda-${item.id}`}
-                    onSave={(discussion_notes, decisions) =>
-                      runAction(`agenda-${item.id}`, async () => {
-                        await apiClient(
-                          `/api/v1/pastoral/sst/meetings/${meeting.id}/agenda/${item.id}`,
-                          {
-                            method: 'PATCH',
-                            body: JSON.stringify({ discussion_notes, decisions }),
-                            silent: true,
-                          },
-                        );
-                      })
-                    }
-                  />
-                ))
-              )}
-            </div>
-          </section>
+          <AgendaPanel
+            items={meeting.agenda_items}
+            agendaPrecomputedAt={meeting.agenda_precomputed_at}
+            resolveStudent={(studentId) => {
+              // Attendees are staff — student names not in the detail payload.
+              // Fallback to trimmed id; the AI badge + source tag carry context.
+              return { id: studentId, name: studentId.slice(0, 8).toUpperCase() };
+            }}
+            busyAction={busyAction}
+            onSaveItem={async (itemId, payload) => {
+              await runAction(`agenda-${itemId}`, async () => {
+                await apiClient(`/api/v1/pastoral/sst/meetings/${meeting.id}/agenda/${itemId}`, {
+                  method: 'PATCH',
+                  body: JSON.stringify(payload),
+                  silent: true,
+                });
+              });
+            }}
+            onDeleteItem={async (itemId) => {
+              await runAction(`agenda-del-${itemId}`, async () => {
+                await apiClient(`/api/v1/pastoral/sst/meetings/${meeting.id}/agenda/${itemId}`, {
+                  method: 'DELETE',
+                  silent: true,
+                });
+              });
+            }}
+          />
 
           <section className="rounded-3xl border border-border bg-surface p-5">
             <h2 className="text-lg font-semibold text-text-primary">{t('actionsTitle')}</h2>
@@ -440,59 +431,6 @@ export default function SstMeetingDetailPage() {
               {error}
             </section>
           ) : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AgendaItemEditor({
-  item,
-  t,
-  busy,
-  onSave,
-}: {
-  item: SstAgendaItem;
-  t: (key: string) => string;
-  busy: boolean;
-  onSave: (discussion_notes: string, decisions: string) => Promise<void>;
-}) {
-  const [discussionNotes, setDiscussionNotes] = React.useState(item.discussion_notes ?? '');
-  const [decisions, setDecisions] = React.useState(item.decisions ?? '');
-
-  return (
-    <div className="rounded-2xl border border-border px-4 py-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-text-primary">{item.description}</p>
-          <p className="mt-1 text-xs text-text-tertiary">
-            {t(`agendaSource.${item.source}` as never)}
-          </p>
-        </div>
-        <span className="text-xs text-text-tertiary">{formatDate(item.created_at)}</span>
-      </div>
-      <div className="mt-4 grid gap-4">
-        <div className="space-y-2">
-          <Label>{t('discussionNotes')}</Label>
-          <Textarea
-            value={discussionNotes}
-            onChange={(event) => setDiscussionNotes(event.target.value)}
-            rows={3}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>{t('decisions')}</Label>
-          <Textarea
-            value={decisions}
-            onChange={(event) => setDecisions(event.target.value)}
-            rows={3}
-          />
-        </div>
-        <div className="flex justify-end">
-          <Button disabled={busy} onClick={() => void onSave(discussionNotes, decisions)}>
-            <Save className="me-2 h-4 w-4" />
-            {t('saveAgendaItem')}
-          </Button>
         </div>
       </div>
     </div>
