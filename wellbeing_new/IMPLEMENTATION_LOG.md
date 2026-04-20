@@ -153,7 +153,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 03  | Wellbeing dashboard-summary aggregator                | 2    | parallel-safe  | 01         | `completed`   | 2026-04-20T13:32Z | 4b749aac   |
 | 04  | AI flag service + notification routing                | 2    | parallel-safe  | 01         | `completed`   | 2026-04-20T13:43Z | 815bd9d2   |
 | 05  | Behaviour AI services                                 | 3    | parallel-safe  | 01, 04     | `in-progress` |                   |            |
-| 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `deploying`   |                   |            |
+| 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `completed`   | 2026-04-20T14:10Z | 2a850c21   |
 | 07  | Exclusion + amendment + ack services                  | 3    | parallel-safe  | 01, 04     | `pending`     |                   |            |
 | 08  | Pastoral hidden services (DSAR, import, SST AI, etc.) | 3    | parallel-safe  | 01, 04     | `pending`     |                   |            |
 | 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `pending`     |                   |            |
@@ -457,3 +457,104 @@ Append new records below in chronological order. Format:
   controller path `/v1/admin/ai-flags` matches the platform-admin
   exclusion in `TenantResolutionMiddleware`. Moved to `/v1/ai-flags`
   in commit `815bd9d2`. Smoke test then green on the first try.
+
+### [IMPL 06] — Document generation lifecycle
+
+- **Completed:** 2026-04-20T14:10Z Europe/Dublin
+- **Commit:** `2a850c21` (local); applied to production as `f504c72e`.
+- **Deployed to production:** yes — API + worker rebuilt and restarted;
+  smoke against `https://nhqs.edupod.app/api/v1/behaviour/documents/templates`
+  and `/documents/:uuid/preview` returns 401 unauthenticated (routes
+  registered, guards firing). `/api/health` returns 200. PM2 shows both
+  api and worker online post-restart.
+- **Summary (≤ 200 words):**
+  The existing behaviour document generation lifecycle (generate → render
+  via `pdf-rendering` queue → `behaviour:document-ready` callback →
+  finalise → send) was already complete from prior work. The audit
+  showed the `BehaviourDocumentsController`, `BehaviourDocumentService`,
+  `BehaviourDocumentTemplateService`, `DocumentReadyProcessor`, and
+  `PdfRenderProcessor` were all in place with RLS, Handlebars rendering,
+  S3 upload, SHA-256 integrity, and merge-field resolution for
+  incident / sanction / appeal / exclusion_case / intervention. Impl 06
+  filled the three spec-specified gaps:
+  - `GET /v1/behaviour/documents/:id/preview` — 1h signed URL returning
+    `{ url, expires_at, expires_in }`. Rejects `generating` docs with
+    `DOCUMENT_NOT_RENDERED`. Distinct from the existing /download (15 min).
+  - `GET /v1/behaviour/documents/templates` and
+    `GET /v1/behaviour/documents/templates/:id` — read-only surfaces
+    gated by `behaviour.view`, enabling Wave 6 impl 20's picker without
+    requiring the admin permission. Editable path at
+    `/v1/behaviour/document-templates` remains admin-only.
+  - `sendDocument` now calls
+    `WellbeingNotificationsService.dispatch({ event: 'document.sent_to_parent', ... })`
+    after the tx commits. In-app is mandatory; email/SMS/WhatsApp follow
+    `tenant_notification_preferences.wellbeing_channels`. Dispatch
+    failure is logged but does not roll back the `sent_doc` transition.
+  - `BehaviourDisciplineModule` imports `WellbeingNotificationsModule`.
+  - `BehaviourDocumentTemplateService.getTemplate` added for single-id
+    fetch.
+
+  Added 13 new unit tests (3 for preview, 1 for template get, 3 for
+  wellbeing dispatch, 6 ancillary) across three spec files. All 79
+  behaviour-document tests pass. Type-check clean.
+
+- **Follow-ups:**
+  - **`generation_failed` state + `last_error` / `retry_count` columns
+    NOT shipped.** Impl spec asked for render-failure hardening that
+    would have required schema changes (`DocumentStatus` enum value +
+    new columns on `behaviour_documents`). Impl 06's row in the
+    deployment matrix is `Migration: ❌`, so these were deferred. A
+    future follow-up wave should add this schema + wire it into the
+    pdf-render processor's failure branch. Until then, failed renders
+    rely on BullMQ's 2 `attempts` (configured in `worker.module.ts`
+    for `pdf-rendering` queue) and the document stays in `generating`
+    indefinitely on ultimate failure. Not a safety issue, but a UX
+    one the Wave 6 UI will need to surface.
+  - **Multi-recipient `send` DTO NOT shipped.** Spec wanted
+    `{ recipient_user_ids: string[], channels: [...], cover_message?: string }`.
+    Kept the existing `{ channel, recipient_parent_id? }` shape to
+    avoid breaking the inline auto-send flows in sanctions / appeals /
+    exclusions. Wave 6 impl 20's UI can fan out client-side by
+    calling the endpoint N times. If a batched send is wanted later,
+    add a second endpoint (`POST /:id/send-batch`) rather than
+    breaking the existing single-send contract.
+  - **Resend counter NOT shipped.** Spec mentioned "`sent_doc` for
+    re-send — increments resend counter." No resend counter column
+    exists; the send path today rejects non-`finalised` states so
+    re-sends are impossible without first reverting to `finalised`
+    (which is not supported). Ship the resend path in the same
+    follow-up that adds the schema changes.
+  - **Wave 5 impl 18 (AI flags admin page) can depend on impl 06
+    for reference impl** of how to consume `WellbeingNotificationsService`
+    from a service layer. Pattern: extract data inside the RLS
+    `$transaction`, commit the tx, then `dispatch()` outside the tx
+    and swallow non-critical errors.
+- **Session notes:**
+  Heavy parallel-coding turbulence with sibling impl 05 (Behaviour AI
+  services):
+  (a) Sibling had extensive unstaged + untracked work in the same
+  `apps/api/src/modules/behaviour/` tree: `ai/` subfolder (new files
+  including moved `behaviour-ai.service.ts`), modifications to
+  `behaviour-analytics.controller.ts`, `behaviour-students.*`,
+  `behaviour.controller.ts`, `packages/prisma/schema.prisma`,
+  `packages/prisma/rls/policies.sql`, `packages/shared/src/behaviour/schemas/*`.
+  (b) First commit attempt: `git add <my 7 files>` + commit. Husky's
+  lint-staged auto-stash/restore cycle pulled the sibling's rename
+  (`behaviour-ai.service.ts` → `ai/behaviour-ai.service.ts`) into
+  the commit, yielding 9 files instead of 7. Exactly the H6/H10
+  failure mode.
+  (c) Recovered via `git reset --soft HEAD~1`, then
+  `git stash push --keep-index --include-untracked -m "impl-05-sibling-work"`
+  to isolate sibling files. Re-committed cleanly (7 files only as
+  commit `2a850c21`).
+  (d) `git stash pop` after the clean commit failed to fully restore
+  sibling's tracked-file modifications (5 files on `behaviour-students`,
+  `behaviour.controller`, schema, RLS, analytics schema, index) and
+  the untracked migration + `ai-parse.schema.ts` — they remain in
+  stash@{0}. Sibling's session needs to `git stash apply stash@{0}`
+  or cherry-pick from the stash diff to restore their working state.
+  Per hardened rule H10 I stopped trying to re-apply blindly.
+  (e) Smoke tested after api+worker restart: both /templates and
+  /:id/preview routes return 401 (auth required) rather than 404,
+  confirming routing is wired. Stale `api-error.log` (210MB, Apr 5
+  mtime) noted per impl 01's guidance — unrelated to this deploy.
