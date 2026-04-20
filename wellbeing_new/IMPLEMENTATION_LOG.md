@@ -1,0 +1,197 @@
+# Wellbeing Rebuild — Implementation Log
+
+> **What this is:** The single source of truth for the wellbeing module rebuild. Every session that executes an implementation MUST read this file first, verify prerequisites, record completion, and deploy to production before signing off.
+>
+> Master plan: `wellbeing_new/PLAN.md`. Audit source: `.claude/tmp/wellbeing-audit/{SYNTHESIS,backend-report,playwright-walkthrough}.md`.
+
+---
+
+## 1. Work summary (read this first)
+
+We are rebuilding the wellbeing module — the largest feature surface in the platform — into a flagship-grade deliverable. Five backend modules (behaviour, pastoral, safeguarding, early-warning, staff-wellbeing) with 245+ endpoints, 68 tables, and 29 jobs. Roughly half of that backend is dark in the UI today: AI parsing, document generation, statutory exclusion workflow, guardian restrictions, parent acknowledgement tracking, amendment notices, pastoral DSAR, safeguarding break-glass, critical-incident response plans, SST agenda AI, recognition wall + house leaderboard, policy engine ops, admin data repair. On top of that, eight pages crash on load, twenty endpoints are wrong or missing, the entire `behaviour.*` translation namespace is absent, and the `/wellbeing` landing returns 404.
+
+This rebuild does all of:
+
+1. **Stop the bleeding** — fix every page crash, every broken endpoint, every missing translation key (English and Arabic), seed default behaviour categories on tenant create.
+2. **Build a `/wellbeing` super-hub** that replaces the morph-bar sub-strip pattern entirely, modelled on `/people`.
+3. **Build four flagship sub-hubs** for behaviour, staff-wellbeing (folded into one page), early-warnings (taken to the full 6 yards as a key product differentiator), safeguarding (separated from pastoral).
+4. **Surface every hidden capability** in the UI — every backend endpoint either gets a page or is explicitly marked backend-only.
+5. **AI gating** — a per-module on/off table + admin page so tenants can enable/disable AI features independently per module.
+6. **Repair staff-wellbeing 404s and the `/early-warnings/settings` crash with default-init.**
+7. **Verify every page, flow, permission, and notification** — Playwright walkthrough across all four roles plus a manual sign-off sweep.
+8. **Update all five architecture docs** — `feature-map.md`, `module-blast-radius.md`, `event-job-catalog.md`, `state-machines.md`, `danger-zones.md`.
+
+`/pastoral` is **untouched** — it is the only existing page in the umbrella that already meets the bar.
+
+The rebuild is split into **24 implementations across 7 waves**. See §3 for the wave structure and §4 for the live status table.
+
+---
+
+## 2. Rules every session must follow
+
+### 2a. Baseline rules (apply to every implementation)
+
+**Rule 1 — Read this file before starting any implementation.** The whole log. Not just your wave. You need to see what's been done and what's in flight.
+
+**Rule 2 — Verify cross-wave prerequisites.** Look at the Wave Status table in §4. For the implementation you've been asked to run, every item in its `Depends on` column must have `status: completed`. **In-wave siblings are NOT prerequisites** — you code in parallel with them, only deployment serialises (Step 6 of `/WBR`). If a cross-wave prerequisite is missing, poll every 30 minutes per the `/WBR` slash command's Step 1.
+
+**Rule 3 — Read the summaries of completed prerequisites** in §5 (Completion Records). What shipped may differ from what the impl file said.
+
+**Rule 4 — Implementations within the same wave code in parallel; only deployments serialise** (first-come-first-served, not numeric order), and only when they share a service restart target. Consult the deployment matrix in §3 before deploying.
+
+**Rule 5 — NEVER push to GitHub.** Commit locally only. Deploy via SSH patch flow per the `/WBR` slash command. The user pushes the entire stack at the end of the rebuild.
+
+**Rule 6 — Deploy directly to production after every implementation.** SSH access is granted for the duration. Production lives at `root@46.62.244.139`, repo at `/opt/edupod/app`, runs as `edupod` user via PM2. **Never run `git pull` or `git fetch origin` on the server** — you will revert the accumulated local-only commits.
+
+**Rule 7 — Update this log at the end of your implementation.** Append a Completion Record in §5 + flip your row in §4 from `in-progress` to `completed`. The log update goes in its **own separate commit** — never bundled with code.
+
+**Rule 8 — Regression tests are mandatory.** Before deploying, run `pnpm turbo run test --filter=<affected packages>`. Fix any regressions before deploying.
+
+**Rule 9 — Follow `.claude/rules/*` and CLAUDE.md.** RLS on every new tenant-scoped table (`FORCE ROW LEVEL SECURITY` + `tenant_isolation` policy), no raw SQL outside the RLS middleware, interactive `$transaction(async (tx) => ...)`, strict TypeScript, logical CSS properties (`ms-`/`me-`/`ps-`/`pe-`/`start-`/`end-`, never `ml-`/`mr-`/`pl-`/`pr-`/`left-`/`right-`), `react-hook-form` + Zod for new forms.
+
+**Rule 10 — If you hit a blocker you cannot resolve, STOP and update the log.** Add a `🛑 BLOCKED` record to §5 explaining what you tried and what you need. Do not invent state. Do not delete unrecognised code.
+
+**Rule 11 — Never weaken privacy invariants.** Every wellbeing endpoint touches sensitive data (safeguarding, child protection, AI). Existing permission decorators stay. New surfaces respect them. If a test or feature seems to need it, STOP and ask the user.
+
+**Rule 12 — Translations are mandatory in both `en.json` and `ar.json`.** No new English string ships without its Arabic counterpart. The translation backfill in Wave 4 covers existing missing keys; every new key in Waves 5 and 6 lands in both locale files in the same commit.
+
+### 2b. Hardened rules for parallel coding (Waves 4, 5, 6)
+
+These rules exist because the `new-inbox` rebuild's Wave 4 lost work to lint-staged's auto-stash interacting with `git add .` and unstaged sibling files. Apply these on EVERY frontend impl in Waves 4, 5, 6. They are the difference between a clean parallel run and a 90-minute revert war.
+
+**Rule H1 — Read your impl's `## Shared files this impl touches` section FIRST.** Every impl file lists every file it will touch that another sibling might also touch. Hold them in working memory — they are your conflict zones.
+
+**Rule H2 — Commit at every sub-step, not at the end.** The impl's `## What to build` lists numbered sub-steps. Commit after each sub-step that produces a working state. Three to five commits per frontend impl is normal. Sitting on hours of uncommitted work exposes you to every sibling's edits and to lint-staged's stash behaviour.
+
+**Rule H3 — Stage by explicit pathspec, NEVER `git add .` or `git add -A`.** Every `git add` lists the exact files:
+
+```bash
+git add apps/web/src/app/[locale]/\(school\)/wellbeing/page.tsx \
+        apps/web/src/components/kpi-tile.tsx
+```
+
+If you default to `git add .` you will sweep up sibling sessions' untracked work and attribute it to your commit, triggering revert wars.
+
+**Rule H4 — Run `git status` before EVERY commit and inspect it.** If you see files you did not touch, ABORT the commit. A sibling session has written into your working tree. Investigate before proceeding — stash your own changes, work out what happened, then proceed.
+
+**Rule H5 — Shared files go LAST.** When your impl touches translations, `nav-config.ts`, the morph bar, settings shells, or seed files, do those sub-steps **last**, immediately before your final commit. This minimises the window during which a sibling can overwrite your edits. Pattern: build everything in your own files first, commit, then do shared-file edits in a single final commit.
+
+**Rule H6 — Beware lint-staged auto-stash.** Husky's `lint-staged` stashes unstaged and untracked files before running pre-commit checks, then restores them. If a sibling session has untracked files in your working tree at the moment you commit, they can be destroyed during the stash/restore cycle. Before `git commit`, verify `git status` shows ONLY files you intend to commit.
+
+**Rule H7 — `IMPLEMENTATION_LOG.md` is a shared file and ALWAYS goes in its own separate commit.** Never bundle log updates with code. Pattern:
+
+```
+feat(wellbeing): <impl title>           <- code commit(s), pathspec'd
+docs(wellbeing): log completion of impl NN   <- log commit, alone
+```
+
+**Rule H8 — Translation keys go into a local scratch first, then into `en.json` / `ar.json` in your final commit window.** Do not edit `en.json` early in your impl — you race every other frontend sibling. Keep your additions in a buffer (a comment, a scratch file, an in-memory list) and write them into the locale files in the final commit window only.
+
+**Rule H9 — Deep-merge `en.json` / `ar.json` edits, never replace the file.** Re-read the current content of each locale file immediately before writing. Merge your additions into the existing structure. Do not assume the content you loaded 30 minutes ago is still current — a sibling may have added keys you'd otherwise overwrite.
+
+**Rule H10 — If you discover a conflict you cannot resolve (sibling wiped your work, lint-staged destroyed untracked files), STOP and file a follow-up note in the log. Do not blindly re-apply** — you may overwrite a fix someone else just made. Tell the user, attach what you can recover, wait for guidance.
+
+---
+
+## 3. Wave structure & deployment matrix
+
+Each wave must complete entirely before the next wave starts. Within a wave, all listed implementations code in parallel AND deploy on a first-come-first-served basis — not in implementation-number order.
+
+### Wave structure
+
+| Wave  | Implementations        | Hard dependency | Parallelisation mode | Theme                                                      |
+| ----- | ---------------------- | --------------- | -------------------- | ---------------------------------------------------------- |
+| **1** | 01                     | None            | serial               | Schema foundation (AI flags, default categories, defaults) |
+| **2** | 02, 03, 04             | Wave 1          | parallel-safe        | Backend stop-the-bleeding                                  |
+| **3** | 05, 06, 07, 08, 09     | Wave 2          | parallel-safe        | Backend hidden-capability surfacing                        |
+| **4** | 10, 11, 12             | Wave 3          | **parallel-risky**   | Frontend stop-the-bleeding (apply rules H1–H10)            |
+| **5** | 13, 14, 15, 16, 17, 18 | Wave 4          | **parallel-risky**   | New super-hub + four sub-hubs + AI admin (rules H1–H10)    |
+| **6** | 19, 20, 21, 22, 23     | Wave 5          | **parallel-risky**   | Frontend hidden-capability surfacing (rules H1–H10)        |
+| **7** | 24                     | Wave 6          | serial               | Polish, Playwright sweep, docs                             |
+
+### Deployment matrix
+
+Restart target determines deploy serialisation. Deployments only block each other when they share a target.
+
+| Impl | Migration | API restart | Worker restart | Web restart |
+| ---- | --------- | ----------- | -------------- | ----------- |
+| 01   | ✅        | ✅          | ✅             | ✅          |
+| 02   | ❌        | ✅          | ❌             | ❌          |
+| 03   | ❌        | ✅          | ❌             | ❌          |
+| 04   | ❌        | ✅          | ✅             | ❌          |
+| 05   | ❌        | ✅          | ❌             | ❌          |
+| 06   | ❌        | ✅          | ✅             | ❌          |
+| 07   | ❌        | ✅          | ✅             | ❌          |
+| 08   | ❌        | ✅          | ✅             | ❌          |
+| 09   | ❌        | ✅          | ❌             | ❌          |
+| 10   | ❌        | ❌          | ❌             | ✅          |
+| 11   | ❌        | ❌          | ❌             | ✅          |
+| 12   | ❌        | ❌          | ❌             | ✅          |
+| 13   | ❌        | ❌          | ❌             | ✅          |
+| 14   | ❌        | ❌          | ❌             | ✅          |
+| 15   | ❌        | ❌          | ❌             | ✅          |
+| 16   | ❌        | ❌          | ❌             | ✅          |
+| 17   | ❌        | ❌          | ❌             | ✅          |
+| 18   | ❌        | ❌          | ❌             | ✅          |
+| 19   | ❌        | ❌          | ❌             | ✅          |
+| 20   | ❌        | ❌          | ❌             | ✅          |
+| 21   | ❌        | ❌          | ❌             | ✅          |
+| 22   | ❌        | ❌          | ❌             | ✅          |
+| 23   | ❌        | ❌          | ❌             | ✅          |
+| 24   | ❌        | ✅          | ✅             | ✅          |
+
+---
+
+## 4. Wave status (update as you execute)
+
+Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
+
+| #   | Title                                                 | Wave | Mode           | Depends on | Status    | Completed at | Commit SHA |
+| --- | ----------------------------------------------------- | ---- | -------------- | ---------- | --------- | ------------ | ---------- |
+| 01  | Schema foundation + default seeds                     | 1    | serial         | —          | `pending` |              |            |
+| 02  | Fix broken behaviour endpoints                        | 2    | parallel-safe  | 01         | `pending` |              |            |
+| 03  | Wellbeing dashboard-summary aggregator                | 2    | parallel-safe  | 01         | `pending` |              |            |
+| 04  | AI flag service + notification routing                | 2    | parallel-safe  | 01         | `pending` |              |            |
+| 05  | Behaviour AI services                                 | 3    | parallel-safe  | 01, 04     | `pending` |              |            |
+| 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `pending` |              |            |
+| 07  | Exclusion + amendment + ack services                  | 3    | parallel-safe  | 01, 04     | `pending` |              |            |
+| 08  | Pastoral hidden services (DSAR, import, SST AI, etc.) | 3    | parallel-safe  | 01, 04     | `pending` |              |            |
+| 09  | Safeguarding, admin repair, policy engine ops         | 3    | parallel-safe  | 01, 04     | `pending` |              |            |
+| 10  | Page crash fixes (5 pages)                            | 4    | parallel-risky | 02, 03     | `pending` |              |            |
+| 11  | Behaviour analytics URL fix + endpoint reconnects     | 4    | parallel-risky | 02         | `pending` |              |            |
+| 12  | Translation backfill (en + ar)                        | 4    | parallel-risky | 02         | `pending` |              |            |
+| 13  | Wellbeing super-hub + sub-strip removal               | 5    | parallel-risky | 03, 12     | `pending` |              |            |
+| 14  | Behaviour sub-hub                                     | 5    | parallel-risky | 03, 12     | `pending` |              |            |
+| 15  | Staff wellbeing folded sub-hub                        | 5    | parallel-risky | 12         | `pending` |              |            |
+| 16  | Early-warnings flagship sub-hub                       | 5    | parallel-risky | 03, 12     | `pending` |              |            |
+| 17  | Safeguarding sub-hub                                  | 5    | parallel-risky | 09, 12     | `pending` |              |            |
+| 18  | Tenant admin → AI flags page                          | 5    | parallel-risky | 04, 12     | `pending` |              |            |
+| 19  | AI features UI                                        | 6    | parallel-risky | 05, 14, 18 | `pending` |              |            |
+| 20  | Document generation UI                                | 6    | parallel-risky | 06, 14     | `pending` |              |            |
+| 21  | Exclusion + restrictions + amendments + ack UI        | 6    | parallel-risky | 07, 14     | `pending` |              |            |
+| 22  | Pastoral hidden-feature UI                            | 6    | parallel-risky | 08         | `pending` |              |            |
+| 23  | Safeguarding hidden + recognition + policy + admin UI | 6    | parallel-risky | 09, 14, 17 | `pending` |              |            |
+| 24  | Polish, Playwright multi-role sweep, docs             | 7    | serial         | 10–23      | `pending` |              |            |
+
+`Depends on` lists the minimum cross-wave prerequisites. In strict wave order these are auto-satisfied; the column lets the slash command and human double-check.
+
+---
+
+## 5. Completion records
+
+Append new records below in chronological order. Format:
+
+```
+### [IMPL NN] — <title>
+- **Completed:** <ISO timestamp> Europe/Dublin
+- **Commit:** <sha>
+- **Deployed to production:** yes / no (if no, explain)
+- **Summary (≤ 200 words):**
+  What was actually built. Names of new files, endpoints, services. Key design
+  decisions made during implementation that subsequent waves need to know about.
+  Any trade-offs or deviations from the plan.
+- **Follow-ups:** anything that needs later attention, with owner.
+- **Session notes (optional):** anything weird or surprising.
+```
+
+<!-- ─── Append records below this line ─── -->
