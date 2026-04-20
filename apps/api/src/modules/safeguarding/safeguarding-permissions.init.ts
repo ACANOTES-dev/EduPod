@@ -54,18 +54,29 @@ export class SafeguardingPermissionsInit implements OnModuleInit {
       return { permissionId: permId, tenantIds: tenants.map((t) => t.id) };
     });
 
+    // Per-tenant failures are tolerated: a tenant can be deleted between
+    // Pass 1 (read) and Pass 2 (write) in parallel test runs, producing
+    // FK violations on role_permissions. Skip the tenant and continue.
     let adminGrants = 0;
+    let skippedTenants = 0;
     for (const tenantId of tenantIds) {
-      const count = await backfillSafeguardingPermissionsForTenant(
-        this.prisma,
-        tenantId,
-        permissionId,
-      );
-      adminGrants += count;
+      try {
+        const count = await backfillSafeguardingPermissionsForTenant(
+          this.prisma,
+          tenantId,
+          permissionId,
+        );
+        adminGrants += count;
+      } catch (err) {
+        skippedTenants += 1;
+        this.logger.warn(
+          `Safeguarding permission backfill skipped for tenant ${tenantId}: ${(err as Error).message}`,
+        );
+      }
     }
 
     this.logger.log(
-      `Safeguarding permissions ensured — ${tenantIds.length} tenants, ${adminGrants} admin-tier grants.`,
+      `Safeguarding permissions ensured — ${tenantIds.length - skippedTenants}/${tenantIds.length} tenants, ${adminGrants} admin-tier grants.`,
     );
   }
 }

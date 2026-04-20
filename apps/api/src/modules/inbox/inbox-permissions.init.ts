@@ -142,16 +142,27 @@ export class InboxPermissionsInit implements OnModuleInit {
     });
 
     // ─── Pass 2: per-tenant role_permission upserts (RLS-scoped) ────────────
+    // Per-tenant failures are tolerated: a tenant can be deleted between
+    // Pass 1 (read) and Pass 2 (write) in parallel test runs, producing
+    // FK violations on role_permissions. Skip the tenant and continue.
     let adminGrants = 0;
     let sendGrants = 0;
+    let skippedTenants = 0;
     for (const tenantId of tenantIds) {
-      const counts = await backfillInboxPermissionsForTenant(this.prisma, tenantId, permIdByKey);
-      adminGrants += counts.adminGrants;
-      sendGrants += counts.sendGrants;
+      try {
+        const counts = await backfillInboxPermissionsForTenant(this.prisma, tenantId, permIdByKey);
+        adminGrants += counts.adminGrants;
+        sendGrants += counts.sendGrants;
+      } catch (err) {
+        skippedTenants += 1;
+        this.logger.warn(
+          `Inbox permission backfill skipped for tenant ${tenantId}: ${(err as Error).message}`,
+        );
+      }
     }
 
     this.logger.log(
-      `Inbox permissions ensured — ${tenantIds.length} tenants, ${adminGrants} admin-tier roles, ${sendGrants} send-only roles.`,
+      `Inbox permissions ensured — ${tenantIds.length - skippedTenants}/${tenantIds.length} tenants, ${adminGrants} admin-tier roles, ${sendGrants} send-only roles.`,
     );
   }
 }
