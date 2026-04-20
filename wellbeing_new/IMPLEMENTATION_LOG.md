@@ -149,7 +149,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | #   | Title                                                 | Wave | Mode           | Depends on | Status        | Completed at      | Commit SHA |
 | --- | ----------------------------------------------------- | ---- | -------------- | ---------- | ------------- | ----------------- | ---------- |
 | 01  | Schema foundation + default seeds                     | 1    | serial         | —          | `completed`   | 2026-04-20T14:15Z | c5ee2128   |
-| 02  | Fix broken behaviour endpoints                        | 2    | parallel-safe  | 01         | `deploying`   |                   |            |
+| 02  | Fix broken behaviour endpoints                        | 2    | parallel-safe  | 01         | `completed`   | 2026-04-20T13:27Z | 16bffbb4   |
 | 03  | Wellbeing dashboard-summary aggregator                | 2    | parallel-safe  | 01         | `in-progress` |                   |            |
 | 04  | AI flag service + notification routing                | 2    | parallel-safe  | 01         | `in-progress` |                   |            |
 | 05  | Behaviour AI services                                 | 3    | parallel-safe  | 01, 04     | `pending`     |                   |            |
@@ -271,3 +271,60 @@ Append new records below in chronological order. Format:
   new compiled output. The old `api-error.log` (210MB, last written
   Apr 5) contains stale `ERR_MODULE_NOT_FOUND` entries from prior
   deploys — unrelated to this deployment. New processes start clean.
+
+### [IMPL 02] — Fix broken behaviour endpoints
+
+- **Completed:** 2026-04-20T13:27Z Europe/Dublin
+- **Commit:** 16bffbb4 (local); rebased to `7dbbb3bb` on production via `git am`
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Fixed the four broken surfaces the /behaviour redesign sits on top of.
+  New endpoints:
+  - `GET /api/v1/behaviour/incidents/stats` — aggregate KPI counts
+    (total/positive/negative incidents + open/overdue tasks). Root cause
+    of the 400 toast was a missing route: requests hit
+    `/behaviour/incidents/:id` and ParseUUIDPipe rejected "stats".
+    Static route declared before `:id` in `behaviour.controller.ts`.
+  - `GET /api/v1/behaviour/templates` — flat paginated list of
+    `behaviour_description_templates`, projected into the frontend's
+    `TemplateOption` shape (`id`, `name`, `body_template`). `name` and
+    `body_template` both map to the DB `text` column; no schema change.
+    Returns `{data: [], meta: {total: 0}}` for tenants with no templates.
+  - `GET /api/v1/behaviour/recognition` — top-level recognition feed
+    backed by positive `behaviour_incidents`, shape matches
+    `RecognitionItem`. Supports `status=published` (default) | `pending`
+    | `all`, plus `academic_year_id` / `student_id` filters.
+    Fixed: `listTasksQuerySchema.assigned_to_id` now accepts the `"me"`
+    sentinel (alongside UUID). `BehaviourTasksService.listTasks` gained a
+    `userId` arg and resolves "me" server-side. Shared schemas:
+    `listTemplatesQuerySchema`, `recognitionListQuerySchema`,
+    `RECOGNITION_LIST_STATUS`. Production smoke confirmed all four routes
+    return 200 + canonical shapes on NHQS.
+
+- **Follow-ups:**
+  - **Empty NHQS state** — stats/templates/recognition/tasks all return
+    zero on NHQS today. Impl 01's note about "0 behaviour_categories"
+    - fresh migration-seeded 31 categories implies no incidents have
+      been logged yet; once UI is wired up (Wave 4), we should seed a
+      handful of fixture incidents for NHQS so the /behaviour dashboard
+      doesn't demo as empty.
+  - **Recognition award source duplication** — the new list endpoint
+    reads positive incidents; the existing
+    `GET /behaviour/recognition/awards` reads `behaviour_recognition_awards`
+    (manual awards). The Wave 6 impl 23 rebuild of the Recognition page
+    should decide whether to merge these feeds or keep them as separate
+    tabs. For now both live side-by-side.
+  - **Behaviour templates name truncation** — `name` maps to the full
+    `text` (up to 500 chars). If UI chips need a shorter label, truncate
+    client-side or introduce a separate `label` column in a later pass.
+
+- **Session notes:**
+  Sibling sessions impl 03 + impl 04 were running concurrently in the
+  same tree (Wave 2 parallel-safe). Applied H3 anyway: every `git add`
+  used explicit pathspec; sibling files (`app.module.ts`,
+  `read-facades.module.ts`, new `wellbeing-aggregate/` and `ai-flags/`
+  dirs) were never staged. Production log was still on the pre-Wave-2
+  version when I deployed, so I split my local 2-commit patch into a
+  code-only patch (applied cleanly) and deferred the production log
+  update to this record's separate commit. Stats shows `total_incidents: 0`
+  on NHQS today — expected given no behaviour incidents logged yet.
