@@ -150,7 +150,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | --- | ----------------------------------------------------- | ---- | -------------- | ---------- | ----------- | ----------------- | ---------- |
 | 01  | Schema foundation + default seeds                     | 1    | serial         | —          | `completed` | 2026-04-20T14:15Z | c5ee2128   |
 | 02  | Fix broken behaviour endpoints                        | 2    | parallel-safe  | 01         | `completed` | 2026-04-20T13:27Z | 16bffbb4   |
-| 03  | Wellbeing dashboard-summary aggregator                | 2    | parallel-safe  | 01         | `deploying` |                   |            |
+| 03  | Wellbeing dashboard-summary aggregator                | 2    | parallel-safe  | 01         | `completed` | 2026-04-20T13:32Z | 4b749aac   |
 | 04  | AI flag service + notification routing                | 2    | parallel-safe  | 01         | `deploying` |                   |            |
 | 05  | Behaviour AI services                                 | 3    | parallel-safe  | 01, 04     | `pending`   |                   |            |
 | 06  | Document generation lifecycle                         | 3    | parallel-safe  | 01, 04     | `pending`   |                   |            |
@@ -328,3 +328,61 @@ Append new records below in chronological order. Format:
   code-only patch (applied cleanly) and deferred the production log
   update to this record's separate commit. Stats shows `total_incidents: 0`
   on NHQS today — expected given no behaviour incidents logged yet.
+
+### [IMPL 03] — Wellbeing dashboard-summary aggregator
+
+- **Completed:** 2026-04-20T13:32Z Europe/Dublin
+- **Commit:** `4b749aac` (local); applied to production as `730e097d`
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Shipped `GET /api/v1/wellbeing/dashboard-summary` — the single endpoint
+  the new `/wellbeing` super-hub (impl 13) will call. New module at
+  `apps/api/src/modules/wellbeing-aggregate/` (controller, service,
+  module + specs). Gated by `wellbeing.view_dashboard` (seeded by impl
+  01). Composes KPIs + pending-attention + hub_counts + recent_activity
+  via `Promise.allSettled` across five facades; per-sub-query failures
+  yield zero/empty slices (logged warn) rather than 500s. Safeguarding
+  is always-on; `behaviour`/`pastoral`/`early_warning`/`staff_wellbeing`
+  are flag-gated via `tenant_modules` (skipped entirely when disabled).
+  Read access uses the codebase's facade pattern to avoid feature-module
+  imports and their forwardRef risk: extended `BehaviourReadFacade` and
+  `PastoralReadFacade` with 12 new count/feed helpers, added three new
+  facades (`SafeguardingReadFacade`, `EarlyWarningReadFacade`,
+  `StaffWellbeingReadFacade`) and registered them globally in
+  `ReadFacadesModule`. Shared schema: appended
+  `wellbeingDashboardSummarySchema` + `WellbeingDashboardSummary` type to
+  `packages/shared/src/wellbeing/index.ts` (consumed via
+  `@school/shared/wellbeing`). Production smoke: NHQS returns all-zero
+  counts in ~80ms p50 (< 250ms target). 11 specs pass locally.
+
+- **Follow-ups:**
+  - **Pastoral author masking in recent activity** — `logged_by` on
+    concerns is set to `null` when `author_masked=true`; the rebuilt
+    `/pastoral/concerns` UI in Wave 6 must honour the same rule when
+    linking back from the activity feed.
+  - **Recognition award activity** — uses generic title/href today
+    (`title: "Recognition awarded"`, `href: /behaviour/recognition`).
+    When Wave 5 impl 14 builds the Behaviour sub-hub, consider
+    threading student/award-type names through the aggregator for a
+    richer feed entry.
+  - **Sibling impl 04 lines in app.module.ts were missing on
+    production** — my commit included `AiFlagsModule` and
+    `WellbeingNotificationsModule` references because a sibling had
+    already committed those imports locally. Production didn't have
+    the module directories yet, so I stripped the two imports on the
+    server, rebuilt, then restarted API. Impl 04's own deployment
+    later restored the imports and shipped the actual module files.
+    No lasting effect — flagged here so future Wave 2-style parallel
+    deploys know to expect this.
+  - **Pre-existing Wave 4 hardening proven out** — the
+    `git stash push --keep-index` dance was essential to keep the
+    sibling-impl-04 edits out of my log commit after lint-staged tried
+    to auto-include them. Keep the pattern for future log commits
+    when sibling work is unstaged in the tree.
+
+- **Session notes:**
+  DI smoke test + jest both pass; lint shows only pre-existing
+  behaviour-facade size warnings (unchanged by this impl). `pastoral`
+  and `early_warning` flag-gating is tested via mock (`enabled:false`
+  branch asserts facade call is skipped and fallback zero propagates to
+  KPIs + hub_counts).
