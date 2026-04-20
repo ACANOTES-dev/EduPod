@@ -14013,5 +14013,38 @@
       "eap": "Employee Assistance",
       "training": "Staff training"
     }
+  },
+  "wellbeingStaff": {
+    "title": "Staff Wellbeing",
+    "description": "Personal workload insights, school-wide dashboards, surveys, and support resources for staff.",
+    "nav": {
+      "my": "My Workload",
+      "aggregate": "Dashboard",
+      "surveys": "Surveys",
+      "boardReport": "Board Report",
+      "resources": "Support"
+    },
+    "sections": {
+      "my": {
+        "title": "My Workload",
+        "description": "Your personal teaching load, cover duties, and timetable quality. Private to you."
+      },
+      "aggregate": {
+        "title": "Aggregate Dashboard",
+        "description": "School-wide workload, cover fairness, timetable quality, and substitution pressure."
+      },
+      "surveys": {
+        "title": "Staff Surveys",
+        "description": "Create and manage anonymous staff pulse surveys and review responses."
+      },
+      "boardReport": {
+        "title": "Board Report",
+        "description": "Termly summary for management body meetings. Printable PDF."
+      },
+      "resources": {
+        "title": "EAP & Resources",
+        "description": "Employee Assistance Programme, crisis helplines, and additional support resources."
+      }
+    }
   }
 }
