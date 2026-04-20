@@ -1,6 +1,16 @@
 'use client';
 
-import { Award, CheckCircle, Crown, Shield, Star, Trophy, XCircle } from 'lucide-react';
+import {
+  Award,
+  CheckCircle,
+  Crown,
+  Medal,
+  Shield,
+  Sparkles,
+  Star,
+  Trophy,
+  XCircle,
+} from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -93,7 +103,22 @@ export default function RecognitionWallPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} />
+      <PageHeader title={t('title')} description={t('description')} />
+
+      {/* Celebratory hero strip */}
+      <section className="relative overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-rose-50 p-5">
+        <div className="absolute -end-6 -top-6 h-32 w-32 rounded-full bg-amber-200/40 blur-3xl" />
+        <div className="absolute -bottom-4 -start-4 h-24 w-24 rounded-full bg-rose-200/30 blur-3xl" />
+        <div className="relative flex flex-wrap items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-rose-500 text-white shadow-lg">
+            <Sparkles className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold text-text-primary">{t('hero.title')}</h2>
+            <p className="mt-0.5 text-xs text-text-secondary">{t('hero.body')}</p>
+          </div>
+        </div>
+      </section>
 
       {/* Tabs */}
       <div className="overflow-x-auto">
@@ -145,7 +170,9 @@ function WallTab() {
   React.useEffect(() => {
     apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20')
       .then((res) => setAcademicYears(res.data ?? []))
-      .catch((err) => { console.error('[BehaviourRecognitionPage]', err); });
+      .catch((err) => {
+        console.error('[BehaviourRecognitionPage]', err);
+      });
   }, []);
 
   const fetchWall = React.useCallback(async (year: string) => {
@@ -328,54 +355,130 @@ function LeaderboardTab() {
       ) : entries.length === 0 ? (
         <p className="py-12 text-center text-sm text-text-tertiary">{t('noLeaderboard')}</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('columns.rank')}
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('columns.student')}
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('columns.yearGroup')}
-                </th>
-                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('columns.points')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((entry) => (
-                <tr
-                  key={entry.student_id}
-                  className={`border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary ${
-                    entry.rank <= 3 ? 'bg-surface-secondary/50' : ''
-                  }`}
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex h-8 w-8 items-center justify-center">
-                      {getRankIcon(entry.rank)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm font-medium text-text-primary">
-                    {entry.student_name}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">
-                    {entry.year_group ?? '---'}
-                  </td>
-                  <td className="px-4 py-3 text-end">
-                    <span className="text-sm font-semibold text-green-600">
-                      {entry.total_points.toLocaleString()}
-                    </span>
-                  </td>
+        <>
+          <Podium entries={entries.slice(0, 3)} />
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('columns.rank')}
+                  </th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('columns.student')}
+                  </th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('columns.yearGroup')}
+                  </th>
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('columns.points')}
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {entries.map((entry) => (
+                  <tr
+                    key={entry.student_id}
+                    className={`border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary ${
+                      entry.rank <= 3 ? 'bg-surface-secondary/50' : ''
+                    }`}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex h-8 w-8 items-center justify-center">
+                        {getRankIcon(entry.rank)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                      {entry.student_name}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-text-secondary">
+                      {entry.year_group ?? '---'}
+                    </td>
+                    <td className="px-4 py-3 text-end">
+                      <span className="text-sm font-semibold text-green-600">
+                        {entry.total_points.toLocaleString()}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
+    </div>
+  );
+}
+
+// ─── Podium ───────────────────────────────────────────────────────────────────
+
+function Podium({ entries }: { entries: LeaderboardEntry[] }) {
+  const t = useTranslations('behaviour.recognition');
+  if (entries.length === 0) return null;
+
+  // Order: 2nd / 1st / 3rd for visual podium effect on sm+
+  const [first, second, third] = entries;
+  const slots = [
+    {
+      entry: second,
+      rank: 2,
+      height: 'sm:h-32',
+      glow: 'from-slate-200 to-slate-50',
+      icon: Medal,
+      iconColor: 'text-slate-400',
+    },
+    {
+      entry: first,
+      rank: 1,
+      height: 'sm:h-40',
+      glow: 'from-amber-200 to-yellow-50',
+      icon: Crown,
+      iconColor: 'text-amber-500',
+    },
+    {
+      entry: third,
+      rank: 3,
+      height: 'sm:h-28',
+      glow: 'from-amber-100 to-amber-50',
+      icon: Trophy,
+      iconColor: 'text-amber-700',
+    },
+  ];
+
+  return (
+    <div className="rounded-2xl border border-border bg-gradient-to-b from-surface-secondary to-transparent p-4 sm:p-6">
+      <p className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+        {t('podium.title')}
+      </p>
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-end">
+        {slots.map((slot) => {
+          if (!slot.entry) return <div key={slot.rank} className="hidden sm:block" />;
+          const Icon = slot.icon;
+          return (
+            <div
+              key={slot.entry.student_id}
+              className={`flex flex-col items-center gap-2 rounded-xl border border-border bg-gradient-to-b ${slot.glow} p-4 ${slot.height} sm:justify-end`}
+            >
+              <div className={`${slot.iconColor} drop-shadow-sm`}>
+                <Icon className="h-7 w-7" />
+              </div>
+              <p className="line-clamp-1 text-center text-sm font-semibold text-text-primary">
+                {slot.entry.student_name}
+              </p>
+              <p className="text-xs text-text-tertiary">
+                {slot.entry.year_group ?? t('podium.noYearGroup')}
+              </p>
+              <p className="text-xl font-bold text-text-primary">
+                {slot.entry.total_points.toLocaleString()}
+                <span className="ms-1 text-xs font-normal text-text-tertiary">{t('pts')}</span>
+              </p>
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-text-secondary">
+                {t('podium.rank', { rank: slot.rank })}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -391,7 +494,10 @@ function HousesTab() {
     setLoading(true);
     apiClient<{ data: HouseStanding[] }>('/api/v1/behaviour/houses/standings')
       .then((res) => setHouses(res.data ?? []))
-      .catch((err) => { console.error('[BehaviourRecognitionPage]', err); return setHouses([]); })
+      .catch((err) => {
+        console.error('[BehaviourRecognitionPage]', err);
+        return setHouses([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -546,7 +652,9 @@ function PendingApprovalsTab() {
                     )}
                     {item.points > 0 && (
                       <span className="text-xs font-semibold text-green-600">
-                        +{item.points}{t('pts')}</span>
+                        +{item.points}
+                        {t('pts')}
+                      </span>
                     )}
                   </div>
 
@@ -554,7 +662,8 @@ function PendingApprovalsTab() {
                     <p className="line-clamp-1 text-xs text-text-secondary">{item.message}</p>
                   )}
 
-                  <p className="text-[11px] text-text-tertiary">{t('by')}{' '}
+                  <p className="text-[11px] text-text-tertiary">
+                    {t('by')}{' '}
                     {item.awarded_by_user
                       ? `${item.awarded_by_user.first_name} ${item.awarded_by_user.last_name}`
                       : 'Unknown'}{' '}
