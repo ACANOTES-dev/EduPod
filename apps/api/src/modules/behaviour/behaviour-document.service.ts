@@ -1,7 +1,13 @@
 import * as crypto from 'crypto';
 
 import { InjectQueue } from '@nestjs/bullmq';
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { $Enums, Prisma, PrismaClient } from '@prisma/client';
 import type { Queue } from 'bullmq';
 
@@ -19,6 +25,7 @@ const Handlebars = require('handlebars') as {
 };
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
@@ -40,6 +47,7 @@ export class BehaviourDocumentService {
     private readonly templateService: BehaviourDocumentTemplateService,
     private readonly historyService: BehaviourHistoryService,
     private readonly wellbeingNotifications: WellbeingNotificationsService,
+    private readonly auditLogService: AuditLogService,
     @InjectQueue('pdf-rendering') private readonly pdfQueue: Queue,
   ) {}
 
@@ -416,9 +424,82 @@ export class BehaviourDocumentService {
       });
     }
 
+    // WB-C-04 — verify SHA256 before issuing the download URL.
+    // Throws InternalServerError + writes a critical audit row on mismatch
+    // so the bytes are never served and the DSL is alerted via the
+    // existing audit-log dashboard.
+    await this.verifyDocumentChecksum(tenantId, document);
+
     const url = await this.s3Service.getPresignedUrl(document.file_key, 900); // 15 min
 
     return { data: { url, expires_in: 900 } };
+  }
+
+  // ─── SHA256 tamper detection (WB-C-04) ───────────────────────────────
+
+  /**
+   * Read the object from S3 + recompute its SHA256, compare to the
+   * `sha256_hash` recorded at generation time. On mismatch:
+   *   - write a `behaviour_document.tampered_detected` audit row tagged
+   *     critical (the audit-log read facade uses entity_type to gate
+   *     visibility);
+   *   - throw InternalServerError so no bytes leave the bucket via the
+   *     subsequent presigned URL.
+   *
+   * The object-storage round-trip is the cost of every download. Schools
+   * download documents infrequently enough that the latency overhead
+   * (~50–200ms for sub-MB PDFs) is acceptable. Larger docs (>5 MB) would
+   * need a streaming hash + chunked transfer instead — none today.
+   */
+  private async verifyDocumentChecksum(
+    tenantId: string,
+    document: { id: string; file_key: string; sha256_hash: string },
+  ): Promise<void> {
+    let bytes: Buffer;
+    try {
+      bytes = await this.s3Service.download(document.file_key);
+    } catch (err) {
+      // S3 fetch failed — log and rethrow as a service error. Don't write
+      // a tamper-detection audit row because the verification couldn't
+      // complete; this is an availability incident, not a tamper one.
+      this.logger.error(
+        `[WB-C-04] failed to fetch document ${document.id} for checksum verification: ${(err as Error).message}`,
+      );
+      throw new InternalServerErrorException({
+        code: 'DOCUMENT_FETCH_FAILED',
+        message: 'Could not retrieve document from storage',
+      });
+    }
+
+    const computed = crypto.createHash('sha256').update(bytes).digest('hex');
+    if (computed === document.sha256_hash) {
+      return;
+    }
+
+    this.logger.error(
+      `[WB-C-04] CHECKSUM MISMATCH document=${document.id} expected=${document.sha256_hash} computed=${computed}`,
+    );
+
+    await this.auditLogService.write(
+      tenantId,
+      null,
+      'behaviour_document',
+      document.id,
+      'document_tamper_detected',
+      {
+        severity: 'critical',
+        file_key: document.file_key,
+        expected_sha256: document.sha256_hash,
+        computed_sha256: computed,
+      },
+      null,
+    );
+
+    throw new InternalServerErrorException({
+      code: 'DOCUMENT_TAMPERED',
+      message:
+        'Document integrity check failed — refusing to serve. The safeguarding admin has been notified.',
+    });
   }
 
   // ─── Preview URL ─────────────────────────────────────────────────────

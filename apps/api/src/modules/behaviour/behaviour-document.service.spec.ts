@@ -2,6 +2,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
@@ -124,7 +125,8 @@ describe('BehaviourDocumentService', () => {
       count: jest.Mock;
     };
   };
-  let mockS3: { upload: jest.Mock; getPresignedUrl: jest.Mock };
+  let mockS3: { upload: jest.Mock; getPresignedUrl: jest.Mock; download: jest.Mock };
+  let mockAuditLog: { write: jest.Mock };
   let mockPdf: { renderFromHtml: jest.Mock };
   let mockTemplateService: { getActiveTemplate: jest.Mock };
   let mockHistoryService: { recordHistory: jest.Mock };
@@ -143,6 +145,7 @@ describe('BehaviourDocumentService', () => {
     mockS3 = {
       upload: jest.fn().mockResolvedValue(S3_KEY),
       getPresignedUrl: jest.fn().mockResolvedValue('https://s3.example.com/presigned'),
+      download: jest.fn(),
     };
 
     mockPdf = {
@@ -165,6 +168,10 @@ describe('BehaviourDocumentService', () => {
       dispatch: jest.fn().mockResolvedValue(undefined),
     };
 
+    mockAuditLog = {
+      write: jest.fn().mockResolvedValue(undefined),
+    };
+
     // Reset all RLS tx mocks
     for (const model of Object.values(mockRlsTx)) {
       for (const fn of Object.values(model)) {
@@ -181,6 +188,7 @@ describe('BehaviourDocumentService', () => {
         { provide: BehaviourDocumentTemplateService, useValue: mockTemplateService },
         { provide: BehaviourHistoryService, useValue: mockHistoryService },
         { provide: WellbeingNotificationsService, useValue: mockWellbeingNotifications },
+        { provide: AuditLogService, useValue: mockAuditLog },
         { provide: getQueueToken('pdf-rendering'), useValue: mockPdfQueue },
       ],
     }).compile();
@@ -598,16 +606,23 @@ describe('BehaviourDocumentService', () => {
   // ─── getDownloadUrl ──────────────────────────────────────────────────────
 
   describe('getDownloadUrl', () => {
-    it('should return a presigned URL with expiry', async () => {
-      const doc = makeDocument();
+    // crypto.createHash('sha256').update('hello').digest('hex')
+    const HELLO_BYTES = Buffer.from('hello');
+    const HELLO_SHA256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824';
+
+    it('should return a presigned URL when SHA256 matches', async () => {
+      const doc = makeDocument({ sha256_hash: HELLO_SHA256 });
       mockPrisma.behaviourDocument.findFirst.mockResolvedValue(doc);
+      mockS3.download.mockResolvedValue(HELLO_BYTES);
       mockS3.getPresignedUrl.mockResolvedValue('https://s3.example.com/presigned?expires=900');
 
       const result = await service.getDownloadUrl(TENANT_ID, DOCUMENT_ID);
 
+      expect(mockS3.download).toHaveBeenCalledWith(S3_KEY);
       expect(mockS3.getPresignedUrl).toHaveBeenCalledWith(S3_KEY, 900);
       expect(result.data.url).toBe('https://s3.example.com/presigned?expires=900');
       expect(result.data.expires_in).toBe(900);
+      expect(mockAuditLog.write).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when document does not exist', async () => {
@@ -616,6 +631,46 @@ describe('BehaviourDocumentService', () => {
       await expect(service.getDownloadUrl(TENANT_ID, 'no-such-doc')).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    // WB-C-04 — tamper detection
+    it('should refuse to serve and audit-log when SHA256 mismatches', async () => {
+      const doc = makeDocument({ sha256_hash: 'expected-sha-from-db' });
+      mockPrisma.behaviourDocument.findFirst.mockResolvedValue(doc);
+      mockS3.download.mockResolvedValue(HELLO_BYTES); // computes HELLO_SHA256, mismatches
+
+      await expect(service.getDownloadUrl(TENANT_ID, DOCUMENT_ID)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'DOCUMENT_TAMPERED' }),
+      });
+
+      expect(mockS3.getPresignedUrl).not.toHaveBeenCalled();
+      expect(mockAuditLog.write).toHaveBeenCalledWith(
+        TENANT_ID,
+        null,
+        'behaviour_document',
+        DOCUMENT_ID,
+        'document_tamper_detected',
+        expect.objectContaining({
+          severity: 'critical',
+          file_key: S3_KEY,
+          expected_sha256: 'expected-sha-from-db',
+          computed_sha256: HELLO_SHA256,
+        }),
+        null,
+      );
+    });
+
+    it('should throw DOCUMENT_FETCH_FAILED (not tamper) when S3 download errors', async () => {
+      const doc = makeDocument({ sha256_hash: HELLO_SHA256 });
+      mockPrisma.behaviourDocument.findFirst.mockResolvedValue(doc);
+      mockS3.download.mockRejectedValue(new Error('S3 timeout'));
+
+      await expect(service.getDownloadUrl(TENANT_ID, DOCUMENT_ID)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'DOCUMENT_FETCH_FAILED' }),
+      });
+
+      // No tamper audit row — verification couldn't complete
+      expect(mockAuditLog.write).not.toHaveBeenCalled();
     });
   });
 
