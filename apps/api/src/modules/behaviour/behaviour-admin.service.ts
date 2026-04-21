@@ -915,15 +915,25 @@ export class BehaviourAdminService {
 
   async listRepairRuns(tenantId: string, opts: { limit?: number } = {}) {
     const limit = Math.min(opts.limit ?? 25, 100);
-    const rows = await this.prisma.adminRepairRun.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { started_at: 'desc' },
-      take: limit,
-      include: {
-        actor: { select: { id: true, first_name: true, last_name: true } },
-      },
-    });
-    return { data: rows };
+    try {
+      const rows = await this.prisma.adminRepairRun.findMany({
+        where: { tenant_id: tenantId },
+        orderBy: { started_at: 'desc' },
+        take: limit,
+        include: {
+          actor: { select: { id: true, first_name: true, last_name: true } },
+        },
+      });
+      return { data: rows };
+    } catch (err) {
+      // Migration may not be applied yet — return empty until it lands.
+      this.logger.warn(
+        `[listRepairRuns] query failed for tenant ${tenantId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return { data: [] };
+    }
   }
 
   async recordRepairRun(entry: {

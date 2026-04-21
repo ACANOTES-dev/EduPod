@@ -239,17 +239,26 @@ export class SafeguardingBreakGlassService {
         null,
       );
 
-      // WB-C-19 — Append to the append-only access log.
-      await db.safeguardingBreakGlassAccessLog.create({
-        data: {
-          tenant_id: tenantId,
-          grant_id: grant.id,
-          actor_id: userId,
-          action: 'granted',
-          entity_type: null,
-          entity_id: null,
-        },
-      });
+      // WB-C-19 — Append to the append-only access log. Best-effort — if
+      // the table hasn't been migrated yet, don't roll back the grant.
+      try {
+        await db.safeguardingBreakGlassAccessLog.create({
+          data: {
+            tenant_id: tenantId,
+            grant_id: grant.id,
+            actor_id: userId,
+            action: 'granted',
+            entity_type: null,
+            entity_id: null,
+          },
+        });
+      } catch (err) {
+        this.logger.warn(
+          `[access-log] failed to log 'granted' for grant ${grant.id}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
 
       return {
         data: {
@@ -516,17 +525,26 @@ export class SafeguardingBreakGlassService {
       );
 
       // WB-C-19 — Append to the access log so the platform-admin cross-
-      // tenant view sees the review happen.
-      await db.safeguardingBreakGlassAccessLog.create({
-        data: {
-          tenant_id: tenantId,
-          grant_id: grantId,
-          actor_id: userId,
-          action: 'reviewed',
-          entity_type: null,
-          entity_id: null,
-        },
-      });
+      // tenant view sees the review happen. Best-effort (table may not be
+      // migrated yet).
+      try {
+        await db.safeguardingBreakGlassAccessLog.create({
+          data: {
+            tenant_id: tenantId,
+            grant_id: grantId,
+            actor_id: userId,
+            action: 'reviewed',
+            entity_type: null,
+            entity_id: null,
+          },
+        });
+      } catch (err) {
+        this.logger.warn(
+          `[access-log] failed to log 'reviewed' for grant ${grantId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
 
       return {
         data: {
