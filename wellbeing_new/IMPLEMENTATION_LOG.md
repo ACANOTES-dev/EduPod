@@ -2151,3 +2151,84 @@ no_communications` type needs an info tooltip in the
   issue (web doesn't use `tsc --incremental`), pm2 up first try.
   Jest suite: 480/480 web tests pass locally. Break-glass `_components`
   pure-helper spec adds 8 new tests.
+
+### [PRE-24 CLEANUP] — Debt closure pass
+
+- **Completed:** 2026-04-21T01:05Z Europe/Dublin
+- **Commits (local):** `f6d430e1` intervene page, `ad18e7f3` safeguarding CTAs
+  and behaviour admin tiles, `3da4dba8` staff breadcrumbs and staffCount,
+  `8f4632a9` impl-21 drafts (open case, restriction tooltips, diff modal),
+  `2e36e4a3` arabic backfill and en/ar parity test, `1867ec1d` ack read
+  endpoint and admin confirmation phrases.
+- **Deployed to production:** yes — six separate deploys (five web-only
+  rebuild+restart, one paired API+web rebuild after the shared-schema
+  change). All smoke URLs returned HTTP 200 on https://nhqs.edupod.app
+  for both `en` and `ar` locales, and `POST` against the new
+  acknowledgement `/read` route returned 401 (auth required, routing
+  wired).
+- **Summary (≤ 200 words):**
+  Closed every concrete follow-up flagged by impls 07, 09, 12, 15, 16,
+  17, 21, and 23 that was in scope for the rebuild. Frontend: new
+  `/early-warnings/intervene` landing that lists flagged amber+red
+  students with per-student pastoral deep-links; safeguarding hub
+  quick actions and the `/safeguarding/reviews` placeholder replaced
+  with a real queue over `GET /safeguarding/break-glass`; admin-gated
+  Policy Replay + Admin Console cards added to the Behaviour sub-hub;
+  staff-wellbeing survey detail/response pages now breadcrumb back to
+  `/wellbeing/staff#surveys`; `MyWorkloadSection` probes
+  `/api/v1/staff-profiles?pageSize=1` instead of hard-coding
+  `staffCount=0`; dead-code `EarlyWarningList` component removed; 9
+  missing Arabic keys (`nav.engagement`, seven `parentDashboard.*`,
+  `reportCards.sectionType_conduct2`) backfilled; new Jest test at
+  `apps/web/src/__tests__/translation-parity.spec.ts` pins bidirectional
+  parity; impl-21 drafts shipped (open exclusion case dialog, guardian
+  restriction type tooltips, amendment view-diff modal). Backend: new
+  `POST /v1/behaviour/acknowledgements/:id/read` with
+  `ACKNOWLEDGEMENT_NOT_YOURS` identity enforcement and idempotent
+  `read_at` stamping; six admin repair endpoints now reject mismatched
+  or missing `confirm_phrase` with `400 CONFIRMATION_PHRASE_MISMATCH`.
+- **Remaining open items (explicitly out-of-scope for the rebuild;
+  defer or re-scope in PLAN.md §8):**
+  - `generation_failed` state + `last_error` / `retry_count` columns
+    on `behaviour_documents`
+  - Multi-recipient `/send-batch` endpoint for behaviour documents
+  - SMS channel addition (schema + provider)
+  - Per-jurisdiction exclusion statutory deadlines (tenant settings)
+  - `ANTHROPIC_API_KEY` on production (ops)
+  - Multi-instance Redis rate limit / cache invalidation
+  - Module-flag hard-hiding on hub tiles (`/api/v1/tenants/me/modules`)
+  - LLM-backed SST agenda + early-warnings narrative
+  - Recognition feed merger (awards vs positive incidents — product
+    decision)
+  - Permission scheme refactors (`safeguarding.seal.view` split,
+    permission-based vs role-based gating)
+  - `safeguarding_break_glass_access_log` dedicated table
+  - `admin_repair_runs` dedicated tracking table
+  - Resend document counter (needs schema + state machine work)
+- **Follow-ups discovered during the pass:**
+  - The old `/settings/behaviour-admin` page was still calling admin
+    repair endpoints without the typed-confirmation phrase. Patched
+    to send the matching phrase so the legacy surface does not 400
+    after this pass. A later pass should decide whether to retire
+    that page altogether (impl 23 shipped `/behaviour/admin` as its
+    replacement).
+  - `ParentAckTimeline` now probes the new `/read` endpoint for every
+    unread acknowledgement when the viewer carries the `parent` role.
+    The route is currently only used on the admin incident detail
+    page, so the probe is effectively dormant today. When a
+    parent-facing incident view lands, the probe starts populating
+    `read_at` automatically.
+  - The guardian-restriction tooltip rendering uses Radix inside
+    `SelectContent`. The `Info` button handles `onMouseDown` to
+    prevent the Select from closing on click. If a future shadcn
+    upgrade changes the focus model, re-verify that hovering a
+    tooltip does not dismiss the dropdown.
+- **Session notes:**
+  Clean run — no sibling turbulence (no other WBR impls were in flight
+  during the cleanup). Six commits landed in strict sequence with a
+  fresh rebuild for each. The API+web paired deploy for items 12+13
+  was the only one that required the `rm -rf dist + tsconfig.tsbuildinfo`
+  dance on `packages/shared` and `packages/prisma` (per CLAUDE.md rule 13) because the shared `admin-ops.schema.ts` changed. No pm2 crash
+  loops. Jest suites: 1537/1537 pass in the API scope; 482/482 pass
+  in the web scope; new 2-test parity spec integrated cleanly. Impl 24
+  remains `pending` — the user's next action.
