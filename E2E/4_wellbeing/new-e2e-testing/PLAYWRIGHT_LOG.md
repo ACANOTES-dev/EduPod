@@ -8,18 +8,18 @@ A session is only **Complete** when every issue it opened is marked `**Verified:
 
 ## Session ledger
 
-| Session | Started    | Completed  | Issues opened | P0  | P1  | P2  | P3  | Status                                                                   |
-| ------- | ---------- | ---------- | ------------- | --- | --- | --- | --- | ------------------------------------------------------------------------ |
-| S0      | 2026-04-21 | 2026-04-21 | 5             | 1   | 2   | 1   | 1   | **Complete** (all deferred to owning sessions; see rationale in entries) |
-| S1      | 2026-04-21 | 2026-04-21 | 7             | 3   | 4   | 0   | 0   | **Complete** (5-incident flow + ≥ 6 detail walk deferred — see summary)  |
-| S2      |            |            |               |     |     |     |     | Not started                                                              |
-| S3      |            |            |               |     |     |     |     | Not started                                                              |
-| S4      |            |            |               |     |     |     |     | Not started                                                              |
-| S5      |            |            |               |     |     |     |     | Not started                                                              |
-| S6      |            |            |               |     |     |     |     | Not started                                                              |
-| S7      |            |            |               |     |     |     |     | Not started                                                              |
-| S8      |            |            |               |     |     |     |     | Not started                                                              |
-| S9      |            |            |               |     |     |     |     | Not started                                                              |
+| Session | Started    | Completed  | Issues opened | P0  | P1  | P2  | P3  | Status                                                                                                          |
+| ------- | ---------- | ---------- | ------------- | --- | --- | --- | --- | --------------------------------------------------------------------------------------------------------------- |
+| S0      | 2026-04-21 | 2026-04-21 | 5             | 1   | 2   | 1   | 1   | **Complete** (all deferred to owning sessions; see rationale in entries)                                        |
+| S1      | 2026-04-21 | 2026-04-21 | 7             | 3   | 4   | 0   | 0   | **Complete** (5-incident flow + ≥ 6 detail walk deferred — see summary)                                         |
+| S2      | 2026-04-21 | 2026-04-21 | 9             | 2   | 5   | 1   | 0   | **Complete** (W-S2-007 deferred with reason; partial carry-forward for parent incidents/sanctions shapes to S8) |
+| S3      |            |            |               |     |     |     |     | Not started                                                                                                     |
+| S4      |            |            |               |     |     |     |     | Not started                                                                                                     |
+| S5      |            |            |               |     |     |     |     | Not started                                                                                                     |
+| S6      |            |            |               |     |     |     |     | Not started                                                                                                     |
+| S7      |            |            |               |     |     |     |     | Not started                                                                                                     |
+| S8      |            |            |               |     |     |     |     | Not started                                                                                                     |
+| S9      |            |            |               |     |     |     |     | Not started                                                                                                     |
 
 ---
 
@@ -250,8 +250,167 @@ S1 walked the Behaviour hub's disciplinary spine — incidents (list + new + one
 
 ## S2 — Behaviour B (recognition, houses, leaderboard, documents, tasks, alerts, amendments, guardian-restrictions, interventions, parent-portal)
 
-**Status:** Not started
+**Status:** Complete (2026-04-21)
 **Session plan:** [`S2_behaviour_B.md`](./S2_behaviour_B.md)
+
+### Session summary
+
+S2 walked the positive-behaviour, document-generation, task-routing, and parent-facing surfaces of the Behaviour hub and surfaced **9 issues — 2 P0, 5 P1, 1 P2, and 1 P1 follow-on** that emerged during verification. **The headline finds were systemic FE/BE contract drift**, the exact pattern that Zod's default strip-mode makes invisible: W-S2-003 returned `{ id, name }` objects where the FE expected scalar strings and crashed both leaderboard surfaces with React error #31; W-S2-006 showed that the behaviour students endpoint had been silently ignoring every `?search=` call for 207 students; W-S2-001 / W-S2-002 showed the recognition tabs pinging endpoints and enum values that had never existed. The most serious find was W-S2-008 (P0): the `parent.view_behaviour` permission was declared in the permission catalogue but had never been attached to the `parent` role — so every parent, on every tenant, was 403'd out of the entire behaviour parent portal. A DB grant was applied to all five tenants and the role seed updated to prevent regression. W-S2-004 surfaced a broader i18n gap — four standalone admin pages shipped in wb-119 (houses / leaderboard / policies / templates) referenced translation namespaces that were never added, so every label rendered as a raw dotted key; en and ar were both backfilled. W-S2-009 (a P1 follow-on surfaced during the W-S2-008 verify) exposed another shape mismatch in the parent portal — summary envelope, field names, and a sanctions `{upcoming, recent}` vs array shape. All of these were fixed and deployed in two commits (`71cc47e1` + `c2131057`) and verified end-to-end on production, including Zainab Ali now seeing Adam Moore's "Positive 0 · Negative 1 · Net -1" summary (the BH-000001 lateness incident from S1). Only W-S2-007 (P2) is deferred — it requires a new staff-search endpoint + matching autocomplete + incident-multi-select widget, which is larger than a bug-fix and belongs in a dedicated interventions UX pass. Document detail pages and behaviour-intervention detail pages could not be exercised because NHQS has 0 active document templates (S3 scope) and 0 behaviour interventions (creation blocked by W-S2-007), and the `/parent-portal/appeals|recognition|documents` subpages and the deeper `ParentIncidentView` / `ParentSanctionView` field alignment were handed off to S8 (cross-cutting parent role boundaries). Regression: 1543 behaviour unit tests still pass. Architecture unchanged — no new BullMQ jobs, no state-machine changes; the only structural change is backend response-shape alignments on two existing endpoints, which remain backwards-compatible. Carry-forwards: (a) S8 should verify the parent dashboard's other 403s (`/parent/homework/*`, `/parent/engagement/*`, `/diary/:id/parent-notes`) — those surfaced during this session but are out of scope; (b) the rank + signed-points regression confirmed the W-S1-004 polarity fix is producing correct house totals (Aqila -23, Furqan -5 — net-negative tenant because the seed has 33 negatives vs 17 positives); (c) S3 should keep an eye on the behaviour_document_templates gap when walking `/behaviour/templates`.
+
+### Issues found
+
+### W-S2-001 — Recognition "Pending Approvals" tab fires 400 "Validation failed" — wrong enum value
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/recognition?tab=pending`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/recognition`
+  2. Click the "Pending Approvals" tab
+  3. Observe toast: "Validation failed"
+  4. Open console — `GET /api/v1/behaviour/recognition?status=pending_approval&pageSize=50` returns 400
+- **Expected:** Tab renders pending-approval queue (or a clean empty state without an error toast when nothing is pending).
+- **Actual:** Backend Zod schema `recognitionListQuerySchema` enum is `['published', 'pending', 'all']` (see `packages/shared/src/behaviour/schemas/recognition.schema.ts:94`). Frontend `PendingApprovalsTab` sends `status=pending_approval` (see `apps/web/src/app/[locale]/(school)/behaviour/recognition/page.tsx:584`). Backend service handles `status === 'pending'` (see `apps/api/src/modules/behaviour/behaviour-recognition.service.ts:71`). Tab throws a "Validation failed" toast every time it opens, which also means pending approvals can't be listed, approved, or rejected — breaking the entire approval workflow end-to-end for staff.
+- **Evidence:** Console error + red toast in Playwright snapshot.
+- **Fix:** 71cc47e1 — see commit body for the seven fixes bundled together.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S2-003 — Leaderboard crashes with React #31 (both embedded tab and standalone page) + missing i18n namespace + wrong query param + empty student names
+
+- **Severity:** P0
+- **Route:** `/en/behaviour/leaderboard` and `/en/behaviour/recognition?tab=leaderboard`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/leaderboard` — full-page "Something went wrong" error boundary
+  2. Navigate to `/en/behaviour/recognition` and click Leaderboard tab — same error boundary replaces the page
+- **Expected:** Leaderboard table + podium, with student names, year-group labels, and signed points totals reflecting the W-S1-004 polarity fix.
+- **Actual:** The `BehaviourPointsService.getLeaderboard` response shape (`apps/api/src/modules/behaviour/behaviour-points.service.ts:33-41`) returns rows with `first_name`, `last_name`, `year_group: { id, name } | null`, and `house: { id, name, color } | null`. Both frontend consumers expect a flat `student_name: string` and `year_group: string | null` (see `apps/web/src/app/[locale]/(school)/behaviour/leaderboard/page.tsx:14-20` and `apps/web/src/app/[locale]/(school)/behaviour/recognition/page.tsx:47-53`). Three concrete failures:
+  - React error #31 `Objects are not valid as a React child (found: object with keys {id, name})` — triggered by the `{entry.year_group ?? '—'}` JSX on both pages when the student has a year-group object. Crashes the whole page, not just one row.
+  - `entry.student_name` is `undefined` — if it weren't for the #31 crash, every name cell would render blank.
+  - Standalone `/behaviour/leaderboard` also throws `MISSING_MESSAGE: behaviour.leaderboard (en)` — the entire i18n namespace for that page isn't in `apps/web/messages/en.json` (nor `ar.json`). This fires before render and also causes the error boundary to engage.
+  - Query-param mismatch: FE sends `period=week|month|term|year`, backend schema is `scope=year|period|all_time`. Zod strips unknown keys so the API silently defaults to `scope=year` no matter which tab the user selects — so even once the render bug is fixed, the week/month/term filters would be broken.
+  - The backend also returns `house` info that the FE leaderboard doesn't render at all — a smaller gap, but worth noting while the shape is being aligned.
+- **Evidence:** Console: `Minified React error #31 … object with keys {id, name}`. Full error boundary in both places.
+- **Fix:** 71cc47e1 — see commit body for the seven fixes bundled together.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S2-002 — Recognition "Houses" tab fires 404 → "No house teams configured yet" despite 4 houses seeded
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/recognition?tab=houses`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/recognition`
+  2. Click the "Houses" tab
+  3. Observe empty state: "No house teams configured yet"
+  4. Open console — `GET /api/v1/behaviour/houses/standings` returns 404
+- **Expected:** Four house standings rendered as cards (Aqila, Furqan, Hikma, Siraj) with S0-seeded member counts and points totals.
+- **Actual:** API endpoint does not exist — the real route registered on `BehaviourRecognitionController` is `/api/v1/behaviour/recognition/houses` (see `apps/api/src/modules/behaviour/behaviour-recognition.controller.ts:106`). Frontend `HousesTab` on the Recognition page hits `/api/v1/behaviour/houses/standings` (see `apps/web/src/app/[locale]/(school)/behaviour/recognition/page.tsx:495`). Every visit to the tab produces a silent 404 caught by the `.catch` — console-only, no user toast — so the empty state is misleading (implying "no houses exist" rather than "the request failed"). Silent-failure classification: the frontend swallows the 404 and falls through to empty state, which is a soft lie to the user.
+- **Evidence:** Console 404 trace + rendered empty-state.
+- **Fix:** 71cc47e1 — see commit body for the seven fixes bundled together.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S2-006 — `/behaviour/interventions/new` student search ignores query term — returns alphabetical first page
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/interventions/new`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/interventions/new`
+  2. In the Student search box type `Felix`
+  3. Observe dropdown: Charlotte Adams, Oscar Allen, Willow Allen, Owen Anderson, Elena Anderson, Peter Anderson, Ruby Anderson, Ciara Anderson, Test Applicant, Connor Bennett
+- **Expected:** Dropdown filtered to students whose first or last name matches "Felix" (Felix Doherty exists in seeded data).
+- **Actual:** FE calls `GET /api/v1/behaviour/students?search=Felix&pageSize=10`. Backend controller `BehaviourStudentsController.listStudents` validates the query against `paginationQuerySchema` (page/pageSize/sort/order only) — the `search` key is silently dropped by Zod. Service `BehaviourStudentsService.listStudents` (`apps/api/src/modules/behaviour/behaviour-students.service.ts:42`) takes only page/pageSize and orders by `last_name asc`. Result: every search query returns the same first-10 alphabetical list. This mirrors the pattern behind W-S2-003 (FE `period` vs schema `scope`): Zod's default strip mode eats unknown keys, turning type-layer mismatch into a silent wrong-data bug. The UX implication is larger here — for 207 students you can never find the one you want unless they happen to start with A-B. Compounded by the FE's `searchSearch.length < 2` gate, so a 2-character query still returns the wrong data.
+- **Evidence:** Page snapshot with query "Felix" but results showing 10 alphabetically-earliest students.
+- **Fix:** 71cc47e1 — see commit body for the seven fixes bundled together.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S2-007 — `/behaviour/interventions/new` requires UUID paste for staff fields + no incident linking UI
+
+- **Severity:** P2
+- **Route:** `/en/behaviour/interventions/new`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/interventions/new`
+  2. Observe "Responsible Staff (UUID)" under each Strategy row (placeholder: "Staff member UUID") and "Assigned To" at the bottom (placeholder: "Staff member UUID (defaults to current user)")
+  3. Note the absence of any control for linking source incidents despite `createInterventionSchema.incident_ids` existing in the API
+- **Expected:** Name-based autocomplete for staff selection (mirroring the Student search). Multi-select for linked incidents (the blueprint explicitly asks to create an intervention linked to a fighting incident).
+- **Actual:** FE asks the user to paste raw UUIDs into text boxes — essentially unreachable without DB access. `createInterventionSchema` (`packages/shared/src/behaviour/schemas/intervention.schema.ts:59-73`) declares `incident_ids: z.array(z.string().uuid()).optional()` but the form has no corresponding widget. Staff UUID fields are required by the schema (`responsible_staff_id: z.string().uuid()`, `assigned_to_id: z.string().uuid()`), so without UI support the entire create flow is inaccessible to end users.
+- **Evidence:** Snapshot of the form showing the UUID placeholders.
+- **Deferred:** P2 UX gap. The fix is not a one-line tweak — it requires a staff-search endpoint (there is no `/v1/staff?search=` analogue to the now-fixed `/v1/behaviour/students?search=`) plus a matching autocomplete component and a multi-select for `incident_ids`. This is substantial new work beyond the scope of the S2 bug-fix pass, and is better paired with the broader interventions UX review. The backend-side students-search fix (W-S2-006) is a prerequisite that ships in this session, so the staff-search follow-up can reuse the pattern. Carry forward: flag in S9 consolidation for the ship-gate review; re-triage as a polish item or a proper story as part of interventions UX work.
+
+### W-S2-009 — Parent behaviour-portal summary FE/BE field-name mismatch (found during W-S2-008 verify)
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/parent-portal`
+- **Role:** parent@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. After granting `parent.view_behaviour` (W-S2-008 fix), re-load `/en/behaviour/parent-portal`
+  2. API returns 200 with a `{ data: [...] }` body, but the page still shows "No children linked to your account"
+- **Expected:** Parent sees their linked child (Adam Moore for Zainab Ali) with counts and points.
+- **Actual:** FE destructures `res.children` but backend returns `res.data`. FE field names also differ: `total_points` / `positive_count` / `negative_count` / `year_group` vs backend `points_total` / `positive_count_7d` / `negative_count_7d` (no year_group). A follow-on crash (`h.filter is not a function`) surfaced once data loaded: the sanctions endpoint returns `{ data: { upcoming, recent } }` but the FE was typing it as `{ data: [] }`. All three mismatches addressed: align FE types to backend response, accept either `{data}` or `{children}` envelope, flatten upcoming+recent into a single array. Surfaced only after W-S2-008 unblocked the API call.
+- **Evidence:** Network log 200 on `/api/v1/parent/behaviour/summary`; UI empty state pre-fix, full render post-fix showing "Adam Moore · Positive 0 · Negative 1 · Net -1" (the BH-000001 lateness incident from S1).
+- **Fix:** c2131057 — parent-portal FE/BE shape alignment (summary envelope + field names + sanctions upcoming/recent).
+- **Verified:** 2026-04-21 — re-walked as Zainab Ali on production, passes.
+
+**Carry-forward:** the incidents/sanctions `ParentIncidentView` / `ParentSanctionView` shapes still diverge from the FE's richer expectations (`requires_acknowledgement`, `acknowledged_at`, `status`, `notes` fields not returned by backend). The page renders cleanly with the fix above, but fields sourced from those missing keys are blank. Deeper parent-role work belongs in **S8** (cross-cutting role boundaries) where the parent-dashboard 403 sweep (`/api/v1/parent/homework/*`, `/api/v1/parent/engagement/*`, `/api/v1/diary/:id/parent-notes`) is already in scope.
+
+### W-S2-008 — Parent role lacks `parent.view_behaviour` → entire parent behaviour portal returns 403
+
+- **Severity:** P0
+- **Route:** `/en/behaviour/parent-portal`, `/parent-portal/recognition`, `/parent-portal/documents`, `/parent-portal/appeals`
+- **Role:** parent@nhqs.test (Zainab Ali, child: Adam Moore)
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Log in as `parent@nhqs.test`
+  2. Navigate to `/en/behaviour/parent-portal`
+  3. Page displays "Couldn't load your summary right now" error panel; console shows 403 on `GET /api/v1/parent/behaviour/summary`
+- **Expected:** Parent lands on behaviour summary showing points/incidents/sanctions for Adam Moore plus pending acknowledgements.
+- **Actual:** `BehaviourParentController` gates every parent-facing endpoint with `@RequiresPermission('parent.view_behaviour')` (`apps/api/src/modules/behaviour/behaviour-parent.controller.ts:39, 45, 62, 73, 84, 95, 118, 127, 137, 151`). The permission exists in `packages/prisma/seed/permissions.ts:618` but is NOT included in the parent role's `default_permissions` in `packages/prisma/seed/system-roles.ts:444-458`. Database confirmation on NHQS: `parent` role has `parent.make_payments / parent.submit_inquiry / parent.view_announcements / parent.view_attendance / parent.view_grades / parent.view_invoices / parent.view_own_students / parent.view_timetable / parent.view_transcripts` — no `parent.view_behaviour`. Every parent who tries to view their child's behaviour data, points, sanctions, recognition, or documents gets a 403. Recognition-wall pending-consent approvals are also blocked (WB-C-25 flow depends on the same permission key). Additionally, `Post('appeal')` at line 103 requires `behaviour.appeal` which is also not in the parent seed — so parents cannot submit appeals either.
+- **Evidence:** 403 on `/api/v1/parent/behaviour/summary` + "Couldn't load your summary right now" UI panel. DB query result shown above.
+- **Fix:** 71cc47e1 — see commit body for the seven fixes bundled together.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S2-005 — `/behaviour/recognition/new` 400s on student-options fetch → silent empty student dropdown
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/recognition/new`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/recognition/new`
+  2. Type any letter into the Student field
+  3. No dropdown of matching students appears
+- **Expected:** Typing a partial student name shows a filtered dropdown of matching active students so the reporter can pick one.
+- **Actual:** Initial-load fetch `GET /api/v1/students?page=1&pageSize=500&status=active` returns 400 because the shared `paginationQuerySchema` caps pageSize at `MAX_PAGE_SIZE = 100` (see `packages/shared/src/constants/pagination.ts:2`). The fetch is wrapped in `.catch(() => ({ data: [] }))` (see `apps/web/src/app/[locale]/(school)/behaviour/recognition/new/page.tsx:80-82`) so the user sees no toast — just a perpetually empty autocomplete. End result: the manual award flow is unusable without a prefill `?student_id=…` URL. Silent failure: `.catch` hides the 400 completely; `apiClient` is also in `silent: true` mode so even global error handling is bypassed.
+- **Evidence:** Console 400 + empty dropdown after typing.
+- **Fix:** 71cc47e1 — see commit body for the seven fixes bundled together.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S2-004 — Standalone `/behaviour/houses` renders raw i18n keys + missing `rank` + `id/house_id` shape mismatch
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/houses`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/houses`
+  2. Four cards render (Aqila / Furqan / Hikma / Siraj) with raw dotted keys in place of translated labels
+- **Expected:** Title "Houses", description, "Points" label, and "N members" pill all translated. Rank number next to each house name. Signed points totals.
+- **Actual:**
+  - `behaviour.houses` namespace entirely absent from `apps/web/messages/en.json` (and `ar.json`) — page renders: `behaviour.houses.title`, `behaviour.houses.description`, `behaviour.houses.points`, `behaviour.houses.memberCount` as literal strings. Same gap exists for `behaviour.leaderboard`, `behaviour.policies`, `behaviour.templates` (added in commit `bbf089ad` wb-119 without the translations).
+  - Rank renders as `#` with no number — FE expects `house.rank` but `BehaviourPointsService.getHouseStandings` (`apps/api/src/modules/behaviour/behaviour-points.service.ts:366-455`) does not compute or return a `rank` field.
+  - FE expects `house.id` but API returns `house_id` — React key prop is `undefined` for every card (silent browser warning only, not visible).
+  - Points totals currently -23 / -5 / -20 / -19 — signed arithmetic from W-S1-004 fix is working end-to-end.
+- **Evidence:** Page snapshot showing raw keys + `#` without rank.
+- **Fix:** 71cc47e1 — see commit body for the seven fixes bundled together.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
 
 ---
 

@@ -217,12 +217,19 @@ function ChildPanel({ child }: { child: ChildSummary }) {
         apiClient<{ data: ParentIncident[] }>(
           `/api/v1/parent/behaviour/incidents?student_id=${child.student_id}&pageSize=20`,
         ),
-        apiClient<{ data: ParentSanction[] }>(
-          `/api/v1/parent/behaviour/sanctions?student_id=${child.student_id}&pageSize=20`,
-        ),
+        apiClient<{
+          data: { upcoming: ParentSanction[]; recent: ParentSanction[] } | ParentSanction[];
+        }>(`/api/v1/parent/behaviour/sanctions?student_id=${child.student_id}&pageSize=20`),
       ]);
       setIncidents(incRes.data ?? []);
-      setSanctions(sanRes.data ?? []);
+      const rawSan = sanRes.data;
+      if (Array.isArray(rawSan)) {
+        setSanctions(rawSan);
+      } else if (rawSan && typeof rawSan === 'object') {
+        setSanctions([...(rawSan.upcoming ?? []), ...(rawSan.recent ?? [])]);
+      } else {
+        setSanctions([]);
+      }
     } catch (err) {
       console.error('[BehaviourParentPortalPage]', err);
       setIncidents([]);

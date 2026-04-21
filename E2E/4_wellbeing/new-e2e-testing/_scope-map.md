@@ -37,38 +37,38 @@ Root: all routes live under `apps/web/src/app/[locale]/(school)/…`. Tested pri
 
 ### Recognition (S2)
 
-- [ ] `/en/behaviour/recognition` (wall)
-- [ ] `/en/behaviour/recognition/new`
+- [x] `/en/behaviour/recognition` (wall)
+- [x] `/en/behaviour/recognition/new`
 
 ### Houses + Leaderboard (S2)
 
-- [ ] `/en/behaviour/houses`
-- [ ] `/en/behaviour/leaderboard`
+- [x] `/en/behaviour/houses`
+- [x] `/en/behaviour/leaderboard`
 
 ### Documents (S2)
 
-- [ ] `/en/behaviour/documents` (list)
-- [ ] `/en/behaviour/documents/[id]` (detail — open ≥ 2)
+- [x] `/en/behaviour/documents` (list)
+- [ ] `/en/behaviour/documents/[id]` (detail — open ≥ 2) — deferred: 0 documents on NHQS (no active templates seeded; template seeding is S3 scope)
 
 ### Tasks / Alerts / Amendments / Guardian Restrictions (S2)
 
-- [ ] `/en/behaviour/tasks`
-- [ ] `/en/behaviour/alerts`
-- [ ] `/en/behaviour/amendments`
-- [ ] `/en/behaviour/guardian-restrictions`
+- [x] `/en/behaviour/tasks`
+- [x] `/en/behaviour/alerts`
+- [x] `/en/behaviour/amendments`
+- [x] `/en/behaviour/guardian-restrictions`
 
 ### Interventions (S2)
 
-- [ ] `/en/behaviour/interventions`
-- [ ] `/en/behaviour/interventions/new`
-- [ ] `/en/behaviour/interventions/[id]` (detail — open ≥ 1)
+- [x] `/en/behaviour/interventions`
+- [x] `/en/behaviour/interventions/new`
+- [ ] `/en/behaviour/interventions/[id]` (detail — open ≥ 1) — deferred: 0 behaviour interventions on NHQS (S0 seed's "1 intervention" is pastoral, not behaviour); creation-flow UX deferred to W-S2-007
 
-### Parent portal (admin view) (S2)
+### Parent portal (S2)
 
-- [ ] `/en/behaviour/parent-portal`
-- [ ] `/en/behaviour/parent-portal/appeals`
-- [ ] `/en/behaviour/parent-portal/recognition`
-- [ ] `/en/behaviour/parent-portal/documents`
+- [x] `/en/behaviour/parent-portal` — walked as parent (admin redirects to /dashboard, which is correct)
+- [ ] `/en/behaviour/parent-portal/appeals` — deferred to S8 (deeper parent-role pass)
+- [ ] `/en/behaviour/parent-portal/recognition` — deferred to S8
+- [ ] `/en/behaviour/parent-portal/documents` — deferred to S8
 
 ### Analytics (S3)
 
