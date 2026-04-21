@@ -60,14 +60,16 @@ interface FormValues {
 }
 
 const REPEAT_MODE_OPTIONS = [
-  { value: 'once', label: 'Once' },
-  { value: 'per_year', label: 'Per Year' },
+  { value: 'once_ever', label: 'Once (ever)' },
+  { value: 'once_per_year', label: 'Once per year' },
+  { value: 'once_per_period', label: 'Once per period' },
   { value: 'unlimited', label: 'Unlimited' },
 ];
 
 const REPEAT_LABEL: Record<string, string> = {
-  once: 'Once',
-  per_year: 'Per Year',
+  once_ever: 'Once (ever)',
+  once_per_year: 'Once per year',
+  once_per_period: 'Once per period',
   unlimited: 'Unlimited',
 };
 
@@ -75,7 +77,7 @@ const DEFAULT_FORM: FormValues = {
   name: '',
   name_ar: '',
   points_threshold: '',
-  repeat_mode: 'once',
+  repeat_mode: 'once_per_year',
   repeat_max_per_year: '',
   tier_group: '',
   tier_level: '',
@@ -279,7 +281,10 @@ export default function BehaviourAwardsPage() {
 
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-secondary">
                 {award.points_threshold != null && (
-                  <span>{award.points_threshold}{t('ptsThreshold')}</span>
+                  <span>
+                    {award.points_threshold}
+                    {t('ptsThreshold')}
+                  </span>
                 )}
                 <span>{REPEAT_LABEL[award.repeat_mode] ?? award.repeat_mode}</span>
                 {award.tier_group && (
@@ -292,7 +297,9 @@ export default function BehaviourAwardsPage() {
 
               <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
                 <Button variant="ghost" size="sm" onClick={() => openEdit(award)}>
-                  <Pencil className="me-1 h-3.5 w-3.5" />{tCommon('edit')}</Button>
+                  <Pencil className="me-1 h-3.5 w-3.5" />
+                  {tCommon('edit')}
+                </Button>
                 <Button variant="ghost" size="sm" onClick={() => handleToggleActive(award)}>
                   {award.is_active ? 'Deactivate' : 'Activate'}
                 </Button>
@@ -305,7 +312,9 @@ export default function BehaviourAwardsPage() {
                     setDeleteTarget(award);
                   }}
                 >
-                  <Trash2 className="me-1 h-3.5 w-3.5" />{tCommon('delete')}</Button>
+                  <Trash2 className="me-1 h-3.5 w-3.5" />
+                  {tCommon('delete')}
+                </Button>
               </div>
             </div>
           ))}
@@ -316,12 +325,24 @@ export default function BehaviourAwardsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{tCommon('name')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('pointsThreshold')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('repeatMode')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('tier')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('active')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{tCommon('actions')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {tCommon('name')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('pointsThreshold')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('repeatMode')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('tier')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('active')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {tCommon('actions')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -357,7 +378,9 @@ export default function BehaviourAwardsPage() {
                       <span>
                         {award.tier_group}
                         {award.tier_level != null && (
-                          <span className="ms-1 text-xs text-text-tertiary">{t('lvl')}{award.tier_level}
+                          <span className="ms-1 text-xs text-text-tertiary">
+                            {t('lvl')}
+                            {award.tier_level}
                           </span>
                         )}
                       </span>
@@ -455,7 +478,7 @@ export default function BehaviourAwardsPage() {
                 </Select>
               </div>
             </div>
-            {form.repeat_mode === 'per_year' && (
+            {form.repeat_mode === 'once_per_year' && (
               <div className="space-y-1.5">
                 <Label>{t('maxPerYear')}</Label>
                 <Input
@@ -547,7 +570,9 @@ export default function BehaviourAwardsPage() {
             {saveError && <p className="text-sm text-danger-text">{saveError}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>{tCommon('cancel')}</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              {tCommon('cancel')}
+            </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : editTarget ? 'Update' : 'Create'}
             </Button>
@@ -566,14 +591,20 @@ export default function BehaviourAwardsPage() {
           <DialogHeader>
             <DialogTitle>{t('deleteAward')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-text-secondary">{t('areYouSureYouWant')}<strong>{deleteTarget?.name}</strong>{t('existingRecognitionsUsingThisAward')}</p>
+          <p className="text-sm text-text-secondary">
+            {t('areYouSureYouWant')}
+            <strong>{deleteTarget?.name}</strong>
+            {t('existingRecognitionsUsingThisAward')}
+          </p>
           {deleteError && <p className="text-sm text-danger-text">{deleteError}</p>}
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setDeleteTarget(null)}
               disabled={deleteLoading}
-            >{tCommon('cancel')}</Button>
+            >
+              {tCommon('cancel')}
+            </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>
               {deleteLoading ? 'Deleting...' : 'Delete'}
             </Button>

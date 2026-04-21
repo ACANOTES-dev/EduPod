@@ -34,6 +34,7 @@ import {
   safeguardingStatusTransitionSchema,
   tuslaReferralSchema,
   updateSafeguardingConcernSchema,
+  updateSafeguardingSettingsSchema,
   uploadSafeguardingAttachmentSchema,
 } from '@school/shared/behaviour';
 
@@ -394,5 +395,27 @@ export class SafeguardingController {
     dto: z.infer<typeof completeBreakGlassReviewSchema>,
   ) {
     return this.breakGlassService.completeReview(tenant.tenant_id, user.sub, id, dto);
+  }
+
+  // ─── Settings ───────────────────────────────────────────────────────────
+
+  // GET /v1/safeguarding/settings
+  @Get('settings')
+  @RequiresPermission('safeguarding.manage')
+  async getSettings(@CurrentTenant() tenant: TenantContext) {
+    const data = await this.safeguardingService.getSafeguardingSettings(tenant.tenant_id);
+    return { data };
+  }
+
+  // PATCH /v1/safeguarding/settings
+  @Patch('settings')
+  @RequiresPermission('safeguarding.manage')
+  async updateSettings(
+    @CurrentTenant() tenant: TenantContext,
+    @Body(new ZodValidationPipe(updateSafeguardingSettingsSchema))
+    dto: z.infer<typeof updateSafeguardingSettingsSchema>,
+  ) {
+    const data = await this.safeguardingService.updateSafeguardingSettings(tenant.tenant_id, dto);
+    return { data };
   }
 }

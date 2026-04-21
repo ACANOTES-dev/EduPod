@@ -2,8 +2,10 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { $Enums } from '@prisma/client';
 
 import type {
+  CreateAwardTypeDto,
   CreateCategoryDto,
   CreateTemplateDto,
+  UpdateAwardTypeDto,
   UpdateCategoryDto,
   UpdateTemplateDto,
 } from '@school/shared/behaviour';
@@ -160,6 +162,116 @@ export class BehaviourConfigService {
         ...(dto.display_order !== undefined ? { display_order: dto.display_order } : {}),
         ...(dto.is_active !== undefined ? { is_active: dto.is_active } : {}),
       },
+    });
+  }
+
+  // ─── Award Types ────────────────────────────────────────────────────────
+
+  async listAwardTypes(tenantId: string, opts: { pageSize?: number } = {}) {
+    const pageSize = opts.pageSize ?? 100;
+    const data = await this.prisma.behaviourAwardType.findMany({
+      where: { tenant_id: tenantId },
+      orderBy: [{ display_order: 'asc' }, { name: 'asc' }],
+      take: pageSize,
+    });
+    return { data, meta: { page: 1, pageSize, total: data.length } };
+  }
+
+  async createAwardType(tenantId: string, dto: CreateAwardTypeDto) {
+    const existing = await this.prisma.behaviourAwardType.findFirst({
+      where: { tenant_id: tenantId, name: dto.name },
+    });
+    if (existing) {
+      throw new ConflictException({
+        code: 'AWARD_TYPE_NAME_EXISTS',
+        message: `Award type "${dto.name}" already exists`,
+      });
+    }
+
+    return this.prisma.behaviourAwardType.create({
+      data: {
+        tenant_id: tenantId,
+        name: dto.name,
+        name_ar: dto.name_ar ?? null,
+        description: dto.description ?? null,
+        points_threshold: dto.points_threshold ?? null,
+        repeat_mode: dto.repeat_mode,
+        repeat_max_per_year: dto.repeat_max_per_year ?? null,
+        tier_group: dto.tier_group ?? null,
+        tier_level: dto.tier_level ?? null,
+        supersedes_lower_tiers: dto.supersedes_lower_tiers,
+        icon: dto.icon ?? null,
+        color: dto.color ?? null,
+        display_order: dto.display_order,
+        is_active: dto.is_active,
+      },
+    });
+  }
+
+  async updateAwardType(tenantId: string, id: string, dto: UpdateAwardTypeDto) {
+    const awardType = await this.prisma.behaviourAwardType.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
+    if (!awardType) {
+      throw new NotFoundException({
+        code: 'AWARD_TYPE_NOT_FOUND',
+        message: `Award type with id "${id}" not found`,
+      });
+    }
+
+    if (dto.name && dto.name !== awardType.name) {
+      const dup = await this.prisma.behaviourAwardType.findFirst({
+        where: { tenant_id: tenantId, name: dto.name, id: { not: id } },
+      });
+      if (dup) {
+        throw new ConflictException({
+          code: 'AWARD_TYPE_NAME_EXISTS',
+          message: `Award type "${dto.name}" already exists`,
+        });
+      }
+    }
+
+    return this.prisma.behaviourAwardType.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined ? { name: dto.name } : {}),
+        ...(dto.name_ar !== undefined ? { name_ar: dto.name_ar } : {}),
+        ...(dto.description !== undefined ? { description: dto.description } : {}),
+        ...(dto.points_threshold !== undefined ? { points_threshold: dto.points_threshold } : {}),
+        ...(dto.repeat_mode !== undefined ? { repeat_mode: dto.repeat_mode } : {}),
+        ...(dto.repeat_max_per_year !== undefined
+          ? { repeat_max_per_year: dto.repeat_max_per_year }
+          : {}),
+        ...(dto.tier_group !== undefined ? { tier_group: dto.tier_group } : {}),
+        ...(dto.tier_level !== undefined ? { tier_level: dto.tier_level } : {}),
+        ...(dto.supersedes_lower_tiers !== undefined
+          ? { supersedes_lower_tiers: dto.supersedes_lower_tiers }
+          : {}),
+        ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
+        ...(dto.color !== undefined ? { color: dto.color } : {}),
+        ...(dto.display_order !== undefined ? { display_order: dto.display_order } : {}),
+        ...(dto.is_active !== undefined ? { is_active: dto.is_active } : {}),
+      },
+    });
+  }
+
+  async deleteAwardType(tenantId: string, id: string) {
+    const awardType = await this.prisma.behaviourAwardType.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: { id: true, is_active: true },
+    });
+    if (!awardType) {
+      throw new NotFoundException({
+        code: 'AWARD_TYPE_NOT_FOUND',
+        message: `Award type with id "${id}" not found`,
+      });
+    }
+
+    // Soft-delete via is_active=false per .claude/rules/prisma.md status-based
+    // soft-delete convention — preserves the FK for historical award rows.
+    return this.prisma.behaviourAwardType.update({
+      where: { id },
+      data: { is_active: false },
     });
   }
 }

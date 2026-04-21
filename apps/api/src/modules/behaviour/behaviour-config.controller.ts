@@ -17,6 +17,7 @@ import { z } from 'zod';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 import {
+  createAwardTypeSchema,
   createCategorySchema,
   createDocumentTemplateSchema,
   createPolicyRuleSchema,
@@ -26,6 +27,7 @@ import {
   listPolicyRulesQuerySchema,
   PolicyDryRunSchema,
   ReplayPolicyRuleSchema,
+  updateAwardTypeSchema,
   updateCategorySchema,
   updateDocumentTemplateSchema,
   updatePolicyPrioritySchema,
@@ -51,6 +53,15 @@ import { BehaviourDocumentTemplateService } from './behaviour-document-template.
 
 const listTemplatesQuerySchema = z.object({
   category_id: z.string().uuid().optional(),
+});
+
+const listAwardTypesQuerySchema = z.object({
+  pageSize: z.coerce.number().int().min(1).max(200).default(100),
+  // `sort` and `order` are accepted from the frontend for forward-compat; the
+  // service always orders by display_order asc, name asc so the inputs are
+  // currently ignored — they're whitelisted so the Zod pipe doesn't 400.
+  sort: z.string().optional(),
+  order: z.enum(['asc', 'desc']).optional(),
 });
 
 @Controller('v1')
@@ -285,6 +296,50 @@ export class BehaviourConfigController {
     dto: z.infer<typeof updateDocumentTemplateSchema>,
   ) {
     return this.documentTemplateService.updateTemplate(tenant.tenant_id, id, dto);
+  }
+
+  // ─── Award Types ──────────────────────────────────────────────────────────
+
+  @Get('behaviour/award-types')
+  @RequiresPermission('behaviour.view')
+  async listAwardTypes(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(listAwardTypesQuerySchema))
+    query: z.infer<typeof listAwardTypesQuerySchema>,
+  ) {
+    return this.configService.listAwardTypes(tenant.tenant_id, { pageSize: query.pageSize });
+  }
+
+  @Post('behaviour/award-types')
+  @RequiresPermission('behaviour.admin')
+  @HttpCode(HttpStatus.CREATED)
+  async createAwardType(
+    @CurrentTenant() tenant: TenantContext,
+    @Body(new ZodValidationPipe(createAwardTypeSchema))
+    dto: z.infer<typeof createAwardTypeSchema>,
+  ) {
+    return this.configService.createAwardType(tenant.tenant_id, dto);
+  }
+
+  @Patch('behaviour/award-types/:id')
+  @RequiresPermission('behaviour.admin')
+  async updateAwardType(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateAwardTypeSchema))
+    dto: z.infer<typeof updateAwardTypeSchema>,
+  ) {
+    return this.configService.updateAwardType(tenant.tenant_id, id, dto);
+  }
+
+  @Delete('behaviour/award-types/:id')
+  @RequiresPermission('behaviour.admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteAwardType(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.configService.deleteAwardType(tenant.tenant_id, id);
   }
 
   // ─── Admin Dry-Run ────────────────────────────────────────────────────────

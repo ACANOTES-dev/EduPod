@@ -59,6 +59,7 @@ import {
 } from '../../common/tests/mock-facades';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { CpRecordService } from '../child-protection/services/cp-record.service';
+import { SettingsService } from '../configuration/settings.service';
 import { ConcernVersionService } from '../pastoral/services/concern-version.service';
 import { ConcernService } from '../pastoral/services/concern.service';
 import { PastoralEventService } from '../pastoral/services/pastoral-event.service';
@@ -300,6 +301,13 @@ describe('SafeguardingService', () => {
         {
           provide: ConfigurationReadFacade,
           useValue: { findSettingsJson: mockPrisma.tenantSetting!.findFirst },
+        },
+        {
+          provide: SettingsService,
+          useValue: {
+            getSettingsSection: jest.fn().mockResolvedValue({}),
+            upsertSettingsSection: jest.fn().mockResolvedValue(undefined),
+          },
         },
       ],
     }).compile();

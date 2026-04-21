@@ -6,7 +6,6 @@ import * as React from 'react';
 
 import { Button } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
@@ -24,7 +23,6 @@ import { ReplayPanel } from './_components/replay-panel';
 import { RuleEditorSheet } from './_components/rule-editor-sheet';
 import { StageRulesList, StageTabs } from './_components/stage-rules-list';
 import { VersionHistoryDialog } from './_components/version-history-dialog';
-
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -84,7 +82,7 @@ export default function BehaviourPoliciesPage() {
     try {
       const [catsRes, ygRes] = await Promise.all([
         apiClient<{ data: Category[] }>('/api/v1/behaviour/categories?pageSize=100'),
-        apiClient<{ data: YearGroup[] }>('/api/v1/academic/year-groups?pageSize=100'),
+        apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100'),
       ]);
       setCategories(catsRes.data ?? []);
       setYearGroups(ygRes.data ?? []);

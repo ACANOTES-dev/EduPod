@@ -297,6 +297,46 @@ export class SettingsService {
     };
   }
 
+  // ─── Namespaced JSONB helpers ──────────────────────────────────────────────
+  //
+  // Some modules keep their settings inside a nested key in the legacy
+  // `tenant_settings.settings` JSONB blob (e.g. `safeguarding`, `behaviour`)
+  // rather than a dedicated per-module row. These helpers let those modules
+  // read/write their section without reaching into `prisma.tenantSetting`
+  // directly — the cross-module Prisma access lint rule forbids that.
+
+  async getSettingsSection(tenantId: string, key: string): Promise<Record<string, unknown>> {
+    const row = await this.prisma.tenantSetting.findUnique({
+      where: { tenant_id: tenantId },
+      select: { settings: true },
+    });
+    const raw = (row?.settings ?? {}) as Record<string, unknown>;
+    return (raw[key] ?? {}) as Record<string, unknown>;
+  }
+
+  async upsertSettingsSection(
+    tenantId: string,
+    key: string,
+    section: Record<string, unknown>,
+  ): Promise<void> {
+    const existing = await this.prisma.tenantSetting.findUnique({
+      where: { tenant_id: tenantId },
+    });
+    const existingRaw = (existing?.settings ?? {}) as Record<string, unknown>;
+    const next = { ...existingRaw, [key]: section };
+
+    await this.prisma.tenantSetting.upsert({
+      where: { tenant_id: tenantId },
+      create: {
+        tenant_id: tenantId,
+        settings: next as unknown as Prisma.InputJsonValue,
+      },
+      update: {
+        settings: next as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }
+
   // ─── Private helpers ───────────────────────────────────────────────────────
 
   /**

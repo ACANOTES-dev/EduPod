@@ -11,12 +11,16 @@ import type {
   RecordSafeguardingActionDto,
   RejectSealDto,
   ReportSafeguardingConcernDto,
+  SafeguardingSettingsDto,
   SafeguardingStatusTransitionDto,
   SealStatusResponse,
   TuslaReferralDto,
   UpdateSafeguardingConcernDto,
+  UpdateSafeguardingSettingsDto,
 } from '@school/shared/behaviour';
+import { safeguardingSettingsSchema } from '@school/shared/behaviour';
 
+import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RbacReadFacade } from '../rbac/rbac-read.facade';
 
@@ -38,6 +42,7 @@ export class SafeguardingService {
     private readonly referralsService: SafeguardingReferralsService,
     private readonly sealService: SafeguardingSealService,
     private readonly reportingService: SafeguardingReportingService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   // ─── Concern CRUD (delegates to SafeguardingConcernsService) ────────────
@@ -239,5 +244,37 @@ export class SafeguardingService {
     }
 
     return { allowed: false, context: 'normal' };
+  }
+
+  // ─── Settings ────────────────────────────────────────────────────────────
+  //
+  // Safeguarding settings live in the generic `tenant_settings.settings`
+  // JSONB blob under the `safeguarding` key. This keeps WB-135 a zero-
+  // migration change and follows the same pattern used by behaviour
+  // settings elsewhere in the module.
+
+  async getSafeguardingSettings(tenantId: string): Promise<SafeguardingSettingsDto> {
+    const section = await this.settingsService.getSettingsSection(tenantId, 'safeguarding');
+    return safeguardingSettingsSchema.parse(section);
+  }
+
+  async updateSafeguardingSettings(
+    tenantId: string,
+    dto: UpdateSafeguardingSettingsDto,
+  ): Promise<SafeguardingSettingsDto> {
+    const existing = await this.settingsService.getSettingsSection(tenantId, 'safeguarding');
+
+    const merged = safeguardingSettingsSchema.parse({
+      ...existing,
+      ...dto,
+    });
+
+    await this.settingsService.upsertSettingsSection(
+      tenantId,
+      'safeguarding',
+      merged as unknown as Record<string, unknown>,
+    );
+
+    return merged;
   }
 }
