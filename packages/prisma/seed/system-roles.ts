@@ -145,6 +145,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'wellbeing_notifications.configure',
       'ai_flag.manage',
       'safeguarding.dedicated_view',
+      // Behaviour — owner can log incidents (S3 walkthrough — W-S3-014)
+      'behaviour.log',
       // Excluded: platform.impersonate (reserved for future platform super-admin role)
     ],
   },
@@ -267,6 +269,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'wellbeing.view_dashboard',
       'wellbeing_notifications.configure',
       'ai_flag.manage',
+      // Behaviour — principal can log + oversee (S3 walkthrough — W-S3-014)
+      'behaviour.log',
     ],
   },
   {
@@ -391,6 +395,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'inbox.send',
       // Wellbeing rebuild (Impl 01) — staff-visible dashboard
       'wellbeing.view_dashboard',
+      // Behaviour — teachers can log incidents/recognition (S3 walkthrough — W-S3-014)
+      'behaviour.log',
     ],
   },
   {
@@ -490,6 +496,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'safeguarding.dedicated_view',
       // Wellbeing rebuild (Impl 01) — super-hub + dedicated safeguarding view
       'wellbeing.view_dashboard',
+      // Behaviour — VP can log incidents (S3 walkthrough — W-S3-014)
+      'behaviour.log',
     ],
   },
   {
