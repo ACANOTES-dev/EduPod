@@ -178,7 +178,7 @@ function SystemHealthTab() {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {/* Queue Depths */}
-      {Object.entries(health.queue_depths).map(([name, depth]) => (
+      {Object.entries(health.queue_depths ?? {}).map(([name, depth]) => (
         <div key={name} className="rounded-lg border bg-card p-4">
           <div className="pb-2">
             <p className="text-sm font-medium capitalize">{name.replace(/_/g, ' ')}</p>
@@ -226,7 +226,7 @@ function SystemHealthTab() {
         </div>
         <div className="p-4 pt-0">
           <div className="space-y-2">
-            {health.view_freshness.map((v) => (
+            {(health.view_freshness ?? []).map((v) => (
               <div key={v.view_name} className="flex items-center justify-between">
                 <span className="text-sm font-mono">{v.view_name}</span>
                 <span className="text-sm text-muted-foreground">

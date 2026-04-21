@@ -200,6 +200,9 @@ function LoadingSkeleton() {
   );
 }
 
+// Only the fields the first-screen render actually dereferences are checked
+// here — the downstream sections render tolerantly, so a partial payload should
+// still produce a usable dashboard rather than flashing the retry banner.
 function isCompleteDashboard(
   workload: AggregateWorkloadSummary | null | undefined,
   coverFairness: CoverFairnessResult | null | undefined,
@@ -208,24 +211,8 @@ function isCompleteDashboard(
   absenceTrends: AbsenceTrends | null | undefined,
   correlation: CorrelationResult | null | undefined,
 ): boolean {
-  if (!workload || !workload.range || typeof workload.range.min !== 'number') return false;
-  if (!coverFairness || !coverFairness.range || !Array.isArray(coverFairness.distribution)) {
-    return false;
-  }
-  if (
-    !timetableQuality ||
-    !timetableQuality.consecutive_periods ||
-    typeof timetableQuality.consecutive_periods.mean !== 'number' ||
-    !timetableQuality.free_period_clumping ||
-    typeof timetableQuality.free_period_clumping.mean !== 'number' ||
-    !timetableQuality.room_changes ||
-    typeof timetableQuality.room_changes.mean !== 'number'
-  ) {
-    return false;
-  }
-  if (!substitutionPressure || !Array.isArray(substitutionPressure.trend)) return false;
-  if (!absenceTrends) return false;
-  if (!correlation || !correlation.status) return false;
+  if (!workload || !coverFairness || !timetableQuality) return false;
+  if (!substitutionPressure || !absenceTrends || !correlation) return false;
   return true;
 }
 

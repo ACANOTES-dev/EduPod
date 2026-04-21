@@ -2,7 +2,7 @@
 
 import { ArrowRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useLocale } from 'next-intl';
 import * as React from 'react';
 
@@ -39,28 +39,17 @@ export function HubTile({
   animationIndex,
 }: HubTileProps) {
   const locale = useLocale();
-  const router = useRouter();
-
-  const handleClick = () => {
-    if (onClick) {
-      onClick();
-      return;
-    }
-    router.push(`/${locale}${href}`);
-  };
 
   const delayStyle =
     typeof animationIndex === 'number'
       ? ({ animationDelay: `${animationIndex * 60}ms` } as React.CSSProperties)
       : undefined;
 
-  const button = (
-    <button
-      type="button"
-      onClick={handleClick}
-      style={delayStyle}
-      className="group relative flex min-w-0 flex-col gap-5 overflow-hidden rounded-3xl border border-border bg-surface p-6 text-start shadow-sm transition-all duration-300 animate-in fade-in slide-in-from-bottom-1 fill-mode-both hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 sm:p-7"
-    >
+  const sharedClassName =
+    'group relative flex min-w-0 flex-col gap-5 overflow-hidden rounded-3xl border border-border bg-surface p-6 text-start shadow-sm transition-all duration-300 animate-in fade-in slide-in-from-bottom-1 fill-mode-both hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 sm:p-7';
+
+  const innerContent = (
+    <>
       <div
         className={`pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${accent}`}
       />
@@ -88,16 +77,30 @@ export function HubTile({
         <h3 className="text-lg font-semibold tracking-tight text-text-primary">{title}</h3>
         <p className="text-sm leading-relaxed text-text-tertiary">{description}</p>
       </div>
-    </button>
+    </>
   );
 
-  if (!tooltip) return button;
+  // Prefer a <Link> for navigation tiles so middle-click / right-click /
+  // prefetch behave natively. Fall back to a <button> only when the caller
+  // passes a custom onClick handler (the tile is acting as an action, not a
+  // link).
+  const trigger = onClick ? (
+    <button type="button" onClick={onClick} style={delayStyle} className={sharedClassName}>
+      {innerContent}
+    </button>
+  ) : (
+    <Link href={`/${locale}${href}`} style={delayStyle} className={sharedClassName}>
+      {innerContent}
+    </Link>
+  );
+
+  if (!tooltip) return trigger;
 
   return (
     <TooltipProvider delayDuration={300}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="min-w-0">{button}</div>
+          <div className="min-w-0">{trigger}</div>
         </TooltipTrigger>
         <TooltipContent side="top" sideOffset={8} className="max-w-[280px] text-xs">
           {tooltip}

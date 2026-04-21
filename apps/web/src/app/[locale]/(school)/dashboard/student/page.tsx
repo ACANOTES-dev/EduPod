@@ -34,10 +34,6 @@ interface SubjectGrade {
   final_letter: string | null;
 }
 
-interface ListResponse<T> {
-  data: T[];
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function StudentDashboardPage() {
@@ -71,21 +67,18 @@ export default function StudentDashboardPage() {
         if (profileRes?.data) {
           setProfile(profileRes.data);
 
-          // Fetch report cards and grades for this student
+          // Fetch grades for this student. Report cards are parent-scoped on
+          // the backend so we deliberately skip that call here; the student
+          // dashboard renders a friendly empty state until a dedicated
+          // student-scoped endpoint ships.
           const studentId = profileRes.data.student_id;
-          const [rcRes, gradesRes] = await Promise.all([
-            apiClient<ListResponse<ReportCard>>(
-              `/api/v1/parent/students/${studentId}/report-cards`,
-              { silent: true },
-            ).catch(() => ({ data: [] })),
-            apiClient<{ data: { grades: SubjectGrade[] } }>(
-              `/api/v1/gradebook/student-grades?student_id=${studentId}`,
-              { silent: true },
-            ).catch(() => ({ data: { grades: [] } })),
-          ]);
+          const gradesRes = await apiClient<{ data: { grades: SubjectGrade[] } }>(
+            `/api/v1/gradebook/student-grades?student_id=${studentId}`,
+            { silent: true },
+          ).catch(() => ({ data: { grades: [] } }));
 
           if (!cancelled) {
-            setReportCards(rcRes.data ?? []);
+            setReportCards([]);
             setGrades(gradesRes.data?.grades ?? []);
           }
         }
