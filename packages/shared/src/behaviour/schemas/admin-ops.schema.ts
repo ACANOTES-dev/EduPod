@@ -1,11 +1,28 @@
 import { z } from 'zod';
 
+// ─── Confirmation phrases ─────────────────────────────────────────────────
+// Admin repair operations require the caller to echo a typed-confirmation
+// phrase so the UI can force a deliberate action. The backend enforces the
+// match and rejects mismatches with CONFIRMATION_PHRASE_MISMATCH.
+
+export const ADMIN_CONFIRM_PHRASES = {
+  recomputePoints: 'recompute-points-yes',
+  rebuildAwards: 'rebuild-awards-yes',
+  recomputePulse: 'recompute-pulse-yes',
+  backfillTasks: 'backfill-tasks-yes',
+  reindexSearch: 'reindex-search-yes',
+  retentionExecute: 'retention-execute-yes',
+} as const;
+
 // ─── Recompute Points ─────────────────────────────────────────────────────
 
 export const recomputePointsSchema = z.object({
   scope: z.enum(['student', 'year_group', 'tenant']),
   student_id: z.string().uuid().optional(),
   year_group_id: z.string().uuid().optional(),
+  // Required by the execute handler (assertConfirmPhrase); preview handlers
+  // accept payloads without it, which is why Zod marks it optional here.
+  confirm_phrase: z.string().optional(),
 });
 
 export type RecomputePointsDto = z.infer<typeof recomputePointsSchema>;
@@ -16,6 +33,7 @@ export const rebuildAwardsSchema = z.object({
   scope: z.enum(['student', 'year_group', 'tenant']),
   student_id: z.string().uuid().optional(),
   year_group_id: z.string().uuid().optional(),
+  confirm_phrase: z.string().optional(),
 });
 
 export type RebuildAwardsDto = z.infer<typeof rebuildAwardsSchema>;
@@ -25,9 +43,18 @@ export type RebuildAwardsDto = z.infer<typeof rebuildAwardsSchema>;
 export const backfillTasksSchema = z.object({
   scope: z.enum(['tenant', 'entity_type']),
   entity_type: z.string().optional(),
+  confirm_phrase: z.string().optional(),
 });
 
 export type BackfillTasksDto = z.infer<typeof backfillTasksSchema>;
+
+// ─── Shared confirmation-only body ────────────────────────────────────────
+
+export const adminConfirmPhraseSchema = z.object({
+  confirm_phrase: z.string().optional(),
+});
+
+export type AdminConfirmPhraseDto = z.infer<typeof adminConfirmPhraseSchema>;
 
 // ─── Resend Notification ──────────────────────────────────────────────────
 

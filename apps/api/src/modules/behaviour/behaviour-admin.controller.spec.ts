@@ -124,13 +124,21 @@ describe('BehaviourAdminController', () => {
   });
 
   it('should call adminService.recomputePoints with tenant_id and dto and return success', async () => {
-    const dto = { scope: 'all' };
+    const dto = { scope: 'all', confirm_phrase: 'recompute-points-yes' };
     mockAdminService.recomputePoints.mockResolvedValue(undefined);
 
     const result = await controller.recomputePoints(TENANT, dto as never);
 
     expect(mockAdminService.recomputePoints).toHaveBeenCalledWith(TENANT_ID, dto);
     expect(result).toEqual({ success: true, message: 'Points recomputed' });
+  });
+
+  it('rejects recomputePoints with CONFIRMATION_PHRASE_MISMATCH when phrase is wrong', async () => {
+    const dto = { scope: 'all', confirm_phrase: 'wrong-phrase' };
+    await expect(controller.recomputePoints(TENANT, dto as never)).rejects.toMatchObject({
+      response: { code: 'CONFIRMATION_PHRASE_MISMATCH' },
+    });
+    expect(mockAdminService.recomputePoints).not.toHaveBeenCalled();
   });
 
   // ─── Rebuild Awards ──────────────────────────────────────────────────────
@@ -146,7 +154,7 @@ describe('BehaviourAdminController', () => {
   });
 
   it('should call adminService.rebuildAwards with tenant_id and dto and return data', async () => {
-    const dto = { scope: 'tenant' };
+    const dto = { scope: 'tenant', confirm_phrase: 'rebuild-awards-yes' };
     mockAdminService.rebuildAwards.mockResolvedValue({ enqueued: 42 });
 
     const result = await controller.rebuildAwards(TENANT, dto as never);
@@ -155,15 +163,32 @@ describe('BehaviourAdminController', () => {
     expect(result).toEqual({ data: { enqueued: 42 } });
   });
 
+  it('rejects rebuildAwards with CONFIRMATION_PHRASE_MISMATCH when phrase is wrong', async () => {
+    const dto = { scope: 'tenant', confirm_phrase: 'wrong' };
+    await expect(controller.rebuildAwards(TENANT, dto as never)).rejects.toMatchObject({
+      response: { code: 'CONFIRMATION_PHRASE_MISMATCH' },
+    });
+    expect(mockAdminService.rebuildAwards).not.toHaveBeenCalled();
+  });
+
   // ─── Recompute Pulse ─────────────────────────────────────────────────────
 
   it('should call adminService.recomputePulse with tenant_id and return success', async () => {
+    const dto = { confirm_phrase: 'recompute-pulse-yes' };
     mockAdminService.recomputePulse.mockResolvedValue(undefined);
 
-    const result = await controller.recomputePulse(TENANT);
+    const result = await controller.recomputePulse(TENANT, dto as never);
 
     expect(mockAdminService.recomputePulse).toHaveBeenCalledWith(TENANT_ID);
     expect(result).toEqual({ success: true, message: 'Pulse cache invalidated' });
+  });
+
+  it('rejects recomputePulse with CONFIRMATION_PHRASE_MISMATCH when phrase is wrong', async () => {
+    const dto = { confirm_phrase: 'wrong' };
+    await expect(controller.recomputePulse(TENANT, dto as never)).rejects.toMatchObject({
+      response: { code: 'CONFIRMATION_PHRASE_MISMATCH' },
+    });
+    expect(mockAdminService.recomputePulse).not.toHaveBeenCalled();
   });
 
   // ─── Backfill Tasks ──────────────────────────────────────────────────────
@@ -179,13 +204,21 @@ describe('BehaviourAdminController', () => {
   });
 
   it('should call adminService.backfillTasks with tenant_id and dto and return data', async () => {
-    const dto = { scope: 'tenant' };
+    const dto = { scope: 'tenant', confirm_phrase: 'backfill-tasks-yes' };
     mockAdminService.backfillTasks.mockResolvedValue({ created: 7 });
 
     const result = await controller.backfillTasks(TENANT, dto as never);
 
     expect(mockAdminService.backfillTasks).toHaveBeenCalledWith(TENANT_ID, dto);
     expect(result).toEqual({ data: { created: 7 } });
+  });
+
+  it('rejects backfillTasks with CONFIRMATION_PHRASE_MISMATCH when phrase is wrong', async () => {
+    const dto = { scope: 'tenant', confirm_phrase: 'wrong' };
+    await expect(controller.backfillTasks(TENANT, dto as never)).rejects.toMatchObject({
+      response: { code: 'CONFIRMATION_PHRASE_MISMATCH' },
+    });
+    expect(mockAdminService.backfillTasks).not.toHaveBeenCalled();
   });
 
   // ─── Resend Notification ─────────────────────────────────────────────────
@@ -247,12 +280,21 @@ describe('BehaviourAdminController', () => {
   });
 
   it('should call adminService.reindexSearch with tenant_id and return data', async () => {
+    const dto = { confirm_phrase: 'reindex-search-yes' };
     mockAdminService.reindexSearch.mockResolvedValue({ job_id: 'job-abc-123' });
 
-    const result = await controller.reindexSearch(TENANT);
+    const result = await controller.reindexSearch(TENANT, dto as never);
 
     expect(mockAdminService.reindexSearch).toHaveBeenCalledWith(TENANT_ID);
     expect(result).toEqual({ data: { job_id: 'job-abc-123' } });
+  });
+
+  it('rejects reindexSearch with CONFIRMATION_PHRASE_MISMATCH when phrase is wrong', async () => {
+    const dto = { confirm_phrase: 'wrong' };
+    await expect(controller.reindexSearch(TENANT, dto as never)).rejects.toMatchObject({
+      response: { code: 'CONFIRMATION_PHRASE_MISMATCH' },
+    });
+    expect(mockAdminService.reindexSearch).not.toHaveBeenCalled();
   });
 
   // ─── Retention ───────────────────────────────────────────────────────────
@@ -267,12 +309,21 @@ describe('BehaviourAdminController', () => {
   });
 
   it('should call adminService.retentionExecute with tenant_id', async () => {
+    const dto = { confirm_phrase: 'retention-execute-yes' };
     mockAdminService.retentionExecute.mockResolvedValue({ deleted: 50 });
 
-    const result = await controller.retentionExecute(TENANT);
+    const result = await controller.retentionExecute(TENANT, dto as never);
 
     expect(mockAdminService.retentionExecute).toHaveBeenCalledWith(TENANT_ID);
     expect(result).toEqual({ deleted: 50 });
+  });
+
+  it('rejects retentionExecute with CONFIRMATION_PHRASE_MISMATCH when phrase is wrong', async () => {
+    const dto = { confirm_phrase: 'wrong' };
+    await expect(controller.retentionExecute(TENANT, dto as never)).rejects.toMatchObject({
+      response: { code: 'CONFIRMATION_PHRASE_MISMATCH' },
+    });
+    expect(mockAdminService.retentionExecute).not.toHaveBeenCalled();
   });
 
   // ─── Legal Holds ─────────────────────────────────────────────────────────

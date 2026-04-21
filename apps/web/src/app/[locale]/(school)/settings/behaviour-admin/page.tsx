@@ -263,7 +263,9 @@ function SystemHealthTab() {
 
       <div className="md:col-span-2 lg:col-span-3">
         <Button variant="secondary" onClick={loadHealth}>
-          <RefreshCw className="me-2 h-4 w-4" />{t('refresh')}</Button>
+          <RefreshCw className="me-2 h-4 w-4" />
+          {t('refresh')}
+        </Button>
       </div>
     </div>
   );
@@ -352,7 +354,9 @@ function DeadLetterTab() {
                 <td className="py-2">{job.retry_count}</td>
                 <td className="py-2 text-end">
                   <Button size="sm" variant="secondary" onClick={() => retryJob(job.job_id)}>
-                    <RotateCcw className="me-1 h-3 w-3" />{t('retry')}</Button>
+                    <RotateCcw className="me-1 h-3 w-3" />
+                    {t('retry')}
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -392,14 +396,15 @@ function OperationsTab() {
 
   const execute = async (operation: string) => {
     try {
-      const body = ['recompute-points', 'rebuild-awards'].includes(operation)
+      const confirmPhrase = `${operation.replace('/', '-')}-yes`;
+      const baseBody = ['recompute-points', 'rebuild-awards'].includes(operation)
         ? { scope }
         : operation === 'backfill-tasks'
           ? { scope: 'tenant' }
           : {};
       await apiClient(`/api/v1/behaviour/admin/${operation}`, {
         method: 'POST',
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...baseBody, confirm_phrase: confirmPhrase }),
       });
       setPreviewData(null);
       setPreviewOp(null);
@@ -483,14 +488,18 @@ function OperationsTab() {
               )}
               {!op.noPreview && (
                 <Button variant="secondary" onClick={() => preview(op.key)}>
-                  <Eye className="me-2 h-4 w-4" />{t('previewImpact')}</Button>
+                  <Eye className="me-2 h-4 w-4" />
+                  {t('previewImpact')}
+                </Button>
               )}
               <Button
                 variant={op.noPreview ? 'default' : 'outline'}
                 onClick={() => execute(op.key)}
                 disabled={!op.noPreview && previewOp !== op.key}
               >
-                <Play className="me-2 h-4 w-4" />{t('execute')}</Button>
+                <Play className="me-2 h-4 w-4" />
+                {t('execute')}
+              </Button>
             </div>
           </div>
         </div>
@@ -532,7 +541,9 @@ function OperationsTab() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setPreviewData(null)}>{tCommon('cancel')}</Button>
+            <Button variant="secondary" onClick={() => setPreviewData(null)}>
+              {tCommon('cancel')}
+            </Button>
             <Button onClick={() => previewOp && execute(previewOp)}>{t('confirmExecute')}</Button>
           </DialogFooter>
         </DialogContent>
@@ -580,7 +591,9 @@ function ScopeAuditTab() {
               className="flex-1"
             />
             <Button onClick={runAudit} disabled={loading || !userId.trim()}>
-              <Search className="me-2 h-4 w-4" />{t('runAudit')}</Button>
+              <Search className="me-2 h-4 w-4" />
+              {t('runAudit')}
+            </Button>
           </div>
 
           {result && (
@@ -589,12 +602,18 @@ function ScopeAuditTab() {
                 <Badge variant="secondary" className="capitalize">
                   {result.scope_level}
                 </Badge>
-                <span className="text-sm text-muted-foreground">{t('canSee')}{result.student_count}{t('student')}{result.student_count !== 1 ? 's' : ''}
+                <span className="text-sm text-muted-foreground">
+                  {t('canSee')}
+                  {result.student_count}
+                  {t('student')}
+                  {result.student_count !== 1 ? 's' : ''}
                 </span>
               </div>
               {result.student_ids.length > 0 && (
                 <div className="max-h-48 overflow-y-auto">
-                  <p className="mb-1 text-xs font-medium text-muted-foreground">{t('studentIds')}</p>
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">
+                    {t('studentIds')}
+                  </p>
                   <div className="space-y-1">
                     {result.student_ids.slice(0, 50).map((id) => (
                       <code key={id} className="block text-xs">
@@ -602,7 +621,11 @@ function ScopeAuditTab() {
                       </code>
                     ))}
                     {result.student_ids.length > 50 && (
-                      <p className="text-xs text-muted-foreground">{t('and')}{result.student_ids.length - 50}{t('more')}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t('and')}
+                        {result.student_ids.length - 50}
+                        {t('more')}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -665,7 +688,10 @@ function RetentionTab() {
 
   const executeRetention = async () => {
     try {
-      await apiClient('/api/v1/behaviour/admin/retention/execute', { method: 'POST' });
+      await apiClient('/api/v1/behaviour/admin/retention/execute', {
+        method: 'POST',
+        body: JSON.stringify({ confirm_phrase: 'retention-execute-yes' }),
+      });
     } catch (err) {
       // Failed
       console.error('[apiClient]', err);
@@ -725,9 +751,13 @@ function RetentionTab() {
         <div className="p-4 pt-0 space-y-4">
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={previewRetention}>
-              <Eye className="me-2 h-4 w-4" />{t('previewNextRun')}</Button>
+              <Eye className="me-2 h-4 w-4" />
+              {t('previewNextRun')}
+            </Button>
             <Button variant="destructive" onClick={executeRetention}>
-              <Play className="me-2 h-4 w-4" />{t('executeRetentionNow')}</Button>
+              <Play className="me-2 h-4 w-4" />
+              {t('executeRetentionNow')}
+            </Button>
           </div>
 
           {retentionPreview && (
@@ -762,12 +792,16 @@ function RetentionTab() {
               <p className="text-sm text-muted-foreground">{t('recordsUnderLegalHoldAre')}</p>
             </div>
             <Button size="sm" onClick={() => setCreateDialog(true)}>
-              <Lock className="me-2 h-4 w-4" />{t('createHold')}</Button>
+              <Lock className="me-2 h-4 w-4" />
+              {t('createHold')}
+            </Button>
           </div>
         </div>
         <div className="p-4 pt-0">
           {holds.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('noActiveLegalHolds')}</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              {t('noActiveLegalHolds')}
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -805,7 +839,9 @@ function RetentionTab() {
                           size="sm"
                           variant="secondary"
                           onClick={() => setReleaseDialog(hold.id)}
-                        >{t('release')}</Button>
+                        >
+                          {t('release')}
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -831,11 +867,15 @@ function RetentionTab() {
             />
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setReleaseDialog(null)}>{tCommon('cancel')}</Button>
+            <Button variant="secondary" onClick={() => setReleaseDialog(null)}>
+              {tCommon('cancel')}
+            </Button>
             <Button
               onClick={() => releaseDialog && releaseHold(releaseDialog)}
               disabled={!releaseReason.trim()}
-            >{t('releaseHold')}</Button>
+            >
+              {t('releaseHold')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -891,11 +931,15 @@ function RetentionTab() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setCreateDialog(false)}>{tCommon('cancel')}</Button>
+            <Button variant="secondary" onClick={() => setCreateDialog(false)}>
+              {tCommon('cancel')}
+            </Button>
             <Button
               onClick={createHold}
               disabled={!newHold.entity_id.trim() || !newHold.hold_reason.trim()}
-            >{t('createHold')}</Button>
+            >
+              {t('createHold')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

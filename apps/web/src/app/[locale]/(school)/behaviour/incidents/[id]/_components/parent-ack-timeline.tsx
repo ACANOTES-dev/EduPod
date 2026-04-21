@@ -4,6 +4,7 @@ import { Check, CheckCheck, Clock, Eye, Mail, MessageCircle, Send, Smartphone } 
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format-date';
 
@@ -67,6 +68,7 @@ function stepColor(key: StepKey, reached: boolean): string {
 
 export function ParentAckTimeline({ incidentId }: ParentAckTimelineProps) {
   const t = useTranslations('behaviour.parentAck');
+  const { hasRole } = useRoleCheck();
   const [rows, setRows] = React.useState<AckRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -93,6 +95,35 @@ export function ParentAckTimeline({ incidentId }: ParentAckTimelineProps) {
     if (!incidentId) return;
     void fetchRows();
   }, [incidentId, fetchRows]);
+
+  // Stamp read_at on the viewer's own unread acknowledgements. The backend
+  // enforces parent identity via ACKNOWLEDGEMENT_NOT_YOURS, so non-owned acks
+  // are rejected silently. Gate by the 'parent' role to skip a round-trip on
+  // admin views where no ack ever belongs to the current user.
+  React.useEffect(() => {
+    if (loading || !hasRole('parent')) return;
+    const unread = rows.filter((r) => !r.read_at && !r.acknowledged_at);
+    if (unread.length === 0) return;
+
+    let cancelled = false;
+    void Promise.all(
+      unread.map((r) =>
+        apiClient(`/api/v1/behaviour/acknowledgements/${r.id}/read`, {
+          method: 'POST',
+          silent: true,
+        })
+          .then(() => true)
+          .catch(() => false),
+      ),
+    ).then((results) => {
+      if (cancelled) return;
+      if (results.some(Boolean)) void fetchRows();
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rows, loading, hasRole, fetchRows]);
 
   if (loading) {
     return (

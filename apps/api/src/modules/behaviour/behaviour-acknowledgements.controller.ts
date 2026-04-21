@@ -1,9 +1,20 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { z } from 'zod';
 
-import type { TenantContext } from '@school/shared';
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -43,5 +54,16 @@ export class BehaviourAcknowledgementsController {
   @RequiresPermission('behaviour.view')
   async getById(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.acknowledgementsService.getById(tenant.tenant_id, id);
+  }
+
+  @Post('behaviour/acknowledgements/:id/read')
+  @RequiresPermission('behaviour.view')
+  @HttpCode(HttpStatus.OK)
+  async markAsRead(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.acknowledgementsService.markAsRead(tenant.tenant_id, id, user.sub);
   }
 }

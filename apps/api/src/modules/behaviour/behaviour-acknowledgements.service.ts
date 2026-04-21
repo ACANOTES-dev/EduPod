@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface AcknowledgementListQuery {
@@ -127,6 +128,64 @@ export class BehaviourAcknowledgementsService {
         acknowledged_at: row.acknowledged_at?.toISOString() ?? null,
         acknowledgement_method: row.acknowledgement_method,
         status: deriveStatus(row),
+      },
+    };
+  }
+
+  /**
+   * Stamps `read_at` on an acknowledgement the first time the owning parent
+   * opens the incident that holds it. Idempotent: subsequent calls return the
+   * existing row untouched. Identity check forbids a user marking another
+   * parent's acknowledgement as read.
+   */
+  async markAsRead(tenantId: string, id: string, currentUserId: string) {
+    const row = await this.prisma.behaviourParentAcknowledgement.findFirst({
+      where: { id, tenant_id: tenantId },
+      include: {
+        parent: { select: { id: true, user_id: true } },
+      },
+    });
+
+    if (!row) {
+      throw new NotFoundException({
+        code: 'ACKNOWLEDGEMENT_NOT_FOUND',
+        message: `Acknowledgement with id "${id}" not found`,
+      });
+    }
+
+    if (row.parent?.user_id !== currentUserId) {
+      throw new ForbiddenException({
+        code: 'ACKNOWLEDGEMENT_NOT_YOURS',
+        message: 'This acknowledgement belongs to a different parent',
+      });
+    }
+
+    if (row.read_at) {
+      return {
+        data: {
+          id: row.id,
+          read_at: row.read_at.toISOString(),
+          already_read: true,
+        },
+      };
+    }
+
+    const now = new Date();
+    const updated = await createRlsClient(this.prisma, { tenant_id: tenantId }).$transaction(
+      async (tx) => {
+        return tx.behaviourParentAcknowledgement.update({
+          where: { id },
+          data: { read_at: now },
+          select: { id: true, read_at: true },
+        });
+      },
+    );
+
+    return {
+      data: {
+        id: updated.id,
+        read_at: updated.read_at?.toISOString() ?? null,
+        already_read: false,
       },
     };
   }

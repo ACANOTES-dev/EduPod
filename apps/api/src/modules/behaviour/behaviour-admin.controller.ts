@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -13,6 +14,8 @@ import { z } from 'zod';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 import {
+  ADMIN_CONFIRM_PHRASES,
+  adminConfirmPhraseSchema,
   backfillTasksSchema,
   createLegalHoldSchema,
   legalHoldListQuerySchema,
@@ -36,6 +39,15 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { BehaviourAdminService } from './behaviour-admin.service';
 import { BehaviourLegalHoldService } from './behaviour-legal-hold.service';
+
+function assertConfirmPhrase(phrase: string | undefined, expected: string) {
+  if (phrase !== expected) {
+    throw new BadRequestException({
+      code: 'CONFIRMATION_PHRASE_MISMATCH',
+      message: `Confirmation phrase must be "${expected}"`,
+    });
+  }
+}
 
 @Controller('v1/behaviour/admin')
 @ModuleEnabled('behaviour')
@@ -89,6 +101,7 @@ export class BehaviourAdminController {
     @CurrentTenant() tenant: TenantContext,
     @Body(new ZodValidationPipe(recomputePointsSchema)) dto: z.infer<typeof recomputePointsSchema>,
   ) {
+    assertConfirmPhrase(dto.confirm_phrase, ADMIN_CONFIRM_PHRASES.recomputePoints);
     await this.adminService.recomputePoints(tenant.tenant_id, dto);
     return { success: true, message: 'Points recomputed' };
   }
@@ -112,6 +125,7 @@ export class BehaviourAdminController {
     @CurrentTenant() tenant: TenantContext,
     @Body(new ZodValidationPipe(rebuildAwardsSchema)) dto: z.infer<typeof rebuildAwardsSchema>,
   ) {
+    assertConfirmPhrase(dto.confirm_phrase, ADMIN_CONFIRM_PHRASES.rebuildAwards);
     const result = await this.adminService.rebuildAwards(tenant.tenant_id, dto);
     return { data: result };
   }
@@ -121,7 +135,12 @@ export class BehaviourAdminController {
   @Post('recompute-pulse')
   @HttpCode(HttpStatus.OK)
   @RequiresPermission('behaviour.admin')
-  async recomputePulse(@CurrentTenant() tenant: TenantContext) {
+  async recomputePulse(
+    @CurrentTenant() tenant: TenantContext,
+    @Body(new ZodValidationPipe(adminConfirmPhraseSchema))
+    dto: z.infer<typeof adminConfirmPhraseSchema>,
+  ) {
+    assertConfirmPhrase(dto.confirm_phrase, ADMIN_CONFIRM_PHRASES.recomputePulse);
     await this.adminService.recomputePulse(tenant.tenant_id);
     return { success: true, message: 'Pulse cache invalidated' };
   }
@@ -145,6 +164,7 @@ export class BehaviourAdminController {
     @CurrentTenant() tenant: TenantContext,
     @Body(new ZodValidationPipe(backfillTasksSchema)) dto: z.infer<typeof backfillTasksSchema>,
   ) {
+    assertConfirmPhrase(dto.confirm_phrase, ADMIN_CONFIRM_PHRASES.backfillTasks);
     const result = await this.adminService.backfillTasks(tenant.tenant_id, dto);
     return { data: result };
   }
@@ -209,7 +229,12 @@ export class BehaviourAdminController {
   @Post('reindex-search')
   @HttpCode(HttpStatus.ACCEPTED)
   @RequiresPermission('behaviour.admin')
-  async reindexSearch(@CurrentTenant() tenant: TenantContext) {
+  async reindexSearch(
+    @CurrentTenant() tenant: TenantContext,
+    @Body(new ZodValidationPipe(adminConfirmPhraseSchema))
+    dto: z.infer<typeof adminConfirmPhraseSchema>,
+  ) {
+    assertConfirmPhrase(dto.confirm_phrase, ADMIN_CONFIRM_PHRASES.reindexSearch);
     const result = await this.adminService.reindexSearch(tenant.tenant_id);
     return { data: result };
   }
@@ -226,7 +251,12 @@ export class BehaviourAdminController {
   @Post('retention/execute')
   @HttpCode(HttpStatus.ACCEPTED)
   @RequiresPermission('behaviour.admin')
-  async retentionExecute(@CurrentTenant() tenant: TenantContext) {
+  async retentionExecute(
+    @CurrentTenant() tenant: TenantContext,
+    @Body(new ZodValidationPipe(adminConfirmPhraseSchema))
+    dto: z.infer<typeof adminConfirmPhraseSchema>,
+  ) {
+    assertConfirmPhrase(dto.confirm_phrase, ADMIN_CONFIRM_PHRASES.retentionExecute);
     return this.adminService.retentionExecute(tenant.tenant_id);
   }
 
