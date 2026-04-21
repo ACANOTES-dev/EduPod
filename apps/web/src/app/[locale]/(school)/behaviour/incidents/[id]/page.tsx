@@ -46,9 +46,11 @@ interface Participant {
 
 interface HistoryEntry {
   id: string;
-  action: string;
-  changes: Record<string, unknown>;
-  performed_by_user?: { first_name: string; last_name: string } | null;
+  change_type: string;
+  previous_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown>;
+  reason: string | null;
+  changed_by?: { first_name: string; last_name: string } | null;
   created_at: string;
 }
 
@@ -333,12 +335,12 @@ export default function IncidentDetailPage() {
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-medium text-text-primary capitalize">
-                          {entry.action.replace(/_/g, ' ')}
+                          {(entry.change_type ?? '').replace(/_/g, ' ')}
                         </span>
-                        {entry.performed_by_user && (
+                        {entry.changed_by && (
                           <span className="text-xs text-text-tertiary">
                             {t('by')}
-                            {entry.performed_by_user.first_name} {entry.performed_by_user.last_name}
+                            {entry.changed_by.first_name} {entry.changed_by.last_name}
                           </span>
                         )}
                       </div>

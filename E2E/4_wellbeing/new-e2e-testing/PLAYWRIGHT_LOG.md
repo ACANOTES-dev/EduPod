@@ -211,6 +211,22 @@ S0 established a rich, reproducible data baseline on NHQS and produced the route
 - **Fix:** {pending}
 - **Verified:** {pending}
 
+### W-S1-007 — Incident detail crashes with `Cannot read properties of undefined (reading 'replace')` — history field-name mismatch
+
+- **Severity:** P0
+- **Route:** `/en/behaviour/incidents/[id]`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Submit a new incident (any category)
+  2. Page redirects to `/en/behaviour/incidents/<id>`
+  3. Error boundary crash — console shows `TypeError: Cannot read properties of undefined (reading 'replace')` inside the History timeline map
+- **Expected:** Detail page renders with a history entry for the create action.
+- **Actual:** Crash. The history API returns `change_type` + `changed_by`; the frontend expected `action` + `performed_by_user`. `entry.action` → `undefined`; `.replace()` throws.
+- **Evidence:** Console stack + field-name comparison API vs FE.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
 ### W-S1-005 — QuickLog modal shows raw i18n keys for placeholders and submit button
 
 - **Severity:** P1
