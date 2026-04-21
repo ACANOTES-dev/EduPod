@@ -6,6 +6,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 
 import { CommonModule } from './common/common.module';
+import { GuardianRestrictionInterceptorModule } from './common/interceptors/guardian-restriction.module';
 import { CorrelationMiddleware } from './common/middleware/correlation.middleware';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
@@ -181,6 +182,7 @@ import { WellbeingNotificationsModule } from './modules/wellbeing-notifications/
     AiFlagsModule,
     WellbeingAggregateModule,
     WellbeingNotificationsModule,
+    GuardianRestrictionInterceptorModule,
   ],
 })
 export class AppModule implements NestModule {

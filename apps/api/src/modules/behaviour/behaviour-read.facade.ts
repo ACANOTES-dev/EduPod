@@ -14,6 +14,7 @@
  * - Batch methods return arrays (empty array = nothing found).
  */
 import { Injectable } from '@nestjs/common';
+import { $Enums } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -334,6 +335,31 @@ export interface BehaviourTaskRow {
 @Injectable()
 export class BehaviourReadFacade {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * WB-C-02 — Active guardian restrictions for a parent.
+   * Used by `GuardianRestrictionInterceptor` to short-circuit
+   * parent-portal requests when access to a specific student is blocked.
+   * Returns `{ student_id, restriction_type }` rows; the interceptor
+   * matches the student_id from the route param/query.
+   */
+  async findActiveRestrictionsForParent(
+    tenantId: string,
+    parentId: string,
+  ): Promise<Array<{ student_id: string; restriction_type: $Enums.RestrictionType }>> {
+    const today = new Date().toISOString().split('T')[0] as string;
+
+    return this.prisma.behaviourGuardianRestriction.findMany({
+      where: {
+        tenant_id: tenantId,
+        parent_id: parentId,
+        status: 'active_restriction' as $Enums.RestrictionStatus,
+        effective_from: { lte: new Date(today) },
+        OR: [{ effective_until: null }, { effective_until: { gte: new Date(today) } }],
+      },
+      select: { student_id: true, restriction_type: true },
+    });
+  }
 
   /**
    * Find all incidents a student participated in (via participant join).
