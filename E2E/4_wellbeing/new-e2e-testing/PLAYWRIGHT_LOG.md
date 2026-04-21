@@ -31,8 +31,6 @@ A session is only **Complete** when every issue it opened is marked `**Verified:
 
 S0 established a rich, reproducible data baseline on NHQS and produced the route scope map for the eight hub sessions that follow. 50 behaviour incidents (33 negative + 17 positive across 6 weeks, with 9 sanctions and 10 recognition awards), 4 house teams with 207 student memberships, 5 pastoral concerns + 3 cases + 1 intervention + 3 referrals, 4 safeguarding concerns (1 sealed) + 1 expired break-glass grant, and 2 staff-wellbeing surveys (5 + 15 responses) were seeded via a new idempotent script (`packages/prisma/scripts/seed-wellbeing-walkthrough.ts`). The visual smoke-test across the five hub landings surfaced one P0 (Staff Wellbeing crashes with a `.mean` TypeError for admin-without-staff-profile), two P1 numeric inconsistencies (Behaviour "Incidents This Week" showing total 50, Safeguarding "Sealed This Year" showing 0 despite a freshly-sealed concern), one P2 home-dashboard signal mismatch, and one P3 copy polish. All five are deferred to their owning sessions (S3/S4/S5/S7/S8) per the S0 blueprint's explicit out-of-scope clause — smoke test = "does the page render", and only the Staff Wellbeing page failed that bar. The EW trigger (task #6) is also deferred to S6, whose blueprint is written to handle it. Scope-map, seed script, and log are committed; all S0-created screenshots deleted. Next session can kick off with `/A1 S1`.
 
-### Session work completed
-
 **Session plan:** [`S0_seeding_scope_map.md`](./S0_seeding_scope_map.md)
 
 ### Session work completed
