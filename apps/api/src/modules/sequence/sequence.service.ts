@@ -24,21 +24,32 @@ export class SequenceService {
       const rawTx = db as unknown as {
         $queryRaw: (sql: Prisma.Sql) => Promise<unknown[]>;
       };
+      const rawExec = db as unknown as {
+        $executeRaw: (sql: Prisma.Sql) => Promise<number>;
+      };
 
       // eslint-disable-next-line school/no-raw-sql-outside-rls -- SELECT FOR UPDATE sequence lock within RLS transaction
-      const rows = (await rawTx.$queryRaw(
+      let rows = (await rawTx.$queryRaw(
         Prisma.sql`SELECT current_value FROM tenant_sequences WHERE tenant_id = ${tenantId}::uuid AND sequence_type = ${sequenceType} FOR UPDATE`,
       )) as Array<{ current_value: bigint }>;
 
       if (!rows.length) {
-        throw new Error(`Sequence type "${sequenceType}" not found for tenant ${tenantId}`);
+        // Lazy-initialize the sequence row for this tenant+type. Concurrent
+        // callers race via the unique constraint; ON CONFLICT DO NOTHING makes
+        // this safe without a pre-check, and the subsequent SELECT re-reads
+        // whichever row won the insert race under the FOR UPDATE lock.
+        // eslint-disable-next-line school/no-raw-sql-outside-rls -- INSERT row for lazy sequence init within RLS transaction
+        await rawExec.$executeRaw(
+          Prisma.sql`INSERT INTO tenant_sequences (tenant_id, sequence_type, current_value) VALUES (${tenantId}::uuid, ${sequenceType}, 0) ON CONFLICT (tenant_id, sequence_type) DO NOTHING`,
+        );
+        // eslint-disable-next-line school/no-raw-sql-outside-rls -- SELECT FOR UPDATE sequence lock within RLS transaction
+        rows = (await rawTx.$queryRaw(
+          Prisma.sql`SELECT current_value FROM tenant_sequences WHERE tenant_id = ${tenantId}::uuid AND sequence_type = ${sequenceType} FOR UPDATE`,
+        )) as Array<{ current_value: bigint }>;
       }
 
       const newValue = Number(rows[0]?.current_value ?? 0) + 1;
 
-      const rawExec = db as unknown as {
-        $executeRaw: (sql: Prisma.Sql) => Promise<number>;
-      };
       // eslint-disable-next-line school/no-raw-sql-outside-rls -- SELECT FOR UPDATE sequence lock within RLS transaction
       await rawExec.$executeRaw(
         Prisma.sql`UPDATE tenant_sequences SET current_value = ${newValue} WHERE tenant_id = ${tenantId}::uuid AND sequence_type = ${sequenceType}`,

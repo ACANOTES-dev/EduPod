@@ -68,12 +68,19 @@ describe('SequenceService', () => {
     expect(second).toMatch(/000002$/);
   });
 
-  it('should throw for missing sequence type', async () => {
-    mockTx.$queryRaw.mockResolvedValue([]);
+  it('should lazy-initialize a missing sequence type and return its first value', async () => {
+    // First SELECT returns empty (no row yet); INSERT creates it with current_value=0;
+    // second SELECT returns the freshly inserted row; UPDATE bumps to 1.
+    mockTx.$queryRaw
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ current_value: BigInt(0) }]);
+    mockTx.$executeRaw.mockResolvedValue(1);
 
-    await expect(service.nextNumber(TENANT_ID, 'nonexistent')).rejects.toThrow(
-      'Sequence type "nonexistent" not found',
-    );
+    const result = await service.nextNumber(TENANT_ID, 'nonexistent');
+
+    expect(result).toMatch(/000001$/);
+    expect(mockTx.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(mockTx.$executeRaw).toHaveBeenCalledTimes(2);
   });
 
   it('should format correctly at high numbers', async () => {

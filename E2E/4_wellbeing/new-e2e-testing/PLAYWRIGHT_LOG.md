@@ -144,8 +144,8 @@ S0 established a rich, reproducible data baseline on NHQS and produced the route
 - **Actual:** Only the 25 incidents whose `reported_by_id = owner.user_id` are returned. The 25 incidents reported by other staff (Sarah Daly, DSL, etc.) are hidden.
 - **Root cause:** `BehaviourScopeService.getUserScope` (apps/api/src/modules/behaviour/behaviour-scope.service.ts) checks `permissions` for `behaviour.admin` / `behaviour.manage` / `behaviour.view` to decide scope. The roles `school_owner` and `school_principal` are granted zero `behaviour.*` permissions by the role seeder — they rely on the owner-bypass in `PermissionGuard.isOwner`. `BehaviourScopeService` does not consult the owner bypass, so owner/principal falls through to scope `'own'` → `reported_by_id = userId`.
 - **Evidence:** DB confirms 50 incidents exist; `... WHERE reported_by_id = owner.id` returns exactly 25.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** e4bcf0b3 — see commit body for the five fixes bundled together.
+- **Verified:** 2026-04-21 — re-walked list + QuickLog on production, passes.
 
 ### W-S1-002 — Incidents list "Reporter" column shows `—` for every row
 
@@ -160,8 +160,8 @@ S0 established a rich, reproducible data baseline on NHQS and produced the route
 - **Actual:** Every row `—`.
 - **Root cause:** Frontend list (apps/web/src/app/[locale]/(school)/behaviour/incidents/page.tsx:42) expects `reported_by_user`, but the API include is the Prisma relation name `reported_by` (apps/api/src/modules/behaviour/behaviour-incidents.service.ts:427). Field-name mismatch → always null → falsy → renders `—`. Same bug repeats on the detail page at `apps/web/…/incidents/[id]/page.tsx:75,392`.
 - **Evidence:** Snapshot of list — every Reporter cell is `—`.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** e4bcf0b3 — see commit body for the five fixes bundled together.
+- **Verified:** 2026-04-21 — re-walked list + QuickLog on production, passes.
 
 ### W-S1-003 — Raw i18n key `behaviour.incidents.statuses.under_review` rendered in status column
 
@@ -175,8 +175,8 @@ S0 established a rich, reproducible data baseline on NHQS and produced the route
 - **Expected:** Translated label, e.g., "Under review".
 - **Actual:** Raw dotted translation key printed in cell and logged to console: `MISSING_MESSAGE: behaviour.incidents.statuses.under_review (en)`.
 - **Evidence:** Console error + visible cell text. Likely the same gap for any other statuses the seed didn't exercise — need to audit the enum `IncidentStatus` vs messages/en.json.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** e4bcf0b3 — see commit body for the five fixes bundled together.
+- **Verified:** 2026-04-21 — re-walked list + QuickLog on production, passes.
 
 ### W-S1-004 — Category picker shows "+N pts" for negative categories — identical to positives (user-flagged)
 
@@ -191,6 +191,23 @@ S0 established a rich, reproducible data baseline on NHQS and produced the route
 - **Expected:** Negative categories should clearly read as a deduction (e.g., `−5pts`, red styling) or otherwise be visually distinct from positives. Sign + colour must communicate the scoring polarity consistently with the scoring model.
 - **Actual:** Every chip uses `+` prefix and the same badge styling. A reporter cannot tell at a glance whether Fighting awards or deducts 5 points.
 - **Evidence:** Screenshot of /new chips; same on QuickLog modal.
+- **Fix:** e4bcf0b3 — see commit body for the five fixes bundled together.
+- **Verified:** 2026-04-21 — re-walked list + QuickLog on production, passes.
+
+### W-S1-006 — Submitting a new incident returns 500 — `tenant_sequences` row for `behaviour_incident` missing for NHQS (and every other tenant)
+
+- **Severity:** P0
+- **Route:** `/en/behaviour/incidents/new`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/incidents/new`
+  2. Pick Lateness, select Adam Moore, fill description + location, click Submit Incident
+  3. API responds `500` and the UI silently surfaces no toast
+- **Expected:** Incident created with a reference like `BI-2026-000001` and a redirect to the detail page.
+- **Actual:** 500 response. Server log: `Unhandled exception: Sequence type "behaviour_incident" not found for tenant 3ba9b02c-…`.
+- **Root cause:** `SequenceService.nextNumber` throws when `tenant_sequences` has no row for the (tenant, type) pair. DB query confirms NHQS — and every other tenant — has rows for application/household/invoice/payment/payslip/receipt/staff/student but no `behaviour_incident` row (and missing `pastoral_case`, `refund`, `sen_support_plan` system-wide). Creating a behaviour incident via the UI was never exercised on these tenants because S0 seeded via direct Prisma writes that bypass the sequence service.
+- **Evidence:** `tenant_sequences` aggregate query + 500 trace from PM2 logs.
 - **Fix:** {pending}
 - **Verified:** {pending}
 
@@ -206,8 +223,8 @@ S0 established a rich, reproducible data baseline on NHQS and produced the route
 - **Expected:** Translated strings (e.g., "Search students…", "Add details", "Log incident"). The /new page has working equivalents ("Search students…", "Describe what happened…", "Submit Incident") so this is a missing key, not a missing component.
 - **Actual:** Raw dotted keys displayed. Console: 3 × `MISSING_MESSAGE` errors per render (12+ over the session because the modal re-renders on tab change).
 - **Evidence:** Console errors + dialog snapshot.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** e4bcf0b3 — see commit body for the five fixes bundled together.
+- **Verified:** 2026-04-21 — re-walked list + QuickLog on production, passes.
 
 ---
 
