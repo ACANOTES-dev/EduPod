@@ -14835,6 +14835,7 @@
   "wellbeingStaff": {
     "title": "Staff Wellbeing",
     "description": "Personal workload insights, school-wide dashboards, surveys, and support resources for staff.",
+    "backToHub": "Back to Staff Wellbeing",
     "nav": {
       "my": "My Workload",
       "aggregate": "Dashboard",

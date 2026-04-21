@@ -1,7 +1,8 @@
 'use client';
 
-import { ClipboardList, Play, Square } from 'lucide-react';
-import { useParams } from 'next/navigation';
+import { ArrowLeft, ClipboardList, Play, Square } from 'lucide-react';
+import Link from 'next/link';
+import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -17,7 +18,6 @@ import {
   Skeleton,
 } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
@@ -32,12 +32,14 @@ import type {
 } from './_components/survey-types';
 import { STATUS_BADGE_VARIANT } from './_components/survey-types';
 
-
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function SurveyDetailPage() {
   const t = useTranslations('wellbeing.surveyDetail');
+  const tStaff = useTranslations('wellbeingStaff');
   const params = useParams();
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const surveyId = params?.id as string;
 
   // ── State ──
@@ -359,10 +361,21 @@ export default function SurveyDetailPage() {
     );
   }
 
+  const backLink = (
+    <Link
+      href={`/${locale}/wellbeing/staff#surveys`}
+      className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
+    >
+      <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
+      {tStaff('backToHub')}
+    </Link>
+  );
+
   // ── Error / not found ──
   if (loadError || !survey) {
     return (
       <div className="space-y-6">
+        {backLink}
         <PageHeader title={t('title')} />
         <div className="flex flex-col items-center gap-4 py-16">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-secondary">
@@ -377,6 +390,7 @@ export default function SurveyDetailPage() {
   // ── Render ──
   return (
     <div className="space-y-6">
+      {backLink}
       {/* Header */}
       <PageHeader
         title={survey.title}

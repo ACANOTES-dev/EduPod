@@ -1,6 +1,8 @@
 'use client';
 
-import { CheckCircle2, ChevronDown, ClipboardList, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronDown, ClipboardList, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -66,6 +68,9 @@ const FREEFORM_MAX_CHARS = 2000;
 
 export default function SurveyPage() {
   const t = useTranslations('wellbeing.survey');
+  const tStaff = useTranslations('wellbeingStaff');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const tCommon = useTranslations('common');
 
   const [survey, setSurvey] = React.useState<ActiveSurveyResult | null>(null);
@@ -246,6 +251,16 @@ export default function SurveyPage() {
       })
     : '';
 
+  const backLink = (
+    <Link
+      href={`/${locale}/wellbeing/staff#surveys`}
+      className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
+    >
+      <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
+      {tStaff('backToHub')}
+    </Link>
+  );
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   // Loading skeleton
@@ -267,6 +282,7 @@ export default function SurveyPage() {
   if (!survey) {
     return (
       <div className="space-y-6">
+        {backLink}
         <PageHeader title={t('title')} />
         <div className="flex flex-col items-center gap-4 py-16">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-secondary">
@@ -282,6 +298,7 @@ export default function SurveyPage() {
   if (hasResponded || submitError === 'already_responded') {
     return (
       <div className="space-y-6">
+        {backLink}
         <PageHeader title={t('title')} />
         <div className="mx-auto max-w-lg">
           <div className="rounded-xl border border-border bg-surface p-6 text-center">
@@ -311,6 +328,7 @@ export default function SurveyPage() {
   if (submitError === 'closed') {
     return (
       <div className="space-y-6">
+        {backLink}
         <PageHeader title={t('title')} />
         <div className="mx-auto max-w-lg">
           <div className="rounded-xl border border-border bg-surface p-6 text-center">
@@ -329,6 +347,7 @@ export default function SurveyPage() {
 
   return (
     <div className="space-y-6">
+      {backLink}
       <PageHeader title={t('title')} />
 
       {/* Anonymity explanation panel */}
@@ -454,7 +473,9 @@ export default function SurveyPage() {
             <DialogDescription>{t('confirmMessage')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirm(false)} disabled={isSubmitting}>{tCommon('cancel')}</Button>
+            <Button variant="outline" onClick={() => setShowConfirm(false)} disabled={isSubmitting}>
+              {tCommon('cancel')}
+            </Button>
             <Button onClick={() => void handleConfirmSubmit()} disabled={isSubmitting}>
               {isSubmitting ? t('submitting') : t('submitAnonymous')}
             </Button>

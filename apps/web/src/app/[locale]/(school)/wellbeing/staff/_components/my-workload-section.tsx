@@ -118,6 +118,7 @@ export function MyWorkloadSection() {
   const [summary, setSummary] = React.useState<PersonalWorkloadSummary | null>(null);
   const [coverHistory, setCoverHistory] = React.useState<CoverHistoryResponse | null>(null);
   const [quality, setQuality] = React.useState<PersonalTimetableQuality | null>(null);
+  const [staffCount, setStaffCount] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
 
@@ -131,11 +132,18 @@ export function MyWorkloadSection() {
         '/api/v1/staff-wellbeing/my-workload/cover-history?page=1&pageSize=20',
       ),
       apiClient<PersonalTimetableQuality>('/api/v1/staff-wellbeing/my-workload/timetable-quality'),
+      apiClient<{ data: unknown[]; meta: { total: number } }>('/api/v1/staff-profiles?pageSize=1', {
+        silent: true,
+      }).catch((err) => {
+        console.error('[MyWorkloadSection] staff-profiles count failed', err);
+        return null;
+      }),
     ])
-      .then(([summaryRes, coverRes, qualityRes]) => {
+      .then(([summaryRes, coverRes, qualityRes, staffRes]) => {
         setSummary(summaryRes);
         setCoverHistory(coverRes);
         setQuality(qualityRes);
+        setStaffCount(staffRes?.meta?.total ?? 0);
       })
       .catch((err) => {
         console.error('[MyWorkloadSection]', err);
@@ -197,7 +205,7 @@ export function MyWorkloadSection() {
             <p className="text-sm text-blue-700 dark:text-blue-300">{t('privacyNote')}</p>
           </div>
 
-          <SmallSchoolGuidance staffCount={0} />
+          <SmallSchoolGuidance staffCount={staffCount} />
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <StatCard
