@@ -1,8 +1,18 @@
 'use client';
 
-import { Award } from 'lucide-react';
+import { Award, Check, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Textarea,
+} from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -21,22 +31,83 @@ interface RecognitionItem {
   created_at: string;
 }
 
+interface PendingPublication {
+  id: string;
+  student_id: string;
+  student_name: string;
+  publication_type: string;
+  entity_type: string;
+  entity_id: string;
+  created_at: string;
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ParentRecognitionWallPage() {
   const t = useTranslations('behaviour.parentRecognition');
+  const tPending = useTranslations('parentRecognition');
   const [items, setItems] = React.useState<RecognitionItem[]>([]);
+  const [pending, setPending] = React.useState<PendingPublication[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [busyId, setBusyId] = React.useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = React.useState<PendingPublication | null>(null);
+  const [rejectReason, setRejectReason] = React.useState('');
+
+  const loadAll = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const [itemsRes, pendingRes] = await Promise.all([
+        apiClient<{ data: RecognitionItem[] }>('/api/v1/parent/behaviour/recognition', {
+          silent: true,
+        }).catch(() => ({ data: [] as RecognitionItem[] })),
+        apiClient<{ data: PendingPublication[] }>('/api/v1/parent/behaviour/recognition/pending', {
+          silent: true,
+        }).catch(() => ({ data: [] as PendingPublication[] })),
+      ]);
+      setItems(itemsRes.data ?? []);
+      setPending(pendingRes.data ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
-    setLoading(true);
-    apiClient<{ data: RecognitionItem[] }>(
-      '/api/v1/parent/behaviour/recognition',
-    )
-      .then((res) => setItems(res.data ?? []))
-      .catch((err) => { console.error('[ParentPortalRecognitionPage]', err); return setItems([]); })
-      .finally(() => setLoading(false));
-  }, []);
+    void loadAll();
+  }, [loadAll]);
+
+  const handleApprove = async (pub: PendingPublication) => {
+    setBusyId(pub.id);
+    try {
+      await apiClient(`/api/v1/parent/behaviour/recognition/pending/${pub.id}/approve`, {
+        method: 'PATCH',
+      });
+      setPending((prev) => prev.filter((p) => p.id !== pub.id));
+      void loadAll();
+    } catch (err) {
+      console.error('[ParentRecognitionApprove]', err);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectTarget) return;
+    setBusyId(rejectTarget.id);
+    try {
+      await apiClient(`/api/v1/parent/behaviour/recognition/pending/${rejectTarget.id}/reject`, {
+        method: 'PATCH',
+        body: JSON.stringify({ reason: rejectReason.trim() || undefined }),
+      });
+      setPending((prev) => prev.filter((p) => p.id !== rejectTarget.id));
+      setRejectTarget(null);
+      setRejectReason('');
+      void loadAll();
+    } catch (err) {
+      console.error('[ParentRecognitionReject]', err);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const getInitials = (student: RecognitionItem['student']) => {
     if (!student) return '?';
@@ -53,10 +124,60 @@ export default function ParentRecognitionWallPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('title')}
-        description={t('description')}
-      />
+      <PageHeader title={t('title')} description={t('description')} />
+
+      {/* WB-C-25 — Pending parent-consent banner */}
+      {pending.length > 0 && (
+        <section className="space-y-3 rounded-xl border border-primary-200 bg-primary-50 p-4">
+          <div>
+            <p className="text-sm font-semibold text-text-primary">
+              {tPending('pendingBannerTitle')}
+            </p>
+            <p className="text-xs text-text-secondary">
+              {tPending('pendingBannerBody', { count: pending.length })}
+            </p>
+          </div>
+          <ul className="space-y-2">
+            {pending.map((pub) => (
+              <li
+                key={pub.id}
+                className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-text-primary">
+                    {pub.student_name}
+                  </p>
+                  <p className="text-xs text-text-tertiary">
+                    {pub.publication_type.replace(/_/g, ' ')}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => void handleApprove(pub)}
+                    disabled={busyId === pub.id}
+                  >
+                    <Check className="me-1 h-4 w-4" aria-hidden="true" />
+                    {tPending('approve')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setRejectTarget(pub);
+                      setRejectReason('');
+                    }}
+                    disabled={busyId === pub.id}
+                  >
+                    <X className="me-1 h-4 w-4" aria-hidden="true" />
+                    {tPending('reject')}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -68,9 +189,7 @@ export default function ParentRecognitionWallPage() {
         <div className="rounded-xl border border-border bg-surface py-16 text-center">
           <Award className="mx-auto h-12 w-12 text-text-tertiary/30" />
           <p className="mt-3 text-sm text-text-primary">{t('noAwards')}</p>
-          <p className="mt-1 text-xs text-text-tertiary">
-            {t('checkBack')}
-          </p>
+          <p className="mt-1 text-xs text-text-tertiary">{t('checkBack')}</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -110,10 +229,7 @@ export default function ParentRecognitionWallPage() {
                         ) : (
                           <Award className="h-3.5 w-3.5 shrink-0" style={{ color: accentColor }} />
                         )}
-                        <span
-                          className="text-xs font-medium"
-                          style={{ color: accentColor }}
-                        >
+                        <span className="text-xs font-medium" style={{ color: accentColor }}>
                           {awardOrCategory}
                         </span>
                       </div>
@@ -122,7 +238,9 @@ export default function ParentRecognitionWallPage() {
 
                   {item.points > 0 && (
                     <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                      +{item.points}{t('pts')}</span>
+                      +{item.points}
+                      {t('pts')}
+                    </span>
                   )}
                 </div>
 
@@ -140,6 +258,44 @@ export default function ParentRecognitionWallPage() {
           })}
         </div>
       )}
+
+      {/* Reject dialog */}
+      <Dialog
+        open={!!rejectTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectTarget(null);
+            setRejectReason('');
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{tPending('rejectReason')}</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value.slice(0, 500))}
+            placeholder={tPending('rejectReasonPlaceholder')}
+            className="min-h-[96px] text-base"
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRejectTarget(null);
+                setRejectReason('');
+              }}
+              disabled={busyId !== null}
+            >
+              {tPending('cancel')}
+            </Button>
+            <Button variant="destructive" onClick={handleReject} disabled={busyId !== null}>
+              {tPending('submitReject')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

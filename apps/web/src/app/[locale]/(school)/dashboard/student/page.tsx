@@ -1,6 +1,14 @@
 'use client';
 
-import { BookOpen, Calendar, Download, FileText, GraduationCap, Loader2 } from 'lucide-react';
+import {
+  BookOpen,
+  Calendar,
+  Download,
+  FileText,
+  GraduationCap,
+  Heart,
+  Loader2,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -150,6 +158,23 @@ export default function StudentDashboardPage() {
           </div>
         </div>
         <span className="text-xs font-medium text-primary group-hover:underline">→</span>
+      </Link>
+
+      {/* Daily check-in quick link (WB-007) */}
+      <Link
+        href={`/${locale}/dashboard/student/check-in`}
+        className="group flex items-center justify-between rounded-2xl border border-pink-200 bg-pink-50 p-4 shadow-sm transition-colors hover:bg-pink-100 dark:border-pink-800/40 dark:bg-pink-900/10 dark:hover:bg-pink-900/20"
+      >
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-500/15 text-pink-600">
+            <Heart className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-text-primary">{t('dailyCheckin')}</p>
+            <p className="text-xs text-text-secondary">{t('dailyCheckinDesc')}</p>
+          </div>
+        </div>
+        <span className="text-xs font-medium text-pink-600 group-hover:underline">→</span>
       </Link>
 
       {/* Quick stats row */}

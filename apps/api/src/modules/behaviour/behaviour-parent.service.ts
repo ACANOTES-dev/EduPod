@@ -577,6 +577,178 @@ export class BehaviourParentService {
     }) as unknown as Promise<{ data: ParentRecognitionItem[] }>;
   }
 
+  // ─── Parent Consent for Publication (WB-C-25) ────────────────────────
+  //
+  // Lists publication approvals waiting on the current parent's consent for
+  // any of their children, and lets the parent grant or deny consent inline.
+
+  // WB-C-28 — List documents generated for any of the current parent's
+  // children (incident notices, sanction letters, appeal responses,
+  // behaviour reports). Respects the guardian-restriction chain via the
+  // same studentParent link check used elsewhere.
+
+  async listParentDocuments(
+    tenantId: string,
+    userId: string,
+    query: { student_id?: string; page?: number; pageSize?: number } = {},
+  ) {
+    const parent = await this.resolveParent(tenantId, userId);
+    const page = query.page ?? 1;
+    const pageSize = Math.min(query.pageSize ?? 20, 100);
+
+    const allStudentIds = await this.parentReadFacade.findLinkedStudentIds(tenantId, parent.id);
+    const studentIds = query.student_id
+      ? allStudentIds.filter((id) => id === query.student_id)
+      : allStudentIds;
+
+    if (studentIds.length === 0) {
+      return { data: [], meta: { page, pageSize, total: 0 } };
+    }
+
+    const where: Prisma.BehaviourDocumentWhereInput = {
+      tenant_id: tenantId,
+      student_id: { in: studentIds },
+      status: {
+        in: ['sent' as $Enums.DocumentStatus, 'final_doc' as $Enums.DocumentStatus],
+      },
+      superseded_by_id: null,
+    };
+
+    const [rows, total] = await Promise.all([
+      this.prisma.behaviourDocument.findMany({
+        where,
+        orderBy: { generated_at: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          student: { select: { id: true, first_name: true, last_name: true } },
+        },
+      }),
+      this.prisma.behaviourDocument.count({ where }),
+    ]);
+
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        student_id: r.student_id,
+        student_name: `${r.student.first_name} ${r.student.last_name}`,
+        document_type: r.document_type,
+        entity_type: r.entity_type,
+        entity_id: r.entity_id,
+        generated_at: r.generated_at.toISOString(),
+        sent_at: r.sent_at?.toISOString() ?? null,
+        file_size_bytes: Number(r.file_size_bytes),
+      })),
+      meta: { page, pageSize, total },
+    };
+  }
+
+  async listPendingPublications(tenantId: string, userId: string) {
+    const parent = await this.resolveParent(tenantId, userId);
+
+    const studentIds = await this.parentReadFacade.findLinkedStudentIds(tenantId, parent.id);
+    if (studentIds.length === 0) return { data: [] };
+
+    const rows = await this.prisma.behaviourPublicationApproval.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: { in: studentIds },
+        requires_parent_consent: true,
+        parent_consent_status: 'pending_consent' as $Enums.ParentConsentStatus,
+      },
+      orderBy: { created_at: 'desc' },
+      take: 50,
+      include: {
+        student: { select: { id: true, first_name: true, last_name: true } },
+      },
+    });
+
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        student_id: r.student_id,
+        student_name: `${r.student.first_name} ${r.student.last_name}`,
+        publication_type: r.publication_type,
+        entity_type: r.entity_type,
+        entity_id: r.entity_id,
+        created_at: r.created_at.toISOString(),
+      })),
+    };
+  }
+
+  async approvePublicationAsParent(tenantId: string, userId: string, publicationId: string) {
+    return this.transitionParentConsent(tenantId, userId, publicationId, 'granted');
+  }
+
+  async rejectPublicationAsParent(
+    tenantId: string,
+    userId: string,
+    publicationId: string,
+    _reason?: string,
+  ) {
+    // Reason is accepted in the payload for audit purposes but not persisted
+    // on the publication row — the school sees the decision + timestamp via
+    // parent_consent_status/parent_consent_at.
+    return this.transitionParentConsent(tenantId, userId, publicationId, 'denied');
+  }
+
+  private async transitionParentConsent(
+    tenantId: string,
+    userId: string,
+    publicationId: string,
+    next: 'granted' | 'denied',
+  ) {
+    const parent = await this.resolveParent(tenantId, userId);
+
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const approval = await db.behaviourPublicationApproval.findFirst({
+        where: { id: publicationId, tenant_id: tenantId },
+        select: { id: true, student_id: true, parent_consent_status: true },
+      });
+
+      if (!approval) {
+        throw new NotFoundException({
+          code: 'PUBLICATION_APPROVAL_NOT_FOUND',
+          message: 'Publication approval not found',
+        });
+      }
+
+      // Authorisation: parent must be linked to the student
+      const link = await db.studentParent.findFirst({
+        where: { tenant_id: tenantId, parent_id: parent.id, student_id: approval.student_id },
+        select: { student_id: true, parent_id: true },
+      });
+      if (!link) {
+        throw new ForbiddenException({
+          code: 'PARENT_NOT_LINKED',
+          message: 'You are not authorised to act on this publication',
+        });
+      }
+
+      if (approval.parent_consent_status !== ('pending_consent' as $Enums.ParentConsentStatus)) {
+        throw new ForbiddenException({
+          code: 'PARENT_CONSENT_ALREADY_DECIDED',
+          message: 'This publication has already been decided',
+        });
+      }
+
+      const updated = await db.behaviourPublicationApproval.update({
+        where: { id: publicationId },
+        data: {
+          parent_consent_status: next as $Enums.ParentConsentStatus,
+          parent_consent_at: new Date(),
+        },
+        select: { id: true, parent_consent_status: true, parent_consent_at: true },
+      });
+
+      return { data: updated };
+    });
+  }
+
   // ─── Parent-Safe Rendering Priority Chain ────────────────────────────
 
   /**

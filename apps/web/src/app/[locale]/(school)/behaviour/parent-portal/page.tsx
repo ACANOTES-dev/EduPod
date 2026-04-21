@@ -6,6 +6,7 @@ import {
   CheckCircle,
   Minus,
   Plus,
+  RefreshCw,
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
@@ -79,11 +80,13 @@ export default function ParentBehaviourPortalPage() {
   const t = useTranslations('behaviour.parentPortal');
   const [summary, setSummary] = React.useState<ChildSummary[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState(false);
   const [activeChildId, setActiveChildId] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
+  const loadSummary = React.useCallback(() => {
     setLoading(true);
-    apiClient<SummaryResponse>('/api/v1/parent/behaviour/summary')
+    setLoadError(false);
+    apiClient<SummaryResponse>('/api/v1/parent/behaviour/summary', { silent: true })
       .then((res) => {
         const children = res.children ?? [];
         setSummary(children);
@@ -91,9 +94,17 @@ export default function ParentBehaviourPortalPage() {
           setActiveChildId(children[0].student_id);
         }
       })
-      .catch((err) => { console.error('[BehaviourParentPortalPage]', err); return setSummary([]); })
+      .catch((err) => {
+        console.error('[BehaviourParentPortalPage]', err);
+        setSummary([]);
+        setLoadError(true);
+      })
       .finally(() => setLoading(false));
   }, []);
+
+  React.useEffect(() => {
+    loadSummary();
+  }, [loadSummary]);
 
   const activeChild = summary.find((c) => c.student_id === activeChildId) ?? null;
 
@@ -105,6 +116,34 @@ export default function ParentBehaviourPortalPage() {
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-20 animate-pulse rounded-xl bg-surface-secondary" />
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  // WB-C-23 — Surface fetch errors as a retry banner instead of a silent
+  // "no children" empty state. The old behaviour read as "you have no kids
+  // enrolled" which is confusing + alarming when it's actually a 5xx.
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title={t('title')} description={t('description')} />
+        <div className="rounded-xl border border-danger-200 bg-danger-50 p-6 text-center">
+          <AlertCircle className="mx-auto h-8 w-8 text-danger-text" />
+          <p className="mt-3 text-sm font-medium text-text-primary">{t('errorLoadingSummary')}</p>
+          <p className="mt-1 text-xs text-text-tertiary">{t('errorLoadingHint')}</p>
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <Button variant="outline" size="sm" onClick={loadSummary}>
+              <RefreshCw className="me-2 h-4 w-4" />
+              {t('retry')}
+            </Button>
+            <a
+              href="mailto:support@edupod.app"
+              className="text-xs font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+            >
+              {t('contactSupport')}
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -125,10 +164,7 @@ export default function ParentBehaviourPortalPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('title')}
-        description="Stay informed about your child's behaviour"
-      />
+      <PageHeader title={t('title')} description="Stay informed about your child's behaviour" />
 
       {/* Child tab selector */}
       {summary.length > 1 && (
@@ -240,7 +276,9 @@ function ChildPanel({ child }: { child: ChildSummary }) {
             <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 dark:bg-amber-900/20">
               <Bell className="h-3.5 w-3.5 text-amber-600" />
               <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                {child.pending_acknowledgements}{t('pending')}{child.pending_acknowledgements === 1 ? ' acknowledgement' : ' acknowledgements'}
+                {child.pending_acknowledgements}
+                {t('pending')}
+                {child.pending_acknowledgements === 1 ? ' acknowledgement' : ' acknowledgements'}
               </span>
             </div>
           )}
@@ -432,7 +470,9 @@ function ChildPanel({ child }: { child: ChildSummary }) {
                             SANCTION_STATUS_CLASSES[s.status] ??
                             'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
                           }`}
-                        >{t('scheduled')}</span>
+                        >
+                          {t('scheduled')}
+                        </span>
                       </div>
                       <p className="mt-1 text-xs text-text-tertiary">
                         {formatDate(s.scheduled_date)}
