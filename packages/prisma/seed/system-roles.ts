@@ -147,6 +147,11 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'safeguarding.dedicated_view',
       // Behaviour — owner can log incidents (S3 walkthrough — W-S3-014)
       'behaviour.log',
+      // Early warning (S6 walkthrough — W-S6-001): owner has full configuration + assignment rights
+      'early_warning.view',
+      'early_warning.manage',
+      'early_warning.acknowledge',
+      'early_warning.assign',
       // Excluded: platform.impersonate (reserved for future platform super-admin role)
     ],
   },
@@ -271,6 +276,11 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'ai_flag.manage',
       // Behaviour — principal can log + oversee (S3 walkthrough — W-S3-014)
       'behaviour.log',
+      // Early warning (S6 walkthrough — W-S6-001): principal has full configuration + assignment rights (DSL + pastoral oversight)
+      'early_warning.view',
+      'early_warning.manage',
+      'early_warning.acknowledge',
+      'early_warning.assign',
     ],
   },
   {
@@ -358,6 +368,10 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'inbox.send',
       // Wellbeing rebuild (Impl 01) — staff-visible dashboard
       'wellbeing.view_dashboard',
+      // Early warning (S6 walkthrough — W-S6-001): admins need view + acknowledge + assign; configuration is principal-only
+      'early_warning.view',
+      'early_warning.acknowledge',
+      'early_warning.assign',
     ],
   },
   {
@@ -397,6 +411,9 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'wellbeing.view_dashboard',
       // Behaviour — teachers can log incidents/recognition (S3 walkthrough — W-S3-014)
       'behaviour.log',
+      // Early warning (S6 walkthrough — W-S6-001): teachers see their own class's risk list and acknowledge
+      'early_warning.view',
+      'early_warning.acknowledge',
     ],
   },
   {
@@ -498,6 +515,10 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'wellbeing.view_dashboard',
       // Behaviour — VP can log incidents (S3 walkthrough — W-S3-014)
       'behaviour.log',
+      // Early warning (S6 walkthrough — W-S6-001): VP has view + acknowledge + assign (configuration reserved to principal/owner)
+      'early_warning.view',
+      'early_warning.acknowledge',
+      'early_warning.assign',
     ],
   },
   {

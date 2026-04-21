@@ -87,29 +87,32 @@ export interface CohortResponse {
 }
 
 export interface EarlyWarningConfig {
-  id: string;
+  id: string | null;
   is_enabled: boolean;
-  weights: {
+  // API returns the raw JSONB column names; align with the backend response
+  // rather than forcing a mapper on both sides (W-S6-006).
+  weights_json: {
     attendance: number;
     grades: number;
     behaviour: number;
     wellbeing: number;
     engagement: number;
   };
-  thresholds: {
+  thresholds_json: {
     green: number;
     yellow: number;
     amber: number;
     red: number;
   };
   hysteresis_buffer: number;
-  routing_rules: {
+  routing_rules_json: {
     yellow: { role: string };
     amber: { role: string };
     red: { roles: string[] };
   };
   digest_day: number;
-  digest_recipients: string[];
+  digest_recipients_json: string[];
+  high_severity_events_json?: string[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

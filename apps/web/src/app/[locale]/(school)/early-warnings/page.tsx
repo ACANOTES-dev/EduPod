@@ -5,13 +5,14 @@ import {
   BarChart3,
   ClipboardCheck,
   ClipboardList,
+  Eye,
   Flame,
   RefreshCw,
   Settings,
-  Sparkles,
   TriangleAlert,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -72,14 +73,22 @@ async function resolveAiFlag(moduleKey: string): Promise<AiFlagState> {
 
 const FLAGGED_PAGE_SIZE = 100;
 
+type TierFilter = 'all' | 'red' | 'amber' | 'yellow';
+
+function parseTierParam(value: string | null): TierFilter {
+  if (value === 'red' || value === 'amber' || value === 'yellow') return value;
+  return 'all';
+}
+
 export default function EarlyWarningsHubPage() {
   const t = useTranslations('earlyWarningsHub');
   const locale = useLocale();
+  const searchParams = useSearchParams();
+  const tierFilter = parseTierParam(searchParams?.get('tier') ?? null);
 
   const [rows, setRows] = React.useState<RiskProfileListItem[]>([]);
   const [summary, setSummary] = React.useState<TierSummary | null>(null);
   const [totalFlagged, setTotalFlagged] = React.useState(0);
-  const [newThisWeek, setNewThisWeek] = React.useState<number | null>(null);
   const [activeInterventions, setActiveInterventions] = React.useState<number | null>(null);
 
   const [isLoading, setIsLoading] = React.useState(true);
@@ -99,7 +108,7 @@ export default function EarlyWarningsHubPage() {
     setIsLoading(true);
     setError(null);
 
-    const flaggedPromise = apiClient<RiskProfileListResponse>(
+    const amberPromise = apiClient<RiskProfileListResponse>(
       `/api/v1/early-warnings?pageSize=${FLAGGED_PAGE_SIZE}&tier=amber`,
       { silent: true },
     ).catch((err) => {
@@ -112,6 +121,17 @@ export default function EarlyWarningsHubPage() {
       { silent: true },
     ).catch((err) => {
       console.error('[EarlyWarningsHub] flagged red fetch failed', err);
+      return null;
+    });
+
+    // Yellow tier ("Monitoring") is also surfaced on the hub (W-S6-002 —
+    // 2026-04-21). Previously yellow students were invisible across the UI
+    // because only amber + red were fetched.
+    const yellowPromise = apiClient<RiskProfileListResponse>(
+      `/api/v1/early-warnings?pageSize=${FLAGGED_PAGE_SIZE}&tier=yellow`,
+      { silent: true },
+    ).catch((err) => {
+      console.error('[EarlyWarningsHub] flagged yellow fetch failed', err);
       return null;
     });
 
@@ -131,40 +151,34 @@ export default function EarlyWarningsHubPage() {
       .then((res) => res?.meta?.total ?? null)
       .catch(() => null);
 
-    void Promise.all([redPromise, flaggedPromise, summaryPromise, interventionsPromise]).then(
-      ([redRes, amberRes, summaryRes, interventionsRes]) => {
-        if (cancelled) return;
+    void Promise.all([
+      redPromise,
+      amberPromise,
+      yellowPromise,
+      summaryPromise,
+      interventionsPromise,
+    ]).then(([redRes, amberRes, yellowRes, summaryRes, interventionsRes]) => {
+      if (cancelled) return;
 
-        const merged: RiskProfileListItem[] = [];
-        if (redRes?.data) merged.push(...redRes.data);
-        if (amberRes?.data) merged.push(...amberRes.data);
+      const merged: RiskProfileListItem[] = [];
+      if (redRes?.data) merged.push(...redRes.data);
+      if (amberRes?.data) merged.push(...amberRes.data);
+      if (yellowRes?.data) merged.push(...yellowRes.data);
 
-        setRows(merged);
-        setSummary(summaryRes);
-        setTotalFlagged((redRes?.meta?.total ?? 0) + (amberRes?.meta?.total ?? 0));
-        setActiveInterventions(interventionsRes);
+      setRows(merged);
+      setSummary(summaryRes);
+      setTotalFlagged(
+        (redRes?.meta?.total ?? 0) + (amberRes?.meta?.total ?? 0) + (yellowRes?.meta?.total ?? 0),
+      );
+      setActiveInterventions(interventionsRes);
 
-        // Derive a crude "new this week" count from transitions we can see in
-        // trend_data last-vs-first. Without a dedicated backend count, this
-        // is a heuristic: students whose latest trend value is strictly above
-        // their first trend value (i.e. trending worse).
-        setNewThisWeek(
-          merged.filter((r) => {
-            if (r.trend_data.length < 2) return false;
-            const first = r.trend_data[0] ?? 0;
-            const last = r.trend_data[r.trend_data.length - 1] ?? 0;
-            return last > first;
-          }).length,
-        );
+      setInsights(computeInsights(merged));
 
-        setInsights(computeInsights(merged));
-
-        if (!redRes && !amberRes && !summaryRes) {
-          setError(t('loadError'));
-        }
-        setIsLoading(false);
-      },
-    );
+      if (!redRes && !amberRes && !yellowRes && !summaryRes) {
+        setError(t('loadError'));
+      }
+      setIsLoading(false);
+    });
 
     void resolveAiFlag('early_warning').then((state) => {
       if (!cancelled) setAiFlag(state);
@@ -176,18 +190,28 @@ export default function EarlyWarningsHubPage() {
   }, [reloadKey, t]);
 
   // ── Derived data ───────────────────────────────────────────────────────
-  const filteredRows = React.useMemo(() => filterByDomain(rows, domain), [rows, domain]);
+  // Respect `?tier=red|amber|yellow` URL param (W-S6-003 — 2026-04-21) — the
+  // KPI tiles link with ?tier= and users expect the at-risk list to narrow to
+  // that tier. Unset or unknown → show everything flagged.
+  const tierScopedRows = React.useMemo(
+    () => (tierFilter === 'all' ? rows : rows.filter((r) => r.risk_tier === tierFilter)),
+    [rows, tierFilter],
+  );
+  const filteredRows = React.useMemo(
+    () => filterByDomain(tierScopedRows, domain),
+    [tierScopedRows, domain],
+  );
 
   const domainCounts: Record<DomainFilter, number> = React.useMemo(
     () => ({
-      all: rows.length,
-      attendance: filterByDomain(rows, 'attendance').length,
-      grades: filterByDomain(rows, 'grades').length,
-      behaviour: filterByDomain(rows, 'behaviour').length,
-      wellbeing: filterByDomain(rows, 'wellbeing').length,
-      engagement: filterByDomain(rows, 'engagement').length,
+      all: tierScopedRows.length,
+      attendance: filterByDomain(tierScopedRows, 'attendance').length,
+      grades: filterByDomain(tierScopedRows, 'grades').length,
+      behaviour: filterByDomain(tierScopedRows, 'behaviour').length,
+      wellbeing: filterByDomain(tierScopedRows, 'wellbeing').length,
+      engagement: filterByDomain(tierScopedRows, 'engagement').length,
     }),
-    [rows],
+    [tierScopedRows],
   );
 
   const yearGroupRows = React.useMemo(() => groupByYearTier(rows), [rows]);
@@ -195,6 +219,7 @@ export default function EarlyWarningsHubPage() {
 
   const redCount = summary?.red ?? 0;
   const amberCount = summary?.amber ?? 0;
+  const yellowCount = summary?.yellow ?? 0;
   const aiVisible = aiFlag === 'enabled';
 
   // Build small sparklines for KPI tiles by aggregating individual trend_data.
@@ -204,6 +229,10 @@ export default function EarlyWarningsHubPage() {
   );
   const amberSparkline = React.useMemo(
     () => aggregateTrend(rows.filter((r) => r.risk_tier === 'amber')),
+    [rows],
+  );
+  const yellowSparkline = React.useMemo(
+    () => aggregateTrend(rows.filter((r) => r.risk_tier === 'yellow')),
     [rows],
   );
 
@@ -291,12 +320,14 @@ export default function EarlyWarningsHubPage() {
             href={`/${locale}/early-warnings?tier=amber`}
           />
           <KpiLargeTile
-            icon={Sparkles}
-            label={t('kpis.newFlags')}
-            value={newThisWeek ?? undefined}
-            subtitle={t('kpis.newFlagsSubtitle')}
-            severity="blue"
+            icon={Eye}
+            label={t('kpis.yellow')}
+            value={yellowCount}
+            subtitle={t('kpis.yellowSubtitle')}
+            severity="amber"
             isLoading={isLoading}
+            sparkline={yellowSparkline}
+            href={`/${locale}/early-warnings?tier=yellow`}
           />
           <KpiLargeTile
             icon={ClipboardCheck}

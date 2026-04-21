@@ -3,43 +3,55 @@ import { z } from 'zod';
 // ─── Reusable Enum Schemas ───────────────────────────────────────────────────
 
 export const riskTierSchema = z.enum(['green', 'yellow', 'amber', 'red']);
-export const signalDomainSchema = z.enum(['attendance', 'grades', 'behaviour', 'wellbeing', 'engagement']);
+export const signalDomainSchema = z.enum([
+  'attendance',
+  'grades',
+  'behaviour',
+  'wellbeing',
+  'engagement',
+]);
 export const signalSeveritySchema = z.enum(['low', 'medium', 'high', 'critical']);
 
 // ─── Config JSONB Schemas ────────────────────────────────────────────────────
 
-export const earlyWarningWeightsSchema = z.object({
-  attendance: z.number().min(0).max(100),
-  grades: z.number().min(0).max(100),
-  behaviour: z.number().min(0).max(100),
-  wellbeing: z.number().min(0).max(100),
-  engagement: z.number().min(0).max(100),
-}).refine(
-  (w) => w.attendance + w.grades + w.behaviour + w.wellbeing + w.engagement === 100,
-  { message: 'Weights must sum to 100', path: ['attendance'] },
-).default({
-  attendance: 25,
-  grades: 25,
-  behaviour: 20,
-  wellbeing: 20,
-  engagement: 10,
-});
+export const earlyWarningWeightsSchema = z
+  .object({
+    attendance: z.number().min(0).max(100),
+    grades: z.number().min(0).max(100),
+    behaviour: z.number().min(0).max(100),
+    wellbeing: z.number().min(0).max(100),
+    engagement: z.number().min(0).max(100),
+  })
+  .refine((w) => w.attendance + w.grades + w.behaviour + w.wellbeing + w.engagement === 100, {
+    message: 'Weights must sum to 100',
+    path: ['attendance'],
+  })
+  .default({
+    attendance: 25,
+    grades: 25,
+    behaviour: 20,
+    wellbeing: 20,
+    engagement: 10,
+  });
 export type EarlyWarningWeightsDto = z.infer<typeof earlyWarningWeightsSchema>;
 
-export const earlyWarningThresholdsSchema = z.object({
-  green: z.number().min(0).max(100),
-  yellow: z.number().min(0).max(100),
-  amber: z.number().min(0).max(100),
-  red: z.number().min(0).max(100),
-}).refine(
-  (t) => t.green < t.yellow && t.yellow < t.amber && t.amber < t.red,
-  { message: 'Thresholds must be in ascending order: green < yellow < amber < red', path: ['green'] },
-).default({
-  green: 0,
-  yellow: 30,
-  amber: 50,
-  red: 75,
-});
+export const earlyWarningThresholdsSchema = z
+  .object({
+    green: z.number().min(0).max(100),
+    yellow: z.number().min(0).max(100),
+    amber: z.number().min(0).max(100),
+    red: z.number().min(0).max(100),
+  })
+  .refine((t) => t.green < t.yellow && t.yellow < t.amber && t.amber < t.red, {
+    message: 'Thresholds must be in ascending order: green < yellow < amber < red',
+    path: ['green'],
+  })
+  .default({
+    green: 0,
+    yellow: 30,
+    amber: 50,
+    red: 75,
+  });
 export type EarlyWarningThresholdsDto = z.infer<typeof earlyWarningThresholdsSchema>;
 
 export const routingRuleSingleSchema = z.object({
@@ -50,36 +62,43 @@ export const routingRuleMultipleSchema = z.object({
   roles: z.array(z.string().min(1)).min(1),
 });
 
-export const earlyWarningRoutingRulesSchema = z.object({
-  yellow: routingRuleSingleSchema,
-  amber: routingRuleSingleSchema,
-  red: routingRuleMultipleSchema,
-}).default({
-  yellow: { role: 'homeroom_teacher' },
-  amber: { role: 'year_head' },
-  red: { roles: ['principal', 'pastoral_lead'] },
-});
+export const earlyWarningRoutingRulesSchema = z
+  .object({
+    yellow: routingRuleSingleSchema,
+    amber: routingRuleSingleSchema,
+    red: routingRuleMultipleSchema,
+  })
+  .default({
+    yellow: { role: 'homeroom_teacher' },
+    amber: { role: 'year_head' },
+    red: { roles: ['principal', 'pastoral_lead'] },
+  });
 export type EarlyWarningRoutingRulesDto = z.infer<typeof earlyWarningRoutingRulesSchema>;
 
-export const highSeverityEventsSchema = z.array(z.string().min(1)).default([
-  'suspension',
-  'critical_incident',
-  'third_consecutive_absence',
-]);
+export const highSeverityEventsSchema = z
+  .array(z.string().min(1))
+  .default(['suspension', 'critical_incident', 'third_consecutive_absence']);
 
-export const digestRecipientsSchema = z.array(z.string().uuid()).default([]);
+// Digest recipients are role keys (e.g. 'principal', 'pastoral_lead') — the
+// weekly digest addresses roles, not individual user UUIDs. The original
+// UUID-only schema was incompatible with the UI's role-checkbox selector and
+// caused "Save Changes" to silently no-op when any recipient was ticked
+// (W-S6-007 — 2026-04-21).
+export const digestRecipientsSchema = z.array(z.string().min(1)).default([]);
 
 // ─── Signal Summary JSONB Schema ─────────────────────────────────────────────
 
 export const signalSummaryJsonSchema = z.object({
   summaryText: z.string(),
-  topSignals: z.array(z.object({
-    signalType: z.string(),
-    domain: signalDomainSchema,
-    severity: signalSeveritySchema,
-    scoreContribution: z.number(),
-    summaryFragment: z.string(),
-  })),
+  topSignals: z.array(
+    z.object({
+      signalType: z.string(),
+      domain: signalDomainSchema,
+      severity: signalSeveritySchema,
+      scoreContribution: z.number(),
+      summaryFragment: z.string(),
+    }),
+  ),
 });
 export type SignalSummaryJsonDto = z.infer<typeof signalSummaryJsonSchema>;
 
@@ -93,12 +112,14 @@ export type TrendJsonDto = z.infer<typeof trendJsonSchema>;
 // ─── Trigger Signals JSONB Schema ────────────────────────────────────────────
 
 export const triggerSignalsJsonSchema = z.object({
-  signals: z.array(z.object({
-    signalType: z.string(),
-    domain: signalDomainSchema,
-    severity: signalSeveritySchema,
-    scoreContribution: z.number(),
-  })),
+  signals: z.array(
+    z.object({
+      signalType: z.string(),
+      domain: signalDomainSchema,
+      severity: signalSeveritySchema,
+      scoreContribution: z.number(),
+    }),
+  ),
 });
 export type TriggerSignalsJsonDto = z.infer<typeof triggerSignalsJsonSchema>;
 

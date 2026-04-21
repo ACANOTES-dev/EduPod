@@ -869,8 +869,122 @@ S5 walked the whole safeguarding hub for owner@nhqs.test and surfaced one **stru
 
 ---
 
-**Status:** Not started
+## S6 — Early Warning / At-Risk
+
+**Status:** In progress (2026-04-21 start)
 **Session plan:** [`S6_early_warning.md`](./S6_early_warning.md)
+
+### W-S6-001 — `school_owner` and `school_principal` roles carry zero early_warning.\* permissions; hub renders hard-zero tiles despite 207 computed profiles
+
+- **Severity:** P0
+- **Route:** `/en/early-warnings`, `/en/early-warnings/cohort`, `/en/early-warnings/settings`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Enqueue `early-warning:compute-daily` for tenant `3ba9b02c-0339-49b8-8583-a06e05a32ac5` and wait for the worker to finish → 207 rows written to `student_risk_profiles` (max `composite_score` = 14, all `risk_tier = green`; non-zero `behaviour_score`/`wellbeing_score`/`grades_score`/`engagement_score` on dozens of students, confirmed in DB).
+  2. Navigate to `/en/early-warnings`. KPIs read Red 0 · Amber 0 · Worsening 0 · Active interventions 1. "At-risk students" panel reads "0 flagged". Cohort preview reads "No year-group data available." / "No class-level concentration yet." / Total flagged = 0 / Year groups affected = 0.
+  3. Navigate to `/en/early-warnings/cohort`. Change Group By → Class. Fetch spy captures `GET /api/v1/early-warnings/cohort?group_by=class` → `200 {"data":[]}`. No table rendered — "No students flagged" only.
+  4. Inspect RBAC seed — `packages/prisma/seed/system-roles.ts` never assigns `early_warning.view`, `early_warning.manage`, `early_warning.acknowledge`, or `early_warning.assign` to any role. Production confirms: `SELECT permission_key FROM permissions p JOIN role_permissions rp ON rp.permission_id=p.id JOIN roles r ON r.id=rp.role_id WHERE p.permission_key LIKE 'early_warning%' AND r.tenant_id='3ba9b02c…';` → 0 rows.
+- **Expected:** Owner/Principal can see at minimum the tier distribution and cohort aggregates for their tenant's 207 computed profiles.
+- **Actual:** `PermissionGuard` waves the owner through thanks to `isOwner()` bypass, so endpoints return 200. But the service's `resolveRoleScope` checks `permissions.includes('early_warning.manage')` explicitly (`apps/api/src/modules/early-warning/early-warning.service.ts:72` and the same pattern in `early-warning-cohort.service.ts:92`); with no matching permission and no staff profile (owner is non-teaching), it returns `{ unrestricted: false, studentIds: [] }`. Every downstream query is then scoped to an empty student-ID set, so /summary, /cohort, and /list all return 0 tier counts / empty rows — making the entire module look broken to any owner/principal user.
+- **Evidence:** none; reproducible with any owner/principal on any tenant.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S6-002 — Yellow-tier students are invisible on the hub landing
+
+- **Severity:** P1
+- **Route:** `/en/early-warnings`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. The default EW config has 4 tiers: green(0) → yellow(30) → amber(50) → red(75). The landing hub shows KPI tiles for **Red**, **Amber**, **Worsening this period**, and **Active interventions** only.
+  2. The "At-risk students" panel only includes rows pulled from `?tier=amber` and `?tier=red` queries (`apps/web/src/app/[locale]/(school)/early-warnings/page.tsx:102-116`). Yellow-tier students are never surfaced.
+  3. Set a threshold to push one student into yellow (see W-S6-004 scoring calibration) — the hub still reads "0 flagged" everywhere even though tier distribution now shows yellow > 0.
+- **Expected:** Yellow tier ("Monitoring") students should be surfaced somewhere on the hub — either as a third KPI tile or included in the at-risk panel with an explicit filter chip. Otherwise, a population of 200 students quietly sitting at yellow renders exactly the same as "nothing to see here".
+- **Actual:** Hub KPI tiles don't include a "Yellow / Monitoring" count. The at-risk list query is hard-coded to amber/red. Yellow-tier students can only be discovered through the cohort page's raw numbers.
+- **Evidence:** none; reproducible.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S6-003 — `?tier=red|amber` URL param on landing is a dead link
+
+- **Severity:** P2
+- **Route:** `/en/early-warnings?tier=red`, `/en/early-warnings?tier=amber`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Click the "Red risk" KPI tile on the hub landing. URL updates to `/en/early-warnings?tier=red`. Page content does not change.
+  2. `apps/web/src/app/[locale]/(school)/early-warnings/page.tsx` reads no `searchParams` / `useSearchParams` — the tile looks like a filter entry point but the client never consumes the param.
+- **Expected:** Clicking the tile either scrolls/filters the at-risk list to that tier, or navigates to a distinct tier-scoped page. A link whose URL changes but UI doesn't is worse than no link at all.
+- **Actual:** URL param is written but never read.
+- **Evidence:** none.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S6-004 — Default weights + thresholds do not surface meaningfully-at-risk students from realistic single-domain activity
+
+- **Severity:** P2
+- **Route:** `/en/early-warnings`, `/en/early-warnings/cohort`, `/en/early-warnings/settings`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. NHQS S0 seed: 33 negative behaviour incidents + 8 active sanctions (incl. 4 suspensions) + 6 pastoral concerns (2 urgent) + 3 active pastoral cases + 4 safeguarding concerns (1 sealed).
+  2. After `early-warning:compute-daily` runs, max composite = 14. Students with suspensions (behaviour = 30) → composite 6. Students with urgent concern + active case → composite 6. No student reaches yellow threshold 30.
+  3. Default weights (attendance 25, grades 25, behaviour 20, wellbeing 20, engagement 10) mean a single domain scored at 100 can contribute at most 25 composite — below yellow's 30. A student with a suspension AND an urgent concern still scores only 10.
+- **Expected:** Out-of-the-box, a real risk signal (an active suspension, an urgent pastoral concern, a recent exclusion) should either push the student to yellow ("Monitoring") on its own or combine with any second signal to cross the yellow threshold.
+- **Actual:** Single-domain signals are mathematically incapable of crossing yellow; two moderate signals are also insufficient in most cases. This means the product's "spot students drifting toward risk" promise reads as "the hub is always empty" for any tenant whose signals are realistically distributed across students rather than concentrated on the same 3-4 names.
+- **Deferred:** **Product calibration** — the fix here is either (a) rebalance the default weights so one strong signal can trip yellow, or (b) lower yellow threshold (e.g. 20) so the current math catches moderate risk. Both are tenant-facing decisions that need user sign-off. Not a code bug — the scoring math works correctly given the configured inputs. Flag for product review in S9.
+- **Verified:** {pending}
+
+### W-S6-005 — Cohort page is a groupBy-only view; blueprint-expected filters (date range, house, risk factor, year-group/class drill-in) are absent
+
+- **Severity:** P3
+- **Route:** `/en/early-warnings/cohort`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/early-warnings/cohort`. The page offers only a "Group By" dropdown with 3 options: Year Group, Class, Subject.
+  2. S6 blueprint §2b asks for year group, class, house, date range, and risk factor filters; drill-down into a cohort should show matching members.
+  3. Current behaviour: clicking a cell links to `/en/early-warnings?year_group_id=…&domain=…` — which the landing page doesn't honour (see W-S6-003).
+- **Expected:** Either the filters exist or the blueprint is wrong. Assuming blueprint is right, cohort needs at minimum a date-range picker (current vs. last-30-day trend) and a tier filter.
+- **Actual:** Cohort is a pivot-by-grouping table only — no date range, no tier filter, no drill-down that actually filters the at-risk list.
+- **Deferred:** scope gap; batching into S6 polish or S9 product review.
+- **Verified:** {pending}
+
+### W-S6-006 — EW config GET response uses `_json`-suffixed keys but frontend reads unsuffixed; settings page always shows defaults
+
+- **Severity:** P0
+- **Route:** `/en/early-warnings/settings`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. DB has a saved EW config row for NHQS with non-default `high_severity_events_json` etc. (row `51c6b848-8e29-447d-8c50-b214a88c61be`, `is_enabled=true`).
+  2. Navigate to `/en/early-warnings/settings`. The amber banner reads "No early-warning settings on file yet. The values below are sensible defaults — review them and click Save…". Every field is populated with hard-coded frontend defaults — the API response is effectively thrown away.
+  3. Inspect `apps/api/src/modules/early-warning/early-warning-config.service.ts:66-77` — service returns `{ weights_json, thresholds_json, routing_rules_json, digest_recipients_json, high_severity_events_json, … }`. The frontend `EarlyWarningConfig` type at `apps/web/src/lib/early-warning.ts:89-113` declares `{ weights, thresholds, routing_rules, digest_recipients }` — un-suffixed. The `hasCompleteConfig` guard at `settings/page.tsx:41-47` checks `cfg.weights`, `cfg.thresholds`, `cfg.routing_rules` and returns `false` for every real response, triggering the "using defaults" path permanently.
+- **Expected:** Settings page populates with the tenant's saved config and only shows "using defaults" on tenants that really haven't persisted one.
+- **Actual:** Defaults banner is permanent. If the admin nudges any slider and saves, the saved config is quietly overwritten with whatever the UI shows.
+- **Evidence:** none; reproducible on any tenant with a config row.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S6-007 — Settings "Save Changes" silently no-ops; `digest_recipients_json` schema demands UUIDs but UI stores role keys
+
+- **Severity:** P0
+- **Route:** `/en/early-warnings/settings`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. On `/en/early-warnings/settings`, tick any additional "Recipients" checkbox (e.g. Pastoral Lead). Click "Save Changes".
+  2. No toast renders. No network request leaves the page (confirmed via fetch spy — zero `PUT /api/v1/early-warnings/config` calls).
+  3. No `aria-invalid` markers or error messages appear on any field.
+  4. Digest recipients are written as role-key strings (`'principal'`, `'pastoral_lead'`…) by `DigestConfig.toggleRecipient` at `settings/_components/digest-config.tsx:41-46`. The Zod schema at `packages/shared/src/early-warning/schemas.ts:70` defines `digestRecipientsSchema = z.array(z.string().uuid()).default([])`.
+  5. `zodResolver` rejects the role-key array as invalid UUIDs; `form.handleSubmit` never calls `onSubmit`; no PUT fires; the user has no way to tell anything failed.
+- **Expected:** Save either succeeds (PUT goes, toast shows "Settings saved") or surfaces a visible validation error.
+- **Actual:** Completely silent failure — the button looks like it does nothing. The user cannot persist any recipients change until the day someone notices.
+- **Evidence:** none; 100% reproducible with any digest-recipients or threshold change.
+- **Fix:** {pending}
+- **Verified:** {pending}
 
 ---
 

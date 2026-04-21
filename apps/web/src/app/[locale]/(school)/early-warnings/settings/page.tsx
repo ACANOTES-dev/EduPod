@@ -40,9 +40,10 @@ const DEFAULT_THRESHOLDS: Record<RiskTier, number> = {
 
 function hasCompleteConfig(cfg: EarlyWarningConfig | null | undefined): cfg is EarlyWarningConfig {
   if (!cfg) return false;
-  if (!cfg.weights || typeof cfg.weights.attendance !== 'number') return false;
-  if (!cfg.thresholds || typeof cfg.thresholds.amber !== 'number') return false;
-  if (!cfg.routing_rules) return false;
+  if (!cfg.weights_json || typeof cfg.weights_json.attendance !== 'number') return false;
+  if (!cfg.thresholds_json || typeof cfg.thresholds_json.amber !== 'number') return false;
+  if (!cfg.routing_rules_json) return false;
+  if (cfg.id === null) return false;
   return true;
 }
 
@@ -88,12 +89,12 @@ export default function EarlyWarningSettingsPage() {
         }
         setUsingDefaults(false);
         form.reset({
-          weights_json: cfg.weights,
-          thresholds_json: cfg.thresholds,
+          weights_json: cfg.weights_json,
+          thresholds_json: cfg.thresholds_json,
           hysteresis_buffer: cfg.hysteresis_buffer,
-          routing_rules_json: cfg.routing_rules,
+          routing_rules_json: cfg.routing_rules_json,
           digest_day: cfg.digest_day,
-          digest_recipients_json: cfg.digest_recipients,
+          digest_recipients_json: cfg.digest_recipients_json,
         });
       })
       .catch((err) => {
