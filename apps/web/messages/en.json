@@ -13507,6 +13507,20 @@
       "title": "{count, plural, one {# flagged student awaits follow-up} other {# flagged students await follow-up}}",
       "description": "Kick off interventions in a guided multi-select flow.",
       "button": "Trigger interventions"
+    },
+    "intervene": {
+      "title": "Trigger interventions",
+      "description": "Review students flagged at red or amber risk and start the pastoral follow-up.",
+      "back": "Back to early warnings",
+      "loading": "Loading flagged students…",
+      "loadError": "We could not load flagged students. Refresh to try again.",
+      "empty": "No students are currently flagged at red or amber risk.",
+      "redLabel": "{count, plural, one {# red-tier student} other {# red-tier students}}",
+      "amberLabel": "{count, plural, one {# amber-tier student} other {# amber-tier students}}",
+      "actions": {
+        "logConcern": "Log concern",
+        "startIntervention": "Start intervention"
+      }
     }
   },
   "homework": {
