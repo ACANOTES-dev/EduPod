@@ -99,11 +99,21 @@ export class BehaviourAdminController {
   @RequiresPermission('behaviour.admin')
   async recomputePoints(
     @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
     @Body(new ZodValidationPipe(recomputePointsSchema)) dto: z.infer<typeof recomputePointsSchema>,
   ) {
     assertConfirmPhrase(dto.confirm_phrase, ADMIN_CONFIRM_PHRASES.recomputePoints);
-    await this.adminService.recomputePoints(tenant.tenant_id, dto);
+    await this.adminService.recomputePoints(tenant.tenant_id, dto, user.sub);
     return { success: true, message: 'Points recomputed' };
+  }
+
+  // ─── Repair Runs (WB-C-20) ──────────────────────────────────────────────
+
+  @Get('repair-runs')
+  @RequiresPermission('behaviour.admin')
+  async listRepairRuns(@CurrentTenant() tenant: TenantContext, @Query('limit') limitRaw?: string) {
+    const limit = limitRaw ? parseInt(limitRaw, 10) : undefined;
+    return this.adminService.listRepairRuns(tenant.tenant_id, { limit });
   }
 
   // ─── Rebuild Awards ───────────────────────────────────────────────────────

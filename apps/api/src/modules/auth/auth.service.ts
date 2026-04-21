@@ -605,6 +605,28 @@ export class AuthService {
     return { access_token: accessToken };
   }
 
+  // ─── Current Tenant Modules ──────────────────────────────────────────────
+  //
+  // Returns enabled/disabled status for every configured module in the
+  // current tenant. Safe for any authenticated user to call — the response
+  // is a boolean per module_key and is non-sensitive. Used by the frontend
+  // `useModuleEnabled` hook.
+
+  async getMyModules(
+    tenantId?: string | null,
+  ): Promise<{ data: Array<{ module_key: string; is_enabled: boolean }> }> {
+    if (!tenantId) {
+      return { data: [] };
+    }
+
+    const rows = await this.tenantReadFacade.findModules(tenantId);
+    const data = rows
+      .map((r) => ({ module_key: r.module_key, is_enabled: r.is_enabled }))
+      .sort((a, b) => a.module_key.localeCompare(b.module_key));
+
+    return { data };
+  }
+
   async getMe(
     userId: string,
     tenantId?: string | null,

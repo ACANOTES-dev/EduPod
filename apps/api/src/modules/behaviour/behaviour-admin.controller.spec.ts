@@ -123,19 +123,19 @@ describe('BehaviourAdminController', () => {
     expect(result).toEqual({ affected: 42 });
   });
 
-  it('should call adminService.recomputePoints with tenant_id and dto and return success', async () => {
+  it('should call adminService.recomputePoints with tenant_id, user.sub, and dto and return success', async () => {
     const dto = { scope: 'all', confirm_phrase: 'recompute-points-yes' };
     mockAdminService.recomputePoints.mockResolvedValue(undefined);
 
-    const result = await controller.recomputePoints(TENANT, dto as never);
+    const result = await controller.recomputePoints(TENANT, USER, dto as never);
 
-    expect(mockAdminService.recomputePoints).toHaveBeenCalledWith(TENANT_ID, dto);
+    expect(mockAdminService.recomputePoints).toHaveBeenCalledWith(TENANT_ID, dto, USER_ID);
     expect(result).toEqual({ success: true, message: 'Points recomputed' });
   });
 
   it('rejects recomputePoints with CONFIRMATION_PHRASE_MISMATCH when phrase is wrong', async () => {
     const dto = { scope: 'all', confirm_phrase: 'wrong-phrase' };
-    await expect(controller.recomputePoints(TENANT, dto as never)).rejects.toMatchObject({
+    await expect(controller.recomputePoints(TENANT, USER, dto as never)).rejects.toMatchObject({
       response: { code: 'CONFIRMATION_PHRASE_MISMATCH' },
     });
     expect(mockAdminService.recomputePoints).not.toHaveBeenCalled();

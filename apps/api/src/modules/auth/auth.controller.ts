@@ -238,6 +238,16 @@ export class AuthController {
     return this.authService.getMe(user.sub, user.tenant_id);
   }
 
+  // GET /v1/auth/me/modules — returns the current tenant's enabled modules.
+  // Used by the frontend `useModuleEnabled` hook to gate UI surfaces (hub
+  // tiles etc.). Non-sensitive info: "does this tenant have X module on?"
+  // Backend module-enabled guards remain the authoritative check.
+  @Get('me/modules')
+  @UseGuards(AuthGuard)
+  async getMyModules(@CurrentUser() user: JwtPayload) {
+    return this.authService.getMyModules(user.tenant_id);
+  }
+
   @Get('sessions')
   @UseGuards(AuthGuard)
   async listSessions(@CurrentUser() user: JwtPayload) {

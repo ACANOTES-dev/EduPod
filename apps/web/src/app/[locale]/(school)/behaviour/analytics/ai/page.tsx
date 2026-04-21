@@ -18,6 +18,7 @@ import * as React from 'react';
 
 import { Button, Textarea } from '@school/ui';
 
+import { AiDisabledBanner } from '@/components/ai-disabled-banner';
 import { PageHeader } from '@/components/page-header';
 import { useAiFlag } from '@/hooks/use-ai-flag';
 import { apiClient } from '@/lib/api-client';
@@ -168,13 +169,7 @@ export default function BehaviourAIQueryPage() {
     return (
       <div className="flex flex-col gap-6 p-4 md:p-6">
         <PageHeader title={t('title')} description={t('description')} />
-        <div className="rounded-2xl border border-dashed border-border bg-surface-secondary/50 p-10 text-center">
-          <Sparkles className="mx-auto h-8 w-8 text-text-tertiary" aria-hidden="true" />
-          <h2 className="mt-3 text-base font-semibold text-text-primary">
-            {tAi('disabled.title')}
-          </h2>
-          <p className="mt-1 text-sm text-text-secondary">{tAi('disabled.body')}</p>
-        </div>
+        <AiDisabledBanner />
       </div>
     );
   }

@@ -257,6 +257,18 @@ export class SafeguardingConcernsService {
         null,
       );
 
+      // WB-C-11 — Abuse monitor. Safeguarding reports intentionally have no
+      // rate-limit (children's safety > throttling). Instead, count concerns
+      // reported by this user in the past hour and alert the DLP if it
+      // exceeds the threshold. This fires in parallel with the regular DLP
+      // notification so the DLP sees both the concern AND the volume flag.
+      void this.checkReportVolumeAndAlert(
+        db,
+        tenantId,
+        userId,
+        settings.designated_liaison_user_id ?? null,
+      );
+
       return {
         data: {
           id: concern.id,
@@ -911,6 +923,54 @@ export class SafeguardingConcernsService {
     const raw = (tenantSetting?.settings ?? {}) as Record<string, unknown>;
     const behaviour = (raw.behaviour ?? {}) as Record<string, unknown>;
     return behaviourSettingsSchema.parse(behaviour);
+  }
+
+  // ─── Abuse monitor (WB-C-11) ───────────────────────────────────────────
+  //
+  // Safeguarding reports MUST NEVER be rate-limited at the endpoint layer
+  // — see `docs/architecture/danger-zones.md`. This helper does the opposite
+  // of a rate-limit: it lets every report through, but flags volume anomalies
+  // to the DLP so a review can happen after the fact.
+  //
+  // Threshold: 20 concerns from the same user in 1 hour. Alert is routed to
+  // the DLP, NOT to the submitter (the submitter may be a teacher acting in
+  // good faith on a rapidly-unfolding situation).
+
+  private static readonly ABUSE_WINDOW_MS = 60 * 60 * 1000;
+  private static readonly ABUSE_THRESHOLD = 20;
+
+  private async checkReportVolumeAndAlert(
+    db: PrismaService,
+    tenantId: string,
+    userId: string,
+    dlpUserId: string | null,
+  ): Promise<void> {
+    try {
+      const since = new Date(Date.now() - SafeguardingConcernsService.ABUSE_WINDOW_MS);
+      const recent = await db.safeguardingConcern.count({
+        where: {
+          tenant_id: tenantId,
+          reported_by_id: userId,
+          created_at: { gt: since },
+        },
+      });
+
+      if (recent > SafeguardingConcernsService.ABUSE_THRESHOLD && dlpUserId) {
+        await this.notificationsQueue.add('safeguarding:report-volume-alert', {
+          tenant_id: tenantId,
+          recipient_user_id: dlpUserId,
+          reporter_user_id: userId,
+          recent_count: recent,
+          window_minutes: 60,
+        });
+      }
+    } catch (err) {
+      this.logger.warn(
+        `[checkReportVolumeAndAlert] Tenant ${tenantId}: volume check failed — ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 
   mapConcernSummary(concern: {

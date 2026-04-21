@@ -183,6 +183,45 @@ export class SafeguardingBreakGlassService {
         expires_at: expiresAt.toISOString(),
       });
 
+      // WB-C-16 — After-action-review reminder chain. The AAR must be filed
+      // within 7 days of the grant. Schedule three delayed notifications:
+      //   • T+6d    (24h before AAR deadline) — reminder to grantee
+      //   • T+6d22h (2h before AAR deadline)  — second reminder to grantee
+      //   • T+7d    (AAR overdue)             — escalation to principal
+      //
+      // Each job is skipped at dispatch time if the AAR has already been
+      // filed — the processor checks `after_action_review_completed_at`
+      // before sending.
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      const HOUR_MS = 60 * 60 * 1000;
+      await this.notificationsQueue.add(
+        'safeguarding:break-glass-aar-reminder',
+        {
+          tenant_id: tenantId,
+          grant_id: grant.id,
+          kind: 'first',
+        },
+        { delay: 6 * DAY_MS },
+      );
+      await this.notificationsQueue.add(
+        'safeguarding:break-glass-aar-reminder',
+        {
+          tenant_id: tenantId,
+          grant_id: grant.id,
+          kind: 'second',
+        },
+        { delay: 6 * DAY_MS + 22 * HOUR_MS },
+      );
+      await this.notificationsQueue.add(
+        'safeguarding:break-glass-aar-reminder',
+        {
+          tenant_id: tenantId,
+          grant_id: grant.id,
+          kind: 'overdue',
+        },
+        { delay: 7 * DAY_MS },
+      );
+
       // Audit log the grant
       void this.auditLogService.write(
         tenantId,
@@ -199,6 +238,18 @@ export class SafeguardingBreakGlassService {
         },
         null,
       );
+
+      // WB-C-19 — Append to the append-only access log.
+      await db.safeguardingBreakGlassAccessLog.create({
+        data: {
+          tenant_id: tenantId,
+          grant_id: grant.id,
+          actor_id: userId,
+          action: 'granted',
+          entity_type: null,
+          entity_id: null,
+        },
+      });
 
       return {
         data: {
@@ -463,6 +514,19 @@ export class SafeguardingBreakGlassService {
         { notes: dto.notes },
         null,
       );
+
+      // WB-C-19 — Append to the access log so the platform-admin cross-
+      // tenant view sees the review happen.
+      await db.safeguardingBreakGlassAccessLog.create({
+        data: {
+          tenant_id: tenantId,
+          grant_id: grantId,
+          actor_id: userId,
+          action: 'reviewed',
+          entity_type: null,
+          entity_id: null,
+        },
+      });
 
       return {
         data: {

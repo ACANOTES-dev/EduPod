@@ -1,9 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 
-import {
-  EapRefreshCheckProcessor,
-  EAP_REFRESH_CHECK_JOB,
-} from './eap-refresh-check.processor';
+import { EapRefreshCheckProcessor, EAP_REFRESH_CHECK_JOB } from './eap-refresh-check.processor';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -36,34 +33,31 @@ interface MockOverrides {
 
 function buildMockPrisma(overrides: MockOverrides = {}) {
   const tenantModuleFindMany =
-    overrides.tenantModuleFindMany ??
-    jest.fn().mockResolvedValue([{ tenant_id: TENANT_ID }]);
+    overrides.tenantModuleFindMany ?? jest.fn().mockResolvedValue([{ tenant_id: TENANT_ID }]);
 
   const tenantSettingFindUnique =
     overrides.tenantSettingFindUnique ??
     jest.fn().mockResolvedValue({
       settings: {
         staff_wellbeing: {
+          eap_provider_name: 'Test Provider',
           eap_last_verified_date: ninetyOneDaysAgo,
         },
       },
     });
 
   const permissionFindFirst =
-    overrides.permissionFindFirst ??
-    jest.fn().mockResolvedValue({ id: PERMISSION_ID });
+    overrides.permissionFindFirst ?? jest.fn().mockResolvedValue({ id: PERMISSION_ID });
 
   const rolePermissionFindMany =
-    overrides.rolePermissionFindMany ??
-    jest.fn().mockResolvedValue([{ role_id: ROLE_ID }]);
+    overrides.rolePermissionFindMany ?? jest.fn().mockResolvedValue([{ role_id: ROLE_ID }]);
 
   const membershipRoleFindMany =
     overrides.membershipRoleFindMany ??
     jest.fn().mockResolvedValue([{ membership_id: MEMBERSHIP_ID_1 }]);
 
   const tenantMembershipFindMany =
-    overrides.tenantMembershipFindMany ??
-    jest.fn().mockResolvedValue([{ user_id: USER_ID_1 }]);
+    overrides.tenantMembershipFindMany ?? jest.fn().mockResolvedValue([{ user_id: USER_ID_1 }]);
 
   const notificationCreateMany =
     overrides.notificationCreateMany ?? jest.fn().mockResolvedValue({ count: 1 });
@@ -124,6 +118,7 @@ describe('EapRefreshCheckProcessor', () => {
       tenantSettingFindUnique: jest.fn().mockResolvedValue({
         settings: {
           staff_wellbeing: {
+            eap_provider_name: 'Test Provider',
             eap_last_verified_date: ninetyOneDaysAgo,
           },
         },
@@ -155,11 +150,12 @@ describe('EapRefreshCheckProcessor', () => {
 
   // ─── Notification sent when eap_last_verified_date is null ───────────
 
-  it('should send notifications when eap_last_verified_date is null', async () => {
+  it('should send notifications when EAP is configured but eap_last_verified_date is null', async () => {
     const { mockClient, notificationCreateMany } = buildMockPrisma({
       tenantSettingFindUnique: jest.fn().mockResolvedValue({
         settings: {
           staff_wellbeing: {
+            eap_provider_name: 'Test Provider',
             eap_last_verified_date: null,
           },
         },
@@ -173,10 +169,17 @@ describe('EapRefreshCheckProcessor', () => {
     expect(notificationCreateMany).toHaveBeenCalled();
   });
 
-  it('should send notifications when tenant settings have no staff_wellbeing key', async () => {
+  // ─── Guard: skip tenants without EAP configured (WB-C-08 / WB-C-14) ──
+
+  it('should skip tenants where no EAP provider fields are populated', async () => {
     const { mockClient, notificationCreateMany } = buildMockPrisma({
       tenantSettingFindUnique: jest.fn().mockResolvedValue({
-        settings: {},
+        settings: {
+          staff_wellbeing: {
+            // no eap_provider_name, eap_phone, or eap_website
+            eap_last_verified_date: null,
+          },
+        },
       }),
     });
 
@@ -184,10 +187,22 @@ describe('EapRefreshCheckProcessor', () => {
 
     await processor.process(buildJob() as never);
 
-    expect(notificationCreateMany).toHaveBeenCalled();
+    expect(notificationCreateMany).not.toHaveBeenCalled();
   });
 
-  it('should send notifications when tenantSetting record does not exist', async () => {
+  it('should skip tenants where staff_wellbeing settings are missing entirely', async () => {
+    const { mockClient, notificationCreateMany } = buildMockPrisma({
+      tenantSettingFindUnique: jest.fn().mockResolvedValue({ settings: {} }),
+    });
+
+    processor = new EapRefreshCheckProcessor(mockClient);
+
+    await processor.process(buildJob() as never);
+
+    expect(notificationCreateMany).not.toHaveBeenCalled();
+  });
+
+  it('should skip tenants where the tenantSetting record does not exist', async () => {
     const { mockClient, notificationCreateMany } = buildMockPrisma({
       tenantSettingFindUnique: jest.fn().mockResolvedValue(null),
     });
@@ -196,7 +211,7 @@ describe('EapRefreshCheckProcessor', () => {
 
     await processor.process(buildJob() as never);
 
-    expect(notificationCreateMany).toHaveBeenCalled();
+    expect(notificationCreateMany).not.toHaveBeenCalled();
   });
 
   // ─── No notification when eap_last_verified_date < 90 days ago ───────
@@ -206,6 +221,7 @@ describe('EapRefreshCheckProcessor', () => {
       tenantSettingFindUnique: jest.fn().mockResolvedValue({
         settings: {
           staff_wellbeing: {
+            eap_provider_name: 'Test Provider',
             eap_last_verified_date: thirtyDaysAgo,
           },
         },
@@ -222,10 +238,9 @@ describe('EapRefreshCheckProcessor', () => {
   // ─── Module disabled → tenant skipped ────────────────────────────────
 
   it('should skip tenants where staff_wellbeing module is disabled', async () => {
-    const { mockClient, notificationCreateMany, tenantSettingFindUnique } =
-      buildMockPrisma({
-        tenantModuleFindMany: jest.fn().mockResolvedValue([]),
-      });
+    const { mockClient, notificationCreateMany, tenantSettingFindUnique } = buildMockPrisma({
+      tenantModuleFindMany: jest.fn().mockResolvedValue([]),
+    });
 
     processor = new EapRefreshCheckProcessor(mockClient);
 
@@ -298,14 +313,15 @@ describe('EapRefreshCheckProcessor', () => {
 
   it('should create one notification per eligible user', async () => {
     const { mockClient, notificationCreateMany } = buildMockPrisma({
-      membershipRoleFindMany: jest.fn().mockResolvedValue([
-        { membership_id: MEMBERSHIP_ID_1 },
-        { membership_id: MEMBERSHIP_ID_2 },
-      ]),
-      tenantMembershipFindMany: jest.fn().mockResolvedValue([
-        { user_id: USER_ID_1 },
-        { user_id: USER_ID_2 },
-      ]),
+      membershipRoleFindMany: jest
+        .fn()
+        .mockResolvedValue([
+          { membership_id: MEMBERSHIP_ID_1 },
+          { membership_id: MEMBERSHIP_ID_2 },
+        ]),
+      tenantMembershipFindMany: jest
+        .fn()
+        .mockResolvedValue([{ user_id: USER_ID_1 }, { user_id: USER_ID_2 }]),
     });
 
     processor = new EapRefreshCheckProcessor(mockClient);
@@ -331,15 +347,16 @@ describe('EapRefreshCheckProcessor', () => {
 
   it('should deduplicate users who hold the permission through multiple roles', async () => {
     const { mockClient, notificationCreateMany } = buildMockPrisma({
-      membershipRoleFindMany: jest.fn().mockResolvedValue([
-        { membership_id: MEMBERSHIP_ID_1 },
-        { membership_id: MEMBERSHIP_ID_2 },
-      ]),
+      membershipRoleFindMany: jest
+        .fn()
+        .mockResolvedValue([
+          { membership_id: MEMBERSHIP_ID_1 },
+          { membership_id: MEMBERSHIP_ID_2 },
+        ]),
       // Both memberships resolve to the same user
-      tenantMembershipFindMany: jest.fn().mockResolvedValue([
-        { user_id: USER_ID_1 },
-        { user_id: USER_ID_1 },
-      ]),
+      tenantMembershipFindMany: jest
+        .fn()
+        .mockResolvedValue([{ user_id: USER_ID_1 }, { user_id: USER_ID_1 }]),
     });
 
     processor = new EapRefreshCheckProcessor(mockClient);
@@ -357,13 +374,15 @@ describe('EapRefreshCheckProcessor', () => {
 
   it('should set RLS context per tenant transaction', async () => {
     const { mockClient } = buildMockPrisma({
-      tenantModuleFindMany: jest.fn().mockResolvedValue([
-        { tenant_id: TENANT_ID },
-        { tenant_id: TENANT_ID_B },
-      ]),
+      tenantModuleFindMany: jest
+        .fn()
+        .mockResolvedValue([{ tenant_id: TENANT_ID }, { tenant_id: TENANT_ID_B }]),
       tenantSettingFindUnique: jest.fn().mockResolvedValue({
         settings: {
-          staff_wellbeing: { eap_last_verified_date: ninetyOneDaysAgo },
+          staff_wellbeing: {
+            eap_provider_name: 'Test Provider',
+            eap_last_verified_date: ninetyOneDaysAgo,
+          },
         },
       }),
     });

@@ -9,6 +9,9 @@ const mockTx = {
     findMany: jest.fn(),
     update: jest.fn(),
   },
+  safeguardingBreakGlassAccessLog: {
+    create: jest.fn(),
+  },
   safeguardingAction: {
     create: jest.fn(),
   },

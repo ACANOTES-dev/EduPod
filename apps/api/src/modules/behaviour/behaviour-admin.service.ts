@@ -246,8 +246,13 @@ export class BehaviourAdminService {
     }) as Promise<AdminPreviewResponse>;
   }
 
-  async recomputePoints(tenantId: string, dto: RecomputePointsDto): Promise<void> {
+  async recomputePoints(
+    tenantId: string,
+    dto: RecomputePointsDto,
+    actorUserId?: string,
+  ): Promise<void> {
     const client = this.redis.getClient();
+    const startedAt = new Date();
 
     if (dto.scope === 'student' && dto.student_id) {
       await client.del(`behaviour:points:${tenantId}:${dto.student_id}`);
@@ -286,6 +291,20 @@ export class BehaviourAdminService {
     }
 
     this.logger.log(`Points recomputed for scope=${dto.scope} in tenant ${tenantId}`);
+
+    // WB-C-20 — Record the repair run so the admin console can show who ran
+    // what. Best-effort: failures to record must not rollback the op.
+    if (actorUserId) {
+      await this.recordRepairRun({
+        tenantId,
+        actorUserId,
+        operation: 'recompute_points',
+        scope: { scope: dto.scope, student_id: dto.student_id, year_group_id: dto.year_group_id },
+        startedAt,
+        executeData: { scope: dto.scope },
+        status: 'executed',
+      });
+    }
   }
 
   // ─── Recompute Pulse ──────────────────────────────────────────────────────
@@ -886,5 +905,60 @@ export class BehaviourAdminService {
       tenantId,
       dto as Parameters<typeof this.policyReplayService.dryRun>[1],
     );
+  }
+
+  // ─── Admin Repair Runs (WB-C-20) ────────────────────────────────────────
+  //
+  // The admin console landing page renders the recent-runs feed using
+  // `listRepairRuns`. Each preview + execute on a repair operation writes
+  // a row via `recordRepairRun`.
+
+  async listRepairRuns(tenantId: string, opts: { limit?: number } = {}) {
+    const limit = Math.min(opts.limit ?? 25, 100);
+    const rows = await this.prisma.adminRepairRun.findMany({
+      where: { tenant_id: tenantId },
+      orderBy: { started_at: 'desc' },
+      take: limit,
+      include: {
+        actor: { select: { id: true, first_name: true, last_name: true } },
+      },
+    });
+    return { data: rows };
+  }
+
+  async recordRepairRun(entry: {
+    tenantId: string;
+    actorUserId: string;
+    operation: string;
+    scope?: Record<string, unknown>;
+    startedAt?: Date;
+    previewData?: Record<string, unknown>;
+    executeData?: Record<string, unknown>;
+    status: 'preview' | 'executed' | 'failed' | 'rolled_back';
+    errorDetail?: string;
+  }): Promise<void> {
+    try {
+      const startedAt = entry.startedAt ?? new Date();
+      await this.prisma.adminRepairRun.create({
+        data: {
+          tenant_id: entry.tenantId,
+          actor_id: entry.actorUserId,
+          operation: entry.operation,
+          scope: (entry.scope ?? {}) as unknown as Prisma.InputJsonValue,
+          preview_data: (entry.previewData ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+          execute_data: (entry.executeData ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+          status: entry.status as $Enums.AdminRepairRunStatus,
+          started_at: startedAt,
+          completed_at: entry.status === 'preview' ? null : new Date(),
+          error_detail: entry.errorDetail ?? null,
+        },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Failed to record admin repair run (${entry.operation}, ${entry.status}) for tenant ${entry.tenantId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 }

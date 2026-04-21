@@ -1075,6 +1075,18 @@ function toPrismaInterventionStatus(value: string): $Enums.PastoralInterventionS
 
 **Per-jurisdiction note**: Principal is the Designated Safeguarding Lead in Irish / UK schools by default. The current grant (`safeguarding.view|manage|report|seal` to principal, `view|manage|report` to VP — no `seal`) reflects dual-control: sealing requires principal + owner, never two people from the same admin tier.
 
+## DZ-Wellbeing-9: Safeguarding Report Endpoint MUST NEVER Be Rate-Limited
+
+**Risk**: `POST /v1/safeguarding/concerns` is the primary channel for reporting child-protection concerns. Any rate-limiter added here — even a defensive "prevent spam" one — could silently drop a genuine report during a rapidly-unfolding safeguarding incident (e.g. a teacher reporting multiple students involved in the same event within minutes).
+
+**Location**: `apps/api/src/modules/safeguarding/safeguarding.controller.ts` `reportConcern`, `apps/api/src/modules/safeguarding/safeguarding-concerns.service.ts` `reportConcern` + `checkReportVolumeAndAlert`.
+
+**Status**: INTENTIONAL — no rate-limit, volume anomalies are monitored after the fact.
+
+**Mitigation**: volume anomalies are detected by the post-write abuse monitor in `SafeguardingConcernsService.checkReportVolumeAndAlert` (WB-C-11). If any single user submits more than 20 concerns in a rolling 60-minute window, a `safeguarding:report-volume-alert` notification is dispatched to the DLP (NOT to the submitter). This lets every concern through while still surfacing abuse / accidental-duplicate patterns for after-the-fact review.
+
+**How to detect**: any PR that adds `@Throttle`, express-rate-limit middleware, or a global interceptor that could short-circuit `POST /v1/safeguarding/concerns` is a violation. Flag in review.
+
 ## DZ-Wellbeing-8: Wave 4 Hardening Rules Persist Beyond The Rebuild
 
 **Risk**: Waves 4, 5, and 6 of the wellbeing rebuild introduced eleven hardened parallel-coding rules (H1–H11) in `wellbeing_new/IMPLEMENTATION_LOG.md §2b` to prevent lint-staged auto-stash from destroying concurrent sibling work. These rules are not documented anywhere else in the repo, but they apply to **every future frontend rebuild** that touches shared files (`messages/en.json`, `messages/ar.json`, `nav-config.ts`, morph-bar shell, seed files).

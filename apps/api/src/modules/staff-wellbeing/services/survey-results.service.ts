@@ -1,9 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { AuditLogService } from '../../audit-log/audit-log.service';
@@ -126,7 +121,8 @@ export class SurveyResultsService {
         throw new ForbiddenException({
           error: {
             code: 'SURVEY_STILL_ACTIVE',
-            message: 'Results are only available after the survey closes. This prevents timing inference.',
+            message:
+              'Results are only available after the survey closes. This prevents timing inference.',
           },
         });
       }
@@ -251,9 +247,7 @@ export class SurveyResultsService {
             base.options = optionLabels.map((opt) => ({
               option: opt,
               count: counts[opt] ?? 0,
-              percentage: total > 0
-                ? Math.round(((counts[opt] ?? 0) / total) * 10000) / 100
-                : 0,
+              percentage: total > 0 ? Math.round(((counts[opt] ?? 0) / total) * 10000) / 100 : 0,
             }));
           } else if (q.question_type === 'freeform') {
             base.approved_count = qResponses.filter(
@@ -286,10 +280,7 @@ export class SurveyResultsService {
 
   // ─── MODERATION QUEUE ─────────────────────────────────────────────────────
 
-  async listModerationQueue(
-    tenantId: string,
-    surveyId: string,
-  ): Promise<ModerationQueueItem[]> {
+  async listModerationQueue(tenantId: string, surveyId: string): Promise<ModerationQueueItem[]> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const items = (await rlsClient.$transaction(async (tx) => {
@@ -317,7 +308,12 @@ export class SurveyResultsService {
       });
 
       return pendingResponses.map(
-        (r: { id: string; answer_text: string | null; submitted_date: Date; moderation_status: string }) => ({
+        (r: {
+          id: string;
+          answer_text: string | null;
+          submitted_date: Date;
+          moderation_status: string;
+        }) => ({
           id: r.id,
           response_text: r.answer_text ?? '',
           submitted_date: r.submitted_date,
@@ -434,7 +430,8 @@ export class SurveyResultsService {
         throw new ForbiddenException({
           error: {
             code: 'SURVEY_STILL_ACTIVE',
-            message: 'Results are only available after the survey closes. This prevents timing inference.',
+            message:
+              'Results are only available after the survey closes. This prevents timing inference.',
           },
         });
       }
@@ -470,10 +467,20 @@ export class SurveyResultsService {
         response_count: participationCount,
         threshold: survey.min_response_threshold,
         comments: comments.map(
-          (c: { id: string; answer_text: string | null; submitted_date: Date; moderation_status: string }) => ({
+          (c: {
+            id: string;
+            answer_text: string | null;
+            submitted_date: Date;
+            moderation_status: string;
+          }) => ({
             id: c.id,
             text: c.answer_text ?? '',
-            submitted_date: c.submitted_date,
+            // WB-C-10 — Bucket to start-of-week. Precise timestamps would let a
+            // reviewer correlate a single response with a known event (e.g.
+            // "this was submitted 3 minutes after Mrs X left the staff room").
+            // Week-level granularity preserves trend analysis without
+            // enabling response-to-individual correlation.
+            submitted_date: weekStart(c.submitted_date),
             is_redacted: c.moderation_status === 'redacted',
           }),
         ),
@@ -482,4 +489,20 @@ export class SurveyResultsService {
 
     return result;
   }
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Rounds a date down to the Monday at 00:00:00 UTC of that week. ISO-8601
+ * week starts on Monday. Used by WB-C-10 to anonymise survey export
+ * timestamps without losing trend granularity.
+ */
+function weekStart(d: Date): Date {
+  const copy = new Date(d.getTime());
+  const day = copy.getUTCDay(); // 0 (Sun) .. 6 (Sat)
+  const diff = day === 0 ? 6 : day - 1; // offset back to Monday
+  copy.setUTCDate(copy.getUTCDate() - diff);
+  copy.setUTCHours(0, 0, 0, 0);
+  return copy;
 }

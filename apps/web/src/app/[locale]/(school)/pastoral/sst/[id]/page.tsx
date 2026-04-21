@@ -114,10 +114,20 @@ export default function SstMeetingDetailPage() {
                 disabled={busyAction === 'refresh'}
                 onClick={() =>
                   void runAction('refresh', async () => {
-                    await apiClient(`/api/v1/pastoral/sst/meetings/${meeting.id}/agenda/refresh`, {
+                    const res = await apiClient<{
+                      status?: 'generated' | 'idempotent_hit';
+                      minutes_since_last?: number;
+                    }>(`/api/v1/pastoral/sst/meetings/${meeting.id}/agenda/refresh`, {
                       method: 'POST',
                       silent: true,
                     });
+                    // WB-C-17 — Surface idempotent-hit (refresh called again
+                    // within 5 minutes) so the user knows their click was a
+                    // no-op instead of silently spinning.
+                    if (res?.status === 'idempotent_hit') {
+                      const mins = res.minutes_since_last ?? 1;
+                      setError(tAi('refreshIdempotent', { minutes: mins }));
+                    }
                   })
                 }
                 aria-label={tAi('refreshAgenda')}

@@ -663,13 +663,15 @@ describe('SstAgendaGeneratorService', () => {
 
       const result = await service.generateAgenda(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
 
+      expect(result.status).toBe('generated');
+
       // Manual item is preserved in the result
-      const manualItems = result.filter((i) => i.source === 'manual');
+      const manualItems = result.items.filter((i) => i.source === 'manual');
       expect(manualItems).toHaveLength(1);
       expect(manualItems[0]!.description).toBe('Discuss student progress update from parent');
 
       // New auto item was also created
-      const autoItems = result.filter((i) => i.source === 'auto_new_concern');
+      const autoItems = result.items.filter((i) => i.source === 'auto_new_concern');
       expect(autoItems).toHaveLength(1);
     });
   });
@@ -842,6 +844,57 @@ describe('SstAgendaGeneratorService', () => {
     });
   });
 
+  // ─── WB-C-17 — Idempotency short-circuit ────────────────────────────────
+
+  describe('idempotency window', () => {
+    it('returns idempotent_hit when agenda was generated in the last 5 minutes', async () => {
+      setupDefaultMocks();
+
+      // Meeting was recomputed 2 minutes ago
+      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
+        makeMeeting({ agenda_precomputed_at: twoMinutesAgo }),
+      );
+      mockRlsTx.sstMeetingAgendaItem.findMany.mockResolvedValue([
+        {
+          id: 'existing-1',
+          tenant_id: TENANT_ID,
+          meeting_id: MEETING_ID,
+          source: 'manual',
+          description: 'Carried over',
+          display_order: 1,
+        },
+      ]);
+
+      const result = await service.generateAgenda(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
+
+      expect(result.status).toBe('idempotent_hit');
+      expect(result.items).toHaveLength(1);
+      expect(result.minutes_since_last).toBeGreaterThanOrEqual(1);
+      expect(result.original_generated_at).toEqual(twoMinutesAgo);
+
+      // No new items were created, no audit event emitted
+      expect(mockRlsTx.sstMeetingAgendaItem.create).not.toHaveBeenCalled();
+      expect(mockRlsTx.sstMeeting.update).not.toHaveBeenCalled();
+      expect(mockPastoralEventService.write).not.toHaveBeenCalled();
+    });
+
+    it('generates normally when last refresh is older than 5 minutes', async () => {
+      setupDefaultMocks();
+
+      // 10 minutes ago — outside the idempotency window
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
+        makeMeeting({ agenda_precomputed_at: tenMinutesAgo }),
+      );
+
+      const result = await service.generateAgenda(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
+
+      expect(result.status).toBe('generated');
+      expect(mockRlsTx.sstMeeting.update).toHaveBeenCalled();
+    });
+  });
+
   // ─── Previous Meeting Boundary ──────────────────────────────────────────
 
   describe('previous meeting boundary', () => {
@@ -892,7 +945,8 @@ describe('SstAgendaGeneratorService', () => {
 
       const result = await service.generateAgenda(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
 
-      expect(result).toEqual([]);
+      expect(result.status).toBe('generated');
+      expect(result.items).toEqual([]);
     });
 
     it('generates agenda with only new_concerns source', async () => {
@@ -916,7 +970,7 @@ describe('SstAgendaGeneratorService', () => {
       const result = await service.generateAgenda(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
 
       expect(mockRlsTx.pastoralConcern.findMany).toHaveBeenCalledTimes(1);
-      expect(result.length).toBeGreaterThanOrEqual(1);
+      expect(result.items.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -1268,7 +1322,8 @@ describe('SstAgendaGeneratorService', () => {
 
       const result = await service.generateAgenda(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
 
-      expect(result).toEqual([]);
+      expect(result.status).toBe('generated');
+      expect(result.items).toEqual([]);
     });
 
     it('should only query sources that are configured', async () => {

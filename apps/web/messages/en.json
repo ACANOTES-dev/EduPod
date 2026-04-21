@@ -1,4 +1,25 @@
 {
+  "ai": {
+    "disabled": {
+      "title": "AI features are off",
+      "body": "AI features are disabled for this tenant.",
+      "manageLink": "Manage AI features in Settings",
+      "contactAdminHint": "Ask a school owner or admin to enable AI features."
+    }
+  },
+  "attachments": {
+    "scanStatus": {
+      "pending": "Pending scan",
+      "clean": "Clean",
+      "flagged": "Flagged",
+      "failed": "Scan failed"
+    },
+    "flaggedBanner": {
+      "title": "This file has been flagged",
+      "genericReason": "The security scan detected a potential threat.",
+      "contactDlp": "Contact your Designated Liaison Person before downloading."
+    }
+  },
   "common": {
     "appName": "School OS",
     "loading": "Loading...",
@@ -15088,7 +15109,8 @@
     },
     "sst": {
       "refreshAgenda": "Refresh agenda with AI",
-      "refreshing": "Refreshing…"
+      "refreshing": "Refreshing…",
+      "refreshIdempotent": "Agenda was refreshed {minutes, plural, one {# minute} other {# minutes}} ago — nothing new to recompute."
     }
   },
   "documentGen": {

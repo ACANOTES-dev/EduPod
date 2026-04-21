@@ -50,7 +50,14 @@ export class AuditLogInterceptor implements NestInterceptor {
       SensitiveDataAccessMetadata | undefined
     >(SENSITIVE_DATA_ACCESS_KEY, [context.getHandler(), context.getClass()]);
     const shouldAuditMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
-    const shouldAuditReadAccess = method === 'GET' && sensitiveDataAccess !== undefined;
+    // WB-C-12 — Every GET under the `/v1/admin/*` namespace is a platform-
+    // admin cross-tenant read. Audit unconditionally so there's a forensic
+    // trail of which tenants each platform admin has inspected. The
+    // @SensitiveDataAccess decorator still short-circuits explicit cases.
+    const isPlatformAdminRead =
+      method === 'GET' && /^\/+(?:api\/)?v1\/admin(\/|$|\?)/.test(request.originalUrl ?? '');
+    const shouldAuditReadAccess =
+      method === 'GET' && (sensitiveDataAccess !== undefined || isPlatformAdminRead);
 
     if (!shouldAuditMutation && !shouldAuditReadAccess) {
       return next.handle();
@@ -101,7 +108,10 @@ export class AuditLogInterceptor implements NestInterceptor {
                   method,
                   path,
                   response.statusCode,
-                  sensitiveDataAccess?.sensitivity ?? 'normal',
+                  // Platform-admin cross-tenant reads tag `cross_tenant`
+                  // unless the endpoint already declares its own sensitivity.
+                  sensitiveDataAccess?.sensitivity ??
+                    (isPlatformAdminRead ? 'cross_tenant' : 'normal'),
                   result,
                 );
 

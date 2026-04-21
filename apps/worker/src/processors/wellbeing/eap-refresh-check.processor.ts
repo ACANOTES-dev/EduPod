@@ -75,6 +75,14 @@ export class EapRefreshCheckProcessor extends WorkerHost {
         const wellbeingSettings = (settings['staff_wellbeing'] ?? {}) as Record<string, unknown>;
         const rawDate = wellbeingSettings['eap_last_verified_date'];
 
+        // WB-C-08 / WB-C-14 — Guard: don't fire reminders if the tenant has no
+        // EAP provider configured. EAP is optional; the refresh reminder only
+        // makes sense when a provider has been set up at least once.
+        if (!this.hasEapConfigured(wellbeingSettings)) {
+          this.logger.debug(`Tenant ${tenantId}: EAP is not configured — skipping refresh check`);
+          return;
+        }
+
         // Determine whether EAP details are stale
         const isStale = this.isEapStale(rawDate, staleThreshold);
 
@@ -133,6 +141,19 @@ export class EapRefreshCheckProcessor extends WorkerHost {
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  /**
+   * Returns true if the tenant has any EAP provider field populated. EAP is
+   * optional — when every identifying field is empty, there is no provider
+   * to "re-verify", so the refresh reminder should not fire.
+   */
+  private hasEapConfigured(wellbeingSettings: Record<string, unknown>): boolean {
+    const keys = ['eap_provider_name', 'eap_phone', 'eap_website'];
+    return keys.some((key) => {
+      const value = wellbeingSettings[key];
+      return typeof value === 'string' && value.trim().length > 0;
+    });
+  }
 
   /**
    * Returns true if the EAP details are considered stale:

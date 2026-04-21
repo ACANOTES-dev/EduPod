@@ -155,6 +155,36 @@ class AttachmentScanJob extends TenantAwareJob<AttachmentScanPayload> {
           scanned_at: new Date(),
         },
       });
+
+      // WB-C-09 — Notify the uploader that their file was flagged so they
+      // know to contact the DLP instead of wondering why it's stuck.
+      try {
+        await tx.notification.create({
+          data: {
+            tenant_id,
+            recipient_user_id: attachment.uploaded_by_id,
+            channel: 'in_app',
+            template_key: null,
+            locale: 'en',
+            status: 'delivered',
+            delivered_at: new Date(),
+            payload_json: {
+              title: 'Attachment flagged',
+              body: `The file "${attachment.file_name}" was flagged by the security scanner (${scanResult.virus_name}). Contact your Designated Liaison Person for next steps.`,
+              link: `/behaviour/${attachment.entity_type}s/${attachment.entity_id}`,
+            },
+            source_entity_type: 'behaviour_attachment',
+            source_entity_id: attachment_id,
+          },
+        });
+      } catch (notifErr) {
+        this.logger.warn(
+          `Failed to notify uploader of flagged attachment ${attachment_id}: ${
+            notifErr instanceof Error ? notifErr.message : String(notifErr)
+          }`,
+        );
+      }
+
       return;
     }
 

@@ -8,6 +8,8 @@ import * as React from 'react';
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@school/ui';
 
+import { useModuleEnabled } from '@/hooks/use-module-enabled';
+
 // ─── Hub Tile ─────────────────────────────────────────────────────────────────
 
 interface HubTileProps {
@@ -23,6 +25,12 @@ interface HubTileProps {
   onClick?: () => void;
   /** Animation index for staggered fade-in. Zero-based. */
   animationIndex?: number;
+  /**
+   * Module key (e.g. `behaviour`, `pastoral`, `safeguarding`). When set and
+   * the module is disabled for the current tenant, the tile renders `null`.
+   * Leave undefined for tiles that don't map to a tenant module.
+   */
+  moduleKey?: string;
 }
 
 export function HubTile({
@@ -37,8 +45,15 @@ export function HubTile({
   tooltip,
   onClick,
   animationIndex,
+  moduleKey,
 }: HubTileProps) {
   const locale = useLocale();
+  const moduleState = useModuleEnabled(moduleKey);
+
+  // Only hide when we have a definitive 'disabled' answer. 'unknown' (in
+  // flight or fetch failed) stays optimistic — the backend ModuleEnabledGuard
+  // is authoritative if the user clicks through.
+  if (moduleState === 'disabled') return null;
 
   const delayStyle =
     typeof animationIndex === 'number'

@@ -54,6 +54,18 @@ export interface SstMeetingAgendaItemRow {
   updated_at: Date;
 }
 
+// WB-C-17 — SST refresh responds with { status, items, ... } so the frontend
+// can branch between a fresh generation and an idempotent-hit (no-op because
+// the agenda was recently recomputed).
+export interface SstAgendaGenerationResult {
+  status: 'generated' | 'idempotent_hit';
+  items: SstMeetingAgendaItemRow[];
+  original_generated_at?: Date;
+  minutes_since_last?: number;
+}
+
+const IDEMPOTENCY_WINDOW_MS = 5 * 60 * 1000;
+
 interface EarlyWarningAlertRow {
   id: string;
   student_id: string;
@@ -82,7 +94,7 @@ export class SstAgendaGeneratorService {
     tenantId: string,
     meetingId: string,
     actorUserId: string,
-  ): Promise<SstMeetingAgendaItemRow[]> {
+  ): Promise<SstAgendaGenerationResult> {
     // 1. Load tenant settings to determine enabled sources
     const settings = await this.loadPastoralSettings(tenantId);
     const enabledSourceKeys = settings.sst.auto_agenda_sources;
@@ -93,7 +105,7 @@ export class SstAgendaGeneratorService {
       user_id: actorUserId,
     });
 
-    const result = await rlsClient.$transaction(async (tx) => {
+    const result = await rlsClient.$transaction<SstAgendaGenerationResult>(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const meeting = await db.sstMeeting.findUnique({
@@ -102,7 +114,37 @@ export class SstAgendaGeneratorService {
 
       if (!meeting) {
         this.logger.warn(`Meeting ${meetingId} not found during agenda generation`);
-        return [];
+        return { status: 'generated' as const, items: [] };
+      }
+
+      // WB-C-17 — Idempotency short-circuit. If the agenda was regenerated in
+      // the past 5 minutes, return the existing items with an idempotent_hit
+      // status so the frontend can surface "Already refreshed N minutes ago"
+      // instead of silently re-running the (expensive) generation.
+      if (
+        meeting.agenda_precomputed_at &&
+        Date.now() - meeting.agenda_precomputed_at.getTime() < IDEMPOTENCY_WINDOW_MS
+      ) {
+        const existingItems = (await db.sstMeetingAgendaItem.findMany({
+          where: { tenant_id: tenantId, meeting_id: meetingId },
+          orderBy: { display_order: 'asc' },
+        })) as SstMeetingAgendaItemRow[];
+
+        const minutesSince = Math.max(
+          1,
+          Math.floor((Date.now() - meeting.agenda_precomputed_at.getTime()) / 60000),
+        );
+
+        this.logger.log(
+          `Meeting ${meetingId}: refresh within idempotency window (${minutesSince}m ago) — returning cached agenda`,
+        );
+
+        return {
+          status: 'idempotent_hit' as const,
+          items: existingItems,
+          original_generated_at: meeting.agenda_precomputed_at,
+          minutes_since_last: minutesSince,
+        };
       }
 
       // 3. Find previous completed meeting's scheduled_at (the "since" boundary)
@@ -181,10 +223,20 @@ export class SstAgendaGeneratorService {
       });
 
       // Return all items (existing + new)
-      return [...existingItems, ...insertedItems];
+      return {
+        status: 'generated' as const,
+        items: [...existingItems, ...insertedItems],
+      };
     });
 
-    const allItems = result as SstMeetingAgendaItemRow[];
+    // Short-circuit the audit event when we're just replaying an idempotent
+    // hit — no new agenda was computed, so don't emit a new agenda_precomputed
+    // event (it would pollute the audit timeline).
+    if (result.status === 'idempotent_hit') {
+      return result;
+    }
+
+    const allItems = result.items;
 
     // 9. Write audit event (fire-and-forget)
     const sourcesQueried = enabledSourceKeys
@@ -207,7 +259,7 @@ export class SstAgendaGeneratorService {
       ip_address: null,
     });
 
-    return allItems;
+    return result;
   }
 
   // ─── SOURCE QUERIES ─────────────────────────────────────────────────────────
