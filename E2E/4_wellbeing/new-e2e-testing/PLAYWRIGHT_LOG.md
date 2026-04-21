@@ -11,7 +11,7 @@ A session is only **Complete** when every issue it opened is marked `**Verified:
 | Session | Started    | Completed  | Issues opened | P0  | P1  | P2  | P3  | Status                                                                   |
 | ------- | ---------- | ---------- | ------------- | --- | --- | --- | --- | ------------------------------------------------------------------------ |
 | S0      | 2026-04-21 | 2026-04-21 | 5             | 1   | 2   | 1   | 1   | **Complete** (all deferred to owning sessions; see rationale in entries) |
-| S1      |            |            |               |     |     |     |     | Not started                                                              |
+| S1      | 2026-04-21 |            |               |     |     |     |     | In progress                                                              |
 | S2      |            |            |               |     |     |     |     | Not started                                                              |
 | S3      |            |            |               |     |     |     |     | Not started                                                              |
 | S4      |            |            |               |     |     |     |     | Not started                                                              |
@@ -126,8 +126,88 @@ S0 established a rich, reproducible data baseline on NHQS and produced the route
 
 ## S1 — Behaviour A (incidents + sanctions + exclusions + appeals)
 
-**Status:** Not started
+**Status:** In progress (started 2026-04-21)
 **Session plan:** [`S1_behaviour_A.md`](./S1_behaviour_A.md)
+
+### Issues found
+
+### W-S1-001 — School owner/principal only see incidents they personally reported (25 of 50 visible)
+
+- **Severity:** P0
+- **Route:** `/en/behaviour/incidents`
+- **Role:** owner@nhqs.test (roles: `school_owner` + `school_principal`)
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Log in as owner, navigate to `/en/behaviour/incidents`
+  2. Table reports "Showing 1–20 of 25"
+- **Expected:** All 50 seeded incidents visible to the school principal. The principal is the person in the building most needing visibility into every incident.
+- **Actual:** Only the 25 incidents whose `reported_by_id = owner.user_id` are returned. The 25 incidents reported by other staff (Sarah Daly, DSL, etc.) are hidden.
+- **Root cause:** `BehaviourScopeService.getUserScope` (apps/api/src/modules/behaviour/behaviour-scope.service.ts) checks `permissions` for `behaviour.admin` / `behaviour.manage` / `behaviour.view` to decide scope. The roles `school_owner` and `school_principal` are granted zero `behaviour.*` permissions by the role seeder — they rely on the owner-bypass in `PermissionGuard.isOwner`. `BehaviourScopeService` does not consult the owner bypass, so owner/principal falls through to scope `'own'` → `reported_by_id = userId`.
+- **Evidence:** DB confirms 50 incidents exist; `... WHERE reported_by_id = owner.id` returns exactly 25.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S1-002 — Incidents list "Reporter" column shows `—` for every row
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/incidents`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/incidents`
+  2. Inspect the "Reporter" column — every row displays `—`
+- **Expected:** Reporter full name (e.g., "Yusuf Rahman"). The landing page's "Recent activity" feed shows these names correctly, so the data is present.
+- **Actual:** Every row `—`.
+- **Root cause:** Frontend list (apps/web/src/app/[locale]/(school)/behaviour/incidents/page.tsx:42) expects `reported_by_user`, but the API include is the Prisma relation name `reported_by` (apps/api/src/modules/behaviour/behaviour-incidents.service.ts:427). Field-name mismatch → always null → falsy → renders `—`. Same bug repeats on the detail page at `apps/web/…/incidents/[id]/page.tsx:75,392`.
+- **Evidence:** Snapshot of list — every Reporter cell is `—`.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S1-003 — Raw i18n key `behaviour.incidents.statuses.under_review` rendered in status column
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/incidents`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/incidents`
+  2. Observe rows 2026-04-16 (Fighting / Felix Doherty) and 2026-03-18 (Bullying verbal / Chloe Evans). Both show cell text `behaviour.incidents.statuses.under_review`.
+- **Expected:** Translated label, e.g., "Under review".
+- **Actual:** Raw dotted translation key printed in cell and logged to console: `MISSING_MESSAGE: behaviour.incidents.statuses.under_review (en)`.
+- **Evidence:** Console error + visible cell text. Likely the same gap for any other statuses the seed didn't exercise — need to audit the enum `IncidentStatus` vs messages/en.json.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S1-004 — Category picker shows "+N pts" for negative categories — identical to positives (user-flagged)
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/incidents/new` and QuickLog modal on `/en/behaviour/incidents`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Open `/en/behaviour/incidents/new` (or click the floating Quick Log button on the incidents list)
+  2. Inspect category chips: Fighting "+5pts", Weapons-related concern "+5pts", Bullying "+3/+5pts", Theft "+5pts" — all display a literal `+Npts` badge
+  3. Compare with positives: Kindness "+3pts", Acts of integrity "+5pts" — indistinguishable
+- **Expected:** Negative categories should clearly read as a deduction (e.g., `−5pts`, red styling) or otherwise be visually distinct from positives. Sign + colour must communicate the scoring polarity consistently with the scoring model.
+- **Actual:** Every chip uses `+` prefix and the same badge styling. A reporter cannot tell at a glance whether Fighting awards or deducts 5 points.
+- **Evidence:** Screenshot of /new chips; same on QuickLog modal.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S1-005 — QuickLog modal shows raw i18n keys for placeholders and submit button
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/incidents` (Quick Log floating button)
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. On `/en/behaviour/incidents` click the floating "Quick Log" button
+  2. Modal opens — student search input placeholder reads `behaviour.components.quickLog.searchStudents`, description textarea placeholder reads `behaviour.components.quickLog.addDetails`, submit button reads `behaviour.components.quickLog.logIncident`
+- **Expected:** Translated strings (e.g., "Search students…", "Add details", "Log incident"). The /new page has working equivalents ("Search students…", "Describe what happened…", "Submit Incident") so this is a missing key, not a missing component.
+- **Actual:** Raw dotted keys displayed. Console: 3 × `MISSING_MESSAGE` errors per render (12+ over the session because the modal re-renders on tab change).
+- **Evidence:** Console errors + dialog snapshot.
+- **Fix:** {pending}
+- **Verified:** {pending}
 
 ---
 

@@ -268,14 +268,30 @@ export default function BehaviourCategoriesPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{tCommon('name')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('polarity')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('severity')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('points')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('color')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('benchmark')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('active')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{tCommon('actions')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {tCommon('name')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('polarity')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('severity')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('points')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('color')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('benchmark')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('active')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {tCommon('actions')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -294,15 +310,16 @@ export default function BehaviourCategoriesPage() {
                   <td className="px-4 py-3">
                     <span
                       className={`text-sm font-semibold ${
-                        cat.point_value > 0
-                          ? 'text-green-600'
-                          : cat.point_value < 0
+                        cat.point_value === 0
+                          ? 'text-text-secondary'
+                          : cat.polarity === 'negative'
                             ? 'text-red-600'
-                            : 'text-text-secondary'
+                            : 'text-green-600'
                       }`}
                     >
-                      {cat.point_value > 0 ? '+' : ''}
-                      {cat.point_value}
+                      {cat.point_value === 0
+                        ? '0'
+                        : `${cat.polarity === 'negative' ? '−' : '+'}${Math.abs(cat.point_value)}`}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -489,7 +506,9 @@ export default function BehaviourCategoriesPage() {
             {saveError && <p className="text-sm text-danger-text">{saveError}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>{tCommon('cancel')}</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              {tCommon('cancel')}
+            </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : editTarget ? 'Update' : 'Create'}
             </Button>
@@ -508,14 +527,20 @@ export default function BehaviourCategoriesPage() {
           <DialogHeader>
             <DialogTitle>{t('deleteCategory')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-text-secondary">{t('areYouSureYouWant')}<strong>{deleteTarget?.name}</strong>{t('thisCannotBeUndoneIf')}</p>
+          <p className="text-sm text-text-secondary">
+            {t('areYouSureYouWant')}
+            <strong>{deleteTarget?.name}</strong>
+            {t('thisCannotBeUndoneIf')}
+          </p>
           {deleteError && <p className="text-sm text-danger-text">{deleteError}</p>}
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setDeleteTarget(null)}
               disabled={deleteLoading}
-            >{tCommon('cancel')}</Button>
+            >
+              {tCommon('cancel')}
+            </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>
               {deleteLoading ? 'Deleting...' : 'Delete'}
             </Button>

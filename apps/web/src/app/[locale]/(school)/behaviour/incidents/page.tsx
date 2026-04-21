@@ -39,7 +39,7 @@ interface IncidentRow {
     polarity: string;
     color: string | null;
   } | null;
-  reported_by_user: { first_name: string; last_name: string } | null;
+  reported_by: { first_name: string; last_name: string } | null;
   participants: Array<{
     student?: { first_name: string; last_name: string } | null;
   }>;
@@ -94,7 +94,9 @@ export default function IncidentListPage() {
       '/api/v1/behaviour/categories?pageSize=100&is_active=true',
     )
       .then((res) => setCategories(res.data ?? []))
-      .catch((err) => { console.error('[BehaviourIncidentsPage]', err); });
+      .catch((err) => {
+        console.error('[BehaviourIncidentsPage]', err);
+      });
   }, []);
 
   // Fetch incidents
@@ -187,9 +189,9 @@ export default function IncidentListPage() {
       key: 'reporter',
       header: t('columns.reporter'),
       render: (row: IncidentRow) =>
-        row.reported_by_user ? (
+        row.reported_by ? (
           <span className="text-sm text-text-secondary">
-            {row.reported_by_user.first_name} {row.reported_by_user.last_name}
+            {row.reported_by.first_name} {row.reported_by.last_name}
           </span>
         ) : (
           <span className="text-text-tertiary">—</span>

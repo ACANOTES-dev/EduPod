@@ -9323,11 +9323,19 @@
       "noResults": "لا توجد حوادث تطابق عوامل التصفية الحالية.",
       "previous": "السابق",
       "statuses": {
+        "draft": "مسودة",
         "active": "نشطة",
-        "escalated": "مصعّدة",
         "investigating": "قيد التحقيق",
+        "under_review": "قيد المراجعة",
+        "awaiting_approval": "بانتظار الموافقة",
+        "awaiting_parent_meeting": "بانتظار اجتماع ولي الأمر",
+        "escalated": "مصعّدة",
         "resolved": "محلولة",
-        "withdrawn": "مسحوبة"
+        "withdrawn": "مسحوبة",
+        "closed_after_appeal": "مغلقة بعد الاستئناف",
+        "superseded": "مُلغاة بقرار لاحق",
+        "converted_to_safeguarding": "محوَّلة إلى حماية الطفل",
+        "closed": "مغلقة"
       }
     },
     "incidentDetail": {
@@ -9376,12 +9384,19 @@
         "changeStatus": "تغيير الحالة"
       },
       "statuses": {
+        "draft": "مسودة",
         "active": "نشط",
         "investigating": "قيد التحقيق",
         "under_review": "قيد المراجعة",
+        "awaiting_approval": "بانتظار الموافقة",
+        "awaiting_parent_meeting": "بانتظار اجتماع ولي الأمر",
         "escalated": "مصعّد",
         "resolved": "تم الحل",
-        "withdrawn": "مسحوب"
+        "withdrawn": "مسحوب",
+        "closed_after_appeal": "مغلق بعد الاستئناف",
+        "superseded": "مُلغى بقرار لاحق",
+        "converted_to_safeguarding": "محوَّل إلى حماية الطفل",
+        "closed": "مغلق"
       },
       "roles": {
         "subject": "المعني",
@@ -10810,18 +10825,29 @@
         "subtitle": "سجّل نقطة سلوك خلال ثوانٍ",
         "student": "الطالب",
         "searchStudent": "ابحث عن طالب…",
+        "searchStudents": "ابحث عن طالب…",
+        "change": "تغيير",
         "category": "الفئة",
+        "templates": "قوالب",
         "description": "الوصف",
         "descriptionPlaceholder": "ما الذي حدث؟",
+        "addDetails": "أضف تفاصيل…",
         "context": "السياق",
         "contextPlaceholder": "اختياري — أين / متى",
         "cancel": "إلغاء",
         "save": "حفظ",
         "saving": "جارٍ الحفظ…",
         "saved": "تم الحفظ",
+        "logging": "جارٍ التسجيل…",
+        "logIncident": "تسجيل الحادثة",
         "errorMissingStudent": "يرجى اختيار طالب",
         "errorMissingCategory": "يرجى اختيار فئة",
-        "errorGeneric": "تعذّر الحفظ — يرجى المحاولة مرة أخرى"
+        "errorGeneric": "تعذّر الحفظ — يرجى المحاولة مرة أخرى",
+        "errors": {
+          "selectCategory": "يرجى اختيار فئة",
+          "selectStudent": "يرجى اختيار طالب",
+          "failed": "تعذّر الحفظ — يرجى المحاولة مرة أخرى"
+        }
       }
     },
     "aReviewTaskWillBe": "[AR] A review task will be created automatically when the date approaches.",

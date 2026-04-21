@@ -93,7 +93,12 @@ export class BehaviourParticipantsService {
           parent_id: dto.parent_id ?? null,
           external_name: dto.external_name ?? null,
           role: (dto.role ?? 'subject') as $Enums.ParticipantRole,
-          points_awarded: dto.participant_type === 'student' ? incident.category.point_value : 0,
+          points_awarded:
+            dto.participant_type === 'student'
+              ? incident.category.polarity === 'negative'
+                ? -incident.category.point_value
+                : incident.category.point_value
+              : 0,
           parent_visible: dto.parent_visible ?? true,
           notes: dto.notes ?? null,
           student_snapshot:

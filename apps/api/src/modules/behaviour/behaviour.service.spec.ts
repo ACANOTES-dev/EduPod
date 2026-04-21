@@ -79,7 +79,8 @@ const makeCategory = (overrides: Record<string, unknown> = {}) => ({
   name: 'Disruption',
   polarity: 'negative',
   severity: 5,
-  point_value: -3,
+  // point_value is stored as a non-negative magnitude; sign is derived from polarity
+  point_value: 3,
   requires_follow_up: false,
   requires_parent_notification: false,
   parent_visible: true,
@@ -231,7 +232,7 @@ describe('BehaviourService', () => {
             category_name: 'Disruption',
             category_polarity: 'negative',
             category_severity: 5,
-            category_point_value: -3,
+            category_point_value: 3,
             reported_by_name: 'Jane Teacher',
           }),
         }),

@@ -246,6 +246,12 @@ export class BehaviourIncidentsService {
             active_intervention_ids: [],
           };
 
+          // Sign the points by polarity so aggregates (totals, leaderboards,
+          // parent points) reflect net behaviour correctly. point_value is
+          // stored as a non-negative magnitude on behaviour_categories.
+          const signedPoints =
+            category.polarity === 'negative' ? -category.point_value : category.point_value;
+
           await db.behaviourIncidentParticipant.create({
             data: {
               tenant_id: tenantId,
@@ -253,7 +259,7 @@ export class BehaviourIncidentsService {
               participant_type: 'student',
               student_id: student.id,
               role: 'subject',
-              points_awarded: category.point_value,
+              points_awarded: signedPoints,
               parent_visible: category.parent_visible,
               student_snapshot: studentSnapshot,
             },

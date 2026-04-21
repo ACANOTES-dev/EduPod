@@ -6,6 +6,7 @@ import { AuthModule } from '../auth/auth.module';
 import { ClassesModule } from '../classes/classes.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { PolicyEngineModule } from '../policy-engine/policy-engine.module';
+import { RbacModule } from '../rbac/rbac.module';
 import { SequenceModule } from '../sequence/sequence.module';
 import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 
@@ -35,6 +36,7 @@ import { BehaviourService } from './behaviour.service';
     AuthModule,
     ClassesModule,
     ConfigurationModule,
+    RbacModule,
     SequenceModule,
     StaffProfilesModule,
     forwardRef(() => PolicyEngineModule),

@@ -10,8 +10,14 @@
  */
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, StaffProfileReadFacade, ClassesReadFacade } from '../../../../common/tests/mock-facades';
+import { PermissionCacheService } from '../../../../common/services/permission-cache.service';
+import {
+  MOCK_FACADE_PROVIDERS,
+  StaffProfileReadFacade,
+  ClassesReadFacade,
+} from '../../../../common/tests/mock-facades';
 import { PrismaService } from '../../../../modules/prisma/prisma.service';
+import { RbacReadFacade } from '../../../rbac/rbac-read.facade';
 import { BehaviourScopeService } from '../../behaviour-scope.service';
 
 const TENANT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -57,6 +63,14 @@ describe('Release Gate 15-2: Scope Enforcement', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
         { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
+        {
+          provide: PermissionCacheService,
+          useValue: { isOwner: jest.fn().mockResolvedValue(false) },
+        },
+        {
+          provide: RbacReadFacade,
+          useValue: { findMembershipSummary: jest.fn().mockResolvedValue(null) },
+        },
       ],
     }).compile();
 
@@ -180,7 +194,11 @@ describe('Release Gate 15-2: Scope Enforcement', () => {
 
       // Assert — filter only includes yg-7
       const yearGroupFilter = (
-        filter as { behaviour_incident_participants: { some: { student: { year_group_id: { in: string[] } } } } }
+        filter as {
+          behaviour_incident_participants: {
+            some: { student: { year_group_id: { in: string[] } } };
+          };
+        }
       ).behaviour_incident_participants.some.student.year_group_id.in;
       expect(yearGroupFilter).toEqual(['yg-7']);
       expect(yearGroupFilter).not.toContain('yg-8');
@@ -333,8 +351,14 @@ describe('Release Gate 15-2: Scope Enforcement', () => {
 
       // Assert — all facade calls include tenant_id
       expect(mockStaffProfileReadFacade.findByUserId).toHaveBeenCalledWith(TENANT_A, USER_TEACHER);
-      expect(mockClassesReadFacade.findClassIdsByStaff).toHaveBeenCalledWith(TENANT_A, STAFF_PROFILE_TEACHER);
-      expect(mockClassesReadFacade.findEnrolledStudentIds).toHaveBeenCalledWith(TENANT_A, 'class-7A');
+      expect(mockClassesReadFacade.findClassIdsByStaff).toHaveBeenCalledWith(
+        TENANT_A,
+        STAFF_PROFILE_TEACHER,
+      );
+      expect(mockClassesReadFacade.findEnrolledStudentIds).toHaveBeenCalledWith(
+        TENANT_A,
+        'class-7A',
+      );
 
       // Tenant B data is never queried
       const allCalls = [

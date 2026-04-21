@@ -78,11 +78,13 @@ export function CategoryPicker({
               <span
                 className={cn(
                   'mt-0.5 text-[10px] font-semibold',
-                  cat.point_value > 0 ? 'text-green-600' : 'text-red-600',
+                  cat.polarity === 'negative' ? 'text-red-600' : 'text-green-600',
                 )}
               >
-                {cat.point_value > 0 ? '+' : ''}
-                {cat.point_value}{t('pts')}</span>
+                {cat.polarity === 'negative' ? '−' : '+'}
+                {Math.abs(cat.point_value)}
+                {t('pts')}
+              </span>
             )}
           </button>
         );

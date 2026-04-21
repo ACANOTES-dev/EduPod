@@ -9323,11 +9323,19 @@
       "noResults": "No incidents match the current filters.",
       "previous": "Previous",
       "statuses": {
+        "draft": "Draft",
         "active": "Active",
-        "escalated": "Escalated",
         "investigating": "Investigating",
+        "under_review": "Under Review",
+        "awaiting_approval": "Awaiting Approval",
+        "awaiting_parent_meeting": "Awaiting Parent Meeting",
+        "escalated": "Escalated",
         "resolved": "Resolved",
-        "withdrawn": "Withdrawn"
+        "withdrawn": "Withdrawn",
+        "closed_after_appeal": "Closed After Appeal",
+        "superseded": "Superseded",
+        "converted_to_safeguarding": "Converted to Safeguarding",
+        "closed": "Closed"
       }
     },
     "incidentDetail": {
@@ -9376,12 +9384,19 @@
         "changeStatus": "Change status"
       },
       "statuses": {
+        "draft": "Draft",
         "active": "Active",
         "investigating": "Investigating",
         "under_review": "Under Review",
+        "awaiting_approval": "Awaiting Approval",
+        "awaiting_parent_meeting": "Awaiting Parent Meeting",
         "escalated": "Escalated",
         "resolved": "Resolved",
-        "withdrawn": "Withdrawn"
+        "withdrawn": "Withdrawn",
+        "closed_after_appeal": "Closed After Appeal",
+        "superseded": "Superseded",
+        "converted_to_safeguarding": "Converted to Safeguarding",
+        "closed": "Closed"
       },
       "roles": {
         "subject": "subject",
@@ -10810,18 +10825,29 @@
         "subtitle": "Record a behaviour point in seconds",
         "student": "Student",
         "searchStudent": "Search students…",
+        "searchStudents": "Search students…",
+        "change": "Change",
         "category": "Category",
+        "templates": "Templates",
         "description": "Description",
         "descriptionPlaceholder": "What happened?",
+        "addDetails": "Add any details…",
         "context": "Context",
         "contextPlaceholder": "Optional — where / when",
         "cancel": "Cancel",
         "save": "Save",
         "saving": "Saving…",
         "saved": "Saved",
+        "logging": "Logging…",
+        "logIncident": "Log incident",
         "errorMissingStudent": "Please pick a student",
         "errorMissingCategory": "Please pick a category",
-        "errorGeneric": "Could not save — please try again"
+        "errorGeneric": "Could not save — please try again",
+        "errors": {
+          "selectCategory": "Please pick a category",
+          "selectStudent": "Please pick a student",
+          "failed": "Could not save — please try again"
+        }
       }
     },
     "aReviewTaskWillBe": "A review task will be created automatically when the date approaches.",

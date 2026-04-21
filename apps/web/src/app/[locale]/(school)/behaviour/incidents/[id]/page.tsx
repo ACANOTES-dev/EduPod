@@ -72,7 +72,7 @@ interface IncidentDetail {
     color: string | null;
     point_value: number;
   } | null;
-  reported_by_user: { first_name: string; last_name: string } | null;
+  reported_by: { first_name: string; last_name: string } | null;
   participants: Participant[];
 }
 
@@ -228,10 +228,10 @@ export default function IncidentDetailPage() {
         )}
         {incident.category && incident.category.point_value !== 0 && (
           <span
-            className={`text-xs font-semibold ${incident.category.point_value > 0 ? 'text-green-600' : 'text-red-600'}`}
+            className={`text-xs font-semibold ${incident.category.polarity === 'negative' ? 'text-red-600' : 'text-green-600'}`}
           >
-            {incident.category.point_value > 0 ? '+' : ''}
-            {incident.category.point_value}
+            {incident.category.polarity === 'negative' ? '−' : '+'}
+            {Math.abs(incident.category.point_value)}
             {t('pts')}
           </span>
         )}
@@ -389,8 +389,8 @@ export default function IncidentDetailPage() {
                 <div>
                   <dt className="text-xs text-text-tertiary">{t('details.reporter')}</dt>
                   <dd className="text-text-primary">
-                    {incident.reported_by_user
-                      ? `${incident.reported_by_user.first_name} ${incident.reported_by_user.last_name}`
+                    {incident.reported_by
+                      ? `${incident.reported_by.first_name} ${incident.reported_by.last_name}`
                       : '—'}
                   </dd>
                 </div>

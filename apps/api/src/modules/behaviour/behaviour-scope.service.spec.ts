@@ -1,13 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, StaffProfileReadFacade, ClassesReadFacade } from '../../common/tests/mock-facades';
+import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import {
+  MOCK_FACADE_PROVIDERS,
+  StaffProfileReadFacade,
+  ClassesReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
 
 import { BehaviourScopeService } from './behaviour-scope.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const USER_ID = 'user-1';
 const STAFF_PROFILE_ID = 'staff-1';
+const MEMBERSHIP_ID = 'membership-1';
 
 describe('BehaviourScopeService', () => {
   let service: BehaviourScopeService;
@@ -18,6 +25,8 @@ describe('BehaviourScopeService', () => {
   };
   let mockStaffProfileReadFacade: { findByUserId: jest.Mock };
   let mockClassesReadFacade: { findClassIdsByStaff: jest.Mock; findEnrolledStudentIds: jest.Mock };
+  let mockPermissionCacheService: { isOwner: jest.Mock };
+  let mockRbacReadFacade: { findMembershipSummary: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -35,6 +44,19 @@ describe('BehaviourScopeService', () => {
       findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
     };
 
+    mockPermissionCacheService = {
+      isOwner: jest.fn().mockResolvedValue(false),
+    };
+
+    mockRbacReadFacade = {
+      findMembershipSummary: jest.fn().mockResolvedValue({
+        id: MEMBERSHIP_ID,
+        tenant_id: TENANT_ID,
+        user_id: USER_ID,
+        membership_status: 'active',
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
@@ -42,6 +64,8 @@ describe('BehaviourScopeService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
         { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
+        { provide: PermissionCacheService, useValue: mockPermissionCacheService },
+        { provide: RbacReadFacade, useValue: mockRbacReadFacade },
       ],
     }).compile();
 
@@ -111,6 +135,36 @@ describe('BehaviourScopeService', () => {
       expect(result).toEqual({ scope: 'own' });
     });
 
+    it('should return "all" scope for leadership (school_owner / principal / vice-principal) even with no behaviour.* permissions', async () => {
+      mockPermissionCacheService.isOwner.mockResolvedValue(true);
+
+      const result = await service.getUserScope(TENANT_ID, USER_ID, []);
+
+      expect(result).toEqual({ scope: 'all' });
+      expect(mockRbacReadFacade.findMembershipSummary).toHaveBeenCalledWith(TENANT_ID, USER_ID);
+      expect(mockPermissionCacheService.isOwner).toHaveBeenCalledWith(MEMBERSHIP_ID);
+      expect(mockStaffProfileReadFacade.findByUserId).not.toHaveBeenCalled();
+    });
+
+    it('should fall through to the normal scope ladder when isOwner is false', async () => {
+      mockPermissionCacheService.isOwner.mockResolvedValue(false);
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_ID });
+      mockClassesReadFacade.findClassIdsByStaff.mockResolvedValue(['class-1']);
+      mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue(['student-1']);
+
+      const result = await service.getUserScope(TENANT_ID, USER_ID, ['behaviour.view']);
+
+      expect(result.scope).toBe('class');
+    });
+
+    it('should not short-circuit on behaviour.admin via the isOwner path (explicit admin permission wins without membership lookup)', async () => {
+      const result = await service.getUserScope(TENANT_ID, USER_ID, ['behaviour.admin']);
+
+      expect(result).toEqual({ scope: 'all' });
+      expect(mockRbacReadFacade.findMembershipSummary).not.toHaveBeenCalled();
+      expect(mockPermissionCacheService.isOwner).not.toHaveBeenCalled();
+    });
+
     it('should query class enrolments with active status filter', async () => {
       mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_ID });
       mockClassesReadFacade.findClassIdsByStaff.mockResolvedValue(['class-1']);
@@ -118,7 +172,10 @@ describe('BehaviourScopeService', () => {
 
       await service.getUserScope(TENANT_ID, USER_ID, ['behaviour.view']);
 
-      expect(mockClassesReadFacade.findEnrolledStudentIds).toHaveBeenCalledWith(TENANT_ID, 'class-1');
+      expect(mockClassesReadFacade.findEnrolledStudentIds).toHaveBeenCalledWith(
+        TENANT_ID,
+        'class-1',
+      );
     });
   });
 
