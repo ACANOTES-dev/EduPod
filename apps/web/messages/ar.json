@@ -148,6 +148,7 @@
     "regulatoryTusla": "Tusla",
     "diary": "المفكرة",
     "homework": "الواجبات المنزلية",
+    "engagement": "المشاركة",
     "sen": "الاحتياجات التعليمية الخاصة",
     "senDashboard": "لوحة المعلومات",
     "senStudents": "الطلاب",
@@ -922,7 +923,14 @@
         "payInvoice": "دفع الفاتورة",
         "viewGrades": "عرض الدرجات",
         "contactSchool": "الاتصال بالمدرسة"
-      }
+      },
+      "actionCenterTitle": "مركز الإجراءات",
+      "actionCenterDescription": "لديك نماذج أو تسجيلات في فعاليات أو دفعات تحتاج إلى انتباهك.",
+      "actionCenterClear": "اكتملت جميع الإجراءات. لا يوجد ما ينتظرك حاليًا.",
+      "actionCenterCta": "فتح المشاركة",
+      "pendingForms": "نماذج معلقة",
+      "upcomingActions": "إجراءات قادمة",
+      "outstandingPayments": "دفعات مستحقة"
     },
     "teacherSummary": "إليك نظرة سريعة على يومك.",
     "todaysLessons": "حصص اليوم",
@@ -6972,6 +6980,7 @@
     "sectionType_attendance_summary": "ملخص الحضور",
     "sectionType_competency_summary": "ملخص الكفاءات",
     "sectionType_conduct": "السلوك",
+    "sectionType_conduct2": "السلوك",
     "sectionType_extracurriculars": "الأنشطة اللاصفية",
     "sectionType_custom_text": "نص مخصص",
     "sectionType_teacher_comment": "تعليق المعلم",
