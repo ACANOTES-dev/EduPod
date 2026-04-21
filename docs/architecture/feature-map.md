@@ -2,53 +2,54 @@
 
 > **Purpose**: Complete inventory of every implemented feature, mapped to its code location. This document answers "what does the product do and where does it live?"
 > **Maintenance**: Update only when a feature change is confirmed final. This file is intended to be the architecture-level source of truth for product scope.
-> **Last verified**: 2026-04-17 (sched-041 CP-SAT telemetry + multi-worker closeout)
+> **Last verified**: 2026-04-21 (wellbeing rebuild — Impl 24 Wave 7 sign-off)
 
 ---
 
 ## Quick Reference
 
-| Domain                                                              | Backend Module(s)                                                                                                                                                                                                                         | API Endpoints | Frontend Pages | Worker Jobs |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------------- | ----------- |
-| [Students](#1-students)                                             | `modules/students/`                                                                                                                                                                                                                       | 8             | 5              | —           |
-| [Staff Profiles](#2-staff-profiles)                                 | `modules/staff-profiles/`                                                                                                                                                                                                                 | 6             | 4              | —           |
-| [Parents](#3-parents)                                               | `modules/parents/`                                                                                                                                                                                                                        | 6             | 1              | —           |
-| [Households](#4-households)                                         | `modules/households/`                                                                                                                                                                                                                     | 17            | 4              | —           |
-| [Registration](#5-registration)                                     | `modules/registration/`                                                                                                                                                                                                                   | 2             | —              | —           |
-| [Academics](#6-academics)                                           | `modules/academics/`                                                                                                                                                                                                                      | 21            | 5+             | —           |
-| [Classes](#7-classes)                                               | `modules/classes/`                                                                                                                                                                                                                        | 16            | 5              | —           |
-| [Scheduling & Timetabling](#8-scheduling--timetabling)              | `modules/schedules/`, `modules/scheduling/`, `modules/period-grid/`, `modules/class-requirements/`, `modules/staff-availability/`, `modules/staff-preferences/`, `modules/scheduling-runs/`, `modules/school-closures/`, `modules/rooms/` | 128           | 30+            | 3           |
-| [Attendance](#9-attendance)                                         | `modules/attendance/`                                                                                                                                                                                                                     | 22            | 6              | 4           |
-| [Gradebook & Report Cards](#10-gradebook--report-cards)             | `modules/gradebook/`                                                                                                                                                                                                                      | 148           | 30+            | 4           |
-| [Homework & Diary](#11-homework--diary)                             | `modules/homework/`                                                                                                                                                                                                                       | 44            | 12             | —           |
-| [Finance](#12-finance)                                              | `modules/finance/`                                                                                                                                                                                                                        | 87            | 23             | 2           |
-| [Payroll](#13-payroll)                                              | `modules/payroll/`                                                                                                                                                                                                                        | 79            | 10             | 3           |
-| [Communications & Announcements](#14-communications--announcements) | `modules/communications/`                                                                                                                                                                                                                 | 20            | 9              | 7           |
-| [Parent Inquiries](#15-parent-inquiries)                            | `modules/parent-inquiries/`                                                                                                                                                                                                               | 8             | 3              | 2           |
-| [Engagement](#16-engagement)                                        | `modules/engagement/`                                                                                                                                                                                                                     | 64            | 22             | 8           |
-| [Admissions](#17-admissions)                                        | `modules/admissions/`, `modules/public-households/`                                                                                                                                                                                       | 29            | 9              | 1           |
-| [Approvals](#18-approvals)                                          | `modules/approvals/`                                                                                                                                                                                                                      | 12            | 2              | 1           |
-| [Reports & Analytics](#19-reports--analytics)                       | `modules/reports/`                                                                                                                                                                                                                        | 66            | 20             | —           |
-| [Website CMS & Public Web](#20-website-cms--public-web)             | `modules/website/`                                                                                                                                                                                                                        | 13            | 7              | —           |
-| [Search](#21-search)                                                | `modules/search/`                                                                                                                                                                                                                         | 1             | —              | 2           |
-| [Dashboards](#22-dashboards)                                        | `modules/dashboard/`                                                                                                                                                                                                                      | 3             | 3              | —           |
-| [Authentication](#23-authentication)                                | `modules/auth/`                                                                                                                                                                                                                           | 12            | 5              | —           |
-| [RBAC & User Administration](#24-rbac--user-administration)         | `modules/rbac/`                                                                                                                                                                                                                           | 16            | 5              | —           |
-| [Configuration](#25-configuration)                                  | `modules/configuration/`                                                                                                                                                                                                                  | 8             | 5              | —           |
-| [Preferences & Profiles](#26-preferences--profiles)                 | `modules/preferences/`                                                                                                                                                                                                                    | 2             | 2              | —           |
-| [Compliance, Privacy & Legal](#27-compliance-privacy--legal)        | `modules/compliance/`, `modules/gdpr/`                                                                                                                                                                                                    | 34            | 7              | 3           |
-| [Imports](#28-imports)                                              | `modules/imports/`                                                                                                                                                                                                                        | 6             | 1              | 3           |
-| [Platform Admin & Operations](#29-platform-admin--operations)       | `modules/tenants/`, `modules/audit-log/`, `modules/security-incidents/`, `modules/health/`                                                                                                                                                | 30            | 8              | —           |
-| [Behaviour](#30-behaviour)                                          | `modules/behaviour/`                                                                                                                                                                                                                      | 214           | 32             | 16          |
-| [Safeguarding](#31-safeguarding)                                    | `modules/safeguarding/`                                                                                                                                                                                                                   | 21            | 5              | 4+          |
-| [Pastoral](#32-pastoral)                                            | `modules/pastoral/`                                                                                                                                                                                                                       | 149           | 20             | 8           |
-| [Early Warning](#33-early-warning)                                  | `modules/early-warning/`                                                                                                                                                                                                                  | 8             | 3              | 3           |
-| [SEN](#34-sen)                                                      | `modules/sen/`                                                                                                                                                                                                                            | 35            | 10             | —           |
-| [Child Protection](#35-child-protection)                            | `modules/child-protection/`                                                                                                                                                                                                               | 12            | —              | —           |
-| [Regulatory](#36-regulatory)                                        | `modules/regulatory/`                                                                                                                                                                                                                     | 48            | 25             | —           |
-| [Staff Wellbeing](#37-staff-wellbeing)                              | `modules/staff-wellbeing/`                                                                                                                                                                                                                | 24            | 7              | —           |
-| [Inbox & Messaging](#38-inbox--messaging)                           | `modules/inbox/`                                                                                                                                                                                                                          | 34            | 10             | 5           |
-| **TOTAL**                                                           | **38 product domains across 51+ active modules**                                                                                                                                                                                          | **~1,409+**   | **~320+**      | **75+**     |
+| Domain                                                                                             | Backend Module(s)                                                                                                                                                                                                                         | API Endpoints | Frontend Pages | Worker Jobs |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------------- | ----------- |
+| [Students](#1-students)                                                                            | `modules/students/`                                                                                                                                                                                                                       | 8             | 5              | —           |
+| [Staff Profiles](#2-staff-profiles)                                                                | `modules/staff-profiles/`                                                                                                                                                                                                                 | 6             | 4              | —           |
+| [Parents](#3-parents)                                                                              | `modules/parents/`                                                                                                                                                                                                                        | 6             | 1              | —           |
+| [Households](#4-households)                                                                        | `modules/households/`                                                                                                                                                                                                                     | 17            | 4              | —           |
+| [Registration](#5-registration)                                                                    | `modules/registration/`                                                                                                                                                                                                                   | 2             | —              | —           |
+| [Academics](#6-academics)                                                                          | `modules/academics/`                                                                                                                                                                                                                      | 21            | 5+             | —           |
+| [Classes](#7-classes)                                                                              | `modules/classes/`                                                                                                                                                                                                                        | 16            | 5              | —           |
+| [Scheduling & Timetabling](#8-scheduling--timetabling)                                             | `modules/schedules/`, `modules/scheduling/`, `modules/period-grid/`, `modules/class-requirements/`, `modules/staff-availability/`, `modules/staff-preferences/`, `modules/scheduling-runs/`, `modules/school-closures/`, `modules/rooms/` | 128           | 30+            | 3           |
+| [Attendance](#9-attendance)                                                                        | `modules/attendance/`                                                                                                                                                                                                                     | 22            | 6              | 4           |
+| [Gradebook & Report Cards](#10-gradebook--report-cards)                                            | `modules/gradebook/`                                                                                                                                                                                                                      | 148           | 30+            | 4           |
+| [Homework & Diary](#11-homework--diary)                                                            | `modules/homework/`                                                                                                                                                                                                                       | 44            | 12             | —           |
+| [Finance](#12-finance)                                                                             | `modules/finance/`                                                                                                                                                                                                                        | 87            | 23             | 2           |
+| [Payroll](#13-payroll)                                                                             | `modules/payroll/`                                                                                                                                                                                                                        | 79            | 10             | 3           |
+| [Communications & Announcements](#14-communications--announcements)                                | `modules/communications/`                                                                                                                                                                                                                 | 20            | 9              | 7           |
+| [Parent Inquiries](#15-parent-inquiries)                                                           | `modules/parent-inquiries/`                                                                                                                                                                                                               | 8             | 3              | 2           |
+| [Engagement](#16-engagement)                                                                       | `modules/engagement/`                                                                                                                                                                                                                     | 64            | 22             | 8           |
+| [Admissions](#17-admissions)                                                                       | `modules/admissions/`, `modules/public-households/`                                                                                                                                                                                       | 29            | 9              | 1           |
+| [Approvals](#18-approvals)                                                                         | `modules/approvals/`                                                                                                                                                                                                                      | 12            | 2              | 1           |
+| [Reports & Analytics](#19-reports--analytics)                                                      | `modules/reports/`                                                                                                                                                                                                                        | 66            | 20             | —           |
+| [Website CMS & Public Web](#20-website-cms--public-web)                                            | `modules/website/`                                                                                                                                                                                                                        | 13            | 7              | —           |
+| [Search](#21-search)                                                                               | `modules/search/`                                                                                                                                                                                                                         | 1             | —              | 2           |
+| [Dashboards](#22-dashboards)                                                                       | `modules/dashboard/`                                                                                                                                                                                                                      | 3             | 3              | —           |
+| [Authentication](#23-authentication)                                                               | `modules/auth/`                                                                                                                                                                                                                           | 12            | 5              | —           |
+| [RBAC & User Administration](#24-rbac--user-administration)                                        | `modules/rbac/`                                                                                                                                                                                                                           | 16            | 5              | —           |
+| [Configuration](#25-configuration)                                                                 | `modules/configuration/`                                                                                                                                                                                                                  | 8             | 5              | —           |
+| [Preferences & Profiles](#26-preferences--profiles)                                                | `modules/preferences/`                                                                                                                                                                                                                    | 2             | 2              | —           |
+| [Compliance, Privacy & Legal](#27-compliance-privacy--legal)                                       | `modules/compliance/`, `modules/gdpr/`                                                                                                                                                                                                    | 34            | 7              | 3           |
+| [Imports](#28-imports)                                                                             | `modules/imports/`                                                                                                                                                                                                                        | 6             | 1              | 3           |
+| [Platform Admin & Operations](#29-platform-admin--operations)                                      | `modules/tenants/`, `modules/audit-log/`, `modules/security-incidents/`, `modules/health/`                                                                                                                                                | 30            | 8              | —           |
+| [Behaviour](#30-behaviour)                                                                         | `modules/behaviour/`                                                                                                                                                                                                                      | 214           | 32             | 16          |
+| [Safeguarding](#31-safeguarding)                                                                   | `modules/safeguarding/`                                                                                                                                                                                                                   | 21            | 5              | 4+          |
+| [Pastoral](#32-pastoral)                                                                           | `modules/pastoral/`                                                                                                                                                                                                                       | 149           | 20             | 8           |
+| [Early Warning](#33-early-warning)                                                                 | `modules/early-warning/`                                                                                                                                                                                                                  | 8             | 3              | 3           |
+| [SEN](#34-sen)                                                                                     | `modules/sen/`                                                                                                                                                                                                                            | 35            | 10             | —           |
+| [Child Protection](#35-child-protection)                                                           | `modules/child-protection/`                                                                                                                                                                                                               | 12            | —              | —           |
+| [Regulatory](#36-regulatory)                                                                       | `modules/regulatory/`                                                                                                                                                                                                                     | 48            | 25             | —           |
+| [Staff Wellbeing](#37-staff-wellbeing)                                                             | `modules/staff-wellbeing/`                                                                                                                                                                                                                | 24            | 7              | —           |
+| [Inbox & Messaging](#38-inbox--messaging)                                                          | `modules/inbox/`                                                                                                                                                                                                                          | 34            | 10             | 5           |
+| [Wellbeing Super-Hub + AI Flags + Notifications](#39-wellbeing-super-hub--ai-flags--notifications) | `modules/wellbeing-aggregate/`, `modules/ai-flags/`, `modules/wellbeing-notifications/`                                                                                                                                                   | 4             | 2              | —           |
+| **TOTAL**                                                                                          | **39 product domains across 54+ active modules**                                                                                                                                                                                          | **~1,413+**   | **~335+**      | **77+**     |
 
 ---
 
@@ -847,7 +848,7 @@
 
 **Frontend**:
 
-- `/behaviour`
+- `/behaviour` (flagship sub-hub — Wave 5 Impl 14, 14 hub cards + KPI strip + Recognition Wall preview + inline AI parse)
 - `/behaviour/incidents`
 - `/behaviour/incidents/new`
 - `/behaviour/incidents/[id]`
@@ -865,14 +866,19 @@
 - `/behaviour/alerts`
 - `/behaviour/tasks`
 - `/behaviour/amendments`
-- `/behaviour/guardian-restrictions`
-- `/behaviour/recognition`
-- `/behaviour/documents`
+- `/behaviour/guardian-restrictions` (with type tooltips — pre-24 cleanup)
+- `/behaviour/recognition` (celebratory hero + gold/silver/bronze podium — Wave 6 Impl 23)
+- `/behaviour/documents` (list + `/[id]` detail — Wave 6 Impl 20)
 - `/behaviour/analytics`
-- `/behaviour/analytics/ai`
+- `/behaviour/analytics/ai` (NL query rebuild — Wave 6 Impl 19)
+- `/behaviour/admin` (6 repair-op tiles — Wave 6 Impl 23)
+- `/behaviour/admin/legal-holds` (list / create / release — Wave 6 Impl 23)
+- `/behaviour/policies/replay` (typed-confirmation replay preview — Wave 6 Impl 23)
 - `/behaviour/parent-portal`
 - `/behaviour/parent-portal/recognition`
 - Behaviour settings under `/settings/behaviour-*`
+
+**Wellbeing rebuild additions** (Waves 2–7): incident-stats, tasks-stats, recognition feed, document templates (read), document preview signed-URL, exclusion named endpoints (`issue-notice`, `schedule-hearing`, `record-hearing`, `finalise`, `overturn`), amendment send-correction dispatch, behaviour acknowledgements (`GET` + `POST /:id/read`), AI parse / per-student summary / NL-query history (all gated via `@RequiresAiFlag('behaviour')`), policy replay aliases (`/policies/replay/preview`, `/policy-dry-run`), admin repair endpoints with `confirm_phrase` enforcement, AI query history table.
 
 **Worker jobs**:
 
@@ -910,11 +916,17 @@
 
 **Frontend**:
 
-- `/safeguarding`
+- `/safeguarding` (flagship sub-hub — Wave 5 Impl 17, replaces the old pastoral redirect)
 - `/safeguarding/concerns`
 - `/safeguarding/concerns/new`
 - `/safeguarding/concerns/[id]`
 - `/safeguarding/my-reports`
+- `/safeguarding/sla` (first-response timer dashboard — Wave 5 Impl 17)
+- `/safeguarding/sealed` (redacted dual-approval-sealed index — Wave 5 Impl 17)
+- `/safeguarding/break-glass` (list + `/[id]` detail — Wave 6 Impl 23)
+- `/safeguarding/reviews` (after-action review queue — pre-24 cleanup)
+
+**Wellbeing rebuild additions** (Waves 3 + 6): seal reject (`POST /:id/seal/reject`), `GET /:id/seal-status`, `GET /break-glass/:id` hydrated detail, `GET /break-glass/:id/access-log` (projected from `safeguarding_actions`), widened `listActiveGrants` with 30-day window + `active` / `review_completed_at` / `review_overdue` flags. Sealing dual-approval UI added to pastoral concern detail.
 
 **Worker jobs**:
 
@@ -963,11 +975,17 @@
 - `/pastoral/referrals/new`
 - `/pastoral/referrals/[id]`
 - `/pastoral/checkins`
+- `/pastoral/checkins/flagged` (severity-ordered flagged queue — Wave 6 Impl 22)
 - `/pastoral/sst`
 - `/pastoral/sst/[id]`
 - `/pastoral/critical-incidents`
 - `/pastoral/critical-incidents/new`
 - `/pastoral/critical-incidents/[id]`
+- `/pastoral/dsar` (DSAR review queue — Wave 6 Impl 22)
+- `/pastoral/dsar/[complianceRequestId]` (per-item Include / Redact / Exclude — Wave 6 Impl 22)
+- `/pastoral/import` (3-step CSV wizard — Wave 6 Impl 22)
+
+**Wellbeing rebuild additions** (Waves 3 + 6): DSAR stats endpoint, flagged check-in queue + escalate/dismiss, critical-incident support log (`GET /affected/:personId/support` + `recordSupportOffered` append-only), SST agenda refresh gated by `@RequiresAiFlag('pastoral')`, agenda projection with cross-cutting-themes section + per-item AI source tags (`auto_new_concern`, `auto_case_review`, `auto_overdue_action`, `auto_early_warning`, `auto_neps`, `auto_intervention_review`).
 
 **Worker jobs**:
 
@@ -997,7 +1015,8 @@
 
 **Frontend**:
 
-- `/early-warnings`
+- `/early-warnings` (flagship sub-hub rewrite — Wave 5 Impl 16, amber-gradient hero KPIs with sparklines + deterministic AI insights panel + at-risk matrix + cohort charts)
+- `/early-warnings/intervene` (multi-select intervention triage — pre-24 cleanup)
 - `/early-warnings/cohort`
 - `/early-warnings/settings`
 
@@ -1109,13 +1128,14 @@
 
 **Frontend**:
 
-- `/wellbeing/dashboard`
-- `/wellbeing/my-workload`
-- `/wellbeing/reports`
-- `/wellbeing/resources`
-- `/wellbeing/survey`
-- `/wellbeing/surveys`
-- `/wellbeing/surveys/[id]`
+- `/wellbeing/staff` (folded super-page — Wave 5 Impl 15, replaces the fragmented 5-route layout)
+- `/wellbeing/dashboard` → 302 redirect to `/wellbeing/staff#aggregate`
+- `/wellbeing/my-workload` → 302 redirect to `/wellbeing/staff#my`
+- `/wellbeing/reports` → 302 redirect to `/wellbeing/staff#board-report`
+- `/wellbeing/resources` → 302 redirect to `/wellbeing/staff#resources`
+- `/wellbeing/survey` (survey response page — kept)
+- `/wellbeing/surveys` → 302 redirect to `/wellbeing/staff#surveys`
+- `/wellbeing/surveys/[id]` (survey detail — kept, breadcrumbs back to staff hub)
 
 **Depends on**: Payroll, scheduling, attendance, communications, audit and anonymity controls.
 
@@ -1199,3 +1219,41 @@
 **Tenant feature reference**: `docs/features/inbox.md`.
 
 **Depends on**: Rbac (role resolution), Finance (`FeesInArrearsProvider`), Safeguarding (downstream handoff), Communications (dispatcher bridge), Pdf rendering (oversight exports), Notifications queue.
+
+---
+
+## 39. Wellbeing Super-Hub + AI Flags + Notifications
+
+**What it does**: Three aggregate / cross-cutting modules that compose the flagship `/wellbeing` super-hub (Wave 5 Impl 13) into a single surface by cross-querying behaviour / pastoral / safeguarding / early-warning / staff-wellbeing. Per-module AI feature gating (behaviour / pastoral / staff_wellbeing / early_warning). Wellbeing event routing with in-app always-on + per-event channel overrides for email / SMS / WhatsApp (providers stubbed per `PLAN.md §8`).
+
+**Backend**: three modules under `apps/api/src/modules/`:
+
+- `wellbeing-aggregate/` — `WellbeingAggregateService.getDashboardSummary` composes KPIs + pending-attention banner + hub_counts + recent-activity via `Promise.allSettled` across five read facades. Uses `ReadFacadesModule` (`BehaviourReadFacade`, `PastoralReadFacade`, `SafeguardingReadFacade`, `EarlyWarningReadFacade`, `StaffWellbeingReadFacade`). Flag-gated sources via `tenant_modules` (skipped when disabled). Route: `GET /api/v1/wellbeing/dashboard-summary` (gated by `wellbeing.view_dashboard`).
+- `ai-flags/` — `AiFlagsService` with 5-minute in-memory TTL cache, `AiFlagsController` at `/v1/ai-flags` (GET list + PATCH `:moduleKey`), global `@RequiresAiFlag(moduleKey)` decorator + `AiFlagGuard` via `APP_GUARD`. Gates `POST /behaviour/incidents/ai-parse`, `GET /behaviour/students/:id/ai-summary`, `POST /behaviour/analytics/ai-query`, `POST /pastoral/sst/meetings/:id/agenda/refresh`. Returns `403 AI_DISABLED` when the flag is off.
+- `wellbeing-notifications/` — `WellbeingNotificationsService.dispatch(event, recipients)` writes in-app inbox rows (always-on) then fans out to email / SMS / WhatsApp per `tenant_notification_preferences.wellbeing_channels` (defaults + per-event overrides). Event-key catalogue: `incident.logged`, `incident.escalated`, `concern.raised`, `concern.acknowledged`, `sanction.scheduled`, `sanction.served`, `sla.breach`, `critical.declared`, `appeal.submitted`, `appeal.decided`, `recognition.awarded`, `document.sent_to_parent`, `amendment.sent`, `reminder.acknowledgement`, etc. Provider implementations throw `PROVIDER_NOT_WIRED`; `safeDispatch` swallows so callers never 500 on provider failure.
+
+**Frontend**:
+
+- `/wellbeing` (super-hub landing — Wave 5 Impl 13)
+- `/settings/ai-flags` (tenant admin AI flag toggles — Wave 5 Impl 18)
+
+**Tables**:
+
+- `tenant_ai_flags` (per-module AI gate — impl 01)
+- `tenant_notification_preferences` (`wellbeing_channels` JSONB — impl 01)
+- `behaviour_ai_query_history` (NL-query round-trip audit — impl 05)
+
+Four new permissions: `ai_flag.manage`, `wellbeing.view_dashboard`, `safeguarding.dedicated_view`, `wellbeing_notifications.configure`.
+
+**Shared types**: `packages/shared/src/wellbeing/` — `wellbeingDashboardSummarySchema`, `WellbeingDashboardSummary`, `WELLBEING_NOTIFICATION_EVENT_KEYS`, `WELLBEING_DISPATCH_SEVERITIES`.
+
+**Worker jobs**:
+
+- `behaviour:exclusion-deadline-check` (every 6h UTC, per tenant)
+- `behaviour:ack-reminders` (daily 9am tenant-local)
+- Document render / send via the existing `pdf-rendering` + `behaviour:document-ready` chain
+- `pastoral:precompute-agenda` (deferred — deterministic generator ships today)
+
+**Depends on**: Behaviour, pastoral, safeguarding, early-warning, staff-wellbeing (via `ReadFacadesModule`); notifications queue; tenant_modules flag table; inbox (for in-app channel writes).
+
+**Source of truth for the rebuild**: `wellbeing_new/PLAN.md`, `wellbeing_new/IMPLEMENTATION_LOG.md`, `wellbeing_new/SIGN_OFF.md`.

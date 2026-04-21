@@ -949,3 +949,148 @@ Refactor `SchedulingSolverV2Job` to **not extend `TenantAwareJob`** at all. Ever
 - `apps/worker/src/base/tenant-aware-job.ts` — base class + `transactionTimeoutMs` override hook.
 - `apps/worker/src/processors/scheduling/solver-v2.processor.ts` — reference mitigation (3780 s ceiling).
 - `scheduler/OR CP-SAT/IMPLEMENTATION_LOG.md` Stage 9.5.1 post-close amendment — full incident writeup with the two NHQS smoke runs that surfaced it.
+
+## DZ-Wellbeing-1: Prisma `@map` Enum Values Silently Fail Lying Casts
+
+**Risk**: Prisma enums that use `@map("legacy_value")` export the TypeScript-side name (e.g. `pc_active`), not the DB value. Writing `where: { status: filters.status as $Enums.PastoralInterventionStatus }` with `filters.status === 'active'` passes `'active'` to the Prisma client, which compares it to its own enum member list (`pc_active, achieved, …`) and throws `PrismaClientValidationError: Invalid value for argument status. Expected PastoralInterventionStatus`. The lie only surfaces at runtime — TypeScript's cast suppresses the compile-time check.
+
+**Location**:
+
+- `apps/api/src/modules/pastoral/services/intervention.service.ts` — `listInterventions`, `listInterventionsWithFilter` (filter translation via `toPrismaInterventionStatus` helper).
+- Schema pointer: `packages/prisma/schema.prisma` — any `enum X { foo @map("bar") }` entry creates this risk.
+
+**Affected mapped enums** (as of 2026-04-21): `PastoralInterventionStatus.pc_active → "active"`, `PastoralActionStatus.pc_*`, `PastoralReferralRecommendationStatus.rec_*`, `SstMeetingStatus.sst_*`, `CriticalIncidentType.ci_other`, `ContactFormStatus.new_submission`, `RegulatorySubmissionStatus.reg_*`, `TuslaAbsenceCategory.tusla_*`, `ReducedSchoolDayReason.rsd_other`, `PodSyncStatus.pod_*`, `PodSyncLogStatus.sync_*`, `TransferStatus.transfer_*`, `CbaSyncStatus.cba_*`, `BehaviourTaskStatus.pc_*` (if any). **Services must translate public-API values to Prisma-side values before passing them as filters.**
+
+**Status**: MITIGATED for `PastoralInterventionStatus` (2026-04-21, impl 24 polish). Other mapped enums are currently safe because no filter paths receive public values — but the same trap will fire if a future endpoint exposes a public `status` filter on any of them.
+
+**How to detect in new code**:
+
+1. Grep for `as $Enums\.` in service files.
+2. For each hit, check whether the value is a runtime-dynamic string (from `filters.*`, `dto.*`, `req.query.*`) or a known literal.
+3. Dynamic values must be passed through a translator function that maps public names to the Prisma-side names. Literals are safe if they match the Prisma-side name.
+
+**Mitigation pattern** (from `intervention.service.ts`):
+
+```typescript
+function toPrismaInterventionStatus(value: string): $Enums.PastoralInterventionStatus {
+  return (value === 'active' ? 'pc_active' : value) as $Enums.PastoralInterventionStatus;
+}
+```
+
+**Code pointers**:
+
+- `apps/api/src/modules/pastoral/services/intervention.service.ts:125-134` — translator helper
+- `packages/prisma/schema.prisma` — search `@map` for the full set of at-risk enums
+
+## DZ-Wellbeing-2: AI Flag Disable Suspends Features Tenant-Wide
+
+**Risk**: `AiFlagsService.setFlag(tenantId, moduleKey, false, userId)` immediately short-circuits every AI endpoint under that module with `403 AI_DISABLED`. There is **no drain window** — in-flight requests that haven't yet reached the guard will fail at the decorator, but the UI surfaces tied to the flag (AI parse modal, per-student AI summary, NL query, SST agenda refresh) stop working instantly.
+
+**Location**: `apps/api/src/modules/ai-flags/` — `AiFlagGuard` + `@RequiresAiFlag('module_key')` decorator. Admin UI at `/settings/ai-flags`.
+
+**Status**: ACCEPTED design. The alternative (drain window) would make billing unpredictable.
+
+**Mitigation**:
+
+- UI at `/settings/ai-flags` warns admins via a `DISABLE ALL AI` typed-confirmation before bulk-disable (matches impl 09's admin repair pattern).
+- The 5-minute in-memory cache means multi-instance API processes converge within 5 minutes of a disable. Bulk-disable does 4 sequential PATCHes client-side so ordering is deterministic.
+- Frontend handles `403 AI_DISABLED` with a friendly "AI features disabled" banner instead of an error toast.
+
+**How to detect**:
+
+- Adding a new AI endpoint? Add `@RequiresAiFlag('module_key')` to the controller method. Skipping the decorator silently bypasses the gate.
+- Lint rule candidate: any endpoint whose name matches `*ai*|*gpt*|*llm*` but has no `@RequiresAiFlag` decorator should fail the lint.
+
+## DZ-Wellbeing-3: Sealing Is Irreversible
+
+**Risk**: `POST /safeguarding/concerns/:id/seal/approve` flips the concern to `sealed` status. Once sealed, the record can only be unsealed by the platform owner — and unseal is a governance-heavy manual flow (not currently an API endpoint). The UI does not warn sealers that their action cannot be undone within the normal admin surface.
+
+**Location**: `apps/api/src/modules/safeguarding/safeguarding-seal.service.ts`.
+
+**Status**: ACCEPTED design. The sealing concept exists specifically to make records forgery-resistant post-approval.
+
+**Mitigation**:
+
+- Dual-control: the approver and initiator must be different users (`safeguarding_seal_rejected` audit log on same-user attempts).
+- Rejection path (`POST /:id/seal/reject`) allows aborting the seal before the approver confirms.
+- Sealing audit log is immutable and all seal actions are in `safeguarding_actions` with `action_type='status_changed'`.
+
+**How to apply**: before shipping any UI that wraps the approve endpoint, the UI MUST show an irreversibility warning plus the approver's name and require an explicit typed-confirmation (pattern: `"SEAL CONCERN"`).
+
+## DZ-Wellbeing-4: Break-Glass Access Log Is Append-Only; Deleting Rows Breaks The Audit Chain
+
+**Risk**: The break-glass access log is projected from `safeguarding_actions.metadata.break_glass_grant_id`. There is no dedicated `safeguarding_break_glass_access_log` table — the chain of custody lives inside the append-only actions trail. **Deleting or anonymising any `safeguarding_actions` row with `metadata.break_glass_grant_id` set breaks the break-glass audit chain for the grant it references.**
+
+**Location**: `apps/api/src/modules/safeguarding/` — break-glass service + access-log projection.
+
+**Status**: Intentional (keeps the schema narrow). Documented here so no one writes a migration that deletes old `safeguarding_actions` rows thinking they're tidying up.
+
+**Mitigation**:
+
+- Retention policy must exclude `safeguarding_actions` with `metadata.break_glass_grant_id` from any deletion window.
+- The GDPR anonymisation pipeline (legal-hold respecting) must treat these rows as legal-hold-by-default.
+
+## DZ-Wellbeing-5: Admin Repair Operations Are Dangerous And Mostly Batch-Scale
+
+**Risk**: The behaviour admin console (`/behaviour/admin`) exposes six repair operations that each touch large swaths of data: `recompute-points`, `rebuild-awards`, `recompute-pulse`, `backfill-tasks`, `reindex-search`, `retention/execute`. They all now require a `confirm_phrase` in the request body matching a specific string (e.g. `"recompute-points-yes"`, `"retention-execute-yes"`); mismatches return `400 CONFIRMATION_PHRASE_MISMATCH`.
+
+**Location**: `apps/api/src/modules/behaviour/behaviour-admin.controller.ts` + `behaviour-admin.service.ts`. UI: `/behaviour/admin` (Wave 6 Impl 23).
+
+**Blast radius**:
+
+- `recompute-points`: re-scores every active incident in the tenant. Temporary points inconsistency until the job completes.
+- `rebuild-awards`: re-issues every recognition award. Can cascade into parent notifications if the award templates are configured for auto-announce — currently inert because the notification wiring for rebuild is stubbed.
+- `recompute-pulse`: refreshes the behaviour-pulse KPIs. Read-only output but CPU-heavy.
+- `backfill-tasks`: creates missing follow-up tasks for historical incidents. Net-new task rows.
+- `reindex-search`: full-table search reindex. No data change; impacts search latency during the run.
+- `retention/execute`: **the dangerous one.** Soft-anonymises incidents older than the tenant's retention window. Legal-hold flags are respected. This is the only repair op with permanent side effects.
+
+**Mitigation**: each endpoint now requires `confirm_phrase`. The UI typed-confirmation MUST match the expected server-side phrase per operation. If a new admin op is added, the shared `admin-ops.schema.ts` MUST define its phrase and the controller MUST enforce it with `CONFIRMATION_PHRASE_MISMATCH` on mismatch.
+
+## DZ-Wellbeing-6: In-App Notification Channel Is Always On
+
+**Risk**: `tenant_notification_preferences.wellbeing_channels` only gates the outbound paid channels (email / SMS / WhatsApp). In-app inbox delivery is hard-coded on in `WellbeingNotificationsService.dispatch` — a tenant who expects "all wellbeing notifications suppressed" still receives in-app entries.
+
+**Location**: `apps/api/src/modules/wellbeing-notifications/services/wellbeing-notifications.service.ts`.
+
+**Status**: Intentional — matches the new-inbox rebuild's always-on inbox invariant (DZ-Inbox-1). **Never weaken this** — the inbox is the only channel that audit-logs for compliance export.
+
+**Mitigation**: if a tenant asks to suppress in-app for a specific event, the right answer is "configure the event to not fire in the first place" (e.g. disable the underlying feature), not to add a channel-level off switch.
+
+## DZ-Wellbeing-7: `safeguarding.view` Was Missing From `school_principal` + `school_vice_principal` Until 2026-04-21
+
+**Risk**: Before the 2026-04-21 backfill migration (`20260421000000_wbr_backfill_safeguarding_admin_grants`), `school_principal` and `school_vice_principal` system roles did not carry `safeguarding.view`, `safeguarding.manage`, `safeguarding.report`, or `safeguarding.seal` on existing tenants — only `safeguarding.dedicated_view` and `safeguarding.keywords.write` (from the wellbeing foundation migration). Result: the `/safeguarding` sub-hub rendered (gated on `.dedicated_view`) but every data fetch returned `403 safeguarding.view`. The UI surfaced three "Safeguarding access denied" toasts on first load.
+
+**Location**:
+
+- Original seed gap: `packages/prisma/seed/system-roles.ts` (now fixed) + `packages/shared/src/constants/permissions.ts` `SYSTEM_ROLE_PERMISSIONS` (partial — only `school_owner` + `school_admin` carry full safeguarding; the rest of the TENANT_SYSTEM_ROLES roles have NO entry in that record, so new API-created tenants rely on per-module backfill inits — see below).
+
+**Status**: MITIGATED (impl 24). Three fixes landed together:
+
+1. Migration `20260421000000_wbr_backfill_safeguarding_admin_grants` grants the four safeguarding perms to existing tenants' principal + VP roles.
+2. `packages/prisma/seed/system-roles.ts` updated so re-seeded dev / test tenants get the perms.
+3. Not fixed in impl 24 but flagged: `SYSTEM_ROLE_PERMISSIONS` record is incomplete. API-created tenants still rely on legacy seed paths. A future refactor should make `SYSTEM_ROLE_PERMISSIONS` the single source for tenant-creation OR consolidate onto `SYSTEM_ROLES`. Current state: the two sources are known-divergent.
+
+**How to detect**: if a new system role is introduced, it MUST be added to BOTH `SYSTEM_ROLES` (seed) AND `SYSTEM_ROLE_PERMISSIONS` (runtime tenant creation), OR a dedicated backfill migration + per-module init class must explicitly grant the permissions it needs. Missing perms surface as 403s on endpoints the role is expected to access.
+
+**Per-jurisdiction note**: Principal is the Designated Safeguarding Lead in Irish / UK schools by default. The current grant (`safeguarding.view|manage|report|seal` to principal, `view|manage|report` to VP — no `seal`) reflects dual-control: sealing requires principal + owner, never two people from the same admin tier.
+
+## DZ-Wellbeing-8: Wave 4 Hardening Rules Persist Beyond The Rebuild
+
+**Risk**: Waves 4, 5, and 6 of the wellbeing rebuild introduced eleven hardened parallel-coding rules (H1–H11) in `wellbeing_new/IMPLEMENTATION_LOG.md §2b` to prevent lint-staged auto-stash from destroying concurrent sibling work. These rules are not documented anywhere else in the repo, but they apply to **every future frontend rebuild** that touches shared files (`messages/en.json`, `messages/ar.json`, `nav-config.ts`, morph-bar shell, seed files).
+
+**Location**: `wellbeing_new/IMPLEMENTATION_LOG.md §2b` (rules H1–H11). Prior loss: the new-inbox rebuild's Wave 4 lost hours of work to `git add .` collisions.
+
+**Status**: Established. Any future module rebuild running parallel sessions should import these rules verbatim.
+
+**Key patterns**:
+
+- **H3**: Stage by explicit pathspec, never `git add .` or `-A`.
+- **H4**: Inspect `git status` before every commit; abort if sibling files appear.
+- **H5**: Shared files (translations, nav-config) go LAST in a dedicated final commit.
+- **H7**: `IMPLEMENTATION_LOG.md` always gets its own commit.
+- **H8**: Translation additions stored in local scratch until the final commit window.
+- **H9**: Re-read `en.json` / `ar.json` immediately before writing; deep-merge.
+- **H11**: Pre-stash sibling work with `git stash push --keep-index --include-untracked` before committing.
+
+See `wellbeing_new/IMPLEMENTATION_LOG.md §2b` for the full rules + rationale.

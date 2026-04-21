@@ -2,7 +2,7 @@
 
 > **Purpose**: Before changing a status field or adding a transition, check here for the full contract.
 > **Maintenance**: Update when adding new statuses or changing transition rules.
-> **Last verified**: 2026-04-09
+> **Last verified**: 2026-04-21 (wellbeing rebuild — Impl 24 Wave 7 sign-off — no new state machines introduced; DocumentStatus + ExclusionStatus + InterventionStatus + SafeguardingStatus verified against source)
 
 ---
 

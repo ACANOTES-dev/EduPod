@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public API, shared table contract, or exported service, check here to see what else breaks.
 > **Maintenance**: Update when adding module exports, changing shared service interfaces, or introducing new cross-module reads/writes.
-> **Last verified**: 2026-04-11
+> **Last verified**: 2026-04-21 (wellbeing rebuild — Impl 24 Wave 7 sign-off)
 
 ---
 
@@ -244,23 +244,26 @@ If a module is not listed individually, it is either:
 ### BehaviourModule
 
 - **Contract**: incidents, sanctions, tasks, interventions, appeals, exclusions, behaviour read facade, policy engine coupling
-- **Primary consumers**: safeguarding, pastoral sync, parent portal, reports, early warning triggers, approval-driven discipline flows
+- **Primary consumers**: safeguarding, pastoral sync, parent portal, reports, early warning triggers, approval-driven discipline flows, `WellbeingAggregateModule` (via `BehaviourReadFacade`)
+- **Dependencies added (wellbeing rebuild, 2026-04-20)**: `WellbeingNotificationsService` (imported via `WellbeingNotificationsModule`) for post-commit dispatch on sanction serve, exclusion named transitions, amendment sent, document sent, appeal decided. `AiFlagGuard` gates `POST /incidents/ai-parse`, `GET /students/:id/ai-summary`, `POST /analytics/ai-query` via `@RequiresAiFlag('behaviour')`. `StudentReadFacade.findActiveParentUserIdsForStudent` added (avoids cross-module Prisma reads to `student_parent` from behaviour). `BehaviourAIModule` under `behaviour/ai/` owns the four AI endpoints + rate limiter + audit trail.
 - **Blast radius**: VERY HIGH
-- **Notes**: this is one of the densest modules in the codebase; lifecycle and worker changes fan out quickly
+- **Notes**: this is one of the densest modules in the codebase; lifecycle and worker changes fan out quickly. **The `BehaviourExclusionDeadlineCheckProcessor` and `BehaviourAckRemindersProcessor` write in-app notifications directly via `tx.notification.create` rather than going through `WellbeingNotificationsService` — they don't import the Nest module in the worker graph (impl 07 follow-up).**
 
 ### SafeguardingModule
 
-- **Contract**: safeguarding concern lifecycle, sealing, break-glass, referrals, safeguarding SLA/escalation jobs
-- **Primary consumers**: pastoral sync, audit/security coverage, child protection-style downstream workflows
+- **Contract**: safeguarding concern lifecycle, sealing, break-glass, referrals, safeguarding SLA/escalation jobs, new `POST /concerns/:id/seal/reject` + `GET /:id/seal-status` + `GET /break-glass/:id` + `GET /break-glass/:id/access-log`
+- **Primary consumers**: pastoral sync, audit/security coverage, child protection-style downstream workflows, `WellbeingAggregateModule` (via new `SafeguardingReadFacade` exposing concern counts + SLA bucket + sealed-this-year + critical-by-severity)
+- **Dependencies added (wellbeing rebuild)**: `SafeguardingReadFacade` registered in `ReadFacadesModule`; safeguarding dashboard endpoint now renders with or without school_owner. The `listActiveGrants` contract widened to include 30-day window + `active` / `review_completed_at` / `review_overdue` flags.
 - **Blast radius**: VERY HIGH
-- **Notes**: status-projection and sealed-record access rules are safety-critical contracts
+- **Notes**: status-projection and sealed-record access rules are safety-critical contracts. `safeguarding.view` + `.manage` + `.report` + `.seal` permissions are now granted to `school_principal` and `school_vice_principal` on existing tenants (2026-04-21 migration `20260421000000_wbr_backfill_safeguarding_admin_grants`). Previously only `school_owner` and legacy-seed tenants had these.
 
 ### PastoralModule
 
-- **Contract**: concerns, cases, referrals, SST, critical incidents, check-ins, pastoral reporting
-- **Primary consumers**: child protection links, early warning signals, parent-facing pastoral views, PDF exports
+- **Contract**: concerns, cases, referrals, SST, critical incidents, check-ins, pastoral reporting, DSAR review, import, flagged queue actions, critical-incident support log
+- **Primary consumers**: child protection links, early warning signals, parent-facing pastoral views, PDF exports, `WellbeingAggregateModule` (via `PastoralReadFacade`)
+- **Dependencies added (wellbeing rebuild)**: `PastoralReadFacade` extended with open-case + recent concern + critical count getters for aggregate. `SstAgendaGeneratorService.generateAgenda` gated by `@RequiresAiFlag('pastoral')`.
 - **Blast radius**: VERY HIGH
-- **Notes**: `PastoralModule` is the live implementation surface; the top-level `PastoralCheckinsModule` and `PastoralDsarModule` wrappers remain empty stubs
+- **Notes**: `PastoralModule` is the live implementation surface; the top-level `PastoralCheckinsModule` and `PastoralDsarModule` wrappers remain empty stubs. **`PastoralInterventionStatus` Prisma enum uses `pc_active @map("active")` — services MUST translate public API value `'active'` → Prisma `'pc_active'` before passing to queries (see `toPrismaInterventionStatus` helper in `intervention.service.ts`). Same pattern applies to `PastoralActionStatus`, `PastoralReferralRecommendationStatus`, `SstMeetingStatus` if they ever take filter values from public APIs — currently safe because they don't.**
 
 ### ChildProtectionModule
 
@@ -272,9 +275,10 @@ If a module is not listed individually, it is either:
 ### EarlyWarningModule
 
 - **Contract**: student risk profiles, risk signals, config-driven tiering, trigger semantics
-- **Primary consumers**: attendance/behaviour/pastoral worker triggers, dashboards, routing/assignment flows
+- **Primary consumers**: attendance/behaviour/pastoral worker triggers, dashboards, routing/assignment flows, `WellbeingAggregateModule` (via new `EarlyWarningReadFacade` exposing amber/red counts)
+- **Dependencies added (wellbeing rebuild)**: `EarlyWarningReadFacade` registered in `ReadFacadesModule` for aggregate KPI composition.
 - **Blast radius**: HIGH
-- **Notes**: no other API module imports its services directly, but many processors feed it indirectly through queue jobs and shared signal tables
+- **Notes**: no other API module imports its services directly, but many processors feed it indirectly through queue jobs and shared signal tables. The flagship `/early-warnings` sub-hub (impl 16) is a top consumer of `GET /early-warnings?pageSize=100&tier=amber|red`, `GET /summary`, and the intervene-multiselect probe of `GET /pastoral/interventions?status=active&pageSize=1`.
 
 ### HomeworkModule
 
@@ -320,9 +324,33 @@ If a module is not listed individually, it is either:
 ### StaffWellbeingModule
 
 - **Contract**: workload metrics, surveys, resource directory, board-report aggregation
-- **Primary consumers**: leadership reporting, wellbeing dashboards, survey moderation jobs
+- **Primary consumers**: leadership reporting, wellbeing dashboards, survey moderation jobs, `WellbeingAggregateModule` (via new `StaffWellbeingReadFacade`)
+- **Dependencies added (wellbeing rebuild)**: `StaffWellbeingReadFacade` registered in `ReadFacadesModule` exposing survey count + cover-fairness Gini for hub counters. `PersonalWorkloadController.resolveStaffProfile` throws `STAFF_PROFILE_NOT_FOUND` for users without a `staff_profiles` row (principals / admins) — frontend at `/wellbeing/staff` now catches this specifically and shows a "No teaching profile" empty state instead of surfacing it as an error toast.
 - **Blast radius**: MEDIUM
 - **Notes**: downstream breakage is limited, but upstream schedule/substitution/staff-data changes can distort outputs quickly
+
+### WellbeingAggregateModule (NEW — wellbeing rebuild Impl 03)
+
+- **Contract**: `GET /api/v1/wellbeing/dashboard-summary` — single composed payload for the `/wellbeing` super-hub. Returns KPIs (`students_at_risk`, `open_incidents`, `open_pastoral_cases`, `overdue_actions`) + `pending_attention[]` + `hub_counts` (per-module counts for tile badges) + `recent_activity[]`.
+- **Primary consumers**: `/wellbeing` frontend super-hub (impl 13)
+- **Imports**: `ReadFacadesModule` (uses 5 read facades — behaviour / pastoral / safeguarding / early-warning / staff-wellbeing)
+- **Blast radius**: LOW (additive; does not mutate)
+- **Notes**: Per-module sub-queries run via `Promise.allSettled` so a failing facade yields zero counts + logged warning instead of a 500. Module-flag-disabled sources (via `tenant_modules`) contribute zero. Gated by `wellbeing.view_dashboard`.
+
+### AiFlagsModule (NEW — wellbeing rebuild Impl 04)
+
+- **Contract**: per-tenant per-module AI feature gate. Table `tenant_ai_flags` (`tenant_id, module_key, enabled, updated_at, updated_by`). Service methods: `list(tenantId)`, `setFlag(tenantId, moduleKey, enabled, userId)`, `isEnabled(tenantId, moduleKey)` (with 5-minute in-memory TTL cache, invalidated on setFlag). Controller at `/v1/ai-flags` (GET list + PATCH `:moduleKey`). Global `AiFlagGuard` via `APP_GUARD` reads the `@RequiresAiFlag('moduleKey')` decorator metadata and throws `403 AI_DISABLED` when the flag is off. The decorator currently gates 4 endpoints (behaviour AI parse, behaviour per-student summary, behaviour NL query, pastoral SST agenda refresh).
+- **Primary consumers**: `BehaviourAIModule`, `SstAgendaGeneratorService`, tenant admin UI at `/settings/ai-flags`
+- **Blast radius**: HIGH (any new AI surface must add the decorator or expose unbilled AI calls)
+- **Notes**: cache is per-process; multi-instance deploys see at most 5 minutes of staleness. `AiFlagsService.invalidate()` is public for hot-reload integrations. Module-level flag uses `module_key` values `behaviour | pastoral | staff_wellbeing | early_warning` matching the existing `tenant_modules` keys. Default state: all off at tenant create (opt-in billing model).
+
+### WellbeingNotificationsModule (NEW — wellbeing rebuild Impl 04)
+
+- **Contract**: `WellbeingNotificationsService.dispatch(event, recipients)` — in-app notification fan-out + optional email/SMS/WhatsApp routing per-tenant `tenant_notification_preferences.wellbeing_channels`. `safeDispatch()` wraps dispatch with exception swallowing so callers never 500 on provider failure. Event keys are strongly typed via `WELLBEING_NOTIFICATION_EVENT_KEYS` in `@school/shared/wellbeing` (18 events: incident._, concern._, sanction._, sla.breach, critical.declared, appeal._, recognition.awarded, document.sent_to_parent, amendment.sent, reminder.acknowledgement, etc.).
+- **Primary consumers**: behaviour (sanctions, exclusions, amendments, documents, appeals, acknowledgements); pastoral (concerns, critical incidents); safeguarding (break-glass, sealing); staff-wellbeing (surveys).
+- **Imports**: `CommunicationsModule` (uses `NotificationsService.createBatch` for in-app), `BullMQ` (stub-provider queues), `PrismaModule`
+- **Blast radius**: HIGH (central chokepoint for wellbeing-side notifications; must remain in every dispatch path)
+- **Notes**: Provider implementations (email/SMS/WhatsApp) are SCAFFOLDED — they throw `NotImplementedException({ code: 'PROVIDER_NOT_WIRED' })`. `safeDispatch` swallows these. Per-event channel preferences cascade: per-event override → tenant default → false. In-app is always-on. Recipients resolution stays in callers (they pass concrete user_ids). **Invariant: in-app channel cannot be disabled — the always-on inbox guarantee from the new-inbox rebuild carries through here.**
 
 ### AdmissionsModule
 
