@@ -123,6 +123,7 @@ export default function BehaviourHousesPage() {
 // ─── Houses Tab ───────────────────────────────────────────────────────────────
 
 function HousesTab() {
+  const t = useTranslations('behaviourSettings.houses');
   const tCommon = useTranslations('common');
   const [houses, setHouses] = React.useState<HouseTeam[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -239,7 +240,9 @@ function HousesTab() {
       <div className="space-y-4">
         <div className="flex justify-end">
           <Button onClick={openCreate}>
-            <Plus className="me-2 h-4 w-4" />{t('addHouse')}</Button>
+            <Plus className="me-2 h-4 w-4" />
+            {t('addHouse')}
+          </Button>
         </div>
 
         {loading ? (
@@ -301,7 +304,10 @@ function HousesTab() {
                 <div className="mt-3 flex items-center gap-3 text-xs text-text-secondary">
                   <div className="flex items-center gap-1">
                     <Users className="h-3.5 w-3.5" />
-                    <span>{house._count?.members ?? 0}{t('members')}</span>
+                    <span>
+                      {house._count?.members ?? 0}
+                      {t('members')}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1">
                     <span
@@ -314,7 +320,9 @@ function HousesTab() {
 
                 <div className="mt-3 flex items-center gap-1 border-t border-border pt-3">
                   <Button variant="ghost" size="sm" onClick={() => openEdit(house)}>
-                    <Pencil className="me-1 h-3.5 w-3.5" />{tCommon('edit')}</Button>
+                    <Pencil className="me-1 h-3.5 w-3.5" />
+                    {tCommon('edit')}
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -324,7 +332,9 @@ function HousesTab() {
                       setDeleteTarget(house);
                     }}
                   >
-                    <Trash2 className="me-1 h-3.5 w-3.5" />{tCommon('delete')}</Button>
+                    <Trash2 className="me-1 h-3.5 w-3.5" />
+                    {tCommon('delete')}
+                  </Button>
                 </div>
               </div>
             ))}
@@ -406,7 +416,9 @@ function HousesTab() {
             {saveError && <p className="text-sm text-danger-text">{saveError}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>{tCommon('cancel')}</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              {tCommon('cancel')}
+            </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : editTarget ? 'Update' : 'Create'}
             </Button>
@@ -425,14 +437,20 @@ function HousesTab() {
           <DialogHeader>
             <DialogTitle>{t('deleteHouse')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-text-secondary">{t('areYouSureYouWant')}<strong>{deleteTarget?.name}</strong>{t('allMemberAssignmentsWillBe')}</p>
+          <p className="text-sm text-text-secondary">
+            {t('areYouSureYouWant')}
+            <strong>{deleteTarget?.name}</strong>
+            {t('allMemberAssignmentsWillBe')}
+          </p>
           {deleteError && <p className="text-sm text-danger-text">{deleteError}</p>}
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setDeleteTarget(null)}
               disabled={deleteLoading}
-            >{tCommon('cancel')}</Button>
+            >
+              {tCommon('cancel')}
+            </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>
               {deleteLoading ? 'Deleting...' : 'Delete'}
             </Button>
@@ -446,6 +464,7 @@ function HousesTab() {
 // ─── Membership Tab ───────────────────────────────────────────────────────────
 
 function MembershipTab() {
+  const t = useTranslations('behaviourSettings.houses');
   const tCommon = useTranslations('common');
   const [houses, setHouses] = React.useState<HouseTeam[]>([]);
   const [selectedHouse, setSelectedHouse] = React.useState<string | null>(null);
@@ -477,7 +496,10 @@ function MembershipTab() {
           setSelectedHouse(data[0].id);
         }
       })
-      .catch((err) => { console.error('[SettingsBehaviourHousesPage]', err); return setHouses([]); })
+      .catch((err) => {
+        console.error('[SettingsBehaviourHousesPage]', err);
+        return setHouses([]);
+      })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -610,7 +632,9 @@ function MembershipTab() {
                 ))}
               </div>
               <Button size="sm" onClick={() => void openBulkAssign()} disabled={!selectedHouse}>
-                <Users className="me-1.5 h-4 w-4" />{t('assignStudents')}</Button>
+                <Users className="me-1.5 h-4 w-4" />
+                {t('assignStudents')}
+              </Button>
             </div>
 
             {/* Member roster */}
@@ -623,16 +647,26 @@ function MembershipTab() {
             ) : members.length === 0 ? (
               <div className="py-12 text-center">
                 <Users className="mx-auto h-10 w-10 text-text-tertiary/30" />
-                <p className="mt-2 text-sm text-text-tertiary">{t('noStudentsAssignedTo')}{activeHouse?.name ?? 'this house'}{t('yet')}</p>
+                <p className="mt-2 text-sm text-text-tertiary">
+                  {t('noStudentsAssignedTo')}
+                  {activeHouse?.name ?? 'this house'}
+                  {t('yet')}
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{tCommon('student')}</th>
-                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('yearGroup')}</th>
-                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{tCommon('actions')}</th>
+                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                        {tCommon('student')}
+                      </th>
+                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                        {t('yearGroup')}
+                      </th>
+                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                        {tCommon('actions')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -673,7 +707,10 @@ function MembershipTab() {
       <Sheet open={assignOpen} onOpenChange={setAssignOpen}>
         <SheetContent className="flex w-full flex-col sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>{t('assignStudentsTo')}{activeHouse?.name ?? 'House'}</SheetTitle>
+            <SheetTitle>
+              {t('assignStudentsTo')}
+              {activeHouse?.name ?? 'House'}
+            </SheetTitle>
           </SheetHeader>
 
           <div className="flex-1 space-y-3 overflow-y-auto py-3">
@@ -687,7 +724,10 @@ function MembershipTab() {
 
             {/* Select all / count */}
             <div className="flex items-center justify-between text-xs text-text-secondary">
-              <span>{selectedStudents.size}{t('selected')}</span>
+              <span>
+                {selectedStudents.size}
+                {t('selected')}
+              </span>
               {filteredStudents.length > 0 && (
                 <button
                   type="button"
@@ -746,7 +786,9 @@ function MembershipTab() {
           </div>
 
           <SheetFooter className="border-t border-border pt-3">
-            <Button variant="outline" onClick={() => setAssignOpen(false)} disabled={assignSaving}>{tCommon('cancel')}</Button>
+            <Button variant="outline" onClick={() => setAssignOpen(false)} disabled={assignSaving}>
+              {tCommon('cancel')}
+            </Button>
             <Button
               onClick={() => void handleBulkAssign()}
               disabled={assignSaving || selectedStudents.size === 0}

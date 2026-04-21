@@ -130,13 +130,33 @@ export class BehaviourIncidentsService {
           select: { first_name: true, last_name: true },
         });
 
-        // Optional context lookups
-        const academicYear = dto.academic_year_id
-          ? await db.academicYear.findUnique({
-              where: { id: dto.academic_year_id },
-              select: { name: true },
-            })
-          : null;
+        // Optional context lookups. When the caller omits academic_year_id,
+        // resolve the tenant's current academic year so the incident row's
+        // NOT NULL FK still gets populated.
+        let resolvedAcademicYearId: string | null = dto.academic_year_id ?? null;
+        let academicYear: { name: string } | null = null;
+        if (resolvedAcademicYearId) {
+          academicYear = await db.academicYear.findUnique({
+            where: { id: resolvedAcademicYearId },
+            select: { name: true },
+          });
+        }
+        if (!resolvedAcademicYearId) {
+          const currentYear = await db.academicYear.findFirst({
+            where: { tenant_id: tenantId, status: 'active' },
+            orderBy: { start_date: 'desc' },
+            select: { id: true, name: true },
+          });
+          if (!currentYear) {
+            throw new BadRequestException({
+              code: 'ACADEMIC_YEAR_NOT_SET',
+              message:
+                'No active academic year is configured. Ask an administrator to mark one active before logging incidents.',
+            });
+          }
+          resolvedAcademicYearId = currentYear.id;
+          academicYear = { name: currentYear.name };
+        }
 
         const academicPeriod = dto.academic_period_id
           ? await db.academicPeriod.findUnique({
@@ -198,7 +218,7 @@ export class BehaviourIncidentsService {
             context_type: toContextType(dto.context_type ?? 'class'),
             occurred_at: new Date(dto.occurred_at),
             logged_at: new Date(),
-            academic_year_id: dto.academic_year_id,
+            academic_year_id: resolvedAcademicYearId,
             academic_period_id: dto.academic_period_id ?? null,
             schedule_entry_id: dto.schedule_entry_id ?? null,
             subject_id: dto.subject_id ?? null,
@@ -300,7 +320,7 @@ export class BehaviourIncidentsService {
             tenant_id: tenantId,
             incident_id: incident.id,
             student_ids: dto.student_ids,
-            academic_year_id: dto.academic_year_id,
+            academic_year_id: resolvedAcademicYearId,
             academic_period_id: dto.academic_period_id ?? null,
           });
           if (!ok) automationFailed = true;

@@ -10075,6 +10075,13 @@
         "q4": "What are the top 3 behaviour concerns this week?",
         "q5": "Compare positive/negative ratios across year groups"
       },
+      "suggestions": {
+        "suggestedSubjects": "Which subjects have the most negative incidents this term?",
+        "suggestedImproving": "Show me students with improving behaviour in Year 9",
+        "suggestedDetentions": "How many detentions were served last month?",
+        "suggestedConcerns": "What are the top 3 behaviour concerns this week?",
+        "suggestedRatios": "Compare positive/negative ratios across year groups"
+      },
       "dataAsOf2": "Data as of",
       "aiDisclaimer": "AI-generated responses may contain inaccuracies. Verify results before acting on them."
     },
@@ -10251,7 +10258,11 @@
         "wall": "Wall",
         "leaderboard": "Leaderboard",
         "houses": "Houses",
-        "pending": "Pending Approvals"
+        "pending": "Pending Approvals",
+        "wallShort": "Wall",
+        "leaderboardShort": "Board",
+        "housesShort": "Houses",
+        "pendingShort": "Pending"
       },
       "wall": {
         "currentYear": "Current Year",
@@ -10529,7 +10540,26 @@
         "draft": "Draft"
       },
       "categoryPicker": {
-        "pts": "pts"
+        "pts": "pts",
+        "noCategories": "No categories available"
+      },
+      "quickLog": {
+        "title": "Quick Log",
+        "subtitle": "Record a behaviour point in seconds",
+        "student": "Student",
+        "searchStudent": "Search students…",
+        "category": "Category",
+        "description": "Description",
+        "descriptionPlaceholder": "What happened?",
+        "context": "Context",
+        "contextPlaceholder": "Optional — where / when",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving…",
+        "saved": "Saved",
+        "errorMissingStudent": "Please pick a student",
+        "errorMissingCategory": "Please pick a category",
+        "errorGeneric": "Could not save — please try again"
       }
     },
     "aReviewTaskWillBe": "A review task will be created automatically when the date approaches.",
@@ -10752,7 +10782,17 @@
       "slaLow": "Low",
       "retentionSection": "Data Retention",
       "retentionLabel": "Retention Period (years)",
-      "retentionDescription": "Irish Children First Act requires retention until the child turns 75."
+      "retentionDescription": "Irish Children First Act requires retention until the child turns 75.",
+      "sections": {
+        "moduleStatus": "Module Status",
+        "dlp": "Designated Liaison Person (DLP)",
+        "slaThresholds": "SLA Thresholds (hours)",
+        "dataRetention": "Data Retention"
+      },
+      "labels": {
+        "dlpDescription": "Primary child protection officer",
+        "retentionHint": "Irish Children First Act requires retention until the child turns 75."
+      }
     },
     "keywords": {
       "title": "Safeguarding keywords",
@@ -12877,7 +12917,6 @@
       "thisPreviewShowsTheRaw": "This preview shows the raw template with merge fields as-is. In a generated document, all",
       "templatePreview": "Template Preview",
       "mergeFieldReference": "Merge Field Reference",
-      "h1SchoolNameH1N": "<h1>{{school.name}}</h1>\\n\\n<p>Dear {{parent.full_name}},</p>\\n\\n<p>We are writing to inform you about an incident involving {{student.full_name}}...</p>",
       "useHandlebarsSyntaxReferenceThe": "Use Handlebars syntax. Reference the merge fields list below.",
       "templateBody": "Template Body *",
       "locale": "Locale",
@@ -12969,6 +13008,11 @@
     "errors": {
       "previewFailed": "Unable to load preview. Please try again.",
       "executeFailed": "Unable to execute. Please try again."
+    },
+    "legalHolds": {
+      "title": "Legal holds",
+      "body": "Records under an active legal hold are exempt from retention sweeps. Manage holds from the dedicated console.",
+      "cta": "Open legal holds"
     },
     "preview": {
       "title": "Preview: {op}",

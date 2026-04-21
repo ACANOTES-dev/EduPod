@@ -68,6 +68,18 @@ const LOCALE_OPTIONS = [
   { value: 'ar', label: 'Arabic' },
 ];
 
+// Handlebars syntax sample used as a textarea placeholder. Kept as a plain
+// constant (not a translation key) because ICU MessageFormat treats `{` as
+// an argument delimiter — embedding Handlebars `{{ ... }}` in a translation
+// triggers MALFORMED_ARGUMENT at runtime.
+const HANDLEBARS_PLACEHOLDER = [
+  '<h1>{{school.name}}</h1>',
+  '',
+  '<p>Dear {{parent.full_name}},</p>',
+  '',
+  '<p>We are writing to inform you about an incident involving {{student.full_name}}...</p>',
+].join('\n');
+
 // ─── Merge field reference grouped by source ──────────────────────────────────
 
 const MERGE_FIELDS: Array<{ group: string; fields: Array<{ key: string; desc: string }> }> = [
@@ -265,7 +277,9 @@ export default function BehaviourDocumentTemplatesPage() {
   const leftPanel = (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between pb-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('templates')}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+          {t('templates')}
+        </p>
         <Button variant="ghost" size="sm" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
           <span className="ms-1 text-xs">{t('new')}</span>
@@ -331,7 +345,9 @@ export default function BehaviourDocumentTemplatesPage() {
           onClick={() => setMobileShowEditor(false)}
           className="flex items-center gap-1 text-sm text-primary-600"
         >
-          <ChevronRight className="h-4 w-4 rotate-180" />{t('backToList')}</button>
+          <ChevronRight className="h-4 w-4 rotate-180" />
+          {t('backToList')}
+        </button>
       )}
 
       {/* Header row */}
@@ -341,7 +357,9 @@ export default function BehaviourDocumentTemplatesPage() {
             <h2 className="text-base font-semibold text-text-primary">{selectedTemplate.name}</h2>
             {selectedTemplate.is_system && (
               <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                <Lock className="h-3 w-3" />{t('systemTemplate')}</span>
+                <Lock className="h-3 w-3" />
+                {t('systemTemplate')}
+              </span>
             )}
             <Badge variant="secondary" className="text-xs">
               {LOCALE_OPTIONS.find((l) => l.value === selectedTemplate.locale)?.label ??
@@ -354,10 +372,14 @@ export default function BehaviourDocumentTemplatesPage() {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
-            <Eye className="me-1.5 h-3.5 w-3.5" />{t('preview')}</Button>
+            <Eye className="me-1.5 h-3.5 w-3.5" />
+            {t('preview')}
+          </Button>
           {!selectedTemplate.is_system && (
             <Button size="sm" onClick={(e) => openEdit(selectedTemplate, e)}>
-              <Pencil className="me-1.5 h-3.5 w-3.5" />{tCommon('edit')}</Button>
+              <Pencil className="me-1.5 h-3.5 w-3.5" />
+              {tCommon('edit')}
+            </Button>
           )}
         </div>
       </div>
@@ -418,7 +440,9 @@ export default function BehaviourDocumentTemplatesPage() {
       <Pencil className="h-8 w-8 text-text-tertiary/30" />
       <p className="mt-3 text-sm text-text-secondary">{t('selectATemplateToView')}</p>
       <Button variant="outline" size="sm" className="mt-4" onClick={openCreate}>
-        <Plus className="me-1.5 h-3.5 w-3.5" />{t('createNewTemplate')}</Button>
+        <Plus className="me-1.5 h-3.5 w-3.5" />
+        {t('createNewTemplate')}
+      </Button>
     </div>
   );
 
@@ -516,9 +540,7 @@ export default function BehaviourDocumentTemplatesPage() {
                 onChange={(e) => updateForm('body', e.target.value)}
                 rows={16}
                 className="w-full rounded-lg border border-border bg-gray-50 p-3 font-mono text-xs leading-relaxed text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-600 dark:bg-gray-900"
-                placeholder={
-                  t('h1SchoolNameH1N')
-                }
+                placeholder={HANDLEBARS_PLACEHOLDER}
                 spellCheck={false}
               />
             </div>
@@ -566,7 +588,9 @@ export default function BehaviourDocumentTemplatesPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>{tCommon('cancel')}</Button>
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>
+              {tCommon('cancel')}
+            </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : editTarget ? 'Update Template' : 'Create Template'}
             </Button>
@@ -581,7 +605,11 @@ export default function BehaviourDocumentTemplatesPage() {
             <DialogTitle>{t('templatePreview')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">{t('thisPreviewShowsTheRaw')}<code className="font-mono">{'{{placeholders}}'}</code>{t('areReplacedWithRealStudent')}</div>
+            <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+              {t('thisPreviewShowsTheRaw')}
+              <code className="font-mono">{'{{placeholders}}'}</code>
+              {t('areReplacedWithRealStudent')}
+            </div>
             {selectedTemplate && (
               <div
                 className="prose prose-sm max-w-none rounded-lg border border-border bg-white p-5 dark:bg-gray-950"
@@ -591,7 +619,9 @@ export default function BehaviourDocumentTemplatesPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPreviewOpen(false)}>{tCommon('close')}</Button>
+            <Button variant="outline" onClick={() => setPreviewOpen(false)}>
+              {tCommon('close')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

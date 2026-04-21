@@ -37,6 +37,7 @@ const PAGE_SIZE = 20;
 
 export default function PastoralConcernListPage() {
   const t = useTranslations('pastoral.concerns');
+  const sharedT = useTranslations('pastoral.shared');
   const pathname = usePathname();
   const locale = getLocaleFromPathname(pathname);
   const router = useRouter();
@@ -150,7 +151,7 @@ export default function PastoralConcernListPage() {
         }}
         multiple={false}
         emptyText={t('filters.noStudents')}
-        minSearchLengthText={t('shared.minSearchLength')}
+        minSearchLengthText={sharedT('minSearchLength')}
       />
     </div>
   );

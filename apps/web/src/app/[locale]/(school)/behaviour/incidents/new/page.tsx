@@ -235,7 +235,8 @@ export default function CreateIncidentPage() {
           occurred_at: new Date(occurredAt).toISOString(),
           student_ids: selectedStudents.map((s) => s.id),
           auto_submit: autoSubmit,
-          academic_year_id: '', // Server will resolve current year
+          // academic_year_id intentionally omitted — the service resolves the
+          // tenant's current academic year when the caller doesn't supply one.
           idempotency_key: crypto.randomUUID(),
         }),
       });

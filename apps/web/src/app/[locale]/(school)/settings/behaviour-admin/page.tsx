@@ -144,6 +144,7 @@ export default function BehaviourAdminPage() {
 // ─── Tab 1: System Health ───────────────────────────────────────────────────
 
 function SystemHealthTab() {
+  const t = useTranslations('behaviourSettings.admin');
   const [health, setHealth] = React.useState<HealthData | null>(null);
   const [loading, setLoading] = React.useState(true);
 
@@ -274,6 +275,7 @@ function SystemHealthTab() {
 // ─── Tab 2: Dead-Letter Queue ───────────────────────────────────────────────
 
 function DeadLetterTab() {
+  const t = useTranslations('behaviourSettings.admin');
   const tCommon = useTranslations('common');
   const [jobs, setJobs] = React.useState<DeadLetterItem[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -370,6 +372,7 @@ function DeadLetterTab() {
 // ─── Tab 3: Operations ──────────────────────────────────────────────────────
 
 function OperationsTab() {
+  const t = useTranslations('behaviourSettings.admin');
   const tCommon = useTranslations('common');
   const [previewData, setPreviewData] = React.useState<PreviewResponse | null>(null);
   const [previewOp, setPreviewOp] = React.useState<string | null>(null);
@@ -555,6 +558,7 @@ function OperationsTab() {
 // ─── Tab 4: Scope Audit ─────────────────────────────────────────────────────
 
 function ScopeAuditTab() {
+  const t = useTranslations('behaviourSettings.admin');
   const [userId, setUserId] = React.useState('');
   const [result, setResult] = React.useState<ScopeAuditResult | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -641,6 +645,7 @@ function ScopeAuditTab() {
 // ─── Tab 5: Retention ───────────────────────────────────────────────────────
 
 function RetentionTab() {
+  const t = useTranslations('behaviourSettings.admin');
   const tCommon = useTranslations('common');
   const [holds, setHolds] = React.useState<LegalHold[]>([]);
   const [retentionPreview, setRetentionPreview] = React.useState<RetentionPreview | null>(null);

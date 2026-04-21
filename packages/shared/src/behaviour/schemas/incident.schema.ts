@@ -37,12 +37,24 @@ export const createIncidentSchema = z.object({
   parent_description_ar: z.string().max(2000).nullable().optional(),
   context_notes: z.string().max(5000).nullable().optional(),
   location: z.string().max(100).nullable().optional(),
-  context_type: z.enum([
-    'class', 'break', 'before_school', 'after_school', 'lunch',
-    'transport', 'extra_curricular', 'off_site', 'online', 'other',
-  ]).default('class'),
+  context_type: z
+    .enum([
+      'class',
+      'break',
+      'before_school',
+      'after_school',
+      'lunch',
+      'transport',
+      'extra_curricular',
+      'off_site',
+      'online',
+      'other',
+    ])
+    .default('class'),
   occurred_at: z.string().min(1),
-  academic_year_id: z.string().uuid(),
+  // Optional: the create service resolves the current academic year when the
+  // caller omits this (the UI form doesn't gate input on an AY lookup).
+  academic_year_id: z.string().uuid().optional(),
   academic_period_id: z.string().uuid().nullable().optional(),
   schedule_entry_id: z.string().uuid().nullable().optional(),
   subject_id: z.string().uuid().nullable().optional(),
@@ -64,10 +76,20 @@ export const updateIncidentSchema = z.object({
   parent_description_ar: z.string().max(2000).nullable().optional(),
   context_notes: z.string().max(5000).nullable().optional(),
   location: z.string().max(100).nullable().optional(),
-  context_type: z.enum([
-    'class', 'break', 'before_school', 'after_school', 'lunch',
-    'transport', 'extra_curricular', 'off_site', 'online', 'other',
-  ]).optional(),
+  context_type: z
+    .enum([
+      'class',
+      'break',
+      'before_school',
+      'after_school',
+      'lunch',
+      'transport',
+      'extra_curricular',
+      'off_site',
+      'online',
+      'other',
+    ])
+    .optional(),
   follow_up_required: z.boolean().optional(),
 });
 
@@ -75,9 +97,17 @@ export type UpdateIncidentDto = z.infer<typeof updateIncidentSchema>;
 
 export const statusTransitionSchema = z.object({
   status: z.enum([
-    'draft', 'active', 'investigating', 'under_review',
-    'awaiting_approval', 'awaiting_parent_meeting', 'escalated',
-    'resolved', 'withdrawn', 'closed_after_appeal', 'superseded',
+    'draft',
+    'active',
+    'investigating',
+    'under_review',
+    'awaiting_approval',
+    'awaiting_parent_meeting',
+    'escalated',
+    'resolved',
+    'withdrawn',
+    'closed_after_appeal',
+    'superseded',
     'converted_to_safeguarding',
   ]),
   reason: z.string().min(1).max(2000).optional(),
@@ -95,12 +125,22 @@ export const listIncidentsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   polarity: z.enum(['positive', 'negative', 'neutral']).optional(),
-  status: z.enum([
-    'draft', 'active', 'investigating', 'under_review',
-    'awaiting_approval', 'awaiting_parent_meeting', 'escalated',
-    'resolved', 'withdrawn', 'closed_after_appeal', 'superseded',
-    'converted_to_safeguarding',
-  ]).optional(),
+  status: z
+    .enum([
+      'draft',
+      'active',
+      'investigating',
+      'under_review',
+      'awaiting_approval',
+      'awaiting_parent_meeting',
+      'escalated',
+      'resolved',
+      'withdrawn',
+      'closed_after_appeal',
+      'superseded',
+      'converted_to_safeguarding',
+    ])
+    .optional(),
   category_id: z.string().uuid().optional(),
   reported_by_id: z.string().uuid().optional(),
   student_id: z.string().uuid().optional(),
@@ -119,10 +159,19 @@ export type ListIncidentsQuery = z.infer<typeof listIncidentsQuerySchema>;
 
 export const uploadBehaviourAttachmentSchema = z.object({
   classification: z.enum([
-    'staff_statement', 'student_statement', 'parent_letter',
-    'meeting_minutes', 'screenshot', 'photo', 'scanned_document',
-    'referral_form', 'return_agreement', 'behaviour_contract',
-    'medical_report', 'agency_correspondence', 'other',
+    'staff_statement',
+    'student_statement',
+    'parent_letter',
+    'meeting_minutes',
+    'screenshot',
+    'photo',
+    'scanned_document',
+    'referral_form',
+    'return_agreement',
+    'behaviour_contract',
+    'medical_report',
+    'agency_correspondence',
+    'other',
   ]),
   description: z.string().max(500).nullable().optional(),
 });

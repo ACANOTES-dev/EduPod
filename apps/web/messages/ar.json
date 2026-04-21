@@ -10075,7 +10075,14 @@
         "q4": "ما أبرز 3 مخاوف سلوكية هذا الأسبوع؟",
         "q5": "قارن نسب الإيجابي/السلبي عبر المجموعات السنوية"
       },
-      "dataAsOf2": "[AR] Data as of",
+      "suggestions": {
+        "suggestedSubjects": "ما المواد التي لديها أكثر حوادث سلبية هذا الفصل؟",
+        "suggestedImproving": "أرني الطلاب ذوي السلوك المتحسن في السنة 9",
+        "suggestedDetentions": "كم عدد الاحتجازات التي نُفذت الشهر الماضي؟",
+        "suggestedConcerns": "ما أبرز 3 مخاوف سلوكية هذا الأسبوع؟",
+        "suggestedRatios": "قارن نسب الإيجابي/السلبي عبر المجموعات السنوية"
+      },
+      "dataAsOf2": "البيانات حتى",
       "aiDisclaimer": "قد تحتوي الردود المُولّدة بالذكاء الاصطناعي على أخطاء. يُرجى التحقق من النتائج قبل اتخاذ إجراء."
     },
     "tasks": {
@@ -10251,7 +10258,11 @@
         "wall": "الجدار",
         "leaderboard": "المتصدرون",
         "houses": "الفرق",
-        "pending": "قيد الموافقة"
+        "pending": "قيد الموافقة",
+        "wallShort": "الجدار",
+        "leaderboardShort": "الترتيب",
+        "housesShort": "الفرق",
+        "pendingShort": "معلّق"
       },
       "wall": {
         "currentYear": "العام الحالي",
@@ -10529,7 +10540,26 @@
         "draft": "مسودة"
       },
       "categoryPicker": {
-        "pts": "[AR] pts"
+        "pts": "نقطة",
+        "noCategories": "لا توجد فئات متاحة"
+      },
+      "quickLog": {
+        "title": "تسجيل سريع",
+        "subtitle": "سجّل نقطة سلوك خلال ثوانٍ",
+        "student": "الطالب",
+        "searchStudent": "ابحث عن طالب…",
+        "category": "الفئة",
+        "description": "الوصف",
+        "descriptionPlaceholder": "ما الذي حدث؟",
+        "context": "السياق",
+        "contextPlaceholder": "اختياري — أين / متى",
+        "cancel": "إلغاء",
+        "save": "حفظ",
+        "saving": "جارٍ الحفظ…",
+        "saved": "تم الحفظ",
+        "errorMissingStudent": "يرجى اختيار طالب",
+        "errorMissingCategory": "يرجى اختيار فئة",
+        "errorGeneric": "تعذّر الحفظ — يرجى المحاولة مرة أخرى"
       }
     },
     "aReviewTaskWillBe": "[AR] A review task will be created automatically when the date approaches.",
@@ -10752,7 +10782,17 @@
       "slaLow": "منخفض",
       "retentionSection": "الاحتفاظ بالبيانات",
       "retentionLabel": "فترة الاحتفاظ (سنوات)",
-      "retentionDescription": "يتطلب قانون أطفال أيرلندا أولاً الاحتفاظ حتى يبلغ الطفل 75 عاماً."
+      "retentionDescription": "يتطلب قانون أطفال أيرلندا أولاً الاحتفاظ حتى يبلغ الطفل 75 عاماً.",
+      "sections": {
+        "moduleStatus": "حالة الوحدة",
+        "dlp": "مسؤول الاتصال المعين (DLP)",
+        "slaThresholds": "عتبات SLA (ساعات)",
+        "dataRetention": "الاحتفاظ بالبيانات"
+      },
+      "labels": {
+        "dlpDescription": "مسؤول حماية الطفل الرئيسي",
+        "retentionHint": "يتطلب قانون أطفال أيرلندا أولاً الاحتفاظ حتى يبلغ الطفل 75 عاماً."
+      }
     },
     "keywords": {
       "title": "كلمات الحماية المفتاحية",
@@ -12877,7 +12917,6 @@
       "thisPreviewShowsTheRaw": "[AR] This preview shows the raw template with merge fields as-is. In a generated document, all",
       "templatePreview": "[AR] Template Preview",
       "mergeFieldReference": "[AR] Merge Field Reference",
-      "h1SchoolNameH1N": "[AR] <h1>{{school.name}}</h1>\\n\\n<p>Dear {{parent.full_name}},</p>\\n\\n<p>We are writing to inform you about an incident involving {{student.full_name}}...</p>",
       "useHandlebarsSyntaxReferenceThe": "[AR] Use Handlebars syntax. Reference the merge fields list below.",
       "templateBody": "[AR] Template Body *",
       "locale": "[AR] Locale",
@@ -12969,6 +13008,11 @@
     "errors": {
       "previewFailed": "تعذّر تحميل المعاينة. يُرجى المحاولة مجددًا.",
       "executeFailed": "تعذّر التنفيذ. يُرجى المحاولة مجددًا."
+    },
+    "legalHolds": {
+      "title": "القيود القانونية",
+      "body": "تُستثنى السجلات الخاضعة لقيد قانوني من عمليات الأرشفة والحذف. تُدار القيود من وحدة التحكم المخصصة.",
+      "cta": "فتح القيود القانونية"
     },
     "preview": {
       "title": "معاينة: {op}",
