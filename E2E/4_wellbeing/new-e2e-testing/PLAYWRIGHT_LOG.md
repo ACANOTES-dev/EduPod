@@ -15,7 +15,7 @@ A session is only **Complete** when every issue it opened is marked `**Verified:
 | S2      | 2026-04-21 | 2026-04-21 | 9             | 2   | 5   | 1   | 0   | **Complete** (W-S2-007 deferred with reason; partial carry-forward for parent incidents/sanctions shapes to S8) |
 | S3      | 2026-04-21 | 2026-04-21 | 14            | 7   | 6   | 1   | 0   | **Complete**                                                                                                    |
 | S4      | 2026-04-21 | 2026-04-21 | 6             | 2   | 1   | 2   | 1   | **Complete**                                                                                                    |
-| S5      |            |            |               |     |     |     |     | Not started                                                                                                     |
+| S5      | 2026-04-21 | 2026-04-21 | 6             | 1   | 4   | 0   | 1   | **Complete** (W-S5-001 deferred — safeguarding concerns UI is stub redirects; needs dedicated build-out)        |
 | S6      |            |            |               |     |     |     |     | Not started                                                                                                     |
 | S7      |            |            |               |     |     |     |     | Not started                                                                                                     |
 | S8      |            |            |               |     |     |     |     | Not started                                                                                                     |
@@ -761,8 +761,12 @@ S4 walked the full pastoral hub end-to-end for owner@nhqs.test. Two P0s, one P1,
 
 ## S5 — Safeguarding
 
-**Status:** In progress (2026-04-21)
+**Status:** Complete (2026-04-21)
 **Session plan:** [`S5_safeguarding.md`](./S5_safeguarding.md)
+
+### Session summary
+
+S5 walked the whole safeguarding hub for owner@nhqs.test and surfaced one **structural P0** (the safeguarding concerns UI at `/safeguarding/concerns`, `.../new`, `.../[id]`, and `/safeguarding/my-reports` is four `redirect()` stubs to pastoral — every SG-S0-xxx detail link on the hub / sealed / SLA / recent feeds dead-ends at the pastoral handler's "Concern not found", despite the backend `/api/v1/safeguarding/concerns*` being fully implemented), four P1 data-integrity bugs, and one P3 dashboard-label question. W-S5-001 is deferred with a written reason: fixing it requires building three full-featured pages (list with filters, multi-step create covering `SafeguardingConcernType` + TUSLA/Gardaí / DSL assignment, and a detail page with timeline, actions, attachments, TUSLA/Gardaí referral flow, seal-initiate/approve/reject dual-approval UI, status transitions, and closure) which is a standalone subsystem build-out that substantively exceeds a single walkthrough session. All four P1s (W-S5-002..005) rolled up to two backend + two frontend root causes — fixed in `f1239e30`: `mapConcernSummary` now includes student/assignee/reporter `first_name`/`last_name` AND `sealed_at`/`sealed_reason`/`sealed_by`/`seal_approved_by` (so the sealed list can render "sealed 2026-04-16 · approved by Yusuf Rahman" and the SLA dashboard can render real names instead of "undefined undefined"); the list findMany `include` was extended with `sealed_by` + `seal_approved_by`; the hub page's `academicYearStart` now rolls back to the previous August 1 when the current month is before August (so "Sealed this year" counts correctly in April); the hub's recent-concerns feed and the SLA dashboard both pin a status filter excluding closed states (no more sealed concerns on the "On track" SLA board); and the SLA row component short-circuits "Xh remaining/overdue" to a new "SLA met" label whenever `sla_first_response_met_at` is populated. 400 safeguarding tests stayed green after `mapConcernSummary` gained the `first_name`/`last_name`/`name` triple-shape. W-S5-006 (home-dashboard "Safeguarding alerts" tile actually watches comms-oversight flags, not concerns) was deferred as a naming/scope UX question for S9. No screenshots produced. Carry-forward for S9 / future work: the entire safeguarding concerns frontend subsystem needs a dedicated implementation plan — the backend is ready, only the UI is missing.
 
 ### W-S5-001 — Safeguarding concerns UI is stub redirects; all concern detail links dead-end at "Concern not found"
 
@@ -800,8 +804,8 @@ S4 walked the full pastoral hub end-to-end for owner@nhqs.test. Two P0s, one P1,
 - **Expected:** Student name and assignee name render correctly everywhere the `/api/v1/safeguarding/concerns` list response is consumed.
 - **Actual:** `mapConcernSummary` at `apps/api/src/modules/safeguarding/safeguarding-concerns.service.ts:976-1021` returns `student: { id, name }` and `assigned_to: { id, name }`, but the frontend type `SafeguardingConcernRow` in `apps/web/src/app/[locale]/(school)/safeguarding/_components/summary.ts:37-52` declares `student: { id, first_name, last_name }` and `assigned_to: { id, first_name, last_name }`. Every consumer concatenates `first_name + ' ' + last_name`, both missing from the API response, so the UI renders "undefined undefined".
 - **Evidence:** none; reproducible from the live SLA dashboard.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** `f1239e30` — `mapConcernSummary` now returns `{ id, first_name, last_name, name }` on every user relation (backwards-compatible); `include` on the list findMany unchanged (it already selected first_name/last_name).
+- **Verified:** 2026-04-21 — `/en/safeguarding/sla` now shows "Yusuf Rahman" on every row and in the assignee dropdown (previously "undefined undefined").
 
 ### W-S5-003 — Sealed records list always shows "seal date unknown · approved by unknown approver"
 
@@ -816,8 +820,8 @@ S4 walked the full pastoral hub end-to-end for owner@nhqs.test. Two P0s, one P1,
 - **Expected:** "Sealed concern #SG-S0-004 · sealed 2026-04-16 · approved by {approver name}".
 - **Actual:** `mapConcernSummary` omits `sealed_at`, `sealed_by`, and `seal_approved_by` entirely from the summary response. `sealedRowLabel` at `apps/web/src/app/[locale]/(school)/safeguarding/_components/summary.ts:131-152` then falls back to its "unknown date" / "unknown approver" branches for every row.
 - **Evidence:** none; reproducible.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** `f1239e30` — `mapConcernSummary` now includes `sealed_at`, `sealed_reason`, `sealed_by`, and `seal_approved_by`; list findMany include extended with `sealed_by` + `seal_approved_by` selects.
+- **Verified:** 2026-04-21 — `/en/safeguarding/sealed` now reads "Sealed concern #SG-S0-004 · sealed 2026-04-16 · approved by Yusuf Rahman".
 
 ### W-S5-004 — Safeguarding hub "Sealed this year" KPI stuck at 0 even with a sealed concern
 
@@ -831,8 +835,8 @@ S4 walked the full pastoral hub end-to-end for owner@nhqs.test. Two P0s, one P1,
 - **Expected:** "Sealed this year: 1".
 - **Actual:** The hub page computes `academicYearStart = new Date(new Date().getFullYear(), 7, 1).toISOString()` (Aug 1 of the current calendar year). On any run between January and July, this is a FUTURE timestamp, so `/api/v1/safeguarding/concerns?status=sealed&from=<future>` matches nothing. Today is 2026-04-21, so `from = 2026-08-01`, which excludes all four seeded concerns including the one sealed today. A correct "academic-year-to-date" window needs the previous August 1 whenever we're before August.
 - **Evidence:** none; reproducible.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** `f1239e30` — hub page computes `ayYear = month >= 7 ? year : year - 1` so before August it rolls back to the previous August 1.
+- **Verified:** 2026-04-21 — `/en/safeguarding` hub now reads "Sealed this year: 1"; "Sealed records" hub card also shows count 1.
 
 ### W-S5-005 — Recent-concerns list and SLA dashboard include the sealed concern; sealed rows render "On track"
 
@@ -847,8 +851,8 @@ S4 walked the full pastoral hub end-to-end for owner@nhqs.test. Two P0s, one P1,
 - **Expected:** The sealed concern is filtered out of both the recent-concerns feed and the SLA dashboard. Rows whose `sla_first_response_met_at` is set do not render a "Nh remaining" string — they show "Met" or equivalent.
 - **Actual:** The hub queries `/api/v1/safeguarding/concerns?pageSize=8` with no status filter and shows the raw top-8 regardless of status; the SLA dashboard does the same. The list endpoint does not exclude sealed concerns unless the caller explicitly asks it to. The SLA dashboard row component also ignores `sla_first_response_met_at` when rendering "remaining".
 - **Evidence:** none; reproducible.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** `f1239e30` — hub recent-concerns query now pins `status=reported,under_investigation,monitoring,referred` (closed states excluded). SLA dashboard query pins the same status list. SLA row component short-circuits the "Xh remaining / overdue" line when `sla_first_response_met_at` is set, rendering a new `safeguardingHub.sla.met` key ("SLA met" / "تمّ الاستجابة خلال المهلة").
+- **Verified:** 2026-04-21 — `/en/safeguarding` recent-concerns feed now shows 3 rows, sealed SG-S0-004 no longer appears; `/en/safeguarding/sla` lists 3 rows (no sealed), each displaying "SLA met" since all seeded concerns have `sla_first_response_met_at` populated.
 
 ### W-S5-006 — Home dashboard "Safeguarding alerts" widget doesn't actually watch safeguarding concerns
 

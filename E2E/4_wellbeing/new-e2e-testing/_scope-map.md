@@ -130,18 +130,18 @@ Root: all routes live under `apps/web/src/app/[locale]/(school)/…`. Tested pri
 
 ## Safeguarding hub — owned by S5
 
-- [ ] `/en/safeguarding` (landing)
-- [ ] `/en/safeguarding/concerns`
-- [ ] `/en/safeguarding/concerns/new`
-- [ ] `/en/safeguarding/concerns/[id]`
-- [ ] `/en/safeguarding/reviews`
-- [ ] `/en/safeguarding/sealed`
-- [ ] `/en/safeguarding/my-reports`
-- [ ] `/en/safeguarding/break-glass`
-- [ ] `/en/safeguarding/break-glass/grants`
-- [ ] `/en/safeguarding/break-glass/new`
-- [ ] `/en/safeguarding/break-glass/[id]`
-- [ ] `/en/safeguarding/sla`
+- [x] `/en/safeguarding` (landing) — post-fix KPIs correct ("Sealed this year: 1"), recent feed excludes sealed.
+- [x] `/en/safeguarding/concerns` — **stub redirect to /pastoral/concerns (W-S5-001, deferred).** Landing KPIs show SG-S0-xxx concerns but clicking any link redirects to pastoral and 404s.
+- [x] `/en/safeguarding/concerns/new` — **stub redirect to /pastoral/concerns/new (W-S5-001, deferred).** Opens the pastoral form; no safeguarding-specific fields (TUSLA/Gardaí/severity enum).
+- [x] `/en/safeguarding/concerns/[id]` — **stub redirect that 404s (W-S5-001, deferred).** Every sealed / recent / SLA link dead-ends at "Concern not found".
+- [x] `/en/safeguarding/reviews` — renders with clean empty-state (after-action reviews of break-glass grants; no outstanding reviews today).
+- [x] `/en/safeguarding/sealed` — post-fix shows "Sealed concern #SG-S0-004 · sealed 2026-04-16 · approved by Yusuf Rahman".
+- [x] `/en/safeguarding/my-reports` — **stub redirect to /pastoral/concerns (W-S5-001, deferred).**
+- [x] `/en/safeguarding/break-glass` — list (0 active / 0 past-30d) + dialog-based request flow; staff search works ("Sarah" returned Sarah Daly).
+- [x] `/en/safeguarding/break-glass/grants` — client redirect to `/safeguarding/break-glass` (documented in code).
+- [x] `/en/safeguarding/break-glass/new` — client redirect to `/safeguarding/break-glass` (dialog-driven flow, documented).
+- [x] `/en/safeguarding/break-glass/[id]` — detail for seeded grant 26f17061 renders: Granted to Sarah Daly, Expired 25-03-2026, after-action review filed, access log empty.
+- [x] `/en/safeguarding/sla` — post-fix 3 rows (sealed excluded), "Yusuf Rahman" assignee, "SLA met" label when met_at is set.
 
 ---
 
