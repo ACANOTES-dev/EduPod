@@ -14,7 +14,7 @@ A session is only **Complete** when every issue it opened is marked `**Verified:
 | S1      | 2026-04-21 | 2026-04-21 | 7             | 3   | 4   | 0   | 0   | **Complete** (5-incident flow + ≥ 6 detail walk deferred — see summary)                                         |
 | S2      | 2026-04-21 | 2026-04-21 | 9             | 2   | 5   | 1   | 0   | **Complete** (W-S2-007 deferred with reason; partial carry-forward for parent incidents/sanctions shapes to S8) |
 | S3      | 2026-04-21 | 2026-04-21 | 14            | 7   | 6   | 1   | 0   | **Complete**                                                                                                    |
-| S4      |            |            |               |     |     |     |     | Not started                                                                                                     |
+| S4      | 2026-04-21 | 2026-04-21 | 6             | 2   | 1   | 2   | 1   | **Complete**                                                                                                    |
 | S5      |            |            |               |     |     |     |     | Not started                                                                                                     |
 | S6      |            |            |               |     |     |     |     | Not started                                                                                                     |
 | S7      |            |            |               |     |     |     |     | Not started                                                                                                     |
@@ -652,8 +652,110 @@ S3 walked the reporting / configuration / admin surfaces of the Behaviour hub an
 
 ## S4 — Pastoral Care
 
-**Status:** Not started
+**Status:** Complete (2026-04-21)
 **Session plan:** [`S4_pastoral_care.md`](./S4_pastoral_care.md)
+
+### Session summary
+
+S4 walked the full pastoral hub end-to-end for owner@nhqs.test. Two P0s, one P1, two P2s, and one P3 were logged before any fix was attempted. The two P0s and the P1 all rolled up to two root causes: (a) the owner-bypass that `PermissionGuard` applies to `school_owner` / `school_principal` / `school_vice_principal` did not extend into `ConcernService` / `ConcernQueriesService` — they read the literal `permissions[]` array and so resolved leadership callers to tier 0, which made the concern list silently hide tier-2 rows and made **every** concern detail GET return 404; and (b) `/api/v1/pastoral/settings/intervention-types` passes through `ResponseTransformInterceptor` that wraps the bare array in `{ data: [...] }`, but `interventions/[id]/page.tsx` and `interventions/new/page.tsx` typed the `apiClient` call as a bare array and crashed on `.filter`. Both root causes were fixed in `a4ea01e2`: an `isOwnerBypass` flag is now threaded from `PermissionCacheService.isOwner` through the controller into the concern service + access helper, and the two intervention pages unwrap the envelope. The two P2s and the P3 were all pastoral `types.*` raw-i18n leaks caused by seed data drifting from the Zod enum (referrals) or a free-text backend field without a closed taxonomy (interventions) — added a `translatePastoralType` helper in `lib/pastoral.ts` that humanises the leaf when next-intl returns the unresolved path, routed intervention + referral list/detail through it, and deferred the P3 case-UUID subtitle as pure cosmetic. No screenshots were produced, so no sweep required. Carry-forward for S9 / S5: `critical-incidents[id]`, `sst[id]`, `dsar/[id]`, and student self-referral round-trip are deferred because the S0 seed does not create rows for those subsystems; S5 owns any safeguarding-side DSAR review and may choose to seed. S3's "owner bypass should generalise to findMembershipsWithPermissionAndUser" carry-forward now has a concrete second data-point — pastoral's tier filtering is the second subsystem to need the same pattern — so S8 should take a wider look.
+
+### W-S4-001 — Pastoral concerns list filters Tier 2 concerns out for school_owner / school_principal
+
+- **Severity:** P1
+- **Route:** `/en/pastoral/concerns`
+- **Role:** owner@nhqs.test (school_owner + school_principal)
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Seed DB has 5 pastoral concerns: 3 Tier 1 + 2 Tier 2 (urgent — `mental_health`, `home_circumstances`).
+  2. Log in as owner and navigate to `/en/pastoral/concerns`.
+  3. List shows only 3 rows labelled "Tier 1"; pagination says "Showing 1–3 of 3".
+  4. Apply the Tier filter → Tier 2. List renders "No results found".
+  5. Landing page card "Urgent review queue" on `/en/pastoral` reports **2**, so the backend does know the Tier 2 concerns exist — they're just hidden from list GET.
+- **Expected:** School owner / principal / vice-principal (all three are guard-bypass leadership roles per `permission-cache.service.ts:67-71`) should see Tier 1 + Tier 2 concerns in the list; Tier 3 stays hidden pending CP grant.
+- **Actual:** Concerns list is tier-1-only. Cause: `ConcernQueriesService.resolveCallerTierAccess` reads the literal `permissions[]` array returned by `PermissionCacheService.getPermissions`, which for leadership roles is empty (their DB rows have no `role_permissions`). The `isOwner` bypass at the guard layer gets them INTO the endpoint but does not elevate their tier access inside the service.
+- **Evidence:** none; bug reproduces from the steps.
+- **Fix:** `a4ea01e2` — add `isOwnerBypass` param to `resolveCallerTierAccess` and to `ConcernQueriesService.list`; `ConcernsController.list` now fetches `PermissionCacheService.isOwner` alongside permissions and forwards it. Owner bypass now resolves to tier 2 at the data layer too.
+- **Verified:** 2026-04-21 — `/en/pastoral/concerns` now shows 6 rows (4 tier-1 + 2 tier-2 concerns: Sarah Campbell / Mental Health / Urgent / Tier 2 + Amelia Brown / Home Circumstances / Urgent / Tier 2) for owner@nhqs.test.
+
+### W-S4-004 — Intervention detail and `interventions/new` crash with ".filter is not a function"
+
+- **Severity:** P0
+- **Route:** `/en/pastoral/interventions/[id]`, `/en/pastoral/interventions/new`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/pastoral/interventions` and click the only seeded row.
+  2. URL becomes `/en/pastoral/interventions/f23127ed-…`.
+  3. Full-page error boundary renders "Something went wrong. An unexpected error occurred." Only a "Try again" button is visible.
+  4. Console logs `TypeError: k.filter is not a function` thrown from the intervention detail client chunk.
+- **Expected:** Intervention detail renders with plan setup, outcomes, progress notes, and status transition panels as sketched in the blueprint.
+- **Actual:** The page crashes the first render. Root cause: `apiClient<InterventionTypeOption[]>('/api/v1/pastoral/settings/intervention-types', …)` is typed as returning a bare array, but the response passes through `ResponseTransformInterceptor` and arrives as `{ data: InterventionTypeOption[] }`. Then `setTypes(typeResponse ?? [])` stores an object, and the JSX at line 247-248 calls `types.filter((item) => item.active)` — TypeError. The endpoint handler at `intervention.service.ts:779-786` returns `Promise<InterventionTypeItem[]>`; the interceptor then wraps it.
+- **Evidence:** none; reproducible, console trace captured.
+- **Fix:** `a4ea01e2` — retype the `apiClient` calls in `interventions/[id]/page.tsx` and `interventions/new/page.tsx` to `{ data: InterventionTypeOption[] }` and unwrap `.data` before the `setTypes` / `.find(…active)` calls.
+- **Verified:** 2026-04-21 — intervention detail renders the plan panel ("Intervention type: Mentoring", status Active, Tier 2, etc.); `/interventions/new` renders the create form with the intervention-type dropdown populated.
+
+### W-S4-005 — Referral list & detail render raw i18n keys for seeded referral types
+
+- **Severity:** P2
+- **Route:** `/en/pastoral/referrals`, `/en/pastoral/referrals/[id]`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/pastoral/referrals`. List shows 3 seeded referrals; the type column renders raw keys `pastoral.referrals.types.sen_coordinator`, `pastoral.referrals.types.external_camhs`, `pastoral.referrals.types.internal_counsellor`.
+  2. Open any referral. Header shows "Referral type: pastoral.referralDetail.types.sen_coordinator".
+  3. Console: six `MISSING_MESSAGE` errors.
+- **Expected:** Human-readable labels for every referral type rendered by the UI.
+- **Actual:** The Zod enum `REFERRAL_TYPES` at `packages/shared/src/pastoral/enums.ts:124-131` only lists `neps, camhs, tusla_family_support, jigsaw, pieta_house, other_external`. `messages/en.json` mirrors that list under both `pastoral.referrals.types.*` and `pastoral.referralDetail.types.*`. The seed script (S0) inserted referrals with `referral_type` values that aren't in the enum (`internal_counsellor`, `external_camhs`, `sen_coordinator`) — the DB column is a plain `varchar` and accepted them. The frontend renders `t(\`types.${row.referral_type}\`)` with no fallback, so any out-of-enum value surfaces the raw i18n key. Safe fix is frontend: fall back to a humanised form when the key is missing.
+- **Evidence:** none; reproducible.
+- **Fix:** `a4ea01e2` — add `translatePastoralType` helper in `apps/web/src/lib/pastoral.ts` that falls back to a humanised leaf when next-intl returns the unresolved dotted path; route referral list + detail + intervention list + detail through it.
+- **Verified:** 2026-04-21 — referral list now shows "Sen Coordinator", "External Camhs", "Internal Counsellor"; referral detail header no longer leaks `pastoral.referralDetail.types.*` keys.
+
+### W-S4-006 — Referral list subtitle shows raw case UUID instead of case reference
+
+- **Severity:** P3
+- **Route:** `/en/pastoral/referrals`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. On the referrals list, the student cell subtitle renders the raw `case_id` UUID (e.g. `2a210124-08e4-46fe-8f4c-bfc537c18776`).
+- **Expected:** Either the case reference number (`PC-S0-001`) or the word "Case" plus the reference.
+- **Actual:** `apps/web/src/app/[locale]/(school)/pastoral/referrals/page.tsx:151` prints `row.case_id` directly. Backend should surface `case_reference` alongside `case_id`, and the frontend should display that.
+- **Deferred:** cosmetic only; batching into S4 polish commit.
+- **Verified:** {pending}
+
+### W-S4-003 — Intervention type "mentoring" renders raw i18n key
+
+- **Severity:** P2
+- **Route:** `/en/pastoral/interventions`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/pastoral/interventions`.
+  2. Observe the type cell of the sole seeded intervention: `pastoral.interventions.types.mentoring`.
+  3. Console logs `MISSING_MESSAGE: pastoral.interventions.types.mentoring (en)` twice.
+- **Expected:** A human-readable label, either "Mentoring" (if the key is added) or a humanised fallback for arbitrary `intervention_type` strings.
+- **Actual:** The `intervention_type` column is a free-text `z.string().max(50)` (see `packages/shared/src/pastoral/schemas/intervention.schema.ts`), but the frontend renders `t(\`types.${row.intervention_type}\`)`with no fallback.`pastoral.interventions.types.mentoring`is absent from`messages/en.json`. Either add the key or have the component fall back to the raw value / humanised form for unknown types.
+- **Evidence:** none; reproducible.
+- **Fix:** `a4ea01e2` — same `translatePastoralType` helper introduced for W-S4-005; intervention list + detail now fall back to a humanised leaf for unknown values.
+- **Verified:** 2026-04-21 — `/en/pastoral/interventions` renders "Mentoring" in the type column; intervention detail shows "Intervention type: Mentoring".
+
+### W-S4-002 — Concern detail GET returns 404 for owner/principal on every tier-1 concern
+
+- **Severity:** P0
+- **Route:** `/en/pastoral/concerns/[id]`
+- **Role:** owner@nhqs.test (school_owner + school_principal)
+- **Viewport:** 1440×900
+- **Steps:**
+  1. From `/en/pastoral/concerns`, click any seeded tier-1 concern row (e.g. Charlotte Adams PC-0310B89B).
+  2. Detail page renders "Concern not found or not visible to your account."
+  3. Network panel: `GET /api/v1/pastoral/concerns/0310b89b-…` → **404** (77–128ms duration, so the service is reached, not a routing miss).
+  4. Verified in DB: record exists at tenant_id `3ba9…` with `tier=1`, `category=engagement`, visible to RLS with the owner's user_id.
+  5. Same 404 on freshly-created concern: POST /api/v1/pastoral/concerns → 201 (creates row `a3b03130-…`), then immediately issue a GET for that row → 404.
+- **Expected:** Owner-bypass leadership role can open any tier-1/tier-2 pastoral concern detail.
+- **Actual:** 100% 404 on GET-by-id for every seeded and newly-created concern. Root cause: `ConcernService.getById` at `apps/api/src/modules/pastoral/services/concern.service.ts:326-332` strict-compares `concern.tier > callerMaxTier` and throws 404 when caller has `callerMaxTier = 0`. Since leadership role_permissions rows are empty for pastoral.\*, `resolveCallerTierAccess` returns 0. (The list endpoint hides the same bug with a permissive fallback — `where.tier = 1` when `callerMaxTier < 2` — but list-only permissiveness doesn't help the detail flow.)
+- **Evidence:** none; reproducible.
+- **Fix:** `a4ea01e2` — thread `isOwnerBypass` into `ConcernService.getById` and `ConcernAccessService.resolveCallerTierAccess`; `ConcernsController.getById` fetches `PermissionCacheService.isOwner` alongside permissions and forwards it.
+- **Verified:** 2026-04-21 — `/en/pastoral/concerns/0310b89b-…` loads the full concern detail (Charlotte Adams · Engagement, Routine, Tier 1, response + narrative panels); `/en/pastoral/concerns/a3b03130-…` (newly-created by the walkthrough) also opens.
 
 ---
 

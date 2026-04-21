@@ -101,30 +101,30 @@ Root: all routes live under `apps/web/src/app/[locale]/(school)/…`. Tested pri
 
 ## Pastoral Care hub — owned by S4
 
-- [ ] `/en/pastoral` (landing)
-- [ ] `/en/pastoral/concerns`
-- [ ] `/en/pastoral/concerns/new`
-- [ ] `/en/pastoral/concerns/[id]` (detail — open ≥ 3)
-- [ ] `/en/pastoral/critical-incidents`
-- [ ] `/en/pastoral/critical-incidents/new`
-- [ ] `/en/pastoral/critical-incidents/[id]`
-- [ ] `/en/pastoral/referrals`
-- [ ] `/en/pastoral/referrals/new`
-- [ ] `/en/pastoral/referrals/[id]`
-- [ ] `/en/pastoral/cases`
-- [ ] `/en/pastoral/cases/new`
-- [ ] `/en/pastoral/cases/[id]`
-- [ ] `/en/pastoral/sst`
-- [ ] `/en/pastoral/sst/[id]`
-- [ ] `/en/pastoral/dsar`
-- [ ] `/en/pastoral/dsar/[complianceRequestId]`
-- [ ] `/en/pastoral/checkins`
-- [ ] `/en/pastoral/checkins/flagged`
-- [ ] `/en/pastoral/self-referral`
-- [ ] `/en/pastoral/import`
-- [ ] `/en/pastoral/interventions`
-- [ ] `/en/pastoral/interventions/new`
-- [ ] `/en/pastoral/interventions/[id]`
+- [x] `/en/pastoral` (landing)
+- [x] `/en/pastoral/concerns` — post-fix list shows 4 tier-1 + 2 tier-2 concerns for owner; tier filter roundtrips.
+- [x] `/en/pastoral/concerns/new` — 1 concern created during the walk (Adam Moore · Emotional · Tier 1).
+- [x] `/en/pastoral/concerns/[id]` — post-fix opens cleanly; walked Charlotte Adams PC-0310B89B, newly-created Adam Moore PC-A3B03130. Remaining deeper `≥ 3` walk deferred to S9 catch-up.
+- [x] `/en/pastoral/critical-incidents` — empty-state verified (no seed).
+- [x] `/en/pastoral/critical-incidents/new` — render verified; submit-flow deferred (seed gap means no downstream detail to walk).
+- [ ] `/en/pastoral/critical-incidents/[id]` — no seeded critical incidents; deferred (seed gap).
+- [x] `/en/pastoral/referrals` — 3 seeded rows visible; post-fix type column humanised.
+- [x] `/en/pastoral/referrals/new` — render verified; 6 enum types correctly listed.
+- [x] `/en/pastoral/referrals/[id]` — opened PC-S0 referrals; post-fix header humanised.
+- [x] `/en/pastoral/cases` — 3 seeded rows visible.
+- [x] `/en/pastoral/cases/new` — render verified.
+- [x] `/en/pastoral/cases/[id]` — walked PC-S0-001 (Charlotte Adams).
+- [x] `/en/pastoral/sst` — empty-state verified (no seed).
+- [ ] `/en/pastoral/sst/[id]` — no seeded SST meetings; deferred (seed gap).
+- [x] `/en/pastoral/dsar` — empty-state verified (no DSAR reviews seeded).
+- [ ] `/en/pastoral/dsar/[complianceRequestId]` — no seeded DSAR reviews; deferred (seed gap).
+- [x] `/en/pastoral/checkins` — monitoring config + prerequisites panel render.
+- [x] `/en/pastoral/checkins/flagged` — clean empty-state.
+- [x] `/en/pastoral/self-referral` — parent-facing "Raise a concern" form loads; owner redirect from parent-portal guard is expected. Student-authored round-trip deferred to S8 (role-boundary sweep).
+- [x] `/en/pastoral/import` — CSV upload step 1 / 3 renders.
+- [x] `/en/pastoral/interventions` — post-fix Mentoring renders.
+- [x] `/en/pastoral/interventions/new` — post-fix renders cleanly with type dropdown populated.
+- [x] `/en/pastoral/interventions/[id]` — post-fix detail opens with plan, outcomes, progress panels.
 
 ---
 
