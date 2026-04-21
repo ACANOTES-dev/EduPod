@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Search, X } from 'lucide-react';
+import { Info, Search, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -26,6 +26,10 @@ import {
   SheetHeader,
   SheetTitle,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
@@ -140,7 +144,10 @@ export function CreateRestrictionSheet({
           form.setValue('parent_id', parents[0].id, { shouldValidate: true });
         }
       })
-      .catch((err) => { console.error('[CreateRestrictionSheet]', err); return setParentOptions([]); })
+      .catch((err) => {
+        console.error('[CreateRestrictionSheet]', err);
+        return setParentOptions([]);
+      })
       .finally(() => setLoadingParents(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStudent]);
@@ -280,18 +287,48 @@ export function CreateRestrictionSheet({
               control={form.control}
               name="restriction_type"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={t('selectRestrictionType')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {RESTRICTION_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {RESTRICTION_TYPE_LABELS[type]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={t('selectRestrictionType')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <TooltipProvider delayDuration={200}>
+                        {RESTRICTION_TYPES.map((type) => (
+                          <div key={type} className="flex items-center">
+                            <SelectItem value={type} className="flex-1">
+                              {RESTRICTION_TYPE_LABELS[type]}
+                            </SelectItem>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  tabIndex={-1}
+                                  aria-label={t('typeDescriptionsAria')}
+                                  className="me-2 inline-flex h-6 w-6 items-center justify-center rounded-full text-text-tertiary hover:bg-surface-secondary hover:text-text-primary"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Info className="h-3.5 w-3.5" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="max-w-xs text-xs">
+                                {t(
+                                  `typeDescriptions.${type}` as 'typeDescriptions.no_portal_access',
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        ))}
+                      </TooltipProvider>
+                    </SelectContent>
+                  </Select>
+                  {field.value && (
+                    <p className="text-xs italic text-text-tertiary">
+                      {t(`typeDescriptions.${field.value}` as 'typeDescriptions.no_portal_access')}
+                    </p>
+                  )}
+                </>
               )}
             />
           </div>
@@ -356,7 +393,9 @@ export function CreateRestrictionSheet({
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={creating}
-            >{tCommon('cancel')}</Button>
+            >
+              {tCommon('cancel')}
+            </Button>
             <Button type="submit" disabled={!form.formState.isValid || creating}>
               {creating ? 'Creating...' : 'Create Restriction'}
             </Button>

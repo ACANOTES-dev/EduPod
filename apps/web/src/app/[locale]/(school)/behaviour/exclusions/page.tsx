@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Plus, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -13,6 +13,8 @@ import { PageHeader } from '@/components/page-header';
 import { useIsMobile } from '@/hooks/use-is-mobile';
 import { apiClient } from '@/lib/api-client';
 import { formatDate, formatDateTime } from '@/lib/format-date';
+
+import { OpenCaseDialog } from './_components/open-case-dialog';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,6 +124,7 @@ export default function ExclusionListPage() {
   const PAGE_SIZE = 20;
   const [isLoading, setIsLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<TabKey>('all');
+  const [openCaseDialogOpen, setOpenCaseDialogOpen] = React.useState(false);
 
   const isMobile = useIsMobile();
 
@@ -366,13 +369,28 @@ export default function ExclusionListPage() {
         title={t('title')}
         description={t('description')}
         actions={
-          <Link href={`/${locale}/behaviour`}>
-            <Button variant="ghost">
-              <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-              {t('backToBehaviour')}
+          <div className="flex items-center gap-2">
+            <Link href={`/${locale}/behaviour`}>
+              <Button variant="ghost">
+                <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
+                {t('backToBehaviour')}
+              </Button>
+            </Link>
+            <Button onClick={() => setOpenCaseDialogOpen(true)}>
+              <Plus className="me-2 h-4 w-4" />
+              {t('openCase.trigger')}
             </Button>
-          </Link>
+          </div>
         }
+      />
+
+      <OpenCaseDialog
+        open={openCaseDialogOpen}
+        onOpenChange={setOpenCaseDialogOpen}
+        onCreated={(id) => {
+          setOpenCaseDialogOpen(false);
+          router.push(`/${locale}/behaviour/exclusions/${id}`);
+        }}
       />
 
       {/* Tabs */}

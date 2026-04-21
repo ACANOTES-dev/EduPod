@@ -9773,7 +9773,27 @@
       "noResults": "No exclusion cases found",
       "pagination": "Page {page} of {total}",
       "previous": "Previous",
-      "next": "Next"
+      "next": "Next",
+      "openCase": {
+        "trigger": "Open case",
+        "title": "Open exclusion case",
+        "description": "Pick a sanction to attach this case to. Only escalation-grade sanctions are listed.",
+        "searchPlaceholder": "Search by sanction number, type, or student",
+        "loading": "Loading eligible sanctions…",
+        "loadError": "We could not load sanctions. Close the dialog and try again.",
+        "emptyAll": "No eligible sanctions found. Only internal, external, or expulsion sanctions can anchor an exclusion case.",
+        "emptyFiltered": "No sanctions match your search.",
+        "noStudent": "—",
+        "scheduledOn": "Scheduled {date}",
+        "sanctionType": {
+          "expulsion": "Expulsion",
+          "suspension_internal": "Internal suspension",
+          "suspension_external": "External suspension"
+        },
+        "submit": "Open case",
+        "submitting": "Opening…",
+        "submitError": "Could not open the case. Try again."
+      }
     },
     "exclusionDetail": {
       "title": "Exclusion Case {number}",
@@ -10338,7 +10358,17 @@
       "previous": "Previous",
       "sendCorrectionDescription": "Sending this correction will notify parents and request re-acknowledgement if required.",
       "sendCorrectionTitle": "Send correction",
-      "sending": "Sending..."
+      "sending": "Sending...",
+      "viewDiff": "View diff",
+      "viewDiffTitle": "Amendment diff",
+      "viewDiffDescription": "Every field that changed, before and after. Read-only.",
+      "diff": {
+        "before": "Before",
+        "after": "After",
+        "none": "—",
+        "reason": "Reason:",
+        "close": "Close"
+      }
     },
     "documents": {
       "title": "Documents",
@@ -10521,6 +10551,13 @@
     "student": "Student *",
     "restrictAGuardiansAccessTo": "Restrict a guardian&apos;s access to behaviour data for a specific student.",
     "addGuardianRestriction": "Add Guardian Restriction",
+    "typeDescriptionsAria": "Restriction type descriptions",
+    "typeDescriptions": {
+      "no_behaviour_visibility": "Hides behaviour incidents and sanctions from this guardian in the parent portal. They can still access attendance, academic, and pastoral records.",
+      "no_behaviour_notifications": "Stops outbound behaviour notifications (push, email, SMS, WhatsApp) to this guardian. They can still see behaviour in the portal.",
+      "no_portal_access": "Blocks ALL parent portal access for this guardian — behaviour, attendance, academics, messages, payments. Use only when a portal blackout is warranted.",
+      "no_communications": "Stops every school-to-parent communication channel for this guardian (messages, notifications, newsletters). Portal access is unaffected."
+    },
     "revokeRestriction": "Revoke Restriction",
     "history": "History",
     "reason2": "Reason:",

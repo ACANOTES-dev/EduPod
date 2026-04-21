@@ -9764,7 +9764,27 @@
       "noResults": "لم يتم العثور على حالات استبعاد",
       "pagination": "الصفحة {page} من {total}",
       "previous": "السابق",
-      "next": "التالي"
+      "next": "التالي",
+      "openCase": {
+        "trigger": "فتح حالة",
+        "title": "فتح حالة استبعاد",
+        "description": "اختر عقوبة لإرفاق هذه الحالة بها. تُعرض فقط العقوبات من درجة التصعيد.",
+        "searchPlaceholder": "ابحث برقم العقوبة أو النوع أو الطالب",
+        "loading": "جارٍ تحميل العقوبات المؤهلة…",
+        "loadError": "تعذّر تحميل العقوبات. أغلق النافذة وحاول مرة أخرى.",
+        "emptyAll": "لا توجد عقوبات مؤهلة. يمكن لعقوبات الإيقاف الداخلي أو الخارجي أو الفصل فقط أن تكون مرتكزًا لحالة استبعاد.",
+        "emptyFiltered": "لا توجد عقوبات تطابق بحثك.",
+        "noStudent": "—",
+        "scheduledOn": "مجدولة {date}",
+        "sanctionType": {
+          "expulsion": "فصل",
+          "suspension_internal": "إيقاف داخلي",
+          "suspension_external": "إيقاف خارجي"
+        },
+        "submit": "فتح الحالة",
+        "submitting": "جارٍ الفتح…",
+        "submitError": "تعذّر فتح الحالة. حاول مرة أخرى."
+      }
     },
     "exclusionDetail": {
       "title": "حالة الاستبعاد {number}",
@@ -10329,7 +10349,17 @@
       "previous": "السابق",
       "sendCorrectionDescription": "سيؤدي إرسال هذا التصحيح إلى إشعار أولياء الأمور وطلب إعادة الإقرار إذا لزم الأمر.",
       "sendCorrectionTitle": "إرسال التصحيح",
-      "sending": "جارٍ الإرسال..."
+      "sending": "جارٍ الإرسال...",
+      "viewDiff": "عرض الفروق",
+      "viewDiffTitle": "فروق التعديل",
+      "viewDiffDescription": "كل حقل تم تغييره — القيمة قبل التعديل وبعده. للاطلاع فقط.",
+      "diff": {
+        "before": "قبل",
+        "after": "بعد",
+        "none": "—",
+        "reason": "السبب:",
+        "close": "إغلاق"
+      }
     },
     "documents": {
       "title": "المستندات",
@@ -10512,6 +10542,13 @@
     "student": "[AR] Student *",
     "restrictAGuardiansAccessTo": "[AR] Restrict a guardian&apos;s access to behaviour data for a specific student.",
     "addGuardianRestriction": "إضافة Guardian Restriction",
+    "typeDescriptionsAria": "أوصاف أنواع التقييد",
+    "typeDescriptions": {
+      "no_behaviour_visibility": "يخفي الحوادث والعقوبات السلوكية عن وليّ الأمر في بوابة أولياء الأمور. يبقى حضور الطالب وسجلّه الأكاديمي والتربوي متاحًا.",
+      "no_behaviour_notifications": "يوقف الإشعارات السلوكية الصادرة (تنبيهات، بريد، رسائل، واتساب) لوليّ الأمر. يمكنه الاطلاع على السلوك عبر البوابة.",
+      "no_portal_access": "يمنع وليّ الأمر من الوصول إلى بوابة أولياء الأمور بالكامل — السلوك والحضور والدرجات والرسائل والدفعات. يُستخدم عند الحاجة إلى حجب كامل.",
+      "no_communications": "يوقف جميع قنوات التواصل من المدرسة إلى وليّ الأمر (رسائل، إشعارات، نشرات). الوصول إلى البوابة لا يتأثر."
+    },
     "revokeRestriction": "[AR] Revoke Restriction",
     "history": "السجل",
     "reason2": "[AR] Reason:",

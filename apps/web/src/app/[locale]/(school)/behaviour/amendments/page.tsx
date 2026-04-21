@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, CheckCircle, Send } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Eye, Send } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -113,6 +113,10 @@ export default function AmendmentListPage() {
   const [sending, setSending] = React.useState(false);
   const [sendError, setSendError] = React.useState('');
 
+  // View diff dialog
+  const [diffOpen, setDiffOpen] = React.useState(false);
+  const [diffAmendment, setDiffAmendment] = React.useState<AmendmentRow | null>(null);
+
   const isMobile = useIsMobile();
 
   // Fetch amendments
@@ -150,6 +154,11 @@ export default function AmendmentListPage() {
     setSelectedAmendment(amendment);
     setSendError('');
     setConfirmOpen(true);
+  };
+
+  const handleOpenDiff = (amendment: AmendmentRow) => {
+    setDiffAmendment(amendment);
+    setDiffOpen(true);
   };
 
   const handleSendCorrection = async () => {
@@ -241,20 +250,36 @@ export default function AmendmentListPage() {
     {
       key: 'action',
       header: '',
-      render: (row: AmendmentRow) =>
-        !row.correction_notification_sent ? (
+      render: (row: AmendmentRow) => (
+        <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={(e: React.MouseEvent) => {
               e.stopPropagation();
-              handleOpenConfirm(row);
+              handleOpenDiff(row);
             }}
           >
-            <Send className="me-1 h-3.5 w-3.5" />{t('send')}</Button>
-        ) : (
-          <span className="text-xs text-green-600 dark:text-green-400">{t('sent')}</span>
-        ),
+            <Eye className="me-1 h-3.5 w-3.5" />
+            {t('viewDiff')}
+          </Button>
+          {!row.correction_notification_sent ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation();
+                handleOpenConfirm(row);
+              }}
+            >
+              <Send className="me-1 h-3.5 w-3.5" />
+              {t('send')}
+            </Button>
+          ) : (
+            <span className="text-xs text-green-600 dark:text-green-400">{t('sent')}</span>
+          )}
+        </div>
+      ),
     },
   ];
 
@@ -278,18 +303,28 @@ export default function AmendmentListPage() {
             )}
           </div>
         </div>
-        {!row.correction_notification_sent ? (
+        <div className="flex shrink-0 items-center gap-1.5">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="shrink-0"
-            onClick={() => handleOpenConfirm(row)}
+            aria-label={t('viewDiff')}
+            onClick={() => handleOpenDiff(row)}
           >
-            <Send className="h-3.5 w-3.5" />
+            <Eye className="h-3.5 w-3.5" />
           </Button>
-        ) : (
-          <span className="text-xs text-green-600 dark:text-green-400">{t('sent')}</span>
-        )}
+          {!row.correction_notification_sent ? (
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label={t('send')}
+              onClick={() => handleOpenConfirm(row)}
+            >
+              <Send className="h-3.5 w-3.5" />
+            </Button>
+          ) : (
+            <span className="text-xs text-green-600 dark:text-green-400">{t('sent')}</span>
+          )}
+        </div>
       </div>
       <p className="mt-2 text-xs text-text-secondary">{renderChangeSummary(row.what_changed)}</p>
       <div className="mt-2 flex items-center justify-between text-xs text-text-tertiary">
@@ -404,6 +439,55 @@ export default function AmendmentListPage() {
           isLoading={isLoading}
         />
       )}
+
+      {/* View Diff Dialog */}
+      <Dialog open={diffOpen} onOpenChange={setDiffOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('viewDiffTitle')}</DialogTitle>
+          </DialogHeader>
+          {diffAmendment && (
+            <div className="space-y-4 py-2">
+              <p className="text-sm text-text-secondary">{t('viewDiffDescription')}</p>
+              <div className="rounded-lg bg-surface-secondary p-3">
+                <p className="text-sm font-medium text-text-primary">
+                  {getEntityRef(diffAmendment)}
+                </p>
+                <div className="mt-3 space-y-3">
+                  {diffAmendment.what_changed.map((change, idx) => (
+                    <div key={idx} className="rounded border border-border bg-surface p-2 text-xs">
+                      <p className="font-medium text-text-primary">
+                        {formatFieldName(change.field)}
+                      </p>
+                      <div className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
+                        <span className="text-text-tertiary">{t('diff.before')}</span>
+                        <span className="whitespace-pre-wrap break-words text-red-700 dark:text-red-400">
+                          {change.old_value ?? t('diff.none')}
+                        </span>
+                        <span className="text-text-tertiary">{t('diff.after')}</span>
+                        <span className="whitespace-pre-wrap break-words text-green-700 dark:text-green-400">
+                          {change.new_value ?? t('diff.none')}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {diffAmendment.change_reason && (
+                  <div className="mt-3 border-t border-border pt-2 text-xs text-text-secondary">
+                    <span className="font-medium">{t('diff.reason')}</span>{' '}
+                    {diffAmendment.change_reason}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDiffOpen(false)}>
+              {t('diff.close')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Send Correction Confirmation Dialog */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
