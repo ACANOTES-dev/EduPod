@@ -17,8 +17,11 @@ interface StudentBehaviourRow {
   student_id: string;
   first_name: string;
   last_name: string;
+  student_number: string | null;
+  year_group_id: string | null;
   year_group_name: string | null;
   total_points: number;
+  incident_count: number;
   positive_count: number;
   negative_count: number;
   last_incident_date: string | null;
@@ -47,25 +50,24 @@ export default function BehaviourStudentsPage() {
 
   const searchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchStudents = React.useCallback(
-    async (p: number, q: string) => {
-      setIsLoading(true);
-      try {
-        const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
-        if (q.trim()) params.set('search', q.trim());
-        const res = await apiClient<StudentsResponse>(`/api/v1/behaviour/students?${params.toString()}`);
-        setData(res.data ?? []);
-        setTotal(res.meta?.total ?? 0);
-      } catch (err) {
-        console.error('[BehaviourStudentsPage]', err);
-        setData([]);
-        setTotal(0);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [],
-  );
+  const fetchStudents = React.useCallback(async (p: number, q: string) => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
+      if (q.trim()) params.set('search', q.trim());
+      const res = await apiClient<StudentsResponse>(
+        `/api/v1/behaviour/students?${params.toString()}`,
+      );
+      setData(res.data ?? []);
+      setTotal(res.meta?.total ?? 0);
+    } catch (err) {
+      console.error('[BehaviourStudentsPage]', err);
+      setData([]);
+      setTotal(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -98,10 +100,17 @@ export default function BehaviourStudentsPage() {
       key: 'total_points',
       header: t('columns.points'),
       render: (row: StudentBehaviourRow) => (
-        <span className={`font-semibold ${
-          row.total_points > 0 ? 'text-green-600' : row.total_points < 0 ? 'text-red-600' : 'text-text-primary'
-        }`}>
-          {row.total_points > 0 ? '+' : ''}{row.total_points}
+        <span
+          className={`font-semibold ${
+            row.total_points > 0
+              ? 'text-green-600'
+              : row.total_points < 0
+                ? 'text-red-600'
+                : 'text-text-primary'
+          }`}
+        >
+          {row.total_points > 0 ? '+' : ''}
+          {row.total_points}
         </span>
       ),
     },
@@ -135,7 +144,10 @@ export default function BehaviourStudentsPage() {
       <input
         type="text"
         value={search}
-        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setPage(1);
+        }}
         placeholder={t('search')}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-base text-text-primary sm:w-56"
         aria-label={t('search')}
@@ -145,10 +157,7 @@ export default function BehaviourStudentsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('title')}
-        description={t('description')}
-      />
+      <PageHeader title={t('title')} description={t('description')} />
 
       <DataTable
         columns={columns}

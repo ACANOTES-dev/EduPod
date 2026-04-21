@@ -22,38 +22,48 @@ import { useApiQuery } from '@/hooks/use-api-query';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface TrendPoint {
-  week: string;
-  positive: number;
-  negative: number;
+  week_start: string;
+  count: number;
 }
 
 interface CategoryBreakdown {
+  category_id: string;
   category_name: string;
   polarity: 'positive' | 'negative' | 'neutral';
   count: number;
 }
 
 interface PeriodComparison {
+  period_id: string;
   period_name: string;
-  positive: number;
-  negative: number;
+  incident_count: number;
 }
 
 interface SanctionSummary {
-  sanction_type: string;
+  type: string;
+  total: number;
   served: number;
   no_show: number;
 }
 
-interface StudentAnalyticsData {
+interface AnalyticsSummary {
   total_incidents: number;
+  positive_count: number;
+  negative_count: number;
+  neutral_count: number;
   positive_ratio: number | null;
   total_points: number;
   active_interventions: number;
-  trends: TrendPoint[];
-  categories: CategoryBreakdown[];
-  period_comparisons: PeriodComparison[];
-  sanctions: SanctionSummary[];
+  pending_sanctions: number;
+}
+
+interface StudentAnalyticsData {
+  summary: AnalyticsSummary;
+  trend: TrendPoint[];
+  category_breakdown: CategoryBreakdown[];
+  period_comparison: PeriodComparison[];
+  sanction_history: SanctionSummary[];
+  attendance_correlation?: unknown;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -67,14 +77,14 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
   } = useApiQuery<{ data: StudentAnalyticsData }, StudentAnalyticsData>(
     studentId ? `/api/v1/behaviour/students/${studentId}/analytics` : null,
     {
-      fallbackMessage: t('errors.loadFailed'),
+      fallbackMessage: t('errorLoading'),
       select: (response) => response.data,
     },
   );
 
   const errorMessage = error
     ? error.status === 403
-      ? t('errors.noPermission')
+      ? 'You do not have permission to view these analytics.'
       : error.message
     : null;
 
@@ -112,15 +122,19 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
 
   // ─── Empty state ────────────────────────────────────────────────────────────
 
-  if (!data || data.total_incidents === 0) {
+  if (!data || !data.summary || data.summary.total_incidents === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-surface py-12 text-center">
         <BarChart3 className="mb-2 h-8 w-8 text-text-tertiary" />
-        <p className="text-sm font-medium text-text-tertiary">{t('empty.title')}</p>
-        <p className="mt-1 text-xs text-text-tertiary">{t('empty.description')}</p>
+        <p className="text-sm font-medium text-text-tertiary">{t('empty')}</p>
       </div>
     );
   }
+
+  const trend = data.trend ?? [];
+  const categories = data.category_breakdown ?? [];
+  const periodComparisons = data.period_comparison ?? [];
+  const sanctions = data.sanction_history ?? [];
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -129,15 +143,19 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <SummaryCard
-          title={t('cards.totalIncidents')}
-          value={data.total_incidents}
+          title="Incidents"
+          value={data.summary.total_incidents}
           icon={<BarChart3 className="h-4 w-4 text-text-tertiary" />}
         />
         <SummaryCard
-          title={t('cards.positiveRatio')}
-          value={data.positive_ratio !== null ? `${Math.round(data.positive_ratio * 100)}%` : '--'}
+          title="Positive ratio"
+          value={
+            data.summary.positive_ratio !== null
+              ? `${Math.round(data.summary.positive_ratio * 100)}%`
+              : '--'
+          }
           icon={
-            data.positive_ratio !== null && data.positive_ratio >= 0.5 ? (
+            data.summary.positive_ratio !== null && data.summary.positive_ratio >= 0.5 ? (
               <TrendingUp className="h-4 w-4 text-green-600" />
             ) : (
               <TrendingDown className="h-4 w-4 text-red-500" />
@@ -145,50 +163,42 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
           }
         />
         <SummaryCard
-          title={t('cards.totalPoints')}
-          value={data.total_points}
+          title="Points"
+          value={data.summary.total_points}
           icon={<Award className="h-4 w-4 text-text-tertiary" />}
         />
         <SummaryCard
-          title={t('cards.activeInterventions')}
-          value={data.active_interventions}
+          title="Active interventions"
+          value={data.summary.active_interventions}
           icon={
             <div
-              className={`h-2 w-2 rounded-full ${data.active_interventions > 0 ? 'bg-amber-500' : 'bg-green-500'}`}
+              className={`h-2 w-2 rounded-full ${
+                data.summary.active_interventions > 0 ? 'bg-amber-500' : 'bg-green-500'
+              }`}
             />
           }
         />
       </div>
 
-      {/* Trend Line Chart */}
-      {data.trends.length > 0 && (
+      {/* Trend Line Chart (weekly counts) */}
+      {trend.length > 0 && (
         <div className="rounded-lg border border-border bg-surface p-4 md:p-6">
-          <h3 className="mb-4 text-sm font-semibold text-text-primary">
-            {t('charts.weeklyTrends')}
-          </h3>
+          <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('weeklyTrend')}</h3>
           <div className="h-64 w-full overflow-x-auto">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.trends}>
+              <LineChart data={trend}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="week" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="week_start" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
                 <Tooltip />
                 <Legend />
                 <Line
                   type="monotone"
-                  dataKey="positive"
-                  stroke="#22c55e"
+                  dataKey="count"
+                  stroke="#6366f1"
                   strokeWidth={2}
                   dot={false}
-                  name={t('legend.positive')}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="negative"
-                  stroke="#ef4444"
-                  strokeWidth={2}
-                  dot={false}
-                  name={t('legend.negative')}
+                  name="Incidents"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -197,14 +207,12 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
       )}
 
       {/* Category Breakdown — Horizontal BarChart */}
-      {data.categories.length > 0 && (
+      {categories.length > 0 && (
         <div className="rounded-lg border border-border bg-surface p-4 md:p-6">
-          <h3 className="mb-4 text-sm font-semibold text-text-primary">
-            {t('charts.categoryBreakdown')}
-          </h3>
+          <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('categoryBreakdown')}</h3>
           <div className="h-64 w-full overflow-x-auto">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.categories.slice(0, 10)} layout="vertical">
+              <BarChart data={categories.slice(0, 10)} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" tick={{ fontSize: 12 }} allowDecimals={false} />
                 <YAxis
@@ -214,8 +222,8 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
                   tick={{ fontSize: 11 }}
                 />
                 <Tooltip />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]} name={t('legend.count')}>
-                  {data.categories.slice(0, 10).map((entry, idx) => (
+                <Bar dataKey="count" radius={[0, 4, 4, 0]} name="Count">
+                  {categories.slice(0, 10).map((entry, idx) => (
                     <Cell
                       key={idx}
                       fill={
@@ -234,30 +242,21 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
         </div>
       )}
 
-      {/* Period Comparison — Grouped BarChart (only if multiple periods) */}
-      {data.period_comparisons.length > 1 && (
+      {/* Period Comparison — BarChart */}
+      {periodComparisons.length > 1 && (
         <div className="rounded-lg border border-border bg-surface p-4 md:p-6">
-          <h3 className="mb-4 text-sm font-semibold text-text-primary">
-            {t('charts.periodComparison')}
-          </h3>
+          <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('periodComparison')}</h3>
           <div className="h-64 w-full overflow-x-auto">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.period_comparisons}>
+              <BarChart data={periodComparisons}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="period_name" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
                 <Tooltip />
-                <Legend />
                 <Bar
-                  dataKey="positive"
-                  fill="#22c55e"
-                  name={t('legend.positive')}
-                  radius={[4, 4, 0, 0]}
-                />
-                <Bar
-                  dataKey="negative"
-                  fill="#ef4444"
-                  name={t('legend.negative')}
+                  dataKey="incident_count"
+                  fill="#6366f1"
+                  name="Incidents"
                   radius={[4, 4, 0, 0]}
                 />
               </BarChart>
@@ -267,40 +266,28 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
       )}
 
       {/* Sanction History Table */}
-      {data.sanctions.length > 0 && (
+      {sanctions.length > 0 && (
         <div className="rounded-lg border border-border bg-surface p-4 md:p-6">
-          <h3 className="mb-4 text-sm font-semibold text-text-primary">
-            {t('charts.sanctionHistory')}
-          </h3>
+          <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('sanctionHistory')}</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="pb-2 text-start font-medium text-text-tertiary">
-                    {t('sanctions.type')}
-                  </th>
-                  <th className="pb-2 text-end font-medium text-text-tertiary">
-                    {t('sanctions.served')}
-                  </th>
-                  <th className="pb-2 text-end font-medium text-text-tertiary">
-                    {t('sanctions.noShow')}
-                  </th>
-                  <th className="pb-2 text-end font-medium text-text-tertiary">
-                    {t('sanctions.total')}
-                  </th>
+                  <th className="pb-2 text-start font-medium text-text-tertiary">Type</th>
+                  <th className="pb-2 text-end font-medium text-text-tertiary">Served</th>
+                  <th className="pb-2 text-end font-medium text-text-tertiary">No-show</th>
+                  <th className="pb-2 text-end font-medium text-text-tertiary">Total</th>
                 </tr>
               </thead>
               <tbody>
-                {data.sanctions.map((s) => (
-                  <tr key={s.sanction_type} className="border-b border-border last:border-0">
+                {sanctions.map((s) => (
+                  <tr key={s.type} className="border-b border-border last:border-0">
                     <td className="py-2 text-text-primary capitalize">
-                      {s.sanction_type.replace(/_/g, ' ')}
+                      {s.type.replace(/_/g, ' ')}
                     </td>
                     <td className="py-2 text-end text-green-600">{s.served}</td>
                     <td className="py-2 text-end text-red-500">{s.no_show}</td>
-                    <td className="py-2 text-end text-text-primary font-medium">
-                      {s.served + s.no_show}
-                    </td>
+                    <td className="py-2 text-end text-text-primary font-medium">{s.total}</td>
                   </tr>
                 ))}
               </tbody>

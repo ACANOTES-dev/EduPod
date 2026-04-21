@@ -118,27 +118,75 @@ export class BehaviourStudentsService {
       this.studentReadFacade.count(tenantId, studentFilter),
     ]);
 
-    // Get point totals for returned students
+    // Get point totals + polarity counts + last-incident date for returned students
     const studentIds = students.map((s) => s.id);
-    const pointAggregates = await this.prisma.behaviourIncidentParticipant.groupBy({
-      by: ['student_id'],
-      where: {
-        student_id: { in: studentIds },
-        tenant_id: tenantId,
-        participant_type: 'student',
-        incident: ACTIVE_INCIDENT_FILTER,
-      },
-      _sum: { points_awarded: true },
-    });
+    const [pointAggregates, positiveCounts, negativeCounts, lastIncidents] = await Promise.all([
+      this.prisma.behaviourIncidentParticipant.groupBy({
+        by: ['student_id'],
+        where: {
+          student_id: { in: studentIds },
+          tenant_id: tenantId,
+          participant_type: 'student',
+          incident: ACTIVE_INCIDENT_FILTER,
+        },
+        _sum: { points_awarded: true },
+      }),
+      this.prisma.behaviourIncidentParticipant.groupBy({
+        by: ['student_id'],
+        where: {
+          student_id: { in: studentIds },
+          tenant_id: tenantId,
+          participant_type: 'student',
+          incident: { ...ACTIVE_INCIDENT_FILTER, polarity: 'positive' },
+        },
+        _count: true,
+      }),
+      this.prisma.behaviourIncidentParticipant.groupBy({
+        by: ['student_id'],
+        where: {
+          student_id: { in: studentIds },
+          tenant_id: tenantId,
+          participant_type: 'student',
+          incident: { ...ACTIVE_INCIDENT_FILTER, polarity: 'negative' },
+        },
+        _count: true,
+      }),
+      this.prisma.behaviourIncidentParticipant.findMany({
+        where: {
+          student_id: { in: studentIds },
+          tenant_id: tenantId,
+          participant_type: 'student',
+          incident: ACTIVE_INCIDENT_FILTER,
+        },
+        select: { student_id: true, incident: { select: { occurred_at: true } } },
+        orderBy: { incident: { occurred_at: 'desc' } },
+      }),
+    ]);
 
     const pointsMap = new Map(
       pointAggregates.map((p) => [p.student_id, p._sum.points_awarded ?? 0]),
     );
+    const positiveMap = new Map(positiveCounts.map((p) => [p.student_id, p._count]));
+    const negativeMap = new Map(negativeCounts.map((p) => [p.student_id, p._count]));
+    const lastIncidentMap = new Map<string, Date>();
+    for (const p of lastIncidents) {
+      if (p.student_id && !lastIncidentMap.has(p.student_id)) {
+        lastIncidentMap.set(p.student_id, p.incident.occurred_at);
+      }
+    }
 
     const data = students.map((s) => ({
-      ...s,
+      student_id: s.id,
+      first_name: s.first_name,
+      last_name: s.last_name,
+      student_number: s.student_number,
+      year_group_id: s.year_group?.id ?? null,
+      year_group_name: s.year_group?.name ?? null,
       total_points: pointsMap.get(s.id) ?? 0,
       incident_count: s._count.bh_incident_participants,
+      positive_count: positiveMap.get(s.id) ?? 0,
+      negative_count: negativeMap.get(s.id) ?? 0,
+      last_incident_date: lastIncidentMap.get(s.id)?.toISOString() ?? null,
     }));
 
     return { data, meta: { page, pageSize, total } };

@@ -10287,6 +10287,22 @@
         "thu": "Thu",
         "fri": "Fri"
       },
+      "days": {
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "sun": "Sun",
+        "1": "Mon",
+        "2": "Tue",
+        "3": "Wed",
+        "4": "Thu",
+        "5": "Fri",
+        "6": "Sat",
+        "0": "Sun"
+      },
       "trends": {
         "improving": "improving",
         "declining": "declining",
@@ -10792,6 +10808,22 @@
       "restrictionType": "Restriction Type"
     },
     "components": {
+      "studentHeader": {
+        "points": "Points",
+        "positive": "Positive",
+        "negative": "Negative"
+      },
+      "studentAnalytics": {
+        "title": "Analytics",
+        "weeklyTrend": "Weekly trend",
+        "categoryBreakdown": "Category breakdown",
+        "periodComparison": "Period comparison",
+        "attendanceCorrelation": "Attendance correlation",
+        "sanctionHistory": "Sanction history",
+        "empty": "No analytics data yet.",
+        "errorLoading": "Could not load analytics.",
+        "retry": "Retry"
+      },
       "quickLogFab": "Quick Log",
       "quickLogSheet": {
         "title": "Quick Log",
@@ -10922,11 +10954,21 @@
     },
     "policies": {
       "title": "Policies",
-      "description": "Behaviour policy rules and escalations."
+      "description": "Behaviour policy rules and escalations.",
+      "manage": "Manage in settings",
+      "addRule": "Add rule",
+      "empty": "No policy rules configured yet.",
+      "retry": "Retry",
+      "errorLoading": "Could not load policy rules."
     },
     "templates": {
       "title": "Templates",
-      "description": "Document and letter templates used by the behaviour module."
+      "description": "Document and letter templates used by the behaviour module.",
+      "manage": "Manage in settings",
+      "addTemplate": "Add template",
+      "empty": "No document templates configured yet.",
+      "retry": "Retry",
+      "errorLoading": "Could not load templates."
     }
   },
   "safeguarding": {
@@ -13380,6 +13422,7 @@
     "legalHolds": {
       "title": "Legal holds",
       "description": "Records under an active hold are never anonymised or deleted by retention. Release the hold to resume normal retention.",
+      "body": "Review active legal holds, release them when the underlying matter is resolved, or create a new hold to pause retention on a specific record.",
       "setBy": "Set by {name} · {at}",
       "legalBasis": "Legal basis",
       "releasedBy": "Released by {name} · {at}",

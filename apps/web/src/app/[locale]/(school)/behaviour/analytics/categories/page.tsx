@@ -13,10 +13,14 @@ import { apiClient } from '@/lib/api-client';
 interface CategoryRow {
   category_id: string | null;
   category_name: string;
-  incident_count: number;
-  positive_count?: number;
-  negative_count?: number;
-  polarity?: string;
+  polarity: string;
+  count: number;
+  rate_per_100: number | null;
+  trend_percent: number | null;
+}
+
+interface CategoriesResponse {
+  data: { categories: CategoryRow[]; data_quality: unknown };
 }
 
 export default function BehaviourAnalyticsCategoriesPage() {
@@ -35,11 +39,11 @@ export default function BehaviourAnalyticsCategoriesPage() {
       const qs = new URLSearchParams();
       if (from) qs.set('from', from);
       if (to) qs.set('to', to);
-      const res = await apiClient<{ data: CategoryRow[] }>(
+      const res = await apiClient<CategoriesResponse>(
         `/api/v1/behaviour/analytics/categories${qs.toString() ? `?${qs}` : ''}`,
         { silent: true },
       );
-      setRows(res.data ?? []);
+      setRows(res.data?.categories ?? []);
     } catch (err: unknown) {
       console.error('[BehaviourAnalyticsCategories]', err);
       setLoadError((err as { error?: { message?: string } }).error?.message ?? t('errorLoading'));
@@ -106,10 +110,7 @@ export default function BehaviourAnalyticsCategoriesPage() {
                   {t('total')}
                 </th>
                 <th className="px-3 py-2 text-end text-xs font-medium text-text-secondary">
-                  {t('positive')}
-                </th>
-                <th className="px-3 py-2 text-end text-xs font-medium text-text-secondary">
-                  {t('negative')}
+                  Rate / 100
                 </th>
               </tr>
             </thead>
@@ -138,13 +139,10 @@ export default function BehaviourAnalyticsCategoriesPage() {
                     )}
                   </td>
                   <td className="px-3 py-2 text-end text-sm font-semibold text-text-primary">
-                    {r.incident_count}
+                    {r.count}
                   </td>
-                  <td className="px-3 py-2 text-end text-sm text-success-text">
-                    {r.positive_count ?? 0}
-                  </td>
-                  <td className="px-3 py-2 text-end text-sm text-danger-text">
-                    {r.negative_count ?? 0}
+                  <td className="px-3 py-2 text-end text-sm text-text-secondary">
+                    {r.rate_per_100 !== null ? r.rate_per_100.toFixed(2) : '—'}
                   </td>
                 </tr>
               ))}

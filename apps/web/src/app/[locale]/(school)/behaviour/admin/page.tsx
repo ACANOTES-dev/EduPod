@@ -32,6 +32,7 @@ const OPERATIONS: RepairOperationDef[] = [
     icon: RefreshCw,
     accent: 'emerald',
     hasPreview: true,
+    defaultBody: { scope: 'tenant' },
   },
   {
     key: 'rebuild-awards',
@@ -41,6 +42,7 @@ const OPERATIONS: RepairOperationDef[] = [
     icon: Award,
     accent: 'indigo',
     hasPreview: true,
+    defaultBody: { scope: 'tenant' },
   },
   {
     key: 'recompute-pulse',
@@ -59,6 +61,7 @@ const OPERATIONS: RepairOperationDef[] = [
     icon: ClipboardList,
     accent: 'amber',
     hasPreview: true,
+    defaultBody: { scope: 'tenant' },
   },
   {
     key: 'reindex-search',

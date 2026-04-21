@@ -70,7 +70,7 @@ export default function LegalHoldsPage() {
     let cancelled = false;
     setLoading(true);
     apiClient<{ data: LegalHold[]; meta?: { total: number } }>(
-      `/api/v1/behaviour/admin/legal-holds?status=${status}&pageSize=200`,
+      `/api/v1/behaviour/admin/legal-holds?status=${status}&pageSize=100`,
     )
       .then((res) => {
         if (!cancelled) setHolds(res.data ?? []);

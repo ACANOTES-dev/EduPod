@@ -20,13 +20,21 @@ import { AiStudentSummary } from '../../_components/ai-student-summary';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface StudentProfile {
-  student_id: string;
-  first_name: string;
-  last_name: string;
-  year_group_name: string | null;
-  total_points: number;
-  positive_count: number;
-  negative_count: number;
+  student: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    student_number?: string | null;
+    year_group?: { id: string; name: string } | null;
+    year_group_id?: string | null;
+  };
+  points: { total: number; fromCache: boolean };
+  summary: {
+    total_points: number;
+    total_incidents: number;
+    positive_count: number;
+    negative_count: number;
+  };
 }
 
 interface StudentTask {
@@ -245,11 +253,11 @@ export default function StudentBehaviourProfilePage() {
       />
 
       <StudentBehaviourHeader
-        studentName={`${profile.first_name} ${profile.last_name}`}
-        yearGroup={profile.year_group_name}
-        totalPoints={profile.total_points}
-        positiveCount={profile.positive_count}
-        negativeCount={profile.negative_count}
+        studentName={`${profile.student.first_name} ${profile.student.last_name}`}
+        yearGroup={profile.student.year_group?.name ?? null}
+        totalPoints={profile.summary.total_points}
+        positiveCount={profile.summary.positive_count}
+        negativeCount={profile.summary.negative_count}
       />
 
       <AiStudentSummary studentId={studentId} />

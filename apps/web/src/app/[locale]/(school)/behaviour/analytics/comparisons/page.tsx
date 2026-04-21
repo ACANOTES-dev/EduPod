@@ -10,19 +10,23 @@ import { Button, Input, Label } from '@school/ui';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-interface ComparisonRow {
-  group_id: string;
-  group_name: string;
-  incident_count: number;
-  positive_count?: number;
-  negative_count?: number;
-  per_student_rate?: number;
+interface ComparisonEntry {
+  year_group_id: string;
+  year_group_name: string;
+  incident_rate: number | null;
+  positive_rate: number | null;
+  negative_rate: number | null;
+  student_count: number;
+}
+
+interface ComparisonResponse {
+  data: { entries: ComparisonEntry[]; data_quality: unknown };
 }
 
 export default function BehaviourAnalyticsComparisonsPage() {
   const t = useTranslations('behaviour.analyticsComparisons');
   const locale = useLocale();
-  const [rows, setRows] = React.useState<ComparisonRow[]>([]);
+  const [rows, setRows] = React.useState<ComparisonEntry[]>([]);
   const [from, setFrom] = React.useState('');
   const [to, setTo] = React.useState('');
   const [loading, setLoading] = React.useState(true);
@@ -35,11 +39,11 @@ export default function BehaviourAnalyticsComparisonsPage() {
       const qs = new URLSearchParams();
       if (from) qs.set('from', from);
       if (to) qs.set('to', to);
-      const res = await apiClient<{ data: ComparisonRow[] }>(
+      const res = await apiClient<ComparisonResponse>(
         `/api/v1/behaviour/analytics/comparisons${qs.toString() ? `?${qs}` : ''}`,
         { silent: true },
       );
-      setRows(res.data ?? []);
+      setRows(res.data?.entries ?? []);
     } catch (err: unknown) {
       console.error('[BehaviourAnalyticsComparisons]', err);
       setLoadError((err as { error?: { message?: string } }).error?.message ?? t('errorLoading'));
@@ -52,7 +56,10 @@ export default function BehaviourAnalyticsComparisonsPage() {
     void load();
   }, [load]);
 
-  const maxCount = Math.max(1, ...rows.map((r) => r.incident_count));
+  const maxRate = Math.max(
+    1,
+    ...rows.map((r) => (typeof r.incident_rate === 'number' ? r.incident_rate : 0)),
+  );
 
   return (
     <div className="space-y-6">
@@ -96,27 +103,31 @@ export default function BehaviourAnalyticsComparisonsPage() {
       ) : (
         <div className="space-y-2">
           {rows.map((r) => {
-            const pct = Math.round((r.incident_count / maxCount) * 100);
+            const rate = r.incident_rate ?? 0;
+            const pct = Math.round((rate / maxRate) * 100);
             return (
               <div
-                key={r.group_id}
+                key={r.year_group_id}
                 className="rounded-lg border border-border bg-surface px-4 py-3"
               >
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="text-sm font-medium text-text-primary">{r.group_name}</span>
+                  <span className="text-sm font-medium text-text-primary">{r.year_group_name}</span>
                   <span className="text-sm font-semibold text-text-primary">
-                    {r.incident_count}
+                    {r.incident_rate !== null ? `${rate.toFixed(1)}%` : '—'}
                   </span>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-surface-secondary">
                   <div className="h-full bg-primary-500" style={{ width: `${pct}%` }} />
                 </div>
-                {(r.positive_count !== undefined || r.negative_count !== undefined) && (
-                  <div className="mt-1 flex gap-3 text-xs text-text-secondary">
-                    <span className="text-success-text">+{r.positive_count ?? 0}</span>
-                    <span className="text-danger-text">-{r.negative_count ?? 0}</span>
-                  </div>
-                )}
+                <div className="mt-1 flex gap-3 text-xs text-text-secondary">
+                  <span className="text-success-text">
+                    +{r.positive_rate !== null ? `${r.positive_rate.toFixed(1)}%` : '0'}
+                  </span>
+                  <span className="text-danger-text">
+                    -{r.negative_rate !== null ? `${r.negative_rate.toFixed(1)}%` : '0'}
+                  </span>
+                  <span>· {r.student_count} students</span>
+                </div>
               </div>
             );
           })}

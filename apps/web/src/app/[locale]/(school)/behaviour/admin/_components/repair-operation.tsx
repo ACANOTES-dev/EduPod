@@ -32,6 +32,12 @@ export interface RepairOperationDef {
   /** Visual accent */
   accent: 'emerald' | 'indigo' | 'amber' | 'rose' | 'slate';
   hasPreview: boolean;
+  /**
+   * Extra fields merged into the preview + execute POST bodies.
+   * Needed for endpoints whose Zod schema requires fields beyond
+   * confirm_phrase (e.g. `scope` for recompute-points / rebuild-awards / backfill-tasks).
+   */
+  defaultBody?: Record<string, unknown>;
 }
 
 interface PreviewResponse {
@@ -105,7 +111,7 @@ export function RepairOperationCard({ op }: { op: RepairOperationDef }) {
     try {
       const res = await apiClient<PreviewResponse>(
         `/api/v1/behaviour/admin/${op.endpointRoot}/preview`,
-        { method: 'POST', body: JSON.stringify({}) },
+        { method: 'POST', body: JSON.stringify(op.defaultBody ?? {}) },
       );
       setPreviewData(res);
     } catch (err: unknown) {
@@ -130,7 +136,7 @@ export function RepairOperationCard({ op }: { op: RepairOperationDef }) {
     try {
       const res = await apiClient<ExecuteResponse>(`/api/v1/behaviour/admin/${op.endpointRoot}`, {
         method: 'POST',
-        body: JSON.stringify({ confirm_phrase: op.confirmPhrase }),
+        body: JSON.stringify({ ...(op.defaultBody ?? {}), confirm_phrase: op.confirmPhrase }),
       });
       setExecuteResult(res);
       setConfirmPhrase('');

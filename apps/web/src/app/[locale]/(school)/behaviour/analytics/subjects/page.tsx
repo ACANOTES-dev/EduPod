@@ -11,9 +11,15 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 interface SubjectRow {
-  subject_id: string;
+  subject_id: string | null;
   subject_name: string;
-  incident_count: number;
+  raw_count: number;
+  rate?: number | null;
+  polarity_breakdown?: { positive: number; negative: number; neutral: number };
+}
+
+interface SubjectsResponse {
+  data: { subjects: SubjectRow[]; data_quality: unknown };
 }
 
 export default function BehaviourAnalyticsSubjectsPage() {
@@ -32,11 +38,11 @@ export default function BehaviourAnalyticsSubjectsPage() {
       const qs = new URLSearchParams();
       if (from) qs.set('from', from);
       if (to) qs.set('to', to);
-      const res = await apiClient<{ data: SubjectRow[] }>(
+      const res = await apiClient<SubjectsResponse>(
         `/api/v1/behaviour/analytics/subjects${qs.toString() ? `?${qs}` : ''}`,
         { silent: true },
       );
-      setRows(res.data ?? []);
+      setRows(res.data?.subjects ?? []);
     } catch (err: unknown) {
       console.error('[BehaviourAnalyticsSubjects]', err);
       setLoadError((err as { error?: { message?: string } }).error?.message ?? t('errorLoading'));
@@ -102,11 +108,14 @@ export default function BehaviourAnalyticsSubjectsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.subject_id} className="border-b border-border last:border-b-0">
+              {rows.map((r, i) => (
+                <tr
+                  key={r.subject_id ?? `row-${i}`}
+                  className="border-b border-border last:border-b-0"
+                >
                   <td className="px-3 py-2 text-sm text-text-primary">{r.subject_name}</td>
                   <td className="px-3 py-2 text-end text-sm font-semibold text-text-primary">
-                    {r.incident_count}
+                    {r.raw_count}
                   </td>
                 </tr>
               ))}

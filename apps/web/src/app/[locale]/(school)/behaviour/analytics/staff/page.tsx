@@ -11,16 +11,17 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 interface StaffRow {
-  user_id: string;
+  staff_id: string;
   staff_name: string;
-  incident_count: number;
-  positive_count?: number;
-  negative_count?: number;
+  last_7_days: number;
+  last_30_days: number;
+  total_year: number;
+  last_logged_at: string | null;
+  inactive_flag: boolean;
 }
 
 interface StaffResponse {
-  data: StaffRow[];
-  meta?: { generated_at: string };
+  data: { staff: StaffRow[]; data_quality: unknown };
 }
 
 export default function BehaviourAnalyticsStaffPage() {
@@ -43,7 +44,7 @@ export default function BehaviourAnalyticsStaffPage() {
         `/api/v1/behaviour/analytics/staff${qs.toString() ? `?${qs}` : ''}`,
         { silent: true },
       );
-      setRows(res.data ?? []);
+      setRows(res.data?.staff ?? []);
     } catch (err: unknown) {
       console.error('[BehaviourAnalyticsStaff]', err);
       setLoadError((err as { error?: { message?: string } }).error?.message ?? t('errorLoading'));
@@ -104,28 +105,35 @@ export default function BehaviourAnalyticsStaffPage() {
                   {t('staff')}
                 </th>
                 <th className="px-3 py-2 text-end text-xs font-medium text-text-secondary">
-                  {t('total')}
+                  Last 7 days
                 </th>
                 <th className="px-3 py-2 text-end text-xs font-medium text-text-secondary">
-                  {t('positive')}
+                  Last 30 days
                 </th>
                 <th className="px-3 py-2 text-end text-xs font-medium text-text-secondary">
-                  {t('negative')}
+                  Year total
+                </th>
+                <th className="px-3 py-2 text-start text-xs font-medium text-text-secondary">
+                  Last logged
                 </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.user_id} className="border-b border-border last:border-b-0">
-                  <td className="px-3 py-2 text-sm text-text-primary">{r.staff_name}</td>
+                <tr key={r.staff_id} className="border-b border-border last:border-b-0">
+                  <td className="px-3 py-2 text-sm text-text-primary">
+                    {r.staff_name}
+                    {r.inactive_flag && (
+                      <span className="ms-2 text-xs text-text-tertiary">· inactive</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-end text-sm text-text-primary">{r.last_7_days}</td>
+                  <td className="px-3 py-2 text-end text-sm text-text-primary">{r.last_30_days}</td>
                   <td className="px-3 py-2 text-end text-sm font-semibold text-text-primary">
-                    {r.incident_count}
+                    {r.total_year}
                   </td>
-                  <td className="px-3 py-2 text-end text-sm text-success-text">
-                    {r.positive_count ?? 0}
-                  </td>
-                  <td className="px-3 py-2 text-end text-sm text-danger-text">
-                    {r.negative_count ?? 0}
+                  <td className="px-3 py-2 text-xs text-text-tertiary">
+                    {r.last_logged_at ? new Date(r.last_logged_at).toLocaleDateString() : '—'}
                   </td>
                 </tr>
               ))}

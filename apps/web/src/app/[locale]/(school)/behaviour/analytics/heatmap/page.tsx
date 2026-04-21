@@ -11,14 +11,15 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 interface HeatmapCell {
-  day_of_week: number; // 0-6 or 1-7 depending on backend
-  period: number | string;
-  incident_count: number;
+  weekday: number;
+  period_order: number;
+  raw_count: number;
+  rate: number | null;
+  polarity_breakdown?: { positive: number; negative: number; neutral: number };
 }
 
 interface HeatmapResponse {
-  data: HeatmapCell[];
-  meta?: { generated_at: string };
+  data: { cells: HeatmapCell[]; data_quality: unknown };
 }
 
 export default function BehaviourAnalyticsHeatmapPage() {
@@ -41,7 +42,7 @@ export default function BehaviourAnalyticsHeatmapPage() {
         `/api/v1/behaviour/analytics/heatmap${qs.toString() ? `?${qs}` : ''}`,
         { silent: true },
       );
-      setRows(res.data ?? []);
+      setRows(res.data?.cells ?? []);
     } catch (err: unknown) {
       console.error('[BehaviourAnalyticsHeatmap]', err);
       setLoadError((err as { error?: { message?: string } }).error?.message ?? t('errorLoading'));
@@ -54,7 +55,7 @@ export default function BehaviourAnalyticsHeatmapPage() {
     void load();
   }, [load]);
 
-  const maxCount = Math.max(1, ...rows.map((r) => r.incident_count));
+  const maxCount = Math.max(1, ...rows.map((r) => r.raw_count));
 
   return (
     <div className="space-y-6">
@@ -116,18 +117,18 @@ export default function BehaviourAnalyticsHeatmapPage() {
             </thead>
             <tbody>
               {rows.map((cell, i) => {
-                const pct = Math.round((cell.incident_count / maxCount) * 100);
+                const pct = Math.round((cell.raw_count / maxCount) * 100);
                 return (
                   <tr
-                    key={`${cell.day_of_week}-${cell.period}-${i}`}
+                    key={`${cell.weekday}-${cell.period_order}-${i}`}
                     className="border-b border-border last:border-b-0"
                   >
                     <td className="px-3 py-2 text-sm text-text-primary">
-                      {t(`days.${cell.day_of_week}` as Parameters<typeof t>[0])}
+                      {t(`days.${cell.weekday}` as Parameters<typeof t>[0])}
                     </td>
-                    <td className="px-3 py-2 text-sm text-text-primary">{String(cell.period)}</td>
+                    <td className="px-3 py-2 text-sm text-text-primary">P{cell.period_order}</td>
                     <td className="px-3 py-2 text-end text-sm font-semibold text-text-primary">
-                      {cell.incident_count}
+                      {cell.raw_count}
                     </td>
                     <td className="px-3 py-2">
                       <div className="h-2 w-full overflow-hidden rounded-full bg-surface-secondary">
