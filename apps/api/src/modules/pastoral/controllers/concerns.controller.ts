@@ -78,8 +78,11 @@ export class ConcernsController {
     @Query(new ZodValidationPipe(listConcernsQuerySchema))
     query: z.infer<typeof listConcernsQuerySchema>,
   ) {
-    const permissions = await this.permissionCacheService.getPermissions(user.membership_id!);
-    return this.concernQueriesService.list(tenant.tenant_id, user.sub, permissions, query);
+    const [permissions, isOwner] = await Promise.all([
+      this.permissionCacheService.getPermissions(user.membership_id!),
+      this.permissionCacheService.isOwner(user.membership_id!),
+    ]);
+    return this.concernQueriesService.list(tenant.tenant_id, user.sub, permissions, query, isOwner);
   }
 
   // ─── 3. Get Concern By ID ─────────────────────────────────────────────────
@@ -92,8 +95,18 @@ export class ConcernsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: Request,
   ) {
-    const permissions = await this.permissionCacheService.getPermissions(user.membership_id!);
-    return this.concernService.getById(tenant.tenant_id, user.sub, permissions, id, req.ip ?? null);
+    const [permissions, isOwner] = await Promise.all([
+      this.permissionCacheService.getPermissions(user.membership_id!),
+      this.permissionCacheService.isOwner(user.membership_id!),
+    ]);
+    return this.concernService.getById(
+      tenant.tenant_id,
+      user.sub,
+      permissions,
+      id,
+      req.ip ?? null,
+      isOwner,
+    );
   }
 
   // ─── 4. Update Concern Metadata ───────────────────────────────────────────

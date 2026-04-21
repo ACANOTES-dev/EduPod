@@ -24,6 +24,7 @@ import {
   normalizeInterventionStatus,
   PASTORAL_INTERVENTION_STATUSES,
   searchStudents,
+  translatePastoralType,
   type PastoralApiListResponse,
   type PastoralInterventionListItem,
   type SearchOption,
@@ -138,7 +139,7 @@ export default function PastoralInterventionListPage() {
       render: (row: PastoralInterventionListItem) => (
         <div className="space-y-2">
           <p className="text-sm font-medium text-text-primary">
-            {t(`types.${row.intervention_type}` as never)}
+            {translatePastoralType((k) => t(k as never), 'types', row.intervention_type)}
           </p>
           <PastoralTierBadge tier={row.continuum_level} />
         </div>
@@ -216,7 +217,7 @@ export default function PastoralInterventionListPage() {
                 {record.student_name ?? sharedT('notAvailable')}
               </p>
               <p className="mt-1 text-sm text-text-secondary">
-                {t(`types.${record.intervention_type}` as never)}
+                {translatePastoralType((k) => t(k as never), 'types', record.intervention_type)}
               </p>
               <p className="mt-3 text-xs text-text-tertiary">
                 {t('reviewDate', { date: formatDate(record.next_review_date) })}

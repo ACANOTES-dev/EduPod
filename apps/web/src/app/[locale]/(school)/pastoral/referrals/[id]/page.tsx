@@ -31,6 +31,7 @@ import {
   getLocaleFromPathname,
   PASTORAL_RECOMMENDATION_STATUSES,
   searchStaff,
+  translatePastoralType,
   type PastoralApiDetailResponse,
   type PastoralReferralDetail,
   type SearchOption,
@@ -150,7 +151,9 @@ export default function PastoralReferralDetailPage() {
         title={t('title', {
           student: formatStudentName(referral.student) || sharedT('notAvailable'),
         })}
-        description={t('description', { type: t(`types.${referral.referral_type}` as never) })}
+        description={t('description', {
+          type: translatePastoralType((k) => t(k as never), 'types', referral.referral_type),
+        })}
         actions={
           referral.case ? (
             <Link href={`/${locale}/pastoral/cases/${referral.case.id}`}>
@@ -179,7 +182,7 @@ export default function PastoralReferralDetailPage() {
               {t('type')}
             </p>
             <p className="mt-2 text-base font-semibold text-text-primary">
-              {t(`types.${referral.referral_type}` as never)}
+              {translatePastoralType((k) => t(k as never), 'types', referral.referral_type)}
             </p>
           </div>
           <div className="rounded-2xl border border-border bg-surface-secondary/60 p-4">

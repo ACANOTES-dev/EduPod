@@ -74,26 +74,30 @@ export default function NewPastoralInterventionPage() {
           silent: true,
         },
       ),
-      apiClient<InterventionTypeOption[]>('/api/v1/pastoral/settings/intervention-types', {
-        silent: true,
-      }),
+      apiClient<{ data: InterventionTypeOption[] }>(
+        '/api/v1/pastoral/settings/intervention-types',
+        { silent: true },
+      ),
     ])
       .then(([caseResponse, typeResponse]) => {
         if (cancelled) {
           return;
         }
 
+        const types = typeResponse?.data ?? [];
         setCases(
           (caseResponse.data ?? []).filter((item) => ['open', 'active'].includes(item.status)),
         );
-        setInterventionTypes(typeResponse ?? []);
+        setInterventionTypes(types);
 
-        const firstActive = (typeResponse ?? []).find((item) => item.active);
+        const firstActive = types.find((item) => item.active);
         if (firstActive && !interventionType) {
           setInterventionType(firstActive.key);
         }
       })
-      .catch((err) => { console.error('[InterventionsNewPage]', err); });
+      .catch((err) => {
+        console.error('[InterventionsNewPage]', err);
+      });
 
     return () => {
       cancelled = true;

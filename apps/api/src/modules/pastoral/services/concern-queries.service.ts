@@ -42,9 +42,10 @@ export class ConcernQueriesService {
     userId: string,
     permissions: string[],
     query: ListConcernsQuery,
+    isOwnerBypass: boolean = false,
   ): Promise<{ data: ConcernListItemDto[]; meta: PaginationMeta }> {
     const hasCpAccess = await this.checkCpAccess(tenantId, userId);
-    const callerMaxTier = this.resolveCallerTierAccess(permissions, hasCpAccess);
+    const callerMaxTier = this.resolveCallerTierAccess(permissions, hasCpAccess, isOwnerBypass);
 
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
@@ -163,8 +164,13 @@ export class ConcernQueriesService {
    * - pastoral.view_tier2 -> max tier 2
    * - CP access grant -> max tier 3 (handled by RLS, but useful for app-layer)
    */
-  private resolveCallerTierAccess(permissions: string[], hasCpAccess: boolean): number {
+  private resolveCallerTierAccess(
+    permissions: string[],
+    hasCpAccess: boolean,
+    isOwnerBypass: boolean = false,
+  ): number {
     if (hasCpAccess) return 3;
+    if (isOwnerBypass) return 2;
     if (permissions.includes('pastoral.view_tier2')) return 2;
     if (permissions.includes('pastoral.view_tier1')) return 1;
     return 0;

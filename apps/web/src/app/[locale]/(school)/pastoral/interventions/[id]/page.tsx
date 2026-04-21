@@ -33,6 +33,7 @@ import {
   normalizeActionStatus,
   normalizeInterventionStatus,
   searchStaff,
+  translatePastoralType,
   type InterventionTypeOption,
   type PastoralApiDetailResponse,
   type PastoralInterventionDetail,
@@ -101,14 +102,15 @@ export default function PastoralInterventionDetailPage() {
         `/api/v1/pastoral/interventions/${interventionId}`,
         { silent: true },
       ),
-      apiClient<InterventionTypeOption[]>('/api/v1/pastoral/settings/intervention-types', {
-        silent: true,
-      }),
+      apiClient<{ data: InterventionTypeOption[] }>(
+        '/api/v1/pastoral/settings/intervention-types',
+        { silent: true },
+      ),
     ]);
 
     setIntervention(detailResponse.data);
     populateForm(detailResponse.data);
-    setTypes(typeResponse ?? []);
+    setTypes(typeResponse?.data ?? []);
   }, [interventionId, populateForm]);
 
   React.useEffect(() => {
@@ -198,7 +200,7 @@ export default function PastoralInterventionDetailPage() {
               {t('interventionType')}
             </p>
             <p className="mt-2 text-base font-semibold text-text-primary">
-              {t(`types.${intervention.intervention_type}` as never)}
+              {translatePastoralType((k) => t(k as never), 'types', intervention.intervention_type)}
             </p>
           </div>
           <div className="rounded-2xl border border-border bg-surface-secondary/60 p-4">

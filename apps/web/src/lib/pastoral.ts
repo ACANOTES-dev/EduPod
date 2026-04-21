@@ -599,6 +599,31 @@ export function formatPastoralValue(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+/**
+ * Translate a pastoral type key (e.g. intervention_type or referral_type)
+ * with a humanised fallback when the key is missing from the translation bundle.
+ *
+ * `intervention_type` is a free-text `z.string().max(50)` and `referral_type`
+ * is an enum that has drifted from seeded values in historical tenants — the
+ * UI must render something sensible rather than the raw dotted key.
+ */
+export function translatePastoralType(
+  translate: (key: string) => string,
+  subKey: string,
+  value: string,
+): string {
+  if (!value) return '';
+  const fullKey = `${subKey}.${value}`;
+  const translated = translate(fullKey);
+  // When a key is missing, next-intl returns the fully-qualified path.
+  // Treat any result containing dots or ending with the raw value as "missing"
+  // and fall back to the humanised form.
+  if (translated === fullKey || translated.endsWith(`.${value}`) || translated === value) {
+    return formatPastoralValue(value);
+  }
+  return translated;
+}
+
 export function normalizeMeetingStatus(value: string): string {
   if (value === 'sst_in_progress') return 'in_progress';
   if (value === 'sst_completed') return 'completed';

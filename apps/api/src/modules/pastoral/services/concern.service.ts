@@ -288,9 +288,14 @@ export class ConcernService {
     permissions: string[],
     concernId: string,
     ipAddress: string | null,
+    isOwnerBypass: boolean = false,
   ): Promise<{ data: ConcernDetailDto }> {
     const hasCpAccess = await this.accessService.checkCpAccess(tenantId, userId);
-    const callerMaxTier = this.accessService.resolveCallerTierAccess(permissions, hasCpAccess);
+    const callerMaxTier = this.accessService.resolveCallerTierAccess(
+      permissions,
+      hasCpAccess,
+      isOwnerBypass,
+    );
 
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,

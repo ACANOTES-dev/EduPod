@@ -56,8 +56,13 @@ export class ConcernAccessService {
     return yearHeads.some((mr) => mr.membership_id === membershipId);
   }
 
-  resolveCallerTierAccess(permissions: string[], hasCpAccess: boolean): number {
+  resolveCallerTierAccess(
+    permissions: string[],
+    hasCpAccess: boolean,
+    isOwnerBypass: boolean = false,
+  ): number {
     if (hasCpAccess) return 3;
+    if (isOwnerBypass) return 2;
     if (permissions.includes('pastoral.view_tier2')) return 2;
     if (permissions.includes('pastoral.view_tier1')) return 1;
     return 0;

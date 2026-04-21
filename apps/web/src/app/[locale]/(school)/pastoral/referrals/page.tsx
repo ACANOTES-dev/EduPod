@@ -21,6 +21,7 @@ import {
   PASTORAL_REFERRAL_STATUSES,
   PASTORAL_REFERRAL_TYPES,
   searchStudents,
+  translatePastoralType,
   type PastoralApiListResponse,
   type PastoralReferralListItem,
   type SearchOption,
@@ -158,7 +159,7 @@ export default function PastoralReferralsPage() {
       render: (row: PastoralReferralListItem) => (
         <div>
           <p className="text-sm font-medium text-text-primary">
-            {t(`types.${row.referral_type}` as never)}
+            {translatePastoralType((k) => t(k as never), 'types', row.referral_type)}
           </p>
           <p className="mt-1 text-xs text-text-tertiary">
             {row.referral_body_name ?? formatPastoralValue(row.referral_type)}
@@ -224,7 +225,7 @@ export default function PastoralReferralsPage() {
                 {formatStudentName(record.student) || sharedT('notAvailable')}
               </p>
               <p className="mt-1 text-sm text-text-secondary">
-                {t(`types.${record.referral_type}` as never)}
+                {translatePastoralType((k) => t(k as never), 'types', record.referral_type)}
               </p>
               <p className="mt-3 text-xs text-text-tertiary">
                 {record.submitted_at ? formatDate(record.submitted_at) : t('draftOnly')}
