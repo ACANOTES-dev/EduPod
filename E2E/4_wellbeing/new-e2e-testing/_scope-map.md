@@ -147,10 +147,10 @@ Root: all routes live under `apps/web/src/app/[locale]/(school)/…`. Tested pri
 
 ## Early Warning / At-Risk hub — owned by S6
 
-- [ ] `/en/early-warnings` (landing)
-- [ ] `/en/early-warnings/cohort`
-- [ ] `/en/early-warnings/settings`
-- [ ] `/en/early-warnings/intervene`
+- [x] `/en/early-warnings` (landing) — post-fix 4 KPI tiles (Red 0 · Amber 0 · Yellow watch 0 · Active interventions 1); at-risk list filters via `?tier=` URL param.
+- [x] `/en/early-warnings/cohort` — post-fix renders 8 year-group rows with populated per-domain averages (2nd class avg 7, Behaviour 28). Blueprint-expected house / date-range / risk-factor filters are a scope gap (W-S6-005 deferred to S9).
+- [x] `/en/early-warnings/settings` — post-fix loads saved config (weights 25/25/20/20/10, thresholds 0/30/50/75); Save Changes PUTs 200; DB confirmed write.
+- [x] `/en/early-warnings/intervene` — renders clean empty-state ("No students are currently flagged at red or amber risk"); red+amber only here by design since intervene is urgent-action-focused.
 
 ---
 

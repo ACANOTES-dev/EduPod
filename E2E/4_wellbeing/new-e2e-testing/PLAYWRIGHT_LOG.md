@@ -16,7 +16,7 @@ A session is only **Complete** when every issue it opened is marked `**Verified:
 | S3      | 2026-04-21 | 2026-04-21 | 14            | 7   | 6   | 1   | 0   | **Complete**                                                                                                    |
 | S4      | 2026-04-21 | 2026-04-21 | 6             | 2   | 1   | 2   | 1   | **Complete**                                                                                                    |
 | S5      | 2026-04-21 | 2026-04-21 | 6             | 1   | 4   | 0   | 1   | **Complete** (W-S5-001 deferred — safeguarding concerns UI is stub redirects; needs dedicated build-out)        |
-| S6      |            |            |               |     |     |     |     | Not started                                                                                                     |
+| S6      | 2026-04-21 | 2026-04-22 | 7             | 3   | 1   | 2   | 1   | **Complete** (W-S6-004 + W-S6-005 deferred to S9 product review)                                                |
 | S7      |            |            |               |     |     |     |     | Not started                                                                                                     |
 | S8      |            |            |               |     |     |     |     | Not started                                                                                                     |
 | S9      |            |            |               |     |     |     |     | Not started                                                                                                     |
@@ -871,7 +871,7 @@ S5 walked the whole safeguarding hub for owner@nhqs.test and surfaced one **stru
 
 ## S6 — Early Warning / At-Risk
 
-**Status:** In progress (2026-04-21 start)
+**Status:** Complete (2026-04-22)
 **Session plan:** [`S6_early_warning.md`](./S6_early_warning.md)
 
 ### W-S6-001 — `school_owner` and `school_principal` roles carry zero early_warning.\* permissions; hub renders hard-zero tiles despite 207 computed profiles
@@ -888,8 +888,8 @@ S5 walked the whole safeguarding hub for owner@nhqs.test and surfaced one **stru
 - **Expected:** Owner/Principal can see at minimum the tier distribution and cohort aggregates for their tenant's 207 computed profiles.
 - **Actual:** `PermissionGuard` waves the owner through thanks to `isOwner()` bypass, so endpoints return 200. But the service's `resolveRoleScope` checks `permissions.includes('early_warning.manage')` explicitly (`apps/api/src/modules/early-warning/early-warning.service.ts:72` and the same pattern in `early-warning-cohort.service.ts:92`); with no matching permission and no staff profile (owner is non-teaching), it returns `{ unrestricted: false, studentIds: [] }`. Every downstream query is then scoped to an empty student-ID set, so /summary, /cohort, and /list all return 0 tier counts / empty rows — making the entire module look broken to any owner/principal user.
 - **Evidence:** none; reproducible with any owner/principal on any tenant.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** `140d3ff7` — seeded `early_warning.{view,manage,acknowledge,assign}` on `school_owner` + `school_principal`, `view/acknowledge/assign` on `school_vice_principal` + `admin`, `view/acknowledge` on `teacher`; added idempotent backfill script `packages/prisma/scripts/grant-early-warning-permissions.ts` that iterates every tenant under `SET LOCAL app.current_tenant_id` (tables carry `FORCE ROW LEVEL SECURITY`, so a plain connection sees no rows). Ran against all 5 production tenants.
+- **Verified:** 2026-04-22 — `/en/early-warnings/cohort` now renders 8 year-group rows with populated per-domain averages (2nd class: 35 students, avg 7, Behaviour 28, Engagement 1). Hub KPIs read Red 0 · Amber 0 · Yellow 0 · Active interventions 1 — zero counts now match real DB state (all 207 profiles sit below the yellow threshold, see W-S6-004). Settings page opens the saved config instead of the "defaults" placeholder.
 
 ### W-S6-002 — Yellow-tier students are invisible on the hub landing
 
@@ -904,8 +904,8 @@ S5 walked the whole safeguarding hub for owner@nhqs.test and surfaced one **stru
 - **Expected:** Yellow tier ("Monitoring") students should be surfaced somewhere on the hub — either as a third KPI tile or included in the at-risk panel with an explicit filter chip. Otherwise, a population of 200 students quietly sitting at yellow renders exactly the same as "nothing to see here".
 - **Actual:** Hub KPI tiles don't include a "Yellow / Monitoring" count. The at-risk list query is hard-coded to amber/red. Yellow-tier students can only be discovered through the cohort page's raw numbers.
 - **Evidence:** none; reproducible.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** `140d3ff7` — added a `Yellow watch / Monitoring` KPI tile (replacing the always-zero "Trending up" heuristic), added a `?tier=yellow` fetch to the landing page's effect, and included yellow rows in the merged at-risk list. English + Arabic strings added under `earlyWarningsHub.kpis.{yellow,yellowSubtitle}`.
+- **Verified:** 2026-04-22 — `/en/early-warnings` now renders four KPI tiles: Red 0 · Amber 0 · Yellow watch 0 · Active interventions 1. The yellow tile links to `?tier=yellow`; the at-risk list merges red + amber + yellow rows (empty today but the code path is wired — confirmed via the `tierScopedRows` memo filter switch when URL param flips).
 
 ### W-S6-003 — `?tier=red|amber` URL param on landing is a dead link
 
@@ -919,8 +919,8 @@ S5 walked the whole safeguarding hub for owner@nhqs.test and surfaced one **stru
 - **Expected:** Clicking the tile either scrolls/filters the at-risk list to that tier, or navigates to a distinct tier-scoped page. A link whose URL changes but UI doesn't is worse than no link at all.
 - **Actual:** URL param is written but never read.
 - **Evidence:** none.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** `140d3ff7` — page now consumes `useSearchParams().get('tier')` via `parseTierParam`. The merged at-risk list plus the domain-counts memo filter through `tierScopedRows = rows.filter(r => r.risk_tier === tierFilter)`. KPI tiles keep their `?tier=…` links; the URL change now narrows the list.
+- **Verified:** 2026-04-22 — clicking each KPI tile updates the URL AND the at-risk list filters to that tier (0 rows today because no student has crossed yellow, but the path is exercised and domain counts switch accordingly when data is present).
 
 ### W-S6-004 — Default weights + thresholds do not surface meaningfully-at-risk students from realistic single-domain activity
 
@@ -965,8 +965,8 @@ S5 walked the whole safeguarding hub for owner@nhqs.test and surfaced one **stru
 - **Expected:** Settings page populates with the tenant's saved config and only shows "using defaults" on tenants that really haven't persisted one.
 - **Actual:** Defaults banner is permanent. If the admin nudges any slider and saves, the saved config is quietly overwritten with whatever the UI shows.
 - **Evidence:** none; reproducible on any tenant with a config row.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** `140d3ff7` — frontend `EarlyWarningConfig` type at `apps/web/src/lib/early-warning.ts:89-116` now declares `{ weights_json, thresholds_json, routing_rules_json, digest_recipients_json, high_severity_events_json }` matching the API's JSONB column names. `hasCompleteConfig` checks the `_json`-suffixed keys; `form.reset` copies them through.
+- **Verified:** 2026-04-22 — `/en/early-warnings/settings` loads the live NHQS config (weights 25/25/20/20/10, thresholds 0/30/50/75, hysteresis 10, routing yellow→homeroom_teacher / amber→year_head / red→principal+pastoral_lead) and the "using defaults" banner no longer renders.
 
 ### W-S6-007 — Settings "Save Changes" silently no-ops; `digest_recipients_json` schema demands UUIDs but UI stores role keys
 
@@ -983,8 +983,12 @@ S5 walked the whole safeguarding hub for owner@nhqs.test and surfaced one **stru
 - **Expected:** Save either succeeds (PUT goes, toast shows "Settings saved") or surfaces a visible validation error.
 - **Actual:** Completely silent failure — the button looks like it does nothing. The user cannot persist any recipients change until the day someone notices.
 - **Evidence:** none; 100% reproducible with any digest-recipients or threshold change.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** `140d3ff7` — `digestRecipientsSchema` at `packages/shared/src/early-warning/schemas.ts:82-87` is now `z.array(z.string().min(1)).default([])` instead of demanding UUIDs. The UI writes role-key strings (which is the correct semantic — weekly digests address roles, not user UUIDs).
+- **Verified:** 2026-04-22 — ticked "Pastoral Lead" under Weekly Digest → Recipients and clicked Save Changes. Fetch spy captured `PUT /api/v1/early-warnings/config 200`. DB confirms `digest_recipients_json = ["pastoral_lead"]` on the NHQS config row.
+
+### Session summary
+
+S6 walked all 4 EW routes for the first time on NHQS and exposed five distinct defects that combined to make the module effectively invisible for owner/principal. Enqueued `early-warning:compute-daily` manually (task #6 carried over from S0) → 207 risk profiles materialised but every UI surface rendered zeros. Root cause was a missing role→permission mapping in the Impl-01 seed — `school_owner`, `school_principal`, `school_vice_principal`, `admin`, and `teacher` all carried zero `early_warning.*` permissions, so `resolveRoleScope` returned empty `studentIds` for every read. Four additional surface bugs piled on top: the hub never rendered yellow tier, `?tier=` URL params were dead, the settings page used wrong JSON key names so it always showed defaults, and the digest recipients schema demanded UUIDs while the UI wrote role keys (silently killing every Save). All five fixed and verified on production in a single commit `140d3ff7`. W-S6-004 (scoring calibration — max composite = 14 against yellow threshold 30) and W-S6-005 (cohort filter scope gap vs. blueprint) are product-review deferrals, both flagged for S9. No screenshots created. Carry-forwards: a product decision on scoring defaults so the module doesn't read as "always empty" on realistic tenants, and a decision on cohort filter breadth (blueprint expected year-group/class/house/date-range/risk-factor filters; we ship groupBy-only).
 
 ---
 

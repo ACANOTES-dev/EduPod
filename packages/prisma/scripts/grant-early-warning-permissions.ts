@@ -56,47 +56,101 @@ const GRANTS: Grant[] = [
   },
 ];
 
+interface RoleRow {
+  id: string;
+  tenant_id: string | null;
+  role_key: string;
+}
+
+interface PermissionRow {
+  id: string;
+  permission_key: string;
+}
+
 async function main() {
   const prisma = new PrismaClient();
 
   try {
-    for (const grant of GRANTS) {
-      const roles = await prisma.role.findMany({
-        where: { role_key: grant.role_key },
-        select: { id: true, tenant_id: true, role_key: true },
-      });
+    // `roles` and `role_permissions` both have FORCE ROW LEVEL SECURITY. With
+    // PgBouncer in transaction mode, SET LOCAL inside a transaction is the
+    // only reliable way to pin RLS context to a single connection. We iterate
+    // every tenant (plus the platform-level NULL case) so the script sees
+    // every row.
+    const tenantIds = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM tenants
+    `;
 
-      if (roles.length === 0) {
-        console.warn(`  [skip] no roles found for role_key="${grant.role_key}"`);
-        continue;
-      }
+    const allPermissions = [...new Set(GRANTS.flatMap((g) => g.permissions))];
 
-      const permissions = await prisma.permission.findMany({
-        where: { permission_key: { in: grant.permissions } },
-        select: { id: true, permission_key: true },
-      });
+    const scopes: Array<{ tenant_id: string | null; label: string }> = [
+      { tenant_id: null, label: 'platform' },
+      ...tenantIds.map((t) => ({ tenant_id: t.id, label: t.id })),
+    ];
 
-      if (permissions.length !== grant.permissions.length) {
-        const missing = grant.permissions.filter(
-          (k) => !permissions.find((p) => p.permission_key === k),
+    for (const scope of scopes) {
+      await prisma.$transaction(async (tx) => {
+        const ctxTenantId = scope.tenant_id ?? '00000000-0000-0000-0000-000000000000';
+        await tx.$executeRawUnsafe(
+          `SELECT set_config('app.current_user_id', '00000000-0000-0000-0000-000000000000', true)`,
         );
-        throw new Error(
-          `Missing permissions in DB: ${missing.join(', ')}. Run prisma seed first to register them.`,
+        await tx.$executeRawUnsafe(
+          `SELECT set_config('app.current_tenant_id', '${ctxTenantId}', true)`,
         );
-      }
+        await tx.$executeRawUnsafe(
+          `SELECT set_config('app.current_membership_id', '00000000-0000-0000-0000-000000000000', true)`,
+        );
 
-      for (const role of roles) {
-        for (const perm of permissions) {
-          await prisma.$executeRaw`
-            INSERT INTO role_permissions (role_id, permission_id, created_at)
-            VALUES (${role.id}::uuid, ${perm.id}::uuid, NOW())
-            ON CONFLICT DO NOTHING
-          `;
+        const permissions = await tx.$queryRaw<PermissionRow[]>`
+          SELECT id, permission_key FROM permissions WHERE permission_key = ANY(${allPermissions}::text[])
+        `;
+        if (permissions.length < allPermissions.length && scope.tenant_id === null) {
+          const missing = allPermissions.filter(
+            (k) => !permissions.find((p) => p.permission_key === k),
+          );
+          throw new Error(
+            `Missing permissions in DB: ${missing.join(', ')}. Run prisma seed first to register them.`,
+          );
         }
-        console.log(
-          `  [${role.tenant_id ?? 'platform'}] ${role.role_key}: granted ${permissions.length} permission(s)`,
-        );
-      }
+        const permByKey = new Map(permissions.map((p) => [p.permission_key, p]));
+
+        for (const grant of GRANTS) {
+          const isPlatform = scope.tenant_id === null;
+          const isSchoolOwnerGrant = grant.role_key === 'school_owner';
+          if (isPlatform !== isSchoolOwnerGrant) {
+            // school_owner is a platform-tier role (tenant_id IS NULL);
+            // every other role in GRANTS is tenant-scoped.
+            continue;
+          }
+
+          const roles = await tx.$queryRaw<RoleRow[]>`
+            SELECT id, tenant_id, role_key FROM roles WHERE role_key = ${grant.role_key}
+          `;
+          if (roles.length === 0) continue;
+
+          for (const role of roles) {
+            for (const key of grant.permissions) {
+              const perm = permByKey.get(key);
+              if (!perm) continue;
+              if (role.tenant_id) {
+                await tx.$executeRaw`
+                  INSERT INTO role_permissions (role_id, permission_id, tenant_id)
+                  VALUES (${role.id}::uuid, ${perm.id}::uuid, ${role.tenant_id}::uuid)
+                  ON CONFLICT DO NOTHING
+                `;
+              } else {
+                await tx.$executeRaw`
+                  INSERT INTO role_permissions (role_id, permission_id, tenant_id)
+                  VALUES (${role.id}::uuid, ${perm.id}::uuid, NULL)
+                  ON CONFLICT DO NOTHING
+                `;
+              }
+            }
+            console.log(
+              `  [${scope.label}] ${role.role_key}: granted ${grant.permissions.length} permission(s)`,
+            );
+          }
+        }
+      });
     }
 
     console.log('done.');
