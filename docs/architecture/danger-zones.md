@@ -1087,6 +1087,26 @@ function toPrismaInterventionStatus(value: string): $Enums.PastoralInterventionS
 
 **How to detect**: any PR that adds `@Throttle`, express-rate-limit middleware, or a global interceptor that could short-circuit `POST /v1/safeguarding/concerns` is a violation. Flag in review.
 
+## DZ-Wellbeing-10: Single-Admin Approval On Break-Glass + CP Grants Is Intentional
+
+**Risk**: A future security-audit reviewer may flag the absence of dual-control on `safeguarding_break_glass_grants` (break-glass access to sealed safeguarding concerns) and `cp_grants` (child-protection elevated read grants) as a P0/P1 finding, citing OWASP "M-of-N approval" practice for sensitive resource access.
+
+**Location**: `apps/api/src/modules/safeguarding/safeguarding-break-glass.service.ts` `grantAccess`, and the equivalent CP-grant write path in the same service. Single-admin approval is the policy.
+
+**Status**: INTENTIONAL — no dual control required at this tenant class.
+
+**Rationale (recorded 2026-04-21 by product/security review)**:
+
+- Tenant population is K-12 schools with ≤50 staff. Requiring two safeguarding admins to be online simultaneously to release a sealed concern would block real incident response — most schools have one DSL and one deputy, often both off-site at training or interviews.
+- The append-only `safeguarding_break_glass_access_log` (DZ-Wellbeing-4) is the primary safeguard. Every grant, every read against the grant, every revocation, and every after-action review writes a row. Platform admin queries this log cross-tenant via the audit console.
+- After-action review (WB-C-19) is mandatory within 7 days of any grant — the AAR reminder cron (`safeguarding:break-glass-aar-reminder`) escalates first at T+6d, then T+6d22h, then T+7d (overdue) until completion.
+- Notification dispatch on grant creation (WB-C-16) ensures both the requesting admin and the DLP/deputy DLP receive in-app + email alerts immediately — a rogue grant cannot occur silently.
+- The bar for adding dual control is: (a) tenant class moves up to multi-school trust / district scale, or (b) a safeguarding incident review identifies single-admin approval as the root cause of harm. Neither is true today.
+
+**How to detect**: any PR that adds an `approval_state` enum, second-approver column, or "two-admin gate" to `safeguarding_break_glass_grants` or `cp_grants` should reference this DZ entry and an updated product decision before landing.
+
+**Re-evaluation trigger**: re-read this entry at the next major audit (Wave 3 or final independent re-audit per `docs/governance/re-audit-checkpoints.md`), or sooner if tenant scale grows beyond ~50 staff.
+
 ## DZ-Wellbeing-8: Wave 4 Hardening Rules Persist Beyond The Rebuild
 
 **Risk**: Waves 4, 5, and 6 of the wellbeing rebuild introduced eleven hardened parallel-coding rules (H1–H11) in `wellbeing_new/IMPLEMENTATION_LOG.md §2b` to prevent lint-staged auto-stash from destroying concurrent sibling work. These rules are not documented anywhere else in the repo, but they apply to **every future frontend rebuild** that touches shared files (`messages/en.json`, `messages/ar.json`, `nav-config.ts`, morph-bar shell, seed files).
