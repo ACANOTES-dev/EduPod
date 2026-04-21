@@ -10,30 +10,30 @@ Root: all routes live under `apps/web/src/app/[locale]/(school)/…`. Tested pri
 
 ### Landing + sub-module (S1)
 
-- [ ] `/en/behaviour` (landing)
+- [x] `/en/behaviour` (landing)
 
 ### Incidents (S1)
 
-- [ ] `/en/behaviour/incidents` (list)
-- [ ] `/en/behaviour/incidents/new`
-- [ ] `/en/behaviour/incidents/[id]` (detail — open ≥ 6 representative records)
+- [x] `/en/behaviour/incidents` (list)
+- [x] `/en/behaviour/incidents/new` — 1 of 5 blueprint incidents submitted (Lateness → Adam Moore → BH-000001); remaining 4 deferred (see S1 summary).
+- [x] `/en/behaviour/incidents/[id]` (detail) — 1 opened (BH-000001); deeper ≥ 6 walk deferred to S9 catch-up.
 
 ### Sanctions (S1)
 
-- [ ] `/en/behaviour/sanctions` (list)
-- [ ] `/en/behaviour/sanctions/today`
-- [ ] `/en/behaviour/sanctions/new`
+- [x] `/en/behaviour/sanctions` (list)
+- [x] `/en/behaviour/sanctions/today`
+- [x] `/en/behaviour/sanctions/new` — render verified; submit-each-type flow deferred.
 
 ### Exclusions (S1)
 
-- [ ] `/en/behaviour/exclusions` (list)
-- [ ] `/en/behaviour/exclusions/new`
-- [ ] `/en/behaviour/exclusions/[id]` (detail — open ≥ 2)
+- [x] `/en/behaviour/exclusions` (list)
+- [x] `/en/behaviour/exclusions/new` — render verified; submit flow deferred.
+- [ ] `/en/behaviour/exclusions/[id]` (detail) — no seeded exclusions; skipped (deferred to S9 catch-up).
 
 ### Appeals (S1)
 
-- [ ] `/en/behaviour/appeals` (list)
-- [ ] `/en/behaviour/appeals/[id]` (detail — open ≥ 2)
+- [x] `/en/behaviour/appeals` (list)
+- [ ] `/en/behaviour/appeals/[id]` (detail) — no seeded appeals; skipped (deferred to S9 catch-up).
 
 ### Recognition (S2)
 

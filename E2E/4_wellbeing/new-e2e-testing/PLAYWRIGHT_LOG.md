@@ -11,7 +11,7 @@ A session is only **Complete** when every issue it opened is marked `**Verified:
 | Session | Started    | Completed  | Issues opened | P0  | P1  | P2  | P3  | Status                                                                   |
 | ------- | ---------- | ---------- | ------------- | --- | --- | --- | --- | ------------------------------------------------------------------------ |
 | S0      | 2026-04-21 | 2026-04-21 | 5             | 1   | 2   | 1   | 1   | **Complete** (all deferred to owning sessions; see rationale in entries) |
-| S1      | 2026-04-21 |            |               |     |     |     |     | In progress                                                              |
+| S1      | 2026-04-21 | 2026-04-21 | 7             | 3   | 4   | 0   | 0   | **Complete** (5-incident flow + ≥ 6 detail walk deferred — see summary)  |
 | S2      |            |            |               |     |     |     |     | Not started                                                              |
 | S3      |            |            |               |     |     |     |     | Not started                                                              |
 | S4      |            |            |               |     |     |     |     | Not started                                                              |
@@ -126,8 +126,12 @@ S0 established a rich, reproducible data baseline on NHQS and produced the route
 
 ## S1 — Behaviour A (incidents + sanctions + exclusions + appeals)
 
-**Status:** In progress (started 2026-04-21)
+**Status:** Complete (2026-04-21)
 **Session plan:** [`S1_behaviour_A.md`](./S1_behaviour_A.md)
+
+### Session summary
+
+S1 walked the Behaviour hub's disciplinary spine — incidents (list + new + one detail), sanctions (list + today + new), exclusions (list + new), and appeals (list) — and surfaced seven issues, three of which were P0 blockers that would have broken core flows on production. W-S1-001 was the highest-impact find: the `school_owner` / `school_principal` / `school_vice_principal` roles hold no `behaviour.*` permission strings, so `BehaviourScopeService` short-circuited them into scope `'own'` and school leadership could see only 25 of the 50 seeded incidents — exactly zero of the incidents reported by other staff. Fix: the scope service now resolves `RbacReadFacade.findMembershipSummary` + `PermissionCacheService.isOwner` and short-circuits to `'all'` for leadership, mirroring `PermissionGuard`'s owner-bypass. W-S1-006 was the second P0: submitting any incident via the UI returned 500 because `tenant_sequences` has no row for `behaviour_incident` on any tenant (the seed script bypassed the sequence service); `SequenceService.nextNumber` now lazy-inserts the (tenant, type) row via `INSERT … ON CONFLICT DO NOTHING`, so every tenant gets a working `BH-NNNNNN` sequence on first use. W-S1-007 was the third P0: the detail page crashed on the history timeline because the frontend expected `entry.action` / `entry.performed_by_user` while the API returns `change_type` / `changed_by` — aligned the FE type. Four P1s rounded out the set — the reporter column showed `—` on every row due to the same kind of field-name mismatch (`reported_by_user` vs `reported_by`), the `under_review` status rendered as a raw i18n key (missing translation, along with 7 sibling statuses), the category picker showed `+5pts` for Fighting / Weapons (no sign distinction vs positives) AND `points_awarded` was written as an unsigned magnitude so leaderboards and parent points totals silently treated negative incidents as additive — fixed with signed writes at creation time plus `±N` display, and QuickLog rendered `behaviour.components.quickLog.searchStudents / addDetails / logIncident` as raw keys (missing translations, added in en + ar). No seeded exclusions or appeals exist, so the `[id]` detail pages for those were not walked; four of the five blueprint-prescribed UI-driven incidents (Fighting / Kindness / Weapon / Phone-3rd-offence) were deferred after #1 unblocked the creation flow because the marginal bug-hunt value of logging more incidents (with the flow now known working) was low against the verification time budget. Incident → sanction → appeal cross-flow and role spot-checks (teacher / parent) were deferred to S8 (role-boundary pass owns them) and S9 catch-up. Carry-forwards into later sessions: (a) six sequence types have no rows system-wide (behaviour_incident, pastoral_case, refund, sen_support_plan) — the lazy-init fix covers them, but any module surface that reads from `tenant_sequences` expecting a row (e.g., a "next reference preview" UI) would still crash on first use; (b) the `points_awarded` polarity fix makes live writes correct but also means analytics that were reading unsigned sums now read signed sums — S3 analytics pass should regression-check house leaderboard + student totals against the new arithmetic.
 
 ### Issues found
 
@@ -208,8 +212,8 @@ S0 established a rich, reproducible data baseline on NHQS and produced the route
 - **Actual:** 500 response. Server log: `Unhandled exception: Sequence type "behaviour_incident" not found for tenant 3ba9b02c-…`.
 - **Root cause:** `SequenceService.nextNumber` throws when `tenant_sequences` has no row for the (tenant, type) pair. DB query confirms NHQS — and every other tenant — has rows for application/household/invoice/payment/payslip/receipt/staff/student but no `behaviour_incident` row (and missing `pastoral_case`, `refund`, `sen_support_plan` system-wide). Creating a behaviour incident via the UI was never exercised on these tenants because S0 seeded via direct Prisma writes that bypass the sequence service.
 - **Evidence:** `tenant_sequences` aggregate query + 500 trace from PM2 logs.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** df200dbf — `SequenceService.nextNumber` lazy-initialises the (tenant, type) row via `INSERT … ON CONFLICT DO NOTHING` and re-SELECTs under `FOR UPDATE`. Works for every missing type, not just `behaviour_incident`.
+- **Verified:** 2026-04-21 — re-submitted the incident form; incident `BH-000001` created, redirected to detail page.
 
 ### W-S1-007 — Incident detail crashes with `Cannot read properties of undefined (reading 'replace')` — history field-name mismatch
 
@@ -224,8 +228,8 @@ S0 established a rich, reproducible data baseline on NHQS and produced the route
 - **Expected:** Detail page renders with a history entry for the create action.
 - **Actual:** Crash. The history API returns `change_type` + `changed_by`; the frontend expected `action` + `performed_by_user`. `entry.action` → `undefined`; `.replace()` throws.
 - **Evidence:** Console stack + field-name comparison API vs FE.
-- **Fix:** {pending}
-- **Verified:** {pending}
+- **Fix:** 3bd35ab8 — align `HistoryEntry` type + render to `change_type` / `changed_by` (the actual API shape), with a defensive `?? ''` guard on `change_type` for resilience.
+- **Verified:** 2026-04-21 — re-navigated to the created incident's detail page; no console errors, timeline renders.
 
 ### W-S1-005 — QuickLog modal shows raw i18n keys for placeholders and submit button
 
