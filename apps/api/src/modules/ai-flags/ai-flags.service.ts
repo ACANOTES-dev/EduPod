@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
+import type Redis from 'ioredis';
 
 import {
   WELLBEING_AI_MODULE_KEYS,
@@ -9,12 +10,26 @@ import {
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * WB-C-03 — Redis pub/sub channel for cross-instance cache invalidation.
+ * When `setFlag` mutates a (tenant, module) pair, it publishes here; every
+ * other API instance receives the message via its own subscriber connection
+ * and clears the matching local cache entry.
+ */
+const INVALIDATION_CHANNEL = 'ai-flags:invalidated';
 
 interface CacheEntry {
   enabled: boolean;
   expiresAt: number;
+}
+
+interface InvalidationPayload {
+  tenant_id: string;
+  module_key: WellbeingAiModuleKey;
 }
 
 /**
@@ -27,11 +42,53 @@ interface CacheEntry {
  *   TTL — see Wave 5 impl 18 follow-up.
  */
 @Injectable()
-export class AiFlagsService {
+export class AiFlagsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AiFlagsService.name);
   private readonly cache = new Map<string, CacheEntry>();
+  private subscriber: Redis | null = null;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
+
+  async onModuleInit(): Promise<void> {
+    try {
+      // ioredis: a connection in subscribe mode cannot issue regular commands,
+      // so we duplicate the publisher connection for the subscriber side.
+      this.subscriber = this.redis.getClient().duplicate();
+      await this.subscriber.subscribe(INVALIDATION_CHANNEL);
+      this.subscriber.on('message', (channel, raw) => {
+        if (channel !== INVALIDATION_CHANNEL) return;
+        try {
+          const payload = JSON.parse(raw) as Partial<InvalidationPayload>;
+          if (!payload.tenant_id || !payload.module_key) return;
+          this.invalidate(payload.tenant_id, payload.module_key);
+        } catch (err) {
+          this.logger.warn(`[ai-flags pub/sub] malformed payload: ${(err as Error).message}`);
+        }
+      });
+    } catch (err) {
+      // Pub/sub failure must not block the API; per-instance cache still
+      // honours the local invalidate() in setFlag, and the 5-min TTL bounds
+      // staleness on remote instances.
+      this.logger.warn(
+        `[ai-flags pub/sub] subscribe failed (continuing without cross-instance invalidation): ${(err as Error).message}`,
+      );
+    }
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    if (this.subscriber) {
+      try {
+        await this.subscriber.unsubscribe(INVALIDATION_CHANNEL);
+        await this.subscriber.quit();
+      } catch (err) {
+        this.logger.warn(`[ai-flags pub/sub] shutdown failed: ${(err as Error).message}`);
+      }
+      this.subscriber = null;
+    }
+  }
 
   async list(tenantId: string): Promise<TenantAiFlag[]> {
     const rows = await this.prisma.tenantAiFlag.findMany({
@@ -89,7 +146,21 @@ export class AiFlagsService {
     });
 
     this.cache.delete(this.cacheKey(tenantId, moduleKey));
+    // WB-C-03 — fan out invalidation to every other API instance.
+    void this.publishInvalidation(tenantId, moduleKey);
     return this.toDto(updated);
+  }
+
+  private async publishInvalidation(
+    tenantId: string,
+    moduleKey: WellbeingAiModuleKey,
+  ): Promise<void> {
+    try {
+      const payload: InvalidationPayload = { tenant_id: tenantId, module_key: moduleKey };
+      await this.redis.getClient().publish(INVALIDATION_CHANNEL, JSON.stringify(payload));
+    } catch (err) {
+      this.logger.warn(`[ai-flags pub/sub] publish failed: ${(err as Error).message}`);
+    }
   }
 
   async isEnabled(tenantId: string, moduleKey: WellbeingAiModuleKey): Promise<boolean> {
