@@ -9536,6 +9536,26 @@
       },
       "notFound": "Student not found."
     },
+    "recognitionNew": {
+      "title": "Award Recognition",
+      "description": "Give a student a recognition award for positive behaviour or achievement.",
+      "backToList": "Back to recognition wall",
+      "student": "Student",
+      "studentPlaceholder": "Search students by name…",
+      "studentRequired": "Pick the student you want to recognise.",
+      "awardType": "Award",
+      "awardTypePlaceholder": "Choose an award…",
+      "awardTypeRequired": "Pick an award to give.",
+      "noAwardTypes": "No award types configured. Add them in settings.",
+      "points": "pts",
+      "pointsSummary": "This award is worth {points} points.",
+      "notes": "Note to the student (optional)",
+      "notesPlaceholder": "Why is this being awarded? Shown on the recognition wall.",
+      "cancel": "Cancel",
+      "submit": "Give award",
+      "submitting": "Saving…",
+      "errorGeneric": "Could not create the award. Try again."
+    },
     "sanctionNew": {
       "title": "New Sanction",
       "description": "Record a detention, suspension, or other sanction against an incident.",
