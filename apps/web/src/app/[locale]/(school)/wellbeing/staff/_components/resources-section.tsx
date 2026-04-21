@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle, ExternalLink, LifeBuoy, Phone } from 'lucid
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 import { SectionHeader } from './section-header';
 
@@ -244,7 +244,10 @@ export function ResourcesSection() {
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    apiClient<ResourcesResult>('/api/v1/staff-wellbeing/resources')
+    // API wraps single-DTO responses in `{ data: T }` (W-S7-001); without
+    // unwrap, `data.eap` is undefined and the seeded EAP + resources never render.
+    apiClient<{ data: ResourcesResult }>('/api/v1/staff-wellbeing/resources')
+      .then(unwrap)
       .then((res) => setData(res))
       .catch((err) => {
         console.error('[ResourcesSection]', err);

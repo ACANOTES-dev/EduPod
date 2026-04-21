@@ -13,7 +13,7 @@ import {
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 import { SectionHeader } from './section-header';
 
@@ -152,7 +152,11 @@ export function BoardReportSection() {
     setLoading(true);
     setError(false);
 
-    apiClient<BoardReportSummary>('/api/v1/staff-wellbeing/reports/termly-summary')
+    // API wraps single-DTO responses in `{ data: T }` (W-S7-001). Unwrap or the
+    // isCompleteReport guard will reject every response and the section will
+    // permanently show the retry banner.
+    apiClient<{ data: BoardReportSummary }>('/api/v1/staff-wellbeing/reports/termly-summary')
+      .then(unwrap)
       .then((data) => {
         if (!isCompleteReport(data)) {
           setError(true);

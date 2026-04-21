@@ -18,7 +18,7 @@ import {
 
 import { StatCard } from '@school/ui';
 
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 import { SectionHeader } from './section-header';
 
@@ -228,13 +228,29 @@ export function AggregateSection() {
     setLoading(true);
     setError(false);
 
+    // The API's ResponseTransformInterceptor wraps every non-paginated response
+    // in `{ data: T }` (see apps/api/src/common/interceptors/response-transform.interceptor.ts).
+    // Every aggregate endpoint here returns a single DTO, so we must unwrap.
+    // Without this, `timetableQuality.consecutive_periods.mean` crashes the page (W-S7-001).
     Promise.all([
-      apiClient<AggregateWorkloadSummary>('/api/v1/staff-wellbeing/aggregate/workload-summary'),
-      apiClient<CoverFairnessResult>('/api/v1/staff-wellbeing/aggregate/cover-fairness'),
-      apiClient<AggregateTimetableQuality>('/api/v1/staff-wellbeing/aggregate/timetable-quality'),
-      apiClient<SubstitutionPressure>('/api/v1/staff-wellbeing/aggregate/substitution-pressure'),
-      apiClient<AbsenceTrends>('/api/v1/staff-wellbeing/aggregate/absence-trends'),
-      apiClient<CorrelationResult>('/api/v1/staff-wellbeing/aggregate/correlation'),
+      apiClient<{ data: AggregateWorkloadSummary }>(
+        '/api/v1/staff-wellbeing/aggregate/workload-summary',
+      ).then(unwrap),
+      apiClient<{ data: CoverFairnessResult }>(
+        '/api/v1/staff-wellbeing/aggregate/cover-fairness',
+      ).then(unwrap),
+      apiClient<{ data: AggregateTimetableQuality }>(
+        '/api/v1/staff-wellbeing/aggregate/timetable-quality',
+      ).then(unwrap),
+      apiClient<{ data: SubstitutionPressure }>(
+        '/api/v1/staff-wellbeing/aggregate/substitution-pressure',
+      ).then(unwrap),
+      apiClient<{ data: AbsenceTrends }>('/api/v1/staff-wellbeing/aggregate/absence-trends').then(
+        unwrap,
+      ),
+      apiClient<{ data: CorrelationResult }>('/api/v1/staff-wellbeing/aggregate/correlation').then(
+        unwrap,
+      ),
     ])
       .then(
         ([

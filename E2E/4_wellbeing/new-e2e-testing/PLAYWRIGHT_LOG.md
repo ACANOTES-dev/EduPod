@@ -994,8 +994,25 @@ S6 walked all 4 EW routes for the first time on NHQS and exposed five distinct d
 
 ## S7 — Staff Wellbeing
 
-**Status:** Not started
+**Status:** In progress (2026-04-22 start)
 **Session plan:** [`S7_staff_wellbeing.md`](./S7_staff_wellbeing.md)
+
+### W-S7-001 — Staff wellbeing dashboard crashes on `{data}`-wrapped payloads (resolves W-S0-001)
+
+- **Severity:** P0
+- **Route:** `/en/wellbeing/dashboard` (redirects to `/en/wellbeing/staff`)
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Log in as admin owner.
+  2. Navigate to `/en/wellbeing/dashboard`.
+  3. Wait for data fetches.
+- **Expected:** Staff wellbeing dashboard with workload, aggregate, surveys, board report, and resources sections rendered.
+- **Actual:** Full-page error boundary ("Something went wrong"). Console: 3× 404s on `/api/v1/staff-wellbeing/my-workload/*` (expected — principal has no `staff_profiles` row and `MyWorkloadSection` handles it with an empty state) plus `TypeError: Cannot read properties of undefined (reading 'mean')` thrown from `AggregateSection`.
+- **Root cause:** The API's `ResponseTransformInterceptor` wraps every non-paginated response in `{ data: T }`, but four Staff Wellbeing frontend sections — `AggregateSection`, `BoardReportSection`, `ResourcesSection`, and `MyWorkloadSection` — call `apiClient<T>(...)` and treat the returned wrapper as `T`. The 6 aggregate endpoints all return `{ data: payload }`, so `timetableQuality.consecutive_periods.mean` evaluates to `(undefined).mean` and throws synchronously during `computeTimetableScore` — which bubbles up through the parent layout's error boundary and replaces the whole page. The other three sections degrade silently: `BoardReportSection`'s `isCompleteReport` check returns false on the wrapped object so the Termly Summary always shows the retry banner; `ResourcesSection` reads `data?.eap` / `data?.resources` with optional chaining so it renders the empty-EAP fallback instead of the seeded providers; `MyWorkloadSection` would crash for any user whose `/my-workload/summary` actually 200s (teachers) because `quality.free_period_distribution.find(...)` dereferences undefined. Principals never hit the latent teacher-side crash because the 404 on `/my-workload/summary` triggers the section's `noTeachingProfile` branch.
+- **Evidence:** Playwright console captures — 3 × 404 + 2 × `TypeError: Cannot read properties of undefined (reading 'mean')`. Deleted before session close.
+- **Fix:** pending
+- **Verified:** pending
 
 ---
 

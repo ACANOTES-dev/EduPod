@@ -16,7 +16,7 @@ import {
 
 import { StatCard } from '@school/ui';
 
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 import { SmallSchoolGuidance } from '../../_components/small-school-guidance';
 
@@ -133,17 +133,22 @@ export function MyWorkloadSection() {
     // teaching load). Use `silent: true` so the global toast handler ignores
     // the 404 and the section can render its own "no teaching profile"
     // empty state instead.
+    // Summary / timetable-quality are single-DTO responses wrapped by the API
+    // in `{ data: T }` — unwrap them. cover-history and staff-profiles are
+    // already-paginated `{ data, meta }` envelopes that the interceptor passes
+    // through untouched, so they stay as-is (W-S7-001).
     Promise.all([
-      apiClient<PersonalWorkloadSummary>('/api/v1/staff-wellbeing/my-workload/summary', {
+      apiClient<{ data: PersonalWorkloadSummary }>('/api/v1/staff-wellbeing/my-workload/summary', {
         silent: true,
-      }),
+      }).then(unwrap),
       apiClient<CoverHistoryResponse>(
         '/api/v1/staff-wellbeing/my-workload/cover-history?page=1&pageSize=20',
         { silent: true },
       ),
-      apiClient<PersonalTimetableQuality>('/api/v1/staff-wellbeing/my-workload/timetable-quality', {
-        silent: true,
-      }),
+      apiClient<{ data: PersonalTimetableQuality }>(
+        '/api/v1/staff-wellbeing/my-workload/timetable-quality',
+        { silent: true },
+      ).then(unwrap),
       apiClient<{ data: unknown[]; meta: { total: number } }>('/api/v1/staff-profiles?pageSize=1', {
         silent: true,
       }).catch((err) => {
