@@ -212,7 +212,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 21  | Exclusion + restrictions + amendments + ack UI        | 6    | parallel-risky | 07, 14     | `completed` | 2026-04-21T00:05Z | 60b63439   |
 | 22  | Pastoral hidden-feature UI                            | 6    | parallel-risky | 08         | `completed` | 2026-04-21T00:35Z | 168d4818   |
 | 23  | Safeguarding hidden + recognition + policy + admin UI | 6    | parallel-risky | 09, 14, 17 | `completed` | 2026-04-21T00:45Z | eb674691   |
-| 24  | Polish, Playwright multi-role sweep, docs             | 7    | serial         | 10–23      | `deploying` |                   |            |
+| 24  | Polish, Playwright multi-role sweep, docs             | 7    | serial         | 10–23      | `completed` | 2026-04-21T01:51Z | 114cc417   |
 
 `Depends on` lists the minimum cross-wave prerequisites. In strict wave order these are auto-satisfied; the column lets the slash command and human double-check.
 
@@ -2232,3 +2232,77 @@ no_communications` type needs an info tooltip in the
   loops. Jest suites: 1537/1537 pass in the API scope; 482/482 pass
   in the web scope; new 2-test parity spec integrated cleanly. Impl 24
   remains `pending` — the user's next action.
+
+### [IMPL 24] — Polish, multi-role Playwright sweep, docs
+
+- **Completed:** 2026-04-21T01:51Z Europe/Dublin
+- **Commits (local):** `5681a424` (polish fixes — safeguarding permission backfill migration + pastoral intervention enum mapper + behaviour analytics 'enrolled' swap + MyWorkloadSection empty state); `3f3ba71b` (architecture docs + sign-off package); `114cc417` (wellbeing.dashboard.error/retry translation keys); plus `f6be8230` / `68d84201` in-progress and deploying log markers. Applied to production as `b4ee8a3f`, `80b48866`, and (translation fix) a subsequent patch applied directly during the rebuild cycle.
+- **Deployed to production:** yes — migration `20260421000000_wbr_backfill_safeguarding_admin_grants` applied via `pnpm --filter @school/prisma run migrate:deploy`; API rebuilt (3m33s) and `pm2 restart api`; web rebuilt (`rm -rf apps/web/.next` + 3m19s) and `pm2 restart web --update-env`. Post-deploy verification: /en/safeguarding, /en/early-warnings, /en/behaviour/analytics, /en/wellbeing/staff all return 200 with ZERO console errors on authenticated load (school_principal role, Yusuf Rahman on NHQS). Migration DB verification confirms school_principal now has safeguarding.{view,manage,report,seal,dedicated_view,keywords.write} and school_vice_principal has safeguarding.{view,manage,report,dedicated_view,keywords.write}.
+- **Summary (≤ 200 words):**
+  Final polish pass on the wellbeing rebuild. Ran an authenticated
+  Playwright walkthrough as school_principal across all 29 canonical
+  wellbeing URLs + mobile 375×812 + RTL check. Surfaced and fixed 4
+  bugs: (1) safeguarding sub-hub 403s — new migration backfills
+  safeguarding permissions for principal + VP on existing tenants +
+  updated seed; (2) pastoral interventions 500 — added
+  `toPrismaInterventionStatus` helper mapping public `'active'` to
+  Prisma `'pc_active'` (exposed the Prisma `@map` trap, now documented
+  in `DZ-Wellbeing-1`); (3) behaviour analytics 500 — swapped
+  `'enrolled'` → `'active'` on the three behaviour analytics services;
+  (4) staff-wellbeing 404 UX — MyWorkloadSection now catches
+  `STAFF_PROFILE_NOT_FOUND` specifically and renders a friendly empty
+  state for non-teaching admins. Also fixed two previously-invisible
+  MISSING_MESSAGE keys (`wellbeing.dashboard.error`, `.retry`).
+  Architecture docs updated: new §39 in feature-map, 3 new tier-3
+  module entries in blast-radius, 8 new DZ-Wellbeing-\* entries in
+  danger-zones, rebuild chains in event-job-catalog. Shipped
+  sign-off package: `wellbeing_new/test-report.md` +
+  `endpoint-coverage.md` + `SIGN_OFF.md`.
+
+- **Follow-ups:**
+  - **`SYSTEM_ROLE_PERMISSIONS` consolidation** — the shared constant
+    in `packages/shared/src/constants/permissions.ts` is missing
+    entries for school_principal, school_vice_principal, admin,
+    accounting, front_office, attendance_officer, student roles.
+    NHQS and stress tenants were seeded via the legacy
+    `packages/prisma/seed/system-roles.ts` so they have full grants.
+    Any tenant created via `tenants.service.ts:261` (new API path)
+    would get EMPTY permissions for those 7 roles. A future pass
+    should consolidate onto one source. Captured in
+    `DZ-Wellbeing-7`.
+  - **MUST NOT delete `safeguarding_actions` rows with
+    `metadata.break_glass_grant_id`** — the break-glass audit chain
+    is projected from this field (no dedicated table). Documented in
+    `DZ-Wellbeing-4`; retention policy must respect this.
+  - **Other `@map`-using Prisma enums** (`PastoralActionStatus`,
+    `PastoralReferralRecommendationStatus`, `SstMeetingStatus`,
+    `ContactFormStatus`, `RegulatorySubmissionStatus`,
+    `TuslaAbsenceCategory`, `ReducedSchoolDayReason`, `PodSyncStatus`,
+    `PodSyncLogStatus`, `TransferStatus`, `CbaSyncStatus`,
+    `CriticalIncidentType`) — currently safe because no public API
+    filter passes their raw values, but the same trap will fire if
+    one does. Guidance captured in `DZ-Wellbeing-1`.
+  - **`ANTHROPIC_API_KEY` on production .env** — unchanged from
+    impl 05 follow-up. Without it, AI endpoints return 503
+    `AI_SERVICE_UNAVAILABLE` when their flag is toggled on. Ops
+    action, not a code follow-up.
+  - **PLAN.md §5 headline says "Twenty-eight categories"** but the
+    enumerated list (and the shipped seed) has 31. A non-blocking
+    doc reconciliation for the next rebuild.
+
+- **Session notes:**
+  Wave 7 ran solo — no sibling turbulence. Three clean commit-deploy
+  cycles: (a) initial polish commit + docs commit, deployed as a
+  2-patch series; (b) the deploying marker failed to apply because
+  production's log row was still `pending` from before my in-progress
+  commit landed — skipped with `git am --skip` and updated via sed
+  on the server (pattern carried forward from impls 10, 13, 19, 21,
+  22); (c) the translation fix shipped as a 1-patch cycle after
+  Playwright surfaced `MISSING_MESSAGE` errors on the staff page
+  that impl 15 hadn't exercised. Total new files: 1 migration +
+  3 sign-off docs + 1 test report + 1 endpoint coverage. Total
+  files modified: 10 (api: 4 services + 1 spec; web: my-workload
+  section + 2 translation files; prisma: seed + migration; docs:
+  5 architecture files). Zero regressions in the local test suite
+  (1537/1537 API, 482/482 web, 2/2 parity). All 24 impls now
+  `completed`; the wellbeing rebuild is shipped.
