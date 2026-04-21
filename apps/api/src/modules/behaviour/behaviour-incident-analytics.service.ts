@@ -260,7 +260,7 @@ export class BehaviourIncidentAnalyticsService {
     const catMap = new Map(categories.map((c) => [c.id, c]));
 
     const totalStudents = await this.studentReadFacade.count(tenantId, {
-      status: 'enrolled' as $Enums.StudentStatus,
+      status: 'active' as $Enums.StudentStatus,
     });
 
     const result = rawData

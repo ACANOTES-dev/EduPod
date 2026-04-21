@@ -911,7 +911,7 @@ describe('InterventionService', () => {
       );
     });
 
-    it('should apply status filter', async () => {
+    it('should apply status filter and translate `active` to Prisma `pc_active`', async () => {
       mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
       mockRlsTx.pastoralIntervention.count.mockResolvedValue(0);
 
@@ -926,7 +926,30 @@ describe('InterventionService', () => {
       expect(mockRlsTx.pastoralIntervention.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            status: 'active',
+            // The Prisma enum uses `pc_active @map("active")`, so the
+            // runtime-valid TS value is `pc_active`, not `active`.
+            status: 'pc_active',
+          }),
+        }),
+      );
+    });
+
+    it('should pass through non-`active` status values unchanged', async () => {
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralIntervention.count.mockResolvedValue(0);
+
+      await service.listInterventions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        sort: 'created_at',
+        order: 'desc',
+        status: 'achieved',
+      });
+
+      expect(mockRlsTx.pastoralIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'achieved',
           }),
         }),
       );

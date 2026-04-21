@@ -14901,6 +14901,10 @@
         "title": "EAP & Resources",
         "description": "Employee Assistance Programme, crisis helplines, and additional support resources."
       }
+    },
+    "myWorkload": {
+      "noTeachingProfileTitle": "No teaching profile on file",
+      "noTeachingProfileBody": "My Workload shows teaching load, cover duties, and timetable quality for staff with a teaching profile. Your account doesn't have one — this is normal for principals and non-teaching administrators."
     }
   },
   "aiFlagsAdmin": {

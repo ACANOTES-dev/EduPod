@@ -257,11 +257,16 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'inbox.send',
       'inbox.oversight.read',
       'inbox.oversight.write',
+      // Safeguarding — principal is the Designated Safeguarding Lead
+      'safeguarding.view',
+      'safeguarding.manage',
+      'safeguarding.report',
+      'safeguarding.seal',
+      'safeguarding.dedicated_view',
       // Wellbeing rebuild (Impl 01)
       'wellbeing.view_dashboard',
       'wellbeing_notifications.configure',
       'ai_flag.manage',
-      'safeguarding.dedicated_view',
     ],
   },
   {
@@ -475,9 +480,14 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'inbox.send',
       'inbox.oversight.read',
       'inbox.oversight.write',
+      // Safeguarding — VP can read + mutate concerns but not seal (dual-control
+      // is reserved for principal + owner)
+      'safeguarding.view',
+      'safeguarding.manage',
+      'safeguarding.report',
+      'safeguarding.dedicated_view',
       // Wellbeing rebuild (Impl 01) — super-hub + dedicated safeguarding view
       'wellbeing.view_dashboard',
-      'safeguarding.dedicated_view',
     ],
   },
   {

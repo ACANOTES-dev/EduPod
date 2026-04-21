@@ -109,7 +109,11 @@ export class BehaviourComparisonAnalyticsService {
 
     const yearGroups = await this.academicReadFacade.findAllYearGroups(tenantId);
 
-    const studentCountMap = await this.studentReadFacade.countByYearGroup(tenantId, 'enrolled');
+    // `active` is the Prisma enum value for currently-enrolled students;
+    // `applicant | withdrawn | graduated | archived` are excluded. The public
+    // shape previously passed `'enrolled'` but no such value exists on
+    // `StudentStatus` — see Prisma schema.
+    const studentCountMap = await this.studentReadFacade.countByYearGroup(tenantId, 'active');
 
     const ygMap = new Map<string, { positive: number; negative: number }>();
     for (const inc of incidents) {
@@ -207,7 +211,10 @@ export class BehaviourComparisonAnalyticsService {
 
     // Get student count per class
     const classIds = [...classMap.keys()];
-    const studentCountMap2 = await this.classesReadFacade.findEnrolmentCountsByClasses(tenantId, classIds);
+    const studentCountMap2 = await this.classesReadFacade.findEnrolmentCountsByClasses(
+      tenantId,
+      classIds,
+    );
 
     const entries = Array.from(classMap.entries()).map(([classId, data]) => {
       const studentCount = studentCountMap2.get(classId) ?? 0;

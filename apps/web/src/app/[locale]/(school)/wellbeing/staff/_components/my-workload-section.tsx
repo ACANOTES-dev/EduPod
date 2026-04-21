@@ -121,17 +121,29 @@ export function MyWorkloadSection() {
   const [staffCount, setStaffCount] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
+  const [noTeachingProfile, setNoTeachingProfile] = React.useState(false);
 
   const fetchData = React.useCallback(() => {
     setLoading(true);
     setError(false);
+    setNoTeachingProfile(false);
 
+    // The three my-workload endpoints throw `STAFF_PROFILE_NOT_FOUND` for
+    // users who don't have a `staff_profiles` row (e.g. a principal without
+    // teaching load). Use `silent: true` so the global toast handler ignores
+    // the 404 and the section can render its own "no teaching profile"
+    // empty state instead.
     Promise.all([
-      apiClient<PersonalWorkloadSummary>('/api/v1/staff-wellbeing/my-workload/summary'),
+      apiClient<PersonalWorkloadSummary>('/api/v1/staff-wellbeing/my-workload/summary', {
+        silent: true,
+      }),
       apiClient<CoverHistoryResponse>(
         '/api/v1/staff-wellbeing/my-workload/cover-history?page=1&pageSize=20',
+        { silent: true },
       ),
-      apiClient<PersonalTimetableQuality>('/api/v1/staff-wellbeing/my-workload/timetable-quality'),
+      apiClient<PersonalTimetableQuality>('/api/v1/staff-wellbeing/my-workload/timetable-quality', {
+        silent: true,
+      }),
       apiClient<{ data: unknown[]; meta: { total: number } }>('/api/v1/staff-profiles?pageSize=1', {
         silent: true,
       }).catch((err) => {
@@ -145,9 +157,17 @@ export function MyWorkloadSection() {
         setQuality(qualityRes);
         setStaffCount(staffRes?.meta?.total ?? 0);
       })
-      .catch((err) => {
-        console.error('[MyWorkloadSection]', err);
-        setError(true);
+      .catch((err: unknown) => {
+        const code =
+          typeof err === 'object' && err !== null && 'error' in err
+            ? (err as { error?: { code?: string } }).error?.code
+            : undefined;
+        if (code === 'STAFF_PROFILE_NOT_FOUND') {
+          setNoTeachingProfile(true);
+        } else {
+          console.error('[MyWorkloadSection]', err);
+          setError(true);
+        }
       })
       .finally(() => {
         setLoading(false);
@@ -185,6 +205,16 @@ export function MyWorkloadSection() {
 
       {loading ? (
         <LoadingSkeleton />
+      ) : noTeachingProfile ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border bg-surface p-8 text-center">
+          <Info className="h-8 w-8 text-text-tertiary" aria-hidden="true" />
+          <p className="text-sm font-medium text-text-primary">
+            {tStaff('myWorkload.noTeachingProfileTitle')}
+          </p>
+          <p className="max-w-md text-sm text-text-secondary">
+            {tStaff('myWorkload.noTeachingProfileBody')}
+          </p>
+        </div>
       ) : error || !summary ? (
         <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-surface p-8 text-center">
           <AlertCircle className="h-8 w-8 text-text-tertiary" />

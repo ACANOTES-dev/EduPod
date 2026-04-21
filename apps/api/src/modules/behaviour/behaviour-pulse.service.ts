@@ -185,7 +185,7 @@ export class BehaviourPulseService {
         },
       }),
       this.studentReadFacade.count(tenantId, {
-        status: 'enrolled' as $Enums.StudentStatus,
+        status: 'active' as $Enums.StudentStatus,
       }),
     ]);
 

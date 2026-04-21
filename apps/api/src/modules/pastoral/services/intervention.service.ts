@@ -122,6 +122,17 @@ const OPEN_CASE_STATUSES: ReadonlySet<string> = new Set(['open', 'active']);
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+/**
+ * Translate a public-API intervention status to the Prisma-side enum value.
+ * The Prisma enum uses `pc_active @map("active")` (DB still stores "active"),
+ * so the TypeScript value must be `pc_active` — passing the raw `'active'`
+ * string through `as $Enums.*` fails at runtime with a Prisma validation
+ * error. All other values pass through unchanged.
+ */
+function toPrismaInterventionStatus(value: string): $Enums.PastoralInterventionStatus {
+  return (value === 'active' ? 'pc_active' : value) as $Enums.PastoralInterventionStatus;
+}
+
 function addDays(date: Date, days: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
@@ -397,7 +408,7 @@ export class InterventionService {
       where.student_id = filters.student_id;
     }
     if (filters.status) {
-      where.status = filters.status as $Enums.PastoralInterventionStatus;
+      where.status = toPrismaInterventionStatus(filters.status);
     }
     if (filters.continuum_level) {
       where.continuum_level = filters.continuum_level;
@@ -476,7 +487,7 @@ export class InterventionService {
     };
 
     if (filter?.status) {
-      where.status = filter.status as $Enums.PastoralInterventionStatus;
+      where.status = toPrismaInterventionStatus(filter.status);
     }
     if (filter?.continuum_level) {
       where.continuum_level = filter.continuum_level;
