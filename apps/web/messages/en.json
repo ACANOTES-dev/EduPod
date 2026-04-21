@@ -11370,6 +11370,7 @@
       "hoursLeft": "{hours}h remaining",
       "overdueHours": "{hours}h overdue",
       "noDueDate": "No SLA deadline set",
+      "met": "SLA met",
       "filters": {
         "title": "Filters",
         "severity": "Severity",

@@ -390,6 +390,8 @@ export class SafeguardingConcernsService {
           student: { select: { id: true, first_name: true, last_name: true } },
           reported_by: { select: { id: true, first_name: true, last_name: true } },
           assigned_to: { select: { id: true, first_name: true, last_name: true } },
+          sealed_by: { select: { id: true, first_name: true, last_name: true } },
+          seal_approved_by: { select: { id: true, first_name: true, last_name: true } },
         },
       }),
       this.prisma.safeguardingConcern.count({ where }),
@@ -981,10 +983,14 @@ export class SafeguardingConcernsService {
     status: $Enums.SafeguardingStatus;
     sla_first_response_due: Date | null;
     sla_first_response_met_at: Date | null;
+    sealed_at?: Date | null;
+    sealed_reason?: string | null;
     created_at: Date;
     student?: { id: string; first_name: string; last_name: string } | null;
     reported_by?: { id: string; first_name: string; last_name: string } | null;
     assigned_to?: { id: string; first_name: string; last_name: string } | null;
+    sealed_by?: { id: string; first_name: string; last_name: string } | null;
+    seal_approved_by?: { id: string; first_name: string; last_name: string } | null;
   }) {
     return {
       id: concern.id,
@@ -998,23 +1004,45 @@ export class SafeguardingConcernsService {
         concern.sla_first_response_met_at === null &&
         concern.sla_first_response_due !== null &&
         concern.sla_first_response_due < new Date(),
+      sealed_at: concern.sealed_at?.toISOString() ?? null,
+      sealed_reason: concern.sealed_reason ?? null,
       created_at: concern.created_at.toISOString(),
       student: concern.student
         ? {
             id: concern.student.id,
+            first_name: concern.student.first_name,
+            last_name: concern.student.last_name,
             name: `${concern.student.first_name} ${concern.student.last_name}`,
           }
         : null,
       reported_by: concern.reported_by
         ? {
             id: concern.reported_by.id,
+            first_name: concern.reported_by.first_name,
+            last_name: concern.reported_by.last_name,
             name: `${concern.reported_by.first_name} ${concern.reported_by.last_name}`,
           }
         : null,
       assigned_to: concern.assigned_to
         ? {
             id: concern.assigned_to.id,
+            first_name: concern.assigned_to.first_name,
+            last_name: concern.assigned_to.last_name,
             name: `${concern.assigned_to.first_name} ${concern.assigned_to.last_name}`,
+          }
+        : null,
+      sealed_by: concern.sealed_by
+        ? {
+            id: concern.sealed_by.id,
+            first_name: concern.sealed_by.first_name,
+            last_name: concern.sealed_by.last_name,
+          }
+        : null,
+      seal_approved_by: concern.seal_approved_by
+        ? {
+            id: concern.seal_approved_by.id,
+            first_name: concern.seal_approved_by.first_name,
+            last_name: concern.seal_approved_by.last_name,
           }
         : null,
     };

@@ -761,12 +761,109 @@ S4 walked the full pastoral hub end-to-end for owner@nhqs.test. Two P0s, one P1,
 
 ## S5 — Safeguarding
 
-**Status:** Not started
+**Status:** In progress (2026-04-21)
 **Session plan:** [`S5_safeguarding.md`](./S5_safeguarding.md)
 
----
+### W-S5-001 — Safeguarding concerns UI is stub redirects; all concern detail links dead-end at "Concern not found"
 
-## S6 — Early Warning / At-Risk
+- **Severity:** P0
+- **Route:** `/en/safeguarding/concerns`, `/en/safeguarding/concerns/new`, `/en/safeguarding/concerns/[id]`, `/en/safeguarding/my-reports`
+- **Role:** owner@nhqs.test (school_owner + school_principal)
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Log in as owner@nhqs.test, navigate to `/en/safeguarding`.
+  2. Landing renders correctly: "Open concerns 3 · 0 critical · 1 high", recent-concerns list showing SG-S0-001…004.
+  3. Click "All concerns" card → URL becomes `/en/safeguarding/concerns`, but the browser is immediately redirected to `/en/pastoral/concerns`.
+  4. Click "Report a concern" quick action → URL becomes `/en/safeguarding/concerns/new`, then redirected to `/en/pastoral/concerns/new`. The form that loads has pastoral tier/category fields, not `SafeguardingConcernType` / severity / TUSLA / Gardaí / sealing / DSL assignment.
+  5. From the hub's "Recent concerns" list, click SG-S0-004 (or any other SG-S0-…). URL becomes `/en/safeguarding/concerns/{uuid}` → redirected to `/en/pastoral/concerns/{uuid}` → page renders "Concern not found or not visible to your account." Network shows `GET /api/v1/pastoral/concerns/{uuid}` → 404 (the pastoral concern service has no record of a safeguarding UUID).
+  6. Same result for every SG-S0-001..004 link in the hub, the SLA dashboard, and the sealed records list. Every safeguarding concern detail surface is unreachable.
+- **Expected:** The safeguarding hub owns its own list/new/detail pages that talk to `/api/v1/safeguarding/concerns*` (the backend that is fully implemented with POST, GET, GET:id, PATCH, status transitions, assignment, TUSLA/Gardaí referral, attachments, seal initiate/approve/reject, actions, case-file generation).
+- **Actual:** `apps/web/src/app/[locale]/(school)/safeguarding/concerns/page.tsx`, `.../concerns/new/page.tsx`, `.../concerns/[id]/page.tsx`, and `.../my-reports/page.tsx` are all `redirect()` stubs to the equivalent `/pastoral/concerns*` routes. Because safeguarding concerns live in their own table (`safeguarding_concerns`) with their own IDs and schema, the pastoral handler cannot render them. The entire safeguarding core flow is dead through the UI.
+- **Evidence:** Every safeguarding concern link tested returns to the pastoral list or a "not found" page. Redirect files:
+  - `apps/web/src/app/[locale]/(school)/safeguarding/concerns/page.tsx` (5 lines)
+  - `apps/web/src/app/[locale]/(school)/safeguarding/concerns/new/page.tsx` (8 lines)
+  - `apps/web/src/app/[locale]/(school)/safeguarding/concerns/[id]/page.tsx` (9 lines)
+  - `apps/web/src/app/[locale]/(school)/safeguarding/my-reports/page.tsx` (5 lines)
+- **Deferred:** Building out a proper safeguarding-concerns UI requires three full pages (list with severity/status/SLA filters and sealed-respecting visibility; a multi-step create form covering `SafeguardingConcernType`, severity, student selection, description, immediate actions, designated-liaison assignment, optional TUSLA/Gardaí referral fields, optional pastoral-concern link; and a detail page with timeline, chronology, actions feed, attachments upload + download, status transition, TUSLA/Gardaí referral flow, seal initiate/approve/reject dual-approval UI, decision log, agency notifications, and closure/resolution) — each with its own role-gating, audit-logging, and permission-aware UX. That is a substantive subsystem build-out that materially exceeds the scope of a single walkthrough session; it also has hard safeguarding-specific UX constraints (sealed-record redaction, break-glass context surfacing, audit banners, DSL-only mutation rules) that require a proper design spec. This issue is recorded here as a P0 blocker for the safeguarding hub's primary flow and is carried forward to S9 / future work with a recommendation that it be ticketed as a dedicated implementation plan (scale-of-effort comparable to building out the pastoral concerns UI the first time).
+- **Verified:** {deferred}
+
+### W-S5-002 — Safeguarding concern summary API drops student first/last name; frontend renders "undefined undefined"
+
+- **Severity:** P1
+- **Route:** `/en/safeguarding/sla` (and any downstream surface that consumes the list endpoint)
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/safeguarding/sla`.
+  2. Each of the 4 rows (SG-S0-001…004) renders the student column as "undefined undefined".
+  3. The assignee filter dropdown offers "undefined undefined" as the sole non-"All assignees" option.
+- **Expected:** Student name and assignee name render correctly everywhere the `/api/v1/safeguarding/concerns` list response is consumed.
+- **Actual:** `mapConcernSummary` at `apps/api/src/modules/safeguarding/safeguarding-concerns.service.ts:976-1021` returns `student: { id, name }` and `assigned_to: { id, name }`, but the frontend type `SafeguardingConcernRow` in `apps/web/src/app/[locale]/(school)/safeguarding/_components/summary.ts:37-52` declares `student: { id, first_name, last_name }` and `assigned_to: { id, first_name, last_name }`. Every consumer concatenates `first_name + ' ' + last_name`, both missing from the API response, so the UI renders "undefined undefined".
+- **Evidence:** none; reproducible from the live SLA dashboard.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S5-003 — Sealed records list always shows "seal date unknown · approved by unknown approver"
+
+- **Severity:** P1
+- **Route:** `/en/safeguarding/sealed`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/safeguarding/sealed`.
+  2. The single row reads "Sealed concern #SG-S0-004 · seal date unknown · approved by unknown approver".
+  3. DB confirms `sealed_at = 2026-04-16 17:52:21.713+00`, `sealed_by_id` and `seal_approved_by_id` both populated with valid user UUIDs.
+- **Expected:** "Sealed concern #SG-S0-004 · sealed 2026-04-16 · approved by {approver name}".
+- **Actual:** `mapConcernSummary` omits `sealed_at`, `sealed_by`, and `seal_approved_by` entirely from the summary response. `sealedRowLabel` at `apps/web/src/app/[locale]/(school)/safeguarding/_components/summary.ts:131-152` then falls back to its "unknown date" / "unknown approver" branches for every row.
+- **Evidence:** none; reproducible.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S5-004 — Safeguarding hub "Sealed this year" KPI stuck at 0 even with a sealed concern
+
+- **Severity:** P1
+- **Route:** `/en/safeguarding`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/safeguarding`.
+  2. Top KPI strip reads "Sealed this year: 0" despite SG-S0-004 being sealed today (confirmed in DB and on `/en/safeguarding/sealed`).
+- **Expected:** "Sealed this year: 1".
+- **Actual:** The hub page computes `academicYearStart = new Date(new Date().getFullYear(), 7, 1).toISOString()` (Aug 1 of the current calendar year). On any run between January and July, this is a FUTURE timestamp, so `/api/v1/safeguarding/concerns?status=sealed&from=<future>` matches nothing. Today is 2026-04-21, so `from = 2026-08-01`, which excludes all four seeded concerns including the one sealed today. A correct "academic-year-to-date" window needs the previous August 1 whenever we're before August.
+- **Evidence:** none; reproducible.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S5-005 — Recent-concerns list and SLA dashboard include the sealed concern; sealed rows render "On track"
+
+- **Severity:** P1
+- **Route:** `/en/safeguarding`, `/en/safeguarding/sla`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. On `/en/safeguarding`, the "Open concerns" KPI correctly excludes the sealed concern (says 3). The "Recent concerns" feed immediately below shows 4 rows including SG-S0-004 rendered with "High / On track" badges.
+  2. On `/en/safeguarding/sla`, the total says "4 concerns" and all four rows are listed — including the sealed SG-S0-004 — each with "43h remaining · On track".
+  3. SG-S0-001…004 all have `sla_first_response_met_at` already set (confirmed DB) so "43h remaining" is meaningless for them; once SLA is met the remaining-time label should hide.
+- **Expected:** The sealed concern is filtered out of both the recent-concerns feed and the SLA dashboard. Rows whose `sla_first_response_met_at` is set do not render a "Nh remaining" string — they show "Met" or equivalent.
+- **Actual:** The hub queries `/api/v1/safeguarding/concerns?pageSize=8` with no status filter and shows the raw top-8 regardless of status; the SLA dashboard does the same. The list endpoint does not exclude sealed concerns unless the caller explicitly asks it to. The SLA dashboard row component also ignores `sla_first_response_met_at` when rendering "remaining".
+- **Evidence:** none; reproducible.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S5-006 — Home dashboard "Safeguarding alerts" widget doesn't actually watch safeguarding concerns
+
+- **Severity:** P3
+- **Route:** `/en/dashboard`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/dashboard`. The "Safeguarding alerts" tile reads "All clear — no pending flags" while there are 3 open safeguarding concerns (including 1 High) visible on `/en/safeguarding`.
+- **Expected:** A tile labelled "Safeguarding alerts" on the admin dashboard should surface open safeguarding concerns (or at least reflect high-severity items). If it's instead scoped to communications oversight only, it should be labelled accordingly.
+- **Actual:** `apps/web/src/app/[locale]/(school)/_components/dashboard-widgets/safeguarding-alerts-widget.tsx` queries `/api/v1/inbox/oversight/flags` (the comms oversight hit-list), NOT safeguarding concerns. With zero oversight flags, the tile collapses to "All clear" regardless of concern load. Naming / scope mismatch — either the tile should aggregate concerns as well, or the label should read "Communication oversight".
+- **Deferred:** cosmetic + scope question, batching into S5 polish commit. Not a data bug — the tile's underlying query is internally consistent. Flag for UX/product review in S9.
+- **Verified:** {pending}
+
+---
 
 **Status:** Not started
 **Session plan:** [`S6_early_warning.md`](./S6_early_warning.md)

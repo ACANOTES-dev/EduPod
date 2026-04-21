@@ -73,9 +73,11 @@ export default function SafeguardingSlaPage() {
 
     // Pull all open concerns so we can bucket them client-side. Cap at 100
     // (the API's max pageSize) — at that volume the list becomes a review
-    // surface, not a triage board.
+    // surface, not a triage board. Exclude closed states so sealed/resolved
+    // concerns don't appear on the SLA board (they have no first-response
+    // timer once closed).
     apiClient<{ data: SafeguardingConcernRow[] }>(
-      '/api/v1/safeguarding/concerns?pageSize=100&sla_status=all',
+      '/api/v1/safeguarding/concerns?pageSize=100&sla_status=all&status=reported,under_investigation,monitoring,referred',
     )
       .then((res) => {
         if (!cancelled) setRows(res.data);
@@ -290,11 +292,13 @@ export default function SafeguardingSlaPage() {
                         />
                       </div>
                       <p className="mt-1 text-[11px] text-text-tertiary">
-                        {hoursLeft !== null
-                          ? hoursLeft < 0
-                            ? t('overdueHours', { hours: Math.abs(hoursLeft) })
-                            : t('hoursLeft', { hours: hoursLeft })
-                          : t('noDueDate')}
+                        {row.sla_first_response_met_at
+                          ? t('met')
+                          : hoursLeft !== null
+                            ? hoursLeft < 0
+                              ? t('overdueHours', { hours: Math.abs(hoursLeft) })
+                              : t('hoursLeft', { hours: hoursLeft })
+                            : t('noDueDate')}
                       </p>
                     </div>
 

@@ -229,7 +229,19 @@ export default function SafeguardingHubPage() {
     setIsLoading(true);
     setError(null);
 
-    const academicYearStart = new Date(new Date().getFullYear(), 7, 1).toISOString();
+    // Academic year runs Aug→Jul: the "current" AY starts on the most recent
+    // past August 1st. Before August, that's last calendar year's August 1;
+    // on or after August 1, it's this calendar year's August 1. The previous
+    // formulation ignored that and produced a FUTURE date whenever the current
+    // month was before August, so the `from=<future>` filter on the sealed list
+    // matched nothing.
+    const now = new Date();
+    const ayYear = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+    const academicYearStart = new Date(ayYear, 7, 1).toISOString();
+
+    // Recent concerns should exclude closed-state rows (sealed / resolved) so
+    // the feed is a triage board, not an archive.
+    const OPEN_STATUSES = 'reported,under_investigation,monitoring,referred';
 
     void Promise.allSettled([
       apiClient<{ data: SafeguardingDashboardPayload }>('/api/v1/safeguarding/dashboard'),
@@ -244,7 +256,7 @@ export default function SafeguardingHubPage() {
       }>('/api/v1/safeguarding/concerns?sla_status=overdue&pageSize=5'),
       apiClient<{
         data: SafeguardingConcernRow[];
-      }>('/api/v1/safeguarding/concerns?pageSize=8'),
+      }>(`/api/v1/safeguarding/concerns?pageSize=8&status=${OPEN_STATUSES}`),
     ])
       .then(([dashboardRes, sealedRes, breachesRes, recentRes]) => {
         if (cancelled) return;

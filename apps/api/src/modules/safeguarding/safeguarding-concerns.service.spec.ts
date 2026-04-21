@@ -704,9 +704,24 @@ describe('SafeguardingConcernsService', () => {
           severity: 'high',
           status: 'reported',
           sla_breached: false,
-          student: { id: STUDENT_ID, name: 'John Doe' },
-          reported_by: { id: USER_ID, name: 'Staff Member' },
-          assigned_to: { id: 'staff-1', name: 'Lead Person' },
+          student: {
+            id: STUDENT_ID,
+            first_name: 'John',
+            last_name: 'Doe',
+            name: 'John Doe',
+          },
+          reported_by: {
+            id: USER_ID,
+            first_name: 'Staff',
+            last_name: 'Member',
+            name: 'Staff Member',
+          },
+          assigned_to: {
+            id: 'staff-1',
+            first_name: 'Lead',
+            last_name: 'Person',
+            name: 'Lead Person',
+          },
         }),
       );
     });
@@ -1547,9 +1562,24 @@ describe('SafeguardingConcernsService', () => {
       expect(result.severity).toBe('high');
       expect(result.status).toBe('reported');
       expect(result.sla_breached).toBe(false);
-      expect(result.student).toEqual({ id: STUDENT_ID, name: 'Jane Smith' });
-      expect(result.reported_by).toEqual({ id: USER_ID, name: 'Staff One' });
-      expect(result.assigned_to).toEqual({ id: 'staff-2', name: 'Lead Two' });
+      expect(result.student).toEqual({
+        id: STUDENT_ID,
+        first_name: 'Jane',
+        last_name: 'Smith',
+        name: 'Jane Smith',
+      });
+      expect(result.reported_by).toEqual({
+        id: USER_ID,
+        first_name: 'Staff',
+        last_name: 'One',
+        name: 'Staff One',
+      });
+      expect(result.assigned_to).toEqual({
+        id: 'staff-2',
+        first_name: 'Lead',
+        last_name: 'Two',
+        name: 'Lead Two',
+      });
     });
 
     it('should return null for missing relations', () => {
