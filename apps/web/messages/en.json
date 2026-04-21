@@ -13173,6 +13173,8 @@
     },
     "dashboard": {
       "title": "Wellbeing Dashboard",
+      "error": "Couldn't load the aggregate dashboard.",
+      "retry": "Retry",
       "avgTeachingLoad": "Average Teaching Load",
       "periodsPerWeek": "periods/week",
       "coverFairness": "Cover Fairness Index",
