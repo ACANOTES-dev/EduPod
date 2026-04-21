@@ -10851,10 +10851,6 @@
         "runAfterAction": "Review a completed break-glass grant or serious incident and capture lessons."
       }
     },
-    "deferred": {
-      "breakGlass": "Break-glass request dialog ships with Wave 6. CTA intentionally inert until then.",
-      "afterAction": "After-action review workflow ships with Wave 6. CTA intentionally inert until then."
-    },
     "cards": {
       "ariaLabel": "Safeguarding navigation",
       "concerns": {
@@ -10980,11 +10976,22 @@
     },
     "reviews": {
       "title": "After-action reviews",
-      "description": "Structured reviews of completed break-glass grants and serious incidents.",
-      "placeholder": {
-        "title": "After-action workspace coming in Wave 6",
-        "body": "The review queue, templated write-up, and completion workflow are built by implementation 23.",
-        "nextWave": "For now, reviews can be recorded as actions on the originating concern."
+      "description": "Review completed break-glass grants within seven days of expiry.",
+      "loading": "Loading review queue…",
+      "loadError": "We could not load the review queue. Refresh to try again.",
+      "grantedBy": "Granted by {name}",
+      "expiredAt": "Expired {at}",
+      "sections": {
+        "overdue": "{count, plural, one {# overdue review} other {# overdue reviews}}",
+        "pending": "{count, plural, one {# pending review} other {# pending reviews}}"
+      },
+      "status": {
+        "overdue": "Overdue",
+        "pending": "Pending"
+      },
+      "empty": {
+        "title": "No reviews outstanding",
+        "body": "Completed break-glass grants will appear here when they need an after-action review."
       }
     }
   },
@@ -12401,6 +12408,16 @@
         "title": "AI Analytics",
         "description": "Ask natural-language questions and receive narrative insights from your data.",
         "tooltip": "Conversational analytics"
+      },
+      "policyReplay": {
+        "title": "Policy replay",
+        "description": "Preview how a policy rule would score historical incidents before you enable it.",
+        "tooltip": "Dry-run policy changes against past data"
+      },
+      "admin": {
+        "title": "Admin console",
+        "description": "Data repair, legal holds, search reindex, and retention for the behaviour module.",
+        "tooltip": "Admin-only maintenance tools"
       }
     },
     "aiParse": {

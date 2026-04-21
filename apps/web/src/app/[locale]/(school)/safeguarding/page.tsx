@@ -28,8 +28,6 @@ import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { toast } from '@school/ui';
-
 import { HubTile } from '@/components/hub-tile';
 import { CardSkeleton, KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
@@ -69,13 +67,11 @@ interface HubCardConfig {
 
 interface QuickActionConfig {
   key: SafeguardingQuickActionKey;
-  href?: string;
+  href: string;
   icon: LucideIcon;
   accent: string;
   gradient: string;
   roles?: RoleKey[];
-  /** When set, the CTA opens a deferred-feature toast instead of navigating. */
-  deferredMessageKey?: string;
 }
 
 // ─── Hub card catalogue ───────────────────────────────────────────────────────
@@ -151,19 +147,19 @@ const QUICK_ACTIONS: QuickActionConfig[] = [
   },
   {
     key: 'requestBreakGlass',
+    href: '/safeguarding/break-glass',
     icon: KeyRound,
     accent: 'bg-amber-100 text-amber-700',
     gradient: 'from-amber-500 to-amber-700',
     roles: SAFEGUARDING_TIER_ROLES,
-    deferredMessageKey: 'deferred.breakGlass',
   },
   {
     key: 'runAfterAction',
+    href: '/safeguarding/reviews',
     icon: Binoculars,
     accent: 'bg-indigo-100 text-indigo-700',
     gradient: 'from-indigo-500 to-indigo-700',
     roles: SAFEGUARDING_TIER_ROLES,
-    deferredMessageKey: 'deferred.afterAction',
   },
 ];
 
@@ -336,10 +332,6 @@ export default function SafeguardingHubPage() {
     );
   }
 
-  const handleDeferred = (messageKey: string) => {
-    toast.info(t(messageKey));
-  };
-
   // ── Render ──────────────────────────────────────────────────────────────
   return (
     <div className="flex min-w-0 flex-col gap-6 pb-10">
@@ -434,39 +426,17 @@ export default function SafeguardingHubPage() {
           aria-label={t('quickActions.ariaLabel')}
           className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
         >
-          {visibleActions.map((action) =>
-            action.deferredMessageKey ? (
-              <button
-                key={action.key}
-                type="button"
-                onClick={() => handleDeferred(action.deferredMessageKey as string)}
-                className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-surface px-4 py-3 text-start transition-all hover:border-border-strong hover:shadow-sm"
-              >
-                <div className={`shrink-0 rounded-lg p-2 ${action.accent}`}>
-                  <action.icon className="h-4 w-4" />
-                </div>
-                <span className="text-sm font-medium text-text-primary">
-                  {t(`quickActions.${action.key}`)}
-                </span>
-                <span className="ms-auto inline-flex items-center rounded-full bg-surface-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">
-                  {t('quickActions.comingSoon')}
-                </span>
-                <div
-                  className={`absolute bottom-0 end-0 start-0 h-0.5 origin-left scale-x-0 bg-gradient-to-r ${action.gradient} transition-transform group-hover:scale-x-100`}
-                />
-              </button>
-            ) : (
-              <QuickAction
-                key={action.key}
-                icon={action.icon}
-                label={t(`quickActions.${action.key}`)}
-                href={action.href as string}
-                accent={action.accent}
-                gradient={action.gradient}
-                tooltip={t(`quickActions.tooltips.${action.key}`)}
-              />
-            ),
-          )}
+          {visibleActions.map((action) => (
+            <QuickAction
+              key={action.key}
+              icon={action.icon}
+              label={t(`quickActions.${action.key}`)}
+              href={action.href}
+              accent={action.accent}
+              gradient={action.gradient}
+              tooltip={t(`quickActions.tooltips.${action.key}`)}
+            />
+          ))}
         </section>
       )}
 

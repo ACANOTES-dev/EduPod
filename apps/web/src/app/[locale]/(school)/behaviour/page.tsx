@@ -23,6 +23,7 @@ import {
   ListChecks,
   MessageSquareQuote,
   RefreshCw,
+  Scale,
   Shield,
   ShieldCheck,
   Sparkles,
@@ -30,6 +31,7 @@ import {
   Trophy,
   UserRoundCog,
   Users,
+  Wrench,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -43,6 +45,7 @@ import { HubTile } from '@/components/hub-tile';
 import { CardSkeleton, KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
 import { QuickAction } from '@/components/quick-action';
+import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -119,7 +122,9 @@ type HubCardKey =
   | 'amendments'
   | 'guardianRestrictions'
   | 'analytics'
-  | 'aiAnalytics';
+  | 'aiAnalytics'
+  | 'policyReplay'
+  | 'admin';
 
 interface HubCardConfig {
   key: HubCardKey;
@@ -129,6 +134,7 @@ interface HubCardConfig {
   iconBg: string;
   glow: string;
   aiGated?: boolean;
+  adminOnly?: boolean;
   countFromStats?: (stats: PulseStats | null, tasks: TaskStats | null) => number | undefined;
 }
 
@@ -241,6 +247,24 @@ const HUB_CARDS: HubCardConfig[] = [
     glow: 'from-fuchsia-50/80',
     aiGated: true,
   },
+  {
+    key: 'policyReplay',
+    href: '/behaviour/policies/replay',
+    icon: Scale,
+    accent: 'from-blue-400 via-blue-500 to-blue-600',
+    iconBg: 'bg-blue-100 text-blue-700',
+    glow: 'from-blue-50/80',
+    adminOnly: true,
+  },
+  {
+    key: 'admin',
+    href: '/behaviour/admin',
+    icon: Wrench,
+    accent: 'from-stone-400 via-stone-500 to-stone-600',
+    iconBg: 'bg-stone-100 text-stone-700',
+    glow: 'from-stone-50/80',
+    adminOnly: true,
+  },
 ];
 
 // ─── Quick actions ────────────────────────────────────────────────────────────
@@ -338,6 +362,7 @@ export default function BehaviourSubHubPage() {
   const pathname = usePathname();
   const router = useRouter();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+  const { isOwner } = useRoleCheck();
 
   const [pulse, setPulse] = React.useState<PulseStats | null>(null);
   const [tasks, setTasks] = React.useState<TaskStats | null>(null);
@@ -428,8 +453,8 @@ export default function BehaviourSubHubPage() {
   const aiVisible = aiFlag !== 'disabled';
 
   const visibleCards = React.useMemo(
-    () => HUB_CARDS.filter((c) => !c.aiGated || aiVisible),
-    [aiVisible],
+    () => HUB_CARDS.filter((c) => (!c.aiGated || aiVisible) && (!c.adminOnly || isOwner)),
+    [aiVisible, isOwner],
   );
   const visibleActions = React.useMemo(
     () => QUICK_ACTIONS.filter((a) => !a.aiGated || aiVisible),
