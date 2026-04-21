@@ -85,7 +85,7 @@ describe('BehaviourStudentsController', () => {
 
   // ─── Student List ────────────────────────────────────────────────────────
 
-  it('should call studentsService.listStudents with tenant_id, user_id, permissions, page, pageSize', async () => {
+  it('should call studentsService.listStudents with tenant_id, user_id, permissions, page, pageSize, search', async () => {
     const query = { page: 1, pageSize: 20 };
     mockStudentsService.listStudents.mockResolvedValue({ data: [] });
 
@@ -98,8 +98,25 @@ describe('BehaviourStudentsController', () => {
       PERMISSIONS,
       1,
       20,
+      undefined,
     );
     expect(result).toEqual({ data: [] });
+  });
+
+  it('should forward search query to studentsService.listStudents', async () => {
+    const query = { page: 1, pageSize: 20, search: 'Felix' };
+    mockStudentsService.listStudents.mockResolvedValue({ data: [] });
+
+    await controller.listStudents(TENANT, USER, query);
+
+    expect(mockStudentsService.listStudents).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PERMISSIONS,
+      1,
+      20,
+      'Felix',
+    );
   });
 
   // ─── Student Profile ─────────────────────────────────────────────────────

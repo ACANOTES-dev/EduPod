@@ -537,11 +537,16 @@ describe('BehaviourPointsService', () => {
       expect(result.data[0]).toEqual(
         expect.objectContaining({
           student_id: 's-1',
+          student_name: 'Alice Smith',
           first_name: 'Alice',
           last_name: 'Smith',
+          year_group_id: 'yg-1',
+          year_group: 'Year 4',
           total_points: 50,
           rank: 1,
-          house: { id: 'h-1', name: 'Eagles', color: '#ff0000' },
+          house_id: 'h-1',
+          house_name: 'Eagles',
+          house_color: '#ff0000',
         }),
       );
     });
@@ -557,7 +562,8 @@ describe('BehaviourPointsService', () => {
       });
 
       expect(result.data[0]!.student_id).toBe('');
-      expect(result.data[0]!.house).toBeNull();
+      expect(result.data[0]!.house_id).toBeNull();
+      expect(result.data[0]!.house_name).toBeNull();
     });
 
     it('edge: should handle null points_awarded in grouped result', async () => {

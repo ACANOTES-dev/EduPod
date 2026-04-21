@@ -32,11 +32,15 @@ interface PointsResult {
 
 interface LeaderboardEntry {
   student_id: string;
+  student_name: string;
   first_name: string;
   last_name: string;
-  year_group: { id: string; name: string } | null;
+  year_group_id: string | null;
+  year_group: string | null;
   total_points: number;
-  house: { id: string; name: string; color: string } | null;
+  house_id: string | null;
+  house_name: string | null;
+  house_color: string | null;
   rank: number;
 }
 
@@ -53,6 +57,8 @@ interface LeaderboardQuery {
 }
 
 export interface HouseStanding {
+  /** Canonical house identifier. `house_id` kept for backwards-compat. */
+  id: string;
   house_id: string;
   name: string;
   name_ar: string | null;
@@ -60,6 +66,8 @@ export interface HouseStanding {
   icon: string | null;
   total_points: number;
   member_count: number;
+  /** 1-based ordering by `total_points` desc. */
+  rank: number;
 }
 
 // ─── Service ───────────────────────────────────────────────────────────────
@@ -83,10 +91,7 @@ export class BehaviourPointsService {
    *  - 'academic_year': filtered to current academic year
    *  - 'academic_period': filtered to current academic period
    */
-  async getStudentPoints(
-    tenantId: string,
-    studentId: string,
-  ): Promise<PointsResult> {
+  async getStudentPoints(tenantId: string, studentId: string): Promise<PointsResult> {
     // Resolve scope from tenant behaviour settings
     const scope = await this.resolvePointsScope(tenantId);
     const cacheKey = `behaviour:points:${tenantId}:${studentId}:${scope.key}`;
@@ -98,11 +103,7 @@ export class BehaviourPointsService {
       return { total: Number(cached), fromCache: true };
     }
 
-    const total = await this.computeStudentPoints(
-      tenantId,
-      studentId,
-      scope.filter,
-    );
+    const total = await this.computeStudentPoints(tenantId, studentId, scope.filter);
 
     // Write to cache
     await client.set(cacheKey, String(total), 'EX', CACHE_TTL);
@@ -114,18 +115,12 @@ export class BehaviourPointsService {
    * Compute fresh student points without cache — used by award worker
    * where stale cache must never be served.
    */
-  async computeStudentPointsFresh(
-    tenantId: string,
-    studentId: string,
-  ): Promise<number> {
+  async computeStudentPointsFresh(tenantId: string, studentId: string): Promise<number> {
     const scope = await this.resolvePointsScope(tenantId);
     return this.computeStudentPoints(tenantId, studentId, scope.filter);
   }
 
-  async invalidateStudentPointsCache(
-    tenantId: string,
-    studentId: string,
-  ): Promise<void> {
+  async invalidateStudentPointsCache(tenantId: string, studentId: string): Promise<void> {
     // Delete all possible scope keys for this student
     const client = this.redis.getClient();
     const pattern = `behaviour:points:${tenantId}:${studentId}:*`;
@@ -140,36 +135,29 @@ export class BehaviourPointsService {
     studentId: string,
     scopeFilter: Prisma.BehaviourIncidentWhereInput,
   ): Promise<number> {
-    const aggregate =
-      await this.prisma.behaviourIncidentParticipant.aggregate({
-        where: {
-          student_id: studentId,
-          tenant_id: tenantId,
-          incident: {
-            ...ACTIVE_INCIDENT_FILTER,
-            ...scopeFilter,
-          },
+    const aggregate = await this.prisma.behaviourIncidentParticipant.aggregate({
+      where: {
+        student_id: studentId,
+        tenant_id: tenantId,
+        incident: {
+          ...ACTIVE_INCIDENT_FILTER,
+          ...scopeFilter,
         },
-        _sum: { points_awarded: true },
-      });
+      },
+      _sum: { points_awarded: true },
+    });
 
     return aggregate._sum.points_awarded ?? 0;
   }
 
-  private async resolvePointsScope(
-    tenantId: string,
-  ): Promise<{
+  private async resolvePointsScope(tenantId: string): Promise<{
     key: string;
     filter: Prisma.BehaviourIncidentWhereInput;
   }> {
     const tenantSettingsJson = await this.configurationReadFacade.findSettingsJson(tenantId);
-    const settings =
-      (tenantSettingsJson as Record<string, unknown>) ?? {};
-    const behaviourSettings =
-      (settings?.behaviour as Record<string, unknown>) ?? {};
-    const resetFrequency =
-      (behaviourSettings?.points_reset_frequency as string) ??
-      'academic_year';
+    const settings = (tenantSettingsJson as Record<string, unknown>) ?? {};
+    const behaviourSettings = (settings?.behaviour as Record<string, unknown>) ?? {};
+    const resetFrequency = (behaviourSettings?.points_reset_frequency as string) ?? 'academic_year';
 
     if (resetFrequency === 'never') {
       return { key: 'all_time', filter: {} };
@@ -215,15 +203,14 @@ export class BehaviourPointsService {
     }
 
     // Step 1: Get student IDs from house memberships for the given year
-    const memberships =
-      await this.prisma.behaviourHouseMembership.findMany({
-        where: {
-          tenant_id: tenantId,
-          house_id: houseId,
-          academic_year_id: academicYearId,
-        },
-        select: { student_id: true },
-      });
+    const memberships = await this.prisma.behaviourHouseMembership.findMany({
+      where: {
+        tenant_id: tenantId,
+        house_id: houseId,
+        academic_year_id: academicYearId,
+      },
+      select: { student_id: true },
+    });
 
     const studentIds = memberships.map((m) => m.student_id);
 
@@ -233,15 +220,14 @@ export class BehaviourPointsService {
     }
 
     // Step 2: Sum points for those students
-    const aggregate =
-      await this.prisma.behaviourIncidentParticipant.aggregate({
-        where: {
-          student_id: { in: studentIds },
-          tenant_id: tenantId,
-          incident: ACTIVE_INCIDENT_FILTER,
-        },
-        _sum: { points_awarded: true },
-      });
+    const aggregate = await this.prisma.behaviourIncidentParticipant.aggregate({
+      where: {
+        student_id: { in: studentIds },
+        tenant_id: tenantId,
+        incident: ACTIVE_INCIDENT_FILTER,
+      },
+      _sum: { points_awarded: true },
+    });
 
     const total = aggregate._sum.points_awarded ?? 0;
 
@@ -262,10 +248,7 @@ export class BehaviourPointsService {
 
   // ─── Leaderboard ──────────────────────────────────────────────────────
 
-  async getLeaderboard(
-    tenantId: string,
-    query: LeaderboardQuery,
-  ): Promise<LeaderboardResult> {
+  async getLeaderboard(tenantId: string, query: LeaderboardQuery): Promise<LeaderboardResult> {
     // Resolve date-based scope filter on the incident relation
     const incidentFilter: Prisma.BehaviourIncidentWhereInput = {
       ...ACTIVE_INCIDENT_FILTER,
@@ -286,12 +269,11 @@ export class BehaviourPointsService {
     // 'all_time' — no additional date filter
 
     // Build participant where clause
-    const participantWhere: Prisma.BehaviourIncidentParticipantWhereInput =
-      {
-        tenant_id: tenantId,
-        student_id: { not: null },
-        incident: incidentFilter,
-      };
+    const participantWhere: Prisma.BehaviourIncidentParticipantWhereInput = {
+      tenant_id: tenantId,
+      student_id: { not: null },
+      incident: incidentFilter,
+    };
 
     // Optional year group filter — filter via student relation
     if (query.year_group_id) {
@@ -301,13 +283,12 @@ export class BehaviourPointsService {
     }
 
     // Step 1: Group by student_id to get totals + count of distinct students
-    const grouped =
-      await this.prisma.behaviourIncidentParticipant.groupBy({
-        by: ['student_id'],
-        where: participantWhere,
-        _sum: { points_awarded: true },
-        orderBy: { _sum: { points_awarded: 'desc' } },
-      });
+    const grouped = await this.prisma.behaviourIncidentParticipant.groupBy({
+      by: ['student_id'],
+      where: participantWhere,
+      _sum: { points_awarded: true },
+      orderBy: { _sum: { points_awarded: 'desc' } },
+    });
 
     const total = grouped.length;
 
@@ -323,9 +304,7 @@ export class BehaviourPointsService {
     }
 
     // Step 2: Fetch student details for the page
-    const studentIds = pageSlice
-      .map((g) => g.student_id)
-      .filter((id): id is string => id !== null);
+    const studentIds = pageSlice.map((g) => g.student_id).filter((id): id is string => id !== null);
 
     const [students, houseMemberships] = await Promise.all([
       this.studentReadFacade.findByIds(tenantId, studentIds),
@@ -335,22 +314,26 @@ export class BehaviourPointsService {
 
     const studentMap = new Map(students.map((s) => [s.id, s]));
 
-    // Build ranked leaderboard entries
+    // Build ranked leaderboard entries — response shape is FLAT (year_group + house
+    // as scalar strings) so frontend consumers can render them directly in JSX
+    // without special-casing object-vs-string.
     const data: LeaderboardEntry[] = pageSlice.map((g, index) => {
-      const student = g.student_id
-        ? studentMap.get(g.student_id)
-        : undefined;
-      const house = g.student_id
-        ? houseMemberships.get(g.student_id) ?? null
-        : null;
+      const student = g.student_id ? studentMap.get(g.student_id) : undefined;
+      const house = g.student_id ? (houseMemberships.get(g.student_id) ?? null) : null;
+      const firstName = student?.first_name ?? '';
+      const lastName = student?.last_name ?? '';
 
       return {
         student_id: g.student_id ?? '',
-        first_name: student?.first_name ?? '',
-        last_name: student?.last_name ?? '',
-        year_group: student?.year_group ?? null,
+        student_name: `${firstName} ${lastName}`.trim(),
+        first_name: firstName,
+        last_name: lastName,
+        year_group_id: student?.year_group?.id ?? null,
+        year_group: student?.year_group?.name ?? null,
         total_points: g._sum.points_awarded ?? 0,
-        house,
+        house_id: house?.id ?? null,
+        house_name: house?.name ?? null,
+        house_color: house?.color ?? null,
         rank: start + index + 1,
       };
     });
@@ -363,10 +346,7 @@ export class BehaviourPointsService {
 
   // ─── House Standings ──────────────────────────────────────────────────
 
-  async getHouseStandings(
-    tenantId: string,
-    academicYearId: string,
-  ): Promise<HouseStanding[]> {
+  async getHouseStandings(tenantId: string, academicYearId: string): Promise<HouseStanding[]> {
     // Get all active houses
     const houses = await this.prisma.behaviourHouseTeam.findMany({
       where: { tenant_id: tenantId, is_active: true },
@@ -383,14 +363,13 @@ export class BehaviourPointsService {
     if (houses.length === 0) return [];
 
     // Get all memberships for the academic year, grouped by house
-    const memberships =
-      await this.prisma.behaviourHouseMembership.findMany({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-        },
-        select: { house_id: true, student_id: true },
-      });
+    const memberships = await this.prisma.behaviourHouseMembership.findMany({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: academicYearId,
+      },
+      select: { house_id: true, student_id: true },
+    });
 
     // Group student IDs by house
     const houseStudentMap = new Map<string, string[]>();
@@ -404,7 +383,8 @@ export class BehaviourPointsService {
     const allStudentIds = memberships.map((m) => m.student_id);
 
     if (allStudentIds.length === 0) {
-      return houses.map((h) => ({
+      return houses.map((h, index) => ({
+        id: h.id,
         house_id: h.id,
         name: h.name,
         name_ar: h.name_ar,
@@ -412,37 +392,34 @@ export class BehaviourPointsService {
         icon: h.icon,
         total_points: 0,
         member_count: 0,
+        rank: index + 1,
       }));
     }
 
     // Get point totals grouped by student
-    const pointsByStudent =
-      await this.prisma.behaviourIncidentParticipant.groupBy({
-        by: ['student_id'],
-        where: {
-          student_id: { in: allStudentIds },
-          tenant_id: tenantId,
-          incident: ACTIVE_INCIDENT_FILTER,
-        },
-        _sum: { points_awarded: true },
-      });
+    const pointsByStudent = await this.prisma.behaviourIncidentParticipant.groupBy({
+      by: ['student_id'],
+      where: {
+        student_id: { in: allStudentIds },
+        tenant_id: tenantId,
+        incident: ACTIVE_INCIDENT_FILTER,
+      },
+      _sum: { points_awarded: true },
+    });
 
     const studentPointsMap = new Map(
-      pointsByStudent.map((p) => [
-        p.student_id,
-        p._sum.points_awarded ?? 0,
-      ]),
+      pointsByStudent.map((p) => [p.student_id, p._sum.points_awarded ?? 0]),
     );
 
-    // Aggregate points per house
-    return houses.map((house) => {
+    // Aggregate points per house, then rank by total_points desc.
+    const withTotals = houses.map((house) => {
       const houseStudents = houseStudentMap.get(house.id) ?? [];
       const totalPoints = houseStudents.reduce(
         (sum, studentId) => sum + (studentPointsMap.get(studentId) ?? 0),
         0,
       );
-
       return {
+        id: house.id,
         house_id: house.id,
         name: house.name,
         name_ar: house.name_ar,
@@ -452,6 +429,11 @@ export class BehaviourPointsService {
         member_count: houseStudents.length,
       };
     });
+
+    const sorted = [...withTotals].sort((a, b) => b.total_points - a.total_points);
+    const rankMap = new Map(sorted.map((h, index) => [h.id, index + 1]));
+
+    return withTotals.map((h) => ({ ...h, rank: rankMap.get(h.id) ?? 0 }));
   }
 
   // ─── Private Helpers ──────────────────────────────────────────────────
@@ -469,20 +451,19 @@ export class BehaviourPointsService {
 
     if (!currentYear) return new Map();
 
-    const memberships =
-      await this.prisma.behaviourHouseMembership.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: { in: studentIds },
-          academic_year_id: currentYear.id,
+    const memberships = await this.prisma.behaviourHouseMembership.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: { in: studentIds },
+        academic_year_id: currentYear.id,
+      },
+      select: {
+        student_id: true,
+        house: {
+          select: { id: true, name: true, color: true },
         },
-        select: {
-          student_id: true,
-          house: {
-            select: { id: true, name: true, color: true },
-          },
-        },
-      });
+      },
+    });
 
     return new Map(
       memberships.map((m) => [

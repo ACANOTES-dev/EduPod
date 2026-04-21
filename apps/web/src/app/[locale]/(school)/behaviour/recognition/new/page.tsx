@@ -77,7 +77,7 @@ export default function RecognitionNewPage() {
           apiClient<{ data: AwardType[] }>('/api/v1/behaviour/award-types?page=1&pageSize=100', {
             silent: true,
           }).catch(() => ({ data: [] as AwardType[] })),
-          apiClient<{ data: StudentRow[] }>('/api/v1/students?page=1&pageSize=500&status=active', {
+          apiClient<{ data: StudentRow[] }>('/api/v1/students?page=1&pageSize=100&status=active', {
             silent: true,
           }).catch(() => ({ data: [] as StudentRow[] })),
         ]);

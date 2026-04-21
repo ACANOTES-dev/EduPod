@@ -28,13 +28,13 @@ interface AcademicYear {
   name: string;
 }
 
-type Period = 'week' | 'month' | 'term' | 'year';
+type Scope = 'year' | 'period' | 'all_time';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BehaviourLeaderboardPage() {
   const t = useTranslations('behaviour.leaderboard');
-  const [period, setPeriod] = React.useState<Period>('term');
+  const [scope, setScope] = React.useState<Scope>('year');
   const [yearId, setYearId] = React.useState<string>('current');
   const [academicYears, setAcademicYears] = React.useState<AcademicYear[]>([]);
   const [entries, setEntries] = React.useState<LeaderboardEntry[]>([]);
@@ -51,7 +51,7 @@ export default function BehaviourLeaderboardPage() {
     setLoading(true);
     setLoadError('');
     try {
-      const qs = new URLSearchParams({ period, pageSize: '50' });
+      const qs = new URLSearchParams({ scope, pageSize: '50' });
       if (yearId !== 'current') qs.set('academic_year_id', yearId);
       const res = await apiClient<LeaderboardResponse>(
         `/api/v1/behaviour/recognition/leaderboard?${qs.toString()}`,
@@ -64,7 +64,7 @@ export default function BehaviourLeaderboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [period, yearId, t]);
+  }, [scope, yearId, t]);
 
   React.useEffect(() => {
     void load();
@@ -76,15 +76,14 @@ export default function BehaviourLeaderboardPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
-        <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
+        <Select value={scope} onValueChange={(v) => setScope(v as Scope)}>
           <SelectTrigger className="w-full sm:w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="week">{t('periods.week')}</SelectItem>
-            <SelectItem value="month">{t('periods.month')}</SelectItem>
-            <SelectItem value="term">{t('periods.term')}</SelectItem>
             <SelectItem value="year">{t('periods.year')}</SelectItem>
+            <SelectItem value="period">{t('periods.period')}</SelectItem>
+            <SelectItem value="all_time">{t('periods.allTime')}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={yearId} onValueChange={setYearId}>

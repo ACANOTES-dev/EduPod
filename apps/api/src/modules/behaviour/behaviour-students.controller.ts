@@ -35,6 +35,10 @@ const paginationQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+const listStudentsQuerySchema = paginationQuerySchema.extend({
+  search: z.string().trim().min(1).max(100).optional(),
+});
+
 @Controller('v1')
 @ModuleEnabled('behaviour')
 @UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
@@ -54,8 +58,8 @@ export class BehaviourStudentsController {
   async listStudents(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
-    @Query(new ZodValidationPipe(paginationQuerySchema))
-    query: z.infer<typeof paginationQuerySchema>,
+    @Query(new ZodValidationPipe(listStudentsQuerySchema))
+    query: z.infer<typeof listStudentsQuerySchema>,
   ) {
     const permissions = await this.getUserPermissions(user.membership_id);
     return this.studentsService.listStudents(
@@ -64,6 +68,7 @@ export class BehaviourStudentsController {
       permissions,
       query.page,
       query.pageSize,
+      query.search,
     );
   }
 

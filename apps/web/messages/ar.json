@@ -10893,7 +10893,41 @@
     "restrictionDetails": "تفاصيل Restriction",
     "explainWhyThisRestrictionIs": "[AR] Explain why this restriction is being revoked...",
     "reasonForRevocation": "[AR] Reason for Revocation *",
-    "provideAReasonForRevoking": "[AR] Provide a reason for revoking this guardian restriction."
+    "provideAReasonForRevoking": "[AR] Provide a reason for revoking this guardian restriction.",
+    "houses": {
+      "title": "البيوت",
+      "description": "إجمالي النقاط والترتيب عبر فرق البيوت.",
+      "errorLoading": "تعذّر تحميل ترتيب البيوت حالياً.",
+      "retry": "إعادة المحاولة",
+      "empty": "لم يتم إعداد أي فرق بيوت بعد.",
+      "configureLink": "إعداد البيوت",
+      "points": "نقطة",
+      "memberCount": "{count, plural, one {# عضو} other {# أعضاء}}"
+    },
+    "leaderboard": {
+      "title": "لوحة المتصدرين",
+      "description": "أفضل الطلاب حسب نقاط السلوك ضمن النطاق المحدد.",
+      "errorLoading": "تعذّر تحميل لوحة المتصدرين حالياً.",
+      "retry": "إعادة المحاولة",
+      "empty": "لا يوجد طلاب مصنفون بعد.",
+      "currentYear": "العام الحالي",
+      "student": "الطالب",
+      "yearGroup": "المجموعة الدراسية",
+      "points": "النقاط",
+      "periods": {
+        "year": "هذا العام",
+        "period": "هذه الفترة",
+        "allTime": "كل الوقت"
+      }
+    },
+    "policies": {
+      "title": "السياسات",
+      "description": "قواعد سياسة السلوك والتصعيدات."
+    },
+    "templates": {
+      "title": "القوالب",
+      "description": "قوالب المستندات والرسائل المستخدمة في وحدة السلوك."
+    }
   },
   "safeguarding": {
     "dashboard": {
@@ -13344,55 +13378,6 @@
       "executeFailed": "تعذّر التنفيذ. يُرجى المحاولة مجددًا."
     },
     "legalHolds": {
-      "title": "القيود القانونية",
-      "body": "تُستثنى السجلات الخاضعة لقيد قانوني من عمليات الأرشفة والحذف. تُدار القيود من وحدة التحكم المخصصة.",
-      "cta": "فتح القيود القانونية"
-    },
-    "preview": {
-      "title": "معاينة: {op}",
-      "affectedRecords": "السجلات المتأثرة",
-      "affectedStudents": "الطلاب المتأثرون",
-      "estimatedDuration": "المدة المُقدَّرة",
-      "reversible": "قابل للتراجع",
-      "yes": "نعم",
-      "no": "لا"
-    },
-    "execute": {
-      "title": "تنفيذ: {op}",
-      "warning": "ستُشغَّل العملية «{op}» في الخلفية وقد تستغرق عدة دقائق. تابع فقط بعد مراجعة المعاينة.",
-      "confirmLabel": "اكتب «{phrase}» للتأكيد",
-      "submitted": "تمّ إرسال العملية.",
-      "jobId": "معرّف المهمة:",
-      "affectedCount": "تأثُّر {count} سجلًا.",
-      "note": "يمكن متابعة التقدّم عبر سجل المهام بعد الإرسال."
-    },
-    "operations": {
-      "recomputePoints": {
-        "title": "إعادة حساب النقاط",
-        "description": "إبطال ذاكرة Redis المؤقتة وإعادة بناء مجاميع النقاط للطلاب من الحوادث والجوائز."
-      },
-      "rebuildAwards": {
-        "title": "إعادة بناء الجوائز",
-        "description": "افحص كل طالب بحثًا عن جوائز عتبة مفقودة وأنشئها عند استحقاقها."
-      },
-      "recomputePulse": {
-        "title": "إعادة حساب النبض",
-        "description": "إبطال ذاكرة نبض السلوك المؤقتة. الطلب التالي سيعيد الحساب مباشرة."
-      },
-      "backfillTasks": {
-        "title": "تعبئة المهام",
-        "description": "افحص الكيانات المعلَّقة (عقوبات، طعون، اعتمادات) وأعد إنشاء مهام السلوك المفقودة."
-      },
-      "reindexSearch": {
-        "title": "إعادة فهرسة البحث",
-        "description": "أعد بناء فهرس Meilisearch الخاص بالسلوك من قاعدة البيانات. يعمل كمهمة خلفية."
-      },
-      "retentionSweep": {
-        "title": "مسح الاحتفاظ",
-        "description": "أرشف أو إخفِ هوية السجلات بعد فترة الاحتفاظ. يحترم التحفُّظات النشطة — تُتخطى هذه."
-      }
-    },
-    "legalHolds": {
       "title": "التحفُّظات القانونية",
       "description": "السجلات التي عليها تحفُّظ نشط لا تُخفى هويتها ولا تُحذف عبر الاحتفاظ. أزل التحفُّظ لاستئناف الاحتفاظ الاعتيادي.",
       "setBy": "سُجِّل بواسطة {name} · {at}",
@@ -13446,6 +13431,50 @@
         "errors": {
           "generic": "تعذّر رفع التحفُّظ. يُرجى المحاولة مجددًا."
         }
+      }
+    },
+    "preview": {
+      "title": "معاينة: {op}",
+      "affectedRecords": "السجلات المتأثرة",
+      "affectedStudents": "الطلاب المتأثرون",
+      "estimatedDuration": "المدة المُقدَّرة",
+      "reversible": "قابل للتراجع",
+      "yes": "نعم",
+      "no": "لا"
+    },
+    "execute": {
+      "title": "تنفيذ: {op}",
+      "warning": "ستُشغَّل العملية «{op}» في الخلفية وقد تستغرق عدة دقائق. تابع فقط بعد مراجعة المعاينة.",
+      "confirmLabel": "اكتب «{phrase}» للتأكيد",
+      "submitted": "تمّ إرسال العملية.",
+      "jobId": "معرّف المهمة:",
+      "affectedCount": "تأثُّر {count} سجلًا.",
+      "note": "يمكن متابعة التقدّم عبر سجل المهام بعد الإرسال."
+    },
+    "operations": {
+      "recomputePoints": {
+        "title": "إعادة حساب النقاط",
+        "description": "إبطال ذاكرة Redis المؤقتة وإعادة بناء مجاميع النقاط للطلاب من الحوادث والجوائز."
+      },
+      "rebuildAwards": {
+        "title": "إعادة بناء الجوائز",
+        "description": "افحص كل طالب بحثًا عن جوائز عتبة مفقودة وأنشئها عند استحقاقها."
+      },
+      "recomputePulse": {
+        "title": "إعادة حساب النبض",
+        "description": "إبطال ذاكرة نبض السلوك المؤقتة. الطلب التالي سيعيد الحساب مباشرة."
+      },
+      "backfillTasks": {
+        "title": "تعبئة المهام",
+        "description": "افحص الكيانات المعلَّقة (عقوبات، طعون، اعتمادات) وأعد إنشاء مهام السلوك المفقودة."
+      },
+      "reindexSearch": {
+        "title": "إعادة فهرسة البحث",
+        "description": "أعد بناء فهرس Meilisearch الخاص بالسلوك من قاعدة البيانات. يعمل كمهمة خلفية."
+      },
+      "retentionSweep": {
+        "title": "مسح الاحتفاظ",
+        "description": "أرشف أو إخفِ هوية السجلات بعد فترة الاحتفاظ. يحترم التحفُّظات النشطة — تُتخطى هذه."
       }
     }
   },

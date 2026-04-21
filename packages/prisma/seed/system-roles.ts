@@ -444,12 +444,14 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     default_permissions: [
       'parent.view_own_students',
       'parent.view_attendance',
+      'parent.view_behaviour',
       'parent.view_grades',
       'parent.view_invoices',
       'parent.make_payments',
       'parent.submit_inquiry',
       'parent.view_announcements',
       'parent.view_transcripts',
+      'behaviour.appeal',
       'schedule.view_class',
       'legal.view',
       // Inbox — parents hold the send bit; the policy engine decides whether

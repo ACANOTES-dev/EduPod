@@ -13,7 +13,9 @@ import { apiClient } from '@/lib/api-client';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface HouseStanding {
-  id: string;
+  // Backend returns both `id` and (legacy) `house_id`; accept either.
+  id?: string;
+  house_id?: string;
   name: string;
   color: string;
   icon: string | null;
@@ -83,7 +85,7 @@ export default function BehaviourHousesPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {houses.map((house) => (
             <article
-              key={house.id}
+              key={house.id ?? house.house_id ?? house.name}
               className="relative overflow-hidden rounded-xl border border-border bg-surface p-5"
             >
               <div

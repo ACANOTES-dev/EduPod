@@ -45,6 +45,7 @@ export class BehaviourStudentsService {
     permissions: string[],
     page: number,
     pageSize: number,
+    search?: string,
   ) {
     const scopeCtx = await this.scopeService.getUserScope(tenantId, userId, permissions);
 
@@ -52,6 +53,14 @@ export class BehaviourStudentsService {
       tenant_id: tenantId,
       status: 'active',
     };
+
+    const trimmedSearch = search?.trim();
+    if (trimmedSearch) {
+      studentFilter.OR = [
+        { first_name: { contains: trimmedSearch, mode: 'insensitive' } },
+        { last_name: { contains: trimmedSearch, mode: 'insensitive' } },
+      ];
+    }
 
     if (scopeCtx.scope === 'class' && scopeCtx.classStudentIds) {
       studentFilter.id = { in: scopeCtx.classStudentIds };

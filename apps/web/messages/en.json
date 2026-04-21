@@ -10893,7 +10893,41 @@
     "restrictionDetails": "Restriction Details",
     "explainWhyThisRestrictionIs": "Explain why this restriction is being revoked...",
     "reasonForRevocation": "Reason for Revocation *",
-    "provideAReasonForRevoking": "Provide a reason for revoking this guardian restriction."
+    "provideAReasonForRevoking": "Provide a reason for revoking this guardian restriction.",
+    "houses": {
+      "title": "Houses",
+      "description": "Points totals and rankings across house teams.",
+      "errorLoading": "We couldn't load house standings just now.",
+      "retry": "Retry",
+      "empty": "No house teams configured yet.",
+      "configureLink": "Configure houses",
+      "points": "points",
+      "memberCount": "{count, plural, one {# member} other {# members}}"
+    },
+    "leaderboard": {
+      "title": "Leaderboard",
+      "description": "Top students by behaviour points across the selected scope.",
+      "errorLoading": "We couldn't load the leaderboard just now.",
+      "retry": "Retry",
+      "empty": "No ranked students yet.",
+      "currentYear": "Current year",
+      "student": "Student",
+      "yearGroup": "Year group",
+      "points": "Points",
+      "periods": {
+        "year": "This year",
+        "period": "This period",
+        "allTime": "All time"
+      }
+    },
+    "policies": {
+      "title": "Policies",
+      "description": "Behaviour policy rules and escalations."
+    },
+    "templates": {
+      "title": "Templates",
+      "description": "Document and letter templates used by the behaviour module."
+    }
   },
   "safeguarding": {
     "dashboard": {
@@ -13345,55 +13379,6 @@
     },
     "legalHolds": {
       "title": "Legal holds",
-      "body": "Records under an active legal hold are exempt from retention sweeps. Manage holds from the dedicated console.",
-      "cta": "Open legal holds"
-    },
-    "preview": {
-      "title": "Preview: {op}",
-      "affectedRecords": "Affected records",
-      "affectedStudents": "Affected students",
-      "estimatedDuration": "Estimated duration",
-      "reversible": "Reversible",
-      "yes": "Yes",
-      "no": "No"
-    },
-    "execute": {
-      "title": "Execute: {op}",
-      "warning": "{op} will run in the background and may take several minutes. Proceed only if you have reviewed the preview.",
-      "confirmLabel": "Type “{phrase}” to confirm",
-      "submitted": "Operation submitted.",
-      "jobId": "Job id:",
-      "affectedCount": "{count} records affected.",
-      "note": "Progress is visible via the job log once submitted."
-    },
-    "operations": {
-      "recomputePoints": {
-        "title": "Recompute points",
-        "description": "Invalidate the Redis cache and rebuild all student point totals from source incidents and awards."
-      },
-      "rebuildAwards": {
-        "title": "Rebuild awards",
-        "description": "Scan every student for missing threshold awards and create them where entitled."
-      },
-      "recomputePulse": {
-        "title": "Recompute pulse",
-        "description": "Invalidate the behaviour pulse cache. The next request will recompute live."
-      },
-      "backfillTasks": {
-        "title": "Backfill tasks",
-        "description": "Scan pending entities (sanctions, appeals, approvals) and recreate any missing behaviour tasks."
-      },
-      "reindexSearch": {
-        "title": "Reindex search",
-        "description": "Rebuild the Meilisearch behaviour index from the database. Runs as a background job."
-      },
-      "retentionSweep": {
-        "title": "Retention sweep",
-        "description": "Archive or anonymise records past their retention horizon. Honours active legal holds — those are skipped."
-      }
-    },
-    "legalHolds": {
-      "title": "Legal holds",
       "description": "Records under an active hold are never anonymised or deleted by retention. Release the hold to resume normal retention.",
       "setBy": "Set by {name} · {at}",
       "legalBasis": "Legal basis",
@@ -13446,6 +13431,50 @@
         "errors": {
           "generic": "Unable to release this hold. Please try again."
         }
+      }
+    },
+    "preview": {
+      "title": "Preview: {op}",
+      "affectedRecords": "Affected records",
+      "affectedStudents": "Affected students",
+      "estimatedDuration": "Estimated duration",
+      "reversible": "Reversible",
+      "yes": "Yes",
+      "no": "No"
+    },
+    "execute": {
+      "title": "Execute: {op}",
+      "warning": "{op} will run in the background and may take several minutes. Proceed only if you have reviewed the preview.",
+      "confirmLabel": "Type “{phrase}” to confirm",
+      "submitted": "Operation submitted.",
+      "jobId": "Job id:",
+      "affectedCount": "{count} records affected.",
+      "note": "Progress is visible via the job log once submitted."
+    },
+    "operations": {
+      "recomputePoints": {
+        "title": "Recompute points",
+        "description": "Invalidate the Redis cache and rebuild all student point totals from source incidents and awards."
+      },
+      "rebuildAwards": {
+        "title": "Rebuild awards",
+        "description": "Scan every student for missing threshold awards and create them where entitled."
+      },
+      "recomputePulse": {
+        "title": "Recompute pulse",
+        "description": "Invalidate the behaviour pulse cache. The next request will recompute live."
+      },
+      "backfillTasks": {
+        "title": "Backfill tasks",
+        "description": "Scan pending entities (sanctions, appeals, approvals) and recreate any missing behaviour tasks."
+      },
+      "reindexSearch": {
+        "title": "Reindex search",
+        "description": "Rebuild the Meilisearch behaviour index from the database. Runs as a background job."
+      },
+      "retentionSweep": {
+        "title": "Retention sweep",
+        "description": "Archive or anonymise records past their retention horizon. Honours active legal holds — those are skipped."
       }
     }
   },

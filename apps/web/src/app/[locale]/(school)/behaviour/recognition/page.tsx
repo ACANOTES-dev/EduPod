@@ -50,6 +50,8 @@ interface LeaderboardEntry {
   student_name: string;
   year_group: string | null;
   total_points: number;
+  house_name?: string | null;
+  house_color?: string | null;
 }
 
 interface HouseStanding {
@@ -305,7 +307,7 @@ function LeaderboardTab() {
   const fetchLeaderboard = React.useCallback(async (p: string) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ period: p, pageSize: '50' });
+      const params = new URLSearchParams({ scope: p, pageSize: '50' });
       const res = await apiClient<{ data: LeaderboardEntry[] }>(
         `/api/v1/behaviour/recognition/leaderboard?${params.toString()}`,
       );
@@ -492,8 +494,11 @@ function HousesTab() {
 
   React.useEffect(() => {
     setLoading(true);
-    apiClient<{ data: HouseStanding[] }>('/api/v1/behaviour/houses/standings')
-      .then((res) => setHouses(res.data ?? []))
+    apiClient<HouseStanding[] | { data: HouseStanding[] }>('/api/v1/behaviour/recognition/houses')
+      .then((res) => {
+        const rows = Array.isArray(res) ? res : (res.data ?? []);
+        setHouses(rows);
+      })
       .catch((err) => {
         console.error('[BehaviourRecognitionPage]', err);
         return setHouses([]);
@@ -581,7 +586,7 @@ function PendingApprovalsTab() {
     setLoading(true);
     try {
       const res = await apiClient<{ data: PendingApproval[] }>(
-        '/api/v1/behaviour/recognition?status=pending_approval&pageSize=50',
+        '/api/v1/behaviour/recognition?status=pending&pageSize=50',
       );
       setItems(res.data ?? []);
     } catch (err) {
