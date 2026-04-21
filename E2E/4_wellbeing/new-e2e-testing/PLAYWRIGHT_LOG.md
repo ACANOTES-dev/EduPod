@@ -13,7 +13,7 @@ A session is only **Complete** when every issue it opened is marked `**Verified:
 | S0      | 2026-04-21 | 2026-04-21 | 5             | 1   | 2   | 1   | 1   | **Complete** (all deferred to owning sessions; see rationale in entries)                                        |
 | S1      | 2026-04-21 | 2026-04-21 | 7             | 3   | 4   | 0   | 0   | **Complete** (5-incident flow + ≥ 6 detail walk deferred — see summary)                                         |
 | S2      | 2026-04-21 | 2026-04-21 | 9             | 2   | 5   | 1   | 0   | **Complete** (W-S2-007 deferred with reason; partial carry-forward for parent incidents/sanctions shapes to S8) |
-| S3      |            |            |               |     |     |     |     | Not started                                                                                                     |
+| S3      | 2026-04-21 | 2026-04-21 | 14            | 7   | 6   | 1   | 0   | **Complete**                                                                                                    |
 | S4      |            |            |               |     |     |     |     | Not started                                                                                                     |
 | S5      |            |            |               |     |     |     |     | Not started                                                                                                     |
 | S6      |            |            |               |     |     |     |     | Not started                                                                                                     |
@@ -416,8 +416,237 @@ S2 walked the positive-behaviour, document-generation, task-routing, and parent-
 
 ## S3 — Behaviour C (analytics, policies, policy-replay, admin, templates, students index)
 
-**Status:** Not started
+**Status:** Complete (2026-04-21)
 **Session plan:** [`S3_behaviour_C.md`](./S3_behaviour_C.md)
+
+### Session summary
+
+S3 walked the reporting / configuration / admin surfaces of the Behaviour hub and surfaced **14 issues — 7 P0, 6 P1, 1 P2, and 0 P3**. The dominant finding was the same systemic FE/BE envelope drift that S2 uncovered, but applied uniformly to the analytics subsystem: **every standalone analytics page** (`/comparisons`, `/subjects`, `/staff`, `/heatmap`, `/categories`) crashed with `TypeError: n.map is not a function` because each page was written against a `{data: Row[]}` envelope while the backend services return `{entries, data_quality}` / `{subjects, data_quality}` / `{staff, data_quality}` / `{cells, data_quality}` / `{categories, data_quality}` — wrapped by the global ResponseTransformInterceptor into `{data: {entries,…}}` etc. All five were fixed by aligning the FE page types and field names to the real backend contracts in commit `9ff8b62f`. The other P0s surfaced in the admin console (every preview button returned 400 "Validation failed" because the FE posted `{}` while the Zod schemas for recompute-points / rebuild-awards / backfill-tasks require `scope: enum`; fixed by threading a `defaultBody: {scope:'tenant'}` through `RepairOperationDef`) and on the students index + detail pages (row-click routed to `/students/undefined`; year_group + positive/negative/last-incident columns all blank; detail header rendered "undefined undefined"; Analytics tab crashed on `undefined.length`). The P1s were i18n gaps (again from wb-119) — `behaviour.analytics.days.*`, `behaviour.policies.*`, `behaviour.templates.*`, `behaviour.components.studentHeader.*`, `behaviour.components.studentAnalytics.*`, `behaviourAdmin.legalHolds.body` — plus a `pageSize=200 > cap 100` on legal-holds that triggered a red toast on every mount, and the W-S3-014 seeding gap: `behaviour.log` permission was declared but attached to zero roles, so the Staff Behaviour Activity page showed "No staff activity" even after the envelope fix. W-S3-014 was fixed by updating `system-roles.ts` (added to teacher/principal/VP/owner) and backfilling with an `INSERT … ON CONFLICT DO NOTHING` grant across all five tenants, followed by a Redis permission-cache flush. The one P2 was the non-blocking `behaviourAdmin.legalHolds.body` missing key, bundled into the same i18n patch. **Regression §3 spot-checks all pass**: Categories-last-30-days totals to 38, exactly matching the overview page and DB (`WHERE occurred_at >= 2026-03-22`); Lateness 7, Uniform 5, Effort 4, etc. are the correct 30-day subsets of DB all-time counts (Lateness 9, Uniform 6, Effort 6); Heatmap now shows per-day cells (7 cells across Sun–Sat, most at P1 with occasional P2) after a one-time backfill of `weekday`/`period_order` on NHQS incidents (seed had left them null — logged as a data-seeding gap deferred out of session since it's fixed on production and the seed script itself is S0's artefact); Staff Activity shows Yusuf 26 / Sarah 25 matching DB exactly. Also verified: signed-point totals flow through the students index (Owen Anderson -7, Ciara Anderson +5, Oscar Allen +1, Charlotte Adams 0) — the W-S1-004 polarity fix is still producing correct net-sign arithmetic after the S0/S1/S2 combined data. Architecture unchanged — no new BullMQ jobs, no state-machine changes, no new modules; only FE contract alignments + permission-seed backfill. Regression: 1543 behaviour unit tests still pass, web type-check clean, API type-check clean. **Carry-forwards**: (a) S0 seed should populate `weekday` + `period_order` + `subject_id` on behaviour_incidents (flag for S0 re-run if anyone reseeds), (b) `findMembershipsWithPermissionAndUser` does not honour PermissionGuard's owner bypass — same pattern as W-S1-001; a deeper role-boundary pass in S8 should decide whether it's worth generalising the owner bypass into the facade itself, (c) behaviour_document_templates still at 0 on NHQS; documents/[id] walk remains deferred (original S2 carry-forward unchanged). After S3 the entire Behaviour hub is ticked in `_scope-map.md`.
+
+### Issues found
+
+### W-S3-001 — Analytics heatmap renders raw `behaviour.analytics.days.{mon..fri}` i18n keys on axis
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/analytics`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/analytics`
+  2. Scroll to the Heatmap panel (below Trends)
+  3. Weekday axis prints `behaviour.analytics.days.mon`, `.tue`, `.wed`, `.thu`, `.fri` as literal strings
+- **Expected:** Short translated weekday labels ("Mon", "Tue", "Wed", "Thu", "Fri"). Weekend columns (Sat/Sun) could optionally be shown and hidden per tenant — current rendering shows only Mon-Fri which is correct for school context.
+- **Actual:** Five `MISSING_MESSAGE` console errors per render + literal dotted keys visible. Namespace `behaviour.analytics.days` never added to `apps/web/messages/en.json` nor `ar.json`. Period axis labels (`P1`…`P8`) render fine since they are literal short strings, not i18n keys.
+- **Evidence:** Console 5× `MISSING_MESSAGE: behaviour.analytics.days.*`; snapshot shows the raw keys next to the heatmap cells.
+- **Fix:** 9ff8b62f — see bundled S3 alignment commit for details.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S3-014 — Staff analytics empty even when incidents exist — `behaviour.log` not seeded on any role (teacher / principal / owner)
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/analytics/staff`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. After the W-S3-004 envelope fix deployed and the page renders, it shows "No staff activity in the selected period"
+  2. DB confirms 51 incidents reported by 2 staff (Yusuf Rahman 26, Sarah Daly 25)
+- **Expected:** Both reporters listed with their respective counts.
+- **Actual:** `BehaviourStaffAnalyticsService.getStaffActivity` calls `rbacReadFacade.findMembershipsWithPermissionAndUser(tenantId, 'behaviour.log')`. On NHQS (and every tenant), **zero memberships have the `behaviour.log` permission** — it's declared in `packages/prisma/seed/permissions.ts:625` but never attached to any role in `packages/prisma/seed/system-roles.ts` (teacher, classroom_lead, school_principal, school_vice_principal, school_owner all missing it). So the facade returns an empty list → empty staff_ids → no `last7/30/year/lastLogged` aggregates → empty staff array. Same class of bug as W-S2-008 (`parent.view_behaviour` missing from parent role). Surfaced only once the envelope crash (W-S3-004) was fixed, which is why it wasn't visible during the initial walk.
+- **Evidence:** DB query shows Yusuf + Sarah have roles school_owner/school_principal/teacher but `has_log=false` on all; seed file lacks the permission entry.
+- **Fix:** c4c28f93 + DB grant (ON CONFLICT DO NOTHING) applied across all five tenants; Redis flushed after grant.
+- **Verified:** 2026-04-21 — re-walked `/behaviour/analytics/staff`: Yusuf Rahman (26/18/6) + Sarah Daly (25/20/5) now appear with counts matching DB; 34 other staff members show as `· inactive` with 0/0/0 (correct — they have `behaviour.log` but no incidents).
+
+### W-S3-013 — `/behaviour/students/[id]` renders "undefined undefined" header + blank stats + Analytics tab crashes
+
+- **Severity:** P0
+- **Route:** `/en/behaviour/students/[studentId]` (tested with Felix Collins, Logan Evans)
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/students/<uuid>` (any student)
+  2. Page renders heading "**undefined undefined**", Points/Positive/Negative stats blank, labels render as raw dotted keys `behaviour.components.studentHeader.{points,positive,negative}`
+  3. Click the Analytics tab — full-page error boundary fires
+- **Expected:** Student name and stats in the header, plus per-tab panels (timeline renders correctly; analytics should show attendance correlation + category breakdown per seeded data).
+- **Actual:** Three compounding breaks on this page:
+  1. Backend `BehaviourStudentsService.getStudentProfile` (`apps/api/src/modules/behaviour/behaviour-students.service.ts:150-201`) returns `{ student: {...}, points: { total, fromCache }, summary: { total_points, total_incidents, positive_count, negative_count } }`. FE interface `StudentProfile` is flat `{ first_name, last_name, year_group_name, total_points, positive_count, negative_count }` and accesses `profile.first_name` directly (FE page L248). Every field resolves to undefined → "undefined undefined" heading, blank stats. `useTranslations('behaviour.components.studentHeader')` namespace doesn't exist in en.json either — the three stat labels render as raw keys.
+  2. Analytics tab crashes with `Cannot read properties of undefined (reading 'length')` — similar shape drift; also references a missing `behaviour.components.studentAnalytics` namespace.
+  3. AI-summary sub-component fires 403 on `/api/v1/behaviour/students/<id>/ai-summary` because AI features are disabled for the tenant — caught gracefully but leaves a console 403 every mount.
+- **Evidence:** Snapshot "undefined undefined" on both walked students; Analytics tab snapshot = "Something went wrong"; console shows `MISSING_MESSAGE: behaviour.components.studentHeader (en)` and `behaviour.components.studentAnalytics (en)`; backend service shape vs FE interface.
+- **Fix:** 9ff8b62f — see bundled S3 alignment commit for details.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S3-012 — `/behaviour/students` row click navigates to `/students/undefined` + year_group/positive/negative/last_incident columns all blank
+
+- **Severity:** P0
+- **Route:** `/en/behaviour/students`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/students` — table renders 207 students over 11 pages
+  2. Click any row (e.g. Charlotte Adams)
+  3. URL becomes `/en/behaviour/students/undefined` and page renders a blank/minimal layout
+- **Expected:** Row click routes to the student behaviour detail page for that student; the list itself shows year group, positive/negative counts, and last-incident date for each row.
+- **Actual:** Backend `BehaviourStudentsService.listStudents` (L88-145) returns `{id, first_name, last_name, student_number, year_group: {id, name} | null, _count, total_points, incident_count}` per row. Frontend `StudentBehaviourRow` interface expects `{student_id, first_name, last_name, year_group_name: string|null, total_points, positive_count, negative_count, last_incident_date}`. Four concrete mismatches:
+  - `id` vs `student_id` → `keyExtractor` / `onRowClick` both read `row.student_id` which is `undefined` → every row clicks to `/students/undefined` (verified by Playwright). React also emits key-prop warnings for every row.
+  - `year_group: {id,name}` vs `year_group_name: string` → `row.year_group_name` is undefined → "Year Group" column renders `—` for all 207 students.
+  - Backend doesn't return `positive_count`, `negative_count`, `last_incident_date` at all → those three columns render as blank/`—` for every row.
+  - Verified on-screen: signed `total_points` renders correctly (-7 / -4 / -2 / 0 / +1 / +5 etc.), so the W-S1-004 polarity fix is flowing through. The remaining columns and drill-down are broken.
+- **Evidence:** URL after click = `/en/behaviour/students/undefined`; snapshot shows all year_group/positive/negative/last_incident cells blank or `—`; backend service L93-106 select list.
+- **Fix:** 9ff8b62f — see bundled S3 alignment commit for details.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S3-011 — `/behaviour/templates` renders raw keys `behaviour.templates.{manage,empty,addTemplate}`
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/templates`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/templates`
+  2. Header action button + empty-state paragraph + addTemplate CTA all render raw dotted keys.
+- **Expected:** Translated labels. NHQS has 0 document templates / 0 description templates seeded, so the correct rendering is the empty state with action buttons.
+- **Actual:** Same pattern as W-S3-007 / W-S2-004 — `behaviour.templates` namespace has only `title`/`description` in `apps/web/messages/en.json`; the remaining keys (`manage`, `empty`, `addTemplate`) never landed with wb-119.
+- **Evidence:** Console 5× `MISSING_MESSAGE`; page snapshot shows `behaviour.templates.*` literals.
+- **Fix:** 9ff8b62f — see bundled S3 alignment commit for details.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S3-010 — `/behaviour/admin/legal-holds` fires 400 + red "Validation failed" toast on every mount — `pageSize=200` > cap 100
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/admin/legal-holds`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/admin/legal-holds`
+  2. Observe red toast "Validation failed" appearing immediately on mount
+  3. Network panel shows `GET /api/v1/behaviour/admin/legal-holds?status=active&pageSize=200` → 400
+- **Expected:** Empty-state "No active legal holds" with no error toast (and no network-panel 400).
+- **Actual:** FE hard-codes `pageSize=200` (`apps/web/src/app/.../legal-holds/page.tsx:73`). Backend schema `legalHoldListQuerySchema` caps `pageSize` at 100. Zod `max(100)` rejects 200 → 400 → default (non-silent) apiClient shows the red toast even though the catch clause gracefully sets `holds=[]` and the empty state renders correctly. Same class of bug as W-S2-005 (`/recognition/new` with `pageSize=500`). The page content is usable but the mount-time toast is visible user-facing noise.
+- **Evidence:** Toast snapshot + console + network `?pageSize=200 => 400`.
+- **Fix:** 9ff8b62f — see bundled S3 alignment commit for details.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S3-008 — `/behaviour/admin` preview buttons all return 400 "Validation failed" — FE sends `{}`, backend requires `scope`
+
+- **Severity:** P0
+- **Route:** `/en/behaviour/admin`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/admin`
+  2. Click any "Preview" button (tested on Recompute points)
+  3. Dialog opens displaying "Validation failed"
+- **Expected:** Preview dialog shows affected-record counts for a tenant-wide recompute (or whichever scope is selected) before execution.
+- **Actual:** `RepairOperationCard.loadPreview` posts an empty body `JSON.stringify({})` (`apps/web/src/app/.../admin/_components/repair-operation.tsx:108`). Backend schemas require `scope: z.enum([...])` as a discriminated required field — `recomputePointsSchema`, `rebuildAwardsSchema`, `backfillTasksSchema` all fail Zod validation on the empty body. Three of the six repair operations are affected (recompute-points / rebuild-awards / backfill-tasks). The other three (recompute-pulse, reindex-search, retention-sweep) use `adminConfirmPhraseSchema` or `reindexSearchSchema` which tolerate `{}`, so they work. The "Execute" path for the affected three posts `{confirm_phrase}` — still missing `scope`, so Execute would 400 too if the user could ever reach it.
+- **Evidence:** Network panel `POST /api/v1/behaviour/admin/recompute-points/preview` → 400; backend schema code at `packages/shared/src/behaviour/schemas/admin-ops.schema.ts:19-48`; FE code at `repair-operation.tsx:108,133`.
+- **Fix:** 9ff8b62f — see bundled S3 alignment commit for details.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S3-009 — `/behaviour/admin` legal-holds card shows raw key `behaviourAdmin.legalHolds.body`
+
+- **Severity:** P2
+- **Route:** `/en/behaviour/admin`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/admin`
+  2. Scroll to the bottom "Legal holds" card
+  3. Card body reads literal `behaviourAdmin.legalHolds.body`
+- **Expected:** A short descriptive paragraph for the legal-holds shortcut.
+- **Actual:** `behaviourAdmin.legalHolds` namespace exists in `apps/web/messages/en.json` with `title`, `description`, `setBy`, `legalBasis`, `releasedBy`, `actions`, `filters`, `empty`, `open`, `create`, `release` keys — but no `body`. The FE component references `t('body')` which doesn't exist.
+- **Evidence:** Console `MISSING_MESSAGE: behaviourAdmin.legalHolds.body (en)`; snapshot shows the raw key.
+- **Fix:** 9ff8b62f — see bundled S3 alignment commit for details.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S3-007 — `/behaviour/policies` renders raw keys `behaviour.policies.{manage,empty,addRule}`
+
+- **Severity:** P1
+- **Route:** `/en/behaviour/policies`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/policies`
+  2. Header action button reads literal `behaviour.policies.manage`; empty-state text reads `behaviour.policies.empty`; the "Add rule" CTA reads `behaviour.policies.addRule`.
+- **Expected:** Translated labels ("Manage in settings", "No policy rules configured yet.", "Add rule"). The correct English strings already exist — but they're in the `behaviourSettings.policies` namespace, not `behaviour.policies`. The listing page uses `useTranslations('behaviour.policies')` which only has `title` + `description` available.
+- **Actual:** 4 `MISSING_MESSAGE` console errors per render + literal dotted keys in the UI. W-S2-004 pattern all over again (wb-119 shipped a page whose translation keys never made it into the `behaviour.*` bucket).
+- **Evidence:** Console 4× `MISSING_MESSAGE`; page snapshot shows `behaviour.policies.*` literals.
+- **Fix:** 9ff8b62f — see bundled S3 alignment commit for details.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S3-006 — `/behaviour/analytics/categories` crashes with `n.map is not a function` — same envelope drift
+
+- **Severity:** P0
+- **Route:** `/en/behaviour/analytics/categories`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/analytics/categories`
+  2. Error boundary fires
+- **Expected:** Table of categories with incident counts (ground truth DB — Lateness 9, Uniform 6, Effort 6, Kindness 4, Disruption low 4, Phone use 4, Helpfulness 4, Fighting 3, Community contribution 3, Lying 2, Bullying verbal 2, Disruption sustained 2, Bullying physical 1, Weapons 1 = 51 total). This is the explicit S3 §3 regression check — category count spot-checks depend on this surface.
+- **Actual:** Backend `BehaviourIncidentAnalyticsService.getCategories` (ending L281) returns `{ categories: [...], data_quality }`. FE expects `{ data: CategoryRow[] }` with `{category_id, category_name, incident_count, positive_count?, negative_count?, polarity?}`. Same envelope + potential field-name mismatch.
+- **Evidence:** Error boundary; backend service code.
+- **Fix:** 9ff8b62f — see bundled S3 alignment commit for details.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S3-005 — `/behaviour/analytics/heatmap` crashes with `n.map is not a function` — envelope + field-name mismatch
+
+- **Severity:** P0
+- **Route:** `/en/behaviour/analytics/heatmap`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/analytics/heatmap`
+  2. Error boundary fires
+- **Expected:** Day-of-week × period heatmap table with incident density bars.
+- **Actual:** Backend `BehaviourIncidentAnalyticsService.getHeatmap` (L104-175) returns `{ cells: [{weekday, period_order, raw_count, rate, polarity_breakdown}], data_quality }`. FE (`.../heatmap/page.tsx:13-21`) expects `{ data: HeatmapCell[] }` with `{ day_of_week, period, incident_count }` fields. Two layered breaks: wrong envelope (`res.data` is `{cells, data_quality}` not an array) and wrong field names (`weekday` vs `day_of_week`, `period_order` vs `period`, `raw_count` vs `incident_count`). Same systemic pattern.
+- **Evidence:** Error boundary; backend service code.
+- **Fix:** 9ff8b62f — see bundled S3 alignment commit for details.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S3-004 — `/behaviour/analytics/staff` crashes with `n.map is not a function` — same envelope drift
+
+- **Severity:** P0
+- **Route:** `/en/behaviour/analytics/staff`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/analytics/staff`
+  2. Error boundary fires
+- **Expected:** Table of staff members with incident counts (Yusuf Rahman 26, Sarah Daly 25 per DB).
+- **Actual:** Backend `BehaviourStaffAnalyticsService.getStaffActivity` returns `{ staff: [...], data_quality }` (L105). FE expects `{ data: StaffRow[] }` → `rows` is the wrapper object → `rows.map` throws. The FE also needs per-staff positive/negative breakdowns which the backend `staff` array may or may not provide — inspection needed during fix.
+- **Evidence:** Error boundary; stack at `staff/page-*.js:1:3410`.
+- **Fix:** 9ff8b62f — see bundled S3 alignment commit for details.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S3-003 — `/behaviour/analytics/subjects` crashes with `n.map is not a function` — same FE/BE envelope mismatch
+
+- **Severity:** P0
+- **Route:** `/en/behaviour/analytics/subjects`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/analytics/subjects`
+  2. Error boundary fires
+- **Expected:** Table of incidents per subject. (Seeded data has 0 subject-tagged incidents, so the correct rendering is an empty-state panel, not a crash.)
+- **Actual:** Backend returns `{ subjects: [...], data_quality: {...} }` (`BehaviourIncidentAnalyticsService.getSubjects` L286-346). The `ResponseTransformInterceptor` wraps that as `{ data: { subjects: [...], data_quality: {...} } }`. FE does `setRows(res.data ?? [])` where FE typed `res.data` as `SubjectRow[]`, so `rows` becomes the wrapper object and `rows.map(...)` crashes. Identical shape drift to W-S3-002.
+- **Evidence:** Error boundary; stack at `subjects/page-*.js:1:3201`; backend service code.
+- **Fix:** 9ff8b62f — see bundled S3 alignment commit for details.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
+
+### W-S3-002 — `/behaviour/analytics/comparisons` crashes with `n.map is not a function` — FE treats `res.data` as an array but BE returns `{entries, data_quality}`
+
+- **Severity:** P0
+- **Route:** `/en/behaviour/analytics/comparisons`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/behaviour/analytics/comparisons`
+  2. Page renders "Something went wrong" error boundary
+- **Expected:** Year-group comparison list with per-year-group positive/negative rates and student counts.
+- **Actual:** Full-page error boundary. Console shows `TypeError: n.map is not a function`. The backend `BehaviourComparisonAnalyticsService.getComparisons` returns `{ entries: Array<{year_group_id, year_group_name, incident_rate, positive_rate, negative_rate, student_count}>, data_quality }`. The global `ResponseTransformInterceptor` wraps everything in `{ data: T }`, so the actual body is `{ data: { entries: [...], data_quality: {...} } }`. The frontend (`apps/web/src/app/[locale]/(school)/behaviour/analytics/comparisons/page.tsx:42`) does `setRows(res.data ?? [])` — `res.data` is the `{entries, data_quality}` object (not an array), so `rows` becomes an object, then `rows.map(...)` at line 98 throws. Same systemic pattern as W-S2-003 and W-S2-009 — FE type-layer claims `{data: ComparisonRow[]}` while the actual API shape is different, and the FE's `ComparisonRow` interface (`group_id`, `group_name`, `incident_count`) doesn't match the BE's `year_group_*` / `*_rate` fields either.
+- **Evidence:** Error boundary + stack at `comparisons/page-*.js:1:1384`; backend service code confirms shape mismatch.
+- **Fix:** 9ff8b62f — see bundled S3 alignment commit for details.
+- **Verified:** 2026-04-21 — re-walked on production, passes.
 
 ---
 

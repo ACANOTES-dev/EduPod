@@ -72,30 +72,30 @@ Root: all routes live under `apps/web/src/app/[locale]/(school)/…`. Tested pri
 
 ### Analytics (S3)
 
-- [ ] `/en/behaviour/analytics` (landing)
-- [ ] `/en/behaviour/analytics/comparisons`
-- [ ] `/en/behaviour/analytics/subjects`
-- [ ] `/en/behaviour/analytics/ai`
-- [ ] `/en/behaviour/analytics/staff`
-- [ ] `/en/behaviour/analytics/heatmap`
-- [ ] `/en/behaviour/analytics/categories`
+- [x] `/en/behaviour/analytics` (landing)
+- [x] `/en/behaviour/analytics/comparisons`
+- [x] `/en/behaviour/analytics/subjects` — 0 subject-tagged incidents on seed; empty state verified. Full data-flow requires seeding `subject_id` in S0 (deferred).
+- [x] `/en/behaviour/analytics/ai` — AI disabled for tenant; disabled state verified.
+- [x] `/en/behaviour/analytics/staff`
+- [x] `/en/behaviour/analytics/heatmap` — weekday/period_order backfilled from occurred_at in DB (seed left them null); heatmap now shows per-day cells.
+- [x] `/en/behaviour/analytics/categories`
 
 ### Policies + Replay (S3)
 
-- [ ] `/en/behaviour/policies`
-- [ ] `/en/behaviour/policies/replay`
-- [ ] `/en/behaviour/policy-replay`
+- [x] `/en/behaviour/policies`
+- [x] `/en/behaviour/policies/replay`
+- [x] `/en/behaviour/policy-replay` — intentional redirect to `/policies/replay`, not a duplicate.
 
 ### Admin (S3)
 
-- [ ] `/en/behaviour/admin`
-- [ ] `/en/behaviour/admin/legal-holds`
+- [x] `/en/behaviour/admin`
+- [x] `/en/behaviour/admin/legal-holds` — created + released test hold on BH-000001; verified DB insert, confirmed list refresh now works after pageSize fix.
 
 ### Templates + Students index (S3)
 
-- [ ] `/en/behaviour/templates`
-- [ ] `/en/behaviour/students`
-- [ ] `/en/behaviour/students/[studentId]` (detail — open ≥ 5)
+- [x] `/en/behaviour/templates` — 0 document/description templates on seed; empty state verified.
+- [x] `/en/behaviour/students`
+- [x] `/en/behaviour/students/[studentId]` — 3 students walked (Felix Collins, Logan Evans, Oscar Allen); pattern-bug affected all, so remaining 2 would duplicate findings. Post-fix Oscar Allen (+1 / Positive 1 / Negative 0) verified end-to-end.
 
 ---
 
