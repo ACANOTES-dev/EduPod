@@ -24,15 +24,15 @@ import { formatDate } from '@/lib/format-date';
 interface ChildSummary {
   student_id: string;
   student_name: string;
-  year_group: string | null;
-  total_points: number;
-  positive_count: number;
-  negative_count: number;
+  positive_count_7d: number;
+  negative_count_7d: number;
+  points_total: number;
   pending_acknowledgements: number;
 }
 
 interface SummaryResponse {
-  children: ChildSummary[];
+  data?: ChildSummary[];
+  children?: ChildSummary[];
 }
 
 interface ParentIncident {
@@ -88,7 +88,7 @@ export default function ParentBehaviourPortalPage() {
     setLoadError(false);
     apiClient<SummaryResponse>('/api/v1/parent/behaviour/summary', { silent: true })
       .then((res) => {
-        const children = res.children ?? [];
+        const children = res.data ?? res.children ?? [];
         setSummary(children);
         if (children.length > 0 && children[0]) {
           setActiveChildId(children[0].student_id);
@@ -258,7 +258,7 @@ function ChildPanel({ child }: { child: ChildSummary }) {
     }
   };
 
-  const netPoints = child.positive_count - child.negative_count;
+  const netPoints = child.points_total;
 
   const upcomingSanctions = sanctions.filter((s) => s.status === 'scheduled');
   const recentSanctions = sanctions.filter((s) => s.status !== 'scheduled').slice(0, 5);
@@ -270,7 +270,6 @@ function ChildPanel({ child }: { child: ChildSummary }) {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-text-primary">{child.student_name}</p>
-            {child.year_group && <p className="text-xs text-text-tertiary">{child.year_group}</p>}
           </div>
           {child.pending_acknowledgements > 0 && (
             <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 dark:bg-amber-900/20">
@@ -286,11 +285,11 @@ function ChildPanel({ child }: { child: ChildSummary }) {
 
         <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-4">
           <div className="text-center">
-            <p className="text-2xl font-bold text-green-600">{child.positive_count}</p>
+            <p className="text-2xl font-bold text-green-600">{child.positive_count_7d}</p>
             <p className="mt-0.5 text-xs text-text-tertiary">{t('positive')}</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold text-red-500">{child.negative_count}</p>
+            <p className="text-2xl font-bold text-red-500">{child.negative_count_7d}</p>
             <p className="mt-0.5 text-xs text-text-tertiary">{t('negative')}</p>
           </div>
           <div className="text-center">
