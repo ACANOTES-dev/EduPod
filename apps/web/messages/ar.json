@@ -9536,6 +9536,37 @@
       },
       "notFound": "لم يتم العثور على الطالب."
     },
+    "sanctionNew": {
+      "title": "عقوبة جديدة",
+      "description": "سجّل احتجازًا أو إيقافًا أو عقوبة أخرى مرتبطة بحادثة.",
+      "backToList": "العودة إلى العقوبات",
+      "incident": "الحادثة",
+      "incidentPlaceholder": "اختر حادثة…",
+      "incidentRequired": "اختر الحادثة المرتبطة بهذه العقوبة.",
+      "type": "نوع العقوبة",
+      "scheduledDate": "التاريخ المحدد",
+      "scheduledDateRequired": "التاريخ المحدد مطلوب.",
+      "startTime": "وقت البداية (اختياري)",
+      "endTime": "وقت النهاية (اختياري)",
+      "notes": "ملاحظات (اختياري)",
+      "notesPlaceholder": "ملاحظات داخلية للمشرف.",
+      "unknownStudent": "طالب غير معروف",
+      "loading": "جاري تحميل الحوادث…",
+      "cancel": "إلغاء",
+      "submit": "إنشاء العقوبة",
+      "submitting": "جاري الإنشاء…",
+      "errorGeneric": "تعذّر إنشاء العقوبة. حاول مرة أخرى.",
+      "types": {
+        "detention": "احتجاز",
+        "suspension_internal": "إيقاف داخلي",
+        "suspension_external": "إيقاف خارجي",
+        "expulsion": "فصل",
+        "community_service": "خدمة مجتمعية",
+        "loss_of_privilege": "فقدان امتياز",
+        "restorative_meeting": "اجتماع إصلاحي",
+        "other": "أخرى"
+      }
+    },
     "sanctions": {
       "title": "العقوبات",
       "description": "إدارة العقوبات والاحتجازات والإيقافات",

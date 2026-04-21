@@ -9536,6 +9536,37 @@
       },
       "notFound": "Student not found."
     },
+    "sanctionNew": {
+      "title": "New Sanction",
+      "description": "Record a detention, suspension, or other sanction against an incident.",
+      "backToList": "Back to sanctions",
+      "incident": "Incident",
+      "incidentPlaceholder": "Choose an incident…",
+      "incidentRequired": "Pick the incident this sanction relates to.",
+      "type": "Sanction type",
+      "scheduledDate": "Scheduled date",
+      "scheduledDateRequired": "Scheduled date is required.",
+      "startTime": "Start time (optional)",
+      "endTime": "End time (optional)",
+      "notes": "Notes (optional)",
+      "notesPlaceholder": "Internal notes for the supervising staff member.",
+      "unknownStudent": "Unknown student",
+      "loading": "Loading incidents…",
+      "cancel": "Cancel",
+      "submit": "Create sanction",
+      "submitting": "Creating…",
+      "errorGeneric": "Could not create the sanction. Try again.",
+      "types": {
+        "detention": "Detention",
+        "suspension_internal": "Internal suspension",
+        "suspension_external": "External suspension",
+        "expulsion": "Expulsion",
+        "community_service": "Community service",
+        "loss_of_privilege": "Loss of privilege",
+        "restorative_meeting": "Restorative meeting",
+        "other": "Other"
+      }
+    },
     "sanctions": {
       "title": "Sanctions",
       "description": "Manage sanctions, detentions, and suspensions",
