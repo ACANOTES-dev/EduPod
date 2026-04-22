@@ -1,6 +1,7 @@
 'use client';
 
 import { ClipboardList, Copy, Edit2, Play, Plus, Square } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -53,6 +54,9 @@ export function SurveyList({
   onCloseClick,
 }: SurveyListProps) {
   const t = useTranslations('wellbeing.surveys');
+  const router = useRouter();
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -64,10 +68,19 @@ export function SurveyList({
       return <span className="text-sm text-text-secondary">{t('inProgress')}</span>;
     }
 
-    const count = survey.participation_count ?? survey._count?.survey_responses ?? 0;
+    // Prisma relation is named `responses` on StaffSurvey — the API's
+    // `_count` key is `responses`, not `survey_responses` (W-S7-003).
+    const count = survey.participation_count ?? survey._count?.responses ?? 0;
     const eligible = survey.eligible_count ?? 0;
-    const rate = eligible > 0 ? Math.round((count / eligible) * 100) : 0;
 
+    // The list endpoint only returns `_count.responses`; it does not include
+    // eligible headcount. Show the raw count until the detail endpoint is
+    // consulted (where the percentage becomes meaningful).
+    if (eligible === 0) {
+      return <span className="text-sm text-text-secondary">{t('responsesOnly', { count })}</span>;
+    }
+
+    const rate = Math.round((count / eligible) * 100);
     return (
       <span className="text-sm text-text-secondary">
         {t('responses', { count, total: eligible, rate })}
@@ -137,7 +150,12 @@ export function SurveyList({
       case 'closed':
         return (
           <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" size="sm" className="min-h-[44px] min-w-[44px]">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push(`/${locale}/wellbeing/surveys/${survey.id}`)}
+              className="min-h-[44px] min-w-[44px]"
+            >
               <ClipboardList className="me-1.5 h-3.5 w-3.5" />
               {t('viewResults')}
             </Button>

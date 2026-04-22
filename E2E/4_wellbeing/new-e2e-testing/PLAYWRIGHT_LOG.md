@@ -1014,6 +1014,84 @@ S6 walked all 4 EW routes for the first time on NHQS and exposed five distinct d
 - **Fix:** pending
 - **Verified:** pending
 
+### W-S7-002 — Aggregate timetable-quality score uses wrong scale for free_period_clumping
+
+- **Severity:** P1
+- **Route:** `/en/wellbeing/dashboard` → `/en/wellbeing/staff` (Aggregate Dashboard card)
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Open Staff Wellbeing dashboard.
+  2. Scroll to "Aggregate Dashboard" section.
+  3. Read the "Timetable Quality" KPI card.
+- **Expected:** A value on a 0–100 scale with a label consistent with typical school data (e.g. "72 · Moderate").
+- **Actual:** Value renders as `1156` with label `Good`. Derived from `computeTimetableScore` in `aggregate-section.tsx` which multiplies `free_period_clumping.mean` by 100 again, despite the backend `scoreFreeDistribution()` already returning a 0-100 score. `assessFreeClumping` thresholds of `0.7` and `0.4` are similarly mis-calibrated (should be `70` / `40`). `board-report.service.ts` line 48 has the mirror bug: `clumpingScore = Math.min(100, quality.free_period_clumping.mean * 20)` — pinned at 100 for any realistic value, collapsing the signal. Net effect: the Board Report's "timetable_quality.average_score" and the dashboard's "Timetable Quality" KPI both display nonsense.
+- **Evidence:** Dashboard Aggregate snapshot — "Timetable Quality · 1156 · Good"; free period distribution card showing `44.49` next to "Good" badge (a 44.49 score in a 0-100 range is moderate at best).
+- **Fix:** pending
+- **Verified:** pending
+
+### W-S7-003 — Closed-survey response count shows "0 of 0 staff (0%)" despite 15 seeded responses
+
+- **Severity:** P1
+- **Route:** `/en/wellbeing/staff` (Surveys section) and `/en/wellbeing/surveys`
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Open Staff Wellbeing dashboard.
+  2. Scroll to "Staff Surveys".
+  3. Read the Response Rate column for the "S0-WBR Term Review (Closed)" row.
+- **Expected:** Response count out of eligible staff (15 responses seeded).
+- **Actual:** Shows `0 of 0 staff (0%)`. Root cause: API returns `_count: { responses: N }` (Prisma relation name) but the frontend `Survey` type in `survey-types.ts` declares `_count?: { survey_responses: number }` and `survey-list.tsx` reads `survey._count?.survey_responses`. The list endpoint also never emits `participation_count` or `eligible_count`, only the survey detail endpoint does — so even fixing the key only gets us a response count, not a percentage.
+- **Evidence:** API payload `_count: { responses: 15 }` for closed survey; UI renders "0 of 0 staff (0%)" for the same row.
+- **Fix:** pending
+- **Verified:** pending
+
+### W-S7-004 — `/staff-wellbeing/respond/active` crashes with empty-UUID RLS cast
+
+- **Severity:** P0
+- **Route:** `/en/wellbeing/survey` (self-service) hitting `GET /api/v1/staff-wellbeing/respond/active`
+- **Role:** owner@nhqs.test (reproduces for any role that reaches this endpoint)
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Navigate to `/en/wellbeing/survey`.
+  2. Wait for the `respond/active` fetch to resolve.
+- **Expected:** 200 (with active survey) or 204 (no active survey) — the UI then shows the survey form or the empty state.
+- **Actual:** 500. Server log: `PrismaClientUnknownRequestError … Invalid prisma.tenantSetting.update() invocation … PostgresError code 22P02 "invalid input syntax for type uuid: ""`. The client masks the 500 behind a "no active surveys" empty state, so the failure is silent from the user's perspective — but every teacher's survey round-trip would fail the same way. Root cause: `HmacService.getOrCreateHmacSecret` opened a `this.prisma.$transaction` that did NOT apply the RLS context, so `tenant_settings.findUnique` returned null under the policy's USING clause (making the service think no HMAC secret exists) and the subsequent `tenant_settings.update` fired WITH CHECK against a stale/empty `app.current_tenant_id` GUC which Postgres tried to cast to UUID — 22P02. Proved via SSH: `SET LOCAL app.current_tenant_id = ''; SELECT current_setting('app.current_tenant_id')::uuid;` reproduces the exact parse error.
+- **Evidence:** API log request_id `41ccf08c-1768-41ae-a8a6-ef225d4d8049`, full stack through `HmacService.getOrCreateHmacSecret` → `SurveyService.getActiveSurvey` → `SurveyController.getActiveSurvey`.
+- **Fix:** pending
+- **Verified:** pending
+
+### W-S7-005 — Survey detail page crashes on `{data}`-wrapped envelope
+
+- **Severity:** P0
+- **Route:** `/en/wellbeing/surveys/:id` (every admin-side survey detail)
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Log in as admin.
+  2. Navigate to `/en/wellbeing/surveys/a6839e8c-a2d8-469f-851d-02f22632f5cb` (seeded closed survey).
+- **Expected:** Detail page with overview / results / moderation tabs.
+- **Actual:** Full-page error boundary. Console: `TypeError: Cannot read properties of undefined (reading 'some')` — inside the `TAB_KEYS` useMemo which accesses `survey.questions.some(q => q.question_type === 'freeform')`. Same root cause as W-S7-001: `apiClient<Survey>('/api/v1/staff-wellbeing/surveys/:id')` returns `{ data: Survey }` but the component treats the wrapper as the Survey and dereferences `.questions` on `undefined`. Other single-resource calls on this page (`/results`, `/moderation`, `/activate`, `/close`, `/clone`) have the same bug — they happen not to surface because either (a) the endpoint returns a list already wrapped as `{data: [], ...}` or (b) the failure is swallowed by catch.
+- **Evidence:** Playwright error capture from survey detail page load.
+- **Fix:** pending
+- **Verified:** pending
+
+### W-S7-006 — "View Results" button on closed-survey row does nothing
+
+- **Severity:** P2
+- **Route:** `/en/wellbeing/staff#surveys` (Surveys table row actions)
+- **Role:** owner@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Open the Staff Wellbeing dashboard.
+  2. Scroll to the Surveys section.
+  3. Click the "View Results" button on the "S0-WBR Term Review (Closed)" row.
+- **Expected:** Navigate to the survey detail page with the Results tab active (or at least to the detail page).
+- **Actual:** Nothing happens — the button has no `onClick` handler (`survey-list.tsx` line 140 renders a bare `<Button>`). Users have to hand-type the detail URL to see a closed survey's results. This is effectively a dead action on the most important column in the table.
+- **Evidence:** `survey-list.tsx` closed-status branch omits the handler.
+- **Fix:** pending
+- **Verified:** pending
+
 ---
 
 ## S8 — Cross-cutting (mobile, RTL, roles, isolation, visual polish)

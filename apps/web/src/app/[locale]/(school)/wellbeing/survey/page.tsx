@@ -112,7 +112,15 @@ export default function SurveyPage() {
           return;
         }
 
-        const data = (await response.json()) as ActiveSurveyResult;
+        // API wraps single-DTO responses in `{ data: T }` — unwrap before
+        // reading `.questions` / `.hasResponded` (W-S7-005 companion for the
+        // raw-fetch path).
+        const raw = (await response.json()) as { data?: ActiveSurveyResult } | ActiveSurveyResult;
+        const data = (
+          raw && typeof raw === 'object' && 'data' in raw
+            ? (raw as { data: ActiveSurveyResult }).data
+            : (raw as ActiveSurveyResult)
+        ) as ActiveSurveyResult;
         setSurvey(data);
         if (data.hasResponded) {
           setHasResponded(true);

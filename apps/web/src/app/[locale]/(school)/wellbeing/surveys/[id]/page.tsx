@@ -19,7 +19,7 @@ import {
 } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 import { ModerationTab } from './_components/moderation-tab';
 import { OverviewTab } from './_components/overview-tab';
@@ -95,7 +95,12 @@ export default function SurveyDetailPage() {
 
     async function fetchSurvey() {
       try {
-        const data = await apiClient<Survey>(`/api/v1/staff-wellbeing/surveys/${surveyId}`);
+        // Single-DTO responses are wrapped in `{ data: T }` by the API's
+        // ResponseTransformInterceptor. Without unwrap, `survey.questions` is
+        // undefined and the TAB_KEYS useMemo crashes on `.some(...)` (W-S7-005).
+        const data = unwrap(
+          await apiClient<{ data: Survey }>(`/api/v1/staff-wellbeing/surveys/${surveyId}`),
+        );
         if (!cancelled) {
           setSurvey(data);
         }
@@ -131,8 +136,10 @@ export default function SurveyDetailPage() {
         const deptParam = selectedDepartment
           ? `?department=${encodeURIComponent(selectedDepartment)}`
           : '';
-        const data = await apiClient<SurveyResultsResponse>(
-          `/api/v1/staff-wellbeing/surveys/${surveyId}/results${deptParam}`,
+        const data = unwrap(
+          await apiClient<{ data: SurveyResultsResponse }>(
+            `/api/v1/staff-wellbeing/surveys/${surveyId}/results${deptParam}`,
+          ),
         );
         if (!cancelled) {
           setResults(data);
@@ -167,8 +174,10 @@ export default function SurveyDetailPage() {
 
     async function fetchModeration() {
       try {
-        const data = await apiClient<ModerationItem[]>(
-          `/api/v1/staff-wellbeing/surveys/${surveyId}/moderation`,
+        const data = unwrap(
+          await apiClient<{ data: ModerationItem[] }>(
+            `/api/v1/staff-wellbeing/surveys/${surveyId}/moderation`,
+          ),
         );
         if (!cancelled) {
           setModerationItems(data);
@@ -212,9 +221,10 @@ export default function SurveyDetailPage() {
   async function handleActivate() {
     setActionLoading(true);
     try {
-      const updated = await apiClient<Survey>(
-        `/api/v1/staff-wellbeing/surveys/${surveyId}/activate`,
-        { method: 'POST' },
+      const updated = unwrap(
+        await apiClient<{ data: Survey }>(`/api/v1/staff-wellbeing/surveys/${surveyId}/activate`, {
+          method: 'POST',
+        }),
       );
       setSurvey(updated);
       setActivateDialogOpen(false);
@@ -229,9 +239,11 @@ export default function SurveyDetailPage() {
   async function handleClose() {
     setActionLoading(true);
     try {
-      const updated = await apiClient<Survey>(`/api/v1/staff-wellbeing/surveys/${surveyId}/close`, {
-        method: 'POST',
-      });
+      const updated = unwrap(
+        await apiClient<{ data: Survey }>(`/api/v1/staff-wellbeing/surveys/${surveyId}/close`, {
+          method: 'POST',
+        }),
+      );
       setSurvey(updated);
       setCloseDialogOpen(false);
     } catch (err) {
@@ -299,8 +311,10 @@ export default function SurveyDetailPage() {
   async function handleViewComments() {
     setCommentsLoading(true);
     try {
-      const data = await apiClient<ModeratedComment[]>(
-        `/api/v1/staff-wellbeing/surveys/${surveyId}/results/comments`,
+      const data = unwrap(
+        await apiClient<{ data: ModeratedComment[] }>(
+          `/api/v1/staff-wellbeing/surveys/${surveyId}/results/comments`,
+        ),
       );
       setComments(data);
       setCommentsVisible(true);

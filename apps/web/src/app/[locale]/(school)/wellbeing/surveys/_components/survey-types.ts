@@ -29,7 +29,9 @@ export interface Survey {
   created_at: string;
   updated_at: string;
   questions?: SurveyQuestion[];
-  _count?: { survey_responses: number };
+  // The Prisma relation on StaffSurvey is named `responses`, so the include
+  // emits `_count: { responses: N }` — NOT `survey_responses` (W-S7-003).
+  _count?: { responses: number };
   participation_count?: number;
   eligible_count?: number;
 }

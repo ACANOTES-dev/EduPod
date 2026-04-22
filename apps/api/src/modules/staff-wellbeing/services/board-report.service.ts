@@ -39,14 +39,18 @@ function describeCoverDistribution(gini: number): string {
 }
 
 function computeAverageTimetableScore(quality: AggregateTimetableQuality): number {
-  // Average the four sub-metrics (each normalised to 0-100 range)
-  // consecutive_periods.mean, free_period_clumping.mean, split_timetable_pct, room_changes.mean
+  // Average the four sub-metrics (each normalised to 0-100 range).
   // Lower consecutive is better (invert), higher free clumping is better,
   // lower split is better (invert), lower room changes is better (invert).
-  // For simplicity, composite = weighted average of the median/mean values.
   const consecutiveScore = Math.max(0, 100 - quality.consecutive_periods.mean * 10);
-  const clumpingScore = Math.min(100, quality.free_period_clumping.mean * 20);
-  const splitScore = Math.max(0, 100 - quality.split_timetable_pct * 100);
+  // `free_period_clumping.mean` already lives on 0-100 (WorkloadMetricsService
+  // `scoreFreeDistribution` is clamped to [0, 100]). The previous `* 20`
+  // collapsed the signal by pinning every realistic tenant to 100 (W-S7-002).
+  const clumpingScore = Math.min(100, Math.max(0, quality.free_period_clumping.mean));
+  // `split_timetable_pct` is already a percentage (0-100), not a 0-1 ratio —
+  // the previous `* 100` zeroed the sub-score for any non-trivial split rate
+  // (W-S7-002 companion).
+  const splitScore = Math.max(0, 100 - quality.split_timetable_pct);
   const roomScore = Math.max(0, 100 - quality.room_changes.mean * 10);
 
   return Math.round(((consecutiveScore + clumpingScore + splitScore + roomScore) / 4) * 10) / 10;

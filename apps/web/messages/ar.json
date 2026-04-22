@@ -13692,6 +13692,7 @@
       "allStatuses": "جميع الحالات",
       "noSurveys": "لا توجد استبيانات بعد. أنشئ أول استبيان لبدء جمع ملاحظات الموظفين.",
       "responses": "{count} من {total} موظف ({rate}%)",
+      "responsesOnly": "{count} استجابة",
       "createTitle": "إنشاء استبيان جديد",
       "editTitle": "تعديل الاستبيان",
       "description": "الوصف",

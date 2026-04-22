@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes } from 'crypto';
 
 import { Injectable, Logger } from '@nestjs/common';
 
-import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
+import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { EncryptionService } from '../../configuration/encryption.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -13,7 +13,6 @@ export class HmacService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
-    private readonly configurationReadFacade: ConfigurationReadFacade,
   ) {}
 
   /**
@@ -23,50 +22,54 @@ export class HmacService {
    * Returns the decrypted secret (in-memory only — never log or return in API responses).
    */
   async getOrCreateHmacSecret(tenantId: string): Promise<string> {
-    const record = await this.configurationReadFacade.findSettings(tenantId);
+    // `tenant_settings` has FORCE ROW LEVEL SECURITY. Both the read and the
+    // write must run with `app.current_tenant_id` pinned — otherwise findUnique
+    // silently returns null (policy's USING clause hides the row) and the
+    // subsequent update fires WITH CHECK against an empty GUC, which raises
+    // `invalid input syntax for type uuid: ""` (W-S7-004). Bundle read+write
+    // into a single RLS transaction so we also get atomic create-on-miss under
+    // concurrency.
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const settings = (record?.settings as Record<string, unknown>) ?? {};
-    const wellbeing = (settings['staff_wellbeing'] as Record<string, unknown>) ?? {};
+    const { encryptedFound, keyRefFound } = await rlsClient.$transaction(async (tx) => {
+      const record = await tx.tenantSetting.findUnique({
+        where: { tenant_id: tenantId },
+      });
 
-    const existingEncrypted = wellbeing['hmac_secret_encrypted'] as string | undefined;
-    const existingKeyRef = wellbeing['hmac_key_ref'] as string | undefined;
+      const settings = (record?.settings as Record<string, unknown>) ?? {};
+      const wellbeing = (settings['staff_wellbeing'] as Record<string, unknown>) ?? {};
 
-    if (existingEncrypted && existingKeyRef) {
-      return this.encryption.decrypt(existingEncrypted, existingKeyRef);
-    }
+      const existingEncrypted = wellbeing['hmac_secret_encrypted'] as string | undefined;
+      const existingKeyRef = wellbeing['hmac_key_ref'] as string | undefined;
 
-    // Generate a new secret
-    const secret = randomBytes(32).toString('hex');
-    const { encrypted, keyRef } = this.encryption.encrypt(secret);
+      if (existingEncrypted && existingKeyRef) {
+        return { encryptedFound: existingEncrypted, keyRefFound: existingKeyRef };
+      }
 
-    // Store encrypted secret in tenant settings
-    const updatedWellbeing = {
-      ...wellbeing,
-      hmac_secret_encrypted: encrypted,
-      hmac_key_ref: keyRef,
-    };
+      // Generate and persist a new secret inside the same RLS transaction.
+      const secret = randomBytes(32).toString('hex');
+      const { encrypted, keyRef } = this.encryption.encrypt(secret);
 
-    const updatedSettings = {
-      ...settings,
-      staff_wellbeing: updatedWellbeing,
-    };
+      const updatedWellbeing = {
+        ...wellbeing,
+        hmac_secret_encrypted: encrypted,
+        hmac_key_ref: keyRef,
+      };
 
-    await this.prisma.$transaction(async (tx) => {
+      const updatedSettings = {
+        ...settings,
+        staff_wellbeing: updatedWellbeing,
+      };
+
       await tx.tenantSetting.update({
         where: { tenant_id: tenantId },
         data: { settings: updatedSettings },
       });
+
+      return { encryptedFound: encrypted, keyRefFound: keyRef };
     });
 
-    // Re-read from DB to ensure we have the winning write (idempotency under concurrency)
-    const confirmRecord = await this.configurationReadFacade.findSettings(tenantId);
-
-    const confirmSettings = (confirmRecord?.settings as Record<string, unknown>) ?? {};
-    const confirmWellbeing = (confirmSettings['staff_wellbeing'] as Record<string, unknown>) ?? {};
-    const confirmedEncrypted = confirmWellbeing['hmac_secret_encrypted'] as string;
-    const confirmedKeyRef = confirmWellbeing['hmac_key_ref'] as string;
-
-    return this.encryption.decrypt(confirmedEncrypted, confirmedKeyRef);
+    return this.encryption.decrypt(encryptedFound, keyRefFound);
   }
 
   /**

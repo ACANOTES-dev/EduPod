@@ -34,8 +34,10 @@ const MOCK_COVER_FAIRNESS = {
 
 const MOCK_TIMETABLE_QUALITY = {
   consecutive_periods: { mean: 3.2, median: 3, range: { min: 1, max: 5 } },
-  free_period_clumping: { mean: 2.5, median: 2, range: { min: 0, max: 5 } },
-  split_timetable_pct: 0.15,
+  // free_period_clumping.mean lives on 0-100 (higher = more even distribution).
+  free_period_clumping: { mean: 50, median: 50, range: { min: 0, max: 100 } },
+  // split_timetable_pct is a percent (0-100), not a 0-1 ratio.
+  split_timetable_pct: 15,
   room_changes: { mean: 1.8, median: 2, range: { min: 0, max: 4 } },
   trend: null,
 };
@@ -338,10 +340,11 @@ describe('BoardReportService', () => {
     // ─── Timetable Quality Label ─────────────────────────────────────────
 
     it('should label timetable quality score >= 70 as "Good"', async () => {
-      // High scores: low consecutive, high clumping, low split, low room changes
+      // High scores — note `free_period_clumping.mean` is 0-100 (100 = most
+      // even) and `split_timetable_pct` is a percent (0-100), not a ratio.
       mockComputeService.getAggregateTimetableQuality.mockResolvedValue({
         consecutive_periods: { mean: 1, median: 1, range: { min: 1, max: 1 } },
-        free_period_clumping: { mean: 5, median: 5, range: { min: 5, max: 5 } },
+        free_period_clumping: { mean: 100, median: 100, range: { min: 100, max: 100 } },
         split_timetable_pct: 0,
         room_changes: { mean: 0, median: 0, range: { min: 0, max: 0 } },
         trend: null,
@@ -353,11 +356,10 @@ describe('BoardReportService', () => {
     });
 
     it('should label timetable quality score < 45 as "Needs attention"', async () => {
-      // Bad scores: high consecutive, low clumping, high split, high room changes
       mockComputeService.getAggregateTimetableQuality.mockResolvedValue({
         consecutive_periods: { mean: 10, median: 10, range: { min: 8, max: 12 } },
         free_period_clumping: { mean: 0, median: 0, range: { min: 0, max: 0 } },
-        split_timetable_pct: 1,
+        split_timetable_pct: 80,
         room_changes: { mean: 10, median: 10, range: { min: 8, max: 12 } },
         trend: null,
       });

@@ -129,9 +129,11 @@ function assessConsecutive(mean: number): QualityLabel {
   return 'needsAttention';
 }
 
+// `free_period_clumping.mean` from the API is the average of `scoreFreeDistribution`
+// outputs, each of which lives on a 0-100 scale (100 = most even). Higher = better.
 function assessFreeClumping(mean: number): QualityLabel {
-  if (mean >= 0.7) return 'good';
-  if (mean >= 0.4) return 'moderate';
+  if (mean >= 70) return 'good';
+  if (mean >= 40) return 'moderate';
   return 'needsAttention';
 }
 
@@ -149,7 +151,10 @@ function assessRoomChanges(mean: number): QualityLabel {
 
 function computeTimetableScore(quality: AggregateTimetableQuality): number {
   const consecutiveScore = Math.max(0, 100 - quality.consecutive_periods.mean * 20);
-  const clumpingScore = quality.free_period_clumping.mean * 100;
+  // `free_period_clumping.mean` already lives on 0-100 (higher = better). The
+  // previous `* 100` ballooned realistic values to ~4000 and the composite to
+  // ~1000 (W-S7-002).
+  const clumpingScore = Math.min(100, Math.max(0, quality.free_period_clumping.mean));
   const splitScore = Math.max(0, 100 - quality.split_timetable_pct * 2);
   const roomScore = Math.max(0, 100 - quality.room_changes.mean * 15);
   return Math.round((consecutiveScore + clumpingScore + splitScore + roomScore) / 4);

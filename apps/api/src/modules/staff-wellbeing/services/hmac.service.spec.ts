@@ -1,10 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ConfigurationReadFacade, MOCK_FACADE_PROVIDERS } from '../../../common/tests/mock-facades';
 import { EncryptionService } from '../../configuration/encryption.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { HmacService } from './hmac.service';
+
+// HmacService uses `createRlsClient(prisma, ...).$transaction(async (tx) => ...)`
+// to pin RLS context while reading/writing tenant_settings (see W-S7-004). The
+// mock below short-circuits both $extends and $transaction so the test never
+// hits the RLS middleware path.
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -50,6 +54,7 @@ describe('HmacService', () => {
       update: jest.Mock;
     };
     $transaction: jest.Mock;
+    $extends: jest.Mock;
   };
   let mockEncryption: {
     encrypt: jest.Mock;
@@ -63,27 +68,29 @@ describe('HmacService', () => {
         update: jest.fn(),
       },
       $transaction: jest.fn(),
+      $extends: jest.fn(),
     };
+    // createRlsClient calls prisma.$extends(...) which returns an object whose
+    // own $transaction runs the callback with the original prisma as tx.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(mockPrisma));
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => Promise<any>) =>
+      fn(mockPrisma),
+    );
+    mockPrisma.$extends.mockImplementation(() => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      $transaction: async (fn: (tx: any) => Promise<any>) => fn(mockPrisma),
+    }));
 
     mockEncryption = {
-      encrypt: jest
-        .fn()
-        .mockReturnValue({ encrypted: 'mock-encrypted-value', keyRef: 'local' }),
+      encrypt: jest.fn().mockReturnValue({ encrypted: 'mock-encrypted-value', keyRef: 'local' }),
       decrypt: jest.fn().mockReturnValue(KNOWN_SECRET),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        ...MOCK_FACADE_PROVIDERS,
         HmacService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EncryptionService, useValue: mockEncryption },
-        {
-          provide: ConfigurationReadFacade,
-          useValue: { findSettings: mockPrisma.tenantSetting.findUnique },
-        },
       ],
     }).compile();
 
@@ -96,32 +103,21 @@ describe('HmacService', () => {
 
   describe('getOrCreateHmacSecret', () => {
     it('should return existing secret if already stored', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
-        makeTenantSettingsWithSecret(),
-      );
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue(makeTenantSettingsWithSecret());
 
       const result = await service.getOrCreateHmacSecret(TENANT_ID);
 
       expect(result).toBe(KNOWN_SECRET);
-      expect(mockEncryption.decrypt).toHaveBeenCalledWith(
-        'mock-encrypted-value',
-        'local',
-      );
+      expect(mockEncryption.decrypt).toHaveBeenCalledWith('mock-encrypted-value', 'local');
       // Should not attempt to write anything
       expect(mockPrisma.tenantSetting.update).not.toHaveBeenCalled();
       expect(mockEncryption.encrypt).not.toHaveBeenCalled();
     });
 
     it('should generate, encrypt, and store new secret if none exists', async () => {
-      // First read: no secret
-      mockPrisma.tenantSetting.findUnique
-        .mockResolvedValueOnce(makeTenantSettingsWithoutSecret())
-        // Second read (confirmation after write): has secret
-        .mockResolvedValueOnce(makeTenantSettingsWithSecret());
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue(makeTenantSettingsWithoutSecret());
 
-      mockPrisma.tenantSetting.update.mockResolvedValue(
-        makeTenantSettingsWithSecret(),
-      );
+      mockPrisma.tenantSetting.update.mockResolvedValue(makeTenantSettingsWithSecret());
 
       const result = await service.getOrCreateHmacSecret(TENANT_ID);
 
@@ -146,14 +142,12 @@ describe('HmacService', () => {
         },
       });
 
-      // Should have re-read for confirmation
-      expect(mockPrisma.tenantSetting.findUnique).toHaveBeenCalledTimes(2);
+      // The read+write happens inside one RLS transaction — no separate
+      // confirmation read (W-S7-004 fix).
+      expect(mockPrisma.tenantSetting.findUnique).toHaveBeenCalledTimes(1);
 
-      // Final decrypt is from the confirmed record
-      expect(mockEncryption.decrypt).toHaveBeenCalledWith(
-        'mock-encrypted-value',
-        'local',
-      );
+      // Final decrypt is from the values we just wrote.
+      expect(mockEncryption.decrypt).toHaveBeenCalledWith('mock-encrypted-value', 'local');
     });
   });
 
@@ -162,62 +156,32 @@ describe('HmacService', () => {
   describe('computeTokenHash', () => {
     beforeEach(() => {
       // All computeTokenHash tests use an existing secret
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
-        makeTenantSettingsWithSecret(),
-      );
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue(makeTenantSettingsWithSecret());
     });
 
     it('should return deterministic hash for same inputs', async () => {
-      const hash1 = await service.computeTokenHash(
-        TENANT_ID,
-        SURVEY_ID,
-        USER_ID_A,
-      );
-      const hash2 = await service.computeTokenHash(
-        TENANT_ID,
-        SURVEY_ID,
-        USER_ID_A,
-      );
+      const hash1 = await service.computeTokenHash(TENANT_ID, SURVEY_ID, USER_ID_A);
+      const hash2 = await service.computeTokenHash(TENANT_ID, SURVEY_ID, USER_ID_A);
 
       expect(hash1).toBe(hash2);
     });
 
     it('should return different hash for different userId', async () => {
-      const hashA = await service.computeTokenHash(
-        TENANT_ID,
-        SURVEY_ID,
-        USER_ID_A,
-      );
-      const hashB = await service.computeTokenHash(
-        TENANT_ID,
-        SURVEY_ID,
-        USER_ID_B,
-      );
+      const hashA = await service.computeTokenHash(TENANT_ID, SURVEY_ID, USER_ID_A);
+      const hashB = await service.computeTokenHash(TENANT_ID, SURVEY_ID, USER_ID_B);
 
       expect(hashA).not.toBe(hashB);
     });
 
     it('should return different hash for different surveyId', async () => {
-      const hashA = await service.computeTokenHash(
-        TENANT_ID,
-        SURVEY_ID,
-        USER_ID_A,
-      );
-      const hashB = await service.computeTokenHash(
-        TENANT_ID,
-        SURVEY_ID_B,
-        USER_ID_A,
-      );
+      const hashA = await service.computeTokenHash(TENANT_ID, SURVEY_ID, USER_ID_A);
+      const hashB = await service.computeTokenHash(TENANT_ID, SURVEY_ID_B, USER_ID_A);
 
       expect(hashA).not.toBe(hashB);
     });
 
     it('should return hash that is exactly 64 hex characters (SHA256)', async () => {
-      const hash = await service.computeTokenHash(
-        TENANT_ID,
-        SURVEY_ID,
-        USER_ID_A,
-      );
+      const hash = await service.computeTokenHash(TENANT_ID, SURVEY_ID, USER_ID_A);
 
       expect(hash).toMatch(/^[0-9a-f]{64}$/);
     });

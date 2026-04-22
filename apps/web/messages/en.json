@@ -13692,6 +13692,7 @@
       "allStatuses": "All Statuses",
       "noSurveys": "No surveys yet. Create your first survey to start gathering staff feedback.",
       "responses": "{count} of {total} staff ({rate}%)",
+      "responsesOnly": "{count} responses",
       "createTitle": "Create New Survey",
       "editTitle": "Edit Survey",
       "description": "Description",

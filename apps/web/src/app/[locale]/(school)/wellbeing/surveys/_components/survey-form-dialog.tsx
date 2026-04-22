@@ -25,8 +25,7 @@ import {
   Textarea,
 } from '@school/ui';
 
-
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 import {
   DEFAULT_FORM,
@@ -43,7 +42,6 @@ import type {
   Survey,
   SurveyFormState,
 } from './survey-types';
-
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -217,10 +215,14 @@ export function SurveyFormDialog({
           });
         }
       } else {
-        const created = await apiClient<Survey>('/api/v1/staff-wellbeing/surveys', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
+        // API wraps the new survey in `{ data: T }` — unwrap so `created.id`
+        // is defined when we chain the activate call (W-S7-005).
+        const created = unwrap(
+          await apiClient<{ data: Survey }>('/api/v1/staff-wellbeing/surveys', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          }),
+        );
         if (activate) {
           await apiClient<Survey>(`/api/v1/staff-wellbeing/surveys/${created.id}/activate`, {
             method: 'POST',
