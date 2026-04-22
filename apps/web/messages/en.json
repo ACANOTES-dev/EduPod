@@ -11435,6 +11435,246 @@
         "title": "No reviews outstanding",
         "body": "Completed break-glass grants will appear here when they need an after-action review."
       }
+    },
+    "concernType": {
+      "physical_abuse": "Physical abuse",
+      "emotional_abuse": "Emotional abuse",
+      "sexual_abuse": "Sexual abuse",
+      "neglect": "Neglect",
+      "self_harm": "Self-harm",
+      "bullying": "Bullying",
+      "online_safety": "Online safety",
+      "domestic_violence": "Domestic violence",
+      "substance_abuse": "Substance abuse",
+      "mental_health": "Mental health",
+      "radicalisation": "Radicalisation",
+      "other": "Other"
+    },
+    "concernStatus": {
+      "reported": "Reported",
+      "acknowledged": "Acknowledged",
+      "under_investigation": "Under investigation",
+      "referred": "Referred",
+      "monitoring": "Monitoring",
+      "resolved": "Resolved",
+      "sealed": "Sealed"
+    },
+    "ackStatus": {
+      "pending": "Pending",
+      "assigned": "Assigned",
+      "under_review": "Under review",
+      "closed": "Closed"
+    },
+    "actionType": {
+      "note_added": "Note added",
+      "status_changed": "Status changed",
+      "assigned": "Assigned",
+      "meeting_held": "Meeting held",
+      "parent_contacted": "Parent contacted",
+      "agency_contacted": "Agency contacted",
+      "tusla_referred": "TUSLA referred",
+      "garda_referred": "Gardaí referred",
+      "document_uploaded": "Document uploaded",
+      "document_downloaded": "Document downloaded",
+      "review_completed": "Review completed"
+    },
+    "concernsList": {
+      "title": "Safeguarding concerns",
+      "description": "All concerns across the school, filterable by severity, status, type, and SLA state.",
+      "loadError": "Could not load the concerns list. Retry from the banner.",
+      "reportCta": "Report concern",
+      "unknownStudent": "Student unknown",
+      "unassigned": "Unassigned",
+      "resultCount": "{count} concerns",
+      "slaSummary": {
+        "overdue": "SLA overdue",
+        "dueWithin24": "Due within 24h",
+        "onTrack": "On track"
+      },
+      "slaBucket": {
+        "breached": "Breached",
+        "due_soon": "Due soon",
+        "on_track": "On track",
+        "unknown": "No SLA"
+      },
+      "filters": {
+        "title": "Filters",
+        "reset": "Reset",
+        "status": "Status",
+        "severity": "Severity",
+        "type": "Concern type",
+        "slaStatus": "SLA status",
+        "allStatuses": "All statuses",
+        "allTypes": "All types",
+        "sla": {
+          "all": "All SLA states",
+          "overdue": "Overdue",
+          "due_soon": "Due soon",
+          "on_track": "On track"
+        }
+      },
+      "empty": {
+        "title": "No concerns match the current filters",
+        "body": "Clear the filters to see every concern on the roster, or adjust them to widen the search."
+      },
+      "pagination": {
+        "page": "Page {page} of {total}",
+        "prev": "Previous",
+        "next": "Next"
+      }
+    },
+    "newConcern": {
+      "title": "Report a safeguarding concern",
+      "description": "This form routes straight to the designated safeguarding lead. The report is logged immediately and a case file is opened.",
+      "backToList": "Back to list",
+      "confidentialityTitle": "Confidential",
+      "confidentialityBody": "This concern is visible only to designated safeguarding staff. Your name is recorded as the reporter on the audit log; the student is not notified automatically.",
+      "submit": "Submit concern",
+      "submitting": "Submitting…",
+      "submitError": "Could not submit the concern. Check the fields and try again.",
+      "cancel": "Cancel",
+      "fields": {
+        "student": {
+          "label": "Student",
+          "placeholder": "Search by name or student number",
+          "helper": "Pick the child this concern is about.",
+          "empty": "No students match.",
+          "minLength": "Type at least two characters to search.",
+          "required": "Select a student before submitting."
+        },
+        "type": {
+          "label": "Type of concern"
+        },
+        "severity": {
+          "label": "Severity",
+          "criticalHint": "Critical severity triggers an immediate escalation chain and paging of the designated safeguarding lead."
+        },
+        "description": {
+          "label": "What happened?",
+          "placeholder": "Describe the concern factually — what you saw, heard, or were told. Avoid speculation.",
+          "helper": "Minimum ten characters. Use clear, factual language.",
+          "minLength": "Give at least ten characters of context."
+        },
+        "immediateActions": {
+          "label": "Immediate actions taken (optional)",
+          "placeholder": "e.g. Moved student to the counsellor's office, notified the principal, called the parent.",
+          "helper": "Any steps taken before this report was logged."
+        },
+        "incidentId": {
+          "label": "Linked behaviour incident (optional)",
+          "placeholder": "UUID of a behaviour incident, if this is a conversion",
+          "helper": "Only fill this if a behaviour incident has escalated into a safeguarding concern."
+        }
+      }
+    },
+    "myReports": {
+      "title": "My safeguarding reports",
+      "description": "Every concern you have personally submitted, with the current acknowledgement status.",
+      "loadError": "Could not load your reports. Retry from the banner.",
+      "reportCta": "Report concern",
+      "privacyBody": "Only you and designated safeguarding staff can see these records. Acknowledgement status reflects what the DLP has done with each report.",
+      "empty": {
+        "title": "No reports yet",
+        "body": "Concerns you submit through the Report a concern form will appear here."
+      },
+      "pagination": {
+        "page": "Page {page} of {total}",
+        "prev": "Previous",
+        "next": "Next"
+      }
+    },
+    "concernDetail": {
+      "title": "Safeguarding concern",
+      "description": "Full case file. Every action and status change is audit-logged.",
+      "backToList": "Back to list",
+      "loadError": "Could not load this concern. Retry from the banner.",
+      "unknown": "Unknown",
+      "unassigned": "Unassigned",
+      "slaBreached": "SLA breached",
+      "sealBanner": {
+        "title": "This concern is sealed",
+        "body": "Sealed {when} · approved by {approver}. No further edits can be made."
+      },
+      "meta": {
+        "student": "Student",
+        "reportedBy": "Reported by",
+        "reportedAt": "Reported at",
+        "assignedTo": "Assigned to",
+        "designatedLiaison": "Designated liaison",
+        "slaDeadline": "First-response SLA"
+      },
+      "narrative": {
+        "description": "Description",
+        "immediateActions": "Immediate actions taken"
+      },
+      "statusPanel": {
+        "title": "Change status",
+        "currentStatus": "Current status",
+        "nextStatus": "New status",
+        "selectPlaceholder": "Select a status",
+        "reason": "Reason",
+        "reasonPlaceholder": "Explain why this transition is appropriate. This is written to the audit log.",
+        "submit": "Update status",
+        "submitting": "Saving…",
+        "error": "Could not change status. The transition may be blocked — refresh and try again.",
+        "terminal": "This concern has reached a terminal status and can no longer be transitioned."
+      },
+      "actionPanel": {
+        "title": "Record an action",
+        "type": "Action type",
+        "description": "Notes",
+        "descriptionPlaceholder": "Describe the action taken, who was involved, and any follow-up required.",
+        "submit": "Save action",
+        "submitting": "Saving…",
+        "error": "Could not record the action. Please try again."
+      },
+      "timeline": {
+        "title": "Action timeline",
+        "count": "{count} entries",
+        "empty": "No actions recorded yet. Use the panel above to log one."
+      },
+      "referrals": {
+        "tusla": {
+          "title": "TUSLA referral",
+          "body": "Record the child-protection referral once it has been filed with TUSLA."
+        },
+        "garda": {
+          "title": "Gardaí referral",
+          "body": "Record the referral once it has been filed with An Garda Síochána."
+        },
+        "recorded": "Referral recorded",
+        "referenceNumber": "Reference number",
+        "referredAt": "Referred at",
+        "outcome": "Outcome",
+        "submit": "Record referral",
+        "submitting": "Recording…",
+        "error": "Could not record the referral. Please try again."
+      },
+      "caseFile": {
+        "title": "Case file PDF",
+        "body": "Download the full case file or a redacted version suitable for external sharing. Every download is audit-logged.",
+        "downloadFull": "Download full case file",
+        "downloadRedacted": "Download redacted case file",
+        "generating": "Generating…",
+        "error": "Could not generate the case file. Please try again."
+      },
+      "seal": {
+        "title": "Seal concern",
+        "body": "Sealing a concern is a two-person dual-approval action. Once sealed the record is read-only and visible only to users with the seal permission.",
+        "initiateReason": "Reason for sealing",
+        "initiatePlaceholder": "Explain why this concern should be sealed. A second approver will see this reason before approving.",
+        "initiate": "Initiate seal",
+        "initiating": "Initiating…",
+        "pendingApproval": "Seal initiated — awaiting second approver",
+        "approve": "Approve seal",
+        "approving": "Approving…",
+        "rejectReason": "Rejection reason",
+        "rejectPlaceholder": "Explain why the seal should not proceed.",
+        "reject": "Reject seal",
+        "rejecting": "Rejecting…",
+        "alreadySealed": "This concern is sealed. No further action is possible.",
+        "error": "Could not complete the seal action. Please try again."
+      }
     }
   },
   "safeguardingBreakGlass": {
