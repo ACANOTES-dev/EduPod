@@ -1005,6 +1005,9 @@ describe('BehaviourIncidentsService', () => {
         { polarity: 'positive', _count: 7 },
         { polarity: 'negative', _count: 5 },
       ]);
+      mockPrisma.behaviourIncident.count
+        .mockResolvedValueOnce(4) // incidents_this_week
+        .mockResolvedValueOnce(6); // incidents_last_week
       mockPrisma.behaviourTask.count
         .mockResolvedValueOnce(3) // open_tasks
         .mockResolvedValueOnce(1); // overdue_tasks
@@ -1017,11 +1020,14 @@ describe('BehaviourIncidentsService', () => {
         negative_count: 5,
         open_tasks: 3,
         overdue_tasks: 1,
+        incidents_this_week: 4,
+        incidents_last_week: 6,
       });
     });
 
-    it('should default polarity counts to zero when groupBy returns nothing', async () => {
+    it('should default polarity and weekly counts to zero when groupBy returns nothing', async () => {
       mockPrisma.behaviourIncident.groupBy.mockResolvedValue([]);
+      mockPrisma.behaviourIncident.count.mockResolvedValue(0);
       mockPrisma.behaviourTask.count.mockResolvedValue(0);
 
       const result = await service.getIncidentsStats(TENANT_ID);
@@ -1032,7 +1038,46 @@ describe('BehaviourIncidentsService', () => {
         negative_count: 0,
         open_tasks: 0,
         overdue_tasks: 0,
+        incidents_this_week: 0,
+        incidents_last_week: 0,
       });
+    });
+
+    it('should count incidents_this_week over a 7-day occurred_at window', async () => {
+      mockPrisma.behaviourIncident.groupBy.mockResolvedValue([]);
+      mockPrisma.behaviourIncident.count.mockResolvedValue(0);
+      mockPrisma.behaviourTask.count.mockResolvedValue(0);
+
+      await service.getIncidentsStats(TENANT_ID);
+
+      // First count() call is incidents_this_week: [now - 7d, now]
+      const firstCall = mockPrisma.behaviourIncident.count.mock.calls[0][0];
+      expect(firstCall.where.tenant_id).toBe(TENANT_ID);
+      expect(firstCall.where.retention_status).toBe('active');
+      expect(firstCall.where.status).toEqual({
+        notIn: ['withdrawn', 'converted_to_safeguarding'],
+      });
+      expect(firstCall.where.occurred_at.gte).toBeInstanceOf(Date);
+      expect(firstCall.where.occurred_at.lte).toBeInstanceOf(Date);
+      const windowMs =
+        firstCall.where.occurred_at.lte.getTime() - firstCall.where.occurred_at.gte.getTime();
+      expect(windowMs).toBeCloseTo(7 * 24 * 60 * 60 * 1000, -3);
+    });
+
+    it('should count incidents_last_week over the prior 7-day window', async () => {
+      mockPrisma.behaviourIncident.groupBy.mockResolvedValue([]);
+      mockPrisma.behaviourIncident.count.mockResolvedValue(0);
+      mockPrisma.behaviourTask.count.mockResolvedValue(0);
+
+      await service.getIncidentsStats(TENANT_ID);
+
+      // Second count() call is incidents_last_week: [now - 14d, now - 7d)
+      const secondCall = mockPrisma.behaviourIncident.count.mock.calls[1][0];
+      expect(secondCall.where.occurred_at.gte).toBeInstanceOf(Date);
+      expect(secondCall.where.occurred_at.lt).toBeInstanceOf(Date);
+      const windowMs =
+        secondCall.where.occurred_at.lt.getTime() - secondCall.where.occurred_at.gte.getTime();
+      expect(windowMs).toBeCloseTo(7 * 24 * 60 * 60 * 1000, -3);
     });
 
     it('should exclude withdrawn and converted-to-safeguarding incidents', async () => {

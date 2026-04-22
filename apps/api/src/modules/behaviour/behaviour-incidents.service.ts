@@ -697,33 +697,54 @@ export class BehaviourIncidentsService {
    * KPIs in isolation if the other call fails.
    */
   async getIncidentsStats(tenantId: string) {
-    const [incidentCounts, openTasks, overdueTasks] = await Promise.all([
-      this.prisma.behaviourIncident.groupBy({
-        by: ['polarity'],
-        where: {
-          tenant_id: tenantId,
-          retention_status: 'active' as $Enums.RetentionStatus,
-          status: {
-            notIn: ['withdrawn', 'converted_to_safeguarding'] as $Enums.IncidentStatus[],
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+    // Same retention + status filter as the headline counts, so the weekly
+    // figures are a true subset of total_incidents — never a superset.
+    const baseWhere = {
+      tenant_id: tenantId,
+      retention_status: 'active' as $Enums.RetentionStatus,
+      status: {
+        notIn: ['withdrawn', 'converted_to_safeguarding'] as $Enums.IncidentStatus[],
+      },
+    } as const;
+
+    const [incidentCounts, openTasks, overdueTasks, incidentsThisWeek, incidentsLastWeek] =
+      await Promise.all([
+        this.prisma.behaviourIncident.groupBy({
+          by: ['polarity'],
+          where: baseWhere,
+          _count: true,
+        }),
+        this.prisma.behaviourTask.count({
+          where: {
+            tenant_id: tenantId,
+            status: {
+              in: ['pending', 'in_progress'] as $Enums.BehaviourTaskStatus[],
+            },
           },
-        },
-        _count: true,
-      }),
-      this.prisma.behaviourTask.count({
-        where: {
-          tenant_id: tenantId,
-          status: {
-            in: ['pending', 'in_progress'] as $Enums.BehaviourTaskStatus[],
+        }),
+        this.prisma.behaviourTask.count({
+          where: {
+            tenant_id: tenantId,
+            status: 'overdue' as $Enums.BehaviourTaskStatus,
           },
-        },
-      }),
-      this.prisma.behaviourTask.count({
-        where: {
-          tenant_id: tenantId,
-          status: 'overdue' as $Enums.BehaviourTaskStatus,
-        },
-      }),
-    ]);
+        }),
+        this.prisma.behaviourIncident.count({
+          where: {
+            ...baseWhere,
+            occurred_at: { gte: sevenDaysAgo, lte: now },
+          },
+        }),
+        this.prisma.behaviourIncident.count({
+          where: {
+            ...baseWhere,
+            occurred_at: { gte: fourteenDaysAgo, lt: sevenDaysAgo },
+          },
+        }),
+      ]);
 
     const positive =
       incidentCounts.find((c) => c.polarity === ('positive' as $Enums.BehaviourPolarity))?._count ??
@@ -738,6 +759,8 @@ export class BehaviourIncidentsService {
       negative_count: negative,
       open_tasks: openTasks,
       overdue_tasks: overdueTasks,
+      incidents_this_week: incidentsThisWeek,
+      incidents_last_week: incidentsLastWeek,
     };
   }
 }
