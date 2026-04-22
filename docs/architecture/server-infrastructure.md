@@ -2,7 +2,7 @@
 
 > **Purpose**: the source of truth for the production server — what runs, where, how it's wired, how to recover it. If you're oncall at 2am or rebuilding from bare metal, start here.
 > **Maintenance**: update whenever a server-local config changes (nginx, docker-compose, systemd, ufw, ssh). See [§ Server-local configs NOT in git](#server-local-configs-not-in-git) — most of what lives on the server is _not_ checked into this repo, so this doc is the only record.
-> **Last verified**: 2026-04-22 (post PMX-fix + hardening pass).
+> **Last verified**: 2026-04-22 (post PMX-fix + hardening pass + PAT-to-deploy-key swap).
 
 ---
 
@@ -383,7 +383,7 @@ From `.github/workflows/ci.yml`:
 
 ### How the server fetches code
 
-The server's `/opt/edupod/app/.git/config` has an HTTPS remote with an embedded GitHub PAT. **Pre-demo hardening (in progress):** replace with SSH deploy key at `/root/.ssh/github_deploy`. See § Security.
+The server's `/opt/edupod/app/.git/config` uses an SSH remote (`git@github.com:ACANOTES-dev/EduPod.git`). Auth is a repo-level **deploy key** registered as `edupod-prod-1 deploy` on GitHub, with the private half at `/root/.ssh/github_deploy`. Deploy keys are read-only (deploy only does `git fetch`, never pushes). `/root/.ssh/config` has an explicit `Host github.com` block pinning that key so plain `git fetch` Just Works as root. Swapped from an embedded PAT on 2026-04-22 (commit `e07ea952` era).
 
 ### Timing (2026-04-22 benchmark, warm cache)
 
