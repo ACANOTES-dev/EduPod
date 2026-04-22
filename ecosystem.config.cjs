@@ -5,6 +5,13 @@
 // cluster worker process fails to resolve symlinked node_modules.
 // Fork mode with 1 instance is the production default.
 // Worker always runs in fork mode (single instance for job consistency).
+//
+// pmx: false is set on every Node app. PM2 6.x bundles require-in-the-middle@5.2.0
+// which fails ESM-exports resolution on packages like @school/shared (whose
+// exports field points at ./dist/index.js). The require still succeeds via the
+// main-field fallback, but each require-site leaks a scary "Cannot find module"
+// to stderr (≈20 entries per startup in api). We use Sentry for APM, not PMX,
+// so disabling PMX removes the instrumentation that injects the buggy r-i-m.
 
 const APP_DIR = process.env.APP_DIR || '/opt/edupod/app';
 const SENTRY_ENVIRONMENT = process.env.SENTRY_ENVIRONMENT || 'production';
@@ -25,6 +32,7 @@ module.exports = {
       max_memory_restart: '750M',
       kill_timeout: 30000,
       listen_timeout: 10000,
+      pmx: false,
       env: {
         NODE_ENV: 'production',
         API_PORT: '3001',
@@ -44,6 +52,7 @@ module.exports = {
       max_memory_restart: '1G',
       kill_timeout: 30000,
       listen_timeout: 10000,
+      pmx: false,
       env: {
         NODE_ENV: 'production',
         PORT: '5551',
@@ -60,6 +69,7 @@ module.exports = {
       exec_mode: 'fork',
       instances: 1,
       autorestart: true,
+      pmx: false,
       // CP-SAT phase of scheduler v2 reaches ~900MB RSS during a 6-year-group /
       // 320-variable solve. The previous 750M ceiling triggered a pm2 restart
       // every ~60s mid-solve, killing every queued scheduling run. Server has
