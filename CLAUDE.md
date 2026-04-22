@@ -79,6 +79,18 @@ Current work is iterative: refining existing functionality, adding enhancements 
 - Architecture changes or major unplanned functionality
 - A blocker forces a materially different approach
 
+## Sentry Triage — Autonomous Runbook
+
+If the user triggers with an action verb + Sentry reference — **"fix the Sentry thing"**, **"triage the Sentry alert"**, **"Sentry flagged X"**, **"Sentry emailed me about X"**, etc. — open and follow `docs/runbooks/agent-sentry-triage.md` end to end before doing anything else. That runbook owns:
+
+- The bash wrapper `./scripts/sentry-cli.sh` (list / get / check-if-fixed / resolve / new-events-since)
+- Hard guardrails (failing-test-first, 100-line diff cap, auto-revert on post-deploy regression, STOP on schema/migration/deploy-config/secret edits)
+- The mandatory audit-log append to `docs/runbooks/agent-fix-log.md`
+
+**A Sentry triage is not complete without the audit-log entry.** The log is how the user recovers from a bad autonomous fix (every entry includes an exact `git revert` rollback command).
+
+If the user only says "check Sentry" / "look at Sentry" with no action verb, that's read-only — just run `./scripts/sentry-cli.sh list-unresolved` and report.
+
 ## GitHub — Hard Rules
 
 - **Only interact with `ACANOTES-dev/EduPod`.** Never access, read, push to, or reference any other repo on this account. No exceptions.
