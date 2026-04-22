@@ -950,6 +950,31 @@ Refactor `SchedulingSolverV2Job` to **not extend `TenantAwareJob`** at all. Ever
 - `apps/worker/src/processors/scheduling/solver-v2.processor.ts` — reference mitigation (3780 s ceiling).
 - `scheduler/OR CP-SAT/IMPLEMENTATION_LOG.md` Stage 9.5.1 post-close amendment — full incident writeup with the two NHQS smoke runs that surfaced it.
 
+## DZ-48: Multiple `@Processor` Classes On One Queue Silently Drop Jobs
+
+**Risk**: In `@nestjs/bullmq`, every `@Processor(queueName)` class becomes its own BullMQ `Worker` that competes for jobs on that queue. When a worker claims a job whose name its guard rejects, the convention across this codebase is `if (job.name !== MY_JOB) return;` — BullMQ then marks the job complete with no log, no error, no retry. Any queue with N `@Processor` classes dispatching by job-name has an effective hit rate of ~1/N per job; the rest of the jobs are silently consumed. Measured on NHQS production 2026-04-22: a 20-job burst on the early-warning queue (3 processors) produced 1 successful run and 19 silent drops. Symptom: "the cron fires, the queue shows completed=N, failed=0 — but nothing actually happened".
+
+**Location**:
+
+- `apps/worker/src/processors/early-warning/early-warning.processor.ts` — the dispatcher that now owns `@Processor(QUEUE_NAMES.EARLY_WARNING)` and routes by job name. MITIGATED for this queue as of 2026-04-22.
+- `apps/worker/src/processors/behaviour/*.ts` — BEHAVIOUR queue has ~19 `@Processor` classes. Same bug pattern, unmitigated. A 10-job `behaviour:evaluate-policy` burst produced 0 processor fires in the same diagnostic session.
+- `apps/worker/src/processors/notifications/*.ts` — NOTIFICATIONS queue has ~19 `@Processor` classes. Unmitigated.
+- Every other queue with ≥2 `@Processor` classes: see the counts in `grep -rn "@Processor(QUEUE_NAMES" apps/worker/src/processors` (pastoral=9, engagement=8, wellbeing=6, regulatory=5, imports=4, homework=4, security=3, payroll=3, finance=3, search-sync=2, scheduling=2, safeguarding=2, compliance=2).
+
+**Status**: EARLY_WARNING mitigated 2026-04-22. All other multi-processor queues are unmitigated. `discovery-service` order inside NestJS boot is deterministic within a single process but whichever worker polls Redis first claims the job, and a non-matching worker's guard is the fastest possible return path — it will almost always outrace the matching worker.
+
+**Mitigation pattern (applied to early-warning, apply elsewhere)**:
+
+1. Keep each job's handler class — but strip the `@Processor` decorator, drop `extends WorkerHost`, drop the `super()`, add `@Injectable()`. The class becomes a plain service whose public `process(job)` method is now called directly, not via BullMQ.
+2. Add one dispatcher class per queue with the single `@Processor(queueName)` decorator. Its `process(job)` switches on `job.name` and invokes the right handler's `process()`.
+3. Register the dispatcher + all handlers in the worker module. No other code changes — existing specs keep working because the handler classes retain their constructors and method signatures.
+
+**Do not "fix" by throwing from the guard**: a non-matching processor that throws will trigger BullMQ retries with backoff. The next attempt still has a ~1/N chance per retry, so you still drop jobs after `attempts` is exhausted — just noisily instead of silently. The dispatcher pattern is the real fix.
+
+**How to detect (new code)**: if you're about to add a second `@Processor(QUEUE_NAMES.X)` class to any queue that already has one, stop. Route the new job through the existing queue's dispatcher (or create one). The old "multiple processors share a queue" pattern in `CLAUDE.md` predates this discovery and should be read as "one dispatcher owns the queue, multiple handlers route via job name".
+
+**Related**: `docs/architecture/event-job-catalog.md` lists every job → queue mapping; use it to audit queues with ≥2 `@Processor` classes when you next touch the worker.
+
 ## DZ-Wellbeing-1: Prisma `@map` Enum Values Silently Fail Lying Casts
 
 **Risk**: Prisma enums that use `@map("legacy_value")` export the TypeScript-side name (e.g. `pc_active`), not the DB value. Writing `where: { status: filters.status as $Enums.PastoralInterventionStatus }` with `filters.status === 'active'` passes `'active'` to the Prisma client, which compares it to its own enum member list (`pc_active, achieved, …`) and throws `PrismaClientValidationError: Invalid value for argument status. Expected PastoralInterventionStatus`. The lie only surfaces at runtime — TypeScript's cast suppresses the compile-time check.

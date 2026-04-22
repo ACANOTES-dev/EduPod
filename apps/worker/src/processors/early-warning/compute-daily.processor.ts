@@ -1,5 +1,4 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
@@ -10,7 +9,6 @@ import {
   EARLY_WARNING_COMPUTE_DAILY_JOB,
 } from '@school/shared/early-warning';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 import {
@@ -30,18 +28,16 @@ export interface ComputeDailyPayload extends TenantJobPayload {
 }
 
 // ─── Processor ──────────────────────────────────────────────────────────────
+//
+// NOTE: This class is a handler, not a BullMQ worker. The queue's `@Processor`
+// lives on `EarlyWarningProcessor` (the dispatcher); this class is invoked by
+// name from there. See `early-warning.processor.ts` for why.
 
-@Processor(QUEUE_NAMES.EARLY_WARNING, {
-  lockDuration: 300_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class ComputeDailyProcessor extends WorkerHost {
+@Injectable()
+export class ComputeDailyProcessor {
   private readonly logger = new Logger(ComputeDailyProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<ComputeDailyPayload>): Promise<void> {
     if (job.name !== EARLY_WARNING_COMPUTE_DAILY_JOB) {

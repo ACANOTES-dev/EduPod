@@ -50,6 +50,7 @@ import { DeadlineCheckProcessor } from './processors/compliance/deadline-check.p
 import { RetentionEnforcementProcessor } from './processors/compliance/retention-enforcement.processor';
 import { ComputeDailyProcessor } from './processors/early-warning/compute-daily.processor';
 import { ComputeStudentProcessor } from './processors/early-warning/compute-student.processor';
+import { EarlyWarningProcessor } from './processors/early-warning/early-warning.processor';
 import { WeeklyDigestProcessor } from './processors/early-warning/weekly-digest.processor';
 import { CancelEventProcessor } from './processors/engagement/cancel-event.processor';
 import { ChaseOutstandingProcessor } from './processors/engagement/chase-outstanding.processor';
@@ -532,7 +533,9 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     HomeworkGenerateRecurringProcessor,
     HomeworkDigestProcessor,
     HomeworkCompletionReminderProcessor,
-    // Early Warning queue processors
+    // Early Warning queue — one `@Processor` dispatcher routes by job name to
+    // these three handler services (see early-warning.processor.ts).
+    EarlyWarningProcessor,
     ComputeDailyProcessor,
     ComputeStudentProcessor,
     WeeklyDigestProcessor,
