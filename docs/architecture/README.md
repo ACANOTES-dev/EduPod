@@ -12,23 +12,25 @@ Living documentation for navigating and safely modifying the codebase at scale. 
 
 ## Files
 
-| File                                               | What it answers                                                                     |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| [module-blast-radius.md](module-blast-radius.md)   | "If I change module X, what else breaks?"                                           |
-| [event-job-catalog.md](event-job-catalog.md)       | "What happens after this BullMQ job runs? What chain does it trigger?"              |
-| [state-machines.md](state-machines.md)             | "What transitions are valid for this status field? What side effects do they have?" |
-| [danger-zones.md](danger-zones.md)                 | "Where are the non-obvious risks? What looks safe but isn't?"                       |
-| [pre-flight-checklist.md](pre-flight-checklist.md) | "What should I verify before and after making this change?"                         |
+| File                                                 | What it answers                                                                     |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [module-blast-radius.md](module-blast-radius.md)     | "If I change module X, what else breaks?"                                           |
+| [event-job-catalog.md](event-job-catalog.md)         | "What happens after this BullMQ job runs? What chain does it trigger?"              |
+| [state-machines.md](state-machines.md)               | "What transitions are valid for this status field? What side effects do they have?" |
+| [danger-zones.md](danger-zones.md)                   | "Where are the non-obvious risks? What looks safe but isn't?"                       |
+| [pre-flight-checklist.md](pre-flight-checklist.md)   | "What should I verify before and after making this change?"                         |
+| [server-infrastructure.md](server-infrastructure.md) | "Where does X run on the server? How do I restart / restore / rebuild it?"          |
 
 ## By Change Type
 
-| If you are changing...                                  | Start here                                         |
-| ------------------------------------------------------- | -------------------------------------------------- |
-| Module service interfaces or exported providers         | [module-blast-radius.md](module-blast-radius.md)   |
-| Background jobs, queue payloads, or worker side effects | [event-job-catalog.md](event-job-catalog.md)       |
-| Status fields, lifecycle transitions, approvals         | [state-machines.md](state-machines.md)             |
-| Cross-cutting risky areas or "looks safe" refactors     | [danger-zones.md](danger-zones.md)                 |
-| Any implementation at all                               | [pre-flight-checklist.md](pre-flight-checklist.md) |
+| If you are changing...                                  | Start here                                           |
+| ------------------------------------------------------- | ---------------------------------------------------- |
+| Module service interfaces or exported providers         | [module-blast-radius.md](module-blast-radius.md)     |
+| Background jobs, queue payloads, or worker side effects | [event-job-catalog.md](event-job-catalog.md)         |
+| Status fields, lifecycle transitions, approvals         | [state-machines.md](state-machines.md)               |
+| Cross-cutting risky areas or "looks safe" refactors     | [danger-zones.md](danger-zones.md)                   |
+| Any implementation at all                               | [pre-flight-checklist.md](pre-flight-checklist.md)   |
+| Server config, deploy flow, backups, or infra           | [server-infrastructure.md](server-infrastructure.md) |
 
 ## Maintenance Rules
 
