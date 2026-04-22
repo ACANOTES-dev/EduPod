@@ -1,7 +1,6 @@
 'use client';
 
-import { AlertTriangle, ArrowLeft, Plus, ShieldAlert } from 'lucide-react';
-import Link from 'next/link';
+import { AlertTriangle, Plus, ShieldAlert } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -368,14 +367,9 @@ export default function ExclusionListPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
+        back={{ href: `/${locale}/behaviour`, label: t('backToBehaviour') }}
         actions={
           <div className="flex items-center gap-2">
-            <Link href={`/${locale}/behaviour`}>
-              <Button variant="ghost">
-                <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-                {t('backToBehaviour')}
-              </Button>
-            </Link>
             <Button onClick={() => setOpenCaseDialogOpen(true)}>
               <Plus className="me-2 h-4 w-4" />
               {t('openCase.trigger')}

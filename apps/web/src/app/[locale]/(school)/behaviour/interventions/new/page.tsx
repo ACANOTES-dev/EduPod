@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable school/no-hand-rolled-forms -- legacy form; migrate to react-hook-form when touched (HR-025) */
 
-import { ArrowLeft, Plus, Search, Trash2, X } from 'lucide-react';
+import { Plus, Search, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -113,7 +113,9 @@ export default function CreateInterventionPage() {
         `/api/v1/behaviour/students?search=${encodeURIComponent(studentSearch)}&pageSize=10`,
       )
         .then((res) => setStudentResults(res.data ?? []))
-        .catch((err) => { console.error('[InterventionsNewPage]', err); });
+        .catch((err) => {
+          console.error('[InterventionsNewPage]', err);
+        });
     }, 300);
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -218,14 +220,7 @@ export default function CreateInterventionPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('title')}
-        actions={
-          <Link href={`/${locale}/behaviour/interventions`}>
-            <Button variant="outline">
-              <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-              {t('back')}
-            </Button>
-          </Link>
-        }
+        back={{ href: `/${locale}/behaviour/interventions`, label: t('back') }}
       />
 
       <form onSubmit={handleSubmit} className="mx-auto max-w-3xl space-y-6">

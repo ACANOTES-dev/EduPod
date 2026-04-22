@@ -60,7 +60,9 @@ export default function NewPastoralReferralPage() {
           setCases(response.data ?? []);
         }
       })
-      .catch((err) => { console.error('[ReferralsNewPage]', err); });
+      .catch((err) => {
+        console.error('[ReferralsNewPage]', err);
+      });
 
     return () => {
       cancelled = true;
@@ -90,7 +92,9 @@ export default function NewPastoralReferralPage() {
           ]);
         }
       })
-      .catch((err) => { console.error('[ReferralsNewPage]', err); });
+      .catch((err) => {
+        console.error('[ReferralsNewPage]', err);
+      });
 
     return () => {
       cancelled = true;
@@ -138,7 +142,11 @@ export default function NewPastoralReferralPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/pastoral/referrals`, label: 'Back' }}
+      />
 
       <form
         onSubmit={handleSubmit}

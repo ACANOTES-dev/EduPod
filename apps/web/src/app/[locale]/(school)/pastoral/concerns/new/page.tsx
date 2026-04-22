@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowLeft, Save } from 'lucide-react';
-import Link from 'next/link';
+import { Save } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -175,14 +174,7 @@ export default function NewPastoralConcernPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
-        actions={
-          <Link href={`/${locale}/pastoral/concerns`}>
-            <Button variant="ghost">
-              <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-              {sharedT('backToConcerns')}
-            </Button>
-          </Link>
-        }
+        back={{ href: `/${locale}/pastoral/concerns`, label: sharedT('backToConcerns') }}
       />
 
       <form

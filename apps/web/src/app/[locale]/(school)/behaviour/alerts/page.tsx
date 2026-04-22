@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertTriangle, Check, CheckCircle, Clock, Eye, Info, Shield } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -31,6 +32,8 @@ const TAB_KEYS = ['all', 'unseen', 'acknowledged', 'snoozed', 'resolved'] as con
 
 export default function BehaviourAlertsPage() {
   const t = useTranslations('behaviour.alerts');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const [alerts, setAlerts] = React.useState<AlertItem[]>([]);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
@@ -92,7 +95,11 @@ export default function BehaviourAlertsPage() {
 
   return (
     <div className="flex-1 min-w-0 overflow-x-hidden p-4 md:p-6 space-y-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/behaviour`, label: 'Back' }}
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto rounded-lg border bg-muted/30 p-1">

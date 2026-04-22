@@ -1,13 +1,11 @@
 'use client';
 
-import { AlertTriangle, ArrowLeft, User } from 'lucide-react';
-import Link from 'next/link';
+import { AlertTriangle, User } from 'lucide-react';
 import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Badge, Button } from '@school/ui';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -35,7 +33,6 @@ import { InterventionOverviewTab } from './_components/overview-tab';
 import { ReviewsTab } from './_components/reviews-tab';
 import { StatusTransitionDialog } from './_components/status-transition-dialog';
 import { TasksTab } from './_components/tasks-tab';
-
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -115,7 +112,10 @@ export default function InterventionDetailPage() {
         `/api/v1/behaviour/interventions/${interventionId}/reviews`,
       )
         .then((res) => setReviews(res.data ?? []))
-        .catch((err) => { console.error('[BehaviourInterventionsPage]', err); return setReviews([]); })
+        .catch((err) => {
+          console.error('[BehaviourInterventionsPage]', err);
+          return setReviews([]);
+        })
         .finally(() => setReviewsLoading(false));
     }
 
@@ -125,7 +125,10 @@ export default function InterventionDetailPage() {
         `/api/v1/behaviour/tasks?entity_type=intervention&entity_id=${interventionId}`,
       )
         .then((res) => setTasks(res.data ?? []))
-        .catch((err) => { console.error('[BehaviourInterventionsPage]', err); return setTasks([]); })
+        .catch((err) => {
+          console.error('[BehaviourInterventionsPage]', err);
+          return setTasks([]);
+        })
         .finally(() => setTasksLoading(false));
     }
 
@@ -135,7 +138,10 @@ export default function InterventionDetailPage() {
         `/api/v1/behaviour/interventions/${interventionId}/incidents`,
       )
         .then((res) => setLinkedIncidents(res.data ?? []))
-        .catch((err) => { console.error('[BehaviourInterventionsPage]', err); return setLinkedIncidents([]); })
+        .catch((err) => {
+          console.error('[BehaviourInterventionsPage]', err);
+          return setLinkedIncidents([]);
+        })
         .finally(() => setIncidentsLoading(false));
     }
 
@@ -145,7 +151,10 @@ export default function InterventionDetailPage() {
         `/api/v1/behaviour/interventions/${interventionId}/history`,
       )
         .then((res) => setHistory(res.data ?? []))
-        .catch((err) => { console.error('[BehaviourInterventionsPage]', err); return setHistory([]); })
+        .catch((err) => {
+          console.error('[BehaviourInterventionsPage]', err);
+          return setHistory([]);
+        })
         .finally(() => setHistoryLoading(false));
     }
   }, [
@@ -241,7 +250,10 @@ export default function InterventionDetailPage() {
   if (!intervention) {
     return (
       <div className="space-y-6">
-        <PageHeader title={t('notFound')} />
+        <PageHeader
+          title={t('notFound')}
+          back={{ href: `/${locale}/behaviour/interventions`, label: t('back') }}
+        />
         <p className="text-sm text-text-tertiary">{t('notFoundDescription')}</p>
       </div>
     );
@@ -255,6 +267,7 @@ export default function InterventionDetailPage() {
     <div className="space-y-6">
       <PageHeader
         title={intervention.title}
+        back={{ href: `/${locale}/behaviour/interventions`, label: t('back') }}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -266,12 +279,6 @@ export default function InterventionDetailPage() {
             >
               {t('changeStatus')}
             </Button>
-            <Link href={`/${locale}/behaviour/interventions`}>
-              <Button variant="ghost">
-                <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-                {t('back')}
-              </Button>
-            </Link>
           </div>
         }
       />

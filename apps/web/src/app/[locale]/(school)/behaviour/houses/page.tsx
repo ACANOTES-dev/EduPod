@@ -2,6 +2,7 @@
 
 import { Trophy, Users } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -28,6 +29,8 @@ interface HouseStanding {
 
 export default function BehaviourHousesPage() {
   const t = useTranslations('behaviour.houses');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const [houses, setHouses] = React.useState<HouseStanding[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState('');
@@ -56,7 +59,11 @@ export default function BehaviourHousesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/behaviour`, label: 'Back' }}
+      />
 
       {loadError && (
         <div className="rounded-xl border border-danger-300 bg-danger-50 p-4">

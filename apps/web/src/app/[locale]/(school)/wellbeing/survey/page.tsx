@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowLeft, CheckCircle2, ChevronDown, ClipboardList, ShieldCheck } from 'lucide-react';
-import Link from 'next/link';
+import { CheckCircle2, ChevronDown, ClipboardList, ShieldCheck } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -259,15 +258,8 @@ export default function SurveyPage() {
       })
     : '';
 
-  const backLink = (
-    <Link
-      href={`/${locale}/wellbeing/staff#surveys`}
-      className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
-    >
-      <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
-      {tStaff('backToHub')}
-    </Link>
-  );
+  const backHref = `/${locale}/wellbeing/staff#surveys`;
+  const backLabel = tStaff('backToHub');
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -290,8 +282,7 @@ export default function SurveyPage() {
   if (!survey) {
     return (
       <div className="space-y-6">
-        {backLink}
-        <PageHeader title={t('title')} />
+        <PageHeader title={t('title')} back={{ href: backHref, label: backLabel }} />
         <div className="flex flex-col items-center gap-4 py-16">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-secondary">
             <ClipboardList className="h-8 w-8 text-text-tertiary" />
@@ -306,8 +297,7 @@ export default function SurveyPage() {
   if (hasResponded || submitError === 'already_responded') {
     return (
       <div className="space-y-6">
-        {backLink}
-        <PageHeader title={t('title')} />
+        <PageHeader title={t('title')} back={{ href: backHref, label: backLabel }} />
         <div className="mx-auto max-w-lg">
           <div className="rounded-xl border border-border bg-surface p-6 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
@@ -336,8 +326,7 @@ export default function SurveyPage() {
   if (submitError === 'closed') {
     return (
       <div className="space-y-6">
-        {backLink}
-        <PageHeader title={t('title')} />
+        <PageHeader title={t('title')} back={{ href: backHref, label: backLabel }} />
         <div className="mx-auto max-w-lg">
           <div className="rounded-xl border border-border bg-surface p-6 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-surface-secondary">
@@ -355,8 +344,7 @@ export default function SurveyPage() {
 
   return (
     <div className="space-y-6">
-      {backLink}
-      <PageHeader title={t('title')} />
+      <PageHeader title={t('title')} back={{ href: backHref, label: backLabel }} />
 
       {/* Anonymity explanation panel */}
       <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 sm:p-5">

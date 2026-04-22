@@ -157,7 +157,11 @@ export default function BehaviourStudentsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/behaviour`, label: 'Back' }}
+      />
 
       <DataTable
         columns={columns}

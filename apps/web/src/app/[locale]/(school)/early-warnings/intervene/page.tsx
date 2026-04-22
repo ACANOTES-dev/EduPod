@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, ArrowLeft, ClipboardList, Flame, TriangleAlert } from 'lucide-react';
+import { AlertCircle, ClipboardList, Flame, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -69,14 +69,7 @@ export default function EarlyWarningsIntervenePage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
-        actions={
-          <Link href={`/${locale}/early-warnings`}>
-            <Button variant="outline">
-              <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-              {t('back')}
-            </Button>
-          </Link>
-        }
+        back={{ href: `/${locale}/early-warnings`, label: t('back') }}
       />
 
       {error && (

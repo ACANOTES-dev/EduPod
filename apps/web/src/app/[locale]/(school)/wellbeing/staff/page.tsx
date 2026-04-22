@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -16,6 +17,8 @@ import { SurveysSection } from './_components/surveys-section';
 
 export default function StaffWellbeingPage() {
   const t = useTranslations('wellbeingStaff');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { hasAnyRole } = useRoleCheck();
 
   const isAdmin = hasAnyRole('school_owner', 'school_principal', 'school_vice_principal', 'admin');
@@ -34,7 +37,11 @@ export default function StaffWellbeingPage() {
 
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden p-4 md:p-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/wellbeing`, label: 'Back' }}
+      />
 
       <InPageNav sections={sections} />
 

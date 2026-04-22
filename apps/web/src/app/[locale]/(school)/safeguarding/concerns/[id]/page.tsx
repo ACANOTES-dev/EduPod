@@ -2,7 +2,6 @@
 
 import {
   AlertTriangle,
-  ArrowLeft,
   CheckCircle2,
   Clock,
   FileDown,
@@ -123,7 +122,11 @@ export default function SafeguardingConcernDetailPage() {
   if (!canView) {
     return (
       <div className="flex min-w-0 flex-col gap-6 pb-10">
-        <PageHeader title={t('title')} description={t('description')} />
+        <PageHeader
+          title={t('title')}
+          description={t('description')}
+          back={{ href: `/${locale}/safeguarding/concerns`, label: t('backToList') }}
+        />
         <section className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-surface px-6 py-12 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700">
             <Lock className="h-6 w-6" />
@@ -143,7 +146,11 @@ export default function SafeguardingConcernDetailPage() {
   if (error) {
     return (
       <div className="flex min-w-0 flex-col gap-6 pb-10">
-        <PageHeader title={t('title')} description={t('description')} />
+        <PageHeader
+          title={t('title')}
+          description={t('description')}
+          back={{ href: `/${locale}/safeguarding/concerns`, label: t('backToList') }}
+        />
         <section className="flex flex-col gap-3 rounded-2xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-700">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -165,7 +172,11 @@ export default function SafeguardingConcernDetailPage() {
   if (isLoading || !concern) {
     return (
       <div className="flex min-w-0 flex-col gap-6 pb-10">
-        <PageHeader title={t('title')} description={t('description')} />
+        <PageHeader
+          title={t('title')}
+          description={t('description')}
+          back={{ href: `/${locale}/safeguarding/concerns`, label: t('backToList') }}
+        />
         <section className="space-y-3 rounded-2xl border border-border bg-surface p-6">
           <div className="h-4 w-1/3 animate-pulse rounded bg-border/40" />
           <div className="h-3 w-2/3 animate-pulse rounded bg-border/30" />
@@ -187,15 +198,7 @@ export default function SafeguardingConcernDetailPage() {
       <PageHeader
         title={`${concern.concern_number}`}
         description={t('description')}
-        actions={
-          <Link
-            href={`/${locale}/safeguarding/concerns`}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-surface-secondary"
-          >
-            <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
-            {t('backToList')}
-          </Link>
-        }
+        back={{ href: `/${locale}/safeguarding/concerns`, label: t('backToList') }}
       />
 
       {isSealed && (

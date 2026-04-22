@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -346,7 +346,10 @@ export default function ExclusionDetailPage() {
   if (!exclusion) {
     return (
       <div className="space-y-6">
-        <PageHeader title={t('notFound')} />
+        <PageHeader
+          title={t('notFound')}
+          back={{ href: `/${locale}/behaviour/exclusions`, label: t('backToList') }}
+        />
         <p className="text-sm text-text-tertiary">{t('notFoundDescription')}</p>
       </div>
     );
@@ -364,6 +367,7 @@ export default function ExclusionDetailPage() {
       {/* Header */}
       <PageHeader
         title={`Exclusion ${exclusion.case_number}`}
+        back={{ href: `/${locale}/behaviour/exclusions`, label: t('backToList') }}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {canOverturn && (
@@ -371,12 +375,6 @@ export default function ExclusionDetailPage() {
                 {t('actions.overturn')}
               </Button>
             )}
-            <Link href={`/${locale}/behaviour/exclusions`}>
-              <Button variant="ghost">
-                <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-                {t('backToList')}
-              </Button>
-            </Link>
           </div>
         }
       />

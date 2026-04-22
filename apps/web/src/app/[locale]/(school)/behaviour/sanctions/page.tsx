@@ -438,6 +438,7 @@ export default function SanctionListPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
+        back={{ href: `/${locale}/behaviour`, label: 'Back' }}
         actions={
           <div className="flex items-center gap-2">
             <Link href={`/${locale}/behaviour/sanctions/today`}>

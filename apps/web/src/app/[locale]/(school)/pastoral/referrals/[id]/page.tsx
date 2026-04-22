@@ -154,6 +154,7 @@ export default function PastoralReferralDetailPage() {
         description={t('description', {
           type: translatePastoralType((k) => t(k as never), 'types', referral.referral_type),
         })}
+        back={{ href: `/${locale}/pastoral/referrals`, label: 'Back' }}
         actions={
           referral.case ? (
             <Link href={`/${locale}/pastoral/cases/${referral.case.id}`}>

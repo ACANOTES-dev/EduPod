@@ -149,6 +149,7 @@ export default function CheckinFlaggedQueuePage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
+        back={{ href: `/${locale}/pastoral/checkins`, label: 'Back' }}
         actions={
           <Link href={`/${locale}/pastoral/checkins`}>
             <Button variant="outline">{t('viewAllCheckins')}</Button>

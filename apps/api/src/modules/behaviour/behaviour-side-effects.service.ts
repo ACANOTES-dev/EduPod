@@ -13,7 +13,7 @@ interface ParentNotificationPayload {
 interface PolicyEvaluationPayload {
   tenant_id: string;
   incident_id: string;
-  trigger: 'incident_created' | 'participant_added';
+  trigger: 'incident_created' | 'participant_added' | 'backfill';
   triggered_at: string;
 }
 

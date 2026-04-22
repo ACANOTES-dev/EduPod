@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowLeft, CheckCircle, Eye, Send } from 'lucide-react';
-import Link from 'next/link';
+import { CheckCircle, Eye, Send } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -358,14 +357,7 @@ export default function AmendmentListPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
-        actions={
-          <Link href={`/${locale}/behaviour`}>
-            <Button variant="ghost">
-              <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-              {t('back')}
-            </Button>
-          </Link>
-        }
+        back={{ href: `/${locale}/behaviour`, label: t('back') }}
       />
 
       {/* Tabs */}

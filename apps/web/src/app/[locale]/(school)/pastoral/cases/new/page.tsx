@@ -78,7 +78,9 @@ export default function NewPastoralCasePage() {
         ]);
         setSelectedConcernIds([response.data.id]);
       })
-      .catch((err) => { console.error('[CasesNewPage]', err); });
+      .catch((err) => {
+        console.error('[CasesNewPage]', err);
+      });
 
     return () => {
       cancelled = true;
@@ -184,7 +186,11 @@ export default function NewPastoralCasePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/pastoral/cases`, label: 'Back' }}
+      />
 
       <form
         onSubmit={handleSubmit}

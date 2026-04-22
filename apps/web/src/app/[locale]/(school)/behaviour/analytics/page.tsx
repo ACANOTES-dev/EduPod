@@ -2,6 +2,7 @@
 
 import { Activity, ArrowDown, ArrowUp, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import {
@@ -19,6 +20,7 @@ import {
 
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
+import { InfoTooltip } from '@/components/info-tooltip';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
@@ -103,6 +105,8 @@ interface StaffEntry {
 
 export default function BehaviourAnalyticsPage() {
   const t = useTranslations('behaviour.analytics');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const [pulse, setPulse] = React.useState<PulseResult | null>(null);
   const [overview, setOverview] = React.useState<OverviewResult | null>(null);
   const [trends, setTrends] = React.useState<TrendPoint[]>([]);
@@ -182,7 +186,11 @@ export default function BehaviourAnalyticsPage() {
   if (loading) {
     return (
       <div className="p-4 md:p-6">
-        <PageHeader title={t('title')} description={t('description')} />
+        <PageHeader
+          title={t('title')}
+          description={t('description')}
+          back={{ href: `/${locale}/behaviour`, label: 'Back' }}
+        />
         <div className="mt-6 flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
@@ -193,7 +201,11 @@ export default function BehaviourAnalyticsPage() {
   return (
     <div className="flex-1 min-w-0 overflow-x-hidden p-4 md:p-6 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <PageHeader title={t('title')} description={t('description')} />
+        <PageHeader
+          title={t('title')}
+          description={t('description')}
+          back={{ href: `/${locale}/behaviour`, label: 'Back' }}
+        />
         <div className="flex items-center gap-2">
           <Select value={dateRange} onValueChange={setDateRange}>
             <SelectTrigger className="w-[140px]">
@@ -214,6 +226,13 @@ export default function BehaviourAnalyticsPage() {
             <Activity className="me-1 h-4 w-4" />
             {exposureNormalised ? t('normalised') : t('raw')}
           </Button>
+          <InfoTooltip
+            content={
+              exposureNormalised
+                ? 'Normalised: counts are scaled per-student-per-month so a small class can be compared fairly to a large one.'
+                : 'Raw: absolute counts — useful for totals, not for comparing cohorts of different sizes.'
+            }
+          />
           <Link href="/behaviour/analytics/ai">
             <Button variant="outline" size="sm">
               {t('aiQuery')}
@@ -267,6 +286,7 @@ export default function BehaviourAnalyticsPage() {
             title={t('cards.totalIncidents')}
             value={overview.total_incidents}
             delta={overview.delta_percent}
+            tooltip="Every behaviour incident logged within the selected date range. Delta compares the period against the one immediately before."
           />
           <OverviewCard
             title={t('cards.positiveRatio')}
@@ -276,10 +296,19 @@ export default function BehaviourAnalyticsPage() {
                 : '—'
             }
             trend={overview.ratio_trend}
+            tooltip="Positive recognitions divided by the sum of positive and negative incidents. Trend shows whether the balance is shifting toward praise or discipline."
           />
-          <OverviewCard title={t('cards.openFollowUps')} value={overview.open_follow_ups} />
+          <OverviewCard
+            title={t('cards.openFollowUps')}
+            value={overview.open_follow_ups}
+            tooltip="Follow-up tasks on incidents that are still not marked complete — a proxy for unresolved behaviour work."
+          />
           <Link href="/behaviour/alerts" className="contents">
-            <OverviewCard title={t('cards.activeAlerts')} value={overview.active_alerts} />
+            <OverviewCard
+              title={t('cards.activeAlerts')}
+              value={overview.active_alerts}
+              tooltip="Automated behaviour alerts (streaks, escalations, repeat incidents) currently unseen or unacknowledged."
+            />
           </Link>
         </div>
       )}
@@ -511,16 +540,21 @@ function OverviewCard({
   value,
   delta,
   trend,
+  tooltip,
 }: {
   title: string;
   value: number | string;
   delta?: number | null;
   trend?: string | null;
+  tooltip?: string;
 }) {
   const t = useTranslations('behaviour.analytics');
   return (
     <div className="rounded-lg border bg-card p-4">
-      <div className="text-sm text-muted-foreground">{title}</div>
+      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+        <span>{title}</span>
+        {tooltip && <InfoTooltip content={tooltip} />}
+      </div>
       <div className="mt-1 text-2xl font-bold">{value}</div>
       {delta !== undefined && delta !== null && (
         <div

@@ -1,7 +1,7 @@
 'use client';
 
 import { RotateCw, Save, Sparkles } from 'lucide-react';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -35,6 +35,8 @@ import { AgendaPanel } from './_components/agenda-panel';
 
 export default function SstMeetingDetailPage() {
   const t = useTranslations('pastoral.sstDetail');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const tAi = useTranslations('aiFeatures.sst');
   const sharedT = useTranslations('pastoral.shared');
   const aiFlag = useAiFlag('pastoral');
@@ -106,6 +108,7 @@ export default function SstMeetingDetailPage() {
       <PageHeader
         title={t('title', { date: formatDateTime(meeting.scheduled_at) })}
         description={t('description', { status: t(`status.${displayStatus}` as never) })}
+        back={{ href: `/${locale}/pastoral/sst`, label: 'Back' }}
         actions={
           <div className="flex flex-wrap gap-2">
             {aiVisible ? (

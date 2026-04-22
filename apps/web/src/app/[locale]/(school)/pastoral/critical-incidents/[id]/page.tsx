@@ -1,9 +1,8 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { PastoralCriticalIncidentStatusBadge } from '@/components/pastoral/pastoral-badges';
@@ -34,7 +33,6 @@ import {
   StatusPanel,
 } from './_components/sidebar-panels';
 
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PLAN_PHASES = ['immediate', 'short_term', 'medium_term', 'long_term'] as const;
@@ -52,6 +50,8 @@ export default function PastoralCriticalIncidentDetailPage() {
   const t = useTranslations('pastoral.criticalIncidentDetail');
   const params = useParams();
   const incidentId = params?.id as string;
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [incident, setIncident] = React.useState<PastoralCriticalIncidentDetail | null>(null);
   const [progress, setProgress] = React.useState<PastoralCriticalIncidentResponsePlanProgress[]>(
@@ -205,6 +205,7 @@ export default function PastoralCriticalIncidentDetailPage() {
       <PageHeader
         title={t('title', { type: t(`types.${normalizedType}` as never) })}
         description={t('description', { date: formatDate(incident.occurred_at) })}
+        back={{ href: `/${locale}/pastoral/critical-incidents`, label: 'Back' }}
       />
 
       {/* Header stats */}

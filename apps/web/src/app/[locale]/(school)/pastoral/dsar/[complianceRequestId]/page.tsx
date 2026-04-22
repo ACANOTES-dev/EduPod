@@ -223,6 +223,7 @@ export default function PastoralDsarDetailPage() {
           id: complianceRequestId.slice(0, 8).toUpperCase(),
         })}
         description={t('detailDescription')}
+        back={{ href: `/${locale}/pastoral/dsar`, label: 'Back' }}
       />
 
       {summary ? (

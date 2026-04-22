@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable school/no-hand-rolled-forms -- legacy form; migrate to react-hook-form when touched (HR-025) */
 
-import { ArrowLeft, Search, Sparkles, X } from 'lucide-react';
+import { Search, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -253,6 +253,7 @@ export default function CreateIncidentPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('title')}
+        back={{ href: `/${locale}/behaviour/incidents`, label: t('back') }}
         actions={
           <div className="flex flex-wrap gap-2">
             {aiVisible && (
@@ -269,12 +270,6 @@ export default function CreateIncidentPage() {
                 {tAi('trigger')}
               </Button>
             )}
-            <Link href={`/${locale}/behaviour/incidents`}>
-              <Button variant="outline">
-                <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-                {t('back')}
-              </Button>
-            </Link>
           </div>
         }
       />

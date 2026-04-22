@@ -17,7 +17,7 @@ import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 export interface EvaluatePolicyPayload extends TenantJobPayload {
   incident_id: string;
-  trigger: 'incident_created' | 'participant_added';
+  trigger: 'incident_created' | 'participant_added' | 'backfill';
   triggered_at: string;
 }
 

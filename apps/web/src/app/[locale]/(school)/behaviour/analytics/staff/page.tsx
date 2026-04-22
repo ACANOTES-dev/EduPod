@@ -1,12 +1,11 @@
 'use client';
 
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Button, Input, Label } from '@school/ui';
 
+import { InfoTooltip } from '@/components/info-tooltip';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
@@ -59,16 +58,11 @@ export default function BehaviourAnalyticsStaffPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link
-          href={`/${locale}/behaviour/analytics`}
-          className="inline-flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          {t('backToAnalytics')}
-        </Link>
-      </div>
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/behaviour/analytics`, label: t('backToAnalytics') }}
+      />
 
       <div className="flex flex-wrap gap-3">
         <div className="space-y-1.5">
@@ -105,16 +99,28 @@ export default function BehaviourAnalyticsStaffPage() {
                   {t('staff')}
                 </th>
                 <th className="px-3 py-2 text-end text-xs font-medium text-text-secondary">
-                  Last 7 days
+                  <span className="inline-flex items-center gap-1">
+                    Last 7 days
+                    <InfoTooltip content="Incidents this staff member logged in the last 7 days." />
+                  </span>
                 </th>
                 <th className="px-3 py-2 text-end text-xs font-medium text-text-secondary">
-                  Last 30 days
+                  <span className="inline-flex items-center gap-1">
+                    Last 30 days
+                    <InfoTooltip content="Incidents this staff member logged in the last 30 days." />
+                  </span>
                 </th>
                 <th className="px-3 py-2 text-end text-xs font-medium text-text-secondary">
-                  Year total
+                  <span className="inline-flex items-center gap-1">
+                    Year total
+                    <InfoTooltip content="Total incidents this staff member has logged across the current academic year." />
+                  </span>
                 </th>
                 <th className="px-3 py-2 text-start text-xs font-medium text-text-secondary">
-                  Last logged
+                  <span className="inline-flex items-center gap-1">
+                    Last logged
+                    <InfoTooltip content="Most recent occurred_at among incidents this staff member authored — flags inactive loggers." />
+                  </span>
                 </th>
               </tr>
             </thead>

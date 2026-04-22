@@ -2,6 +2,7 @@
 
 import { Check, Plus, Settings2, X } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -33,6 +34,8 @@ interface PoliciesResponse {
 
 export default function BehaviourPoliciesPage() {
   const t = useTranslations('behaviour.policies');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const [rules, setRules] = React.useState<PolicyRule[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState('');
@@ -81,6 +84,7 @@ export default function BehaviourPoliciesPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
+        back={{ href: `/${locale}/behaviour`, label: 'Back' }}
         actions={
           <Link href="/settings/behaviour-policies">
             <Button variant="outline" size="sm">

@@ -20,6 +20,7 @@ import * as React from 'react';
 
 import { Button, StatCard } from '@school/ui';
 
+import { InfoTooltip } from '@/components/info-tooltip';
 import { PageHeader } from '@/components/page-header';
 import { PastoralSeverityBadge, PastoralTierBadge } from '@/components/pastoral/pastoral-badges';
 import { apiClient } from '@/lib/api-client';
@@ -173,27 +174,45 @@ export default function PastoralOverviewPage() {
       />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <StatCard
-          label={t('stats.recentConcerns')}
-          value={recentConcerns.length}
-          className="border-emerald-200 bg-emerald-50/70"
-        />
-        <StatCard
-          label={t('stats.urgentReview')}
-          value={urgentCount}
-          className="border-amber-200 bg-amber-50/70"
-        />
-        <StatCard
-          label={t('stats.immediateAttention')}
-          value={criticalCount}
-          className="border-rose-200 bg-rose-50/70"
-        />
+        <div className="relative">
+          <StatCard
+            label={t('stats.recentConcerns')}
+            value={recentConcerns.length}
+            className="border-emerald-200 bg-emerald-50/70"
+          />
+          <div className="absolute end-3 top-3">
+            <InfoTooltip content="Concerns logged in the last 7 days across all pastoral tiers — your scan of new activity." />
+          </div>
+        </div>
+        <div className="relative">
+          <StatCard
+            label={t('stats.urgentReview')}
+            value={urgentCount}
+            className="border-amber-200 bg-amber-50/70"
+          />
+          <div className="absolute end-3 top-3">
+            <InfoTooltip content="Urgent-tier concerns that no one has acknowledged yet. SLA clock is running — these need a DSL or head-of-year eyes." />
+          </div>
+        </div>
+        <div className="relative">
+          <StatCard
+            label={t('stats.immediateAttention')}
+            value={criticalCount}
+            className="border-rose-200 bg-rose-50/70"
+          />
+          <div className="absolute end-3 top-3">
+            <InfoTooltip content="Critical-tier concerns waiting for acknowledgement. Highest priority — immediate safeguarding lead response required." />
+          </div>
+        </div>
       </div>
 
       <section className="rounded-3xl border border-border bg-surface p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-text-primary">{t('workflowLanesTitle')}</h2>
+            <h2 className="inline-flex items-center gap-1 text-lg font-semibold text-text-primary">
+              {t('workflowLanesTitle')}
+              <InfoTooltip content="Each lane is a different pastoral workflow — concerns, cases, interventions, referrals, critical incidents. Click through to see the queue for that workflow." />
+            </h2>
             <p className="mt-1 text-sm text-text-secondary">{t('workflowLanesDescription')}</p>
           </div>
         </div>

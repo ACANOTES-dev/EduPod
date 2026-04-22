@@ -9412,11 +9412,23 @@
       "pts": "pts",
       "cancel": "Cancel",
       "notFound": "Incident not found.",
-      "placeholders": {
-        "attachments": "Attachments will appear here once the attachments workflow ships.",
-        "comingSoon": "Coming soon.",
-        "policyEvaluation": "Policy evaluation will appear here once the policy engine UI ships.",
-        "sanctions": "Sanctions will appear here once the sanctions workflow ships."
+      "sanctionsPanel": {
+        "title": "Sanctions",
+        "logOne": "Log sanction",
+        "empty": "No sanctions have been issued for this incident.",
+        "viewAll": "View all {count} sanctions"
+      },
+      "policyPanel": {
+        "title": "Policy evaluation",
+        "notYetEvaluated": "No policy evaluation on record for this incident yet.",
+        "autoEvalNote": "New incidents are evaluated automatically against active policy rules.",
+        "stageName": "{stage}",
+        "matched": "Matched",
+        "noMatch": "No match",
+        "notRun": "not run",
+        "rule": "Rule: {name} (v{version})",
+        "actions": "{count, plural, one {# action executed} other {# actions executed}}",
+        "evaluatedAgainst": "Evaluated against {count, plural, one {# rule} other {# rules}}"
       },
       "sections": {
         "contextNotes": "Context notes",

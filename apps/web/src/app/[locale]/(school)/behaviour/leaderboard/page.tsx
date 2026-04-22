@@ -1,6 +1,7 @@
 'use client';
 
 import { Award, Trophy } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -34,6 +35,8 @@ type Scope = 'year' | 'period' | 'all_time';
 
 export default function BehaviourLeaderboardPage() {
   const t = useTranslations('behaviour.leaderboard');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const [scope, setScope] = React.useState<Scope>('year');
   const [yearId, setYearId] = React.useState<string>('current');
   const [academicYears, setAcademicYears] = React.useState<AcademicYear[]>([]);
@@ -72,7 +75,11 @@ export default function BehaviourLeaderboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/behaviour`, label: 'Back' }}
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">

@@ -270,6 +270,7 @@ export default function IncidentListPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('title')}
+        back={{ href: `/${locale}/behaviour`, label: 'Back' }}
         actions={
           <Link href={`/${locale}/behaviour/incidents/new`}>
             <Button>

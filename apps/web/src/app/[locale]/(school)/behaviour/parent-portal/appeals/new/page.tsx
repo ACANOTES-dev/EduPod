@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
-import Link from 'next/link';
+import { CheckCircle2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -119,7 +118,10 @@ export default function ParentAppealNewPage() {
   if (submittedId) {
     return (
       <div className="mx-auto max-w-xl space-y-6 p-4 sm:p-6">
-        <PageHeader title={t('submittedTitle')} />
+        <PageHeader
+          title={t('submittedTitle')}
+          back={{ href: `/${locale}/behaviour/parent-portal`, label: t('backToPortal') }}
+        />
         <div className="rounded-xl border border-success-200 bg-success-50 p-6 text-center">
           <CheckCircle2 className="mx-auto h-10 w-10 text-success-700" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium text-text-primary">{t('submittedBodyTitle')}</p>
@@ -138,15 +140,11 @@ export default function ParentAppealNewPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-6 p-4 sm:p-6">
-      <Link
-        href={`/${locale}/behaviour/parent-portal`}
-        className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary"
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        {t('backToPortal')}
-      </Link>
-
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/behaviour/parent-portal`, label: t('backToPortal') }}
+      />
 
       <div className="space-y-5 rounded-2xl border border-border bg-surface p-5 sm:p-6">
         {/* Student picker */}

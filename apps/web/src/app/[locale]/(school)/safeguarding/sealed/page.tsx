@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, ArrowLeft, ChevronRight, FolderLock, Lock, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ChevronRight, FolderLock, Lock, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -56,7 +56,11 @@ export default function SafeguardingSealedPage() {
   if (!canView) {
     return (
       <div className="flex min-w-0 flex-col gap-6 pb-10">
-        <PageHeader title={t('title')} description={t('description')} />
+        <PageHeader
+          title={t('title')}
+          description={t('description')}
+          back={{ href: `/${locale}/safeguarding`, label: tHub('denied.backToHub') }}
+        />
         <section className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-surface px-6 py-12 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700">
             <Lock className="h-6 w-6" />
@@ -78,15 +82,7 @@ export default function SafeguardingSealedPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
-        actions={
-          <Link
-            href={`/${locale}/safeguarding`}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-surface-secondary"
-          >
-            <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
-            {tHub('denied.backToHub')}
-          </Link>
-        }
+        back={{ href: `/${locale}/safeguarding`, label: tHub('denied.backToHub') }}
       />
 
       {/* Redaction notice */}

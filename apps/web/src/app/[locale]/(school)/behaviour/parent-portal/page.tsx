@@ -10,6 +10,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -78,6 +79,8 @@ const SANCTION_STATUS_CLASSES: Record<string, string> = {
 
 export default function ParentBehaviourPortalPage() {
   const t = useTranslations('behaviour.parentPortal');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const [summary, setSummary] = React.useState<ChildSummary[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState(false);
@@ -111,7 +114,11 @@ export default function ParentBehaviourPortalPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <PageHeader title={t('title')} description={t('description')} />
+        <PageHeader
+          title={t('title')}
+          description={t('description')}
+          back={{ href: `/${locale}/behaviour`, label: 'Back' }}
+        />
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-20 animate-pulse rounded-xl bg-surface-secondary" />
@@ -127,7 +134,11 @@ export default function ParentBehaviourPortalPage() {
   if (loadError) {
     return (
       <div className="space-y-6">
-        <PageHeader title={t('title')} description={t('description')} />
+        <PageHeader
+          title={t('title')}
+          description={t('description')}
+          back={{ href: `/${locale}/behaviour`, label: 'Back' }}
+        />
         <div className="rounded-xl border border-danger-200 bg-danger-50 p-6 text-center">
           <AlertCircle className="mx-auto h-8 w-8 text-danger-text" />
           <p className="mt-3 text-sm font-medium text-text-primary">{t('errorLoadingSummary')}</p>
@@ -152,7 +163,11 @@ export default function ParentBehaviourPortalPage() {
   if (summary.length === 0) {
     return (
       <div className="space-y-6">
-        <PageHeader title={t('title')} description={t('description')} />
+        <PageHeader
+          title={t('title')}
+          description={t('description')}
+          back={{ href: `/${locale}/behaviour`, label: 'Back' }}
+        />
         <div className="rounded-xl border border-border bg-surface py-16 text-center">
           <AlertCircle className="mx-auto h-10 w-10 text-text-tertiary/30" />
           <p className="mt-3 text-sm text-text-primary">{t('noChildren')}</p>
@@ -164,7 +179,11 @@ export default function ParentBehaviourPortalPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description="Stay informed about your child's behaviour" />
+      <PageHeader
+        title={t('title')}
+        description="Stay informed about your child's behaviour"
+        back={{ href: `/${locale}/behaviour`, label: 'Back' }}
+      />
 
       {/* Child tab selector */}
       {summary.length > 1 && (

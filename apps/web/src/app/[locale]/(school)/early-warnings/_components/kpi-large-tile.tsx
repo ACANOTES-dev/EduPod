@@ -4,6 +4,8 @@ import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 
+import { InfoTooltip } from '@/components/info-tooltip';
+
 // ─── Sparkline ────────────────────────────────────────────────────────────────
 
 function Sparkline({
@@ -113,6 +115,7 @@ interface KpiLargeTileProps {
     direction: 'up' | 'down' | 'flat';
     label: string;
   };
+  tooltip?: string;
 }
 
 export function KpiLargeTile({
@@ -125,6 +128,7 @@ export function KpiLargeTile({
   href,
   sparkline,
   delta,
+  tooltip,
 }: KpiLargeTileProps) {
   const cls = SEVERITY_CLASSES[severity];
   const base =
@@ -140,8 +144,9 @@ export function KpiLargeTile({
           >
             <Icon className="h-4 w-4" />
           </div>
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
             {label}
+            {tooltip && <InfoTooltip content={tooltip} />}
           </span>
         </div>
         {delta && !isLoading && (

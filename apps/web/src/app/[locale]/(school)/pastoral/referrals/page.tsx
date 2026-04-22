@@ -190,6 +190,7 @@ export default function PastoralReferralsPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
+        back={{ href: `/${locale}/pastoral`, label: 'Back' }}
         actions={
           <Link href={`/${locale}/pastoral/referrals/new`}>
             <Button>

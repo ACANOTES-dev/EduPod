@@ -227,14 +227,10 @@ export default function BehaviourDocumentDetailPage() {
 
   return (
     <div className="space-y-5">
-      <Button variant="ghost" size="sm" onClick={goBack}>
-        <ArrowLeft className="me-1 h-4 w-4 rtl:rotate-180" />
-        {t('back')}
-      </Button>
-
       <PageHeader
         title={tTypes(doc.document_type)}
         description={t('subtitle', { student: studentName })}
+        back={{ href: `/${locale}/behaviour/documents`, label: t('back') }}
         actions={<DocumentStatusBadge status={doc.status} />}
       />
 

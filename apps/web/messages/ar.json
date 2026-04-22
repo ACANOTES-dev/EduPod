@@ -9412,11 +9412,23 @@
       "pts": "[AR] pts",
       "cancel": "إلغاء",
       "notFound": "لم يتم العثور على الحادثة.",
-      "placeholders": {
-        "attachments": "ستظهر المرفقات هنا بمجرد توفر سير عمل المرفقات.",
-        "comingSoon": "قريبًا.",
-        "policyEvaluation": "سيظهر تقييم السياسة هنا بمجرد توفر واجهة محرك السياسات.",
-        "sanctions": "ستظهر العقوبات هنا بمجرد توفر سير عمل العقوبات."
+      "sanctionsPanel": {
+        "title": "العقوبات",
+        "logOne": "تسجيل عقوبة",
+        "empty": "لم يتم إصدار أي عقوبات لهذه الحادثة.",
+        "viewAll": "عرض جميع العقوبات ({count})"
+      },
+      "policyPanel": {
+        "title": "تقييم السياسة",
+        "notYetEvaluated": "لا يوجد تقييم سياسة مسجل لهذه الحادثة بعد.",
+        "autoEvalNote": "يتم تقييم الحوادث الجديدة تلقائيًا وفق قواعد السياسة النشطة.",
+        "stageName": "{stage}",
+        "matched": "مطابق",
+        "noMatch": "غير مطابق",
+        "notRun": "لم يُشغَّل",
+        "rule": "القاعدة: {name} (الإصدار {version})",
+        "actions": "{count, plural, one {تم تنفيذ # إجراء} other {تم تنفيذ # إجراءات}}",
+        "evaluatedAgainst": "تم التقييم مقابل {count, plural, one {# قاعدة} other {# قواعد}}"
       },
       "sections": {
         "contextNotes": "ملاحظات السياق",

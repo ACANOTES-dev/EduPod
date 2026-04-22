@@ -123,6 +123,7 @@ export default function PastoralConcernDetailPage() {
           student: concern.student_name,
           category: formatPastoralValue(concern.category),
         })}
+        back={{ href: `/${locale}/pastoral/concerns`, label: 'Back' }}
         actions={
           <div className="flex flex-wrap gap-2">
             {!concern.case_id ? (

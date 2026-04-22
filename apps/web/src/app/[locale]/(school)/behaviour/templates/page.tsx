@@ -2,6 +2,7 @@
 
 import { FileText, Plus, Settings2 } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -39,6 +40,8 @@ interface ListResponse<T> {
 
 export default function BehaviourTemplatesPage() {
   const t = useTranslations('behaviour.templates');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const [descriptionTemplates, setDescriptionTemplates] = React.useState<DescriptionTemplate[]>([]);
   const [documentTemplates, setDocumentTemplates] = React.useState<DocumentTemplate[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -77,6 +80,7 @@ export default function BehaviourTemplatesPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
+        back={{ href: `/${locale}/behaviour`, label: 'Back' }}
         actions={
           <Link href="/settings/behaviour-templates">
             <Button variant="outline" size="sm">

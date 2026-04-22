@@ -54,7 +54,9 @@ export default function NewCriticalIncidentPage() {
         setYearGroups(nextYearGroups);
         setClasses(nextClasses);
       })
-      .catch((err) => { console.error('[CriticalIncidentsNewPage]', err); });
+      .catch((err) => {
+        console.error('[CriticalIncidentsNewPage]', err);
+      });
   }, []);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -112,7 +114,11 @@ export default function NewCriticalIncidentPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/pastoral/critical-incidents`, label: 'Back' }}
+      />
 
       <form
         onSubmit={handleSubmit}

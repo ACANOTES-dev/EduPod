@@ -1,6 +1,7 @@
 'use client';
 
 import { Award, Check, X } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -45,6 +46,8 @@ interface PendingPublication {
 
 export default function ParentRecognitionWallPage() {
   const t = useTranslations('behaviour.parentRecognition');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const tPending = useTranslations('parentRecognition');
   const [items, setItems] = React.useState<RecognitionItem[]>([]);
   const [pending, setPending] = React.useState<PendingPublication[]>([]);
@@ -124,7 +127,11 @@ export default function ParentRecognitionWallPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/behaviour/parent-portal`, label: 'Back' }}
+      />
 
       {/* WB-C-25 — Pending parent-consent banner */}
       {pending.length > 0 && (

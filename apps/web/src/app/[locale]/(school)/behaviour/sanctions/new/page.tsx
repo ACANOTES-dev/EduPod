@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
@@ -119,16 +119,11 @@ export default function SanctionNewPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
-      <div>
-        <Link
-          href={`/${locale}/behaviour/sanctions`}
-          className="inline-flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          {t('backToList')}
-        </Link>
-      </div>
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/behaviour/sanctions`, label: t('backToList') }}
+      />
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
         <div className="rounded-2xl border border-border bg-surface p-5 sm:p-6">

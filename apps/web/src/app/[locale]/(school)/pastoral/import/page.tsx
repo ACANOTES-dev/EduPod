@@ -204,7 +204,11 @@ export default function PastoralImportPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/pastoral`, label: 'Back' }}
+      />
 
       <StepIndicator step={step} t={t} />
 

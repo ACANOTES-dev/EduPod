@@ -179,6 +179,7 @@ export default function PastoralInterventionListPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
+        back={{ href: `/${locale}/pastoral`, label: 'Back' }}
         actions={
           <Link href={`/${locale}/pastoral/interventions/new`}>
             <Button>

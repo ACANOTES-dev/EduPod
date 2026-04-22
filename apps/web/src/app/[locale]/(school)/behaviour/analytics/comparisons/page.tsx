@@ -1,12 +1,11 @@
 'use client';
 
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Button, Input, Label } from '@school/ui';
 
+import { InfoTooltip } from '@/components/info-tooltip';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
@@ -63,16 +62,11 @@ export default function BehaviourAnalyticsComparisonsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link
-          href={`/${locale}/behaviour/analytics`}
-          className="inline-flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          {t('backToAnalytics')}
-        </Link>
-      </div>
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/behaviour/analytics`, label: t('backToAnalytics') }}
+      />
 
       <div className="flex flex-wrap gap-3">
         <div className="space-y-1.5">
@@ -111,20 +105,25 @@ export default function BehaviourAnalyticsComparisonsPage() {
                 className="rounded-lg border border-border bg-surface px-4 py-3"
               >
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="text-sm font-medium text-text-primary">{r.year_group_name}</span>
-                  <span className="text-sm font-semibold text-text-primary">
+                  <span className="flex items-center gap-1 text-sm font-medium text-text-primary">
+                    {r.year_group_name}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-sm font-semibold text-text-primary">
                     {r.incident_rate !== null ? `${rate.toFixed(1)}%` : '—'}
+                    <InfoTooltip content="Incident rate for this year group — normalised per-student so cohorts of different sizes can be compared." />
                   </span>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-surface-secondary">
                   <div className="h-full bg-primary-500" style={{ width: `${pct}%` }} />
                 </div>
-                <div className="mt-1 flex gap-3 text-xs text-text-secondary">
-                  <span className="text-success-text">
+                <div className="mt-1 flex items-center gap-3 text-xs text-text-secondary">
+                  <span className="inline-flex items-center gap-1 text-success-text">
                     +{r.positive_rate !== null ? `${r.positive_rate.toFixed(1)}%` : '0'}
+                    <InfoTooltip content="Positive recognition rate — praise, merit, awards normalised per-student for this cohort." />
                   </span>
-                  <span className="text-danger-text">
+                  <span className="inline-flex items-center gap-1 text-danger-text">
                     -{r.negative_rate !== null ? `${r.negative_rate.toFixed(1)}%` : '0'}
+                    <InfoTooltip content="Negative incident rate — warnings, detentions, suspensions normalised per-student for this cohort." />
                   </span>
                   <span>· {r.student_count} students</span>
                 </div>

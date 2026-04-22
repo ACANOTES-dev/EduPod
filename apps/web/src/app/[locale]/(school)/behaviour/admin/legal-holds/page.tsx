@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowLeft, Lock, Plus, ShieldCheck, Unlock } from 'lucide-react';
-import Link from 'next/link';
+import { Lock, Plus, ShieldCheck, Unlock } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -106,19 +105,13 @@ export default function LegalHoldsPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
+        back={{ href: `/${locale}/behaviour/admin`, label: t('actions.backToAdmin') }}
         actions={
           <div className="flex items-center gap-2">
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus className="me-1.5 h-3.5 w-3.5" />
               {t('actions.create')}
             </Button>
-            <Link
-              href={`/${locale}/behaviour/admin`}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-surface-secondary"
-            >
-              <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
-              {t('actions.backToAdmin')}
-            </Link>
           </div>
         }
       />

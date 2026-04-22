@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowLeft, Clock, MapPin, User } from 'lucide-react';
-import Link from 'next/link';
+import { Clock, MapPin, User } from 'lucide-react';
 import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -27,6 +26,8 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format-date';
 
+import { IncidentPolicyPanel } from './_components/incident-policy-panel';
+import { IncidentSanctionsPanel } from './_components/incident-sanctions-panel';
 import { ParentAckTimeline } from './_components/parent-ack-timeline';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -183,7 +184,10 @@ export default function IncidentDetailPage() {
   if (!incident) {
     return (
       <div className="space-y-6">
-        <PageHeader title={t('notFound')} />
+        <PageHeader
+          title={t('notFound')}
+          back={{ href: `/${locale}/behaviour/incidents`, label: t('back') }}
+        />
         <p className="text-sm text-text-tertiary">{t('notFoundDescription')}</p>
       </div>
     );
@@ -193,18 +197,11 @@ export default function IncidentDetailPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('title', { number: incident.incident_number })}
+        back={{ href: `/${locale}/behaviour/incidents`, label: t('back') }}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" onClick={() => setTransitionOpen(true)}>
-              {t('changeStatus')}
-            </Button>
-            <Link href={`/${locale}/behaviour/incidents`}>
-              <Button variant="ghost">
-                <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-                {t('back')}
-              </Button>
-            </Link>
-          </div>
+          <Button variant="outline" onClick={() => setTransitionOpen(true)}>
+            {t('changeStatus')}
+          </Button>
         }
       />
 
@@ -406,29 +403,9 @@ export default function IncidentDetailPage() {
             </dl>
           </div>
 
-          {/* Placeholder: Sanctions */}
-          <div className="rounded-xl border border-dashed border-border bg-surface p-5">
-            <h3 className="text-sm font-semibold text-text-tertiary">
-              {t('placeholders.sanctions')}
-            </h3>
-            <p className="mt-1 text-xs text-text-tertiary">{t('placeholders.comingSoon')}</p>
-          </div>
+          <IncidentSanctionsPanel incidentId={incident.id} locale={locale} />
 
-          {/* Placeholder: Attachments */}
-          <div className="rounded-xl border border-dashed border-border bg-surface p-5">
-            <h3 className="text-sm font-semibold text-text-tertiary">
-              {t('placeholders.attachments')}
-            </h3>
-            <p className="mt-1 text-xs text-text-tertiary">{t('placeholders.comingSoon')}</p>
-          </div>
-
-          {/* Placeholder: Policy */}
-          <div className="rounded-xl border border-dashed border-border bg-surface p-5">
-            <h3 className="text-sm font-semibold text-text-tertiary">
-              {t('placeholders.policyEvaluation')}
-            </h3>
-            <p className="mt-1 text-xs text-text-tertiary">{t('placeholders.comingSoon')}</p>
-          </div>
+          <IncidentPolicyPanel incidentId={incident.id} />
         </div>
       </div>
 

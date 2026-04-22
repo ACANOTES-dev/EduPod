@@ -11,7 +11,7 @@ import {
   Trophy,
   XCircle,
 } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -90,6 +90,8 @@ type TabKey = (typeof TAB_KEYS)[number];
 
 export default function RecognitionWallPage() {
   const t = useTranslations('behaviour.recognition');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const searchParams = useSearchParams();
 
   const [activeTab, setActiveTab] = React.useState<TabKey>(
@@ -105,7 +107,11 @@ export default function RecognitionWallPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/behaviour`, label: 'Back' }}
+      />
 
       {/* Celebratory hero strip */}
       <section className="relative overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-rose-50 p-5">

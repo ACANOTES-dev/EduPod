@@ -294,7 +294,10 @@ export default function TodaySanctionsPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader title={t('title')} />
+        <PageHeader
+          title={t('title')}
+          back={{ href: `/${locale}/behaviour/sanctions`, label: 'Back' }}
+        />
         <div className="grid grid-cols-3 gap-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-20 animate-pulse rounded-xl bg-surface-secondary" />
@@ -314,7 +317,10 @@ export default function TodaySanctionsPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <PageHeader title={t('title')} />
+        <PageHeader
+          title={t('title')}
+          back={{ href: `/${locale}/behaviour/sanctions`, label: 'Back' }}
+        />
         <div className="rounded-xl border border-red-200 bg-red-50 py-12 text-center dark:border-red-800 dark:bg-red-900/20">
           <AlertTriangle className="mx-auto h-8 w-8 text-red-500" />
           <p className="mt-2 text-sm text-red-700 dark:text-red-400">{error}</p>
@@ -334,6 +340,7 @@ export default function TodaySanctionsPage() {
         <PageHeader
           title={t('title')}
           description={formatTodayDate()}
+          back={{ href: `/${locale}/behaviour/sanctions`, label: 'Back' }}
           actions={
             <Link href={`/${locale}/behaviour/sanctions`}>
               <Button variant="outline">{t('allSanctions')}</Button>
@@ -361,6 +368,7 @@ export default function TodaySanctionsPage() {
       <PageHeader
         title={t('title')}
         description={formatTodayDate()}
+        back={{ href: `/${locale}/behaviour/sanctions`, label: 'Back' }}
         actions={
           <Link href={`/${locale}/behaviour/sanctions`}>
             <Button variant="outline">{t('allSanctions')}</Button>

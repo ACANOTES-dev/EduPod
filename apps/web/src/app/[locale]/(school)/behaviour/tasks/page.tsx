@@ -1,6 +1,7 @@
 'use client';
 
 import { CheckCircle, Clock, XCircle } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -60,6 +61,8 @@ type ViewMode = 'my' | 'all';
 
 export default function BehaviourTasksPage() {
   const t = useTranslations('behaviour.tasks');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const [tasks, setTasks] = React.useState<BehaviourTask[]>([]);
   const [total, setTotal] = React.useState(0);
   const [page, setPage] = React.useState(1);
@@ -80,7 +83,9 @@ export default function BehaviourTasksPage() {
       .then((res) => {
         if (res.data) setStats(res.data);
       })
-      .catch((err) => { console.error('[BehaviourTasksPage]', err); });
+      .catch((err) => {
+        console.error('[BehaviourTasksPage]', err);
+      });
   }, []);
 
   // Fetch tasks
@@ -155,7 +160,11 @@ export default function BehaviourTasksPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/behaviour`, label: 'Back' }}
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">

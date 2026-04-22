@@ -16,6 +16,7 @@ import {
 
 import { StatCard } from '@school/ui';
 
+import { InfoTooltip } from '@/components/info-tooltip';
 import { apiClient, unwrap } from '@/lib/api-client';
 
 import { SmallSchoolGuidance } from '../../_components/small-school-guidance';
@@ -243,30 +244,41 @@ export function MyWorkloadSection() {
           <SmallSchoolGuidance staffCount={staffCount} />
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <StatCard
-              label={t('teachingPeriods')}
-              value={summary.teaching_periods_per_week}
-              trend={{
-                direction: 'neutral',
-                label: t('ofMax', { max: 22 }),
-              }}
-            />
-            <StatCard
-              label={t('coverDuties')}
-              value={summary.cover_duties_this_term}
-              trend={{
-                direction:
-                  summary.cover_duties_this_term > summary.school_average_covers
-                    ? 'up'
-                    : summary.cover_duties_this_term < summary.school_average_covers
-                      ? 'down'
-                      : 'neutral',
-                label: t('schoolAverage', { avg: summary.school_average_covers }),
-              }}
-            />
-            <div className={`rounded-2xl p-5 ${qualityBg(qualityLabel)}`}>
-              <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
+            <div className="relative">
+              <StatCard
+                label={t('teachingPeriods')}
+                value={summary.teaching_periods_per_week}
+                trend={{
+                  direction: 'neutral',
+                  label: t('ofMax', { max: 22 }),
+                }}
+              />
+              <div className="absolute end-3 top-3">
+                <InfoTooltip content="How many timetabled lessons you teach in a typical week — pulled from the published timetable, excluding cover and duties." />
+              </div>
+            </div>
+            <div className="relative">
+              <StatCard
+                label={t('coverDuties')}
+                value={summary.cover_duties_this_term}
+                trend={{
+                  direction:
+                    summary.cover_duties_this_term > summary.school_average_covers
+                      ? 'up'
+                      : summary.cover_duties_this_term < summary.school_average_covers
+                        ? 'down'
+                        : 'neutral',
+                  label: t('schoolAverage', { avg: summary.school_average_covers }),
+                }}
+              />
+              <div className="absolute end-3 top-3">
+                <InfoTooltip content="Total cover lessons you've picked up this term. The arrow compares you to the school average — down is better for workload." />
+              </div>
+            </div>
+            <div className={`relative rounded-2xl p-5 ${qualityBg(qualityLabel)}`}>
+              <p className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-text-tertiary">
                 {t('timetableQuality')}
+                <InfoTooltip content="Composite score (0–100) combining free-period distribution, consecutive-period runs, split days, and room changes. Higher is better." />
               </p>
               <p className="mt-1 text-[28px] font-semibold leading-tight text-text-primary">
                 <span dir="ltr">{summary.timetable_quality_score}</span>
@@ -413,8 +425,9 @@ export function MyWorkloadSection() {
 
               <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="rounded-lg border border-border/50 bg-surface-secondary p-4">
-                  <h4 className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
+                  <h4 className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-text-tertiary">
                     {t('consecutivePeriods')}
+                    <InfoTooltip content="Longest run of back-to-back teaching lessons in one day — flagged red at 4+ because that leaves no recovery time." />
                   </h4>
                   <div className="mt-2 flex items-baseline gap-2">
                     <span
@@ -448,8 +461,9 @@ export function MyWorkloadSection() {
                 </div>
 
                 <div className="rounded-lg border border-border/50 bg-surface-secondary p-4">
-                  <h4 className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
+                  <h4 className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-text-tertiary">
                     {t('splitDays')}
+                    <InfoTooltip content="Days where your lessons are split by long free periods — can create ragged working days." />
                   </h4>
                   <div className="mt-2 flex items-baseline gap-2">
                     <span className="text-2xl font-semibold text-text-primary" dir="ltr">
@@ -468,8 +482,9 @@ export function MyWorkloadSection() {
                 </div>
 
                 <div className="rounded-lg border border-border/50 bg-surface-secondary p-4">
-                  <h4 className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
+                  <h4 className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-text-tertiary">
                     {t('roomChanges')}
+                    <InfoTooltip content="Average room moves per day — high numbers mean carrying resources across the site, which adds friction." />
                   </h4>
                   <div className="mt-2 flex items-baseline gap-2">
                     <span className="text-2xl font-semibold text-text-primary" dir="ltr">

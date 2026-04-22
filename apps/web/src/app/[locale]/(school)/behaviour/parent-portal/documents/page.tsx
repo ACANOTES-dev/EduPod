@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowLeft, Download, FileText } from 'lucide-react';
-import Link from 'next/link';
+import { Download, FileText } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -52,15 +51,11 @@ export default function ParentDocumentsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
-      <Link
-        href={`/${locale}/behaviour/parent-portal`}
-        className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary"
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        {t('backToPortal')}
-      </Link>
-
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/behaviour/parent-portal`, label: t('backToPortal') }}
+      />
 
       {loading ? (
         <div className="space-y-2">

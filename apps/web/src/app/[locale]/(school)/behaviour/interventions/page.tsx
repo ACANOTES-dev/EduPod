@@ -261,6 +261,7 @@ export default function InterventionListPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('title')}
+        back={{ href: `/${locale}/behaviour`, label: 'Back' }}
         actions={
           <Link href={`/${locale}/behaviour/interventions/new`}>
             <Button>

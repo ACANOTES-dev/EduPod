@@ -29,6 +29,7 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { HubTile } from '@/components/hub-tile';
+import { InfoTooltip } from '@/components/info-tooltip';
 import { CardSkeleton, KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
 import { QuickAction } from '@/components/quick-action';
@@ -489,7 +490,10 @@ export default function SafeguardingHubPage() {
           <div className="flex items-center justify-between border-b border-border px-5 py-3">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-warning-700" />
-              <h3 className="text-sm font-semibold text-text-primary">{t('slaFeed.title')}</h3>
+              <h3 className="inline-flex items-center gap-1 text-sm font-semibold text-text-primary">
+                {t('slaFeed.title')}
+                <InfoTooltip content="Concerns whose first-response SLA deadline has passed without an acknowledgement. Overdue hours count from the SLA due timestamp." />
+              </h3>
               <span className="inline-flex items-center rounded-full bg-warning-100 px-2 py-0.5 text-[11px] font-semibold text-warning-800">
                 {slaBreachFeed.length}
               </span>

@@ -1,12 +1,10 @@
 'use client';
 
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Badge, Button } from '@school/ui';
+import { Badge } from '@school/ui';
 
 import { IncidentCard, type IncidentCardData } from '@/components/behaviour/incident-card';
 import { StudentAnalyticsTab } from '@/components/behaviour/student-analytics-tab';
@@ -232,7 +230,10 @@ export default function StudentBehaviourProfilePage() {
   if (!profile) {
     return (
       <div className="space-y-6">
-        <PageHeader title={t('notFound')} />
+        <PageHeader
+          title={t('notFound')}
+          back={{ href: `/${locale}/behaviour/students`, label: t('back') }}
+        />
         <p className="text-sm text-text-tertiary">{t('notFoundDescription')}</p>
       </div>
     );
@@ -242,14 +243,7 @@ export default function StudentBehaviourProfilePage() {
     <div className="space-y-6">
       <PageHeader
         title={t('title')}
-        actions={
-          <Link href={`/${locale}/behaviour/students`}>
-            <Button variant="ghost">
-              <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-              {t('back')}
-            </Button>
-          </Link>
-        }
+        back={{ href: `/${locale}/behaviour/students`, label: t('back') }}
       />
 
       <StudentBehaviourHeader

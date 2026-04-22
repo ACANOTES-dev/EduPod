@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ArrowLeft,
   Award,
   ClipboardList,
   Database,
@@ -120,6 +119,7 @@ export default function BehaviourAdminPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
+        back={{ href: `/${locale}/behaviour`, label: t('actions.backToBehaviour') }}
         actions={
           <div className="flex items-center gap-2">
             <Link
@@ -128,13 +128,6 @@ export default function BehaviourAdminPage() {
             >
               <ListTree className="h-3.5 w-3.5" />
               {t('actions.legalHolds')}
-            </Link>
-            <Link
-              href={`/${locale}/behaviour`}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-surface-secondary"
-            >
-              <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
-              {t('actions.backToBehaviour')}
             </Link>
           </div>
         }

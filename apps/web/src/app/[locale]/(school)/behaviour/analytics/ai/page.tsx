@@ -168,7 +168,11 @@ export default function BehaviourAIQueryPage() {
   if (flag === 'disabled') {
     return (
       <div className="flex flex-col gap-6 p-4 md:p-6">
-        <PageHeader title={t('title')} description={t('description')} />
+        <PageHeader
+          title={t('title')}
+          description={t('description')}
+          back={{ href: `/${locale}/behaviour/analytics`, label: 'Back' }}
+        />
         <AiDisabledBanner />
       </div>
     );
@@ -182,7 +186,11 @@ export default function BehaviourAIQueryPage() {
     <div className="flex flex-1 min-w-0 flex-col gap-6 p-4 md:p-6 lg:flex-row">
       {/* Main area */}
       <div className="flex-1 space-y-6">
-        <PageHeader title={t('title')} description={t('description')} />
+        <PageHeader
+          title={t('title')}
+          description={t('description')}
+          back={{ href: `/${locale}/behaviour/analytics`, label: 'Back' }}
+        />
 
         {/* Query input */}
         <div className="rounded-2xl border border-border bg-card p-4 md:p-6">

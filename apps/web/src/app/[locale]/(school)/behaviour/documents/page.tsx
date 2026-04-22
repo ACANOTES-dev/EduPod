@@ -368,6 +368,7 @@ export default function BehaviourDocumentsPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
+        back={{ href: `/${locale}/behaviour`, label: 'Back' }}
         actions={
           <Button onClick={() => setGenerateOpen(true)}>
             <Plus className="me-2 h-4 w-4" />

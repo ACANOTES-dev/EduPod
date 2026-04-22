@@ -5,7 +5,13 @@ export type RiskTier = (typeof RISK_TIERS)[number];
 
 // ─── Signal Domains ──────────────────────────────────────────────────────────
 
-export const SIGNAL_DOMAINS = ['attendance', 'grades', 'behaviour', 'wellbeing', 'engagement'] as const;
+export const SIGNAL_DOMAINS = [
+  'attendance',
+  'grades',
+  'behaviour',
+  'wellbeing',
+  'engagement',
+] as const;
 export type SignalDomain = (typeof SIGNAL_DOMAINS)[number];
 
 // ─── Signal Severity ─────────────────────────────────────────────────────────
@@ -24,12 +30,19 @@ export const DEFAULT_WEIGHTS: Record<SignalDomain, number> = {
 } as const;
 
 // ─── Default Tier Thresholds ─────────────────────────────────────────────────
+// Thresholds are expressed against the weighted composite (0–100). Because
+// domain weights are ~20% each, a single-domain signal (e.g. 3+ incidents in
+// 14 days, or an active sanction) yields ~3–6 composite points on its own.
+// We pitch yellow low enough that a student with a meaningful single-domain
+// signal + one cross-domain flag crosses it, and reserve red for students
+// showing concentrated signal across multiple domains. Tenants can override
+// these values per their own risk appetite in /early-warnings/settings.
 
 export const DEFAULT_THRESHOLDS: Record<RiskTier, number> = {
   green: 0,
-  yellow: 30,
-  amber: 50,
-  red: 75,
+  yellow: 8,
+  amber: 18,
+  red: 32,
 } as const;
 
 // ─── Default Hysteresis Buffer ───────────────────────────────────────────────

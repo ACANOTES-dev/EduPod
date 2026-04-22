@@ -2,7 +2,6 @@
 
 import {
   AlertTriangle,
-  ArrowLeft,
   BarChart3,
   Calendar,
   Info,
@@ -11,7 +10,6 @@ import {
   Rocket,
   Users,
 } from 'lucide-react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -144,15 +142,7 @@ export default function PolicyReplayPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
-        actions={
-          <Link
-            href={`/${locale}/settings/behaviour-policies`}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-surface-secondary"
-          >
-            <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
-            {t('back')}
-          </Link>
-        }
+        back={{ href: `/${locale}/behaviour/policies`, label: t('back') }}
       />
 
       {/* Safety banner */}

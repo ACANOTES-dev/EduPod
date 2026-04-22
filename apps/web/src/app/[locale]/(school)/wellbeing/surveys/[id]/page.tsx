@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowLeft, ClipboardList, Play, Square } from 'lucide-react';
-import Link from 'next/link';
+import { ClipboardList, Play, Square } from 'lucide-react';
 import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -381,22 +380,14 @@ export default function SurveyDetailPage() {
     );
   }
 
-  const backLink = (
-    <Link
-      href={`/${locale}/wellbeing/staff#surveys`}
-      className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
-    >
-      <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
-      {tStaff('backToHub')}
-    </Link>
-  );
+  const backHref = `/${locale}/wellbeing/staff#surveys`;
+  const backLabel = tStaff('backToHub');
 
   // ── Error / not found ──
   if (loadError || !survey) {
     return (
       <div className="space-y-6">
-        {backLink}
-        <PageHeader title={t('title')} />
+        <PageHeader title={t('title')} back={{ href: backHref, label: backLabel }} />
         <div className="flex flex-col items-center gap-4 py-16">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-secondary">
             <ClipboardList className="h-8 w-8 text-text-tertiary" />
@@ -410,11 +401,11 @@ export default function SurveyDetailPage() {
   // ── Render ──
   return (
     <div className="space-y-6">
-      {backLink}
       {/* Header */}
       <PageHeader
         title={survey.title}
         description={survey.description ?? undefined}
+        back={{ href: backHref, label: backLabel }}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={STATUS_BADGE_VARIANT[survey.status]}>{t(survey.status)}</Badge>

@@ -113,7 +113,11 @@ export default function SafeguardingConcernsListPage() {
   if (!canView) {
     return (
       <div className="flex min-w-0 flex-col gap-6 pb-10">
-        <PageHeader title={t('title')} description={t('description')} />
+        <PageHeader
+          title={t('title')}
+          description={t('description')}
+          back={{ href: `/${locale}/safeguarding`, label: tHub('denied.backToHub') }}
+        />
         <section className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-surface px-6 py-12 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700">
             <Lock className="h-6 w-6" />
@@ -137,6 +141,7 @@ export default function SafeguardingConcernsListPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
+        back={{ href: `/${locale}/safeguarding`, label: 'Back' }}
         actions={
           <Link
             href={`/${locale}/safeguarding/concerns/new`}

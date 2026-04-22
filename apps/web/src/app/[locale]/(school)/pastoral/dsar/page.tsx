@@ -142,6 +142,7 @@ export default function PastoralDsarQueuePage() {
       <PageHeader
         title={t('queueTitle')}
         description={t('queueDescription')}
+        back={{ href: `/${locale}/pastoral`, label: 'Back' }}
         actions={
           <Button
             variant={onlyPending ? 'default' : 'outline'}

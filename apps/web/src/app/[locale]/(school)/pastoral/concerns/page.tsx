@@ -223,6 +223,7 @@ export default function PastoralConcernListPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
+        back={{ href: `/${locale}/pastoral`, label: 'Back' }}
         actions={
           <Link href={`/${locale}/pastoral/concerns/new`}>
             <Button>

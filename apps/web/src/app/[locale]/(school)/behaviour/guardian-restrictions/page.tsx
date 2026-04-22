@@ -1,11 +1,11 @@
 'use client';
 
 import { Ban, Plus, ShieldAlert } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -24,7 +24,6 @@ import {
 import type { RestrictionRow, RestrictionsResponse } from './_components/restriction-types';
 import { RevokeRestrictionSheet } from './_components/revoke-restriction-sheet';
 
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 20;
@@ -34,6 +33,8 @@ const PAGE_SIZE = 20;
 export default function GuardianRestrictionsPage() {
   const t = useTranslations('behaviour.guardianRestrictions');
   const tCommon = useTranslations('common');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   // ─── List State ───────────────────────────────────────────────────────────────
   const [data, setData] = React.useState<RestrictionRow[]>([]);
@@ -172,7 +173,9 @@ export default function GuardianRestrictionsPage() {
             onClick={(e) => openRevoke(row.id, e)}
             className="shrink-0 text-red-600 hover:text-red-700"
           >
-            <Ban className="me-1 h-3.5 w-3.5" />{t('revoke')}</Button>
+            <Ban className="me-1 h-3.5 w-3.5" />
+            {t('revoke')}
+          </Button>
         ) : null;
       },
     },
@@ -246,7 +249,9 @@ export default function GuardianRestrictionsPage() {
                 ? `${row.student.first_name} ${row.student.last_name}`
                 : t('unknownStudent')}
             </p>
-            <p className="mt-0.5 text-xs text-text-tertiary">{t('guardian')}{getParentDisplayName(row.parent)}
+            <p className="mt-0.5 text-xs text-text-tertiary">
+              {t('guardian')}
+              {getParentDisplayName(row.parent)}
             </p>
           </div>
           <StatusBadge status={row.status} />
@@ -268,7 +273,9 @@ export default function GuardianRestrictionsPage() {
               className="w-full text-red-600 hover:text-red-700"
               onClick={(e) => openRevoke(row.id, e)}
             >
-              <Ban className="me-1 h-3.5 w-3.5" />{t('revoke')}</Button>
+              <Ban className="me-1 h-3.5 w-3.5" />
+              {t('revoke')}
+            </Button>
           </div>
         )}
       </button>
@@ -282,6 +289,7 @@ export default function GuardianRestrictionsPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
+        back={{ href: `/${locale}/behaviour`, label: 'Back' }}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="me-1.5 h-4 w-4" />
@@ -303,7 +311,9 @@ export default function GuardianRestrictionsPage() {
               <div className="rounded-xl border border-border bg-surface py-12 text-center dark:bg-surface">
                 <ShieldAlert className="mx-auto mb-2 h-8 w-8 text-text-tertiary" />
                 <p className="text-sm font-medium text-text-primary">{t('noRestrictionsFound')}</p>
-                <p className="mt-1 text-xs text-text-tertiary">{t('noGuardianRestrictionsMatchThe')}</p>
+                <p className="mt-1 text-xs text-text-tertiary">
+                  {t('noGuardianRestrictionsMatchThe')}
+                </p>
               </div>
             ) : (
               data.map(renderMobileCard)
@@ -312,7 +322,11 @@ export default function GuardianRestrictionsPage() {
           {/* Mobile pagination */}
           {total > PAGE_SIZE && (
             <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
-              <span>{t('page')}{page}{t('of')}{Math.ceil(total / PAGE_SIZE)}
+              <span>
+                {t('page')}
+                {page}
+                {t('of')}
+                {Math.ceil(total / PAGE_SIZE)}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -320,13 +334,17 @@ export default function GuardianRestrictionsPage() {
                   size="sm"
                   disabled={page <= 1}
                   onClick={() => setPage(page - 1)}
-                >{tCommon('previous')}</Button>
+                >
+                  {tCommon('previous')}
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   disabled={page >= Math.ceil(total / PAGE_SIZE)}
                   onClick={() => setPage(page + 1)}
-                >{tCommon('next')}</Button>
+                >
+                  {tCommon('next')}
+                </Button>
               </div>
             </div>
           )}

@@ -171,6 +171,7 @@ export default function PastoralInterventionDetailPage() {
         description={t('description', {
           caseNumber: intervention.case?.case_number ?? intervention.case_id,
         })}
+        back={{ href: `/${locale}/pastoral/interventions`, label: 'Back' }}
         actions={
           intervention.case ? (
             <Link href={`/${locale}/pastoral/cases/${intervention.case.id}`}>

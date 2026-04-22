@@ -2,7 +2,6 @@
 
 import {
   AlertTriangle,
-  ArrowLeft,
   CheckCircle2,
   Clock,
   KeyRound,
@@ -124,7 +123,10 @@ export default function BreakGlassGrantDetailPage() {
   if (!canView) {
     return (
       <div className="flex min-w-0 flex-col gap-6 pb-10">
-        <PageHeader title={t('detail.title')} />
+        <PageHeader
+          title={t('detail.title')}
+          back={{ href: `/${locale}/safeguarding/break-glass`, label: t('detail.backToList') }}
+        />
         <section className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-surface px-6 py-12 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700">
             <Lock className="h-6 w-6" />
@@ -153,17 +155,13 @@ export default function BreakGlassGrantDetailPage() {
   if (notFound || !grant) {
     return (
       <div className="flex min-w-0 flex-col gap-6 pb-10">
-        <PageHeader title={t('detail.title')} />
+        <PageHeader
+          title={t('detail.title')}
+          back={{ href: `/${locale}/safeguarding/break-glass`, label: t('detail.backToList') }}
+        />
         <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center text-sm text-text-tertiary">
           {t('detail.notFound')}
         </div>
-        <Link
-          href={`/${locale}/safeguarding/break-glass`}
-          className="inline-flex items-center gap-1.5 self-start rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-surface-secondary"
-        >
-          <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
-          {t('detail.backToList')}
-        </Link>
       </div>
     );
   }
@@ -181,15 +179,7 @@ export default function BreakGlassGrantDetailPage() {
       <PageHeader
         title={t('detail.title')}
         description={t('detail.description', { name: grant.granted_to.name })}
-        actions={
-          <Link
-            href={`/${locale}/safeguarding/break-glass`}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-surface-secondary"
-          >
-            <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
-            {t('detail.backToList')}
-          </Link>
-        }
+        back={{ href: `/${locale}/safeguarding/break-glass`, label: t('detail.backToList') }}
       />
 
       {/* Status banner */}

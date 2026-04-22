@@ -18,6 +18,7 @@ import * as React from 'react';
 
 import { Button } from '@school/ui';
 
+import { InfoTooltip } from '@/components/info-tooltip';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import type { RiskProfileListItem, RiskProfileListResponse } from '@/lib/early-warning';
@@ -308,6 +309,7 @@ export default function EarlyWarningsHubPage() {
             isLoading={isLoading}
             sparkline={redSparkline}
             href={`/${locale}/early-warnings?tier=red`}
+            tooltip="Students whose composite risk score crosses the red threshold (default 50+). Highest priority — immediate intervention required."
           />
           <KpiLargeTile
             icon={TriangleAlert}
@@ -318,6 +320,7 @@ export default function EarlyWarningsHubPage() {
             isLoading={isLoading}
             sparkline={amberSparkline}
             href={`/${locale}/early-warnings?tier=amber`}
+            tooltip="Students whose composite risk score is between amber and red thresholds (default 30–49). Escalating — needs a watch plan."
           />
           <KpiLargeTile
             icon={Eye}
@@ -328,6 +331,7 @@ export default function EarlyWarningsHubPage() {
             isLoading={isLoading}
             sparkline={yellowSparkline}
             href={`/${locale}/early-warnings?tier=yellow`}
+            tooltip="Students whose composite risk score is between yellow and amber (default 15–29). Early warning — monitor and check in."
           />
           <KpiLargeTile
             icon={ClipboardCheck}
@@ -337,6 +341,7 @@ export default function EarlyWarningsHubPage() {
             severity="green"
             isLoading={isLoading}
             href={`/${locale}/pastoral/interventions`}
+            tooltip="Pastoral or behaviour interventions currently in progress across the school. Opens the intervention hub filtered to in-progress."
           />
         </div>
       </section>
@@ -355,9 +360,10 @@ export default function EarlyWarningsHubPage() {
           <div>
             <h2
               id="early-warnings-matrix-heading"
-              className="text-xl font-semibold tracking-tight text-text-primary"
+              className="inline-flex items-center gap-1 text-xl font-semibold tracking-tight text-text-primary"
             >
               {t('matrix.title')}
+              <InfoTooltip content="Filter the at-risk list by signal domain — attendance, grades, behaviour, wellbeing, or engagement. Each chip shows how many students are flagged in that domain." />
             </h2>
             <p className="mt-0.5 text-sm text-text-secondary">{t('matrix.description')}</p>
           </div>

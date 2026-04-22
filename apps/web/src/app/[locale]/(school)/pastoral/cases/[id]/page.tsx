@@ -144,6 +144,7 @@ export default function PastoralCaseDetailPage() {
       <PageHeader
         title={caseRecord.case_number}
         description={t('description', { student: caseRecord.student_name })}
+        back={{ href: `/${locale}/pastoral/cases`, label: 'Back' }}
         actions={
           <div className="flex flex-wrap gap-2">
             <Link href={`/${locale}/pastoral/interventions/new?caseId=${caseRecord.id}`}>

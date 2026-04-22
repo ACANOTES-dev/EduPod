@@ -162,6 +162,7 @@ export default function PastoralCriticalIncidentsPage() {
       <PageHeader
         title={t('title')}
         description={t('description')}
+        back={{ href: `/${locale}/pastoral`, label: 'Back' }}
         actions={
           <Link href={`/${locale}/pastoral/critical-incidents/new`}>
             <Button>

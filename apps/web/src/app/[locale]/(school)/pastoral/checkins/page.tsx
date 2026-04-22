@@ -1,6 +1,7 @@
 'use client';
 
 import { Save } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -40,6 +41,8 @@ function toDateInputValue(date: Date): string {
 
 export default function PastoralCheckinsPage() {
   const t = useTranslations('pastoral.checkins');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const sharedT = useTranslations('pastoral.shared');
   const [config, setConfig] = React.useState<PastoralCheckinConfig | null>(null);
   const [prerequisites, setPrerequisites] =
@@ -184,7 +187,11 @@ export default function PastoralCheckinsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/pastoral`, label: 'Back' }}
+      />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
         <div className="space-y-6">

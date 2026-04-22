@@ -1,8 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Save } from 'lucide-react';
-import Link from 'next/link';
+import { Save } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -138,14 +137,9 @@ export default function EarlyWarningSettingsPage() {
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
       <PageHeader
         title={t('settings.title')}
+        back={{ href: `/${locale}/early-warnings`, label: t('cohort.back_to_list') }}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link href={`/${locale}/early-warnings`}>
-              <Button variant="ghost" type="button">
-                <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-                {t('cohort.back_to_list')}
-              </Button>
-            </Link>
             <Button type="submit" disabled={saving}>
               <Save className="me-2 h-4 w-4" />
               {t('settings.save')}

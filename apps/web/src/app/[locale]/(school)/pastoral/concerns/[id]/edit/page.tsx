@@ -193,6 +193,7 @@ export default function EditPastoralConcernPage() {
           student: concern.student_name,
           category: formatPastoralValue(concern.category),
         })}
+        back={{ href: `/${locale}/pastoral/concerns/${concernId}`, label: 'Back' }}
       />
 
       <form
