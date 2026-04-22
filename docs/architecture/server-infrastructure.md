@@ -584,12 +584,21 @@ Each process exposes a health URL:
 | worker    | `http://127.0.0.1:5556/health`     | Postgres + Redis + all BullMQ queues, stuck-job count |
 | solver-py | `http://127.0.0.1:5557/health`     | solver process alive                                  |
 
-The deploy script hits all four as part of `run_smoke_test`. For external uptime monitoring, point a service like UptimeRobot at `https://edupod.app/api/health` — this goes through CF → nginx → api, so a single failure covers the whole chain.
+The deploy script hits all four as part of `run_smoke_test`.
+
+### External uptime (UptimeRobot)
+
+Two HTTP monitors at 5-minute cadence with email notifications:
+
+- **EduPod API** — `https://edupod.app/api/health` (goes CF → nginx → api, covers the full public chain)
+- **EduPod Web** — `https://edupod.app/` (covers CF → nginx → web + render)
+
+Console: https://uptimerobot.com/dashboard. Using 2 of 50 monitor slots — room to add worker, solver-py, and per-tenant subdomains later if ever useful.
 
 ### Missing / TODO
 
-- **External uptime monitor** — none today. `SRE_TODO: wire UptimeRobot or BetterStack to /api/health.`
 - **Alert routing** — Sentry DSNs are set; alert _rules_ not verified to actually page anyone. `SRE_TODO: verify Slack/email routing on a test issue.`
+- **Extra UptimeRobot monitors worth adding before heavy tenant load**: one hit against a known tenant subdomain (e.g. `https://nhqs.edupod.app/api/health`) catches CF-subdomain routing regressions the apex-only monitor would miss.
 
 ### Files
 
