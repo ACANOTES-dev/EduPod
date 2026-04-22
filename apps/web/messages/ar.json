@@ -10971,7 +10971,12 @@
       "addRule": "إضافة قاعدة",
       "empty": "لم يتم تكوين أي قواعد سياسة حتى الآن.",
       "retry": "إعادة المحاولة",
-      "errorLoading": "تعذر تحميل قواعد السياسة."
+      "errorLoading": "تعذر تحميل قواعد السياسة.",
+      "active": "نشط",
+      "inactive": "غير نشط",
+      "disable": "إيقاف",
+      "enable": "تفعيل",
+      "priority": "الأولوية"
     },
     "templates": {
       "title": "القوالب",
@@ -10980,7 +10985,12 @@
       "addTemplate": "إضافة قالب",
       "empty": "لم يتم تكوين أي قوالب حتى الآن.",
       "retry": "إعادة المحاولة",
-      "errorLoading": "تعذر تحميل القوالب."
+      "errorLoading": "تعذر تحميل القوالب.",
+      "descriptionTemplates": "قوالب الوصف",
+      "documentTemplates": "قوالب المستندات",
+      "inactive": "غير نشط",
+      "system": "النظام",
+      "usageCount": "{count, plural, one {استخدام واحد} other {# استخدامات}}"
     }
   },
   "safeguarding": {

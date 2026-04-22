@@ -10971,7 +10971,12 @@
       "addRule": "Add rule",
       "empty": "No policy rules configured yet.",
       "retry": "Retry",
-      "errorLoading": "Could not load policy rules."
+      "errorLoading": "Could not load policy rules.",
+      "active": "Active",
+      "inactive": "Inactive",
+      "disable": "Disable",
+      "enable": "Enable",
+      "priority": "Priority"
     },
     "templates": {
       "title": "Templates",
@@ -10980,7 +10985,12 @@
       "addTemplate": "Add template",
       "empty": "No document templates configured yet.",
       "retry": "Retry",
-      "errorLoading": "Could not load templates."
+      "errorLoading": "Could not load templates.",
+      "descriptionTemplates": "Description templates",
+      "documentTemplates": "Document templates",
+      "inactive": "Inactive",
+      "system": "System",
+      "usageCount": "{count, plural, one {# use} other {# uses}}"
     }
   },
   "safeguarding": {

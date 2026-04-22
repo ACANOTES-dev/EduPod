@@ -729,10 +729,13 @@ model Tenant {
   behaviour_guardian_restrictions    BehaviourGuardianRestriction[]
   behaviour_publication_approvals    BehaviourPublicationApproval[]
   behaviour_legal_holds              BehaviourLegalHold[]
+  behaviour_ai_query_history         BehaviourAiQueryHistory[]
   safeguarding_concerns              SafeguardingConcern[]
   safeguarding_actions               SafeguardingAction[]
   safeguarding_concern_incidents     SafeguardingConcernIncident[]
   safeguarding_break_glass_grants    SafeguardingBreakGlassGrant[]
+  safeguarding_break_glass_access_log SafeguardingBreakGlassAccessLog[]
+  admin_repair_runs                  AdminRepairRun[]
 
   // Pastoral Care Relations
   pastoral_concerns                  PastoralConcern[]
@@ -1280,6 +1283,7 @@ model User {
   bh_publication_approvals_admin    BehaviourPublicationApproval[] @relation("bh_publication_admin")
   bh_legal_holds_set                BehaviourLegalHold[]           @relation("bh_legal_hold_setter")
   bh_legal_holds_released           BehaviourLegalHold[]           @relation("bh_legal_hold_releaser")
+  bh_ai_query_history               BehaviourAiQueryHistory[]      @relation("bh_ai_query_history_user")
   sg_concerns_reported              SafeguardingConcern[]          @relation("sg_concern_reporter")
   sg_concerns_liaison               SafeguardingConcern[]          @relation("sg_concern_liaison")
   sg_concerns_assigned              SafeguardingConcern[]          @relation("sg_concern_assignee")
@@ -1290,6 +1294,8 @@ model User {
   sg_break_glass_granted_to         SafeguardingBreakGlassGrant[]  @relation("sg_break_glass_grantee")
   sg_break_glass_granted_by         SafeguardingBreakGlassGrant[]  @relation("sg_break_glass_grantor")
   sg_break_glass_reviewed           SafeguardingBreakGlassGrant[]  @relation("sg_break_glass_reviewer")
+  sg_break_glass_access_log_actor   SafeguardingBreakGlassAccessLog[] @relation("sg_break_glass_access_actor")
+  admin_repair_runs_actor           AdminRepairRun[]               @relation("admin_repair_run_actor")
 
   // Pastoral Care Relations
   pc_concerns_logged                     PastoralConcern[]                @relation("pc_concern_logged_by")
@@ -8286,6 +8292,29 @@ model BehaviourLegalHold {
   @@map("behaviour_legal_holds")
 }
 
+// Persisted natural-language AI query history. Each row is one
+// question/answer round-trip. Per-user history is scoped via user_id;
+// admins with `behaviour.view_staff_analytics` read cross-user from
+// the service layer. Added by Wellbeing Rebuild impl 05.
+model BehaviourAiQueryHistory {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String   @db.Uuid
+  user_id      String   @db.Uuid
+  question     String   @db.Text
+  answer       String   @db.Text
+  data_payload Json?    @db.JsonB
+  citations    Json?    @db.JsonB
+  generated_at DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user   User   @relation("bh_ai_query_history_user", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, user_id, generated_at(sort: Desc)], map: "idx_behaviour_ai_query_history_tenant_user_generated")
+  @@index([tenant_id, generated_at(sort: Desc)], map: "idx_behaviour_ai_query_history_tenant_generated")
+  @@map("behaviour_ai_query_history")
+}
+
 // ─── Safeguarding Models ────────────────────────────────────────────────────
 
 model SafeguardingConcern {
@@ -8411,6 +8440,71 @@ model SafeguardingBreakGlassGrant {
 
   @@index([tenant_id, granted_to_id], name: "idx_safeguarding_break_glass_grantee")
   @@map("safeguarding_break_glass_grants")
+}
+
+enum SafeguardingBreakGlassAccessAction {
+  granted
+  accessed
+  revoked
+  reviewed
+}
+
+/// WB-C-19 — Append-only access log. Every grant creation, every read
+/// performed under a break-glass grant, every revocation, and every
+/// after-action review writes a row here.
+model SafeguardingBreakGlassAccessLog {
+  id          String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String                             @db.Uuid
+  grant_id    String                             @db.Uuid
+  actor_id    String                             @db.Uuid
+  action      SafeguardingBreakGlassAccessAction
+  entity_type String?                            @db.VarChar(50)
+  entity_id   String?                            @db.Uuid
+  accessed_at DateTime                           @default(now()) @db.Timestamptz()
+  ip_address  String?                            @db.VarChar(64)
+  user_agent  String?                            @db.VarChar(500)
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  actor  User   @relation("sg_break_glass_access_actor", fields: [actor_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id], name: "idx_sg_break_glass_access_log_tenant")
+  @@index([tenant_id, grant_id], name: "idx_sg_break_glass_access_log_grant")
+  @@index([tenant_id, actor_id, accessed_at(sort: Desc)], name: "idx_sg_break_glass_access_log_actor")
+  @@map("safeguarding_break_glass_access_log")
+}
+
+enum AdminRepairRunStatus {
+  preview
+  executed
+  failed
+  rolled_back
+}
+
+/// WB-C-20 — One row per preview OR execute on the behaviour-admin repair
+/// console. Landing page shows the last N runs so colleagues see what's
+/// been run recently.
+model AdminRepairRun {
+  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String               @db.Uuid
+  actor_id     String               @db.Uuid
+  operation    String               @db.VarChar(100)
+  scope        Json                 @default("{}")
+  preview_data Json?
+  execute_data Json?
+  status       AdminRepairRunStatus @default(preview)
+  started_at   DateTime             @default(now()) @db.Timestamptz()
+  completed_at DateTime?            @db.Timestamptz()
+  error_detail String?              @db.Text
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  actor  User   @relation("admin_repair_run_actor", fields: [actor_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id, started_at(sort: Desc)], name: "idx_admin_repair_runs_tenant")
+  @@index([tenant_id, actor_id, started_at(sort: Desc)], name: "idx_admin_repair_runs_actor")
+  @@index([tenant_id, operation, started_at(sort: Desc)], name: "idx_admin_repair_runs_operation")
+  @@map("admin_repair_runs")
 }
 
 // ─── Pastoral Care Models ─────────────────────────────────────────────────
