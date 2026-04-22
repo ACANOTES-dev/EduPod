@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Accessibility,
   AlertTriangle,
   ArrowRight,
   Award,
@@ -99,6 +100,14 @@ const HUB_CARDS: HubCardConfig[] = [
     accent: 'from-slate-500 via-slate-600 to-slate-700',
     iconBg: 'bg-slate-100 text-slate-700',
     glow: 'from-slate-50/80',
+  },
+  {
+    key: 'sen',
+    href: '/sen',
+    icon: Accessibility,
+    accent: 'from-teal-400 via-teal-500 to-teal-600',
+    iconBg: 'bg-teal-100 text-teal-700',
+    glow: 'from-teal-50/80',
   },
   {
     key: 'earlyWarnings',
@@ -594,6 +603,8 @@ function getHubCount(
       return hub_counts.pastoral;
     case 'safeguarding':
       return hub_counts.safeguarding;
+    case 'sen':
+      return undefined;
     case 'earlyWarnings':
       return hub_counts.early_warnings;
     case 'staffWellbeing':

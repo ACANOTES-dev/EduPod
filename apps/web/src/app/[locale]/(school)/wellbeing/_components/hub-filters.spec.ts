@@ -8,11 +8,12 @@ import {
 } from './hub-filters';
 
 describe('VISIBLE_HUB_KEYS', () => {
-  it('covers all six hub tiles in the documented order', () => {
+  it('covers all seven hub tiles in the documented order', () => {
     expect(VISIBLE_HUB_KEYS).toEqual([
       'behaviour',
       'pastoral',
       'safeguarding',
+      'sen',
       'earlyWarnings',
       'staffWellbeing',
       'settings',
@@ -36,6 +37,7 @@ describe('filterHubCards', () => {
     { key: 'behaviour' as const },
     { key: 'pastoral' as const },
     { key: 'safeguarding' as const },
+    { key: 'sen' as const },
     { key: 'earlyWarnings' as const },
     { key: 'staffWellbeing' as const, roles: [...STAFF_ROLES] },
     { key: 'settings' as const, roles: ADMIN_ROLES },
@@ -47,6 +49,7 @@ describe('filterHubCards', () => {
       'behaviour',
       'pastoral',
       'safeguarding',
+      'sen',
       'earlyWarnings',
       'staffWellbeing',
       'settings',
@@ -57,13 +60,14 @@ describe('filterHubCards', () => {
     const res = filterHubCards({ roleKeys: ['teacher'] as RoleKey[], cards: CARDS });
     const keys = res.map((c) => c.key);
     expect(keys).toContain('staffWellbeing');
+    expect(keys).toContain('sen');
     expect(keys).not.toContain('settings');
   });
 
   it('hides both staff-wellbeing and settings for a parent', () => {
     const res = filterHubCards({ roleKeys: ['parent'] as RoleKey[], cards: CARDS });
     const keys = res.map((c) => c.key);
-    expect(keys).toEqual(['behaviour', 'pastoral', 'safeguarding', 'earlyWarnings']);
+    expect(keys).toEqual(['behaviour', 'pastoral', 'safeguarding', 'sen', 'earlyWarnings']);
   });
 
   it('keeps unrestricted cards visible when the user has no roles', () => {
@@ -72,6 +76,7 @@ describe('filterHubCards', () => {
       'behaviour',
       'pastoral',
       'safeguarding',
+      'sen',
       'earlyWarnings',
     ]);
   });

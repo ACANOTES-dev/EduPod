@@ -1,14 +1,24 @@
 'use client';
 
 import {
+  Accessibility,
+  ArrowRight,
+  Award,
   Bell,
   BookOpen,
   Calendar,
+  CalendarClock,
   ClipboardCheck,
   CreditCard,
   FileText,
   GraduationCap,
+  Inbox as InboxIcon,
+  Megaphone,
+  MessageCircle,
+  ScrollText,
+  Shield,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
@@ -22,6 +32,116 @@ import { AiInsightCard } from './_components/ai-insight-card';
 import { FinancesTab } from './_components/finances-tab';
 import { GradesTab } from './_components/grades-tab';
 import { TimetableTab } from './_components/timetable-tab';
+
+// ─── Parent hub tiles catalogue ────────────────────────────────────────────────
+
+interface ParentNavTile {
+  key:
+    | 'inbox'
+    | 'announcements'
+    | 'inquiries'
+    | 'applications'
+    | 'sen'
+    | 'behaviour'
+    | 'recognition'
+    | 'homework'
+    | 'events';
+  href: string;
+  icon: LucideIcon;
+  iconBg: string;
+  accent: string;
+}
+
+const PARENT_NAV_TILES: ParentNavTile[] = [
+  {
+    key: 'inbox',
+    href: '/inbox',
+    icon: InboxIcon,
+    iconBg: 'bg-primary-100 text-primary-700',
+    accent: 'from-primary-400 via-primary-500 to-primary-600',
+  },
+  {
+    key: 'announcements',
+    href: '/announcements',
+    icon: Megaphone,
+    iconBg: 'bg-amber-100 text-amber-700',
+    accent: 'from-amber-400 via-amber-500 to-amber-600',
+  },
+  {
+    key: 'inquiries',
+    href: '/inquiries',
+    icon: MessageCircle,
+    iconBg: 'bg-sky-100 text-sky-700',
+    accent: 'from-sky-400 via-sky-500 to-sky-600',
+  },
+  {
+    key: 'applications',
+    href: '/applications',
+    icon: ScrollText,
+    iconBg: 'bg-indigo-100 text-indigo-700',
+    accent: 'from-indigo-400 via-indigo-500 to-indigo-600',
+  },
+  {
+    key: 'sen',
+    href: '/parent/sen',
+    icon: Accessibility,
+    iconBg: 'bg-teal-100 text-teal-700',
+    accent: 'from-teal-400 via-teal-500 to-teal-600',
+  },
+  {
+    key: 'behaviour',
+    href: '/behaviour/parent-portal',
+    icon: Shield,
+    iconBg: 'bg-rose-100 text-rose-700',
+    accent: 'from-rose-400 via-rose-500 to-rose-600',
+  },
+  {
+    key: 'recognition',
+    href: '/behaviour/parent-portal/recognition',
+    icon: Award,
+    iconBg: 'bg-violet-100 text-violet-700',
+    accent: 'from-violet-400 via-violet-500 to-violet-600',
+  },
+  {
+    key: 'homework',
+    href: '/homework/parent',
+    icon: BookOpen,
+    iconBg: 'bg-emerald-100 text-emerald-700',
+    accent: 'from-emerald-400 via-emerald-500 to-emerald-600',
+  },
+  {
+    key: 'events',
+    href: '/engagement/parent/events',
+    icon: CalendarClock,
+    iconBg: 'bg-fuchsia-100 text-fuchsia-700',
+    accent: 'from-fuchsia-400 via-fuchsia-500 to-fuchsia-600',
+  },
+];
+
+function ParentNavTileCard({ tile, locale }: { tile: ParentNavTile; locale: string }) {
+  const t = useTranslations('dashboard.parentDashboard.navTiles');
+  const Icon = tile.icon;
+  return (
+    <Link
+      href={`/${locale}${tile.href}`}
+      className="group relative flex min-w-0 items-center gap-3 overflow-hidden rounded-2xl border border-border bg-surface p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+    >
+      <div
+        className={`pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${tile.accent}`}
+      />
+      <div
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tile.iconBg} shadow-sm ring-1 ring-inset ring-black/5`}
+      >
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-text-primary">{t(`${tile.key}.title`)}</p>
+        <p className="truncate text-xs text-text-tertiary">{t(`${tile.key}.description`)}</p>
+      </div>
+      <ArrowRight className="h-4 w-4 shrink-0 text-text-tertiary transition-colors duration-300 group-hover:text-primary-600 rtl:rotate-180" />
+    </Link>
+  );
+}
 
 interface LinkedStudent {
   student_id: string;
@@ -351,6 +471,20 @@ export default function ParentDashboardPage() {
 
           {/* AI Insight Card */}
           {!loading && hasChildren && <AiInsightCard students={data?.students ?? []} />}
+
+          {/* Parent hub tiles — school navigation */}
+          {!loading && hasChildren && (
+            <section aria-label={t('parentDashboard.navTiles.ariaLabel')}>
+              <h2 className="mb-3 text-base font-semibold text-text-primary">
+                {t('parentDashboard.navTiles.title')}
+              </h2>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {PARENT_NAV_TILES.map((tile) => (
+                  <ParentNavTileCard key={tile.key} tile={tile} locale={locale} />
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Homework Today card */}
           {!loading && hasChildren && (hwToday.length > 0 || hwOverdue.length > 0) && (

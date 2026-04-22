@@ -1060,6 +1060,46 @@
         "payInvoice": "Pay Invoice",
         "viewGrades": "View Grades",
         "contactSchool": "Contact School"
+      },
+      "navTiles": {
+        "ariaLabel": "School navigation",
+        "title": "Jump to",
+        "inbox": {
+          "title": "Messages",
+          "description": "Secure inbox with staff and school"
+        },
+        "announcements": {
+          "title": "Announcements",
+          "description": "School news and bulletins"
+        },
+        "inquiries": {
+          "title": "Inquiries",
+          "description": "Threaded conversations with admin"
+        },
+        "applications": {
+          "title": "Applications",
+          "description": "Your admissions submissions"
+        },
+        "sen": {
+          "title": "SEN Plan",
+          "description": "Your child's support plan and goals"
+        },
+        "behaviour": {
+          "title": "Behaviour",
+          "description": "Incidents, notes, and interventions"
+        },
+        "recognition": {
+          "title": "Recognition",
+          "description": "Awards and positive recognition"
+        },
+        "homework": {
+          "title": "Homework",
+          "description": "Assignments, due dates, and notes"
+        },
+        "events": {
+          "title": "Events & Consents",
+          "description": "Trips, forms, and permissions"
+        }
       }
     },
     "teacherSummary": "Here's your day at a glance.",
@@ -4462,6 +4502,19 @@
     "navSetup": "Setup",
     "navOperations": "Operations",
     "navMonitoring": "Monitoring",
+    "navPayroll": "Payroll",
+    "navPayrollDashboard": "Payroll Dashboard",
+    "navPayrollRuns": "Payroll Runs",
+    "navPayrollCompensation": "Staff Compensation",
+    "navPayrollAttendance": "Staff Attendance",
+    "navPayrollClassDelivery": "Class Delivery",
+    "navPayrollReports": "Payroll Reports",
+    "descPayrollDashboard": "Monthly totals, bonuses, and run status",
+    "descPayrollRuns": "Create, review, and finalise payroll runs",
+    "descPayrollCompensation": "Manage staff rates, salaries, and bonus config",
+    "descPayrollAttendance": "Daily staff attendance for payroll calculations",
+    "descPayrollClassDelivery": "Track prescribed vs actual classes delivered",
+    "descPayrollReports": "Cost trends, YTD summaries, and bonus analysis",
     "descFeeTypes": "Configure the types of fees your school collects",
     "descFeeStructures": "Define tuition and other fee types",
     "descDiscounts": "Manage discount rules for billing",
@@ -15551,6 +15604,11 @@
         "title": "Safeguarding",
         "description": "Concern reporting, SLA tracking, break-glass access, and secure sealing.",
         "tooltip": "Designated safeguarding workspace."
+      },
+      "sen": {
+        "title": "SEN",
+        "description": "Student SEN profiles, plans, goals, SNA assignments, and resource allocation.",
+        "tooltip": "Special Educational Needs workspace."
       },
       "earlyWarnings": {
         "title": "Early Warnings",

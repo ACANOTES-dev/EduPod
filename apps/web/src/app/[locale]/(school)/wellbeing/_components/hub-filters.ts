@@ -14,6 +14,7 @@ export const VISIBLE_HUB_KEYS = [
   'behaviour',
   'pastoral',
   'safeguarding',
+  'sen',
   'earlyWarnings',
   'staffWellbeing',
   'settings',

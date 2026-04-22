@@ -1054,6 +1054,46 @@
         "viewGrades": "عرض الدرجات",
         "contactSchool": "الاتصال بالمدرسة"
       },
+      "navTiles": {
+        "ariaLabel": "تصفح المدرسة",
+        "title": "انتقل إلى",
+        "inbox": {
+          "title": "الرسائل",
+          "description": "صندوق آمن للتواصل مع الموظفين والمدرسة"
+        },
+        "announcements": {
+          "title": "الإعلانات",
+          "description": "أخبار المدرسة والنشرات"
+        },
+        "inquiries": {
+          "title": "الاستفسارات",
+          "description": "محادثات متسلسلة مع الإدارة"
+        },
+        "applications": {
+          "title": "الطلبات",
+          "description": "طلبات القبول المقدمة"
+        },
+        "sen": {
+          "title": "خطة الاحتياجات الخاصة",
+          "description": "خطة دعم طفلك والأهداف"
+        },
+        "behaviour": {
+          "title": "السلوك",
+          "description": "الحوادث والملاحظات والتدخلات"
+        },
+        "recognition": {
+          "title": "التقدير",
+          "description": "الجوائز والتقدير الإيجابي"
+        },
+        "homework": {
+          "title": "الواجبات",
+          "description": "المهام والمواعيد والملاحظات"
+        },
+        "events": {
+          "title": "الفعاليات والموافقات",
+          "description": "الرحلات والنماذج والأذونات"
+        }
+      },
       "actionCenterTitle": "مركز الإجراءات",
       "actionCenterDescription": "لديك نماذج أو تسجيلات في فعاليات أو دفعات تحتاج إلى انتباهك.",
       "actionCenterClear": "اكتملت جميع الإجراءات. لا يوجد ما ينتظرك حاليًا.",
@@ -4462,6 +4502,19 @@
     "navSetup": "الإعداد",
     "navOperations": "العمليات",
     "navMonitoring": "المراقبة",
+    "navPayroll": "الرواتب",
+    "navPayrollDashboard": "لوحة الرواتب",
+    "navPayrollRuns": "دورات الرواتب",
+    "navPayrollCompensation": "تعويضات الموظفين",
+    "navPayrollAttendance": "حضور الموظفين",
+    "navPayrollClassDelivery": "تنفيذ الحصص",
+    "navPayrollReports": "تقارير الرواتب",
+    "descPayrollDashboard": "الإجماليات الشهرية والمكافآت وحالة الدورة",
+    "descPayrollRuns": "إنشاء ومراجعة واعتماد دورات الرواتب",
+    "descPayrollCompensation": "إدارة أجور الموظفين ورواتبهم وإعدادات المكافآت",
+    "descPayrollAttendance": "حضور الموظفين اليومي لحساب الرواتب",
+    "descPayrollClassDelivery": "تتبع الحصص المقررة مقابل الفعلية",
+    "descPayrollReports": "اتجاهات التكلفة والملخصات السنوية وتحليل المكافآت",
     "descFeeTypes": "تكوين أنواع الرسوم التي تجمعها المدرسة",
     "descFeeStructures": "تحديد أنواع الرسوم الدراسية والأخرى",
     "descDiscounts": "إدارة قواعد الخصم للفوترة",
@@ -15551,6 +15604,11 @@
         "title": "الحماية",
         "description": "الإبلاغ عن المخاوف وتتبع مستوى الخدمة والوصول الاستثنائي والإغلاق الآمن.",
         "tooltip": "مساحة عمل حماية الأطفال المعتمدة."
+      },
+      "sen": {
+        "title": "الاحتياجات الخاصة",
+        "description": "ملفات الطلاب ذوي الاحتياجات الخاصة والخطط والأهداف وتعيينات المساعدين وتخصيص الموارد.",
+        "tooltip": "مساحة عمل الاحتياجات التعليمية الخاصة."
       },
       "earlyWarnings": {
         "title": "الإنذارات المبكرة",
