@@ -349,8 +349,11 @@ export default function SurveyDetailPage() {
 
   function computeResponseRate(): string {
     if (!survey) return '0';
-    const count = survey.participation_count ?? 0;
-    const eligible = survey.eligible_count ?? 1;
+    if (typeof survey.response_rate === 'number') {
+      return survey.response_rate.toFixed(0);
+    }
+    const count = survey.response_count ?? 0;
+    const eligible = survey.eligible_staff_count ?? 0;
     if (eligible === 0) return '0';
     return Math.round((count / eligible) * 100).toString();
   }

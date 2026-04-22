@@ -24,8 +24,12 @@ export interface Survey {
   created_at: string;
   updated_at: string;
   questions: SurveyQuestion[];
-  participation_count?: number;
-  eligible_count?: number;
+  // Backend `SurveyDetail` shape: response_count is the total submitted count,
+  // eligible_staff_count is the denominator (emitted for active surveys), and
+  // response_rate is the pre-computed percentage when available.
+  response_count?: number;
+  eligible_staff_count?: number;
+  response_rate?: number;
 }
 
 export interface LikertResult {

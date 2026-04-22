@@ -29,8 +29,11 @@ export function OverviewTab({
   onClone,
 }: OverviewTabProps) {
   const t = useTranslations('wellbeing.surveyDetail');
-  const participationCount = survey.participation_count ?? 0;
-  const eligibleCount = survey.eligible_count ?? 0;
+  // Backend detail shape uses response_count / eligible_staff_count — the
+  // earlier `participation_count` / `eligible_count` names never matched and
+  // rendered every closed survey as "0 of 0 staff" (W-S7-003 companion).
+  const participationCount = survey.response_count ?? 0;
+  const eligibleCount = survey.eligible_staff_count ?? 0;
 
   return (
     <div className="space-y-6">
