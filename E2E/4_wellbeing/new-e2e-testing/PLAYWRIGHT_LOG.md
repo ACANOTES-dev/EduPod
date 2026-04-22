@@ -17,7 +17,7 @@ A session is only **Complete** when every issue it opened is marked `**Verified:
 | S4      | 2026-04-21 | 2026-04-21 | 6             | 2   | 1   | 2   | 1   | **Complete**                                                                                                    |
 | S5      | 2026-04-21 | 2026-04-21 | 6             | 1   | 4   | 0   | 1   | **Complete** (W-S5-001 deferred — safeguarding concerns UI is stub redirects; needs dedicated build-out)        |
 | S6      | 2026-04-21 | 2026-04-22 | 7             | 3   | 1   | 2   | 1   | **Complete** (W-S6-004 + W-S6-005 deferred to S9 product review)                                                |
-| S7      |            |            |               |     |     |     |     | Not started                                                                                                     |
+| S7      | 2026-04-22 | 2026-04-22 | 6             | 3   | 2   | 1   | 0   | **Complete**                                                                                                    |
 | S8      |            |            |               |     |     |     |     | Not started                                                                                                     |
 | S9      |            |            |               |     |     |     |     | Not started                                                                                                     |
 
@@ -994,8 +994,12 @@ S6 walked all 4 EW routes for the first time on NHQS and exposed five distinct d
 
 ## S7 — Staff Wellbeing
 
-**Status:** In progress (2026-04-22 start)
+**Status:** Complete (2026-04-22)
 **Session plan:** [`S7_staff_wellbeing.md`](./S7_staff_wellbeing.md)
+
+### Session summary
+
+S7 walked every Staff Wellbeing surface owned by this session (the hub at `/en/wellbeing/staff`, the thin redirects at `/wellbeing/dashboard`, `/my-workload`, `/resources`, `/reports`, `/settings`, the admin surveys list, the survey detail page, and the self-service responder at `/wellbeing/survey`) and exposed a single root cause with two very different symptoms plus a scoring bug and three UX gaps. The root cause: the API's `ResponseTransformInterceptor` wraps every non-paginated response in `{ data: T }` and Staff Wellbeing's frontend components overwhelmingly ignored that wrapper — `AggregateSection` crashed the owner's landing with `TypeError: Cannot read properties of undefined (reading 'mean')` (resolving the long-deferred W-S0-001), the survey detail page crashed with the same pattern on `.questions.some`, and BoardReport / Resources / MyWorkload / Overview-tab silently rendered empty or fallback states instead of the real data (including the closed-survey response count showing "0 of 0 staff (0%)" with 15 seeded responses). Fix: apply `unwrap()` uniformly across all single-DTO call sites. Separately, the `/staff-wellbeing/respond/active` endpoint was 500-ing on every request because `HmacService.getOrCreateHmacSecret` opened a raw `this.prisma.$transaction` with no RLS context — `tenant_settings` silently read as empty under the policy's USING clause and the subsequent `update` triggered a Postgres UUID parse error on the stale GUC; fixed by running read+write inside a single `createRlsClient` transaction. W-S7-002 (timetable-quality composite showing `1156` / "Good" and Free Period Distribution badges using 0-1 thresholds against 0-100 values) was a paired frontend+backend scoring-scale drift; both sides now agree on 0-100 for `free_period_clumping.mean` and percent-not-ratio for `split_timetable_pct`. W-S7-006 wired an onClick for the previously-dead "View Results" button on closed surveys. Verified end-to-end as owner and API-level as teacher (Sarah Daly's bearer) — posted a 4/5 Likert response against the active survey, NHQS response count moved 5 → 6 with one new participation token, anonymisation invariant preserved. No P3 polish emerged. No issues deferred. Screenshots deleted. Carry-forwards for S9: none new — the scoring-scale fix may want a design review at some point (whether 1.81 consecutive periods on NHQS should really weight into "Good" timetable quality at 55), but the machine-readable values are now coherent with the rest of the module.
 
 ### W-S7-001 — Staff wellbeing dashboard crashes on `{data}`-wrapped payloads (resolves W-S0-001)
 
@@ -1011,8 +1015,8 @@ S6 walked all 4 EW routes for the first time on NHQS and exposed five distinct d
 - **Actual:** Full-page error boundary ("Something went wrong"). Console: 3× 404s on `/api/v1/staff-wellbeing/my-workload/*` (expected — principal has no `staff_profiles` row and `MyWorkloadSection` handles it with an empty state) plus `TypeError: Cannot read properties of undefined (reading 'mean')` thrown from `AggregateSection`.
 - **Root cause:** The API's `ResponseTransformInterceptor` wraps every non-paginated response in `{ data: T }`, but four Staff Wellbeing frontend sections — `AggregateSection`, `BoardReportSection`, `ResourcesSection`, and `MyWorkloadSection` — call `apiClient<T>(...)` and treat the returned wrapper as `T`. The 6 aggregate endpoints all return `{ data: payload }`, so `timetableQuality.consecutive_periods.mean` evaluates to `(undefined).mean` and throws synchronously during `computeTimetableScore` — which bubbles up through the parent layout's error boundary and replaces the whole page. The other three sections degrade silently: `BoardReportSection`'s `isCompleteReport` check returns false on the wrapped object so the Termly Summary always shows the retry banner; `ResourcesSection` reads `data?.eap` / `data?.resources` with optional chaining so it renders the empty-EAP fallback instead of the seeded providers; `MyWorkloadSection` would crash for any user whose `/my-workload/summary` actually 200s (teachers) because `quality.free_period_distribution.find(...)` dereferences undefined. Principals never hit the latent teacher-side crash because the 404 on `/my-workload/summary` triggers the section's `noTeachingProfile` branch.
 - **Evidence:** Playwright console captures — 3 × 404 + 2 × `TypeError: Cannot read properties of undefined (reading 'mean')`. Deleted before session close.
-- **Fix:** pending
-- **Verified:** pending
+- **Fix:** `c7ee9c77` — unwrap `{ data: T }` in Aggregate / BoardReport / Resources / MyWorkload sections.
+- **Verified:** 2026-04-22 — re-walked `/en/wellbeing/dashboard`, all five sections render for owner@nhqs.test; the only remaining console errors are the expected 404s on `/my-workload/*` which the section handles with a "no teaching profile" empty state.
 
 ### W-S7-002 — Aggregate timetable-quality score uses wrong scale for free_period_clumping
 
@@ -1027,8 +1031,8 @@ S6 walked all 4 EW routes for the first time on NHQS and exposed five distinct d
 - **Expected:** A value on a 0–100 scale with a label consistent with typical school data (e.g. "72 · Moderate").
 - **Actual:** Value renders as `1156` with label `Good`. Derived from `computeTimetableScore` in `aggregate-section.tsx` which multiplies `free_period_clumping.mean` by 100 again, despite the backend `scoreFreeDistribution()` already returning a 0-100 score. `assessFreeClumping` thresholds of `0.7` and `0.4` are similarly mis-calibrated (should be `70` / `40`). `board-report.service.ts` line 48 has the mirror bug: `clumpingScore = Math.min(100, quality.free_period_clumping.mean * 20)` — pinned at 100 for any realistic value, collapsing the signal. Net effect: the Board Report's "timetable_quality.average_score" and the dashboard's "Timetable Quality" KPI both display nonsense.
 - **Evidence:** Dashboard Aggregate snapshot — "Timetable Quality · 1156 · Good"; free period distribution card showing `44.49` next to "Good" badge (a 44.49 score in a 0-100 range is moderate at best).
-- **Fix:** pending
-- **Verified:** pending
+- **Fix:** `ed59f6e3` — frontend `computeTimetableScore` and `assessFreeClumping` now treat `free_period_clumping.mean` as 0-100, and the backend `computeAverageTimetableScore` drops the `* 20` and `* 100` multipliers (latter was also mis-scaling `split_timetable_pct` which is already a percent).
+- **Verified:** 2026-04-22 — Aggregate KPI now shows "Timetable Quality · 55 · Moderate"; Board Report "Average score" is 69.3 (close to 70 threshold). Free-period-distribution card badge transitions through good/moderate/needsAttention as the mean value moves through 40/70.
 
 ### W-S7-003 — Closed-survey response count shows "0 of 0 staff (0%)" despite 15 seeded responses
 
@@ -1043,8 +1047,8 @@ S6 walked all 4 EW routes for the first time on NHQS and exposed five distinct d
 - **Expected:** Response count out of eligible staff (15 responses seeded).
 - **Actual:** Shows `0 of 0 staff (0%)`. Root cause: API returns `_count: { responses: N }` (Prisma relation name) but the frontend `Survey` type in `survey-types.ts` declares `_count?: { survey_responses: number }` and `survey-list.tsx` reads `survey._count?.survey_responses`. The list endpoint also never emits `participation_count` or `eligible_count`, only the survey detail endpoint does — so even fixing the key only gets us a response count, not a percentage.
 - **Evidence:** API payload `_count: { responses: 15 }` for closed survey; UI renders "0 of 0 staff (0%)" for the same row.
-- **Fix:** pending
-- **Verified:** pending
+- **Fix:** `ed59f6e3` + `8e6a8c4e` + `e96e8d88` — Survey type now declares `_count: { responses }`, list falls back to "N responses" when eligible headcount isn't emitted, detail page reads `response_count` / `eligible_staff_count`, and the backend emits `eligible_staff_count` for closed surveys (previously only active) so the detail page can render "15 of 35 staff responded (43%)".
+- **Verified:** 2026-04-22 — survey list row shows "15 responses" for the closed survey; detail page shows "15 of 35 staff responded (43%)" and the response-rate bar fills to 43%.
 
 ### W-S7-004 — `/staff-wellbeing/respond/active` crashes with empty-UUID RLS cast
 
@@ -1058,8 +1062,8 @@ S6 walked all 4 EW routes for the first time on NHQS and exposed five distinct d
 - **Expected:** 200 (with active survey) or 204 (no active survey) — the UI then shows the survey form or the empty state.
 - **Actual:** 500. Server log: `PrismaClientUnknownRequestError … Invalid prisma.tenantSetting.update() invocation … PostgresError code 22P02 "invalid input syntax for type uuid: ""`. The client masks the 500 behind a "no active surveys" empty state, so the failure is silent from the user's perspective — but every teacher's survey round-trip would fail the same way. Root cause: `HmacService.getOrCreateHmacSecret` opened a `this.prisma.$transaction` that did NOT apply the RLS context, so `tenant_settings.findUnique` returned null under the policy's USING clause (making the service think no HMAC secret exists) and the subsequent `tenant_settings.update` fired WITH CHECK against a stale/empty `app.current_tenant_id` GUC which Postgres tried to cast to UUID — 22P02. Proved via SSH: `SET LOCAL app.current_tenant_id = ''; SELECT current_setting('app.current_tenant_id')::uuid;` reproduces the exact parse error.
 - **Evidence:** API log request_id `41ccf08c-1768-41ae-a8a6-ef225d4d8049`, full stack through `HmacService.getOrCreateHmacSecret` → `SurveyService.getActiveSurvey` → `SurveyController.getActiveSurvey`.
-- **Fix:** pending
-- **Verified:** pending
+- **Fix:** `ed59f6e3` — `HmacService.getOrCreateHmacSecret` now runs find+write inside a single `createRlsClient($transaction)` so `app.current_tenant_id` is pinned for both the policy USING read and the WITH CHECK write.
+- **Verified:** 2026-04-22 — `/en/wellbeing/survey` renders the active survey form for owner@nhqs.test (no more "no active surveys" fallback hiding a 500). Direct API call as teacher (`Sarah.daly@nhqs.test`) also returns 200 with the active survey payload; POSTing a response bumped the NHQS active-survey count 5 → 6 with a fresh participation token (anonymisation preserved).
 
 ### W-S7-005 — Survey detail page crashes on `{data}`-wrapped envelope
 
@@ -1073,8 +1077,8 @@ S6 walked all 4 EW routes for the first time on NHQS and exposed five distinct d
 - **Expected:** Detail page with overview / results / moderation tabs.
 - **Actual:** Full-page error boundary. Console: `TypeError: Cannot read properties of undefined (reading 'some')` — inside the `TAB_KEYS` useMemo which accesses `survey.questions.some(q => q.question_type === 'freeform')`. Same root cause as W-S7-001: `apiClient<Survey>('/api/v1/staff-wellbeing/surveys/:id')` returns `{ data: Survey }` but the component treats the wrapper as the Survey and dereferences `.questions` on `undefined`. Other single-resource calls on this page (`/results`, `/moderation`, `/activate`, `/close`, `/clone`) have the same bug — they happen not to surface because either (a) the endpoint returns a list already wrapped as `{data: [], ...}` or (b) the failure is swallowed by catch.
 - **Evidence:** Playwright error capture from survey detail page load.
-- **Fix:** pending
-- **Verified:** pending
+- **Fix:** `ed59f6e3` — survey detail `/[id]` page, results tab, moderation tab, comments fetch, activate/close actions, and the `survey-form-dialog` create flow all now `unwrap(apiClient<{ data: T }>(…))`. The self-service `/respond/active` raw-fetch path unwraps inline. Survey submit response (`{ submitted: true }`) is single-field enough that treating the wrapper as payload didn't surface user-visibly, left as-is.
+- **Verified:** 2026-04-22 — opening the closed survey detail renders all three panels (Overview, Results tab, Clone action); no console error and no error boundary.
 
 ### W-S7-006 — "View Results" button on closed-survey row does nothing
 
@@ -1089,8 +1093,8 @@ S6 walked all 4 EW routes for the first time on NHQS and exposed five distinct d
 - **Expected:** Navigate to the survey detail page with the Results tab active (or at least to the detail page).
 - **Actual:** Nothing happens — the button has no `onClick` handler (`survey-list.tsx` line 140 renders a bare `<Button>`). Users have to hand-type the detail URL to see a closed survey's results. This is effectively a dead action on the most important column in the table.
 - **Evidence:** `survey-list.tsx` closed-status branch omits the handler.
-- **Fix:** pending
-- **Verified:** pending
+- **Fix:** `ed59f6e3` — closed-status action button now routes to `/[locale]/wellbeing/surveys/:id` via `router.push`.
+- **Verified:** 2026-04-22 — clicking "View Results" from the Surveys hub opens the detail page with Overview + Results tabs visible.
 
 ---
 

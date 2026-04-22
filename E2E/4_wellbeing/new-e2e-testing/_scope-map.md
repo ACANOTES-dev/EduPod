@@ -156,16 +156,16 @@ Root: all routes live under `apps/web/src/app/[locale]/(school)/…`. Tested pri
 
 ## Staff Wellbeing hub — owned by S7
 
-- [ ] `/en/wellbeing` (landing)
-- [ ] `/en/wellbeing/dashboard`
-- [ ] `/en/wellbeing/surveys` (list)
-- [ ] `/en/wellbeing/surveys/[id]` (detail — open ≥ 1 active + 1 closed)
-- [ ] `/en/wellbeing/survey` (self-service single-question or response entry point)
-- [ ] `/en/wellbeing/staff`
-- [ ] `/en/wellbeing/my-workload`
-- [ ] `/en/wellbeing/resources`
-- [ ] `/en/wellbeing/reports`
-- [ ] `/en/wellbeing/settings`
+- [x] `/en/wellbeing` (landing) — KPI strip, modules grid, quick actions, recent feed all verified.
+- [x] `/en/wellbeing/dashboard` — intentional redirect to `/wellbeing/staff` (see dashboard/page.tsx). Post-fix landing renders all five sections; W-S0-001 crash gone.
+- [x] `/en/wellbeing/surveys` (list) — redirect to `/wellbeing/staff#surveys`. List shows both seeded surveys with correct response-rate label post-fix.
+- [x] `/en/wellbeing/surveys/[id]` (detail) — walked the closed survey (15 of 35 staff, 43%). Active-survey detail shown via API shape (`eligible_staff_count` present post-fix).
+- [x] `/en/wellbeing/survey` (self-service) — post-fix renders the active survey form with Likert question; `/respond/active` returns 200 (was 500 pre-fix).
+- [x] `/en/wellbeing/staff` — hub with My Workload / Aggregate / Surveys / Board Report / Resources sections. All render post-fix.
+- [x] `/en/wellbeing/my-workload` — redirect to `/wellbeing/staff#my`. Owner sees the "no teaching profile" empty state; teacher API path verified (`/my-workload/summary` returns data).
+- [x] `/en/wellbeing/resources` — redirect to `/wellbeing/staff#resources`. EAP card shows the "not configured" empty state (no seed); crisis resources render.
+- [x] `/en/wellbeing/reports` — redirect to `/wellbeing/staff#board-report`. Board Report renders with academic-year header, workload, cover fairness, timetable quality, substitution pressure, absence pattern.
+- [x] `/en/wellbeing/settings` — intentional redirect to `/en/settings/behaviour-general` (see wellbeing/settings/page.tsx).
 
 ---
 
