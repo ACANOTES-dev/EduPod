@@ -395,7 +395,6 @@ export default function CreateIncidentPage() {
               onChange={(e) => setParentDescription(e.target.value)}
               placeholder={t('placeholders.parentDescription')}
               rows={2}
-              className="text-sm"
             />
           </div>
         </div>

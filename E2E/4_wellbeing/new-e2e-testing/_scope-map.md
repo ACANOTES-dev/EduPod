@@ -173,6 +173,14 @@ Root: all routes live under `apps/web/src/app/[locale]/(school)/…`. Tested pri
 
 Same route list walked at `/ar/…` (RTL) and at 375×667 (mobile). Role-boundary pass (teacher/parent/student/cross-tenant).
 
+- [x] Mobile 375×667 — behaviour / pastoral / safeguarding / early-warnings / wellbeing landings + two representative detail pages per hub, no horizontal scroll, tables wrapped in `overflow-x-auto`.
+- [x] RTL `/ar/…` — behaviour, pastoral, safeguarding, early-warnings, wellbeing/staff, wellbeing/surveys/[id], behaviour/incidents/new form: logical CSS, Arabic labels resolved, no leaked keys.
+- [x] Teacher (`Sarah.daly@nhqs.test`) — behaviour (reads OK, admin KPIs 403 silent empty), pastoral (reads OK), safeguarding ("Restricted workspace" empty state), early-warnings, wellbeing/staff (own workload renders with post-fix 17% split days).
+- [x] Parent (`parent@nhqs.test`) — behaviour / pastoral / safeguarding / early-warnings / wellbeing/staff / wellbeing/survey all redirect to `/dashboard` post-fix (previously leaking through the last three).
+- [x] Student (`adam.moore@nhqs.test`) — same redirect behavior as parent after route-role update.
+- [x] Tenant isolation — stress-a admin JWT against `nhqs.edupod.app/api/v1/…` → `401 Token does not match the current tenant`; reverse direction (NHQS owner → stress-a) same. Cross-tenant ID guess, survey-id guess, student search all blocked.
+- [x] Visual polish sweep 1440×900 — bottom padding 41-172px across all five hub landings; no edge cut-offs; no inconsistent card radius; Recharts measurement span (top:-20000px) intentional and ignored.
+
 ---
 
 ## Coverage target

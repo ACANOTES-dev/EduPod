@@ -67,7 +67,9 @@ export function AddReviewDialog({
           {/* Auto-populated stats (read only) */}
           {autoPopData && (
             <div className="rounded-lg border border-border bg-surface-secondary p-3">
-              <p className="mb-2 text-xs font-medium text-text-tertiary">{t('autoPopulatedStats')}</p>
+              <p className="mb-2 text-xs font-medium text-text-tertiary">
+                {t('autoPopulatedStats')}
+              </p>
               <div className="flex flex-wrap gap-4 text-sm">
                 <span>
                   <span className="text-text-tertiary">{t('pointsSinceLast')}</span>
@@ -133,7 +135,7 @@ export function AddReviewDialog({
                           });
                         }}
                       >
-                        <SelectTrigger className="text-sm">
+                        <SelectTrigger>
                           <SelectValue placeholder={t('status')} />
                         </SelectTrigger>
                         <SelectContent>
