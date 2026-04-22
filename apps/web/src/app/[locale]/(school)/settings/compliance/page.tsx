@@ -1,6 +1,18 @@
 'use client';
 
-import { CheckCircle, Eye, Play, Plus, ShieldCheck, Tag, XCircle } from 'lucide-react';
+import {
+  BrainCircuit,
+  CheckCircle,
+  ChevronRight,
+  Eye,
+  Play,
+  Plus,
+  ShieldCheck,
+  Tag,
+  XCircle,
+} from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -313,7 +325,10 @@ function DetailDialog({ request, onClose, onAction }: DetailDialogProps) {
 export default function CompliancePage() {
   const t = useTranslations('compliance');
   const tCommon = useTranslations('common');
+  const tAi = useTranslations('aiAuditSettings');
   const { isOwner } = useRoleCheck();
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [data, setData] = React.useState<ComplianceRequest[]>([]);
   const [total, setTotal] = React.useState(0);
@@ -439,7 +454,9 @@ export default function CompliancePage() {
                 setAgeGateConfirmId(row.id);
               }}
             >
-              <ShieldCheck className="me-1 h-3.5 w-3.5" />{t('confirmAgeGate')}</Button>
+              <ShieldCheck className="me-1 h-3.5 w-3.5" />
+              {t('confirmAgeGate')}
+            </Button>
           )}
         </div>
       ),
@@ -475,6 +492,22 @@ export default function CompliancePage() {
           ) : undefined
         }
       />
+
+      {/* ── Related: AI Audit ───────────────────────────────────────────── */}
+      <Link
+        href={`/${locale}/settings/compliance/ai-audit`}
+        className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-indigo-200 bg-indigo-50/50 p-4 transition-all hover:border-indigo-300 hover:bg-indigo-50 sm:p-5"
+      >
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-400 via-indigo-500 to-indigo-600" />
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 shadow-sm ring-1 ring-inset ring-black/5">
+          <BrainCircuit className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-text-primary">{tAi('title')}</p>
+          <p className="mt-0.5 text-xs text-text-tertiary">{tAi('description')}</p>
+        </div>
+        <ChevronRight className="h-5 w-5 shrink-0 text-indigo-600 transition-transform group-hover:translate-x-0.5 rtl:rotate-180" />
+      </Link>
 
       <DataTable
         columns={columns}
@@ -518,7 +551,9 @@ export default function CompliancePage() {
               variant="outline"
               onClick={() => setAgeGateConfirmId(null)}
               disabled={ageGateConfirming}
-            >{tCommon('cancel')}</Button>
+            >
+              {tCommon('cancel')}
+            </Button>
             <Button
               disabled={ageGateConfirming}
               onClick={async () => {

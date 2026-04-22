@@ -1998,7 +1998,9 @@
       "sen": "SEN",
       "senDesc": "Configure special educational needs categories and provisions.",
       "aiFlags": "AI Features",
-      "aiFlagsDesc": "Enable or disable AI across behaviour, pastoral, staff wellbeing, and early warnings."
+      "aiFlagsDesc": "Enable or disable AI across behaviour, pastoral, staff wellbeing, and early warnings.",
+      "wellbeingNotifications": "Wellbeing Notifications",
+      "wellbeingNotificationsDesc": "Choose which wellbeing events are sent via email, SMS, and WhatsApp. In-app notifications are always on."
     },
     "general": "General",
     "security": "Security",
@@ -15623,6 +15625,521 @@
     "myWorkload": {
       "noTeachingProfileTitle": "No teaching profile on file",
       "noTeachingProfileBody": "My Workload shows teaching load, cover duties, and timetable quality for staff with a teaching profile. Your account doesn't have one — this is normal for principals and non-teaching administrators."
+    }
+  },
+  "aiAuditSettings": {
+    "title": "AI Audit Log",
+    "description": "Every AI request this school has made — what was sent, which model answered, whether a human accepted the result. GDPR Article 22 and EU AI Act evidence.",
+    "back": "Back to Compliance",
+    "loadError": "Couldn't load the AI audit data.",
+    "retry": "Retry",
+    "denied": {
+      "title": "You don't have access",
+      "body": "Only school owners and principals can review the AI audit log."
+    },
+    "regulatoryBanner": {
+      "title": "Right to explanation",
+      "body": "This log is your Article 22 (GDPR) and EU AI Act evidence trail. It records every AI decision, who reviewed it, and whether the suggestion was used."
+    },
+    "kpis": {
+      "ariaLabel": "AI usage summary",
+      "totalRuns": "AI runs",
+      "acceptance": "Acceptance",
+      "avgLatency": "Avg. latency",
+      "tokenisation": "Tokenised",
+      "tooltips": {
+        "totalRuns": "Total AI calls made on behalf of this tenant, over all time.",
+        "acceptance": "Proportion of AI suggestions a human accepted. Excludes runs with no human decision yet.",
+        "avgLatency": "Average time the AI provider took to respond.",
+        "tokenisation": "Proportion of runs where student identifiers were anonymised before being sent to the AI provider."
+      }
+    },
+    "byService": {
+      "title": "By AI service",
+      "empty": {
+        "title": "No AI runs yet",
+        "body": "Once your school uses an AI feature — incident parsing, SST agenda generation, early-warning summaries — it will show up here."
+      }
+    },
+    "filters": {
+      "title": "Filter by service",
+      "allServices": "All services"
+    },
+    "list": {
+      "resultCount": "{count} run(s)",
+      "pagination": "Page {page} of {total}",
+      "prev": "Previous",
+      "next": "Next",
+      "tokenised": "Tokenised",
+      "empty": {
+        "title": "Nothing to show",
+        "body": "No AI runs found for this service yet."
+      },
+      "decision": {
+        "accepted": "Accepted",
+        "rejected": "Rejected",
+        "pending": "Awaiting review"
+      }
+    },
+    "detail": {
+      "close": "Close",
+      "fields": {
+        "id": "Log ID",
+        "subject": "Subject",
+        "latency": "Latency",
+        "confidence": "Model confidence",
+        "tokenised": "Input tokenised",
+        "tokenisedYes": "Yes — student identifiers were anonymised",
+        "tokenisedNo": "No",
+        "categories": "Input data categories",
+        "decision": "Human review",
+        "prompt": "Prompt summary",
+        "response": "Response summary"
+      },
+      "decision": {
+        "accepted": "Accepted by a reviewer",
+        "rejected": "Rejected by a reviewer",
+        "pending": "No human decision recorded yet"
+      }
+    },
+    "service": {
+      "behaviour_incident_parse": "Behaviour · Incident parse",
+      "pastoral_concern_classification": "Pastoral · Concern classification",
+      "pastoral_sst_agenda": "Pastoral · SST agenda",
+      "early_warning_summary": "Early Warning · Summary",
+      "staff_wellbeing_signal": "Staff Wellbeing · Signal",
+      "substitution_suggest": "Scheduling · Substitution suggest",
+      "exam_solver": "Exams · Solver",
+      "report_comment_draft": "Report Cards · Comment draft"
+    }
+  },
+  "childProtectionHub": {
+    "title": "Child Protection",
+    "description": "Tier-3 child protection records, exports, and access control. DLP-only surface.",
+    "back": "Back to Safeguarding",
+    "retry": "Retry",
+    "loadError": "Couldn't load Child Protection data.",
+    "denied": {
+      "title": "Tier-3 restricted",
+      "body": "Child Protection records are visible only to the Designated Liaison Person (DLP) and staff with an explicit CP access grant."
+    },
+    "privacyBanner": {
+      "title": "Tier-3 — DLP only",
+      "body": "Everything on this page is audit-logged. Every open, export, grant, and revoke is written to the immutable audit trail.",
+      "scopePill": "DLP only"
+    },
+    "noAccess": {
+      "title": "You don't have an active CP access grant",
+      "body": "You can still view this hub, but opening individual records will be blocked until a school owner or DLP grants you access.",
+      "manageCta": "Request access"
+    },
+    "search": {
+      "title": "Find a student",
+      "description": "Type a name or student number. Opening a student is audit-logged.",
+      "placeholder": "Search students…",
+      "loading": "Searching…",
+      "empty": "No students matched."
+    },
+    "tiles": {
+      "ariaLabel": "Child Protection actions",
+      "export": {
+        "title": "Export records",
+        "description": "Generate a watermarked, token-protected PDF bundle for Tusla, legal, or transfer.",
+        "tooltip": "Runs the preview → confirm → download flow. One-time 15-minute download token."
+      },
+      "access": {
+        "title": "CP access grants",
+        "description": "View, grant, or revoke Tier-3 record access for specific staff.",
+        "tooltip": "Granting or revoking CP access is audit-logged and immediately takes effect."
+      },
+      "sealed": {
+        "title": "Sealed concerns",
+        "description": "Historic concerns removed from the working view. Break-glass reveal required.",
+        "tooltip": "Opens the Safeguarding sealed register."
+      }
+    },
+    "footer": {
+      "audit": "Every CP record open is written to the audit trail.",
+      "retention": "CP records follow the tenant's statutory retention policy."
+    },
+    "records": {
+      "title": "Child Protection Records",
+      "description": "Tier-3 records filed against this student. Opening a record is audit-logged.",
+      "back": "Back",
+      "retry": "Retry",
+      "loadError": "Couldn't load records.",
+      "denied": {
+        "title": "Tier-3 restricted",
+        "body": "Child Protection records are visible only to the DLP and staff with a CP access grant."
+      },
+      "tier3Pill": "Tier 3",
+      "resultCount": "{count} record(s)",
+      "pagination": "Page {page} of {total}",
+      "prev": "Previous",
+      "next": "Next",
+      "exportCta": "Export",
+      "legalHold": "Legal hold",
+      "mrBadge": "Mandated report — {status}",
+      "empty": {
+        "title": "No child-protection records for this student",
+        "body": "Records only appear after a tier-3 concern has been escalated. This student currently has none."
+      },
+      "type": {
+        "concern": "Concern",
+        "mandated_report": "Mandated report",
+        "tusla_correspondence": "Tusla correspondence",
+        "section_26": "Section 26",
+        "disclosure": "Disclosure",
+        "retrospective_disclosure": "Retrospective disclosure"
+      },
+      "mrStatus": {
+        "draft": "draft",
+        "submitted": "submitted",
+        "acknowledged": "acknowledged",
+        "outcome_received": "outcome received"
+      }
+    },
+    "detail": {
+      "title": "Child-protection record",
+      "description": "Full detail, mandated-report lifecycle, and metadata.",
+      "exportCta": "Export",
+      "loadError": "Couldn't load this record.",
+      "notFound": "Record not found.",
+      "legalHold": "Legal hold",
+      "type": {
+        "concern": "Concern",
+        "mandated_report": "Mandated report",
+        "tusla_correspondence": "Tusla correspondence",
+        "section_26": "Section 26",
+        "disclosure": "Disclosure",
+        "retrospective_disclosure": "Retrospective disclosure"
+      },
+      "mrStatus": {
+        "draft": "Draft",
+        "submitted": "Submitted",
+        "acknowledged": "Acknowledged",
+        "outcome_received": "Outcome received"
+      },
+      "narrative": {
+        "title": "Narrative",
+        "logged": "Logged {when} by {who}",
+        "unknown": "unknown user"
+      },
+      "mandatedReport": {
+        "title": "Mandated report",
+        "description": "Statutory Tusla report workflow. Each step is audit-logged.",
+        "createDraft": "Start draft",
+        "creating": "Creating…",
+        "complete": "Mandated report workflow is complete.",
+        "toastDraftCreated": "Mandated report draft started.",
+        "toastDraftFailed": "Couldn't start the draft.",
+        "toastSubmitted": "Mandated report submitted to Tusla.",
+        "toastSubmitFailed": "Couldn't submit the mandated report.",
+        "toastAdvanced": {
+          "acknowledged": "Marked as acknowledged by Tusla.",
+          "outcome_received": "Outcome recorded."
+        },
+        "toastAdvanceFailed": "Couldn't advance the status.",
+        "noReport": {
+          "title": "No mandated report filed yet",
+          "body": "Start a draft when you're ready to file with Tusla."
+        },
+        "fields": {
+          "status": "Status",
+          "tuslaRef": "Tusla reference",
+          "tuslaContactName": "Tusla contact",
+          "tuslaContactDate": "Contact date"
+        },
+        "submit": {
+          "label": "Submit to Tusla",
+          "description": "Record the Tusla reference you received back once the report has been sent.",
+          "placeholder": "e.g. TS-2026-00123",
+          "cta": "Submit",
+          "submitting": "Submitting…"
+        },
+        "ack": {
+          "title": "Awaiting Tusla acknowledgement",
+          "description": "Mark this once Tusla has confirmed receipt.",
+          "cta": "Mark acknowledged",
+          "submitting": "Marking…"
+        },
+        "outcome": {
+          "label": "Record outcome",
+          "description": "Optional notes describing Tusla's outcome or next-steps direction.",
+          "placeholder": "Outcome / next steps…",
+          "cta": "Record outcome",
+          "submitting": "Recording…"
+        }
+      },
+      "sidebar": {
+        "student": "Student",
+        "viewRecords": "View all records",
+        "linkedConcern": "Linked concern",
+        "openConcern": "Open concern",
+        "metadata": "Metadata",
+        "createdAt": "Created",
+        "updatedAt": "Updated",
+        "legalHold": "Legal hold",
+        "legalHoldYes": "Yes",
+        "legalHoldNo": "No"
+      }
+    },
+    "export": {
+      "title": "Export CP records",
+      "description": "Generate a watermarked PDF bundle for a specific purpose. Downloads use a one-time 15-minute token.",
+      "backToHub": "Back to Child Protection hub",
+      "privacy": {
+        "title": "All exports are audit-logged",
+        "body": "The preview step produces a count only. Generating the PDF creates a record in the CP audit trail with your name, IP, and purpose."
+      },
+      "stage": {
+        "form": "Configure",
+        "preview": "Preview",
+        "download": "Download"
+      },
+      "form": {
+        "title": "Export parameters",
+        "description": "Choose the student, purpose, record types, and optional date range.",
+        "studentLabel": "Student",
+        "studentPlaceholder": "Search students…",
+        "searching": "Searching…",
+        "noStudents": "No students matched.",
+        "changeStudent": "Change",
+        "purposeLabel": "Export purpose",
+        "purposePlaceholder": "Choose a purpose",
+        "otherReasonLabel": "Other reason",
+        "otherReasonPlaceholder": "Describe the purpose…",
+        "recordTypesLabel": "Record types",
+        "recordTypesHint": "Leave blank to include all record types the student has.",
+        "dateFromLabel": "From (optional)",
+        "dateToLabel": "To (optional)",
+        "previewCta": "Preview",
+        "previewing": "Previewing…"
+      },
+      "preview": {
+        "title": "Preview",
+        "description": "Check the scope before generating. Nothing is sent anywhere yet.",
+        "student": "Student",
+        "recordCount": "Records in scope",
+        "dateFrom": "From",
+        "dateTo": "To",
+        "allTime": "All time",
+        "present": "Now",
+        "recordTypes": "Record types found",
+        "none": "No records in the selected scope.",
+        "back": "Back",
+        "generateCta": "Generate export",
+        "generating": "Generating…"
+      },
+      "generate": {
+        "title": "Export ready",
+        "description": "{filename} is ready to download.",
+        "tokenExpiry": "The download token expires in 15 minutes. You can run a new export any time.",
+        "downloadCta": "Download",
+        "newExportCta": "Start a new export",
+        "toastSuccess": "Export generated. Download link is ready below."
+      },
+      "errors": {
+        "studentRequired": "Choose a student first.",
+        "purposeRequired": "Pick a purpose.",
+        "otherReasonRequired": "When the purpose is Other, please describe it.",
+        "previewFailed": "Couldn't produce the preview.",
+        "generateFailed": "Couldn't generate the export."
+      },
+      "purpose": {
+        "tusla_request": "Tusla request",
+        "section_26_inquiry": "Section 26 inquiry",
+        "legal_proceedings": "Legal proceedings",
+        "school_transfer_cp": "School transfer",
+        "board_of_management": "Board of management",
+        "other": "Other"
+      },
+      "recordType": {
+        "concern": "Concern",
+        "mandated_report": "Mandated report",
+        "tusla_correspondence": "Tusla correspondence",
+        "section_26": "Section 26",
+        "disclosure": "Disclosure",
+        "retrospective_disclosure": "Retrospective disclosure"
+      }
+    },
+    "access": {
+      "title": "CP access grants",
+      "description": "Staff who have active access to Tier-3 child-protection records.",
+      "loadError": "Couldn't load CP access grants.",
+      "resultCount": "{count} active grant(s)",
+      "activeOnly": "Active only",
+      "grantCta": "Grant access",
+      "revokeCta": "Revoke",
+      "anonymousUser": "Unnamed user",
+      "grantedOn": "Granted on {when}",
+      "info": {
+        "title": "Granting access is a high-privilege action",
+        "body": "Each grant and revoke is audit-logged. Only give CP access to staff who need it to fulfil their role."
+      },
+      "empty": {
+        "title": "No active CP access grants",
+        "body": "The DLP has default access. Use Grant access to extend CP reach to other staff."
+      },
+      "grant": {
+        "dialogTitle": "Grant CP access",
+        "dialogDescription": "Pick a staff member to grant Tier-3 access to.",
+        "staffLabel": "Staff member",
+        "staffPlaceholder": "Search staff…",
+        "change": "Change",
+        "cancel": "Cancel",
+        "confirmCta": "Grant access",
+        "granting": "Granting…",
+        "toastSuccess": "Access granted.",
+        "toastFailed": "Couldn't grant access."
+      },
+      "revoke": {
+        "dialogTitle": "Revoke CP access",
+        "dialogDescription": "Revoke Tier-3 access from {name}? Record a reason — this goes into the audit log.",
+        "reasonLabel": "Revocation reason",
+        "reasonPlaceholder": "e.g. role change, no longer needed",
+        "cancel": "Cancel",
+        "confirmCta": "Revoke access",
+        "revoking": "Revoking…",
+        "toastSuccess": "Access revoked.",
+        "toastFailed": "Couldn't revoke access."
+      }
+    }
+  },
+  "wellbeingNotificationsSettings": {
+    "title": "Wellbeing Notifications",
+    "description": "Choose which wellbeing events go out over email, SMS, and WhatsApp. In-app notifications stay on for everyone.",
+    "back": "Back to Settings",
+    "loadError": "Couldn't load your notification preferences.",
+    "retry": "Retry",
+    "saveSuccess": "Notification preferences saved.",
+    "saveError": "Couldn't save your preferences. Please try again.",
+    "unsavedChanges": "Unsaved changes",
+    "allSaved": "All changes saved",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "discard": "Discard",
+    "resetRow": "Reset",
+    "denied": {
+      "title": "You don't have access",
+      "body": "Only school owners and principals can edit wellbeing notification settings."
+    },
+    "inAppBanner": {
+      "title": "In-app notifications are always on",
+      "body": "Every wellbeing event still appears in the in-app notification panel. The settings below control the extra channels."
+    },
+    "defaults": {
+      "title": "Default channels",
+      "description": "When an event doesn't have its own override, it uses these defaults."
+    },
+    "overrides": {
+      "title": "Per-event channels",
+      "description": "Turn a channel explicitly on or off for specific events. Cells marked Default follow your defaults above."
+    },
+    "channel": {
+      "email": {
+        "label": "Email",
+        "description": "Delivered via Resend"
+      },
+      "sms": {
+        "label": "SMS",
+        "description": "Delivered via Twilio"
+      },
+      "whatsapp": {
+        "label": "WhatsApp",
+        "description": "Delivered via Twilio WhatsApp"
+      }
+    },
+    "cell": {
+      "on": "On",
+      "off": "Off",
+      "default": "Default ({state})",
+      "ariaLabel": "Toggle {channel} for {event}"
+    },
+    "group": {
+      "behaviour": "Behaviour",
+      "pastoral": "Pastoral",
+      "safeguarding": "Safeguarding",
+      "appeals": "Appeals",
+      "reminders": "Reminders"
+    },
+    "event": {
+      "incident.logged": {
+        "label": "Incident logged",
+        "description": "Sent to parents and assigned staff when a behaviour incident is recorded."
+      },
+      "incident.escalated": {
+        "label": "Incident escalated",
+        "description": "Sent when an incident is escalated to the principal or DLP."
+      },
+      "incident.parent_meeting_scheduled": {
+        "label": "Parent meeting scheduled",
+        "description": "Sent when a parent meeting is booked in response to an incident."
+      },
+      "sanction.scheduled": {
+        "label": "Sanction scheduled",
+        "description": "Sent to the student's parents when a sanction is placed on the calendar."
+      },
+      "sanction.served": {
+        "label": "Sanction served",
+        "description": "Sent once the sanction has been served (attended / completed)."
+      },
+      "sanction.no_show": {
+        "label": "Sanction no-show",
+        "description": "Sent when the student misses a scheduled sanction."
+      },
+      "recognition.awarded": {
+        "label": "Recognition awarded",
+        "description": "Sent to parents and the student when a positive recognition is granted."
+      },
+      "amendment.sent": {
+        "label": "Incident amendment sent",
+        "description": "Sent to parents when a previously-issued incident is corrected or amended."
+      },
+      "document.sent_to_parent": {
+        "label": "Document sent to parent",
+        "description": "Sent when a behaviour-related document (policy letter, sanction notice) is dispatched."
+      },
+      "concern.raised": {
+        "label": "Pastoral concern raised",
+        "description": "Sent to the designated tutor and pastoral team when a concern is logged."
+      },
+      "concern.acknowledged": {
+        "label": "Pastoral concern acknowledged",
+        "description": "Sent to the raiser when their concern has been acknowledged."
+      },
+      "sla.breach": {
+        "label": "Safeguarding SLA breach",
+        "description": "Sent to the DLP when a safeguarding first-response SLA deadline passes without acknowledgement."
+      },
+      "critical.declared": {
+        "label": "Critical concern declared",
+        "description": "Sent to the DLP and safeguarding leads when a concern is escalated to critical."
+      },
+      "critical.acknowledged": {
+        "label": "Critical concern acknowledged",
+        "description": "Sent once a critical concern has been acknowledged by the DLP."
+      },
+      "break_glass.granted": {
+        "label": "Break-glass access granted",
+        "description": "Sent to the DLP and audit inbox when emergency CP record access is granted."
+      },
+      "break_glass.expired": {
+        "label": "Break-glass access expired",
+        "description": "Sent when time-limited emergency access is automatically revoked."
+      },
+      "appeal.submitted": {
+        "label": "Appeal submitted",
+        "description": "Sent to the principal when a parent submits a behaviour appeal."
+      },
+      "appeal.decided": {
+        "label": "Appeal decided",
+        "description": "Sent to the parent once the principal has ruled on their appeal."
+      },
+      "reminder.acknowledgement": {
+        "label": "Acknowledgement reminder",
+        "description": "Sent to parents who have not yet acknowledged a document they were asked to confirm."
+      }
     }
   },
   "aiFlagsAdmin": {

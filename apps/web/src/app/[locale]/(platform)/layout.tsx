@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Menu,
   ShieldAlert,
+  Workflow,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -57,6 +58,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     { icon: LayoutDashboard, label: t('platform.admin.dashboard'), href: `/${locale}/admin` },
     { icon: Building2, label: t('platform.tenants'), href: `/${locale}/admin/tenants` },
     { icon: Activity, label: t('platform.admin.systemHealth'), href: `/${locale}/admin/health` },
+    { icon: Workflow, label: 'Queues', href: `/${locale}/admin/queues` },
     { icon: ClipboardList, label: t('auditLog.title'), href: `/${locale}/admin/audit-log` },
     {
       icon: ShieldAlert,

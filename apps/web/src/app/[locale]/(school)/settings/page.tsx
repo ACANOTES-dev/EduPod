@@ -284,6 +284,12 @@ const CATEGORIES: SettingsCategoryConfig[] = [
         href: '/settings/ai-flags',
         icon: BrainCircuit,
       },
+      {
+        labelKey: 'hub.wellbeingNotifications',
+        descKey: 'hub.wellbeingNotificationsDesc',
+        href: '/settings/wellbeing-notifications',
+        icon: Bell,
+      },
     ],
   },
 ];

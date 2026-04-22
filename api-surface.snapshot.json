@@ -2416,6 +2416,34 @@
   },
   {
     "method": "GET",
+    "path": "/v1/child-protection/cp-records/:cpRecordId/mandated-report",
+    "controller": "MandatedReportController",
+    "module": "child-protection",
+    "permission": null
+  },
+  {
+    "method": "POST",
+    "path": "/v1/child-protection/cp-records/:cpRecordId/mandated-report",
+    "controller": "MandatedReportController",
+    "module": "child-protection",
+    "permission": null
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/child-protection/cp-records/:cpRecordId/mandated-report/status",
+    "controller": "MandatedReportController",
+    "module": "child-protection",
+    "permission": null
+  },
+  {
+    "method": "POST",
+    "path": "/v1/child-protection/cp-records/:cpRecordId/mandated-report/submit",
+    "controller": "MandatedReportController",
+    "module": "child-protection",
+    "permission": null
+  },
+  {
+    "method": "GET",
     "path": "/v1/child-protection/cp-records/:id",
     "controller": "CpRecordsController",
     "module": "child-protection",
@@ -11870,6 +11898,20 @@
     "controller": "WebsitePagesController",
     "module": "website",
     "permission": null
+  },
+  {
+    "method": "GET",
+    "path": "/v1/wellbeing-notifications/channels",
+    "controller": "WellbeingNotificationsController",
+    "module": "wellbeing-notifications",
+    "permission": "settings.manage"
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/wellbeing-notifications/channels",
+    "controller": "WellbeingNotificationsController",
+    "module": "wellbeing-notifications",
+    "permission": "settings.manage"
   },
   {
     "method": "GET",

@@ -5,6 +5,7 @@ import {
   type WellbeingChannelPreferences,
 } from '@school/shared/wellbeing';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { WellbeingEmailProvider } from './providers/email.provider';
@@ -119,6 +120,58 @@ export class WellbeingNotificationsService {
       sms: override.sms ?? prefs.defaults.sms,
       whatsapp: override.whatsapp ?? prefs.defaults.whatsapp,
     };
+  }
+
+  /**
+   * Read the full wellbeing channel preferences for a tenant. Returns the
+   * stored JSONB if present, or the zero-state default otherwise.
+   *
+   * Consumed by the Wellbeing Notifications settings page to render the
+   * event × channel matrix.
+   */
+  async getChannels(tenantId: string): Promise<WellbeingChannelPreferences> {
+    const row = await this.prisma.tenantNotificationPreferences.findUnique({
+      where: { tenant_id: tenantId },
+      select: { wellbeing_channels: true },
+    });
+
+    const parsed = wellbeingChannelPreferencesSchema.safeParse(
+      row?.wellbeing_channels ?? DEFAULT_CHANNELS,
+    );
+    if (parsed.success) return parsed.data;
+
+    this.logger.warn(
+      `[wellbeing-notifications] tenant ${tenantId} has malformed wellbeing_channels JSONB; returning defaults`,
+    );
+    return DEFAULT_CHANNELS;
+  }
+
+  /**
+   * Replace the full wellbeing channel preferences for a tenant.
+   *
+   * Callers MUST have already validated the incoming payload against
+   * `updateWellbeingChannelPreferencesSchema` (the controller does this
+   * via the Zod pipe). We still re-parse here to harden against misuse.
+   */
+  async upsertChannels(
+    tenantId: string,
+    userId: string,
+    prefs: WellbeingChannelPreferences,
+  ): Promise<WellbeingChannelPreferences> {
+    const parsed = wellbeingChannelPreferencesSchema.parse(prefs);
+
+    const rls = createRlsClient(this.prisma, { tenant_id: tenantId, user_id: userId });
+
+    await rls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      await db.tenantNotificationPreferences.upsert({
+        where: { tenant_id: tenantId },
+        create: { tenant_id: tenantId, wellbeing_channels: parsed },
+        update: { wellbeing_channels: parsed },
+      });
+    });
+
+    return parsed;
   }
 
   private async safeDispatch(channel: ChannelKey, fn: () => Promise<unknown>): Promise<void> {

@@ -9,6 +9,7 @@ import { ChildProtectionReadFacade } from './child-protection-read.facade';
 import { CpAccessController } from './controllers/cp-access.controller';
 import { CpExportController } from './controllers/cp-export.controller';
 import { CpRecordsController } from './controllers/cp-records.controller';
+import { MandatedReportController } from './controllers/mandated-report.controller';
 import { CpAccessGuard } from './guards/cp-access.guard';
 import { CpAccessService } from './services/cp-access.service';
 import { CpExportService } from './services/cp-export.service';
@@ -17,7 +18,12 @@ import { MandatedReportService } from './services/mandated-report.service';
 
 @Module({
   imports: [AuthModule, PastoralCoreModule, PdfRenderingModule, SequenceModule],
-  controllers: [CpAccessController, CpExportController, CpRecordsController],
+  controllers: [
+    CpAccessController,
+    CpExportController,
+    CpRecordsController,
+    MandatedReportController,
+  ],
   providers: [
     ChildProtectionReadFacade,
     CpAccessGuard,

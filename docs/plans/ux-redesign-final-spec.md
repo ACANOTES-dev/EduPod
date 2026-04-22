@@ -1,10 +1,11 @@
 # EduPod UX Redesign — Final Design Spec
 
-**Date:** 27 March 2026
-**Status:** Approved concept — ready for implementation planning
+**Date:** 27 March 2026 · Hub & sub-page patterns added 22 April 2026
+**Status:** Implemented in wellbeing, safeguarding, settings, learning, communications, operations, people, finance, regulatory — patterns codified in §14–15
 **Approved by:** Ramadan Duadu (Founder)
 **Vision document:** `Plans/ux-redesign-vision.md`
 **Visual mockups:** `.superpowers/brainstorm/` directory
+**Pattern reference code:** `apps/web/src/app/[locale]/(school)/wellbeing/page.tsx` · `.../safeguarding/page.tsx` · `.../safeguarding/concerns/page.tsx` · `.../settings/page.tsx`
 
 ---
 
@@ -577,3 +578,173 @@ User logs in → Home (feed + context panel, morph bar collapsed)
 ---
 
 _This spec is the single source of truth for the EduPod UX redesign. When in doubt, refer to the vision document for the emotional intent, and this spec for the technical details._
+
+---
+
+## 14. Page Patterns — Canonical Hub & Sub-Page Composition
+
+Added 2026-04-22. Derived from the shipped wellbeing + safeguarding hubs, which are the reference implementation. All new hubs and sub-pages MUST follow these patterns. The patterns are intentionally tight: deviating from them fragments the product and we lose the coherence the morph shell is designed to create.
+
+### 14.1 Shared layout primitives
+
+Every page lives inside the school layout's `AppShell` and is rendered as a single flex-col column:
+
+```tsx
+<div className="flex min-w-0 flex-col gap-6 pb-10">
+  <PageHeader ... />
+  {/* sections */}
+</div>
+```
+
+- Top-level gap: `gap-6` for sub-pages, `gap-8` for hub pages (slightly more breathing room).
+- `min-w-0` is non-negotiable — flex items default to content-width and will overflow on mobile otherwise.
+- `pb-10` gives room for the scroll to breathe above the OS chrome on mobile.
+
+### 14.2 `PageHeader` — every page starts here
+
+Signature: `PageHeader({ title, description, actions?, back? })`.
+
+- `title` — Figtree 24/700, `text-text-primary`.
+- `description` — Figtree 14/400, `text-text-secondary`, optional but strongly preferred on hubs.
+- `back` — used on every sub-page; renders a small back chevron above the title that links to the owning hub. Chevron gets `rtl:rotate-180`.
+- `actions` — top-right slot for the primary CTA (e.g., "Report concern", "Export records"). Primary buttons use `bg-primary text-primary-foreground`. Secondary actions use `border-border bg-surface`.
+
+### 14.3 Hub-page composition
+
+Reference: `apps/web/src/app/[locale]/(school)/wellbeing/page.tsx` and `.../safeguarding/page.tsx`.
+
+Stack order, top to bottom:
+
+1. **`PageHeader`** — hub title + description.
+2. **Optional privacy/context banner** — rounded-2xl, slate or primary tint. Use for safety-critical areas (safeguarding, child-protection, AI audit) to remind users of data-access rules.
+3. **Error banner** — `border-danger-200 bg-danger-50`, shown only when a fetch fails. Includes `RefreshCw` retry.
+4. **KPI strip** — `grid grid-cols-2 gap-3 sm:grid-cols-4` of `KpiTile`s. Each tile: uppercase 11px label with icon, `stat-value` 28/700 number, optional secondary breakdown string, optional `href` to drill in, optional tooltip. Loading state: animated pulse bar.
+5. **Quick actions** — `grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4` of `QuickAction` pills. Per-role gating. Each pill: icon in tinted square, label, hover ArrowRight, gradient underline on hover.
+6. **Hub cards** — `grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3` of `HubTile` components. Each tile has accent bar (top gradient strip), large tinted icon, title + description, optional count pill. Loading state: `CardSkeleton`.
+7. **Contextual feed section(s)** — a rounded-2xl surface containing a divided list of recent/priority items. Optional gradient top bar for visual identity (`from-indigo-400 via-purple-500 to-pink-500` for activity feeds; semantic warning/danger gradients for urgency feeds).
+8. **Resource ribbon** (optional) — footer-style strip with 2–3 resource links for the module (only when useful; skip on admin-only hubs).
+9. **Audit footer** (optional) — thin dashed-border strip noting who sees what and who the designated lead is.
+
+### 14.4 Module colour identity
+
+Each module has one accent gradient and one tinted icon background. Pick the pair from the table below and reuse consistently across that module's hub, tiles, badges, and section headers. Do not mix palettes within a module.
+
+| Module               | Gradient (`accent`)                            | Icon bg (`iconBg`)              |
+| -------------------- | ---------------------------------------------- | ------------------------------- |
+| Behaviour            | `from-rose-400 via-rose-500 to-rose-600`       | `bg-rose-100 text-rose-700`     |
+| Pastoral             | `from-pink-400 via-pink-500 to-pink-600`       | `bg-pink-100 text-pink-700`     |
+| Safeguarding         | `from-slate-500 via-slate-600 to-slate-700`    | `bg-slate-100 text-slate-700`   |
+| Child Protection     | `from-zinc-600 via-zinc-700 to-zinc-800`       | `bg-zinc-100 text-zinc-700`     |
+| Early Warnings       | `from-amber-400 via-amber-500 to-amber-600`    | `bg-amber-100 text-amber-700`   |
+| Staff Wellbeing      | `from-violet-400 via-violet-500 to-violet-600` | `bg-violet-100 text-violet-700` |
+| AI Audit / AI Flags  | `from-indigo-400 via-indigo-500 to-indigo-600` | `bg-indigo-100 text-indigo-700` |
+| Notifications config | `from-sky-400 via-sky-500 to-sky-600`          | `bg-sky-100 text-sky-700`       |
+| Queue Admin          | `from-stone-500 via-stone-600 to-stone-700`    | `bg-stone-100 text-stone-700`   |
+| Settings             | `from-zinc-400 via-zinc-500 to-zinc-600`       | `bg-zinc-100 text-zinc-700`     |
+
+### 14.5 Sub-page (list) composition
+
+Reference: `.../safeguarding/concerns/page.tsx`.
+
+1. **`PageHeader`** with `back` pointing to the owning hub and `actions` holding the primary CTA (e.g., "New record").
+2. **Error banner** (same contract as §14.3).
+3. **Summary strip** (optional) — 3-up `SummaryCard` grid for tonal counts (`danger` / `warning` / `success`). Only when the data has meaningful bucketed totals.
+4. **Filters section** — rounded-2xl with `bg-surface`, leading with a Filter icon + "Filters" label + "Reset" ghost button. Controls in a `grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4`. Each control is a labelled `Select` or `Input`. Changing any filter resets `page` to 1.
+5. **Results section** — rounded-2xl with an internal `<header>` showing "N results · page X of Y", then either:
+   - Skeleton rows (6 rows, animated pulse) while loading
+   - Empty state (centered, 12 units of vertical padding, small muted copy)
+   - `<ul className="divide-y divide-border/50">` of row links
+6. **Pagination** — Prev / "Page X of Y" / Next buttons in a flex-between row. Only render when `totalPages > 1`.
+
+### 14.6 Sub-page (detail) composition
+
+1. **`PageHeader`** with `back` to the parent list and `actions` holding contextual buttons (edit, export, close, etc.).
+2. **Identity strip** — rounded-2xl header card with entity reference number (`font-mono`), status badges, and key metadata inline.
+3. **Tabbed or stacked sections** — each section is a rounded-2xl `bg-surface` card with its own h2 heading. Prefer vertical stacking over tabs unless there are ≥5 sections.
+4. **Side-by-side layout at `lg:`** — on desktop, split into `lg:grid-cols-[2fr_1fr]` with the primary narrative on the left and a sidebar (audit log, access grants, recent activity) on the right.
+5. **Danger zone** (optional) — last section, `border-danger-200 bg-danger-50/40`, for destructive actions (archive, seal, legal-hold).
+
+### 14.7 Form-page composition
+
+- Wrap in `react-hook-form` with `zodResolver(schema)` — schema lives in `@school/shared`.
+- Break forms into `<fieldset>`-style sections matching `<section>` rounded-2xl cards when they have ≥6 fields.
+- Field gap inside a section: `gap-4`. Inter-section gap: `gap-6`.
+- Submit button is right-aligned in a flex row at the bottom, matched with a `Cancel` / back link on the left.
+- Inline error messages use `text-danger-700 text-xs` directly below the offending field.
+- For destructive confirmations (delete, seal), use the shared `ConfirmDialog`.
+
+### 14.8 Settings-hub composition
+
+Reference: `.../settings/page.tsx`.
+
+1. **`PageHeader`** — "Settings" + short description.
+2. **Grid** — `grid grid-cols-1 gap-6 lg:grid-cols-2` of `CategorySection` cards.
+3. Each `CategorySection` is a rounded-2xl card with accent top bar, tinted icon, category title + description, and an inner `grid grid-cols-1 gap-2.5 sm:grid-cols-2` of compact tiles.
+4. Compact tile = rounded-xl surface with icon, label, description, hover-reveal ArrowRight.
+
+New settings pages (e.g., Wellbeing Notifications, AI Audit) register themselves as a tile inside the appropriate category. If the settings category doesn't exist yet, add it in `apps/web/src/app/[locale]/(school)/settings/page.tsx` (hub), then create the actual page underneath.
+
+### 14.9 Platform-admin pages
+
+Reference: `apps/web/src/app/[locale]/(platform)/admin/...`.
+
+- These pages use the `(platform)` layout which has a left sidebar nav, NOT the morph shell. Do not try to force morph-shell patterns here.
+- English-only — no translation keys required.
+- Same token system, same spacing, same `PageHeader`, same KPI strip and list/detail primitives as school routes.
+- Register new admin pages by adding an entry to `navItems` in `apps/web/src/app/[locale]/(platform)/layout.tsx`.
+
+### 14.10 Permission-denied state
+
+When `canView === false` on a gated page, render a centred state inside a rounded-2xl surface:
+
+```tsx
+<section className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-surface px-6 py-12 text-center">
+  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+    <Lock className="h-6 w-6" />
+  </div>
+  <div className="max-w-md space-y-2">
+    <h2 className="text-lg font-semibold text-text-primary">{t('denied.title')}</h2>
+    <p className="text-sm text-text-secondary">{t('denied.body')}</p>
+  </div>
+  <Link href={`/${locale}/{hub}`} className="... border-border bg-surface ...">
+    {t('denied.backToHub')}
+  </Link>
+</section>
+```
+
+### 14.11 Skeletons & empty states
+
+- **Loading skeletons** come from `@/components/kpi-tile` (`CardSkeleton`) or are inlined as `animate-pulse rounded bg-border/60` boxes sized to match the content they replace.
+- **Empty states** are centred columns inside rounded-2xl surfaces. Use a tinted circular icon (`bg-emerald-100 text-emerald-700` when the empty state is positive, `bg-slate-100 text-slate-700` when neutral), a short heading, and a subtitle explaining what to do next.
+
+### 14.12 Internationalisation & RTL
+
+- All user-facing strings come from `useTranslations()`. Tenant-facing pages (A1, A3, A4) ship English + Arabic. Platform-admin pages (A2) ship English only (see §14.9).
+- Use logical CSS properties exclusively — `ms-`/`me-`, `ps-`/`pe-`, `start-`/`end-`, `border-s-`/`border-e-`, `rounded-s-`/`rounded-e-`, `text-start`/`text-end`. Physical classes (`ml-`, `left-`, etc.) are a lint error.
+- Chevrons and arrows that point "forward" (next, view more, drill in) must include `rtl:rotate-180`.
+- Any field displaying a strictly-LTR value (email, phone, UUID, invoice number) wraps the value in `dir="ltr"` and uses `font-mono` when the value is a code/ID.
+
+### 14.13 Don'ts
+
+- No inline hex colours. Ever. Use tokens.
+- No Redux / Zustand / global state libraries.
+- No server-component data fetching in authenticated shells — use `apiClient<T>()` inside `useEffect`.
+- No `useState`-per-field forms in new code — always `react-hook-form` + `zodResolver`.
+- No physical direction classes (`ml-`, `pl-`, `text-left`, etc.).
+- No sub-strip for hubs whose navigation surface is the dashboard itself (wellbeing, operations, finance, communications, people, settings). Only `regulatory` currently uses a sub-strip.
+- No bottom tab bar on mobile — the mobile navigation uses the hamburger-triggered overlay and horizontally scrollable sub-strip.
+
+---
+
+## 15. Adding a New Hub-Level Surface
+
+When you introduce a brand new feature with enough depth to warrant a hub (or a significant settings section), follow this exact sequence:
+
+1. **Backend first** — make sure every endpoint the UI needs exists and is permission-gated. Thin controllers on top of existing services are fine; inventing new business logic is not.
+2. **Zod schemas in `@school/shared`** — define request/response schemas there before touching the UI.
+3. **Translation keys** — add English and Arabic under the matching namespace in `apps/web/messages/{en,ar}.json`. Platform-admin pages skip `ar.json`.
+4. **Page implementation** — build the hub/list/detail/form pages following §14.
+5. **Discoverability** — pick ONE surface to add the new tile to (hub dashboard, settings hub, platform admin sidebar, or the owning module's sub-strip). Do not add the same destination in multiple places.
+6. **Wire sub-strip or hub cards** — if the new surface needs nested navigation, prefer hub cards on a dashboard over a new sub-strip. Sub-strips should only be added when the user will frequently swap between siblings.
+7. **Test the happy path** — unit tests for services, a co-located spec for the page if there's non-trivial client logic.
+8. **Verify on prod** after deploy — navigate the flow end to end, then update this spec or `docs/architecture/feature-map.md` if the change touches the canonical surface inventory.

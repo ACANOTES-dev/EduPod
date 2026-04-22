@@ -6,6 +6,7 @@ import { WellbeingEmailProvider } from './providers/email.provider';
 import { WellbeingInAppProvider } from './providers/in-app.provider';
 import { WellbeingSmsProvider } from './providers/sms.provider';
 import { WellbeingWhatsappProvider } from './providers/whatsapp.provider';
+import { WellbeingNotificationsController } from './wellbeing-notifications.controller';
 import { WellbeingNotificationsService } from './wellbeing-notifications.service';
 
 /**
@@ -25,6 +26,7 @@ import { WellbeingNotificationsService } from './wellbeing-notifications.service
  */
 @Module({
   imports: [CommunicationsModule],
+  controllers: [WellbeingNotificationsController],
   providers: [
     WellbeingNotificationsService,
     WellbeingInAppProvider,
