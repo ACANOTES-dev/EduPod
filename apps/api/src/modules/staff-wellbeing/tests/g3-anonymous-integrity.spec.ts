@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
-import { ConfigurationReadFacade, MOCK_FACADE_PROVIDERS } from '../../../common/tests/mock-facades';
+import { MOCK_FACADE_PROVIDERS } from '../../../common/tests/mock-facades';
 import { EncryptionService } from '../../configuration/encryption.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { HmacService } from '../services/hmac.service';
@@ -130,6 +130,7 @@ describe('G3 — Anonymous Submission Integrity', () => {
         update: jest.Mock;
       };
       $transaction: jest.Mock;
+      $extends: jest.Mock;
     };
     let mockEncryption: {
       encrypt: jest.Mock;
@@ -137,6 +138,9 @@ describe('G3 — Anonymous Submission Integrity', () => {
     };
 
     beforeEach(async () => {
+      // HmacService now goes through `createRlsClient(prisma).$transaction` —
+      // mock both $extends (used to pin RLS context) and $transaction so the
+      // read+write pair runs against the same mock tx (W-S7-004).
       mockPrisma = {
         tenantSetting: {
           findUnique: jest.fn().mockResolvedValue({
@@ -153,12 +157,15 @@ describe('G3 — Anonymous Submission Integrity', () => {
           }),
           update: jest.fn(),
         },
-        $transaction: jest
-          .fn()
-          .mockImplementation(async (fn: (tx: typeof mockPrisma) => Promise<unknown>) =>
-            fn(mockPrisma),
-          ),
+        $transaction: jest.fn(),
+        $extends: jest.fn(),
       };
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma),
+      );
+      mockPrisma.$extends.mockImplementation(() => ({
+        $transaction: (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma),
+      }));
 
       mockEncryption = {
         encrypt: jest.fn().mockReturnValue({
@@ -174,10 +181,6 @@ describe('G3 — Anonymous Submission Integrity', () => {
           HmacService,
           { provide: PrismaService, useValue: mockPrisma },
           { provide: EncryptionService, useValue: mockEncryption },
-          {
-            provide: ConfigurationReadFacade,
-            useValue: { findSettings: mockPrisma.tenantSetting.findUnique },
-          },
         ],
       }).compile();
 

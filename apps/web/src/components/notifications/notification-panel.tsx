@@ -226,7 +226,7 @@ export function NotificationPanel() {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="relative rounded-full p-2 text-text-secondary transition-colors hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+        className="relative rounded-full p-3 lg:p-2 text-text-secondary transition-colors hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
         aria-label={nt('title')}
         aria-expanded={isOpen}
         aria-haspopup="dialog"

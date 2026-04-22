@@ -18,7 +18,7 @@ A session is only **Complete** when every issue it opened is marked `**Verified:
 | S5      | 2026-04-21 | 2026-04-21 | 6             | 1   | 4   | 0   | 1   | **Complete** (W-S5-001 deferred — safeguarding concerns UI is stub redirects; needs dedicated build-out)        |
 | S6      | 2026-04-21 | 2026-04-22 | 7             | 3   | 1   | 2   | 1   | **Complete** (W-S6-004 + W-S6-005 deferred to S9 product review)                                                |
 | S7      | 2026-04-22 | 2026-04-22 | 6             | 3   | 2   | 1   | 0   | **Complete**                                                                                                    |
-| S8      |            |            |               |     |     |     |     | Not started                                                                                                     |
+| S8      | 2026-04-22 |            | 6             | 0   | 4   | 2   | 0   | In progress                                                                                                     |
 | S9      |            |            |               |     |     |     |     | Not started                                                                                                     |
 
 ---
@@ -1100,8 +1100,99 @@ S7 walked every Staff Wellbeing surface owned by this session (the hub at `/en/w
 
 ## S8 — Cross-cutting (mobile, RTL, roles, isolation, visual polish)
 
-**Status:** Not started
+**Status:** In progress (2026-04-22)
 **Session plan:** [`S8_cross_cutting.md`](./S8_cross_cutting.md)
+
+### W-S8-001 — Header icon buttons below 44×44 minimum touch target on mobile
+
+- **Severity:** P2
+- **Route:** all routes (top morph bar)
+- **Role:** owner@nhqs.test
+- **Viewport:** 375×667
+- **Steps:**
+  1. Load any school-facing page at 375×667 (e.g. `/en/behaviour`).
+  2. Measure the four leftmost/rightmost header buttons (hamburger, search, inbox, notifications).
+- **Expected:** Each interactive header element measures at least 44×44px per `.claude/rules/frontend.md` ("Minimum touch target: 44×44px on all interactive elements").
+- **Actual:** Hamburger 36×36, search 36×36, inbox 32×32, notifications 36×36. All below the 44px floor. Only the avatar (44×44) meets the bar. On iOS Safari / smaller fingers this makes accurate tapping harder.
+- **Evidence:** `document.querySelectorAll('header button')` size scan.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S8-002 — Input/Textarea/Select use 14px text (iOS Safari auto-zoom on focus)
+
+- **Severity:** P2
+- **Route:** every form (e.g. `/en/behaviour/incidents/new`)
+- **Role:** owner@nhqs.test
+- **Viewport:** 375×667
+- **Steps:**
+  1. Open a form page at 375×667 (e.g. `/en/behaviour/incidents/new`).
+  2. Tap any input or textarea.
+- **Expected:** Per `.claude/rules/frontend.md` → "Input font-size: minimum `text-base` (16px) — prevents iOS Safari auto-zoom on focus." Focusing should not trigger the viewport zoom-in.
+- **Actual:** `packages/ui/src/components/{input,textarea,select}.tsx` all use `text-sm` (14px). On iOS Safari focusing any field zooms the viewport in, then requires pinch-zoom out — every form in the app is affected.
+- **Evidence:** font-size scan of inputs/textareas/selects; `text-sm` baked into shared UI primitives.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S8-003 — Non-staff roles can view the staff-only wellbeing survey form
+
+- **Severity:** P1
+- **Route:** `/en/wellbeing/survey`
+- **Role:** parent@nhqs.test, adam.moore@nhqs.test (student)
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Log in as `parent@nhqs.test` (or `adam.moore@nhqs.test`).
+  2. Navigate to `/en/wellbeing/survey`.
+- **Expected:** Non-staff users should not reach the staff self-service survey. Either redirect to `/dashboard` or render a "Restricted workspace" empty state (consistent with how `/safeguarding` handles teachers).
+- **Actual:** Page renders fully. Parent/student sees the H1 "Staff Survey", the anonymity banner, the active survey title (`S0-WBR Fortnightly Pulse (Active)`), and the Likert question form. They can fill it in. Submit is blocked at the backend (`NOT_STAFF` 403 from `survey.service.submitResponse`), but the GET `/staff-wellbeing/respond/active` endpoint has no `@RequiresPermission` decorator and no staff-profile check, so the form content leaks to any authenticated user regardless of role.
+- **Evidence:** `survey.controller.ts:157-171` → `getActiveSurvey` has `@UseGuards(AuthGuard, ...)` but no `@RequiresPermission`; `survey.service.ts:688` `getActiveSurvey` has no staff check (the staff check only runs on POST submit at line 600).
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S8-004 — Parent / student can reach `/en/early-warnings` landing
+
+- **Severity:** P1
+- **Route:** `/en/early-warnings`
+- **Role:** parent@nhqs.test, adam.moore@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Log in as parent or student.
+  2. Navigate directly to `/en/early-warnings`.
+- **Expected:** Per blueprint §2c, parents are "Parent portal only, own child's records only, no admin or safeguarding hub". Early warnings is a staff risk dashboard — should redirect to `/dashboard` or show a restricted-workspace empty state. Compare to `/safeguarding` which correctly redirects non-DSL roles.
+- **Actual:** The landing renders in full: H1 "Early Warnings", the cohort/settings sub-strip, the "We could not load the early-warning signal" error (API returns 403), and the R/A/Y/active-interventions KPI cards (all showing 0). The structural exposure of the dashboard to parents/students is an unexpected-access P1.
+- **Evidence:** snapshots from Zainab and Adam logins.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S8-005 — Parent / student can reach `/en/wellbeing/staff` hub
+
+- **Severity:** P1
+- **Route:** `/en/wellbeing/staff` (and its redirect targets `/wellbeing/dashboard`, `/wellbeing/my-workload`, `/wellbeing/reports`, `/wellbeing/resources`, `/wellbeing/surveys`)
+- **Role:** parent@nhqs.test, adam.moore@nhqs.test
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Log in as parent or student.
+  2. Navigate to `/en/wellbeing/staff`.
+- **Expected:** Staff Wellbeing is a staff-only workspace (workload, EAP resources, board report). Non-staff should get redirected or a restricted-workspace empty state, same pattern as safeguarding.
+- **Actual:** The hub loads for parents and students. H1 "Staff Wellbeing", "My Workload" section, "Support" section, EAP resources, crisis helplines (INTO/TUI/ASTI — teacher-union helplines shown to parents/students is a misplacement beyond the access issue).
+- **Evidence:** parent/student snapshots.
+- **Fix:** {pending}
+- **Verified:** {pending}
+
+### W-S8-006 — Teacher my-workload "Split days" school average shows 1714%
+
+- **Severity:** P1
+- **Route:** `/en/wellbeing/staff` (My Workload section, Timetable Quality Breakdown)
+- **Role:** Sarah.daly@nhqs.test (teacher)
+- **Viewport:** 1440×900
+- **Steps:**
+  1. Log in as Sarah Daly.
+  2. Open `/en/wellbeing/staff`, scroll to "Timetable Quality Breakdown" in My Workload.
+  3. Read the "SPLIT DAYS" tile — "School Average" row.
+- **Expected:** A sane percent, e.g. "17%" or "0%".
+- **Actual:** "School Average: 1714%" — frontend multiplies `school_averages.split_days_pct` by 100 on line 466 of `my-workload-section.tsx`, but the backend already returns it as a percent (0-100), computed as `(count / allStaff.length) * 100` in `workload-personal.service.ts:310`. Net result: nonsense 1000+% values on every teacher's workload tile. Same class of bug as the S7 aggregate-section fix (W-S7-002) — this file was missed in that sweep.
+- **Evidence:** source inspection + live Sarah Daly view showing `1714%`.
+- **Fix:** {pending}
+- **Verified:** {pending}
 
 ---
 

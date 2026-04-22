@@ -976,6 +976,13 @@ describe('SurveyService', () => {
   // ─── B5: GET ACTIVE SURVEY ────────────────────────────────────────────────
 
   describe('getActiveSurvey', () => {
+    beforeEach(() => {
+      // All "happy path" active-survey tests assume the caller is a staff
+      // member — mirrors the new W-S8-003 gate that prevents parents/students
+      // from reading the active survey body.
+      mockRlsTx.staffProfile.findFirst.mockResolvedValue({ id: 'sp-1', user_id: USER_ID });
+    });
+
     it('should return active survey with hasResponded=false when not responded', async () => {
       const survey = makeSurvey({ status: 'active' });
       mockRlsTx.staffSurvey.findFirst.mockResolvedValue(survey);
@@ -1021,6 +1028,16 @@ describe('SurveyService', () => {
       await service.getActiveSurvey(TENANT_ID, USER_ID);
 
       expect(mockHmacService.computeTokenHash).toHaveBeenCalledWith(TENANT_ID, SURVEY_ID, USER_ID);
+    });
+
+    it('should return null and skip survey lookup when caller is not a staff member', async () => {
+      mockRlsTx.staffProfile.findFirst.mockResolvedValue(null);
+
+      const result = await service.getActiveSurvey(TENANT_ID, USER_ID);
+
+      expect(result).toBeNull();
+      expect(mockRlsTx.staffSurvey.findFirst).not.toHaveBeenCalled();
+      expect(mockHmacService.computeTokenHash).not.toHaveBeenCalled();
     });
   });
 

@@ -462,9 +462,7 @@ export function MyWorkloadSection() {
                     </span>
                     <span>
                       {t('average')}:{' '}
-                      <span dir="ltr">
-                        {Math.round(quality.school_averages.split_days_pct * 100)}%
-                      </span>
+                      <span dir="ltr">{Math.round(quality.school_averages.split_days_pct)}%</span>
                     </span>
                   </div>
                 </div>

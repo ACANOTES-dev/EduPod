@@ -88,6 +88,15 @@ export const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
     prefix: '/safeguarding',
     roles: [...ADMIN_ROLES, 'teacher'],
   },
+  // Staff wellbeing — all staff roles (admins + teachers see their own workload
+  // and can respond to staff surveys). Non-staff roles (parent/student) are
+  // blocked at the frontend guard in addition to backend endpoint checks
+  // (W-S8-003/005).
+  { prefix: '/wellbeing', roles: STAFF_ROLES },
+  // Early warnings — school-wide risk dashboard. Admins + teachers only; parents
+  // and students should not reach the landing even when API calls would 403
+  // (W-S8-004).
+  { prefix: '/early-warnings', roles: [...ADMIN_ROLES, 'teacher'] },
   { prefix: '/regulatory', roles: ADMIN_ROLES },
 
   // People hub — visible to any staff role

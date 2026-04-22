@@ -26,7 +26,7 @@ export function InboxBadge() {
       type="button"
       aria-label={ariaLabel}
       onClick={() => router.push(`/${locale}/inbox`)}
-      className="group relative rounded-pill p-1.5 text-[var(--color-bar-text)] transition-colors hover:bg-black/5 hover:text-[var(--color-text-primary)]"
+      className="group relative rounded-pill p-3 lg:p-1.5 text-[var(--color-bar-text)] transition-colors hover:bg-black/5 hover:text-[var(--color-text-primary)]"
     >
       <Mail className="h-5 w-5 group-hover:animate-[bounce_300ms_ease-in-out_1]" />
       {unread > 0 && (

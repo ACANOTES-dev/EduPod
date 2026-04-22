@@ -72,7 +72,7 @@ export const MorphBar = React.forwardRef<HTMLElement, MorphBarProps>(
             <button
               type="button"
               onClick={onHamburgerClick}
-              className="lg:hidden flex items-center justify-center p-2 -ms-2 text-[var(--color-bar-text)] hover:text-[var(--color-text-primary)] hover:bg-black/5 rounded-full transition-colors"
+              className="lg:hidden flex items-center justify-center p-3 lg:p-2 -ms-2 text-[var(--color-bar-text)] hover:text-[var(--color-text-primary)] hover:bg-black/5 rounded-full transition-colors"
             >
               <svg
                 width="20"
@@ -127,7 +127,7 @@ export const MorphBar = React.forwardRef<HTMLElement, MorphBarProps>(
           </div>
           <button
             type="button"
-            className="lg:hidden flex h-[36px] w-[36px] items-center justify-center rounded-full text-[var(--color-bar-text)] hover:bg-black/5 hover:text-[var(--color-text-primary)] transition-colors"
+            className="lg:hidden flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-bar-text)] hover:bg-black/5 hover:text-[var(--color-text-primary)] transition-colors"
             onClick={onSearchClick}
           >
             <Search className="h-[18px] w-[18px]" />

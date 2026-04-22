@@ -691,6 +691,18 @@ export class SurveyService {
     const survey = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
+      // Staff-only gate: non-staff users (parents, students) would otherwise be
+      // able to read the active survey's questions even though submit is
+      // blocked at POST time. Match the check on `submitResponse` so the two
+      // endpoints agree on who is a valid survey participant (W-S8-003).
+      const staffProfile = await db.staffProfile.findFirst({
+        where: { tenant_id: tenantId, user_id: userId },
+      });
+
+      if (!staffProfile) {
+        return null;
+      }
+
       const activeSurvey = await db.staffSurvey.findFirst({
         where: { tenant_id: tenantId, status: 'active' },
         include: {
