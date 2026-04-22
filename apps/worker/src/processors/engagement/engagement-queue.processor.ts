@@ -81,8 +81,12 @@ export class EngagementQueueDispatcher extends WorkerHost {
         await this.generateEventInvoices.process(job);
         return;
       default:
-        this.logger.warn(`Unknown engagement job name "${job.name}" (id=${job.id})`);
-        throw new Error(`No handler registered for engagement job "${job.name}"`);
+        // Unknown jobs (incl. canary echoes, see DZ-48) complete silently;
+        // log only non-canary for observability.
+        if (!job.name.startsWith('monitoring:canary-')) {
+          this.logger.warn(`Unknown engagement job name "${job.name}" (id=${job.id})`);
+        }
+        return;
     }
   }
 }

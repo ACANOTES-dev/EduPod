@@ -90,8 +90,6 @@ describe('GradebookQueueDispatcher', () => {
       buildMockProcessor() as never,
     );
 
-    await expect(dispatcher.process(buildJob('gradebook:unknown'))).rejects.toThrow(
-      'No handler registered for gradebook job "gradebook:unknown"',
-    );
+    await expect(dispatcher.process(buildJob('gradebook:unknown'))).resolves.toBeUndefined();
   });
 });

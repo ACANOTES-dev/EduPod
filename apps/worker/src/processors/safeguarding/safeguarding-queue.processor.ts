@@ -42,8 +42,12 @@ export class SafeguardingQueueDispatcher extends WorkerHost {
         await this.safeguardingNotifyReviewers.process(job);
         return;
       default:
-        this.logger.warn(`Unknown safeguarding job name "${job.name}" (id=${job.id})`);
-        throw new Error(`No handler registered for safeguarding job "${job.name}"`);
+        // Unknown jobs (incl. canary echoes, see DZ-48) complete silently;
+        // log only non-canary for observability.
+        if (!job.name.startsWith('monitoring:canary-')) {
+          this.logger.warn(`Unknown safeguarding job name "${job.name}" (id=${job.id})`);
+        }
+        return;
     }
   }
 }

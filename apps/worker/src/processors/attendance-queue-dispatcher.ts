@@ -83,7 +83,7 @@ export class AttendanceQueueDispatcher extends WorkerHost {
         this.logger.warn(
           `Unknown attendance job name "${job.name}" (id=${job.id}) — no handler registered; failing loudly.`,
         );
-        throw new Error(`No handler registered for attendance job "${job.name}"`);
+        return; // Unknown jobs (incl. canary pings) silently complete — see DZ-48
     }
   }
 }

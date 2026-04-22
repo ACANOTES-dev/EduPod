@@ -85,12 +85,10 @@ describe('AttendanceQueueDispatcher', () => {
     }
   });
 
-  it('throws loudly on unknown job names', async () => {
+  it('silently completes unknown job names — canary pings rely on this', async () => {
     const { dispatcher } = buildDispatcher();
     const job = { name: 'attendance:unknown', data: {} } as Job;
 
-    await expect(dispatcher.process(job)).rejects.toThrow(
-      'No handler registered for attendance job "attendance:unknown"',
-    );
+    await expect(dispatcher.process(job)).resolves.toBeUndefined();
   });
 });

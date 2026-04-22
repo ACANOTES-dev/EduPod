@@ -36,6 +36,7 @@ import { BehaviourParentNotificationProcessor } from './processors/behaviour/par
 import { PartitionMaintenanceProcessor } from './processors/behaviour/partition-maintenance.processor';
 import { RefreshMVProcessor } from './processors/behaviour/refresh-mv.processor';
 import { RetentionCheckProcessor } from './processors/behaviour/retention-check.processor';
+import { StuckNotificationAlertProcessor } from './processors/behaviour/stuck-notification-alert.processor';
 import { BehaviourSuspensionReturnProcessor } from './processors/behaviour/suspension-return.processor';
 import { BehaviourTaskRemindersProcessor } from './processors/behaviour/task-reminders.processor';
 import { AnnouncementApprovalCallbackProcessor } from './processors/communications/announcement-approval-callback.processor';
@@ -443,6 +444,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     // Phase H: Hardening + Ops processors
     RetentionCheckProcessor,
     PartitionMaintenanceProcessor,
+    StuckNotificationAlertProcessor,
     // Search queue processors
     SearchIndexProcessor,
     SearchReindexProcessor,

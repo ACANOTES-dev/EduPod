@@ -76,7 +76,7 @@ export class GradebookQueueDispatcher extends WorkerHost {
         this.logger.warn(
           `Unknown gradebook job name "${job.name}" (id=${job.id}) — no handler registered; failing loudly.`,
         );
-        throw new Error(`No handler registered for gradebook job "${job.name}"`);
+        return; // Unknown jobs (incl. canary pings) silently complete — see DZ-48
     }
   }
 }
