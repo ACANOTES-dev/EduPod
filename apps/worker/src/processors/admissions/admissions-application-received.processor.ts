@@ -1,9 +1,6 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
-
-import { QUEUE_NAMES } from '../../base/queue.constants';
 
 // ─── Payload & job name ──────────────────────────────────────────────────────
 
@@ -56,17 +53,11 @@ function humanizeStatus(status: string): string {
  * Runs on the shared `notifications` queue — same as the other admissions
  * notification processors.
  */
-@Processor(QUEUE_NAMES.NOTIFICATIONS, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class AdmissionsApplicationReceivedProcessor extends WorkerHost {
+@Injectable()
+export class AdmissionsApplicationReceivedProcessor {
   private readonly logger = new Logger(AdmissionsApplicationReceivedProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<AdmissionsApplicationReceivedPayload>): Promise<void> {
     if (job.name !== ADMISSIONS_APPLICATION_RECEIVED_JOB) {

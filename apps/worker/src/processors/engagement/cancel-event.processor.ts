@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -18,20 +18,14 @@ export interface CancelEventPayload extends TenantJobPayload {
 
 // ─── Processor ────────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.ENGAGEMENT, {
-  lockDuration: 30_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class CancelEventProcessor extends WorkerHost {
+@Injectable()
+export class CancelEventProcessor {
   private readonly logger = new Logger(CancelEventProcessor.name);
 
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job<CancelEventPayload>): Promise<void> {
     if (job.name !== CANCEL_EVENT_JOB) return;

@@ -1,9 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -19,17 +17,11 @@ export const MODERATION_SCAN_JOB = 'wellbeing:moderation-scan';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.WELLBEING, {
-  lockDuration: 30_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class ModerationScanProcessor extends WorkerHost {
+@Injectable()
+export class ModerationScanProcessor {
   private readonly logger = new Logger(ModerationScanProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<ModerationScanPayload>): Promise<void> {
     if (job.name !== MODERATION_SCAN_JOB) return;

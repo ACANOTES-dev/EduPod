@@ -1,7 +1,6 @@
 import * as crypto from 'crypto';
 
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NotificationChannel, Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
@@ -11,7 +10,6 @@ import type { Twilio } from 'twilio';
 
 import { toNotificationChannel } from '@school/shared';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
@@ -145,12 +143,8 @@ export const DISPATCH_NOTIFICATIONS_JOB = 'communications:dispatch-notifications
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.NOTIFICATIONS, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class DispatchNotificationsProcessor extends WorkerHost {
+@Injectable()
+export class DispatchNotificationsProcessor {
   private readonly logger = new Logger(DispatchNotificationsProcessor.name);
 
   /** Lazily-initialised provider clients */
@@ -160,9 +154,7 @@ export class DispatchNotificationsProcessor extends WorkerHost {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     private readonly configService: ConfigService,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job<DispatchNotificationsPayload>): Promise<void> {
     if (job.name !== DISPATCH_NOTIFICATIONS_JOB) {

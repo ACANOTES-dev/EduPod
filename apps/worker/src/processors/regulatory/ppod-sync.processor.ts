@@ -1,11 +1,9 @@
 import { createHash } from 'crypto';
 
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PodDatabaseType, PodSyncStatus, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import type { TenantJobPayload } from '../../base/tenant-aware-job';
 import { TenantAwareJob } from '../../base/tenant-aware-job';
 
@@ -20,17 +18,11 @@ export const REGULATORY_PPOD_SYNC_JOB = 'regulatory:ppod-sync';
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.REGULATORY, {
-  lockDuration: 120_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class RegulatoryPpodSyncProcessor extends WorkerHost {
+@Injectable()
+export class RegulatoryPpodSyncProcessor {
   private readonly logger = new Logger(RegulatoryPpodSyncProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<PpodSyncPayload>): Promise<void> {
     if (job.name !== REGULATORY_PPOD_SYNC_JOB) return;

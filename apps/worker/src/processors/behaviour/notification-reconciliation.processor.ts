@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -25,20 +25,14 @@ export const BEHAVIOUR_NOTIFICATION_RECONCILIATION_JOB = 'behaviour:notification
  * transaction needed for reads per project convention). Enqueues are to the
  * notifications queue, which sets RLS context in the target processor.
  */
-@Processor(QUEUE_NAMES.BEHAVIOUR, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class NotificationReconciliationProcessor extends WorkerHost {
+@Injectable()
+export class NotificationReconciliationProcessor {
   private readonly logger = new Logger(NotificationReconciliationProcessor.name);
 
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== BEHAVIOUR_NOTIFICATION_RECONCILIATION_JOB) return;

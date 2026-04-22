@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -18,20 +18,14 @@ export const RETRY_FAILED_NOTIFICATIONS_JOB = 'communications:retry-failed-notif
  * Finds failed notifications eligible for retry across all tenants,
  * groups them by tenant, and re-enqueues dispatch jobs.
  */
-@Processor(QUEUE_NAMES.NOTIFICATIONS, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class RetryFailedNotificationsProcessor extends WorkerHost {
+@Injectable()
+export class RetryFailedNotificationsProcessor {
   private readonly logger = new Logger(RetryFailedNotificationsProcessor.name);
 
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== RETRY_FAILED_NOTIFICATIONS_JOB) {

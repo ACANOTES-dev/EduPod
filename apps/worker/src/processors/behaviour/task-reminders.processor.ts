@@ -1,9 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { $Enums, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -16,17 +14,11 @@ export const BEHAVIOUR_TASK_REMINDERS_JOB = 'behaviour:task-reminders';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR, {
-  lockDuration: 30_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class BehaviourTaskRemindersProcessor extends WorkerHost {
+@Injectable()
+export class BehaviourTaskRemindersProcessor {
   private readonly logger = new Logger(BehaviourTaskRemindersProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<BehaviourTaskRemindersPayload>): Promise<void> {
     if (job.name !== BEHAVIOUR_TASK_REMINDERS_JOB) {

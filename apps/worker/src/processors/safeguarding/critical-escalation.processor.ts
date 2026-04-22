@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -19,20 +19,14 @@ export const CRITICAL_ESCALATION_JOB = 'safeguarding:critical-escalation';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR, {
-  lockDuration: 30_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class CriticalEscalationProcessor extends WorkerHost {
+@Injectable()
+export class CriticalEscalationProcessor {
   private readonly logger = new Logger(CriticalEscalationProcessor.name);
 
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.BEHAVIOUR) private readonly behaviourQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job<CriticalEscalationPayload>): Promise<void> {
     if (job.name !== CRITICAL_ESCALATION_JOB) {

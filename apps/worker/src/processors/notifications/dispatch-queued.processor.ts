@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -25,12 +25,8 @@ export const DISPATCH_QUEUED_JOB = 'notifications:dispatch-queued';
  * 3. Group by tenant_id and enqueue dispatch jobs
  * 4. Log summary
  */
-@Processor(QUEUE_NAMES.NOTIFICATIONS, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class DispatchQueuedProcessor extends WorkerHost {
+@Injectable()
+export class DispatchQueuedProcessor {
   private readonly logger = new Logger(DispatchQueuedProcessor.name);
 
   /** Maximum notifications to process per cron tick */
@@ -39,9 +35,7 @@ export class DispatchQueuedProcessor extends WorkerHost {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== DISPATCH_QUEUED_JOB) {

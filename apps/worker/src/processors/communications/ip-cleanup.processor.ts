@@ -1,11 +1,8 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { CrossTenantSystemJob } from '../../base/cross-tenant-system-job';
-import { QUEUE_NAMES } from '../../base/queue.constants';
-
 // ─── Job name ─────────────────────────────────────────────────────────────────
 
 export const IP_CLEANUP_JOB = 'communications:ip-cleanup';
@@ -50,15 +47,9 @@ class IpCleanupJob extends CrossTenantSystemJob {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.NOTIFICATIONS, {
-  lockDuration: 30_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class IpCleanupProcessor extends WorkerHost {
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+@Injectable()
+export class IpCleanupProcessor {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== IP_CLEANUP_JOB) {

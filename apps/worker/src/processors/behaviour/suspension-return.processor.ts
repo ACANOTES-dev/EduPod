@@ -1,11 +1,9 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { addSchoolDays, type ClosureChecker } from '@school/shared/behaviour';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -18,17 +16,11 @@ export const BEHAVIOUR_SUSPENSION_RETURN_JOB = 'behaviour:suspension-return';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR, {
-  lockDuration: 30_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class BehaviourSuspensionReturnProcessor extends WorkerHost {
+@Injectable()
+export class BehaviourSuspensionReturnProcessor {
   private readonly logger = new Logger(BehaviourSuspensionReturnProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<SuspensionReturnPayload>): Promise<void> {
     if (job.name !== BEHAVIOUR_SUSPENSION_RETURN_JOB) {

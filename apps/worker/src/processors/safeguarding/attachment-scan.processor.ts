@@ -1,9 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { downloadBufferFromS3 } from '../../base/s3.helpers';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 import { ClamavScannerService } from '../../services/clamav-scanner.service';
@@ -21,20 +19,14 @@ export const ATTACHMENT_SCAN_JOB = 'behaviour:attachment-scan';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR, {
-  lockDuration: 30_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class AttachmentScanProcessor extends WorkerHost {
+@Injectable()
+export class AttachmentScanProcessor {
   private readonly logger = new Logger(AttachmentScanProcessor.name);
 
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     private readonly clamavScanner: ClamavScannerService,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job<AttachmentScanPayload>): Promise<void> {
     if (job.name !== ATTACHMENT_SCAN_JOB) {

@@ -1,9 +1,6 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
-
-import { QUEUE_NAMES } from '../../base/queue.constants';
 
 // ─── Job constants ──────────────────────────────────────────────────────────
 
@@ -37,17 +34,11 @@ const PARTITIONED_TABLES: PartitionConfig[] = [
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR, {
-  lockDuration: 300_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class PartitionMaintenanceProcessor extends WorkerHost {
+@Injectable()
+export class PartitionMaintenanceProcessor {
   private readonly logger = new Logger(PartitionMaintenanceProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<PartitionMaintenancePayload>): Promise<Record<string, unknown>> {
     if (job.name !== BEHAVIOUR_PARTITION_MAINTENANCE_JOB) return {};

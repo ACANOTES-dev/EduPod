@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -126,12 +126,8 @@ function extractCriticalRecipients(
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PASTORAL, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class EscalationTimeoutProcessor extends WorkerHost {
+@Injectable()
+export class EscalationTimeoutProcessor {
   private readonly logger = new Logger(EscalationTimeoutProcessor.name);
 
   constructor(
@@ -140,9 +136,7 @@ export class EscalationTimeoutProcessor extends WorkerHost {
     private readonly pastoralQueue: Queue,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS)
     private readonly notificationsQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job<EscalationTimeoutPayload>): Promise<void> {
     if (job.name !== ESCALATION_TIMEOUT_JOB) {

@@ -1,10 +1,8 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
 import type { Job } from 'bullmq';
 
 import { CrossTenantSystemJob } from '../../base/cross-tenant-system-job';
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { SYSTEM_USER_SENTINEL } from '../../base/tenant-aware-job';
 
 import { AuthSpikeRule } from './rules/auth-spike.rule';
@@ -160,15 +158,9 @@ class AnomalyScanJob extends CrossTenantSystemJob {
 
 // ─── Processor ────────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.SECURITY, {
-  lockDuration: 300_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class AnomalyScanProcessor extends WorkerHost {
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+@Injectable()
+export class AnomalyScanProcessor {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== ANOMALY_SCAN_JOB) return;

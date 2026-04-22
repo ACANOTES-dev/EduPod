@@ -1,9 +1,6 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
-
-import { QUEUE_NAMES } from '../../base/queue.constants';
 
 // ─── Job Name ────────────────────────────────────────────────────────────────
 
@@ -38,17 +35,11 @@ interface RenewalCandidate {
  * Expires annual consent records from the previous academic year and creates
  * fresh pending submissions for the current active academic year.
  */
-@Processor(QUEUE_NAMES.ENGAGEMENT, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class EngagementAnnualRenewalProcessor extends WorkerHost {
+@Injectable()
+export class EngagementAnnualRenewalProcessor {
   private readonly logger = new Logger(EngagementAnnualRenewalProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== ANNUAL_CONSENT_RENEWAL_JOB) return;

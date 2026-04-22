@@ -1,9 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -17,17 +15,11 @@ export const SEARCH_FULL_REINDEX_JOB = 'search:full-reindex';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.SEARCH_SYNC, {
-  lockDuration: 120_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class SearchReindexProcessor extends WorkerHost {
+@Injectable()
+export class SearchReindexProcessor {
   private readonly logger = new Logger(SearchReindexProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<SearchFullReindexPayload>): Promise<void> {
     if (job.name !== SEARCH_FULL_REINDEX_JOB) {

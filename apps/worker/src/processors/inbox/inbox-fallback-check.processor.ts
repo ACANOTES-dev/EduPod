@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -26,20 +26,14 @@ export const INBOX_FALLBACK_CHECK_JOB = 'inbox:fallback-check';
  * 3:15 after send. That is intentional — the notifications queue cannot
  * sustain per-minute cross-tenant scans once many tenants are onboarded.
  */
-@Processor(QUEUE_NAMES.NOTIFICATIONS, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class InboxFallbackCheckProcessor extends WorkerHost {
+@Injectable()
+export class InboxFallbackCheckProcessor {
   private readonly logger = new Logger(InboxFallbackCheckProcessor.name);
 
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== INBOX_FALLBACK_CHECK_JOB) {

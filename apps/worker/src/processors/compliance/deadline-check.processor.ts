@@ -1,10 +1,8 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ComplianceRequestStatus, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { CrossTenantSystemJob } from '../../base/cross-tenant-system-job';
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { getRedisClient } from '../../base/redis.helpers';
 
 // ─── Job name ───────────────────────────────────────────────────────────────
@@ -184,15 +182,9 @@ class DeadlineCheckJob extends CrossTenantSystemJob {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.COMPLIANCE, {
-  lockDuration: 120_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class DeadlineCheckProcessor extends WorkerHost {
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+@Injectable()
+export class DeadlineCheckProcessor {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== DEADLINE_CHECK_JOB) return;

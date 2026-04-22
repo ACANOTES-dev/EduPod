@@ -1,11 +1,8 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { CrossTenantSystemJob } from '../../base/cross-tenant-system-job';
-import { QUEUE_NAMES } from '../../base/queue.constants';
-
 // ─── Job constants ──────────────────────────────────────────────────────────
 
 export const REFRESH_MV_STUDENT_SUMMARY_JOB = 'behaviour:refresh-mv-student-summary';
@@ -93,15 +90,9 @@ class RefreshExposureRatesJob extends CrossTenantSystemJob {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR, {
-  lockDuration: 300_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class RefreshMVProcessor extends WorkerHost {
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+@Injectable()
+export class RefreshMVProcessor {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job): Promise<void> {
     switch (job.name) {

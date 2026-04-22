@@ -1,10 +1,8 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 import * as XLSX from 'xlsx';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { downloadBufferFromS3 } from '../../base/s3.helpers';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
@@ -40,17 +38,11 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.IMPORTS, {
-  lockDuration: 120_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class ImportValidationProcessor extends WorkerHost {
+@Injectable()
+export class ImportValidationProcessor {
   private readonly logger = new Logger(ImportValidationProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<ImportValidationPayload>): Promise<void> {
     if (job.name !== IMPORT_VALIDATION_JOB) {

@@ -1,9 +1,6 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
-
-import { QUEUE_NAMES } from '../../base/queue.constants';
 
 // ─── Job name ───────────────────────────────────────────────────────────────
 
@@ -37,17 +34,11 @@ const SAFEGUARDING_FLAG_TEMPLATE_KEY = 'safeguarding.flag.new';
  * on a rescan is a no-op — the admin already got an alert for this
  * flag, no duplicates should fire.
  */
-@Processor(QUEUE_NAMES.SAFEGUARDING, {
-  lockDuration: 30_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class SafeguardingNotifyReviewersProcessor extends WorkerHost {
+@Injectable()
+export class SafeguardingNotifyReviewersProcessor {
   private readonly logger = new Logger(SafeguardingNotifyReviewersProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<SafeguardingNotifyReviewersPayload>): Promise<void> {
     if (job.name !== SAFEGUARDING_NOTIFY_REVIEWERS_JOB) return;

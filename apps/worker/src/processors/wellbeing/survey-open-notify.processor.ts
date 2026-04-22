@@ -1,9 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { MembershipStatus, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -18,17 +16,11 @@ export const SURVEY_OPEN_NOTIFY_JOB = 'wellbeing:survey-open-notify';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.WELLBEING, {
-  lockDuration: 30_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class SurveyOpenNotifyProcessor extends WorkerHost {
+@Injectable()
+export class SurveyOpenNotifyProcessor {
   private readonly logger = new Logger(SurveyOpenNotifyProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<SurveyOpenNotifyPayload>): Promise<void> {
     if (job.name !== SURVEY_OPEN_NOTIFY_JOB) return;

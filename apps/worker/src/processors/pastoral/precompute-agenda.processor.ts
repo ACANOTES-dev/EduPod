@@ -1,9 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import {
   SYSTEM_USER_SENTINEL,
   TenantAwareJob,
@@ -44,17 +42,11 @@ interface AgendaSourceItem {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PASTORAL, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class PrecomputeAgendaProcessor extends WorkerHost {
+@Injectable()
+export class PrecomputeAgendaProcessor {
   private readonly logger = new Logger(PrecomputeAgendaProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<PrecomputeAgendaPayload>): Promise<void> {
     if (job.name !== PRECOMPUTE_AGENDA_JOB) {

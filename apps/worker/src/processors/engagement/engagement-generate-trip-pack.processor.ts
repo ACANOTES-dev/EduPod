@@ -1,9 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import type { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import type { TenantJobPayload } from '../../base/tenant-aware-job';
 import { TenantAwareJob } from '../../base/tenant-aware-job';
 
@@ -24,17 +22,11 @@ const TRIP_EVENT_TYPES = ['school_trip', 'overnight_trip'] as const;
 
 // ─── Processor ────────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.ENGAGEMENT, {
-  lockDuration: 30_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class GenerateTripPackProcessor extends WorkerHost {
+@Injectable()
+export class GenerateTripPackProcessor {
   private readonly logger = new Logger(GenerateTripPackProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<GenerateTripPackPayload>): Promise<void> {
     if (job.name !== GENERATE_TRIP_PACK_JOB) return;

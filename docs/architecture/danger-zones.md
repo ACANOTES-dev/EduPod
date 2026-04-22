@@ -954,14 +954,26 @@ Refactor `SchedulingSolverV2Job` to **not extend `TenantAwareJob`** at all. Ever
 
 **Risk**: In `@nestjs/bullmq`, every `@Processor(queueName)` class becomes its own BullMQ `Worker` that competes for jobs on that queue. When a worker claims a job whose name its guard rejects, the convention across this codebase is `if (job.name !== MY_JOB) return;` — BullMQ then marks the job complete with no log, no error, no retry. Any queue with N `@Processor` classes dispatching by job-name has an effective hit rate of ~1/N per job; the rest of the jobs are silently consumed. Measured on NHQS production 2026-04-22: a 20-job burst on the early-warning queue (3 processors) produced 1 successful run and 19 silent drops. Symptom: "the cron fires, the queue shows completed=N, failed=0 — but nothing actually happened".
 
-**Location**:
+**Location**: every previously-affected queue now owns a single `@Processor` dispatcher:
 
-- `apps/worker/src/processors/early-warning/early-warning.processor.ts` — the dispatcher that now owns `@Processor(QUEUE_NAMES.EARLY_WARNING)` and routes by job name. MITIGATED for this queue as of 2026-04-22.
-- `apps/worker/src/processors/behaviour/*.ts` — BEHAVIOUR queue has ~19 `@Processor` classes. Same bug pattern, unmitigated. A 10-job `behaviour:evaluate-policy` burst produced 0 processor fires in the same diagnostic session.
-- `apps/worker/src/processors/notifications/*.ts` — NOTIFICATIONS queue has ~19 `@Processor` classes. Unmitigated.
-- Every other queue with ≥2 `@Processor` classes: see the counts in `grep -rn "@Processor(QUEUE_NAMES" apps/worker/src/processors` (pastoral=9, engagement=8, wellbeing=6, regulatory=5, imports=4, homework=4, security=3, payroll=3, finance=3, search-sync=2, scheduling=2, safeguarding=2, compliance=2).
+- `apps/worker/src/processors/early-warning/early-warning.processor.ts` — EARLY_WARNING (3 handlers)
+- `apps/worker/src/processors/behaviour/behaviour-queue.processor.ts` — BEHAVIOUR (19 handlers, including 4 safeguarding-domain handlers that publish to the behaviour queue)
+- `apps/worker/src/processors/notifications/notifications-queue.processor.ts` — NOTIFICATIONS (19 handlers across admissions/behaviour/communications/inbox/monitoring/notifications directories)
+- `apps/worker/src/processors/pastoral/pastoral-queue.processor.ts` — PASTORAL (9)
+- `apps/worker/src/processors/engagement/engagement-queue.processor.ts` — ENGAGEMENT (8)
+- `apps/worker/src/processors/wellbeing/wellbeing-queue.processor.ts` — WELLBEING (6)
+- `apps/worker/src/processors/regulatory/regulatory-queue.processor.ts` — REGULATORY (5)
+- `apps/worker/src/processors/homework/homework-queue.processor.ts` — HOMEWORK (4)
+- `apps/worker/src/processors/imports/imports-queue.processor.ts` — IMPORTS (4)
+- `apps/worker/src/processors/security/security-queue.processor.ts` — SECURITY (3)
+- `apps/worker/src/processors/payroll/payroll-queue.processor.ts` — PAYROLL (3)
+- `apps/worker/src/processors/finance/finance-queue.processor.ts` — FINANCE (3)
+- `apps/worker/src/processors/compliance/compliance.processor.ts` — COMPLIANCE (2)
+- `apps/worker/src/processors/safeguarding/safeguarding-queue.processor.ts` — SAFEGUARDING (2)
+- `apps/worker/src/processors/search-sync-queue.processor.ts` — SEARCH_SYNC (2)
+- Pre-existing dispatchers: `attendance-queue-dispatcher.ts`, `gradebook/gradebook-queue-dispatcher.ts`, `scheduling/solver-v2.processor.ts` (scheduling), `early-warning/early-warning.processor.ts`.
 
-**Status**: EARLY_WARNING mitigated 2026-04-22. All other multi-processor queues are unmitigated. `discovery-service` order inside NestJS boot is deterministic within a single process but whichever worker polls Redis first claims the job, and a non-matching worker's guard is the fastest possible return path — it will almost always outrace the matching worker.
+**Status**: MITIGATED 2026-04-22 across every affected queue. Every handler that used to carry `@Processor(QUEUE_NAMES.X)` is now a plain `@Injectable()` service called by its queue's dispatcher. BullMQ creates exactly one `Worker` per queue — the one bound to the dispatcher — so no race exists.
 
 **Mitigation pattern (applied to early-warning, apply elsewhere)**:
 
@@ -972,6 +984,12 @@ Refactor `SchedulingSolverV2Job` to **not extend `TenantAwareJob`** at all. Ever
 **Do not "fix" by throwing from the guard**: a non-matching processor that throws will trigger BullMQ retries with backoff. The next attempt still has a ~1/N chance per retry, so you still drop jobs after `attempts` is exhausted — just noisily instead of silently. The dispatcher pattern is the real fix.
 
 **How to detect (new code)**: if you're about to add a second `@Processor(QUEUE_NAMES.X)` class to any queue that already has one, stop. Route the new job through the existing queue's dispatcher (or create one). The old "multiple processors share a queue" pattern in `CLAUDE.md` predates this discovery and should be read as "one dispatcher owns the queue, multiple handlers route via job name".
+
+**Adding a new handler to an existing dispatcher**:
+
+1. Write the handler as a plain `@Injectable()` service with a public `process(job)` method. Export a `*_JOB` constant for its job name.
+2. Add a `case <JOB_CONST>:` branch to the queue's dispatcher that delegates to the new handler.
+3. Register the handler in `apps/worker/src/worker.module.ts` providers (next to the queue's other handlers). No changes to the dispatcher registration are needed.
 
 **Related**: `docs/architecture/event-job-catalog.md` lists every job → queue mapping; use it to audit queues with ≥2 `@Processor` classes when you next touch the worker.
 

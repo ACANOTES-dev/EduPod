@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -72,12 +72,8 @@ function highestOf(matches: KeywordMatch[]): MessageFlagSeverity | null {
  * fetched per scan with a 5-minute in-memory cache per tenant so a burst
  * of messages does not hammer the `safeguarding_keywords` table.
  */
-@Processor(QUEUE_NAMES.SAFEGUARDING, {
-  lockDuration: 30_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class SafeguardingScanMessageProcessor extends WorkerHost {
+@Injectable()
+export class SafeguardingScanMessageProcessor {
   private readonly logger = new Logger(SafeguardingScanMessageProcessor.name);
 
   private static readonly KEYWORD_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -86,9 +82,7 @@ export class SafeguardingScanMessageProcessor extends WorkerHost {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.SAFEGUARDING) private readonly safeguardingQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job<SafeguardingScanMessagePayload>): Promise<void> {
     if (job.name !== SAFEGUARDING_SCAN_MESSAGE_JOB) return;

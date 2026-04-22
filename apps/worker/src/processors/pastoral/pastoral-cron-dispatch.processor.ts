@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -20,20 +20,14 @@ export const PASTORAL_CRON_DISPATCH_OVERDUE_JOB = 'pastoral:cron-dispatch-overdu
  * and enqueues a `pastoral:overdue-actions` job per tenant. This ensures
  * safeguarding escalations are never missed even if the primary trigger fails.
  */
-@Processor(QUEUE_NAMES.PASTORAL, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class PastoralCronDispatchProcessor extends WorkerHost {
+@Injectable()
+export class PastoralCronDispatchProcessor {
   private readonly logger = new Logger(PastoralCronDispatchProcessor.name);
 
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.PASTORAL) private readonly pastoralQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== PASTORAL_CRON_DISPATCH_OVERDUE_JOB) return;

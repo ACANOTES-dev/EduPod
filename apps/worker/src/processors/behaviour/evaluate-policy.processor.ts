@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { $Enums, Prisma, PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -37,20 +37,14 @@ const STAGE_ORDER: $Enums.PolicyStage[] = [
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class EvaluatePolicyProcessor extends WorkerHost {
+@Injectable()
+export class EvaluatePolicyProcessor {
   private readonly logger = new Logger(EvaluatePolicyProcessor.name);
 
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.EARLY_WARNING) private readonly earlyWarningQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job<EvaluatePolicyPayload>): Promise<void> {
     if (job.name !== EVALUATE_POLICY_JOB) {

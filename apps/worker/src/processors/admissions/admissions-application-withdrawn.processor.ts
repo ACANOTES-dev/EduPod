@@ -1,9 +1,6 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
-
-import { QUEUE_NAMES } from '../../base/queue.constants';
 
 // ─── Payload & job name ──────────────────────────────────────────────────────
 
@@ -34,17 +31,11 @@ export const ADMISSIONS_APPLICATION_WITHDRAWN_JOB =
  * Runs on the shared `notifications` queue — same as the other admissions
  * notification processors.
  */
-@Processor(QUEUE_NAMES.NOTIFICATIONS, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class AdmissionsApplicationWithdrawnProcessor extends WorkerHost {
+@Injectable()
+export class AdmissionsApplicationWithdrawnProcessor {
   private readonly logger = new Logger(AdmissionsApplicationWithdrawnProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<AdmissionsApplicationWithdrawnPayload>): Promise<void> {
     if (job.name !== ADMISSIONS_APPLICATION_WITHDRAWN_JOB) {

@@ -1,12 +1,9 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { NotificationChannel, Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { PLATFORM_ROLE_TO_MESSAGING_ROLE } from '@school/shared/inbox';
 import type { MessagingRole } from '@school/shared/inbox';
-
-import { QUEUE_NAMES } from '../../base/queue.constants';
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
 
@@ -90,17 +87,11 @@ interface ParticipantRow {
  * `dispatch-notifications` pipeline handle actual provider delivery.
  * This keeps Twilio / Resend / idempotency concerns in one place.
  */
-@Processor(QUEUE_NAMES.NOTIFICATIONS, {
-  lockDuration: 5 * 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class InboxFallbackScanTenantProcessor extends WorkerHost {
+@Injectable()
+export class InboxFallbackScanTenantProcessor {
   private readonly logger = new Logger(InboxFallbackScanTenantProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<InboxFallbackScanTenantPayload>): Promise<void> {
     if (job.name !== INBOX_FALLBACK_SCAN_TENANT_JOB) {

@@ -1,10 +1,8 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 import * as XLSX from 'xlsx';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { downloadBufferFromS3, deleteFromS3 } from '../../base/s3.helpers';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
@@ -20,17 +18,11 @@ export const IMPORT_PROCESSING_JOB = 'imports:process';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.IMPORTS, {
-  lockDuration: 120_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class ImportProcessingProcessor extends WorkerHost {
+@Injectable()
+export class ImportProcessingProcessor {
   private readonly logger = new Logger(ImportProcessingProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<ImportProcessingPayload>): Promise<void> {
     if (job.name !== IMPORT_PROCESSING_JOB) {

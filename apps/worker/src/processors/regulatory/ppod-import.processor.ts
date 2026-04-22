@@ -1,9 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PodDatabaseType, PodSyncStatus, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import type { TenantJobPayload } from '../../base/tenant-aware-job';
 import { TenantAwareJob } from '../../base/tenant-aware-job';
 
@@ -28,17 +26,11 @@ interface PpodCsvRow {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.REGULATORY, {
-  lockDuration: 120_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class RegulatoryPpodImportProcessor extends WorkerHost {
+@Injectable()
+export class RegulatoryPpodImportProcessor {
   private readonly logger = new Logger(RegulatoryPpodImportProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<PpodImportPayload>): Promise<void> {
     if (job.name !== REGULATORY_PPOD_IMPORT_JOB) return;

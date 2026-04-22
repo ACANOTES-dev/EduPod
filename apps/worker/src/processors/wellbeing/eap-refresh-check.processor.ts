@@ -1,9 +1,6 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { MembershipStatus, Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
-
-import { QUEUE_NAMES } from '../../base/queue.constants';
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
 
@@ -25,17 +22,11 @@ const WELLBEING_MANAGE_RESOURCES_PERMISSION = 'wellbeing.manage_resources';
  * the past 90 days. If not, sends in-app notifications to all users with the
  * `wellbeing.manage_resources` permission.
  */
-@Processor(QUEUE_NAMES.WELLBEING, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class EapRefreshCheckProcessor extends WorkerHost {
+@Injectable()
+export class EapRefreshCheckProcessor {
   private readonly logger = new Logger(EapRefreshCheckProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== EAP_REFRESH_CHECK_JOB) return;

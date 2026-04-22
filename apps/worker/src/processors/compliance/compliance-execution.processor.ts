@@ -1,12 +1,10 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { ComplianceAnonymisationCore } from '@school/prisma';
 import type { AnonymisationCleanupPlan } from '@school/prisma';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { getRedisClient } from '../../base/redis.helpers';
 import { deleteFromS3, uploadToS3 } from '../../base/s3.helpers';
 import { deleteSearchDocument } from '../../base/search.helpers';
@@ -24,17 +22,11 @@ export const COMPLIANCE_EXECUTION_JOB = 'compliance:execute';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.IMPORTS, {
-  lockDuration: 120_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class ComplianceExecutionProcessor extends WorkerHost {
+@Injectable()
+export class ComplianceExecutionProcessor {
   private readonly logger = new Logger(ComplianceExecutionProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<ComplianceExecutionPayload>): Promise<void> {
     if (job.name !== COMPLIANCE_EXECUTION_JOB) {

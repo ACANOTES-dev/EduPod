@@ -1,9 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { $Enums, Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import {
   SYSTEM_USER_SENTINEL,
   TenantAwareJob,
@@ -37,17 +35,11 @@ const SEVERITY_MAP: Record<string, $Enums.PastoralConcernSeverity> = {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PASTORAL, {
-  lockDuration: 30_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class SyncBehaviourSafeguardingProcessor extends WorkerHost {
+@Injectable()
+export class SyncBehaviourSafeguardingProcessor {
   private readonly logger = new Logger(SyncBehaviourSafeguardingProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<SyncBehaviourSafeguardingPayload>): Promise<void> {
     if (job.name !== SYNC_BEHAVIOUR_SAFEGUARDING_JOB) {

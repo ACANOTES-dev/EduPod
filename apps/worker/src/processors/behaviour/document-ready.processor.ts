@@ -1,9 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import type { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, type TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
@@ -22,17 +20,11 @@ export interface DocumentReadyPayload extends TenantJobPayload {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR, {
-  lockDuration: 300_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class DocumentReadyProcessor extends WorkerHost {
+@Injectable()
+export class DocumentReadyProcessor {
   private readonly logger = new Logger(DocumentReadyProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<DocumentReadyPayload>): Promise<void> {
     if (job.name !== DOCUMENT_READY_JOB) return;

@@ -1,12 +1,9 @@
 import { createDecipheriv } from 'crypto';
 
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 import Stripe from 'stripe';
-
-import { QUEUE_NAMES } from '../../base/queue.constants';
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
 
@@ -36,20 +33,14 @@ export const FINANCE_RECONCILE_STRIPE_REFUNDS_JOB = 'finance:reconcile-stripe-re
  * structured context so the alerting pipeline can pick them up. No
  * auto-repair; a human decides what to do about each drift case.
  */
-@Processor(QUEUE_NAMES.FINANCE, {
-  lockDuration: 5 * 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class StripeRefundReconciliationProcessor extends WorkerHost {
+@Injectable()
+export class StripeRefundReconciliationProcessor {
   private readonly logger = new Logger(StripeRefundReconciliationProcessor.name);
 
   /** Look back window for Stripe.refunds.list and local refund query. */
   private static readonly LOOKBACK_MS = 48 * 60 * 60 * 1000;
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== FINANCE_RECONCILE_STRIPE_REFUNDS_JOB) {

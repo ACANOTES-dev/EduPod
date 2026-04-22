@@ -1,12 +1,9 @@
 import { createDecipheriv } from 'crypto';
 
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 import Stripe from 'stripe';
-
-import { QUEUE_NAMES } from '../../base/queue.constants';
 
 // ─── Payload & job name ──────────────────────────────────────────────────────
 
@@ -39,17 +36,11 @@ export const ADMISSIONS_PAYMENT_LINK_JOB = 'notifications:admissions-payment-lin
  * mirroring the pattern used in `key-rotation.processor.ts`. If the
  * encryption format (iv:authTag:ciphertext hex) changes, update both.
  */
-@Processor(QUEUE_NAMES.NOTIFICATIONS, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class AdmissionsPaymentLinkProcessor extends WorkerHost {
+@Injectable()
+export class AdmissionsPaymentLinkProcessor {
   private readonly logger = new Logger(AdmissionsPaymentLinkProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<AdmissionsPaymentLinkPayload>): Promise<void> {
     if (job.name !== ADMISSIONS_PAYMENT_LINK_JOB) {

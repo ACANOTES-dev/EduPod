@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
 import { Job, Queue } from 'bullmq';
 
@@ -28,17 +28,11 @@ interface DlqAlert {
  * Uses the injected notifications queue's ioredis client to create temporary
  * Queue instances for each queue name, avoiding the need to inject all 20 queues.
  */
-@Processor(QUEUE_NAMES.NOTIFICATIONS, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class DlqMonitorProcessor extends WorkerHost {
+@Injectable()
+export class DlqMonitorProcessor {
   private readonly logger = new Logger(DlqMonitorProcessor.name);
 
-  constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue) {
-    super();
-  }
+  constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== DLQ_MONITOR_JOB) return;

@@ -22,6 +22,7 @@ import { AttendanceQueueDispatcher } from './processors/attendance-queue-dispatc
 import { AttendanceSessionGenerationProcessor } from './processors/attendance-session-generation.processor';
 import { AuditLogWriteProcessor } from './processors/audit-log/audit-log-write.processor';
 import { BehaviourAckRemindersProcessor } from './processors/behaviour/ack-reminders.processor';
+import { BehaviourQueueDispatcher } from './processors/behaviour/behaviour-queue.processor';
 import { BehaviourCheckAwardsProcessor } from './processors/behaviour/check-awards.processor';
 import { BehaviourCronDispatchProcessor } from './processors/behaviour/cron-dispatch.processor';
 import { DetectPatternsProcessor } from './processors/behaviour/detect-patterns.processor';
@@ -46,6 +47,7 @@ import { PublishAnnouncementProcessor } from './processors/communications/publis
 import { RetryFailedNotificationsProcessor } from './processors/communications/retry-failed.processor';
 import { StaleInquiryDetectionProcessor } from './processors/communications/stale-inquiry-detection.processor';
 import { ComplianceExecutionProcessor } from './processors/compliance/compliance-execution.processor';
+import { ComplianceQueueDispatcher } from './processors/compliance/compliance.processor';
 import { DeadlineCheckProcessor } from './processors/compliance/deadline-check.processor';
 import { RetentionEnforcementProcessor } from './processors/compliance/retention-enforcement.processor';
 import { ComputeDailyProcessor } from './processors/early-warning/compute-daily.processor';
@@ -58,8 +60,10 @@ import { EngagementAnnualRenewalProcessor } from './processors/engagement/engage
 import { EngagementConferenceRemindersProcessor } from './processors/engagement/engagement-conference-reminders.processor';
 import { EngagementDistributeFormsProcessor } from './processors/engagement/engagement-distribute-forms.processor';
 import { GenerateTripPackProcessor } from './processors/engagement/engagement-generate-trip-pack.processor';
+import { EngagementQueueDispatcher } from './processors/engagement/engagement-queue.processor';
 import { ExpirePendingProcessor } from './processors/engagement/expire-pending.processor';
 import { GenerateEventInvoicesProcessor } from './processors/engagement/generate-invoices.processor';
+import { FinanceQueueDispatcher } from './processors/finance/finance-queue.processor';
 import { InvoiceApprovalCallbackProcessor } from './processors/finance/invoice-approval-callback.processor';
 import { OverdueDetectionProcessor } from './processors/finance/overdue-detection.processor';
 import { StripeRefundReconciliationProcessor } from './processors/finance/stripe-refund-reconciliation.processor';
@@ -83,16 +87,19 @@ import { S3ReportCardStorageWriter } from './processors/gradebook/s3-report-card
 import { HomeworkCompletionReminderProcessor } from './processors/homework/completion-reminder.processor';
 import { HomeworkDigestProcessor } from './processors/homework/digest-homework.processor';
 import { HomeworkGenerateRecurringProcessor } from './processors/homework/generate-recurring.processor';
+import { HomeworkQueueDispatcher } from './processors/homework/homework-queue.processor';
 import { HomeworkOverdueDetectionProcessor } from './processors/homework/overdue-detection.processor';
 import { ImportFileCleanupProcessor } from './processors/imports/import-file-cleanup.processor';
 import { ImportProcessingProcessor } from './processors/imports/import-processing.processor';
 import { ImportValidationProcessor } from './processors/imports/import-validation.processor';
+import { ImportsQueueDispatcher } from './processors/imports/imports-queue.processor';
 import { InboxFallbackCheckProcessor } from './processors/inbox/inbox-fallback-check.processor';
 import { InboxFallbackScanTenantProcessor } from './processors/inbox/inbox-fallback-scan-tenant.processor';
 import { InboxFallbackTemplatesInit } from './processors/inbox/inbox-fallback-templates.init';
 import { CanaryProcessor } from './processors/monitoring/canary.processor';
 import { DlqMonitorProcessor } from './processors/monitoring/dlq-monitor.processor';
 import { DispatchQueuedProcessor } from './processors/notifications/dispatch-queued.processor';
+import { NotificationsQueueDispatcher } from './processors/notifications/notifications-queue.processor';
 import { ParentDailyDigestProcessor } from './processors/notifications/parent-daily-digest.processor';
 import { CheckinAlertProcessor } from './processors/pastoral/checkin-alert.processor';
 import { EscalationTimeoutProcessor } from './processors/pastoral/escalation-timeout.processor';
@@ -100,17 +107,20 @@ import { InterventionReviewReminderProcessor } from './processors/pastoral/inter
 import { NotifyConcernProcessor } from './processors/pastoral/notify-concern.processor';
 import { OverdueActionsProcessor } from './processors/pastoral/overdue-actions.processor';
 import { PastoralCronDispatchProcessor } from './processors/pastoral/pastoral-cron-dispatch.processor';
+import { PastoralQueueDispatcher } from './processors/pastoral/pastoral-queue.processor';
 import { PrecomputeAgendaProcessor } from './processors/pastoral/precompute-agenda.processor';
 import { SyncBehaviourSafeguardingProcessor } from './processors/pastoral/sync-behaviour-safeguarding.processor';
 import { WellbeingFlagExpiryProcessor } from './processors/pastoral/wellbeing-flag-expiry.processor';
 import { PayrollApprovalCallbackProcessor } from './processors/payroll/approval-callback.processor';
 import { PayrollMassExportProcessor } from './processors/payroll/mass-export.processor';
+import { PayrollQueueDispatcher } from './processors/payroll/payroll-queue.processor';
 import { PayrollSessionGenerationProcessor } from './processors/payroll/session-generation.processor';
 import { PdfRenderProcessor } from './processors/pdf-rendering/pdf-render.processor';
 import { RegulatoryDeadlineCheckProcessor } from './processors/regulatory/deadline-check.processor';
 import { RegulatoryDesGenerateProcessor } from './processors/regulatory/des-returns-generate.processor';
 import { RegulatoryPpodImportProcessor } from './processors/regulatory/ppod-import.processor';
 import { RegulatoryPpodSyncProcessor } from './processors/regulatory/ppod-sync.processor';
+import { RegulatoryQueueDispatcher } from './processors/regulatory/regulatory-queue.processor';
 import { RegulatoryTuslaThresholdScanProcessor } from './processors/regulatory/tusla-threshold-scan.processor';
 import { REPORT_CARD_RENDERER_TOKEN } from './processors/report-card-render.contract';
 import { AttachmentScanProcessor } from './processors/safeguarding/attachment-scan.processor';
@@ -118,20 +128,24 @@ import { BreakGlassExpiryProcessor } from './processors/safeguarding/break-glass
 import { CriticalEscalationProcessor } from './processors/safeguarding/critical-escalation.processor';
 import { SafeguardingScanMessageProcessor } from './processors/safeguarding/message-scan.processor';
 import { SafeguardingNotifyReviewersProcessor } from './processors/safeguarding/notify-reviewers.processor';
+import { SafeguardingQueueDispatcher } from './processors/safeguarding/safeguarding-queue.processor';
 import { SlaCheckProcessor } from './processors/safeguarding/sla-check.processor';
 import { ExamSolverProcessor } from './processors/scheduling/exam-solver.processor';
 import { SchedulingSolverV2Processor } from './processors/scheduling/solver-v2.processor';
 import { SchedulingStaleReaperJob } from './processors/scheduling-stale-reaper.processor';
 import { SearchIndexProcessor } from './processors/search-index.processor';
 import { SearchReindexProcessor } from './processors/search-reindex.processor';
+import { SearchSyncQueueDispatcher } from './processors/search-sync-queue.processor';
 import { AnomalyScanProcessor } from './processors/security/anomaly-scan.processor';
 import { BreachDeadlineProcessor } from './processors/security/breach-deadline.processor';
 import { KeyRotationProcessor } from './processors/security/key-rotation.processor';
+import { SecurityQueueDispatcher } from './processors/security/security-queue.processor';
 import { CleanupParticipationTokensProcessor } from './processors/wellbeing/cleanup-participation-tokens.processor';
 import { EapRefreshCheckProcessor } from './processors/wellbeing/eap-refresh-check.processor';
 import { ModerationScanProcessor } from './processors/wellbeing/moderation-scan.processor';
 import { SurveyClosingReminderProcessor } from './processors/wellbeing/survey-closing-reminder.processor';
 import { SurveyOpenNotifyProcessor } from './processors/wellbeing/survey-open-notify.processor';
+import { WellbeingQueueDispatcher } from './processors/wellbeing/wellbeing-queue.processor';
 import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metrics.processor';
 import { ClamavScannerService } from './services/clamav-scanner.service';
 
@@ -555,6 +569,25 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     CleanupParticipationTokensProcessor,
     EapRefreshCheckProcessor,
     WorkloadMetricsProcessor,
+    // Queue dispatchers — one `@Processor` per queue; each routes by job.name
+    // to the `@Injectable` handler services above. This eliminates DZ-48: when
+    // multiple `@Processor` classes coexisted on one queue, BullMQ workers
+    // raced for jobs and the losers' guard-return path silently marked jobs
+    // complete without running them.
+    BehaviourQueueDispatcher,
+    ComplianceQueueDispatcher,
+    EngagementQueueDispatcher,
+    FinanceQueueDispatcher,
+    HomeworkQueueDispatcher,
+    ImportsQueueDispatcher,
+    NotificationsQueueDispatcher,
+    PastoralQueueDispatcher,
+    PayrollQueueDispatcher,
+    RegulatoryQueueDispatcher,
+    SafeguardingQueueDispatcher,
+    SearchSyncQueueDispatcher,
+    SecurityQueueDispatcher,
+    WellbeingQueueDispatcher,
   ],
 })
 export class WorkerModule implements BeforeApplicationShutdown, OnModuleDestroy {

@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -48,12 +48,8 @@ interface ActiveBehaviourTenant {
  * - SLA: runs every 5 min, enqueues safeguarding SLA checks per tenant
  * - Monthly: runs on the 1st, enqueues retention checks per tenant
  */
-@Processor(QUEUE_NAMES.BEHAVIOUR, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class BehaviourCronDispatchProcessor extends WorkerHost {
+@Injectable()
+export class BehaviourCronDispatchProcessor {
   private readonly logger = new Logger(BehaviourCronDispatchProcessor.name);
 
   constructor(
@@ -61,9 +57,7 @@ export class BehaviourCronDispatchProcessor extends WorkerHost {
     @InjectQueue(QUEUE_NAMES.BEHAVIOUR) private readonly behaviourQueue: Queue,
     @InjectQueue(QUEUE_NAMES.HOMEWORK) private readonly homeworkQueue: Queue,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job): Promise<void> {
     switch (job.name) {

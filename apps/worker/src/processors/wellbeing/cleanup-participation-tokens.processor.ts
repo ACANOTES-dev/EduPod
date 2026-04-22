@@ -1,9 +1,6 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
-
-import { QUEUE_NAMES } from '../../base/queue.constants';
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
 
@@ -22,17 +19,11 @@ export const CLEANUP_PARTICIPATION_TOKENS_JOB = 'wellbeing:cleanup-participation
  * directly on the base prisma client. The surveys table DOES have tenant_id and
  * is queried without RLS context (cross-tenant sweep).
  */
-@Processor(QUEUE_NAMES.WELLBEING, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class CleanupParticipationTokensProcessor extends WorkerHost {
+@Injectable()
+export class CleanupParticipationTokensProcessor {
   private readonly logger = new Logger(CleanupParticipationTokensProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== CLEANUP_PARTICIPATION_TOKENS_JOB) return;

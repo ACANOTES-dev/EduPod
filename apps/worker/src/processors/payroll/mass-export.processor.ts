@@ -1,10 +1,8 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 import Redis from 'ioredis';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -101,17 +99,11 @@ function getTemplateRenderer(locale: 'en' | 'ar'): TemplateRenderFn {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PAYROLL, {
-  lockDuration: 300_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class PayrollMassExportProcessor extends WorkerHost {
+@Injectable()
+export class PayrollMassExportProcessor {
   private readonly logger = new Logger(PayrollMassExportProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<MassExportPayload>): Promise<void> {
     if (job.name !== PAYROLL_MASS_EXPORT_JOB) {

@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { NotificationChannel, Prisma, PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -41,20 +41,14 @@ export const INBOX_DISPATCH_CHANNELS_JOB = 'inbox:dispatch-channels';
  * notification IDs. The existing processor handles templates, contact
  * resolution, rate limits, fallback chains, and provider retries.
  */
-@Processor(QUEUE_NAMES.NOTIFICATIONS, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class InboxDispatchChannelsProcessor extends WorkerHost {
+@Injectable()
+export class InboxDispatchChannelsProcessor {
   private readonly logger = new Logger(InboxDispatchChannelsProcessor.name);
 
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job<InboxDispatchChannelsPayload>): Promise<void> {
     if (job.name !== INBOX_DISPATCH_CHANNELS_JOB) {

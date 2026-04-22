@@ -1,9 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import {
   SYSTEM_USER_SENTINEL,
   TenantAwareJob,
@@ -20,17 +18,11 @@ export const OVERDUE_ACTIONS_JOB = 'pastoral:overdue-actions';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PASTORAL, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class OverdueActionsProcessor extends WorkerHost {
+@Injectable()
+export class OverdueActionsProcessor {
   private readonly logger = new Logger(OverdueActionsProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<OverdueActionsPayload>): Promise<void> {
     if (job.name !== OVERDUE_ACTIONS_JOB) {

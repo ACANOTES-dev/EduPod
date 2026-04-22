@@ -1,11 +1,8 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
 import type { Job } from 'bullmq';
-
-import { QUEUE_NAMES } from '../../base/queue.constants';
 
 export const KEY_ROTATION_JOB = 'security:key-rotation';
 
@@ -53,17 +50,11 @@ interface MfaSecretRow {
  *
  * Triggered manually via an admin API endpoint, not on a cron schedule.
  */
-@Processor(QUEUE_NAMES.SECURITY, {
-  lockDuration: 300_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class KeyRotationProcessor extends WorkerHost {
+@Injectable()
+export class KeyRotationProcessor {
   private readonly logger = new Logger(KeyRotationProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<KeyRotationPayload>): Promise<void> {
     if (job.name !== KEY_ROTATION_JOB) return;

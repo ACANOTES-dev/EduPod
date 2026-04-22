@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
@@ -53,12 +53,8 @@ const DEFAULT_CRITICAL_TIMEOUT_MINUTES = 30;
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PASTORAL, {
-  lockDuration: 30_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class NotifyConcernProcessor extends WorkerHost {
+@Injectable()
+export class NotifyConcernProcessor {
   private readonly logger = new Logger(NotifyConcernProcessor.name);
 
   constructor(
@@ -69,9 +65,7 @@ export class NotifyConcernProcessor extends WorkerHost {
     private readonly notificationsQueue: Queue,
     @InjectQueue(QUEUE_NAMES.PASTORAL)
     private readonly pastoralQueue: Queue,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job<NotifyConcernPayload>): Promise<void> {
     if (job.name !== NOTIFY_CONCERN_JOB) {

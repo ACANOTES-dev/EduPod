@@ -1,11 +1,8 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 import type Redis from 'ioredis';
 import IoRedis from 'ioredis';
-
-import { QUEUE_NAMES } from '../../base/queue.constants';
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
 
@@ -45,18 +42,12 @@ interface StaffCoverCount {
  * For each tenant with the staff_wellbeing module enabled, computes all
  * aggregate workload metrics and stores them in Redis with a 24-hour TTL.
  */
-@Processor(QUEUE_NAMES.WELLBEING, {
-  lockDuration: 120_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class WorkloadMetricsProcessor extends WorkerHost {
+@Injectable()
+export class WorkloadMetricsProcessor {
   private readonly logger = new Logger(WorkloadMetricsProcessor.name);
   private redis: Redis | null = null;
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   private getRedis(): Redis {
     if (!this.redis) {
