@@ -625,15 +625,17 @@ The deploy script hits all four as part of `run_smoke_test`. For external uptime
 
 ### GitHub auth
 
-Server uses an HTTPS remote with an embedded PAT for `git fetch` in the deploy script.
+Repo-level **deploy key** (read-only), `edupod-prod-1 deploy`. Private half on the server at `/root/.ssh/github_deploy` (ed25519); public half registered at `github.com/ACANOTES-dev/EduPod → Settings → Deploy keys`. `/root/.ssh/config` has a `Host github.com` block pinning that key + `IdentitiesOnly yes`.
 
-**Pre-demo swap (in progress):**
+To rotate the deploy key:
 
-1. Deploy key at `/root/.ssh/github_deploy` + SSH config block already prepared.
-2. Add the public key (in `/root/.ssh/github_deploy.pub`) to the repo's Deploy Keys on GitHub.
-3. Swap the remote: `git remote set-url origin git@github.com:ACANOTES-dev/EduPod.git`.
-4. Revoke the old PAT at https://github.com/settings/tokens.
-5. Verify with `git fetch origin main`.
+1. `ssh-keygen -t ed25519 -C "edupod-deploy-$(hostname)" -f /root/.ssh/github_deploy_new -N ""`
+2. Add `/root/.ssh/github_deploy_new.pub` as a new deploy key on GitHub (title it something time-stamped).
+3. Swap: `mv /root/.ssh/github_deploy{,.old} && mv /root/.ssh/github_deploy_new /root/.ssh/github_deploy && mv /root/.ssh/github_deploy_new.pub /root/.ssh/github_deploy.pub`.
+4. Test: `git -C /opt/edupod/app fetch origin main`.
+5. Remove the old deploy key from GitHub's UI.
+
+No PAT is used anywhere on the host. If you ever see `ghp_…` or `github_pat_…` in `/opt/edupod/app/.git/config` again, something regressed — revoke it immediately.
 
 ### Certificate rotation
 
