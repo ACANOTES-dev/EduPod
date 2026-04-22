@@ -1,9 +1,5 @@
 import { ScoringEngine } from './scoring.engine';
-import type {
-  DetectedSignal,
-  SignalResult,
-  WeightConfig,
-} from './types';
+import type { DetectedSignal, SignalResult, WeightConfig } from './types';
 import {
   DEFAULT_CROSS_DOMAIN_THRESHOLD,
   DEFAULT_HYSTERESIS_BUFFER,
@@ -34,10 +30,18 @@ function makeSignalResult(
   return {
     domain,
     rawScore,
-    signals: signals.length > 0 ? signals : (rawScore > 0 ? [makeSignal({ scoreContribution: rawScore })] : []),
-    summaryFragments: signals.length > 0
-      ? signals.map((s) => s.summaryFragment)
-      : (rawScore > 0 ? ['Test signal detected.'] : []),
+    signals:
+      signals.length > 0
+        ? signals
+        : rawScore > 0
+          ? [makeSignal({ scoreContribution: rawScore })]
+          : [],
+    summaryFragments:
+      signals.length > 0
+        ? signals.map((s) => s.summaryFragment)
+        : rawScore > 0
+          ? ['Test signal detected.']
+          : [],
   };
 }
 
@@ -83,7 +87,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       expect(result.domainScores).toEqual({
@@ -114,7 +124,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, customWeights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        customWeights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       // 100 * 0.40 = 40, rest = 0. Cross-domain: only 1 domain >= 40 -> +0
@@ -131,7 +147,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       // domainScores should be the RAW scores, not weighted
@@ -159,7 +181,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       expect(result.crossDomainBoost).toBe(0);
@@ -176,7 +204,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       expect(result.crossDomainBoost).toBe(5);
@@ -193,7 +227,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       expect(result.crossDomainBoost).toBe(10);
@@ -209,7 +249,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       expect(result.crossDomainBoost).toBe(15);
@@ -225,9 +271,7 @@ describe('ScoringEngine', () => {
         engagement: 40,
       });
 
-      const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], 60,
-      );
+      const result = engine.computeRisk(signals, weights, thresholds, buffer, null, [], 60);
 
       expect(result.crossDomainBoost).toBe(0);
     });
@@ -243,7 +287,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       expect(result.crossDomainBoost).toBe(15);
@@ -264,7 +314,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       expect(result.compositeScore).toBe(100);
@@ -277,19 +333,25 @@ describe('ScoringEngine', () => {
   describe('computeRisk — tier thresholds', () => {
     it('should assign green for low composite score', () => {
       const signals = makeAllSignalResults({
-        attendance: 10,
-        grades: 10,
-        behaviour: 10,
-        wellbeing: 10,
-        engagement: 10,
+        attendance: 5,
+        grades: 5,
+        behaviour: 5,
+        wellbeing: 5,
+        engagement: 5,
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
-      // 10*0.25 + 10*0.25 + 10*0.20 + 10*0.20 + 10*0.10 = 10. No boost (<3 domains >= 40)
-      expect(result.compositeScore).toBe(10);
+      // 5 * 1.0 = 5. No boost (<3 domains >= 40). Score 5 is below yellow threshold (8) -> green.
+      expect(result.compositeScore).toBe(5);
       expect(result.riskTier).toBe('green');
     });
 
@@ -303,7 +365,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       // 80*1.0 = 80 + 15 (all 5 >= 40) = 95. Red.
@@ -316,61 +384,81 @@ describe('ScoringEngine', () => {
 
   describe('computeRisk — hysteresis integration', () => {
     it('should apply hysteresis on downgrade (red -> still red in buffer zone)', () => {
-      // att=50, grd=50, beh=50, well=50, eng=60 -> weighted=51, boost=15 -> 66
+      // all domains at 23 -> weighted=23, no boost (no domain >= 40) -> composite=23
       const signals = makeAllSignalResults({
-        attendance: 50,
-        grades: 50,
-        behaviour: 50,
-        wellbeing: 50,
-        engagement: 60,
+        attendance: 23,
+        grades: 23,
+        behaviour: 23,
+        wellbeing: 23,
+        engagement: 23,
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, 'red', [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        'red',
+        [],
+        crossThreshold,
       );
 
-      // Composite = 66. Previously red. Hysteresis: need <= 65. 66 > 65 -> stays red.
-      expect(result.compositeScore).toBe(66);
+      // Composite = 23. Previously red. Hysteresis line = 32 - 10 = 22. 23 > 22 -> stays red.
+      expect(result.compositeScore).toBe(23);
       expect(result.riskTier).toBe('red');
       expect(result.tierChanged).toBe(false);
       expect(result.previousTier).toBe('red');
     });
 
     it('should downgrade when below hysteresis buffer', () => {
-      // att=50, grd=50, beh=50, well=50, eng=50 -> weighted=50, boost=15 -> 65
+      // all domains at 22 -> weighted=22, no boost -> composite=22
       const signals = makeAllSignalResults({
-        attendance: 50,
-        grades: 50,
-        behaviour: 50,
-        wellbeing: 50,
-        engagement: 50,
+        attendance: 22,
+        grades: 22,
+        behaviour: 22,
+        wellbeing: 22,
+        engagement: 22,
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, 'red', [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        'red',
+        [],
+        crossThreshold,
       );
 
-      expect(result.compositeScore).toBe(65);
+      // Composite = 22. Previously red. Hysteresis line = 32 - 10 = 22. 22 <= 22 -> downgrade to amber.
+      expect(result.compositeScore).toBe(22);
       expect(result.riskTier).toBe('amber');
       expect(result.tierChanged).toBe(true);
       expect(result.previousTier).toBe('red');
     });
 
     it('should upgrade immediately (green -> yellow)', () => {
-      // att=30, grd=30, beh=30, well=30, eng=30 -> weighted=30, boost=0 -> 30
+      // all domains at 10 -> weighted=10, no boost -> composite=10
       const signals = makeAllSignalResults({
-        attendance: 30,
-        grades: 30,
-        behaviour: 30,
-        wellbeing: 30,
-        engagement: 30,
+        attendance: 10,
+        grades: 10,
+        behaviour: 10,
+        wellbeing: 10,
+        engagement: 10,
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, 'green', [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        'green',
+        [],
+        crossThreshold,
       );
 
-      expect(result.compositeScore).toBe(30);
+      // Composite 10 is in yellow range (8–17). From green, upgrade is immediate.
+      expect(result.compositeScore).toBe(10);
       expect(result.riskTier).toBe('yellow');
       expect(result.tierChanged).toBe(true);
       expect(result.previousTier).toBe('green');
@@ -391,7 +479,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, history, crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        history,
+        crossThreshold,
       );
 
       // weighted = 40, boost = 15 -> 55
@@ -409,7 +503,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, history, crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        history,
+        crossThreshold,
       );
 
       // 29 entries + 1 current = 30. All fit.
@@ -428,7 +528,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, history, crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        history,
+        crossThreshold,
       );
 
       // 30 + 1 = 31 -> trimmed to 30. Oldest (1) dropped.
@@ -455,7 +561,13 @@ describe('ScoringEngine', () => {
       ];
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       expect(result.signals).toHaveLength(3);
@@ -476,7 +588,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       expect(result.summaryText.length).toBeGreaterThan(0);
@@ -497,7 +615,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       expect(result.compositeScore).toBe(0);
@@ -522,7 +646,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       // 100 weighted + 15 boost = 115 -> capped at 100
@@ -541,12 +671,19 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       // 100 * 0.25 = 25. No boost (only 1 domain >= 40). Score = 25.
+      // At default thresholds (amber = 18) a single-domain saturation lands in amber.
       expect(result.compositeScore).toBe(25);
-      expect(result.riskTier).toBe('green');
+      expect(result.riskTier).toBe('amber');
       expect(result.crossDomainBoost).toBe(0);
     });
 
@@ -560,7 +697,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       expect(result.previousTier).toBeNull();
@@ -570,16 +713,23 @@ describe('ScoringEngine', () => {
     });
 
     it('should return previousTier in the result even when tier did not change', () => {
+      // All domains at 5 -> weighted=5, no boost -> composite=5 (still green).
       const signals = makeAllSignalResults({
-        attendance: 10,
-        grades: 10,
-        behaviour: 10,
-        wellbeing: 10,
-        engagement: 10,
+        attendance: 5,
+        grades: 5,
+        behaviour: 5,
+        wellbeing: 5,
+        engagement: 5,
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, 'green', [10], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        'green',
+        [5],
+        crossThreshold,
       );
 
       expect(result.previousTier).toBe('green');
@@ -602,7 +752,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       expect(Number.isInteger(result.compositeScore)).toBe(true);
@@ -624,7 +780,13 @@ describe('ScoringEngine', () => {
       });
 
       const result = engine.computeRisk(
-        signals, weights, thresholds, buffer, null, [], crossThreshold,
+        signals,
+        weights,
+        thresholds,
+        buffer,
+        null,
+        [],
+        crossThreshold,
       );
 
       expect(result.compositeScore).toBe(47);

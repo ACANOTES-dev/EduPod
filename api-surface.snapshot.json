@@ -826,6 +826,13 @@
     "permission": null
   },
   {
+    "method": "GET",
+    "path": "/v1/auth/me/modules",
+    "controller": "AuthController",
+    "module": "auth",
+    "permission": null
+  },
+  {
     "method": "POST",
     "path": "/v1/auth/mfa/recovery",
     "controller": "AuthController",
@@ -887,6 +894,27 @@
     "controller": "AuthController",
     "module": "auth",
     "permission": null
+  },
+  {
+    "method": "GET",
+    "path": "/v1/behaviour/acknowledgements",
+    "controller": "BehaviourAcknowledgementsController",
+    "module": "behaviour",
+    "permission": "behaviour.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/behaviour/acknowledgements/:id",
+    "controller": "BehaviourAcknowledgementsController",
+    "module": "behaviour",
+    "permission": "behaviour.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/behaviour/acknowledgements/:id/read",
+    "controller": "BehaviourAcknowledgementsController",
+    "module": "behaviour",
+    "permission": "behaviour.view"
   },
   {
     "method": "POST",
@@ -1010,6 +1038,13 @@
   {
     "method": "POST",
     "path": "/v1/behaviour/admin/reindex-search/preview",
+    "controller": "BehaviourAdminController",
+    "module": "behaviour",
+    "permission": "behaviour.admin"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/behaviour/admin/repair-runs",
     "controller": "BehaviourAdminController",
     "module": "behaviour",
     "permission": "behaviour.admin"
@@ -1338,6 +1373,34 @@
   },
   {
     "method": "GET",
+    "path": "/v1/behaviour/award-types",
+    "controller": "BehaviourConfigController",
+    "module": "behaviour",
+    "permission": "behaviour.admin"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/behaviour/award-types",
+    "controller": "BehaviourConfigController",
+    "module": "behaviour",
+    "permission": "behaviour.view"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/behaviour/award-types/:id",
+    "controller": "BehaviourConfigController",
+    "module": "behaviour",
+    "permission": "behaviour.admin"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/behaviour/award-types/:id",
+    "controller": "BehaviourConfigController",
+    "module": "behaviour",
+    "permission": "behaviour.admin"
+  },
+  {
+    "method": "GET",
     "path": "/v1/behaviour/categories",
     "controller": "BehaviourConfigController",
     "module": "behaviour",
@@ -1499,6 +1562,13 @@
   },
   {
     "method": "POST",
+    "path": "/v1/behaviour/exclusion-cases/:id/finalise",
+    "controller": "BehaviourExclusionsController",
+    "module": "behaviour",
+    "permission": "behaviour.manage"
+  },
+  {
+    "method": "POST",
     "path": "/v1/behaviour/exclusion-cases/:id/generate-board-pack",
     "controller": "BehaviourExclusionsController",
     "module": "behaviour",
@@ -1513,7 +1583,35 @@
   },
   {
     "method": "POST",
+    "path": "/v1/behaviour/exclusion-cases/:id/issue-notice",
+    "controller": "BehaviourExclusionsController",
+    "module": "behaviour",
+    "permission": "behaviour.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/behaviour/exclusion-cases/:id/overturn",
+    "controller": "BehaviourExclusionsController",
+    "module": "behaviour",
+    "permission": "behaviour.manage"
+  },
+  {
+    "method": "POST",
     "path": "/v1/behaviour/exclusion-cases/:id/record-decision",
+    "controller": "BehaviourExclusionsController",
+    "module": "behaviour",
+    "permission": "behaviour.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/behaviour/exclusion-cases/:id/record-hearing",
+    "controller": "BehaviourExclusionsController",
+    "module": "behaviour",
+    "permission": "behaviour.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/behaviour/exclusion-cases/:id/schedule-hearing",
     "controller": "BehaviourExclusionsController",
     "module": "behaviour",
     "permission": "behaviour.manage"
@@ -1871,6 +1969,20 @@
   {
     "method": "POST",
     "path": "/v1/behaviour/policies/replay",
+    "controller": "BehaviourConfigController",
+    "module": "behaviour",
+    "permission": "behaviour.admin"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/behaviour/policies/replay/preview",
+    "controller": "BehaviourConfigController",
+    "module": "behaviour",
+    "permission": "behaviour.admin"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/behaviour/policy-dry-run",
     "controller": "BehaviourConfigController",
     "module": "behaviour",
     "permission": "behaviour.admin"
@@ -5713,6 +5825,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/parent/behaviour/documents",
+    "controller": "BehaviourParentController",
+    "module": "behaviour",
+    "permission": "parent.view_behaviour"
+  },
+  {
+    "method": "GET",
     "path": "/v1/parent/behaviour/incidents",
     "controller": "BehaviourParentController",
     "module": "behaviour",
@@ -5728,6 +5847,27 @@
   {
     "method": "GET",
     "path": "/v1/parent/behaviour/recognition",
+    "controller": "BehaviourParentController",
+    "module": "behaviour",
+    "permission": "parent.view_behaviour"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/parent/behaviour/recognition/pending",
+    "controller": "BehaviourParentController",
+    "module": "behaviour",
+    "permission": "behaviour.appeal"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/parent/behaviour/recognition/pending/:id/approve",
+    "controller": "BehaviourParentController",
+    "module": "behaviour",
+    "permission": "parent.view_behaviour"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/parent/behaviour/recognition/pending/:id/reject",
     "controller": "BehaviourParentController",
     "module": "behaviour",
     "permission": "parent.view_behaviour"
@@ -6153,6 +6293,20 @@
     "permission": null
   },
   {
+    "method": "POST",
+    "path": "/v1/pastoral/checkins/:id/dismiss",
+    "controller": "CheckinAdminController",
+    "module": "pastoral",
+    "permission": "pastoral.view_checkin_monitoring"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/pastoral/checkins/:id/escalate",
+    "controller": "CheckinAdminController",
+    "module": "pastoral",
+    "permission": "pastoral.view_checkin_aggregate"
+  },
+  {
     "method": "GET",
     "path": "/v1/pastoral/checkins/analytics/day-of-week",
     "controller": "CheckinAdminController",
@@ -6164,7 +6318,7 @@
     "path": "/v1/pastoral/checkins/analytics/exam-comparison",
     "controller": "CheckinAdminController",
     "module": "pastoral",
-    "permission": "pastoral.view_checkin_aggregate"
+    "permission": "pastoral.view_checkin_monitoring"
   },
   {
     "method": "GET",
@@ -6356,6 +6510,13 @@
     "permission": "pastoral.manage_critical_incidents"
   },
   {
+    "method": "GET",
+    "path": "/v1/pastoral/critical-incidents/:id/affected/:personId/support",
+    "controller": "CriticalIncidentsController",
+    "module": "pastoral",
+    "permission": "pastoral.manage_critical_incidents"
+  },
+  {
     "method": "POST",
     "path": "/v1/pastoral/critical-incidents/:id/affected/:personId/support",
     "controller": "CriticalIncidentsController",
@@ -6456,6 +6617,13 @@
   {
     "method": "GET",
     "path": "/v1/pastoral/dsar-reviews/by-request/:complianceRequestId/summary",
+    "controller": "PastoralDsarController",
+    "module": "pastoral",
+    "permission": "pastoral.dsar_review"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/pastoral/dsar-reviews/stats",
     "controller": "PastoralDsarController",
     "module": "pastoral",
     "permission": "pastoral.dsar_review"
@@ -9471,6 +9639,20 @@
     "permission": "safeguarding.view"
   },
   {
+    "method": "GET",
+    "path": "/v1/safeguarding/break-glass/:id",
+    "controller": "SafeguardingController",
+    "module": "safeguarding",
+    "permission": "safeguarding.seal"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/safeguarding/break-glass/:id/access-log",
+    "controller": "SafeguardingController",
+    "module": "safeguarding",
+    "permission": "safeguarding.seal"
+  },
+  {
     "method": "POST",
     "path": "/v1/safeguarding/break-glass/:id/review",
     "controller": "SafeguardingController",
@@ -9562,6 +9744,13 @@
     "permission": "safeguarding.manage"
   },
   {
+    "method": "GET",
+    "path": "/v1/safeguarding/concerns/:id/seal-status",
+    "controller": "SafeguardingController",
+    "module": "safeguarding",
+    "permission": "safeguarding.seal"
+  },
+  {
     "method": "POST",
     "path": "/v1/safeguarding/concerns/:id/seal/approve",
     "controller": "SafeguardingController",
@@ -9574,6 +9763,13 @@
     "controller": "SafeguardingController",
     "module": "safeguarding",
     "permission": "safeguarding.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/safeguarding/concerns/:id/seal/reject",
+    "controller": "SafeguardingController",
+    "module": "safeguarding",
+    "permission": "safeguarding.seal"
   },
   {
     "method": "PATCH",
@@ -9594,7 +9790,7 @@
     "path": "/v1/safeguarding/dashboard",
     "controller": "SafeguardingController",
     "module": "safeguarding",
-    "permission": "safeguarding.seal"
+    "permission": "safeguarding.view"
   },
   {
     "method": "GET",
@@ -9644,6 +9840,20 @@
     "controller": "SafeguardingController",
     "module": "safeguarding",
     "permission": "safeguarding.report"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/safeguarding/settings",
+    "controller": "SafeguardingController",
+    "module": "safeguarding",
+    "permission": "safeguarding.manage"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/safeguarding/settings",
+    "controller": "SafeguardingController",
+    "module": "safeguarding",
+    "permission": "safeguarding.manage"
   },
   {
     "method": "GET",

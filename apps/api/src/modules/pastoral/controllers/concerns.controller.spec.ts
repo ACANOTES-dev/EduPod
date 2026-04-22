@@ -77,6 +77,7 @@ const mockEventService = {
 
 const mockPermissionCacheService = {
   getPermissions: jest.fn().mockResolvedValue(MOCK_PERMISSIONS),
+  isOwner: jest.fn().mockResolvedValue(false),
 };
 
 // ─── Test Suite ─────────────────────────────────────────────────────────────
@@ -221,6 +222,7 @@ describe('ConcernsController', () => {
         USER_ID,
         MOCK_PERMISSIONS,
         query,
+        false,
       );
       expect(result).toBe(expected);
     });
@@ -241,6 +243,7 @@ describe('ConcernsController', () => {
         MOCK_PERMISSIONS,
         CONCERN_ID,
         '127.0.0.1',
+        false,
       );
       expect(result).toBe(expected);
     });
@@ -257,6 +260,7 @@ describe('ConcernsController', () => {
         MOCK_PERMISSIONS,
         CONCERN_ID,
         null,
+        false,
       );
     });
   });
