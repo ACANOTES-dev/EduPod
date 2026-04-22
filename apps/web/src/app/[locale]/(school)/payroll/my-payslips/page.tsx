@@ -1,6 +1,7 @@
 'use client';
 
 import { Download } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -43,6 +44,8 @@ function formatCurrency(value: number): string {
 
 export default function MyPayslipsPage() {
   const t = useTranslations('payroll');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [payslips, setPayslips] = React.useState<MyPayslip[]>([]);
   const [ytd, setYtd] = React.useState<YtdSummary | null>(null);
@@ -97,7 +100,10 @@ export default function MyPayslipsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('myPayslips')} />
+      <PageHeader
+        title={t('myPayslips')}
+        back={{ href: `/${locale}/payroll`, label: t('backToPayroll') }}
+      />
 
       {/* YTD Summary card */}
       {ytd && (

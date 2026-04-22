@@ -199,7 +199,11 @@ export default function StatementsIndexPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('statements')} description={t('statementsDescription')} />
+      <PageHeader
+        title={t('statements')}
+        description={t('statementsDescription')}
+        back={{ href: `/${locale}/finance/all-finances`, label: t('backToAllFinances') }}
+      />
 
       {!isLoading && households.length === 0 && !search ? (
         <EmptyState

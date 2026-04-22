@@ -136,6 +136,7 @@ export default function DebtBreakdownPage() {
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <PageHeader
+          back={{ href: `/${locale}/finance/all-finances`, label: t('backToAllFinances') }}
           title={t('debtBreakdown.title')}
           description={t('debtBreakdown.description')}
           actions={

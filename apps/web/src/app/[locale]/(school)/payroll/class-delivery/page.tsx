@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import {
@@ -78,6 +79,8 @@ function currentMonthRange(): { from: string; to: string } {
 
 export default function ClassDeliveryPage() {
   const t = useTranslations('payroll');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const { from: defaultFrom, to: defaultTo } = currentMonthRange();
   const [dateFrom, setDateFrom] = React.useState(defaultFrom);
@@ -155,6 +158,7 @@ export default function ClassDeliveryPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('classDelivery')}
+        back={{ href: `/${locale}/payroll`, label: t('backToPayroll') }}
         actions={
           <Button onClick={handleAutoPopulate} disabled={isAutoPopulating} variant="outline">
             {isAutoPopulating ? t('populating') : t('autoPopulateFromSchedule')}

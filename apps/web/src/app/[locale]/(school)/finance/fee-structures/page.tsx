@@ -190,6 +190,7 @@ export default function FeeStructuresPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        back={{ href: `/${locale}/finance/all-finances`, label: t('backToAllFinances') }}
         title={t('feeStructures.title')}
         description={t('feeStructures.description')}
         actions={

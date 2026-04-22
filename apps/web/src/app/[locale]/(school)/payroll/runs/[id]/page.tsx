@@ -331,14 +331,9 @@ export default function RunDetailPage() {
   return (
     <div className="space-y-6">
       <div>
-        <button
-          onClick={() => router.push(`/${locale}/payroll/runs`)}
-          className="mb-2 inline-flex items-center gap-1 text-sm text-text-secondary transition-colors hover:text-text-primary"
-        >
-          &larr; {t('backToRuns')}
-        </button>
         <PageHeader
           title={run.period_label}
+          back={{ href: `/${locale}/payroll/runs`, label: t('backToRuns') }}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               {isDraft && (

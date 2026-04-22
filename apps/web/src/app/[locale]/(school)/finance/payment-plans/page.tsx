@@ -10,6 +10,7 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -89,6 +90,8 @@ function generateInstallments(planTotal: number, count: number, startDate: Date)
 
 export default function PaymentPlansPage() {
   const t = useTranslations('finance');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { hasAnyRole } = useRoleCheck();
   const canManage = hasAnyRole('school_principal', 'accounting');
 
@@ -442,6 +445,7 @@ export default function PaymentPlansPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        back={{ href: `/${locale}/finance/all-finances`, label: t('backToAllFinances') }}
         title={t('paymentPlans.title')}
         description={t('paymentPlans.description')}
         actions={

@@ -352,6 +352,7 @@ export default function ScholarshipsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        back={{ href: `/${locale}/finance/all-finances`, label: t('backToAllFinances') }}
         title={t('scholarships.title')}
         description={t('scholarships.description')}
         actions={

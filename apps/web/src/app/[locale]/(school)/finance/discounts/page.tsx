@@ -174,6 +174,7 @@ export default function DiscountsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        back={{ href: `/${locale}/finance/all-finances`, label: t('backToAllFinances') }}
         title={t('discounts.title')}
         description={t('discounts.description')}
         actions={

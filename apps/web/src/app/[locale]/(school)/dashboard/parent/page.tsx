@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Accessibility,
   ArrowRight,
   Award,
   Bell,
@@ -12,6 +11,7 @@ import {
   CreditCard,
   FileText,
   GraduationCap,
+  HeartHandshake,
   Inbox as InboxIcon,
   Megaphone,
   MessageCircle,
@@ -84,7 +84,7 @@ const PARENT_NAV_TILES: ParentNavTile[] = [
   {
     key: 'sen',
     href: '/parent/sen',
-    icon: Accessibility,
+    icon: HeartHandshake,
     iconBg: 'bg-teal-100 text-teal-700',
     accent: 'from-teal-400 via-teal-500 to-teal-600',
   },

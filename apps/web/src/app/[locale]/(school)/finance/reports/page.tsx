@@ -1,6 +1,7 @@
 'use client';
 
 import { Download } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -42,6 +43,8 @@ type ReportTab = 'aging' | 'fee_performance' | 'custom';
 
 export default function FinanceReportsPage() {
   const t = useTranslations('finance');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const currencyCode = useTenantCurrency();
 
   const [activeTab, setActiveTab] = React.useState<ReportTab>('aging');
@@ -157,6 +160,7 @@ export default function FinanceReportsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        back={{ href: `/${locale}/finance/all-finances`, label: t('backToAllFinances') }}
         title={t('reports.title')}
         description={t('reports.description')}
         actions={

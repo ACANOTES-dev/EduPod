@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Accessibility,
   AlertTriangle,
   ArrowRight,
   Award,
@@ -104,7 +103,7 @@ const HUB_CARDS: HubCardConfig[] = [
   {
     key: 'sen',
     href: '/sen',
-    icon: Accessibility,
+    icon: HeartHandshake,
     accent: 'from-teal-400 via-teal-500 to-teal-600',
     iconBg: 'bg-teal-100 text-teal-700',
     glow: 'from-teal-50/80',

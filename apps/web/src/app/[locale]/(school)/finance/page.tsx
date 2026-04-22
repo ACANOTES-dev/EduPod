@@ -2,658 +2,493 @@
 
 import {
   ArrowRight,
-  BadgeDollarSign,
-  CreditCard,
+  BarChart3,
+  Clock,
+  LineChart,
   Receipt,
-  ScrollText,
   TrendingDown,
   TrendingUp,
-  Zap,
+  Wallet,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type { FinanceDashboardData } from '@school/shared';
 
+import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { CurrencyDisplay } from './_components/currency-display';
-import {
-  AgingOverview,
-  FinanceNavigate,
-  InvoicePipeline,
-  OverdueInvoices,
-  PendingActionsBanner,
-} from './_components/dashboard-sections';
-import { PaymentStatusBadge } from './_components/payment-status-badge';
-import { PdfPreviewModal } from './_components/pdf-preview-modal';
 import { useTenantCurrency } from './_components/use-tenant-currency';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-function useLocale() {
-  const pathname = usePathname();
-  return (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+interface PayrollLatest {
+  id: string;
+  period_label: string;
+  total_pay: number;
+  headcount: number;
 }
 
-// ─── KPI Card ────────────────────────────────────────────────────────────────
+interface PayrollDashboardSlice {
+  latest_finalised: PayrollLatest | null;
+  latest_run: (PayrollLatest & { status: string }) | null;
+  payroll_calendar: {
+    next_pay_date: string | null;
+    days_until_pay: number | null;
+  } | null;
+}
 
-function KpiCard({
+// ─── Hub card catalogue ───────────────────────────────────────────────────────
+
+interface HubCardConfig {
+  key: 'allFinances' | 'payroll' | 'budgeting';
+  href: string;
+  icon: LucideIcon;
+  accent: string;
+  iconBg: string;
+  glow: string;
+  comingSoon?: boolean;
+}
+
+const HUB_CARDS: HubCardConfig[] = [
+  {
+    key: 'allFinances',
+    href: '/finance/all-finances',
+    icon: Receipt,
+    accent: 'from-emerald-400 via-emerald-500 to-emerald-600',
+    iconBg: 'bg-emerald-100 text-emerald-700',
+    glow: 'from-emerald-50/80',
+  },
+  {
+    key: 'payroll',
+    href: '/payroll',
+    icon: Wallet,
+    accent: 'from-violet-400 via-violet-500 to-violet-600',
+    iconBg: 'bg-violet-100 text-violet-700',
+    glow: 'from-violet-50/80',
+  },
+  {
+    key: 'budgeting',
+    href: '/finance/budgeting',
+    icon: LineChart,
+    accent: 'from-sky-400 via-sky-500 to-sky-600',
+    iconBg: 'bg-sky-100 text-sky-700',
+    glow: 'from-sky-50/80',
+    comingSoon: true,
+  },
+];
+
+// ─── KPI Tile ─────────────────────────────────────────────────────────────────
+
+function KpiTile({
+  icon: Icon,
   label,
   value,
-  icon: Icon,
-  href,
-  accent,
-  gradient,
-  glow,
   subtitle,
+  accent,
+  isLoading,
 }: {
+  icon: LucideIcon;
   label: string;
   value: React.ReactNode;
-  icon: LucideIcon;
-  href: string;
-  accent: string;
-  gradient: string;
-  glow: string;
   subtitle?: string;
+  accent: string;
+  isLoading?: boolean;
 }) {
-  const locale = useLocale();
   return (
-    <Link
-      href={`/${locale}${href}`}
-      className="group relative overflow-hidden rounded-2xl border border-border bg-surface p-5 transition-all hover:border-border-strong hover:shadow-md"
-    >
-      {/* Top accent bar */}
-      <div
-        className={`pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${gradient}`}
-      />
-      {/* Hover glow */}
-      <div
-        className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${glow} to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100`}
-      />
-      <div className="relative flex items-start justify-between">
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
             {label}
           </p>
-          <div
-            className="mt-1 text-[28px] font-bold leading-tight tracking-tight text-text-primary"
-            dir="ltr"
-          >
-            {value}
-          </div>
-          {subtitle && <p className="mt-1 text-xs text-text-secondary">{subtitle}</p>}
+          {isLoading ? (
+            <div className="mt-2 h-7 w-24 animate-pulse rounded-md bg-surface-secondary" />
+          ) : (
+            <p
+              className={`mt-1 text-2xl font-bold leading-tight tracking-tight ${accent}`}
+              dir="ltr"
+            >
+              {value}
+            </p>
+          )}
+          {subtitle && !isLoading && (
+            <p className="mt-1 text-xs text-text-tertiary">{subtitle}</p>
+          )}
         </div>
-        <div className={`rounded-xl p-2.5 ${accent}`}>
+        <div className={`shrink-0 rounded-xl bg-surface-secondary p-2 ${accent}`}>
           <Icon className="h-5 w-5" />
         </div>
       </div>
-      <div
-        className={`absolute bottom-0 end-0 start-0 h-1 origin-left scale-x-0 bg-gradient-to-r ${gradient} transition-transform group-hover:scale-x-100`}
-      />
-    </Link>
-  );
-}
-
-// ─── Quick Action ────────────────────────────────────────────────────────────
-
-function QuickAction({
-  label,
-  icon: Icon,
-  href,
-  accent,
-  gradient,
-}: {
-  label: string;
-  icon: LucideIcon;
-  href: string;
-  accent: string;
-  gradient: string;
-}) {
-  const locale = useLocale();
-  return (
-    <Link
-      href={`/${locale}${href}`}
-      className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-surface px-4 py-3 transition-all hover:border-border-strong hover:shadow-sm"
-    >
-      <div className={`shrink-0 rounded-lg p-2 ${accent}`}>
-        <Icon className="h-4 w-4" />
-      </div>
-      <span className="text-sm font-medium text-text-primary">{label}</span>
-      <ArrowRight className="ms-auto h-4 w-4 text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 rtl:rotate-180" />
-      <div
-        className={`absolute bottom-0 end-0 start-0 h-0.5 origin-left scale-x-0 bg-gradient-to-r ${gradient} transition-transform group-hover:scale-x-100`}
-      />
-    </Link>
-  );
-}
-
-// ─── Household Debt Breakdown ────────────────────────────────────────────────
-
-const DEBT_BUCKETS = [
-  {
-    key: 'pct_0_10',
-    labelKey: 'debt0to10',
-    filterValue: '0_10',
-    color: 'bg-success-400',
-    textColor: 'text-success-700',
-    bgLight: 'bg-success-50',
-  },
-  {
-    key: 'pct_10_30',
-    labelKey: 'debt10to30',
-    filterValue: '10_30',
-    color: 'bg-warning-400',
-    textColor: 'text-warning-700',
-    bgLight: 'bg-warning-50',
-  },
-  {
-    key: 'pct_30_50',
-    labelKey: 'debt30to50',
-    filterValue: '30_50',
-    color: 'bg-warning-600',
-    textColor: 'text-warning-800',
-    bgLight: 'bg-warning-50',
-  },
-  {
-    key: 'pct_50_plus',
-    labelKey: 'debt50plus',
-    filterValue: '50_plus',
-    color: 'bg-danger-500',
-    textColor: 'text-danger-700',
-    bgLight: 'bg-danger-50',
-  },
-] as const;
-
-function HouseholdDebtBreakdown({
-  breakdown,
-  topDebtors,
-}: {
-  breakdown: FinanceDashboardData['household_debt_breakdown'];
-  topDebtors: FinanceDashboardData['top_debtors'];
-}) {
-  const t = useTranslations('finance');
-  const locale = useLocale();
-  const currencyCode = useTenantCurrency();
-  const total =
-    breakdown.pct_0_10 + breakdown.pct_10_30 + breakdown.pct_30_50 + breakdown.pct_50_plus;
-  const counts: Record<string, number> = {
-    pct_0_10: breakdown.pct_0_10,
-    pct_10_30: breakdown.pct_10_30,
-    pct_30_50: breakdown.pct_30_50,
-    pct_50_plus: breakdown.pct_50_plus,
-  };
-
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5 ring-1 ring-inset ring-danger-200/50">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-danger-400 via-danger-500 to-danger-600" />
-      {/* Header */}
-      <div className="mb-5 flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="rounded-lg bg-danger-100 p-1.5">
-              <TrendingDown className="h-4 w-4 text-danger-600" />
-            </div>
-            <h3 className="text-sm font-semibold text-text-primary">
-              {t('householdDebtBreakdown')}
-            </h3>
-          </div>
-          <p className="mt-0.5 text-xs text-text-tertiary">
-            {total} {t('householdsTotal')}
-          </p>
-        </div>
-        <Link
-          href={`/${locale}/finance/debt-breakdown`}
-          className="flex items-center gap-1.5 rounded-lg bg-surface-secondary px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-surface-hover"
-        >
-          {t('viewFullBreakdown')}
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
-      </div>
-
-      {/* Segmented bar */}
-      {total > 0 && (
-        <div className="mb-5 flex h-4 overflow-hidden rounded-full bg-surface-secondary">
-          {DEBT_BUCKETS.map((bucket) => {
-            const count = counts[bucket.key] ?? 0;
-            const pct = total > 0 ? (count / total) * 100 : 0;
-            if (pct === 0) return null;
-            return (
-              <Link
-                key={bucket.key}
-                href={`/${locale}/finance/debt-breakdown?bucket=${bucket.filterValue}`}
-                className={`${bucket.color} transition-all hover:brightness-110`}
-                style={{ width: `${pct}%` }}
-                title={`${t(bucket.labelKey)}: ${count}`}
-              />
-            );
-          })}
-        </div>
-      )}
-
-      {/* Bucket cards — clickable, full-width grid */}
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {DEBT_BUCKETS.map((bucket) => {
-          const count = counts[bucket.key] ?? 0;
-          return (
-            <Link
-              key={bucket.key}
-              href={`/${locale}/finance/debt-breakdown?bucket=${bucket.filterValue}`}
-              className={`group rounded-xl border border-border p-3 transition-all hover:border-border-strong hover:shadow-sm ${count > 0 ? '' : 'opacity-50'}`}
-            >
-              <div className="flex items-center gap-2">
-                <div className={`h-3 w-3 shrink-0 rounded-full ${bucket.color}`} />
-                <span className="text-xs font-medium text-text-tertiary">{t(bucket.labelKey)}</span>
-              </div>
-              <p
-                className={`mt-1.5 text-2xl font-bold ${count > 0 ? bucket.textColor : 'text-text-tertiary'}`}
-              >
-                {count}
-              </p>
-              <p className="text-[11px] text-text-tertiary">{t('households')}</p>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Top debtors preview */}
-      {topDebtors.length > 0 && (
-        <div className="border-t border-border pt-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-              {t('topDebtors')}
-            </h4>
-            <Link
-              href={`/${locale}/finance/debt-breakdown`}
-              className="text-xs font-medium text-primary hover:underline"
-            >
-              {t('viewAll')}
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {topDebtors.slice(0, 6).map((debtor, i) => (
-              <Link
-                key={debtor.household_id}
-                href={`/${locale}/finance/statements/${debtor.household_id}`}
-                className="flex items-center gap-3 rounded-lg border border-border p-2.5 transition-all hover:border-border-strong hover:shadow-sm"
-              >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-danger-100 text-[10px] font-bold text-danger-700">
-                  {i + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-text-primary">
-                    {debtor.household_name}
-                  </p>
-                  <p className="text-[11px] text-text-tertiary">
-                    {debtor.invoice_count}{' '}
-                    {debtor.invoice_count === 1 ? t('invoice') : t('invoicesLabel')}
-                  </p>
-                </div>
-                <CurrencyDisplay
-                  amount={debtor.total_owed}
-                  currency_code={currencyCode}
-                  className="shrink-0 font-mono text-sm font-semibold text-danger-600"
-                  locale={locale}
-                />
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-// ─── Recent Payments ─────────────────────────────────────────────────────────
+// ─── Hub Card ─────────────────────────────────────────────────────────────────
 
-function RecentPayments({ payments }: { payments: FinanceDashboardData['recent_payments'] }) {
-  const t = useTranslations('finance');
-  const router = useRouter();
-  const locale = useLocale();
-  const currencyCode = useTenantCurrency();
-  const [receiptPdfUrl, setReceiptPdfUrl] = React.useState<string | null>(null);
-  const [showReceiptPdf, setShowReceiptPdf] = React.useState(false);
-
-  return (
+function HubCard({
+  card,
+  locale,
+  t,
+  stat,
+}: {
+  card: HubCardConfig;
+  locale: string;
+  t: (key: string) => string;
+  stat?: React.ReactNode;
+}) {
+  const Icon = card.icon;
+  const inner = (
     <>
-      <div className="relative rounded-2xl border border-border bg-surface overflow-hidden ring-1 ring-inset ring-emerald-200/50">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-600" />
-        <div className="flex items-center justify-between border-b border-border px-5 py-3">
-          <div className="flex items-center gap-2.5">
-            <div className="rounded-lg bg-emerald-100 p-1.5">
-              <CreditCard className="h-4 w-4 text-emerald-600" />
-            </div>
-            <h3 className="text-sm font-semibold text-text-primary">{t('recentPayments')}</h3>
-          </div>
-          <Link
-            href={`/${locale}/finance/payments`}
-            className="text-xs font-medium text-primary hover:underline"
-          >
-            {t('viewAll')}
-          </Link>
+      <div
+        className={`pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${card.accent}`}
+      />
+      <div
+        className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${card.glow} to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100`}
+      />
+      <div className="relative flex items-start justify-between gap-4">
+        <div
+          className={`flex h-12 w-12 items-center justify-center rounded-2xl shadow-sm ring-1 ring-inset ring-black/5 ${card.iconBg}`}
+        >
+          <Icon className="h-6 w-6" />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('reference')}
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('household')}
-                </th>
-                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('totalAmount')}
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('status')}
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('date')}
-                </th>
-                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('actions')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-text-tertiary">
-                    {t('noRecentPayments')}
-                  </td>
-                </tr>
-              ) : (
-                payments.map((payment) => (
-                  <tr
-                    key={payment.id}
-                    className="border-b border-border last:border-b-0 hover:bg-surface-secondary transition-colors cursor-pointer"
-                    onClick={() => router.push(`/${locale}/finance/payments/${payment.id}`)}
-                  >
-                    <td className="px-4 py-3 text-sm font-mono text-text-secondary max-w-[180px] truncate">
-                      {payment.payment_reference}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-text-primary">
-                      {payment.household_name}
-                    </td>
-                    <td className="px-4 py-3 text-end" dir="ltr">
-                      <CurrencyDisplay
-                        amount={payment.amount}
-                        currency_code={currencyCode}
-                        className="text-sm font-mono text-text-primary"
-                        locale={locale}
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <PaymentStatusBadge status={payment.status} />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
-                      {new Date(payment.received_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-end text-sm">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setReceiptPdfUrl(`/api/v1/finance/payments/${payment.id}/receipt/pdf`);
-                            setShowReceiptPdf(true);
-                          }}
-                          className="text-xs font-medium text-primary hover:underline"
-                        >
-                          {t('receiptPdf')}
-                        </button>
-                        <span className="text-text-tertiary">|</span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/${locale}/finance/statements/${payment.household_id}`);
-                          }}
-                          className="text-xs font-medium text-primary hover:underline"
-                        >
-                          {t('viewStatement')}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="flex items-center gap-3">
+          {card.comingSoon ? (
+            <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+              {t('cards.comingSoon')}
+            </span>
+          ) : (
+            stat && (
+              <span className="inline-flex items-center rounded-full bg-surface-secondary px-2.5 py-1 text-xs font-semibold text-text-primary">
+                {stat}
+              </span>
+            )
+          )}
+          {!card.comingSoon && (
+            <ArrowRight className="h-5 w-5 text-text-tertiary transition-colors duration-300 group-hover:text-primary-600 rtl:rotate-180" />
+          )}
         </div>
       </div>
-      <PdfPreviewModal
-        open={showReceiptPdf}
-        onOpenChange={setShowReceiptPdf}
-        title={t('receiptPdf')}
-        pdfUrl={receiptPdfUrl}
-      />
+      <div className="relative min-w-0 space-y-1.5">
+        <h3 className="text-lg font-semibold tracking-tight text-text-primary">
+          {t(`cards.${card.key}.title`)}
+        </h3>
+        <p className="text-sm leading-relaxed text-text-tertiary">
+          {t(`cards.${card.key}.description`)}
+        </p>
+      </div>
     </>
   );
-}
 
-// ─── Loading Skeleton ────────────────────────────────────────────────────────
+  const baseClassName =
+    'group relative flex min-w-0 flex-col gap-5 overflow-hidden rounded-3xl border border-border bg-surface p-6 text-start shadow-sm transition-all duration-300 sm:p-7';
 
-function DashboardSkeleton() {
+  if (card.comingSoon) {
+    return (
+      <div className={`${baseClassName} opacity-75`} aria-disabled="true">
+        {inner}
+      </div>
+    );
+  }
   return (
-    <div className="space-y-6 p-6">
-      <div className="h-8 w-56 animate-pulse rounded-lg bg-surface-secondary" />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface-secondary" />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="h-48 animate-pulse rounded-2xl bg-surface-secondary" />
-        <div className="h-48 animate-pulse rounded-2xl bg-surface-secondary" />
-      </div>
-      <div className="h-64 animate-pulse rounded-2xl bg-surface-secondary" />
-    </div>
+    <Link
+      href={`/${locale}${card.href}`}
+      className={`${baseClassName} hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500`}
+    >
+      {inner}
+    </Link>
   );
 }
 
-// ─── Page ────────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export default function FinanceDashboardPage() {
-  const t = useTranslations('finance');
+function formatDaysUntil(days: number | null | undefined, t: (key: string) => string): string {
+  if (days === null || days === undefined) return '';
+  if (days === 0) return t('kpis.todayBadge');
+  if (days < 0) return t('kpis.overdueBadge');
+  return t('kpis.daysAwayOne').replace('{count}', String(days));
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function FinanceSuperHubPage() {
+  const t = useTranslations('financeSuperHub');
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const currencyCode = useTenantCurrency();
-  const [data, setData] = React.useState<FinanceDashboardData | null>(null);
+
+  const [finance, setFinance] = React.useState<FinanceDashboardData | null>(null);
+  const [payroll, setPayroll] = React.useState<PayrollDashboardSlice | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
-  const hasFetched = React.useRef(false);
   React.useEffect(() => {
-    // FIN-024: guard against duplicate fetches from React.StrictMode double-invoke
-    // in development and any parent re-mount edge case in production.
-    if (hasFetched.current) return;
-    hasFetched.current = true;
-
     let cancelled = false;
     void (async () => {
-      try {
-        const res = await apiClient<{ data: FinanceDashboardData }>('/api/v1/finance/dashboard');
-        if (!cancelled) setData(res.data);
-      } catch (err) {
-        console.error('[FinanceDashboard]', err);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
+      const [fin, pay] = await Promise.all([
+        apiClient<{ data: FinanceDashboardData }>('/api/v1/finance/dashboard').catch((err) => {
+          console.error('[FinanceSuperHub.finance]', err);
+          return null;
+        }),
+        apiClient<{ data: PayrollDashboardSlice }>('/api/v1/payroll/dashboard').catch((err) => {
+          console.error('[FinanceSuperHub.payroll]', err);
+          return null;
+        }),
+      ]);
+      if (cancelled) return;
+      setFinance(fin?.data ?? null);
+      setPayroll(pay?.data ?? null);
+      setIsLoading(false);
     })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (isLoading) return <DashboardSkeleton />;
-
-  if (!data) {
-    return (
-      <div className="space-y-6 p-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-          {t('financeHub')}
-        </h1>
-        <div className="flex items-center justify-center rounded-2xl bg-surface-secondary p-12">
-          <p className="text-sm text-text-tertiary">{t('noDashboardData')}</p>
-        </div>
-      </div>
-    );
-  }
+  const latestPayroll = payroll?.latest_finalised ?? payroll?.latest_run ?? null;
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-          {t('financeHub')}
-        </h1>
-        <p className="mt-1 text-sm text-text-secondary">{t('financeHubDesc')}</p>
-      </div>
+    <div className="flex min-w-0 flex-col gap-8 pb-10 p-6">
+      <PageHeader title={t('title')} description={t('description')} />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          label={t('expectedRevenue')}
-          value={
-            <CurrencyDisplay
-              amount={data.expected_revenue}
-              currency_code={currencyCode}
-              locale={locale}
-            />
-          }
-          icon={Receipt}
-          href="/finance/overview"
-          accent="bg-primary/10 text-primary"
-          gradient="from-primary/60 to-primary"
-          glow="from-primary/5"
-          subtitle={`${(data.invoice_status_counts.issued ?? 0) + (data.invoice_status_counts.partially_paid ?? 0)} ${t('activeInvoices')}`}
-        />
-        <KpiCard
-          label={t('receivedPayments')}
-          value={
-            <CurrencyDisplay
-              amount={data.received_payments}
-              currency_code={currencyCode}
-              locale={locale}
-            />
-          }
+      {/* ── KPI strip ─────────────────────────────────────────────────── */}
+      <section aria-label={t('kpis.ariaLabel')} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiTile
           icon={TrendingUp}
-          href="/finance/overview"
-          accent="bg-success-100 text-success-700"
-          gradient="from-emerald-400 to-emerald-600"
-          glow="from-emerald-50/80"
-        />
-        <KpiCard
-          label={t('outstandingAmount')}
+          label={t('kpis.expectedRevenue')}
           value={
-            <CurrencyDisplay
-              amount={data.outstanding}
-              currency_code={currencyCode}
-              locale={locale}
-            />
+            finance ? (
+              <CurrencyDisplay
+                amount={finance.expected_revenue}
+                currency_code={currencyCode}
+                locale={locale}
+              />
+            ) : (
+              '—'
+            )
           }
-          icon={TrendingDown}
-          href={
-            data.overdue_invoices.length > 0 ? '/finance/overview?overdue=yes' : '/finance/overview'
-          }
-          accent="bg-danger-100 text-danger-700"
-          gradient="from-danger-400 to-danger-600"
-          glow="from-danger-50/80"
           subtitle={
-            data.overdue_invoices.length > 0
-              ? `${data.overdue_invoices.length} ${t('overdueInvoicesCount')}`
+            finance
+              ? `${(finance.invoice_status_counts.issued ?? 0) + (finance.invoice_status_counts.partially_paid ?? 0)} ${t('kpis.activeInvoices')}`
               : undefined
           }
+          accent="text-emerald-700"
+          isLoading={isLoading}
         />
-        {/* Split card: Outstanding % + Financial Reports */}
-        <div className="flex flex-col gap-2">
-          <div className="relative flex-1 overflow-hidden rounded-2xl border border-border bg-surface p-4">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-slate-400 to-slate-600" />
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-              {t('outstandingPct')}
-            </p>
-            <p
-              className={`mt-1 text-[22px] font-bold leading-tight tracking-tight ${
-                data.outstanding > 0 && data.expected_revenue > 0
-                  ? (data.outstanding / data.expected_revenue) * 100 > 30
-                    ? 'text-danger-600'
-                    : (data.outstanding / data.expected_revenue) * 100 > 15
-                      ? 'text-warning-600'
-                      : 'text-success-600'
-                  : 'text-success-600'
-              }`}
-              dir="ltr"
-            >
-              {data.expected_revenue > 0
-                ? `${((data.outstanding / data.expected_revenue) * 100).toFixed(1)}%`
-                : '0.0%'}
-            </p>
+        <KpiTile
+          icon={Receipt}
+          label={t('kpis.receivedPayments')}
+          value={
+            finance ? (
+              <CurrencyDisplay
+                amount={finance.received_payments}
+                currency_code={currencyCode}
+                locale={locale}
+              />
+            ) : (
+              '—'
+            )
+          }
+          accent="text-primary"
+          isLoading={isLoading}
+        />
+        <KpiTile
+          icon={TrendingDown}
+          label={t('kpis.outstanding')}
+          value={
+            finance ? (
+              <CurrencyDisplay
+                amount={finance.outstanding}
+                currency_code={currencyCode}
+                locale={locale}
+              />
+            ) : (
+              '—'
+            )
+          }
+          subtitle={
+            finance && finance.overdue_invoices.length > 0
+              ? `${finance.overdue_invoices.length} ${t('kpis.overdueLabel')}`
+              : undefined
+          }
+          accent="text-danger-700"
+          isLoading={isLoading}
+        />
+        <KpiTile
+          icon={Wallet}
+          label={t('kpis.latestPayroll')}
+          value={
+            latestPayroll ? (
+              <CurrencyDisplay
+                amount={latestPayroll.total_pay}
+                currency_code={currencyCode}
+                locale={locale}
+              />
+            ) : (
+              '—'
+            )
+          }
+          subtitle={
+            latestPayroll
+              ? `${latestPayroll.period_label} · ${latestPayroll.headcount} ${t('kpis.staff')}`
+              : t('kpis.noPayrollYet')
+          }
+          accent="text-violet-700"
+          isLoading={isLoading}
+        />
+      </section>
+
+      {/* ── Pay-day ribbon ─────────────────────────────────────────────── */}
+      {payroll?.payroll_calendar?.next_pay_date && (
+        <section className="flex flex-col gap-3 rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-surface p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+              <Clock className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-text-primary">
+                {t('payDay.title', {
+                  date: new Date(payroll.payroll_calendar.next_pay_date).toLocaleDateString(
+                    locale,
+                    { day: 'numeric', month: 'long' },
+                  ),
+                })}
+              </p>
+              <p className="text-xs text-text-tertiary">
+                {formatDaysUntil(payroll.payroll_calendar.days_until_pay, t)}
+              </p>
+            </div>
           </div>
           <Link
-            href={`/${locale}/finance/reports`}
-            className="group flex flex-1 items-center gap-3 rounded-2xl border border-border bg-surface p-4 transition-all hover:border-border-strong hover:shadow-sm"
+            href={`/${locale}/payroll`}
+            className="inline-flex items-center gap-1.5 self-start rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-violet-700 sm:self-auto"
           >
-            <div className="rounded-lg bg-info-100 p-2">
-              <BadgeDollarSign className="h-4 w-4 text-info-700" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-text-primary">{t('navReports')}</p>
-            </div>
-            <ArrowRight className="h-3.5 w-3.5 text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100" />
+            {t('payDay.cta')}
+            <ArrowRight className="h-4 w-4 rtl:rotate-180" />
           </Link>
-        </div>
-      </div>
+        </section>
+      )}
 
-      <PendingActionsBanner
-        refunds={data.pending_refund_approvals}
-        paymentPlans={data.pending_payment_plans}
-        drafts={data.draft_invoices}
-      />
+      {/* ── Hub cards ───────────────────────────────────────────────────── */}
+      <section
+        aria-label={t('cards.ariaLabel')}
+        className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3"
+      >
+        {HUB_CARDS.map((card) => {
+          let stat: React.ReactNode;
+          if (card.key === 'allFinances' && finance) {
+            stat = (finance.invoice_status_counts.issued ?? 0) +
+              (finance.invoice_status_counts.partially_paid ?? 0) +
+              (finance.invoice_status_counts.overdue ?? 0);
+          } else if (card.key === 'payroll' && latestPayroll) {
+            stat = `${latestPayroll.headcount} ${t('cards.payroll.statSuffix')}`;
+          }
+          return <HubCard key={card.key} card={card} locale={locale} t={t} stat={stat} />;
+        })}
+      </section>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <QuickAction
-          label={t('generateFees')}
-          icon={Zap}
-          href="/finance/fee-generation"
-          accent="bg-primary/10 text-primary"
-          gradient="from-primary/60 to-primary"
-        />
-        <QuickAction
-          label={t('recordPayment')}
-          icon={CreditCard}
-          href="/finance/payments/new"
-          accent="bg-success-100 text-success-700"
-          gradient="from-emerald-400 to-emerald-600"
-        />
-        <QuickAction
-          label={t('viewInvoices')}
-          icon={Receipt}
-          href="/finance/invoices"
-          accent="bg-info-100 text-info-700"
-          gradient="from-info-400 to-info-600"
-        />
-        <QuickAction
-          label={t('viewStatements')}
-          icon={ScrollText}
-          href="/finance/statements"
-          accent="bg-warning-100 text-warning-700"
-          gradient="from-warning-400 to-warning-600"
-        />
-      </div>
+      {/* ── Quick analytics strip ──────────────────────────────────────── */}
+      {finance && (
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold text-text-primary">
+                {t('mini.invoicePipeline')}
+              </h3>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-2xl font-bold text-text-primary">
+                  {finance.invoice_status_counts.draft ?? 0}
+                </p>
+                <p className="mt-0.5 text-[10px] uppercase tracking-wider text-text-tertiary">
+                  {t('mini.draft')}
+                </p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-emerald-700">
+                  {(finance.invoice_status_counts.issued ?? 0) +
+                    (finance.invoice_status_counts.partially_paid ?? 0)}
+                </p>
+                <p className="mt-0.5 text-[10px] uppercase tracking-wider text-text-tertiary">
+                  {t('mini.active')}
+                </p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-danger-700">
+                  {finance.invoice_status_counts.overdue ?? 0}
+                </p>
+                <p className="mt-0.5 text-[10px] uppercase tracking-wider text-text-tertiary">
+                  {t('mini.overdue')}
+                </p>
+              </div>
+            </div>
+          </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <InvoicePipeline counts={data.invoice_status_counts} />
-        <AgingOverview aging={data.aging_summary} />
-      </div>
+          <div className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <TrendingDown className="h-4 w-4 text-danger-600" />
+              <h3 className="text-sm font-semibold text-text-primary">
+                {t('mini.topDebtors')}
+              </h3>
+            </div>
+            {finance.top_debtors.length === 0 ? (
+              <p className="text-sm text-text-tertiary">{t('mini.allClear')}</p>
+            ) : (
+              <ul className="space-y-2">
+                {finance.top_debtors.slice(0, 3).map((d, i) => (
+                  <li key={d.household_id} className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-danger-100 text-[10px] font-bold text-danger-700">
+                        {i + 1}
+                      </span>
+                      <span className="truncate text-sm text-text-primary">{d.household_name}</span>
+                    </span>
+                    <span className="shrink-0 font-mono text-xs font-semibold text-danger-600">
+                      <CurrencyDisplay
+                        amount={d.total_owed}
+                        currency_code={currencyCode}
+                        locale={locale}
+                      />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
-      <HouseholdDebtBreakdown
-        breakdown={data.household_debt_breakdown}
-        topDebtors={data.top_debtors}
-      />
-
-      <OverdueInvoices invoices={data.overdue_invoices} />
-      <FinanceNavigate />
-      <RecentPayments payments={data.recent_payments} />
+          <div className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-violet-600" />
+              <h3 className="text-sm font-semibold text-text-primary">
+                {t('mini.payrollSnapshot')}
+              </h3>
+            </div>
+            {latestPayroll ? (
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-text-primary">
+                  {latestPayroll.period_label}
+                </p>
+                <p className="text-xs text-text-tertiary">
+                  {latestPayroll.headcount} {t('mini.staff')} ·{' '}
+                  <CurrencyDisplay
+                    amount={latestPayroll.total_pay}
+                    currency_code={currencyCode}
+                    locale={locale}
+                  />{' '}
+                  {t('mini.paid')}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-text-tertiary">{t('mini.noPayroll')}</p>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

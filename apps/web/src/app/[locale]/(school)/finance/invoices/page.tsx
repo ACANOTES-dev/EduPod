@@ -1,7 +1,7 @@
 'use client';
 
 import { FileText, Search } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -138,6 +138,8 @@ function flattenInvoices(invoices: Invoice[]): InvoiceRow[] {
 
 export default function InvoicesPage() {
   const t = useTranslations('finance');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const router = useRouter();
   const searchParams = useSearchParams();
   const currencyCode = useTenantCurrency();
@@ -340,7 +342,11 @@ export default function InvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('navInvoices')} description={t('invoicesListDescription')} />
+      <PageHeader
+        title={t('navInvoices')}
+        description={t('invoicesListDescription')}
+        back={{ href: `/${locale}/finance/all-finances`, label: t('backToAllFinances') }}
+      />
 
       {!isLoading && rows.length === 0 && !hasActiveFilters ? (
         <EmptyState icon={FileText} title={t('noInvoicesYet')} description={t('noInvoicesDesc')} />

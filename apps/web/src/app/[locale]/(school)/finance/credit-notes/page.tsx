@@ -1,6 +1,7 @@
 'use client';
 
 import { ChevronDown, ChevronRight, Plus, Receipt } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -74,6 +75,8 @@ interface OpenInvoice {
 
 export default function CreditNotesPage() {
   const t = useTranslations('finance');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { hasAnyRole } = useRoleCheck();
   const canManage = hasAnyRole('school_principal', 'accounting');
   const currencyCode = useTenantCurrency();
@@ -319,6 +322,7 @@ export default function CreditNotesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        back={{ href: `/${locale}/finance/all-finances`, label: t('backToAllFinances') }}
         title={t('creditNotes.title')}
         description={t('creditNotes.description')}
         actions={

@@ -147,6 +147,7 @@ export default function FeeAssignmentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        back={{ href: `/${locale}/finance/all-finances`, label: t('backToAllFinances') }}
         title={t('feeAssignments.title')}
         description={t('feeAssignments.description')}
         actions={

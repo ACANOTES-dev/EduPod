@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import {
@@ -81,6 +82,8 @@ interface ForecastPoint {
 
 export default function PayrollReportsPage() {
   const t = useTranslations('payroll');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const [activeTab, setActiveTab] = React.useState<TabKey>('costTrend');
 
   const [costTrend, setCostTrend] = React.useState<CostTrendPoint[]>([]);
@@ -163,7 +166,10 @@ export default function PayrollReportsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('reports')} />
+      <PageHeader
+        title={t('reports')}
+        back={{ href: `/${locale}/payroll`, label: t('backToPayroll') }}
+      />
 
       {/* Tab bar */}
       <div className="flex flex-wrap gap-1 rounded-xl border border-border bg-surface-secondary p-1">

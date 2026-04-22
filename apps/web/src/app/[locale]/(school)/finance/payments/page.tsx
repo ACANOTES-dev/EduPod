@@ -276,6 +276,7 @@ export default function PaymentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        back={{ href: `/${locale}/finance/all-finances`, label: t('backToAllFinances') }}
         title={t('navPayments')}
         description={t('paymentsListDescription')}
         actions={

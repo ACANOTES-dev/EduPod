@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -91,7 +91,6 @@ type CompTab = 'compensation' | 'allowances' | 'deductions';
 
 export default function CompensationListPage() {
   const t = useTranslations('payroll');
-  const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
@@ -382,14 +381,9 @@ export default function CompensationListPage() {
   return (
     <div className="space-y-6">
       <div>
-        <button
-          onClick={() => router.push(`/${locale}/payroll`)}
-          className="mb-2 inline-flex items-center gap-1 text-sm text-text-secondary transition-colors hover:text-text-primary"
-        >
-          &larr; {t('backToPayroll')}
-        </button>
         <PageHeader
           title={t('compensation')}
+          back={{ href: `/${locale}/payroll`, label: t('backToPayroll') }}
           actions={
             activeTab === 'compensation' ? (
               <div className="flex flex-wrap items-center gap-2">

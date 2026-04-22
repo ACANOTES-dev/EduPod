@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -31,6 +31,8 @@ interface PaymentEntry {
 export default function StaffPaymentHistoryPage() {
   const t = useTranslations('payroll');
   const params = useParams();
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const staffProfileId = params?.staffProfileId as string;
 
   const [data, setData] = React.useState<PaymentEntry[]>([]);
@@ -128,6 +130,7 @@ export default function StaffPaymentHistoryPage() {
     <div className="space-y-6">
       <PageHeader
         title={staffName ? `${t('paymentHistory')} — ${staffName}` : t('paymentHistory')}
+        back={{ href: `/${locale}/payroll`, label: t('backToPayroll') }}
       />
 
       <DataTable

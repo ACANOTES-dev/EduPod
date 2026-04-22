@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -69,6 +70,8 @@ function getDaysInMonth(year: number, month: number): number {
 
 export default function StaffAttendancePage() {
   const t = useTranslations('payroll');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [selectedDate, setSelectedDate] = React.useState<string>(todayISO());
   const [view, setView] = React.useState<'daily' | 'monthly'>('daily');
@@ -178,6 +181,7 @@ export default function StaffAttendancePage() {
     <div className="space-y-6">
       <PageHeader
         title={t('staffAttendance')}
+        back={{ href: `/${locale}/payroll`, label: t('backToPayroll') }}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {view === 'daily' && (

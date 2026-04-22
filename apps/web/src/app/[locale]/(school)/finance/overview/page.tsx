@@ -250,7 +250,11 @@ export default function FinancialOverviewPage() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <PageHeader title={t('overview.title')} description={t('overview.description')} />
+        <PageHeader
+        title={t('overview.title')}
+        description={t('overview.description')}
+        back={{ href: `/${locale}/finance/all-finances`, label: t('backToAllFinances') }}
+      />
       </div>
 
       {/* Summary strip */}

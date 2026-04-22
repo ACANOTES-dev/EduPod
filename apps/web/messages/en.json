@@ -4098,6 +4098,9 @@
   },
   "finance": {
     "title": "Finance",
+    "allFinancesTitle": "All Finances",
+    "backToFinance": "Back to Finance",
+    "backToAllFinances": "Back to All Finances",
     "dashboard": "Dashboard",
     "navDashboard": "Dashboard",
     "navFeeStructures": "Fee Structures",
@@ -15553,6 +15556,158 @@
     "cancelledBody": "It looks like your payment wasn't completed. Don't worry — your child's seat is still reserved. You can try again using the payment link sent to your email, or contact the school to arrange an alternative payment method.",
     "cancelledHelp": "Your payment window is still open. If you're experiencing difficulties, please contact the school administration — they can help you complete the payment or arrange an alternative.",
     "applicationReference": "Application reference"
+  },
+  "financeSuperHub": {
+    "title": "Finance",
+    "description": "Every money flow in one place — fees and collections, payroll, budgeting. Drill into a module to work, come back here for the big picture.",
+    "kpis": {
+      "ariaLabel": "Finance KPIs",
+      "expectedRevenue": "Expected revenue",
+      "receivedPayments": "Received",
+      "outstanding": "Outstanding",
+      "latestPayroll": "Latest payroll",
+      "activeInvoices": "active invoices",
+      "overdueLabel": "overdue",
+      "staff": "staff",
+      "noPayrollYet": "No run yet",
+      "todayBadge": "Today",
+      "overdueBadge": "Overdue",
+      "daysAwayOne": "In {count} days"
+    },
+    "payDay": {
+      "title": "Next pay day: {date}",
+      "cta": "Prepare payroll"
+    },
+    "cards": {
+      "ariaLabel": "Finance modules",
+      "comingSoon": "Coming soon",
+      "allFinances": {
+        "title": "All Finances",
+        "description": "Fees, invoices, payments, statements, refunds, credit notes, and audit trail — the full school-billing stack."
+      },
+      "payroll": {
+        "title": "Payroll",
+        "description": "Staff pay, compensation, attendance, class delivery, exports, and payslips — everything that goes out to people who teach.",
+        "statSuffix": "on payroll"
+      },
+      "budgeting": {
+        "title": "Budgeting & Analysis",
+        "description": "Forward-looking budget planning, variance analysis, and department-level cost breakdowns. Preview the shape of what's next."
+      }
+    },
+    "mini": {
+      "invoicePipeline": "Invoice pipeline",
+      "draft": "Draft",
+      "active": "Active",
+      "overdue": "Overdue",
+      "topDebtors": "Top debtors",
+      "allClear": "All clear — no outstanding households.",
+      "payrollSnapshot": "Latest payroll run",
+      "staff": "staff",
+      "paid": "paid",
+      "noPayroll": "No payroll runs yet."
+    }
+  },
+  "financeBudgeting": {
+    "title": "Budgeting & Analysis",
+    "description": "Forward-looking budget planning and variance analysis for your school.",
+    "backToFinance": "Back to Finance",
+    "heroTitle": "Coming soon",
+    "heroBody": "We're building a proper budgeting and variance-analysis workspace so you can plan against a real budget, compare actuals, and spot cost drift early. For now, Reports under All Finances covers historical views.",
+    "badge": "In development",
+    "preview": {
+      "forecasting": {
+        "title": "Budget forecasting",
+        "description": "Project fee income, payroll, and operating cost across the academic year."
+      },
+      "varianceAnalysis": {
+        "title": "Variance analysis",
+        "description": "Compare actuals to budget by month and spot the categories drifting off plan."
+      },
+      "departmentCosts": {
+        "title": "Department cost breakdowns",
+        "description": "Drill costs down to subject, year group, or cost centre — with side-by-side benchmarks."
+      }
+    }
+  },
+  "payrollHub": {
+    "title": "Payroll",
+    "description": "Monthly pay runs, compensation, attendance, class delivery, exports, and payslips.",
+    "backToFinance": "Back to Finance",
+    "actions": {
+      "continueDraft": "Continue draft",
+      "newRun": "New payroll run"
+    },
+    "payDay": {
+      "title": "Next pay day: {date}",
+      "today": "Payday is today",
+      "daysAway": "{count, plural, one {# day away} other {# days away}}",
+      "overdue": "Overdue — review and close out",
+      "prepDeadline": "Preparation deadline: {date}",
+      "soon": "soon"
+    },
+    "kpis": {
+      "ariaLabel": "Payroll KPIs",
+      "totalPay": "Total pay",
+      "headcount": "Headcount",
+      "basicPay": "Basic pay",
+      "totalBonus": "Total bonus",
+      "staffPaid": "staff paid"
+    },
+    "currentRun": {
+      "title": "Current run",
+      "staffLabel": "staff",
+      "totalLabel": "Total",
+      "cta": "Open run"
+    },
+    "attention": {
+      "anomaliesTitle": "{count, plural, one {# anomaly detected} other {# anomalies detected}}",
+      "moreAnomalies": "{count, plural, one {# more anomaly} other {# more anomalies}}",
+      "missingInputsTitle": "{count, plural, one {# incomplete entry} other {# incomplete entries}}",
+      "missingDaysWorked": "missing days worked",
+      "missingClassesTaught": "missing classes taught"
+    },
+    "cards": {
+      "ariaLabel": "Payroll modules",
+      "runs": {
+        "title": "Payroll Runs",
+        "description": "Create, review, approve, and finalise monthly payroll runs."
+      },
+      "compensation": {
+        "title": "Staff Compensation",
+        "description": "Manage rates, salaries, per-class pay, and bonus configuration."
+      },
+      "attendance": {
+        "title": "Staff Attendance",
+        "description": "Daily attendance register used to compute payroll inputs."
+      },
+      "classDelivery": {
+        "title": "Class Delivery",
+        "description": "Prescribed vs actual classes taught — drives per-class pay and bonuses."
+      },
+      "reports": {
+        "title": "Reports & Analytics",
+        "description": "Cost trends, YTD summaries, and bonus analysis."
+      },
+      "exports": {
+        "title": "Exports",
+        "description": "Bulk payslip PDFs, bank-file exports, and historical archives."
+      },
+      "myPayslips": {
+        "title": "My Payslips",
+        "description": "Personal payslip history for the logged-in staff member."
+      },
+      "staff": {
+        "title": "Staff Directory",
+        "description": "View every staff member with their active compensation and run history."
+      }
+    },
+    "costTrend": {
+      "title": "Cost trend",
+      "basicPay": "Basic pay",
+      "bonusPay": "Bonus pay",
+      "allowances": "Allowances"
+    }
   },
   "wellbeingHub": {
     "title": "Wellbeing & Safeguarding",

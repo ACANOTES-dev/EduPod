@@ -133,6 +133,7 @@ export default function PayrollRunsPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('payrollRuns')}
+        back={{ href: `/${locale}/payroll`, label: t('backToPayroll') }}
         actions={<Button onClick={() => setCreateOpen(true)}>{t('newPayrollRun')}</Button>}
       />
 

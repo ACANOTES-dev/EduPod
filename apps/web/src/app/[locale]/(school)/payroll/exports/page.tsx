@@ -1,6 +1,7 @@
 'use client';
 
 import { Download, Mail, Plus, Trash2 } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -177,6 +178,8 @@ function TemplateForm({
 
 export default function ExportsPage() {
   const t = useTranslations('payroll');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [activeTab, setActiveTab] = React.useState<'templates' | 'history'>('templates');
   const [templates, setTemplates] = React.useState<ExportTemplate[]>([]);
@@ -235,6 +238,7 @@ export default function ExportsPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('exports')}
+        back={{ href: `/${locale}/payroll`, label: t('backToPayroll') }}
         actions={
           activeTab === 'templates' && (
             <Button

@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus, Search } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -67,6 +68,8 @@ interface PaymentSearchResult {
 
 export default function RefundsPage() {
   const t = useTranslations('finance');
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const tCommon = useTranslations('common');
   const { hasAnyRole } = useRoleCheck();
   const canManage = hasAnyRole('school_principal', 'accounting');
@@ -432,6 +435,7 @@ export default function RefundsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        back={{ href: `/${locale}/finance/all-finances`, label: t('backToAllFinances') }}
         title={t('refunds')}
         description={t('refundsDescription')}
         actions={
