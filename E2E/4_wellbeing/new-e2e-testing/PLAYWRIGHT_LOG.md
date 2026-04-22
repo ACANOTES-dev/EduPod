@@ -19,7 +19,7 @@ A session is only **Complete** when every issue it opened is marked `**Verified:
 | S6      | 2026-04-21 | 2026-04-22 | 7             | 3   | 1   | 2   | 1   | **Complete** (W-S6-004 + W-S6-005 deferred to S9 product review)                                                |
 | S7      | 2026-04-22 | 2026-04-22 | 6             | 3   | 2   | 1   | 0   | **Complete**                                                                                                    |
 | S8      | 2026-04-22 | 2026-04-22 | 6             | 0   | 4   | 2   | 0   | **Complete**                                                                                                    |
-| S9      |            |            |               |     |     |     |     | Not started                                                                                                     |
+| S9      | 2026-04-22 | 2026-04-22 | 0             | 0   | 0   | 0   | 0   | **Complete** (consolidation only — see `FINAL_REPORT.md`; flagged W-S0-002 P1 as abandoned deferral)            |
 
 ---
 
@@ -1198,5 +1198,10 @@ S8 ran the cross-cutting sweep on NHQS: mobile (375×667), RTL (`/ar`), four-rol
 
 ## S9 — Consolidation → Final Report
 
-**Status:** Not started
+**Status:** Complete (2026-04-22)
 **Session plan:** [`S9_consolidation.md`](./S9_consolidation.md)
+**Deliverable:** [`FINAL_REPORT.md`](./FINAL_REPORT.md)
+
+### Session summary
+
+S9 consolidated the S0–S8 log into `FINAL_REPORT.md` — an executive summary, severity-ranked fix list (P0/P1/P2/P3 grouped by hub, each with commit SHA + date), deferred items with written justification, coverage summary (70/77 routes walked with documented seed-gap exclusions, four roles, two viewports, two locales), a first-48h post-ship monitoring plan, and the ship recommendation. The walkthrough logged **66 issues** across S0–S8 with 55 verified-fixed + 11 deferred; this session found **no new surface-level bugs** but did surface one lingering discrepancy during verification: W-S0-002 (P1 — "Incidents This Week" shows total incident count) was deferred from S0 to S3 but was never picked up in S3's regression pass — `BehaviourIncidentsService.getIncidentsStats` still emits only all-time counts, and the FE's `?? pulse.total_incidents` fallback silently papers over the missing 7-day-window fields. Combined with the W-S5-001 P0 deferral (the safeguarding concerns UI is four `redirect()` stubs, backend ready but UI unbuilt), ship recommendation per the S9 blueprint's severity rule is **Do not ship (yet)** — resolve those two items (W-S0-002 is a < 15-minute service-layer addition; W-S5-001 is a dedicated subsystem implementation plan) and the module ships cleanly. Four architectural lessons surfaced through the walkthrough — owner-bypass must thread the service layer, `ResponseTransformInterceptor`'s `{data}` envelope is load-bearing and needs a canonical `unwrap()`, every new sequence type needs lazy init, and every new role permission must be backfilled on existing tenants with an idempotent script — these may warrant a standalone `docs/architecture/` entry but none block ship. No screenshots were produced during S9. Every S0–S8 session ledger row is marked Complete; `_scope-map.md` is fully ticked with documented seed-gap deferrals.
