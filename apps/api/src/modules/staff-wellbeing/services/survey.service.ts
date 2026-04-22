@@ -235,18 +235,19 @@ export class SurveyService {
 
       const detail: SurveyDetail = { ...survey, response_count: responseCount };
 
-      if (survey.status === 'active') {
+      // Always emit the denominator for non-draft surveys so the detail page
+      // can render "N of M staff responded (rate%)". Previously only active
+      // surveys got `eligible_staff_count`, leaving closed surveys showing
+      // "15 of 0 staff responded (0%)" (W-S7-003 companion).
+      if (survey.status !== 'draft') {
         const eligibleStaffCount = await db.staffProfile.count({
           where: { tenant_id: tenantId },
         });
         detail.eligible_staff_count = eligibleStaffCount;
-      }
 
-      if (survey.status === 'closed' || survey.status === 'archived') {
-        const eligibleStaffCount = await db.staffProfile.count({
-          where: { tenant_id: tenantId },
-        });
-        detail.response_rate = eligibleStaffCount > 0 ? responseCount / eligibleStaffCount : 0;
+        if (survey.status === 'closed' || survey.status === 'archived') {
+          detail.response_rate = eligibleStaffCount > 0 ? responseCount / eligibleStaffCount : 0;
+        }
       }
 
       return detail;

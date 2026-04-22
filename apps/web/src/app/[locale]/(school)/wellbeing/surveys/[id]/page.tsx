@@ -349,11 +349,14 @@ export default function SurveyDetailPage() {
 
   function computeResponseRate(): string {
     if (!survey) return '0';
-    if (typeof survey.response_rate === 'number') {
-      return survey.response_rate.toFixed(0);
-    }
+    // response_rate from the API is a 0-1 ratio for closed/archived surveys.
+    // Fall back to computing from count/eligible for active surveys where the
+    // ratio isn't pre-emitted.
     const count = survey.response_count ?? 0;
     const eligible = survey.eligible_staff_count ?? 0;
+    if (typeof survey.response_rate === 'number' && eligible > 0) {
+      return Math.round(survey.response_rate * 100).toString();
+    }
     if (eligible === 0) return '0';
     return Math.round((count / eligible) * 100).toString();
   }
