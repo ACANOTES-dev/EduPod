@@ -42,7 +42,9 @@ const KNOWN_GLOBAL_PROVIDERS = [
   { type: 'APP_GUARD', class: 'AuthGuard', file: 'common/' },
   { type: 'APP_GUARD', class: 'PermissionGuard', file: 'common/' },
   { type: 'APP_GUARD', class: 'ThrottlerGuard', file: 'app.module.ts' }, // S-02: global rate limiting
+  { type: 'APP_GUARD', class: 'AiFlagGuard', file: 'ai-flags/' }, // AI feature flag enforcement
   { type: 'APP_INTERCEPTOR', class: 'AuditLogInterceptor', file: 'audit-log/' },
+  { type: 'APP_INTERCEPTOR', class: 'GuardianRestrictionInterceptor', file: 'common/' }, // Guardian access restrictions
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

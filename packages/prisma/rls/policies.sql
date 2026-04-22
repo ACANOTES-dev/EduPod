@@ -2738,3 +2738,25 @@ DROP POLICY IF EXISTS behaviour_ai_query_history_tenant_isolation ON behaviour_a
 CREATE POLICY behaviour_ai_query_history_tenant_isolation ON behaviour_ai_query_history
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- =============================================================
+-- Safeguarding break-glass access log + admin repair runs
+-- =============================================================
+-- Defined in: packages/prisma/migrations/20260421120000_add_safeguarding_break_glass_access_log/migration.sql
+--             packages/prisma/migrations/20260421120500_add_admin_repair_runs/migration.sql
+
+-- safeguarding_break_glass_access_log (audit trail of break-glass access events)
+ALTER TABLE safeguarding_break_glass_access_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE safeguarding_break_glass_access_log FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS safeguarding_break_glass_access_log_tenant_isolation ON safeguarding_break_glass_access_log;
+CREATE POLICY safeguarding_break_glass_access_log_tenant_isolation ON safeguarding_break_glass_access_log
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- admin_repair_runs (behaviour admin repair operation ledger)
+ALTER TABLE admin_repair_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_repair_runs FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS admin_repair_runs_tenant_isolation ON admin_repair_runs;
+CREATE POLICY admin_repair_runs_tenant_isolation ON admin_repair_runs
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);

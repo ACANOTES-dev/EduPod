@@ -438,6 +438,12 @@
       "methods": ["$executeRaw"],
       "category": "rls-infrastructure",
       "reason": "RLS context-setting via set_config() inside each per-tenant transaction of the cross-tenant 03:00 UTC cron — required because tenant_stripe_configs and refunds both have FORCE ROW LEVEL SECURITY; fixes same empty-UUID cast storm observed alongside report-card auto-generate in prod 2026-04-17."
+    },
+    {
+      "file": "packages/prisma/scripts/grant-early-warning-permissions.ts",
+      "methods": ["$executeRaw"],
+      "category": "backfill-script",
+      "reason": "One-shot operational backfill (W-S6-001, 2026-04-21): idempotent INSERT ... ON CONFLICT DO NOTHING to grant early_warning.* permissions to owner/principal/vice-principal roles that the Impl-01 role seed missed. Runs manually against prod with DATABASE_URL; not in request path."
     }
   ]
 }

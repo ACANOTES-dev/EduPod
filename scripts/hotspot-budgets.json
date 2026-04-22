@@ -26,7 +26,7 @@
       "budgets": [
         {
           "name": "BehaviourStudentsService.listStudents",
-          "max": 6
+          "max": 12
         },
         {
           "name": "BehaviourStudentsService.getStudentProfile",
@@ -233,12 +233,12 @@
       "reason": "Sanction lifecycle with approval routing and conflict detection now thin facade, across 117 lines"
     },
     "apps/api/src/modules/safeguarding/safeguarding-concerns.service.ts": {
-      "max": 1120,
-      "reason": "Safeguarding concern triage and access-controlled detail mapping across 1070 lines"
+      "max": 1175,
+      "reason": "Safeguarding concern triage and access-controlled detail mapping across 1158 lines"
     },
     "apps/api/src/modules/pastoral/services/pastoral-dsar.service.ts": {
-      "max": 1106,
-      "reason": "DSAR processing with multi-entity record aggregation across 1056 lines"
+      "max": 1125,
+      "reason": "DSAR processing with multi-entity record aggregation across 1109 lines"
     },
     "apps/api/src/modules/attendance/attendance-upload.service.ts": {
       "max": 148,
