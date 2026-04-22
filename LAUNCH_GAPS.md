@@ -46,41 +46,6 @@ These are feature-complete server-side but have zero (or near-zero) pages. They 
 
 ---
 
-## Category B — Built and polished, just unreachable via nav
-
-The pages exist and work. They need hub-dashboard tiles so users don't have to memorise URLs.
-
-### B1. Payroll — no tile on `/finance` hub
-
-- **Routes (all built)**: `/payroll`, `/payroll/runs`, `/payroll/compensation`, `/payroll/staff-attendance`, `/payroll/class-delivery`, `/payroll/reports`, `/payroll/exports`, `/payroll/history`, `/payroll/my-payslips`.
-- **Current state**: Finance hub `basePaths` include `/payroll` (so active-hub highlighting works), but `/finance` dashboard tiles only cover `/finance/overview`, `/finance/fee-generation`, `/finance/payments/new`, `/finance/invoices`, `/finance/statements`. No payroll tile.
-- **Blocks**: `school_owner`, `school_principal`. Payroll is a monthly non-negotiable.
-- **Fix**: add a Payroll tile to `/finance`. Consider promoting Payroll to its own top-level hub if monthly usage warrants it.
-
-### B2. SEN — no tile on `/wellbeing` hub
-
-- **Routes (all built)**: `/sen`, `/sen/students`, `/sen/students/[studentId]`, `/sen/plans/[planId]`, `/sen/plans/[planId]/goals/new`, `/sen/resource-allocation`, `/sen/sna-assignments`, `/sen/reports`, `/parent/sen`, `/parent/sen/[planId]`.
-- **Current state**: Wellbeing hub `basePaths` include `/sen`, but `/wellbeing` dashboard tiles only cover Behaviour, Pastoral, Safeguarding, Early Warning, and Staff Wellbeing.
-- **Blocks**: SENCO, teachers assigned to SEN students, parents with SEN children.
-- **Fix**: add a SEN tile to `/wellbeing`. The SEN sub-routes then discover naturally from `/sen`.
-
-### B3. Parent Portal Cohesion
-
-Parents land on `/dashboard/parent`. Today it only links to `/engagement/parent/events`, `/homework/parent`, `/privacy-consent`, and `/privacy-notice`. Everything else is URL-only for parents.
-
-Missing links from the parent dashboard:
-
-- `/applications` — their submitted admissions applications
-- `/inquiries` — parent ↔ admin threaded messaging
-- `/announcements` — school announcements
-- `/parent/sen` — their child's SEN plan
-- `/behaviour/parent-portal` + `/behaviour/parent-portal/recognition` — behaviour + recognition view
-- `/inbox` — the new default messaging surface (already in the morph bar, but a dashboard tile helps discoverability)
-
-**Fix**: redesign `/dashboard/parent` as a proper hub with a full set of tiles, or introduce a parent-specific morph bar.
-
----
-
 ## Category C — Leave Management (partial; needs finishing)
 
 The leave module is built on the backend and partly surfaced, but the payroll-side integration and staff self-service are incomplete.
@@ -135,9 +100,6 @@ The following were suspected gaps on an earlier pass but are actually reachable 
 | A2  | Queue Admin UI                 | No — ops-only, can slip                     |
 | A3  | Wellbeing notifications config | **Yes** — tenants must be able to configure |
 | A4  | AI Audit UI                    | **Yes** — GDPR / AI Act                     |
-| B1  | Payroll tile on Finance hub    | **Yes** — must-have for owner / principal   |
-| B2  | SEN tile on Wellbeing hub      | **Yes** — must-have for SENCO               |
-| B3  | Parent portal cohesion         | **Yes** — parents can't navigate            |
 | C   | Leave management finish        | **Yes for payroll absences**; rest partial  |
 | D1  | Dead sidebar nav cleanup       | No — code hygiene                           |
 | D2  | Feature map updates            | No — docs hygiene                           |
