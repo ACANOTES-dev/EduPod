@@ -28,11 +28,17 @@ interface ProfessionalInvolvementSummary {
   id: string;
   sen_profile_id: string;
   professional_type: string;
+  /** Frontend alias of professional_type for the "role" badge column. */
+  role: string;
   professional_name: string | null;
   organisation: string | null;
   referral_date: Date | null;
   assessment_date: Date | null;
   report_received_date: Date | null;
+  /** Frontend alias of referral_date for the "start_date" timeline column. */
+  start_date: Date | null;
+  /** Optional end date — the model has no equivalent, kept null for the UI. */
+  end_date: Date | null;
   recommendations: string | null;
   status: string;
   pastoral_referral_id: string | null;
@@ -284,11 +290,14 @@ export class SenProfessionalService {
       id: record.id,
       sen_profile_id: record.sen_profile_id,
       professional_type: record.professional_type,
+      role: record.professional_type,
       professional_name: record.professional_name,
       organisation: record.organisation,
       referral_date: record.referral_date,
       assessment_date: record.assessment_date,
       report_received_date: record.report_received_date,
+      start_date: record.referral_date,
+      end_date: null,
       recommendations: record.recommendations,
       status: record.status,
       pastoral_referral_id: record.pastoral_referral_id,
