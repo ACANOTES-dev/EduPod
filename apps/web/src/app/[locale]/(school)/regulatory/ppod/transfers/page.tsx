@@ -18,14 +18,10 @@ import {
   toast,
 } from '@school/ui';
 
-
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
-
-import { RegulatoryNav } from '../../_components/regulatory-nav';
-
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -367,8 +363,6 @@ export default function TransfersListPage() {
           </Link>
         }
       />
-
-      <RegulatoryNav />
 
       <DataTable
         columns={columns}

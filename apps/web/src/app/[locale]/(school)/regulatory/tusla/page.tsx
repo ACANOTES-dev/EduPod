@@ -11,8 +11,6 @@ import { TUSLA_DEFAULT_THRESHOLD_DAYS } from '@school/shared/regulatory';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { RegulatoryNav } from '../_components/regulatory-nav';
-
 import { ThresholdMonitorTable } from './_components/threshold-monitor-table';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -106,8 +104,6 @@ export default function TuslaHubPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t('tusla.pageTitle')} description={t('tusla.pageDescription')} />
-
-      <RegulatoryNav />
 
       {/* ─── Action Cards ──────────────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

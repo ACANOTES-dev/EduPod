@@ -11,9 +11,6 @@ import { formatDate } from '@/lib/format-date';
 
 import { ComplianceStatusCard } from './_components/compliance-status-card';
 import { DeadlineTimeline } from './_components/deadline-timeline';
-import { RegulatoryNav } from './_components/regulatory-nav';
-
-
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -169,8 +166,6 @@ export default function RegulatoryDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t('title')} description={t('dashboard.description')} />
-
-      <RegulatoryNav />
 
       {/* ─── Top Stat Cards ───────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

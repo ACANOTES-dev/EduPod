@@ -13,15 +13,11 @@ import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { RegulatoryNav } from '../_components/regulatory-nav';
-
 import { SyncDiffPreview } from './_components/sync-diff-preview';
 import { SyncStatusOverview } from './_components/sync-status-overview';
-
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -132,8 +128,6 @@ export default function PpodDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t('ppod.title')} description={t('ppod.description')} />
-
-      <RegulatoryNav />
 
       {/* ─── Database Type Toggle ──────────────────────────────────────────── */}
       <div className="flex gap-1 rounded-xl bg-surface-secondary p-1">

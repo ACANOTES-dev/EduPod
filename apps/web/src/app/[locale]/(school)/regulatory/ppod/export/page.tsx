@@ -8,12 +8,9 @@ import * as React from 'react';
 
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 
-import { RegulatoryNav } from '../../_components/regulatory-nav';
 import { CsvExportWizard } from '../_components/csv-export-wizard';
-
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -42,8 +39,6 @@ export default function PpodExportPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t('ppod.exportTitle')} description={t('ppod.exportDescription')} />
-
-      <RegulatoryNav />
 
       {isComplete ? (
         // ─── Success State ───────────────────────────────────────────────

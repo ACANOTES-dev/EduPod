@@ -10,10 +10,6 @@ import { Button } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 
-import { RegulatoryNav } from '../_components/regulatory-nav';
-
-
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getLocaleFromPathname(pathname: string): string {
@@ -62,8 +58,6 @@ export default function RegulatorySafeguardingPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t('title')} description={t('description')} />
-
-      <RegulatoryNav />
 
       {/* Info card */}
       <div className="rounded-2xl border border-border bg-surface-secondary px-4 py-4 sm:px-6 sm:py-5">

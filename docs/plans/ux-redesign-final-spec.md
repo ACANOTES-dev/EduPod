@@ -640,6 +640,7 @@ Each module has one accent gradient and one tinted icon background. Pick the pai
 | AI Audit / AI Flags  | `from-indigo-400 via-indigo-500 to-indigo-600` | `bg-indigo-100 text-indigo-700` |
 | Notifications config | `from-sky-400 via-sky-500 to-sky-600`          | `bg-sky-100 text-sky-700`       |
 | Queue Admin          | `from-stone-500 via-stone-600 to-stone-700`    | `bg-stone-100 text-stone-700`   |
+| Regulatory           | `from-teal-400 via-teal-500 to-teal-600`       | `bg-teal-100 text-teal-700`     |
 | Settings             | `from-zinc-400 via-zinc-500 to-zinc-600`       | `bg-zinc-100 text-zinc-700`     |
 
 ### 14.5 Sub-page (list) composition
@@ -731,7 +732,7 @@ When `canView === false` on a gated page, render a centred state inside a rounde
 - No server-component data fetching in authenticated shells — use `apiClient<T>()` inside `useEffect`.
 - No `useState`-per-field forms in new code — always `react-hook-form` + `zodResolver`.
 - No physical direction classes (`ml-`, `pl-`, `text-left`, etc.).
-- No sub-strip for hubs whose navigation surface is the dashboard itself (wellbeing, operations, finance, communications, people, settings). Only `regulatory` currently uses a sub-strip.
+- No sub-strip for hubs whose navigation surface is the dashboard itself (wellbeing, operations, finance, communications, people, settings, regulatory).
 - No bottom tab bar on mobile — the mobile navigation uses the hamburger-triggered overlay and horizontally scrollable sub-strip.
 
 ---

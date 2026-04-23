@@ -8,12 +8,9 @@ import * as React from 'react';
 
 import { Button } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 
-import { RegulatoryNav } from '../../../_components/regulatory-nav';
 import { TransferForm } from '../../_components/transfer-form';
-
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
@@ -47,8 +44,6 @@ export default function NewTransferPage() {
           </Link>
         }
       />
-
-      <RegulatoryNav />
 
       <div className="rounded-2xl border border-border bg-surface p-4 sm:p-6">
         <TransferForm onSuccess={handleSuccess} onCancel={handleCancel} />

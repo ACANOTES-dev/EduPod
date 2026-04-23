@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { RegulatoryNav } from '../_components/regulatory-nav';
 import { SubmissionHistoryTable } from '../_components/submission-history-table';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -136,8 +135,6 @@ export default function RegulatorySubmissionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t('submissions.title')} description={t('submissions.description')} />
-
-      <RegulatoryNav />
 
       <SubmissionHistoryTable
         data={submissions}

@@ -5,16 +5,12 @@ import * as React from 'react';
 
 import { Button, Input, Label, StatusBadge, cn } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import { RegulatoryNav } from '../_components/regulatory-nav';
 
 import { ReadinessOverview } from './_components/readiness-overview';
 import { ReturnsPreview } from './_components/returns-preview';
 import { StudentIssuesTable } from './_components/student-issues-table';
-
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -182,8 +178,6 @@ export default function OctoberReturnsPage() {
         title={t('octoberReturns.pageTitle')}
         description={t('octoberReturns.pageDescription')}
       />
-
-      <RegulatoryNav />
 
       {/* ─── Academic Year Selector ─────────────────────────────────────── */}
       <div className="rounded-2xl border border-border bg-surface-primary p-4">

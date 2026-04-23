@@ -5,12 +5,9 @@ import * as React from 'react';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 
-import { RegulatoryNav } from '../../_components/regulatory-nav';
 import { StudentMappingTable } from '../_components/student-mapping-table';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,8 +40,6 @@ export default function PpodStudentsPage() {
           </Select>
         }
       />
-
-      <RegulatoryNav />
 
       <StudentMappingTable databaseType={databaseType} />
     </div>

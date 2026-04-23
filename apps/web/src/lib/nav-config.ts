@@ -442,16 +442,11 @@ export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
   // messaging policy, fallback) are reached via cards / tiles on the
   // dashboard itself.
   communications: [],
-  regulatory: [
-    { labelKey: 'nav.regulatoryDashboard', href: '/regulatory' },
-    { labelKey: 'nav.regulatoryTusla', href: '/regulatory/tusla' },
-    { labelKey: 'nav.regulatoryPpod', href: '/regulatory/ppod' },
-    { labelKey: 'nav.regulatoryDesReturns', href: '/regulatory/des-returns' },
-    { labelKey: 'nav.regulatorySafeguarding', href: '/regulatory/safeguarding' },
-    { labelKey: 'nav.dpa', href: '/regulatory/dpa', overflow: true },
-    { labelKey: 'nav.privacyNotices', href: '/regulatory/privacy-notices', overflow: true },
-    { labelKey: 'nav.compliance', href: '/regulatory/compliance', overflow: true },
-    { labelKey: 'nav.dataRetention', href: '/regulatory/data-retention', overflow: true },
-  ],
+  // Regulatory intentionally has no sub-strip — the /regulatory dashboard
+  // is the navigation surface (super-hub of sub-module tiles). Every
+  // sub-module (Tusla, PPOD, DES Returns, October Returns, Calendar,
+  // Submissions, CBA, Transfers, Anti-Bullying, Safeguarding, GDPR) has
+  // its own dashboard accessed via the tiles on /regulatory.
+  regulatory: [],
   settings: [],
 };

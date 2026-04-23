@@ -9,10 +9,7 @@ import { Badge, Button, StatCard, StatusBadge, toast } from '@school/ui';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { RegulatoryNav } from '../../_components/regulatory-nav';
 import { CbaSyncTable } from '../_components/cba-sync-table';
-
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -180,8 +177,6 @@ export default function CbaSyncStatusPage() {
           </Button>
         }
       />
-
-      <RegulatoryNav />
 
       {/* ─── Academic Year Selector ──────────────────────────────────────── */}
       <div className="flex items-center gap-3">

@@ -1169,3 +1169,23 @@ function toPrismaInterventionStatus(value: string): $Enums.PastoralInterventionS
 - **H11**: Pre-stash sibling work with `git stash push --keep-index --include-untracked` before committing.
 
 See `wellbeing_new/IMPLEMENTATION_LOG.md §2b` for the full rules + rationale.
+
+## DZ-Regulatory-1: Response-envelope unwrap at the call site
+
+**Risk**: `apps/api`'s `ResponseTransformInterceptor` wraps every non-paginated, non-null response body in `{ data: ... }`. Several regulatory pages were written expecting a bare payload (`summary.calendar.upcoming_deadlines`) and crash at runtime with `Cannot read properties of undefined (reading 'calendar')` because the actual payload is `{ data: { calendar: { ... } } }`. This is the same bug commit `633b4f08` fixed for `/v1/leave/balance`.
+
+**Convention for the regulatory rebuild**:
+
+- **Unwrap at the call site.** Every regulatory page that fetches a non-paginated endpoint types the response as `{ data: T }` and unwraps in the `.then` handler:
+
+  ```ts
+  apiClient<{ data: SummaryPayload }>('/v1/regulatory/summary').then((r) => setSummary(r.data));
+  ```
+
+- **Do NOT modify `apiClient` to auto-unwrap.** The helper is shared with non-envelope endpoints (paginated lists, file downloads, legacy routes) and a global unwrap would silently break them. Contain the change to regulatory.
+- Paginated endpoints already return `{ data, meta }` — those stay unchanged and are consumed as-is. The unwrap convention applies ONLY to non-paginated payloads.
+- If you see a regulatory page with `setFoo(response.foo)` where `response` typed as raw `T`, suspect envelope mismatch before chasing a backend bug.
+
+**How to detect**: grep for `apiClient<` calls in `apps/web/src/app/[locale]/(school)/regulatory/**` that do NOT destructure `.data` — each is a potential crash site.
+
+**Reference**: `regulatory-new/01-foundation.md` (Phase 1 of the regulatory redesign) and commit `633b4f08 fix(leave): unwrap /v1/leave/balance response envelope` for the precedent.

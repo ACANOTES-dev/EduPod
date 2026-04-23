@@ -8,12 +8,9 @@ import * as React from 'react';
 
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 
-import { RegulatoryNav } from '../../_components/regulatory-nav';
 import { CsvImportWizard } from '../_components/csv-import-wizard';
-
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -43,8 +40,6 @@ export default function PpodImportPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t('ppod.importTitle')} description={t('ppod.importDescription')} />
-
-      <RegulatoryNav />
 
       {isComplete ? (
         // ─── Success State ───────────────────────────────────────────────

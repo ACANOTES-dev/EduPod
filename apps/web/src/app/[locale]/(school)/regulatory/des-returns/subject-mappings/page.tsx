@@ -33,7 +33,6 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { RegulatoryNav } from '../../_components/regulatory-nav';
 import { SubjectMappingTable } from '../_components/subject-mapping-table';
 import type { SubjectMapping } from '../_components/subject-mapping-table';
 
@@ -153,8 +152,6 @@ export default function SubjectMappingsPage() {
           </Button>
         }
       />
-
-      <RegulatoryNav />
 
       {/* ─── Mappings Table ───────────────────────────────────────────────── */}
       <SubjectMappingTable data={mappings} onDelete={handleDelete} isLoading={isLoading} />

@@ -19,8 +19,6 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { fmtLocale } from '@/lib/i18n-format';
 
-import { RegulatoryNav } from '../_components/regulatory-nav';
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface CalendarEvent {
@@ -292,8 +290,6 @@ export default function RegulatoryCalendarPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t('calendar.title')} description={t('calendar.description')} />
-
-      <RegulatoryNav />
 
       {/* Mobile toolbar */}
       <div className="md:hidden">{toolbar}</div>

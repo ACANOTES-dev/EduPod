@@ -8,15 +8,11 @@ import * as React from 'react';
 
 import { Button, Input, Label, cn } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { RegulatoryNav } from '../_components/regulatory-nav';
-
 import { ReadinessChecklist } from './_components/readiness-checklist';
 import type { ReadinessCategory } from './_components/readiness-checklist';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -106,8 +102,6 @@ export default function DESReturnsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t('desReturns.pageTitle')} description={t('desReturns.pageDescription')} />
-
-      <RegulatoryNav />
 
       {/* ─── Academic Year Selector ───────────────────────────────────────── */}
       <div className="rounded-2xl border border-border bg-surface-primary p-4">

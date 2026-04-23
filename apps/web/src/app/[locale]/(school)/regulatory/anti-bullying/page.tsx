@@ -8,15 +8,11 @@ import * as React from 'react';
 
 import { StatCard } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { RegulatoryNav } from '../_components/regulatory-nav';
-
 import type { BullyingIncidentSummary } from './_components/bullying-incident-summary';
 import { BullyingIncidentSummary as BullyingIncidentSummaryComponent } from './_components/bullying-incident-summary';
-
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -74,8 +70,6 @@ export default function AntiBullyingPage() {
         title={t('antiBullying.pageTitle')}
         description={t('antiBullying.pageDescription')}
       />
-
-      <RegulatoryNav />
 
       {/* ─── Bí Cineálta Info Banner ──────────────────────────────────────── */}
       <div className="rounded-2xl border border-primary-200 bg-primary-50 px-4 py-4 sm:px-6 sm:py-5">
