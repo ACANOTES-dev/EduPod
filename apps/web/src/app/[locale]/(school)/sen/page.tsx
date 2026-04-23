@@ -73,17 +73,17 @@ export default function SenDashboardPage() {
     async function fetchData() {
       try {
         const [overviewRes, complianceRes, utilisationRes] = await Promise.all([
-          apiClient<OverviewResponse>('/api/v1/sen/overview'),
-          apiClient<ComplianceResponse>(
+          apiClient<{ data: OverviewResponse }>('/api/v1/sen/overview'),
+          apiClient<{ data: ComplianceResponse }>(
             '/api/v1/sen/reports/plan-compliance?due_within_days=14&overdue=true',
           ),
-          apiClient<UtilisationResponse>('/api/v1/sen/resource-utilisation'),
+          apiClient<{ data: UtilisationResponse }>('/api/v1/sen/resource-utilisation'),
         ]);
 
         if (!cancelled) {
-          setOverview(overviewRes);
-          setCompliance(complianceRes);
-          setUtilisation(utilisationRes);
+          setOverview(overviewRes.data);
+          setCompliance(complianceRes.data);
+          setUtilisation(utilisationRes.data);
         }
       } catch (err) {
         console.error('[SenDashboardPage] fetchData', err);
