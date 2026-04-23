@@ -234,13 +234,42 @@ export class SenProfileService {
               last_name: true,
             },
           },
+          support_plans: {
+            where: { status: 'active' },
+            select: { id: true },
+            take: 1,
+          },
         },
       }),
       this.prisma.senProfile.count({ where }),
     ]);
 
+    // Resolve year-group names in one round-trip
+    const yearGroupIds = Array.from(
+      new Set(data.map((p) => p.student?.year_group_id).filter((y): y is string => Boolean(y))),
+    );
+    const yearGroupNames: Record<string, string> = {};
+    if (yearGroupIds.length > 0) {
+      const allYearGroups = await this.academicReadFacade.findAllYearGroups(tenantId);
+      for (const yg of allYearGroups) {
+        if (yearGroupIds.includes(yg.id)) yearGroupNames[yg.id] = yg.name;
+      }
+    }
+
+    const flat = data.map((p) => ({
+      ...p,
+      student_name: p.student ? `${p.student.first_name} ${p.student.last_name}`.trim() : '',
+      year_group_name: p.student?.year_group_id
+        ? (yearGroupNames[p.student.year_group_id] ?? '')
+        : '',
+      has_active_plan: p.support_plans.length > 0,
+      sen_coordinator_name: p.sen_coordinator
+        ? `${p.sen_coordinator.first_name} ${p.sen_coordinator.last_name}`.trim()
+        : null,
+    }));
+
     return {
-      data: data as unknown as SenProfileWithRelations[],
+      data: flat as unknown as SenProfileWithRelations[],
       meta: {
         page: query.page,
         pageSize: query.pageSize,
@@ -428,21 +457,39 @@ export class SenProfileService {
       });
     }
 
+    // Resolve year-group name for the single student
+    let studentYearGroup: string | null = null;
+    if (profile.student?.year_group_id) {
+      const allYearGroups = await this.academicReadFacade.findAllYearGroups(tenantId);
+      studentYearGroup =
+        allYearGroups.find((yg) => yg.id === profile.student?.year_group_id)?.name ?? null;
+    }
+
+    const flat = {
+      ...profile,
+      student_name: profile.student
+        ? `${profile.student.first_name} ${profile.student.last_name}`.trim()
+        : '',
+      sen_coordinator_name: profile.sen_coordinator
+        ? `${profile.sen_coordinator.first_name} ${profile.sen_coordinator.last_name}`.trim()
+        : null,
+      student_year_group: studentYearGroup,
+    };
+
     // Apply sensitive field redaction
     const canViewSensitive = permissions.includes('sen.view_sensitive');
     if (!canViewSensitive) {
-      const redactedProfile = {
-        ...profile,
+      return {
+        ...flat,
         diagnosis: null,
         diagnosis_date: null,
         diagnosis_source: null,
         assessment_notes: null,
         involvements: [],
-      };
-      return redactedProfile as unknown as SenProfileWithRelations;
+      } as unknown as SenProfileWithRelations;
     }
 
-    return profile as unknown as SenProfileWithRelations;
+    return flat as unknown as SenProfileWithRelations;
   }
 
   // ─── Update ───────────────────────────────────────────────────────────────────
