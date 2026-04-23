@@ -226,13 +226,25 @@ export class SenSupportPlanService {
               last_name: true,
             },
           },
+          academic_year: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       }),
       this.prisma.senSupportPlan.count({ where }),
     ]);
 
+    const flat = data.map((p) => ({
+      ...p,
+      academic_year_name: p.academic_year?.name ?? '',
+      start_date: p.created_at.toISOString(),
+    }));
+
     return {
-      data,
+      data: flat as unknown as SupportPlanListItem[],
       meta: {
         page: query.page,
         pageSize: query.pageSize,

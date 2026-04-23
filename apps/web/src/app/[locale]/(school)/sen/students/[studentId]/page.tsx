@@ -49,7 +49,7 @@ interface SenPlan {
   id: string;
   plan_number: string;
   status: string;
-  academic_year: string;
+  academic_year_name: string;
   start_date: string;
   review_date: string | null;
 }
@@ -295,7 +295,8 @@ function PlansTab({
                   </StatusBadge>
                 </div>
                 <p className="text-xs text-text-secondary">
-                  {plan.academic_year} &middot; {new Date(plan.start_date).toLocaleDateString()}
+                  {plan.academic_year_name} &middot;{' '}
+                  {new Date(plan.start_date).toLocaleDateString()}
                   {plan.review_date && ` — ${new Date(plan.review_date).toLocaleDateString()}`}
                 </p>
               </div>
