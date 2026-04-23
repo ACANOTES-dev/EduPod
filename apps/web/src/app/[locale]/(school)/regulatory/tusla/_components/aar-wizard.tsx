@@ -172,11 +172,14 @@ export function AarWizard({ locale }: AarWizardProps) {
 
     try {
       const values = form.getValues();
-      const res = await apiClient<AarGenerateResponse>('/api/v1/regulatory/tusla/aar/generate', {
-        method: 'POST',
-        body: JSON.stringify(values),
-      });
-      setResult(res);
+      const res = await apiClient<{ data: AarGenerateResponse }>(
+        '/api/v1/regulatory/tusla/aar/generate',
+        {
+          method: 'POST',
+          body: JSON.stringify(values),
+        },
+      );
+      setResult(res.data);
       setStep(3);
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string }; message?: string };
