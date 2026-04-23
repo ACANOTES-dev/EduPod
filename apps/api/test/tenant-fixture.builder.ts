@@ -641,22 +641,24 @@ export async function deleteTenantFixture(
     'tenantId' | 'ownerUserId' | 'adminUserId' | 'teacherUserId' | 'parentUserId'
   >,
 ): Promise<void> {
-  try {
-    await prisma.$executeRawUnsafe(`SET session_replication_role = 'replica'`);
-    await prisma.$executeRawUnsafe(`DELETE FROM tenants WHERE id = $1::uuid`, fixture.tenantId);
+  const userIds = [
+    fixture.ownerUserId,
+    fixture.adminUserId,
+    fixture.teacherUserId,
+    fixture.parentUserId,
+  ].filter((id): id is string => typeof id === 'string' && id.length > 0);
 
-    const userIds = [
-      fixture.ownerUserId,
-      fixture.adminUserId,
-      fixture.teacherUserId,
-      fixture.parentUserId,
-    ].filter((id): id is string => typeof id === 'string' && id.length > 0);
-
+  // Run every statement on a single pooled connection. `SET
+  // session_replication_role` is session-scoped — if the subsequent DELETE
+  // lands on a different backend connection (PgBouncer / prisma pool), the
+  // append-only triggers on pastoral_events, pastoral_concern_versions, etc.
+  // fire and abort the cascade. `$transaction` guarantees connection affinity
+  // for the lifetime of the callback.
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(`SET LOCAL session_replication_role = 'replica'`);
+    await tx.$executeRawUnsafe(`DELETE FROM tenants WHERE id = $1::uuid`, fixture.tenantId);
     for (const userId of userIds) {
-      await prisma.$executeRawUnsafe(`DELETE FROM users WHERE id = $1::uuid`, userId);
+      await tx.$executeRawUnsafe(`DELETE FROM users WHERE id = $1::uuid`, userId);
     }
-  } finally {
-    // Always restore trigger mode even on error.
-    await prisma.$executeRawUnsafe(`SET session_replication_role = 'origin'`);
-  }
+  });
 }
