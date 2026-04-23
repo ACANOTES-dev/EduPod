@@ -1,7 +1,12 @@
 // Defaults for local/integration test environments.
 // Existing env vars (e.g. from CI) take precedence.
-process.env.DATABASE_URL ??= 'postgresql://postgres:localpassword@localhost:5553/school_platform';
-process.env.REDIS_URL ??= 'redis://localhost:5554';
+//
+// Local default points at the isolated paralleltest docker stack
+// (docker-compose.parallel-test.yml). The main `school-db` on 5553 is
+// the dev DB — never target it from tests or they'll clobber dev data.
+// CI overrides both with its own postgres service URL.
+process.env.DATABASE_URL ??= 'postgresql://postgres:localpassword@localhost:5563/paralleltest';
+process.env.REDIS_URL ??= 'redis://localhost:5564';
 process.env.JWT_SECRET ??= '73e10ad593c9fb3e3c0aaef14332e1f4f38dfe27bb579e35ef57e8303a767d48';
 process.env.JWT_REFRESH_SECRET ??=
   '1a5be597a11a3d357ec51c55b88bdd4fe6a138f9f816dd0e8f048d802f87b2b3';
