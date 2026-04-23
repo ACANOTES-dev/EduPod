@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from '@school/ui';
 
-import { apiClient } from '@/lib/api-client';
+import { apiClient, getAccessToken } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -196,8 +196,12 @@ export function AarWizard({ locale }: AarWizardProps) {
     if (!result) return;
     setDownloading(true);
     try {
+      const token = getAccessToken();
+      const headers: Record<string, string> = { Accept: 'text/csv' };
+      if (token) headers.Authorization = `Bearer ${token}`;
       const res = await fetch(`/api/v1/regulatory/tusla/aar/${result.submission_id}/export`, {
         credentials: 'include',
+        headers,
       });
       if (!res.ok) {
         throw new Error(`Export failed with status ${res.status}`);
