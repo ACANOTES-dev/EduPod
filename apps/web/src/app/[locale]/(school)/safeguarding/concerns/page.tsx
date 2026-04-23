@@ -11,6 +11,7 @@ import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue }
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 import {
   CONCERN_SEVERITIES,
@@ -313,7 +314,7 @@ export default function SafeguardingConcernsListPage() {
                           ? `${row.student.first_name} ${row.student.last_name}`
                           : t('unknownStudent')}
                         {' · '}
-                        {new Date(row.created_at).toLocaleDateString(locale)}
+                        {new Date(row.created_at).toLocaleDateString(fmtLocale(locale))}
                         {row.assigned_to
                           ? ` · ${row.assigned_to.first_name} ${row.assigned_to.last_name}`
                           : ` · ${t('unassigned')}`}

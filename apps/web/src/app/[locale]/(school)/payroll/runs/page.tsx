@@ -18,6 +18,7 @@ import {
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 import { CreateRunDialog } from './_components/create-run-dialog';
 
@@ -125,7 +126,7 @@ export default function PayrollRunsPage() {
     {
       key: 'created',
       header: t('created'),
-      render: (row: PayrollRun) => new Date(row.created_at).toLocaleDateString(locale),
+      render: (row: PayrollRun) => new Date(row.created_at).toLocaleDateString(fmtLocale(locale)),
     },
   ];
 

@@ -11,6 +11,8 @@
  * React or importing `lucide-react` / `@school/ui`.
  */
 
+import { fmtLocale } from '@/lib/i18n-format';
+
 function formatListTimestamp(iso: string | null, locale: string, now: Date): string {
   if (!iso) return '';
   const date = new Date(iso);
@@ -20,14 +22,14 @@ function formatListTimestamp(iso: string | null, locale: string, now: Date): str
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate();
   if (sameDay) {
-    return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString(fmtLocale(locale), { hour: '2-digit', minute: '2-digit' });
   }
   const diffMs = now.getTime() - date.getTime();
   const sevenDays = 7 * 24 * 60 * 60 * 1000;
   if (diffMs >= 0 && diffMs < sevenDays) {
-    return date.toLocaleDateString(locale, { weekday: 'short' });
+    return date.toLocaleDateString(fmtLocale(locale), { weekday: 'short' });
   }
-  return date.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+  return date.toLocaleDateString(fmtLocale(locale), { day: 'numeric', month: 'short' });
 }
 
 describe('ThreadListItem — formatListTimestamp', () => {

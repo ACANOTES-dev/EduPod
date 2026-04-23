@@ -20,6 +20,7 @@ import { Button, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient, getAccessToken } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 // ─── Types (mirror backend GroupedLibraryRunNode) ───────────────────────────
 
@@ -136,7 +137,7 @@ export default function ReportCardsLibraryPage() {
             class_id: cls.class_id,
             class_name: cls.class_name,
             year_group: cls.year_group?.name ?? null,
-            run_label: new Intl.DateTimeFormat(locale, {
+            run_label: new Intl.DateTimeFormat(fmtLocale(locale), {
               dateStyle: 'medium',
               timeStyle: 'short',
               calendar: 'gregory',
@@ -913,7 +914,7 @@ export default function ReportCardsLibraryPage() {
 
 function formatDateTime(iso: string, locale: string): string {
   try {
-    return new Intl.DateTimeFormat(locale, {
+    return new Intl.DateTimeFormat(fmtLocale(locale), {
       dateStyle: 'medium',
       timeStyle: 'short',
       calendar: 'gregory',

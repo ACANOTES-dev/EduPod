@@ -16,6 +16,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { apiClient, unwrap } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 import { useIsAdmin } from '@/lib/use-is-admin';
 
 /**
@@ -199,7 +200,7 @@ export default function CommunicationsHubPage() {
             inboxState.status === 'ready' && inboxState.value.latest_message_at
               ? `${t('cards.inbox.latestPrefix')} · ${new Date(
                   inboxState.value.latest_message_at,
-                ).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}`
+                ).toLocaleDateString(fmtLocale(locale), { day: 'numeric', month: 'short' })}`
               : undefined
           }
           cta={t('cards.inbox.cta')}
@@ -247,7 +248,7 @@ export default function CommunicationsHubPage() {
               ? `${t('cards.announcements.latestLabel')} · ${new Date(
                   (latestAnnouncement.value.published_at ??
                     latestAnnouncement.value.scheduled_at) as string,
-                ).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}`
+                ).toLocaleDateString(fmtLocale(locale), { day: 'numeric', month: 'short' })}`
               : undefined
           }
           cta={t('cards.announcements.cta')}

@@ -32,6 +32,7 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 import { ADMIN_ROLES } from '@/lib/route-roles';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -297,7 +298,7 @@ export default function CpAccessPage() {
                     )}
                     <p className="mt-0.5 text-xs text-text-tertiary">
                       {t('grantedOn', {
-                        when: new Date(grant.granted_at).toLocaleDateString(locale),
+                        when: new Date(grant.granted_at).toLocaleDateString(fmtLocale(locale)),
                       })}
                     </p>
                   </div>

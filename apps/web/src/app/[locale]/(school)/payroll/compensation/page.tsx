@@ -21,6 +21,7 @@ import {
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 import { BulkImportDialog } from './_components/bulk-import-dialog';
 import { CompensationForm } from './_components/compensation-form';
@@ -354,7 +355,7 @@ export default function CompensationListPage() {
     {
       key: 'effective_from',
       header: t('effectiveFrom'),
-      render: (row: CompensationRecord) => new Date(row.effective_from).toLocaleDateString(locale),
+      render: (row: CompensationRecord) => new Date(row.effective_from).toLocaleDateString(fmtLocale(locale)),
     },
     {
       key: 'actions',
@@ -501,9 +502,9 @@ export default function CompensationListPage() {
                           </div>
                           <p className="mt-0.5 text-xs text-text-secondary">
                             {staffName} &middot;{' '}
-                            {new Date(rec.effective_from).toLocaleDateString(locale)}
+                            {new Date(rec.effective_from).toLocaleDateString(fmtLocale(locale))}
                             {rec.effective_to
-                              ? ` — ${new Date(rec.effective_to).toLocaleDateString(locale)}`
+                              ? ` — ${new Date(rec.effective_to).toLocaleDateString(fmtLocale(locale))}`
                               : ` — ${t('present')}`}
                           </p>
                           {rec.bonus_day_multiplier && rec.compensation_type === 'salaried' && (
@@ -653,11 +654,11 @@ export default function CompensationListPage() {
                           {formatCurrency(a.amount)}
                         </td>
                         <td className="px-4 py-3 text-text-secondary">
-                          {new Date(a.effective_from).toLocaleDateString(locale)}
+                          {new Date(a.effective_from).toLocaleDateString(fmtLocale(locale))}
                         </td>
                         <td className="px-4 py-3 text-text-secondary">
                           {a.effective_to
-                            ? new Date(a.effective_to).toLocaleDateString(locale)
+                            ? new Date(a.effective_to).toLocaleDateString(fmtLocale(locale))
                             : t('present')}
                         </td>
                         <td className="px-4 py-3">

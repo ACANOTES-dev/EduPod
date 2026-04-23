@@ -31,6 +31,7 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient, getAccessToken } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 import {
   SEVERITY_BADGE_STYLES,
@@ -208,7 +209,7 @@ export default function SafeguardingConcernDetailPage() {
             <p className="font-semibold">{t('sealBanner.title')}</p>
             <p className="text-xs text-zinc-600">
               {t('sealBanner.body', {
-                when: concern.sealed_at ? new Date(concern.sealed_at).toLocaleString(locale) : '—',
+                when: concern.sealed_at ? new Date(concern.sealed_at).toLocaleString(fmtLocale(locale)) : '—',
                 approver: concern.seal_approved_by?.name ?? t('unknown'),
               })}
             </p>
@@ -243,7 +244,7 @@ export default function SafeguardingConcernDetailPage() {
           <MetaRow label={t('meta.reportedBy')} value={concern.reported_by?.name ?? t('unknown')} />
           <MetaRow
             label={t('meta.reportedAt')}
-            value={new Date(concern.created_at).toLocaleString(locale)}
+            value={new Date(concern.created_at).toLocaleString(fmtLocale(locale))}
           />
           <MetaRow
             label={t('meta.assignedTo')}
@@ -257,7 +258,7 @@ export default function SafeguardingConcernDetailPage() {
             label={t('meta.slaDeadline')}
             value={
               concern.sla_first_response_due
-                ? new Date(concern.sla_first_response_due).toLocaleString(locale)
+                ? new Date(concern.sla_first_response_due).toLocaleString(fmtLocale(locale))
                 : '—'
             }
           />
@@ -357,7 +358,7 @@ export default function SafeguardingConcernDetailPage() {
                     {a.description}
                   </p>
                   <p className="mt-1 text-[11px] text-text-tertiary">
-                    {new Date(a.created_at).toLocaleString(locale)}
+                    {new Date(a.created_at).toLocaleString(fmtLocale(locale))}
                     {a.action_by ? ` · ${a.action_by.name}` : ''}
                   </p>
                 </div>
@@ -638,7 +639,7 @@ function ReferralCard({
             {refLabel}: <span className="font-mono">{referenceNumber ?? '—'}</span>
           </p>
           <p className="text-xs">
-            {dateLabel}: {referredAt ? new Date(referredAt).toLocaleString(locale) : '—'}
+            {dateLabel}: {referredAt ? new Date(referredAt).toLocaleString(fmtLocale(locale)) : '—'}
           </p>
           {outcome && (
             <p className="text-xs">

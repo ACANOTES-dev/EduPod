@@ -11,6 +11,7 @@ import { Button } from '@school/ui';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 import { canViewSafeguarding } from '../_components/visibility';
 
@@ -189,7 +190,7 @@ export default function SafeguardingMyReportsPage() {
                       <p className="text-xs text-text-tertiary">
                         {tType(row.concern_type)}
                         {' · '}
-                        {new Date(row.reported_at).toLocaleString(locale)}
+                        {new Date(row.reported_at).toLocaleString(fmtLocale(locale))}
                       </p>
                     </div>
                     <span

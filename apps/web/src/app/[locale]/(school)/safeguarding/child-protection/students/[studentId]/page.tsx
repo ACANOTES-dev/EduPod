@@ -22,6 +22,7 @@ import type { CpRecordType } from '@school/shared/pastoral';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 import { ADMIN_ROLES } from '@/lib/route-roles';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -277,7 +278,7 @@ export default function CpRecordsByStudentPage() {
                       {record.narrative_preview}
                     </p>
                     <p className="mt-1 text-xs text-text-tertiary">
-                      {new Date(record.created_at).toLocaleDateString(locale)}
+                      {new Date(record.created_at).toLocaleDateString(fmtLocale(locale))}
                       {record.logged_by_name ? ` · ${record.logged_by_name}` : ''}
                     </p>
                   </div>

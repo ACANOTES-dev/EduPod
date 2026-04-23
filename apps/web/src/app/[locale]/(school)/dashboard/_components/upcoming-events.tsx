@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { fmtLocale } from '@/lib/i18n-format';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface UpcomingEventItem {
@@ -42,7 +44,7 @@ function formatShortDate(isoDate: string | null, locale: string): string {
   if (!isoDate) return '';
   const date = new Date(isoDate);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(date);
+  return new Intl.DateTimeFormat(fmtLocale(locale), { month: 'short', day: 'numeric' }).format(date);
 }
 
 /** Filter to only future events (today onwards). */

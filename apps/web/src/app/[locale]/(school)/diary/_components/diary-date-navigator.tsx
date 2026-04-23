@@ -6,6 +6,9 @@ import * as React from 'react';
 
 import { Button } from '@school/ui';
 
+import { fmtLocale } from '@/lib/i18n-format';
+
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface DiaryDateNavigatorProps {
@@ -39,7 +42,7 @@ export function DiaryDateNavigator({
 
   const current = parseDate(selectedDate);
 
-  const formatted = current.toLocaleDateString(locale, {
+  const formatted = current.toLocaleDateString(fmtLocale(locale), {
     weekday: 'long',
     year: 'numeric',
     month: 'long',

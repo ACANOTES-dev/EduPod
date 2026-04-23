@@ -17,6 +17,7 @@ import {
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 import { RegulatoryNav } from '../_components/regulatory-nav';
 
@@ -64,7 +65,7 @@ function getLocaleFromPathname(pathname: string): string {
 function formatDateLocale(dateStr: string, locale: string): string {
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-IE', {
+  return date.toLocaleDateString(fmtLocale(locale, 'en-IE'), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

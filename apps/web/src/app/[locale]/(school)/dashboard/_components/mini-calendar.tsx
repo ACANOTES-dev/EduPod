@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useMemo, useState } from 'react';
 
+import { fmtLocale } from '@/lib/i18n-format';
+
 function getCalendarDays(year: number, month: number) {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
@@ -76,7 +78,7 @@ export function MiniCalendar({ eventDates = [] }: MiniCalendarProps) {
   const month = viewDate.getMonth();
   const cells = useMemo(() => getCalendarDays(year, month), [year, month]);
 
-  const monthLabel = new Intl.DateTimeFormat(locale, { month: 'long' }).format(viewDate);
+  const monthLabel = new Intl.DateTimeFormat(fmtLocale(locale), { month: 'long' }).format(viewDate);
 
   const prev = useCallback(() => {
     setViewDate(new Date(year, month - 1, 1));

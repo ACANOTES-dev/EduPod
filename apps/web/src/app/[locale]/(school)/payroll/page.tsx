@@ -35,6 +35,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 import { CurrencyDisplay } from '../finance/_components/currency-display';
 import { useTenantCurrency } from '../finance/_components/use-tenant-currency';
@@ -386,7 +387,7 @@ export default function PayrollHubPage() {
             <div>
               <p className="text-sm font-semibold text-text-primary">
                 {t('payDay.title', {
-                  date: new Date(cal.next_pay_date).toLocaleDateString(locale, {
+                  date: new Date(cal.next_pay_date).toLocaleDateString(fmtLocale(locale), {
                     day: 'numeric',
                     month: 'long',
                   }),
@@ -404,7 +405,7 @@ export default function PayrollHubPage() {
           {cal.preparation_deadline && (
             <div className="rounded-xl border border-warning-200 bg-warning-50 px-3 py-2 text-xs text-warning-800">
               {t('payDay.prepDeadline', {
-                date: new Date(cal.preparation_deadline).toLocaleDateString(locale, {
+                date: new Date(cal.preparation_deadline).toLocaleDateString(fmtLocale(locale), {
                   day: 'numeric',
                   month: 'short',
                 }),

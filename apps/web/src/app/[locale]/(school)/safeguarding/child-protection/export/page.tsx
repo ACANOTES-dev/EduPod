@@ -34,6 +34,7 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 import { ADMIN_ROLES } from '@/lib/route-roles';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -531,12 +532,12 @@ export default function CpExportPage() {
             </PreviewField>
             <PreviewField label={t('preview.dateFrom')}>
               {preview.date_range.from
-                ? new Date(preview.date_range.from).toLocaleDateString(locale)
+                ? new Date(preview.date_range.from).toLocaleDateString(fmtLocale(locale))
                 : t('preview.allTime')}
             </PreviewField>
             <PreviewField label={t('preview.dateTo')}>
               {preview.date_range.to
-                ? new Date(preview.date_range.to).toLocaleDateString(locale)
+                ? new Date(preview.date_range.to).toLocaleDateString(fmtLocale(locale))
                 : t('preview.present')}
             </PreviewField>
           </dl>

@@ -26,6 +26,7 @@ import { Button, Input, Label, Textarea, toast } from '@school/ui';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 import { ADMIN_ROLES } from '@/lib/route-roles';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -313,7 +314,7 @@ export default function CpRecordDetailPage() {
               <h2 className="text-base font-semibold text-text-primary">{t('narrative.title')}</h2>
               <p className="mt-1 text-xs text-text-tertiary">
                 {t('narrative.logged', {
-                  when: new Date(record.created_at).toLocaleString(locale),
+                  when: new Date(record.created_at).toLocaleString(fmtLocale(locale)),
                   who: record.logged_by_name ?? t('narrative.unknown'),
                 })}
               </p>
@@ -549,10 +550,10 @@ export default function CpRecordDetailPage() {
               <h3 className="text-sm font-semibold text-text-primary">{t('sidebar.metadata')}</h3>
               <dl className="mt-3 space-y-3 text-xs">
                 <MetaRow label={t('sidebar.createdAt')}>
-                  {new Date(record.created_at).toLocaleString(locale)}
+                  {new Date(record.created_at).toLocaleString(fmtLocale(locale))}
                 </MetaRow>
                 <MetaRow label={t('sidebar.updatedAt')}>
-                  {new Date(record.updated_at).toLocaleString(locale)}
+                  {new Date(record.updated_at).toLocaleString(fmtLocale(locale))}
                 </MetaRow>
                 <MetaRow label={t('sidebar.legalHold')}>
                   {record.legal_hold ? t('sidebar.legalHoldYes') : t('sidebar.legalHoldNo')}

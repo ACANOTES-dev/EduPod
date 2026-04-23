@@ -6,6 +6,9 @@ import * as React from 'react';
 
 import { cn, Popover, PopoverContent, PopoverTrigger } from '@school/ui';
 
+import { fmtLocale } from '@/lib/i18n-format';
+
+
 import type { ThreadMessageView } from './types';
 
 interface ThreadMessageProps {
@@ -70,7 +73,7 @@ export function ThreadMessage({ message, isOwn, showSenderMeta, senderLabel }: T
     );
   }
 
-  const timestamp = new Date(message.created_at).toLocaleTimeString(locale, {
+  const timestamp = new Date(message.created_at).toLocaleTimeString(fmtLocale(locale), {
     hour: '2-digit',
     minute: '2-digit',
   });

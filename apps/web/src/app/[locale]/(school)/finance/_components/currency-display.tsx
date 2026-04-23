@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 
+import { fmtLocale } from '@/lib/i18n-format';
+
 interface CurrencyDisplayProps {
   amount: number;
   currency_code: string | undefined | null;
@@ -24,7 +26,8 @@ export function CurrencyDisplay({
         ? currency_code.trim().toUpperCase()
         : 'USD';
     try {
-      return new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en-US', {
+      // fmtLocale forces Western digits even for Arabic — product policy.
+      return new Intl.NumberFormat(fmtLocale(locale), {
         style: 'currency',
         currency: code,
         minimumFractionDigits: 2,

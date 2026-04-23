@@ -6,6 +6,9 @@ import * as React from 'react';
 
 import { cn } from '@school/ui';
 
+import { fmtLocale } from '@/lib/i18n-format';
+
+
 import type { InboxThreadSummary } from './types';
 
 interface ThreadListItemProps {
@@ -29,14 +32,14 @@ function formatListTimestamp(iso: string | null, locale: string): string {
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate();
   if (sameDay) {
-    return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString(fmtLocale(locale), { hour: '2-digit', minute: '2-digit' });
   }
   const diffMs = now.getTime() - date.getTime();
   const sevenDays = 7 * 24 * 60 * 60 * 1000;
   if (diffMs >= 0 && diffMs < sevenDays) {
-    return date.toLocaleDateString(locale, { weekday: 'short' });
+    return date.toLocaleDateString(fmtLocale(locale), { weekday: 'short' });
   }
-  return date.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+  return date.toLocaleDateString(fmtLocale(locale), { day: 'numeric', month: 'short' });
 }
 
 function KindIcon({ kind, muted }: { kind: InboxThreadSummary['kind']; muted?: boolean }) {

@@ -8,6 +8,7 @@ import { REGULATORY_DOMAINS } from '@school/shared/regulatory';
 import { StatusBadge } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
+import { fmtLocale } from '@/lib/i18n-format';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,7 +58,7 @@ function formatDateLocale(dateStr: string | null, locale: string): string {
   if (!dateStr) return '—';
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-IE', {
+  return date.toLocaleDateString(fmtLocale(locale, 'en-IE'), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

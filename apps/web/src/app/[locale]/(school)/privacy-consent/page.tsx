@@ -16,6 +16,7 @@ import {
 } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 type ConsentStatus = 'granted' | 'withdrawn' | 'expired';
 type ConsentCategory =
@@ -72,7 +73,7 @@ const CONSENT_TYPE_CATEGORY_MAP: Record<string, ConsentCategory> = {
 function formatDateLocale(value: string | null, locale: string): string {
   if (!value) return '-';
 
-  return new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat(fmtLocale(locale), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

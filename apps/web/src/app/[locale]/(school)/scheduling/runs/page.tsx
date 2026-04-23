@@ -17,6 +17,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -200,7 +201,7 @@ export default function SchedulingRunsPage() {
                       onClick={() => router.push(`/${locale}/scheduling/runs/${run.id}/review`)}
                     >
                       <td className="px-4 py-3 text-text-primary">
-                        {new Date(run.created_at).toLocaleDateString(locale, {
+                        {new Date(run.created_at).toLocaleDateString(fmtLocale(locale), {
                           year: 'numeric',
                           month: 'short',
                           day: 'numeric',

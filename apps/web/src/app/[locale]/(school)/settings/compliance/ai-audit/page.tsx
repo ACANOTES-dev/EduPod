@@ -26,6 +26,7 @@ import { KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 import { ADMIN_ROLES } from '@/lib/route-roles';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -81,7 +82,7 @@ const KNOWN_SERVICES = [
 
 function formatPct(value: number | null, locale: string): string {
   if (value === null) return '—';
-  return new Intl.NumberFormat(locale, {
+  return new Intl.NumberFormat(fmtLocale(locale), {
     style: 'percent',
     maximumFractionDigits: 0,
   }).format(value);
@@ -443,7 +444,7 @@ export default function AiAuditSettingsPage() {
                       <p className="mt-0.5 truncate text-xs text-text-tertiary">
                         {log.model_used}
                         {' · '}
-                        {new Date(log.created_at).toLocaleString(locale)}
+                        {new Date(log.created_at).toLocaleString(fmtLocale(locale))}
                         {log.processing_time_ms !== null
                           ? ` · ${formatMs(log.processing_time_ms)}`
                           : ''}
@@ -563,7 +564,7 @@ function AuditDetailPanel({
             <p className="mt-0.5 text-xs text-text-tertiary">
               {log.model_used}
               {' · '}
-              {new Date(log.created_at).toLocaleString(locale)}
+              {new Date(log.created_at).toLocaleString(fmtLocale(locale))}
             </p>
           </div>
           <button
@@ -598,7 +599,7 @@ function AuditDetailPanel({
           {confidence !== null && (
             <Row icon={Gauge} label={t('fields.confidence')}>
               <span className="text-sm text-text-primary">
-                {new Intl.NumberFormat(locale, {
+                {new Intl.NumberFormat(fmtLocale(locale), {
                   style: 'percent',
                   maximumFractionDigits: 0,
                 }).format(confidence)}
