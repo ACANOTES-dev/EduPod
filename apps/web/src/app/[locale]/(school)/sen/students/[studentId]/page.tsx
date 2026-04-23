@@ -505,7 +505,9 @@ function ProfessionalsTab({
                 <span className="text-sm font-medium text-text-primary">
                   {prof.professional_name}
                 </span>
-                <Badge variant="secondary">{prof.role}</Badge>
+                <Badge variant="secondary">
+                  {prof.role ? t(`professionalType.${prof.role}`) : ''}
+                </Badge>
               </div>
               {prof.organisation && (
                 <p className="text-xs text-text-secondary">{prof.organisation}</p>
