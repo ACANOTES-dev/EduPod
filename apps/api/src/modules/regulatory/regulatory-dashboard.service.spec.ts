@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { AttendanceReadFacade, MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
+import { ComplianceReadFacade } from '../compliance/compliance-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { SafeguardingReadFacade } from '../safeguarding/safeguarding-read.facade';
 
 import { RegulatoryDashboardService } from './regulatory-dashboard.service';
 
@@ -30,6 +32,9 @@ const buildMockPrisma = () => ({
   ppodSyncLog: {
     findFirst: jest.fn().mockResolvedValue(null),
   },
+  interSchoolTransfer: {
+    count: jest.fn().mockResolvedValue(0),
+  },
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -41,12 +46,20 @@ describe('RegulatoryDashboardService', () => {
     countActivePatternAlerts: jest.Mock;
     findActiveAlertsByType: jest.Mock;
   };
+  let mockSafeguardingReadFacade: { countSafeguardingHub: jest.Mock };
+  let mockComplianceReadFacade: { countOpenDsarRequests: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockAttendanceReadFacade = {
       countActivePatternAlerts: jest.fn().mockResolvedValue(0),
       findActiveAlertsByType: jest.fn().mockResolvedValue([]),
+    };
+    mockSafeguardingReadFacade = {
+      countSafeguardingHub: jest.fn().mockResolvedValue(0),
+    };
+    mockComplianceReadFacade = {
+      countOpenDsarRequests: jest.fn().mockResolvedValue(0),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -55,6 +68,8 @@ describe('RegulatoryDashboardService', () => {
         RegulatoryDashboardService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AttendanceReadFacade, useValue: mockAttendanceReadFacade },
+        { provide: SafeguardingReadFacade, useValue: mockSafeguardingReadFacade },
+        { provide: ComplianceReadFacade, useValue: mockComplianceReadFacade },
       ],
     }).compile();
 
@@ -72,19 +87,27 @@ describe('RegulatoryDashboardService', () => {
       expect(result.calendar.upcoming_deadlines).toBe(0);
       expect(result.calendar.overdue).toBe(0);
       expect(result.calendar.next_deadline).toBeNull();
+      expect(result.calendar.next_deadlines).toEqual([]);
       expect(result.tusla.active_alerts).toBe(0);
       expect(result.tusla.students_approaching_threshold).toBe(0);
       expect(result.tusla.students_exceeded_threshold).toBe(0);
       expect(result.des.readiness_status).toBe('not_started');
       expect(result.des.recent_submissions).toBe(0);
+      expect(result.des.last_submission_at).toBeNull();
       expect(result.october_returns.readiness_status).toBe('not_started');
       expect(result.ppod.synced).toBe(0);
       expect(result.ppod.pending).toBe(0);
       expect(result.ppod.errors).toBe(0);
       expect(result.ppod.last_sync_at).toBeNull();
+      expect(result.ppod.health_percent).toBe(0);
       expect(result.cba.pending_sync).toBe(0);
       expect(result.cba.synced).toBe(0);
       expect(result.cba.last_sync_at).toBeNull();
+      expect(result.transfers.pending_count).toBe(0);
+      expect(result.submissions.this_year_count).toBe(0);
+      expect(result.anti_bullying.open_count).toBe(0);
+      expect(result.safeguarding.open_count).toBe(0);
+      expect(result.gdpr.open_dsar_count).toBe(0);
     });
 
     it('should aggregate calendar deadlines correctly', async () => {
@@ -94,25 +117,42 @@ describe('RegulatoryDashboardService', () => {
         domain: 'tusla_attendance',
         due_date: new Date('2026-04-15'),
       };
+      const feed = [
+        nextDeadline,
+        {
+          id: 'event-2',
+          title: 'DES Returns',
+          domain: 'des_september_returns',
+          due_date: new Date('2026-05-10'),
+        },
+      ];
 
       mockPrisma.regulatoryCalendarEvent.count
         .mockResolvedValueOnce(3) // upcoming
         .mockResolvedValueOnce(1); // overdue
       mockPrisma.regulatoryCalendarEvent.findFirst.mockResolvedValue(nextDeadline);
+      mockPrisma.regulatoryCalendarEvent.findMany.mockResolvedValue(feed);
 
       const result = await service.getDashboardSummary(TENANT_ID);
 
       expect(result.calendar.upcoming_deadlines).toBe(3);
       expect(result.calendar.overdue).toBe(1);
       expect(result.calendar.next_deadline).toEqual(nextDeadline);
+      expect(result.calendar.next_deadlines).toHaveLength(2);
     });
 
     it('should count Tusla alerts and categorise by threshold status', async () => {
       mockAttendanceReadFacade.countActivePatternAlerts.mockResolvedValue(5);
       mockAttendanceReadFacade.findActiveAlertsByType.mockResolvedValue([
         { student_id: 's1', details_json: { source: 'tusla_threshold_scan', status: 'exceeded' } },
-        { student_id: 's2', details_json: { source: 'tusla_threshold_scan', status: 'approaching' } },
-        { student_id: 's3', details_json: { source: 'tusla_threshold_scan', status: 'approaching' } },
+        {
+          student_id: 's2',
+          details_json: { source: 'tusla_threshold_scan', status: 'approaching' },
+        },
+        {
+          student_id: 's3',
+          details_json: { source: 'tusla_threshold_scan', status: 'approaching' },
+        },
       ]);
 
       const result = await service.getDashboardSummary(TENANT_ID);
@@ -127,8 +167,14 @@ describe('RegulatoryDashboardService', () => {
       mockAttendanceReadFacade.findActiveAlertsByType.mockResolvedValue([
         { student_id: 's1', details_json: { source: 'tusla_threshold_scan', status: 'exceeded' } },
         { student_id: 's1', details_json: { source: 'tusla_threshold_scan', status: 'exceeded' } },
-        { student_id: 's2', details_json: { source: 'tusla_threshold_scan', status: 'approaching' } },
-        { student_id: 's2', details_json: { source: 'tusla_threshold_scan', status: 'approaching' } },
+        {
+          student_id: 's2',
+          details_json: { source: 'tusla_threshold_scan', status: 'approaching' },
+        },
+        {
+          student_id: 's2',
+          details_json: { source: 'tusla_threshold_scan', status: 'approaching' },
+        },
       ]);
 
       const result = await service.getDashboardSummary(TENANT_ID);
@@ -168,6 +214,29 @@ describe('RegulatoryDashboardService', () => {
       expect(result.des.recent_submissions).toBe(1);
     });
 
+    it('should surface last DES submission timestamp', async () => {
+      const submittedAt = new Date('2026-02-12T09:00:00Z');
+      mockPrisma.regulatorySubmission.findMany.mockResolvedValue([{ status: 'reg_submitted' }]);
+      mockPrisma.regulatorySubmission.findFirst.mockImplementation(
+        (args: {
+          where: {
+            domain?: string;
+            submission_type?: string;
+            status?: { in?: string[]; notIn?: string[] };
+          };
+        }) => {
+          if (args.where.domain === 'des_september_returns' && 'in' in (args.where.status ?? {})) {
+            return Promise.resolve({ submitted_at: submittedAt });
+          }
+          return Promise.resolve(null);
+        },
+      );
+
+      const result = await service.getDashboardSummary(TENANT_ID);
+
+      expect(result.des.last_submission_at).toEqual(submittedAt);
+    });
+
     it('should return DES readiness as incomplete when submissions exist but none completed', async () => {
       mockPrisma.regulatorySubmission.findMany.mockImplementation(
         (args: { where: { domain: string } }) => {
@@ -183,7 +252,7 @@ describe('RegulatoryDashboardService', () => {
       expect(result.des.readiness_status).toBe('incomplete');
     });
 
-    it('should aggregate PPOD sync statuses correctly', async () => {
+    it('should aggregate PPOD sync statuses and compute health percent', async () => {
       mockPrisma.ppodStudentMapping.count.mockImplementation(
         (args: { where: { sync_status: string } }) => {
           const statusCounts: Record<string, number> = {
@@ -205,11 +274,19 @@ describe('RegulatoryDashboardService', () => {
       expect(result.ppod.pending).toBe(15); // 10 pending + 5 changed
       expect(result.ppod.errors).toBe(3);
       expect(result.ppod.last_sync_at).toEqual(syncDate);
+      // 50 synced / 68 total = 73.5% → rounded to 74
+      expect(result.ppod.health_percent).toBe(74);
     });
 
     it('should aggregate CBA sync summary', async () => {
       mockPrisma.regulatorySubmission.count.mockImplementation(
-        (args: { where: { domain?: string; submission_type?: string; status?: { notIn?: string[]; in?: string[] } } }) => {
+        (args: {
+          where: {
+            domain?: string;
+            submission_type?: string;
+            status?: { notIn?: string[]; in?: string[] };
+          };
+        }) => {
           if (args.where.domain !== 'ppod_sync' || args.where.submission_type !== 'cba_sync') {
             return Promise.resolve(0);
           }
@@ -231,6 +308,41 @@ describe('RegulatoryDashboardService', () => {
       expect(result.cba.pending_sync).toBe(4);
       expect(result.cba.synced).toBe(12);
       expect(result.cba.last_sync_at).toEqual(cbaSyncDate);
+    });
+
+    it('should count pending transfers, open safeguarding concerns, and open DSARs', async () => {
+      mockPrisma.interSchoolTransfer.count.mockResolvedValue(7);
+      mockSafeguardingReadFacade.countSafeguardingHub.mockResolvedValue(4);
+      mockComplianceReadFacade.countOpenDsarRequests.mockResolvedValue(2);
+
+      const result = await service.getDashboardSummary(TENANT_ID);
+
+      expect(result.transfers.pending_count).toBe(7);
+      expect(result.safeguarding.open_count).toBe(4);
+      expect(result.gdpr.open_dsar_count).toBe(2);
+    });
+
+    it('should count anti-bullying open submissions separately from this-year counts', async () => {
+      mockPrisma.regulatorySubmission.count.mockImplementation(
+        (args: {
+          where: { domain?: string; academic_year?: string; status?: { notIn?: string[] } };
+        }) => {
+          // Anti-bullying open submissions
+          if (args.where.domain === 'anti_bullying' && args.where.status?.notIn) {
+            return Promise.resolve(3);
+          }
+          // This-year submissions (no domain filter, has academic_year)
+          if (args.where.academic_year && !args.where.domain) {
+            return Promise.resolve(9);
+          }
+          return Promise.resolve(0);
+        },
+      );
+
+      const result = await service.getDashboardSummary(TENANT_ID);
+
+      expect(result.anti_bullying.open_count).toBe(3);
+      expect(result.submissions.this_year_count).toBe(9);
     });
   });
 

@@ -1,341 +1,228 @@
 'use client';
 
+import { AlarmClock, CalendarPlus, Download, FileText, History, TrendingUp } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { StatCard } from '@school/ui';
+import type { RegulatoryDashboardSummary } from '@school/shared/regulatory';
 
+import { HubTile } from '@/components/hub-tile';
+import { CardSkeleton, KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
+import { QuickAction } from '@/components/quick-action';
+import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
+import { ADMIN_ROLES, STAFF_ROLES, type RoleKey } from '@/lib/route-roles';
 
-import { ComplianceStatusCard } from './_components/compliance-status-card';
-import { DeadlineTimeline } from './_components/deadline-timeline';
+import { ErrorBanner } from './_components/error-banner';
+import {
+  filterTilesForRoles,
+  REGULATORY_TILES,
+  resolveTileCount,
+} from './_components/hub-tile-catalogue';
+import { UpcomingDeadlinesFeed } from './_components/upcoming-deadlines-feed';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Quick-action catalogue ─────────────────────────────────────────────────
 
-interface NextDeadline {
-  id: string;
-  title: string;
-  domain: string;
-  due_date: string;
+interface QuickActionConfig {
+  key: 'generateSar' | 'startPpodExport' | 'newCalendarEvent' | 'viewSubmissions';
+  href: string;
+  icon: typeof Download;
+  accent: string;
+  gradient: string;
+  roles: RoleKey[];
 }
 
-interface DashboardSummary {
-  calendar: {
-    upcoming_deadlines: number;
-    overdue: number;
-    next_deadline: NextDeadline | null;
-  };
-  tusla: {
-    students_approaching_threshold: number;
-    students_exceeded_threshold: number;
-    active_alerts: number;
-  };
-  des: {
-    readiness_status: 'not_started' | 'incomplete' | 'ready';
-    recent_submissions: number;
-  };
-  october_returns: {
-    readiness_status: 'not_started' | 'incomplete' | 'ready';
-  };
-  ppod: {
-    synced: number;
-    pending: number;
-    errors: number;
-    last_sync_at: string | null;
-  };
-  cba: {
-    pending_sync: number;
-    synced: number;
-    last_sync_at: string | null;
-  };
-}
+const QUICK_ACTIONS: QuickActionConfig[] = [
+  {
+    key: 'generateSar',
+    href: '/regulatory/tusla',
+    icon: FileText,
+    accent: 'bg-teal-100 text-teal-700',
+    gradient: 'from-teal-400 to-teal-600',
+    roles: ADMIN_ROLES,
+  },
+  {
+    key: 'startPpodExport',
+    href: '/regulatory/ppod',
+    icon: Download,
+    accent: 'bg-cyan-100 text-cyan-700',
+    gradient: 'from-cyan-400 to-cyan-600',
+    roles: ADMIN_ROLES,
+  },
+  {
+    key: 'newCalendarEvent',
+    href: '/regulatory/calendar',
+    icon: CalendarPlus,
+    accent: 'bg-amber-100 text-amber-700',
+    gradient: 'from-amber-400 to-amber-600',
+    roles: ADMIN_ROLES,
+  },
+  {
+    key: 'viewSubmissions',
+    href: '/regulatory/submissions',
+    icon: History,
+    accent: 'bg-slate-100 text-slate-700',
+    gradient: 'from-slate-400 to-slate-600',
+    roles: STAFF_ROLES,
+  },
+];
 
-interface OverdueItem {
-  id: string;
-  type: string;
-  title: string;
-  domain: string;
-  due_date: string;
-  days_overdue: number;
-}
+// ─── Page ───────────────────────────────────────────────────────────────────
 
-// ─── Readiness Helpers ───────────────────────────────────────────────────────
+export default function RegulatoryHubPage() {
+  const t = useTranslations('regulatory.superHub');
+  const { roleKeys } = useRoleCheck();
 
-type ReadinessStatus = 'not_started' | 'incomplete' | 'ready';
-
-function readinessVariant(status: ReadinessStatus): 'success' | 'warning' | 'danger' {
-  switch (status) {
-    case 'ready':
-      return 'success';
-    case 'incomplete':
-      return 'warning';
-    case 'not_started':
-      return 'danger';
-  }
-}
-
-function readinessLabel(status: ReadinessStatus, t: (key: string) => string): string {
-  switch (status) {
-    case 'ready':
-      return t('dashboard.statusReady');
-    case 'incomplete':
-      return t('dashboard.statusIncomplete');
-    case 'not_started':
-      return t('dashboard.statusNotStarted');
-  }
-}
-
-// ─── Skeleton Components ─────────────────────────────────────────────────────
-
-function StatCardSkeleton() {
-  return (
-    <div className="animate-pulse rounded-2xl bg-surface-secondary p-5">
-      <div className="h-3 w-20 rounded bg-border" />
-      <div className="mt-3 h-7 w-16 rounded bg-border" />
-    </div>
-  );
-}
-
-function ComplianceCardSkeleton() {
-  return (
-    <div className="animate-pulse rounded-2xl bg-surface-secondary p-5">
-      <div className="h-4 w-32 rounded bg-border" />
-      <div className="mt-4 space-y-3">
-        <div className="flex justify-between">
-          <div className="h-3 w-24 rounded bg-border" />
-          <div className="h-3 w-12 rounded bg-border" />
-        </div>
-        <div className="flex justify-between">
-          <div className="h-3 w-20 rounded bg-border" />
-          <div className="h-3 w-8 rounded bg-border" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TimelineSkeleton() {
-  return (
-    <div className="animate-pulse rounded-2xl bg-surface-secondary p-5">
-      <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="flex gap-3">
-            <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-border" />
-            <div className="flex-1 space-y-2">
-              <div className="h-4 w-48 rounded bg-border" />
-              <div className="h-3 w-24 rounded bg-border" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── Page ────────────────────────────────────────────────────────────────────
-
-export default function RegulatoryDashboardPage() {
-  const t = useTranslations('regulatory');
-
-  const [summary, setSummary] = React.useState<DashboardSummary | null>(null);
-  const [overdueItems, setOverdueItems] = React.useState<OverdueItem[]>([]);
+  const [summary, setSummary] = React.useState<RegulatoryDashboardSummary | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [reloadKey, setReloadKey] = React.useState(0);
 
-  const fetchData = React.useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [dashboardRes, overdueRes] = await Promise.all([
-        apiClient<DashboardSummary>('/api/v1/regulatory/dashboard'),
-        apiClient<OverdueItem[]>('/api/v1/regulatory/dashboard/overdue'),
-      ]);
-      setSummary(dashboardRes);
-      setOverdueItems(overdueRes);
-    } catch (err) {
-      console.error('[RegulatoryDashboardPage]', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
+  // ── Fetch dashboard summary ─────────────────────────────────────────────
   React.useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
+
+    apiClient<{ data: RegulatoryDashboardSummary }>('/api/v1/regulatory/dashboard')
+      .then((res) => {
+        if (!cancelled) setSummary(res.data);
+      })
+      .catch((err) => {
+        console.error('[RegulatoryHubPage] dashboard failed', err);
+        if (!cancelled) setError(t('loadError'));
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey, t]);
+
+  // ── Derived data ────────────────────────────────────────────────────────
+  const visibleTiles = React.useMemo(
+    () => filterTilesForRoles(REGULATORY_TILES, roleKeys as RoleKey[]),
+    [roleKeys],
+  );
+
+  const visibleActions = React.useMemo(
+    () => QUICK_ACTIONS.filter((a) => a.roles.some((r) => roleKeys.includes(r))),
+    [roleKeys],
+  );
+
+  const overdueCount = summary?.calendar.overdue ?? 0;
+  const upcomingCount = summary?.calendar.upcoming_deadlines ?? 0;
+  const ppodHealth = summary?.ppod.health_percent;
+  const lastDesSubmission = summary?.des.last_submission_at;
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={t('title')} description={t('dashboard.description')} />
+    <div className="flex min-w-0 flex-col gap-8 pb-10">
+      <PageHeader title={t('title')} description={t('description')} />
 
-      {/* ─── Top Stat Cards ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {isLoading ? (
+      {/* ── Error banner ─────────────────────────────────────────────── */}
+      {error && (
+        <ErrorBanner
+          message={error}
+          retryLabel={t('retry')}
+          onRetry={() => setReloadKey((k) => k + 1)}
+        />
+      )}
+
+      {/* ── KPI strip ─────────────────────────────────────────────────── */}
+      <section aria-label={t('kpis.ariaLabel')} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiTile
+          icon={AlarmClock}
+          label={t('kpis.overdue')}
+          value={overdueCount}
+          subtitle={overdueCount > 0 ? t('kpis.overdueSubtitle') : undefined}
+          isLoading={isLoading}
+          accent={overdueCount > 0 ? 'text-danger-600' : 'text-text-tertiary'}
+          tooltip={t('kpis.overdueTooltip')}
+        />
+        <KpiTile
+          icon={CalendarPlus}
+          label={t('kpis.upcoming')}
+          value={upcomingCount}
+          subtitle={t('kpis.upcomingSubtitle')}
+          isLoading={isLoading}
+          accent="text-teal-700"
+          tooltip={t('kpis.upcomingTooltip')}
+        />
+        <KpiTile
+          icon={TrendingUp}
+          label={t('kpis.ppodHealth')}
+          value={ppodHealth === undefined ? undefined : `${ppodHealth}%`}
+          isLoading={isLoading}
+          accent="text-cyan-700"
+          tooltip={t('kpis.ppodHealthTooltip')}
+        />
+        <KpiTile
+          icon={FileText}
+          label={t('kpis.lastDesSubmission')}
+          value={lastDesSubmission ? formatDate(lastDesSubmission) : t('kpis.never')}
+          isLoading={isLoading}
+          accent="text-sky-700"
+          tooltip={t('kpis.lastDesSubmissionTooltip')}
+        />
+      </section>
+
+      {/* ── Quick actions ─────────────────────────────────────────────── */}
+      {visibleActions.length > 0 && (
+        <section
+          aria-label={t('quickActions.ariaLabel')}
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          {visibleActions.map((action) => (
+            <QuickAction
+              key={action.key}
+              icon={action.icon}
+              label={t(`quickActions.${action.key}`)}
+              href={action.href}
+              accent={action.accent}
+              gradient={action.gradient}
+            />
+          ))}
+        </section>
+      )}
+
+      {/* ── Hub tiles ─────────────────────────────────────────────────── */}
+      <section
+        aria-label={t('tiles.ariaLabel')}
+        className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3"
+      >
+        {isLoading && summary === null ? (
           <>
-            <StatCardSkeleton />
-            <StatCardSkeleton />
-            <StatCardSkeleton />
+            {visibleTiles.map((tile) => (
+              <CardSkeleton key={`skeleton-${tile.key}`} />
+            ))}
           </>
         ) : (
-          <>
-            <StatCard
-              label={t('dashboard.upcomingDeadlines')}
-              value={summary?.calendar.upcoming_deadlines ?? 0}
+          visibleTiles.map((tile, idx) => (
+            <HubTile
+              key={tile.key}
+              icon={tile.icon}
+              title={t(`tiles.${tile.key}.title`)}
+              description={t(`tiles.${tile.key}.description`)}
+              href={tile.href}
+              accent={tile.accent}
+              iconBg={tile.iconBg}
+              glow={tile.glow}
+              count={resolveTileCount(tile.key, summary)}
+              animationIndex={idx}
             />
-            <StatCard
-              label={t('dashboard.overdueItems')}
-              value={summary?.calendar.overdue ?? 0}
-              trend={
-                summary && summary.calendar.overdue > 0
-                  ? { direction: 'down', label: t('dashboard.requiresAttention') }
-                  : undefined
-              }
-            />
-            <StatCard
-              label={t('dashboard.nextDeadline')}
-              value={
-                summary?.calendar.next_deadline
-                  ? formatDate(summary.calendar.next_deadline.due_date)
-                  : t('dashboard.none')
-              }
-            />
-          </>
+          ))
         )}
-      </div>
+      </section>
 
-      {/* ─── Compliance Status Cards ──────────────────────────────────────── */}
-      <div>
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t('dashboard.complianceStatus')}
-        </h2>
-        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {isLoading ? (
-            <>
-              <ComplianceCardSkeleton />
-              <ComplianceCardSkeleton />
-              <ComplianceCardSkeleton />
-              <ComplianceCardSkeleton />
-              <ComplianceCardSkeleton />
-            </>
-          ) : summary ? (
-            <>
-              {/* Tusla Attendance */}
-              <ComplianceStatusCard
-                title={t('dashboard.tuslaAttendance')}
-                items={[
-                  {
-                    label: t('dashboard.approachingThreshold'),
-                    value: summary.tusla.students_approaching_threshold,
-                    variant:
-                      summary.tusla.students_approaching_threshold > 0 ? 'warning' : 'success',
-                  },
-                  {
-                    label: t('dashboard.exceededThreshold'),
-                    value: summary.tusla.students_exceeded_threshold,
-                    variant: summary.tusla.students_exceeded_threshold > 0 ? 'danger' : 'success',
-                  },
-                  {
-                    label: t('dashboard.activeAlerts'),
-                    value: summary.tusla.active_alerts,
-                    variant: summary.tusla.active_alerts > 0 ? 'warning' : 'neutral',
-                  },
-                ]}
-              />
-
-              {/* DES September Returns */}
-              <ComplianceStatusCard
-                title={t('dashboard.desReturns')}
-                items={[
-                  {
-                    label: t('dashboard.readiness'),
-                    value: readinessLabel(summary.des.readiness_status, t),
-                    variant: readinessVariant(summary.des.readiness_status),
-                  },
-                  {
-                    label: t('dashboard.recentSubmissions'),
-                    value: summary.des.recent_submissions,
-                    variant: 'neutral',
-                  },
-                ]}
-              />
-
-              {/* October Returns */}
-              <ComplianceStatusCard
-                title={t('dashboard.octoberReturns')}
-                items={[
-                  {
-                    label: t('dashboard.readiness'),
-                    value: readinessLabel(summary.october_returns.readiness_status, t),
-                    variant: readinessVariant(summary.october_returns.readiness_status),
-                  },
-                ]}
-              />
-
-              {/* PPOD Sync */}
-              <ComplianceStatusCard
-                title={t('dashboard.ppodSync')}
-                items={[
-                  {
-                    label: t('dashboard.synced'),
-                    value: summary.ppod.synced,
-                    variant: 'success',
-                  },
-                  {
-                    label: t('dashboard.pending'),
-                    value: summary.ppod.pending,
-                    variant: summary.ppod.pending > 0 ? 'warning' : 'neutral',
-                  },
-                  {
-                    label: t('dashboard.errors'),
-                    value: summary.ppod.errors,
-                    variant: summary.ppod.errors > 0 ? 'danger' : 'neutral',
-                  },
-                ]}
-                footer={
-                  summary.ppod.last_sync_at
-                    ? `${t('dashboard.lastSync')}: ${formatDate(summary.ppod.last_sync_at)}`
-                    : t('dashboard.neverSynced')
-                }
-              />
-
-              {/* CBA Sync */}
-              <ComplianceStatusCard
-                title={t('dashboard.cbaSync')}
-                items={[
-                  {
-                    label: t('dashboard.synced'),
-                    value: summary.cba.synced,
-                    variant: 'success',
-                  },
-                  {
-                    label: t('dashboard.pendingSync'),
-                    value: summary.cba.pending_sync,
-                    variant: summary.cba.pending_sync > 0 ? 'warning' : 'neutral',
-                  },
-                ]}
-                footer={
-                  summary.cba.last_sync_at
-                    ? `${t('dashboard.lastSync')}: ${formatDate(summary.cba.last_sync_at)}`
-                    : t('dashboard.neverSynced')
-                }
-              />
-            </>
-          ) : null}
-        </div>
-      </div>
-
-      {/* ─── Overdue Items Timeline ───────────────────────────────────────── */}
-      <div>
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t('dashboard.overdueItemsTitle')}
-        </h2>
-        <div className="mt-3">
-          {isLoading ? (
-            <TimelineSkeleton />
-          ) : (
-            <DeadlineTimeline items={overdueItems} emptyMessage={t('dashboard.noOverdueItems')} />
-          )}
-        </div>
-      </div>
+      {/* ── Upcoming deadlines feed ──────────────────────────────────── */}
+      <UpcomingDeadlinesFeed
+        items={summary?.calendar.next_deadlines ?? []}
+        isLoading={isLoading && summary === null}
+      />
     </div>
   );
 }

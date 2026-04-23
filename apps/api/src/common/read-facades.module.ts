@@ -10,6 +10,7 @@ import { BehaviourReadFacade } from '../modules/behaviour/behaviour-read.facade'
 import { ChildProtectionReadFacade } from '../modules/child-protection/child-protection-read.facade';
 import { ClassesReadFacade } from '../modules/classes/classes-read.facade';
 import { CommunicationsReadFacade } from '../modules/communications/communications-read.facade';
+import { ComplianceReadFacade } from '../modules/compliance/compliance-read.facade';
 import { ConfigurationReadFacade } from '../modules/configuration/configuration-read.facade';
 import { EarlyWarningReadFacade } from '../modules/early-warning/early-warning-read.facade';
 import { FinanceReadFacade } from '../modules/finance/finance-read.facade';
@@ -54,6 +55,7 @@ const FACADES = [
   ChildProtectionReadFacade,
   ClassesReadFacade,
   CommunicationsReadFacade,
+  ComplianceReadFacade,
   ConfigurationReadFacade,
   EarlyWarningReadFacade,
   FinanceReadFacade,

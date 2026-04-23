@@ -3,15 +3,30 @@ import { z } from 'zod';
 // ─── Shared Enum Definitions ────────────────────────────────────────────────
 
 const regulatoryDomainEnum = z.enum([
-  'tusla_attendance', 'des_september_returns', 'des_october_census',
-  'ppod_sync', 'pod_sync', 'child_safeguarding', 'anti_bullying',
-  'fssu_financial', 'inspectorate_wse', 'sen_provision',
-  'gdpr_compliance', 'seai_energy', 'admissions_compliance', 'board_governance',
+  'tusla_attendance',
+  'des_september_returns',
+  'des_october_census',
+  'ppod_sync',
+  'pod_sync',
+  'child_safeguarding',
+  'anti_bullying',
+  'fssu_financial',
+  'inspectorate_wse',
+  'sen_provision',
+  'gdpr_compliance',
+  'seai_energy',
+  'admissions_compliance',
+  'board_governance',
 ]);
 
 const submissionStatusEnum = z.enum([
-  'not_started', 'in_progress', 'ready_for_review', 'submitted',
-  'accepted', 'rejected', 'overdue',
+  'not_started',
+  'in_progress',
+  'ready_for_review',
+  'submitted',
+  'accepted',
+  'rejected',
+  'overdue',
 ]);
 
 // ─── Calendar Events ────────────────────────────────────────────────────────
@@ -75,11 +90,16 @@ export const updateSubmissionSchema = z.object({
   file_key: z.string().max(500).nullable().optional(),
   file_hash: z.string().max(64).nullable().optional(),
   record_count: z.number().int().min(0).nullable().optional(),
-  validation_errors: z.array(z.object({
-    field: z.string(),
-    message: z.string(),
-    severity: z.enum(['error', 'warning']),
-  })).nullable().optional(),
+  validation_errors: z
+    .array(
+      z.object({
+        field: z.string(),
+        message: z.string(),
+        severity: z.enum(['error', 'warning']),
+      }),
+    )
+    .nullable()
+    .optional(),
   notes: z.string().max(5000).nullable().optional(),
 });
 
@@ -100,7 +120,15 @@ export type ListSubmissionsQueryDto = z.infer<typeof listSubmissionsQuerySchema>
 export const createTuslaAbsenceCodeMappingSchema = z.object({
   attendance_status: z.enum(['absent_excused', 'absent_unexcused', 'absent', 'late', 'left_early']),
   reason_pattern: z.string().max(255).nullable().optional(),
-  tusla_category: z.enum(['illness', 'urgent_family_reason', 'holiday', 'suspension', 'expulsion', 'other', 'unexplained']),
+  tusla_category: z.enum([
+    'illness',
+    'urgent_family_reason',
+    'holiday',
+    'suspension',
+    'expulsion',
+    'other',
+    'unexplained',
+  ]),
   display_label: z.string().min(1).max(100),
   is_default: z.boolean().optional().default(false),
 });
@@ -114,7 +142,13 @@ export const createReducedSchoolDaySchema = z.object({
   start_date: z.string().min(1),
   end_date: z.string().nullable().optional(),
   hours_per_day: z.number().min(0).max(24),
-  reason: z.enum(['behaviour_management', 'medical_needs', 'phased_return', 'assessment_pending', 'other']),
+  reason: z.enum([
+    'behaviour_management',
+    'medical_needs',
+    'phased_return',
+    'assessment_pending',
+    'other',
+  ]),
   reason_detail: z.string().max(5000).nullable().optional(),
   parent_consent_date: z.string().nullable().optional(),
   review_date: z.string().nullable().optional(),
@@ -250,3 +284,69 @@ export const seedDefaultsSchema = z.object({
 });
 
 export type SeedDefaultsDto = z.infer<typeof seedDefaultsSchema>;
+
+// ─── Regulatory Super-Hub Dashboard Summary ─────────────────────────────────
+//
+// Payload shape for `GET /api/v1/regulatory/dashboard`. Consumed by the
+// `/regulatory` super-hub to render the KPI strip, tile counters, upcoming
+// deadlines feed, and the per-sub-module badges.
+
+const readinessStatusEnum = z.enum(['not_started', 'incomplete', 'ready']);
+
+const dashboardNextDeadlineSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  domain: z.string(),
+  due_date: z.string(),
+});
+
+export const regulatoryDashboardSummarySchema = z.object({
+  calendar: z.object({
+    upcoming_deadlines: z.number().int().nonnegative(),
+    overdue: z.number().int().nonnegative(),
+    next_deadline: dashboardNextDeadlineSchema.nullable(),
+    next_deadlines: z.array(dashboardNextDeadlineSchema),
+  }),
+  tusla: z.object({
+    students_approaching_threshold: z.number().int().nonnegative(),
+    students_exceeded_threshold: z.number().int().nonnegative(),
+    active_alerts: z.number().int().nonnegative(),
+  }),
+  des: z.object({
+    readiness_status: readinessStatusEnum,
+    recent_submissions: z.number().int().nonnegative(),
+    last_submission_at: z.string().nullable(),
+  }),
+  october_returns: z.object({
+    readiness_status: readinessStatusEnum,
+  }),
+  ppod: z.object({
+    synced: z.number().int().nonnegative(),
+    pending: z.number().int().nonnegative(),
+    errors: z.number().int().nonnegative(),
+    last_sync_at: z.string().nullable(),
+    health_percent: z.number().int().min(0).max(100),
+  }),
+  cba: z.object({
+    pending_sync: z.number().int().nonnegative(),
+    synced: z.number().int().nonnegative(),
+    last_sync_at: z.string().nullable(),
+  }),
+  transfers: z.object({
+    pending_count: z.number().int().nonnegative(),
+  }),
+  submissions: z.object({
+    this_year_count: z.number().int().nonnegative(),
+  }),
+  anti_bullying: z.object({
+    open_count: z.number().int().nonnegative(),
+  }),
+  safeguarding: z.object({
+    open_count: z.number().int().nonnegative(),
+  }),
+  gdpr: z.object({
+    open_dsar_count: z.number().int().nonnegative(),
+  }),
+});
+
+export type RegulatoryDashboardSummary = z.infer<typeof regulatoryDashboardSummarySchema>;

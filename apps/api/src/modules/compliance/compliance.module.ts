@@ -24,6 +24,7 @@ import { WebsiteModule } from '../website/website.module';
 
 import { AccessExportService } from './access-export.service';
 import { AnonymisationService } from './anonymisation.service';
+import { ComplianceReadFacade } from './compliance-read.facade';
 import { ComplianceController } from './compliance.controller';
 import { ComplianceService } from './compliance.service';
 import { DsarTraversalService } from './dsar-traversal.service';
@@ -64,7 +65,8 @@ import { RetentionPoliciesService } from './retention-policies.service';
     AccessExportService,
     DsarTraversalService,
     RetentionPoliciesService,
+    ComplianceReadFacade,
   ],
-  exports: [ComplianceService, RetentionPoliciesService],
+  exports: [ComplianceService, RetentionPoliciesService, ComplianceReadFacade],
 })
 export class ComplianceModule {}

@@ -9178,7 +9178,88 @@
     "created": "Created",
     "pushed": "Pushed",
     "pod": "POD",
-    "ppod2": "PPOD"
+    "ppod2": "PPOD",
+    "superHub": {
+      "title": "Regulatory Hub",
+      "description": "Everything required to stay compliant with Tusla, the Department of Education, and child-protection obligations — all in one place.",
+      "loadError": "We couldn't load the regulatory dashboard. Please try again.",
+      "retry": "Retry",
+      "kpis": {
+        "ariaLabel": "Regulatory key metrics",
+        "overdue": "Overdue",
+        "overdueSubtitle": "items",
+        "overdueTooltip": "Calendar events past their due date across every regulatory domain.",
+        "upcoming": "Upcoming",
+        "upcomingSubtitle": "deadlines",
+        "upcomingTooltip": "Calendar events due in the next 30 days across every regulatory domain.",
+        "ppodHealth": "P-POD Health",
+        "ppodHealthTooltip": "Share of student records currently in sync with P-POD / POD (no pending, changed, or errored mappings).",
+        "lastDesSubmission": "Last DES Submission",
+        "lastDesSubmissionTooltip": "Date of the most recent accepted DES September Returns submission.",
+        "never": "Never"
+      },
+      "quickActions": {
+        "ariaLabel": "Regulatory quick actions",
+        "generateSar": "Generate Tusla SAR",
+        "startPpodExport": "Start P-POD Export",
+        "newCalendarEvent": "New Calendar Event",
+        "viewSubmissions": "Submission Log"
+      },
+      "tiles": {
+        "ariaLabel": "Regulatory sub-modules",
+        "tusla": {
+          "title": "Tusla",
+          "description": "SAR / AAR reports, absence thresholds, reduced school days."
+        },
+        "ppod": {
+          "title": "P-POD / POD",
+          "description": "Student data sync with the primary and post-primary databases."
+        },
+        "desReturns": {
+          "title": "DES Returns",
+          "description": "September returns — readiness checks and file generation."
+        },
+        "octoberReturns": {
+          "title": "October Returns",
+          "description": "October census readiness, previews, and data-quality checks."
+        },
+        "cba": {
+          "title": "CBA Sync",
+          "description": "Classroom-Based Assessment results into the PPOD portal."
+        },
+        "transfers": {
+          "title": "Transfers",
+          "description": "Inter-school transfers — inbound and outbound students."
+        },
+        "calendar": {
+          "title": "Calendar",
+          "description": "Every regulatory deadline — past, imminent, and upcoming."
+        },
+        "submissions": {
+          "title": "Submissions",
+          "description": "Audit log of every regulatory file sent, received, or accepted."
+        },
+        "antiBullying": {
+          "title": "Anti-Bullying",
+          "description": "Incident tracking under the Department's anti-bullying procedures."
+        },
+        "safeguarding": {
+          "title": "Safeguarding",
+          "description": "Child-protection concerns, Tusla / Garda referrals, DLP oversight."
+        },
+        "gdpr": {
+          "title": "GDPR / Privacy",
+          "description": "DSAR requests, privacy notices, and data-retention controls."
+        }
+      },
+      "feed": {
+        "ariaLabel": "Upcoming regulatory deadlines",
+        "title": "Upcoming deadlines",
+        "viewAll": "View calendar",
+        "emptyTitle": "No upcoming deadlines",
+        "emptyDescription": "Nothing is due in the next window — the regulatory calendar is clear."
+      }
+    }
   },
   "retention": {
     "title": "Data Retention",

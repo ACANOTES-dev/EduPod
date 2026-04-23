@@ -295,6 +295,7 @@ If a module is not listed individually, it is either:
 - **Contract**: calendar, submissions, Tusla, DES/October returns, PPOD/POD, transfers
 - **Primary consumers**: worker processors on the `regulatory` queue, academic/attendance/behaviour/staff data contracts
 - **Imports**: SchedulesModule
+- **Read-facade dependencies**: `AttendanceReadFacade` (Tusla alerts), `SafeguardingReadFacade` (open concern count for `/regulatory` super-hub GDPR/safeguarding tiles), `ComplianceReadFacade` (open DSAR count for the GDPR tile).
 - **Blast radius**: HIGH
 - **Notes**: exports are limited, but the module is a wide reader of other domain data
 
@@ -372,9 +373,10 @@ If a module is not listed individually, it is either:
 
 ### ComplianceModule
 
-- **Contract**: compliance audits, data exports, cross-domain compliance aggregation
+- **Contract**: compliance audits, data exports, cross-domain compliance aggregation, open-DSAR read surface (via `ComplianceReadFacade`)
 - **Primary consumers**: regulatory, GDPR/DPA, leadership dashboards
 - **Imports**: AdmissionsModule, AttendanceModule, BehaviourModule, ClassesModule, CommunicationsModule, FinanceModule, GdprModule, GradebookModule, HouseholdsModule, ParentInquiriesModule, ParentsModule, PayrollModule, SearchModule, StaffProfilesModule, StudentsModule, WebsiteModule
+- **Exports (read)**: `ComplianceReadFacade` — registered in the global `ReadFacadesModule`; exposes `countOpenDsarRequests(tenantId)` for the regulatory super-hub GDPR tile. Owns the `complianceRequest` Prisma model.
 - **Blast radius**: HIGH
 - **Notes**: widest reader module in the codebase; any domain schema change may affect compliance exports
 

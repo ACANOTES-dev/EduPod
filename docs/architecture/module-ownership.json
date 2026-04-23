@@ -251,7 +251,7 @@
     "compliance": {
       "path": "apps/api/src/modules/compliance",
       "ownedModels": ["complianceRequest"],
-      "readFacade": null
+      "readFacade": "ComplianceReadFacade"
     },
     "imports": {
       "path": "apps/api/src/modules/imports",
