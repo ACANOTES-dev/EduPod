@@ -151,7 +151,15 @@ describe('SenSupportPlanService', () => {
     });
 
     it('returns scoped plans for a profile', async () => {
-      const plans = [{ id: PLAN_ID, version: 2 }];
+      const createdAt = new Date('2025-09-01T10:00:00Z');
+      const plans = [
+        {
+          id: PLAN_ID,
+          version: 2,
+          created_at: createdAt,
+          academic_year: { id: 'ay-1', name: '2025-2026' },
+        },
+      ];
       senSupportPlanMock.findMany.mockResolvedValue(plans);
       senSupportPlanMock.count.mockResolvedValue(1);
 
@@ -161,7 +169,13 @@ describe('SenSupportPlanService', () => {
         status: 'draft',
       });
 
-      expect(result.data).toEqual(plans);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toMatchObject({
+        id: PLAN_ID,
+        version: 2,
+        academic_year_name: '2025-2026',
+        start_date: createdAt.toISOString(),
+      });
       expect(senSupportPlanMock.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
