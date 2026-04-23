@@ -66,34 +66,33 @@ interface DesTile {
   glow: string;
 }
 
-function buildTiles(locale: string): DesTile[] {
-  return [
-    {
-      key: 'subjectMappings',
-      href: `/${locale}/regulatory/des-returns/subject-mappings`,
-      icon: BookOpen,
-      accent: 'from-teal-400 via-teal-500 to-teal-600',
-      iconBg: 'bg-teal-100 text-teal-700',
-      glow: 'from-teal-50/80',
-    },
-    {
-      key: 'generate',
-      href: `/${locale}/regulatory/des-returns/generate`,
-      icon: FileDown,
-      accent: 'from-cyan-400 via-cyan-500 to-cyan-600',
-      iconBg: 'bg-cyan-100 text-cyan-700',
-      glow: 'from-cyan-50/80',
-    },
-    {
-      key: 'submittedReturns',
-      href: `/${locale}/regulatory/submissions?domain=${DES_DOMAIN}`,
-      icon: History,
-      accent: 'from-sky-400 via-sky-500 to-sky-600',
-      iconBg: 'bg-sky-100 text-sky-700',
-      glow: 'from-sky-50/80',
-    },
-  ];
-}
+// HubTile internally prepends the locale — keep these paths locale-free.
+const DES_TILES: DesTile[] = [
+  {
+    key: 'subjectMappings',
+    href: '/regulatory/des-returns/subject-mappings',
+    icon: BookOpen,
+    accent: 'from-teal-400 via-teal-500 to-teal-600',
+    iconBg: 'bg-teal-100 text-teal-700',
+    glow: 'from-teal-50/80',
+  },
+  {
+    key: 'generate',
+    href: '/regulatory/des-returns/generate',
+    icon: FileDown,
+    accent: 'from-cyan-400 via-cyan-500 to-cyan-600',
+    iconBg: 'bg-cyan-100 text-cyan-700',
+    glow: 'from-cyan-50/80',
+  },
+  {
+    key: 'submittedReturns',
+    href: `/regulatory/submissions?domain=${DES_DOMAIN}`,
+    icon: History,
+    accent: 'from-sky-400 via-sky-500 to-sky-600',
+    iconBg: 'bg-sky-100 text-sky-700',
+    glow: 'from-sky-50/80',
+  },
+];
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
@@ -244,8 +243,6 @@ export default function DesReturnsHubPage() {
     if (e.key === 'Enter') handleApplyYear();
   }
 
-  const tiles = buildTiles(locale);
-
   return (
     <div className="flex min-w-0 flex-col gap-8 pb-10">
       <PageHeader
@@ -346,7 +343,7 @@ export default function DesReturnsHubPage() {
         aria-label={t('tiles.ariaLabel')}
         className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3"
       >
-        {tiles.map((tile, i) => (
+        {DES_TILES.map((tile, i) => (
           <HubTile
             key={tile.key}
             icon={tile.icon}
