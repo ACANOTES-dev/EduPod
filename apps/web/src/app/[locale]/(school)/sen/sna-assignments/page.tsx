@@ -676,7 +676,7 @@ export default function SnaAssignmentsPage() {
     setLoading(true);
     setError(false);
     try {
-      const res = await apiClient<AssignmentResponse>('/api/v1/sen/sna-assignments?pageSize=200');
+      const res = await apiClient<AssignmentResponse>('/api/v1/sen/sna-assignments?pageSize=100');
       setAssignments(res.data);
     } catch (err) {
       console.error('[SnaAssignmentsPage] fetch', err);
