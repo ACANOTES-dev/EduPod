@@ -32,7 +32,9 @@ interface PaginationResult<T> {
 interface SnaAssignmentSummary {
   id: string;
   sna_staff_profile_id: string;
+  sna_staff_name: string;
   student_id: string;
+  student_name: string;
   sen_profile_id: string;
   schedule: Record<string, unknown>;
   status: string;
@@ -450,10 +452,16 @@ export class SenSnaService {
   } satisfies Prisma.SenSnaAssignmentInclude;
 
   private mapAssignment(assignment: SnaAssignmentRecord): SnaAssignmentSummary {
+    const staffUser = assignment.staff_profile?.user;
+    const student = assignment.student;
     return {
       id: assignment.id,
       sna_staff_profile_id: assignment.sna_staff_profile_id,
+      sna_staff_name: staffUser
+        ? `${staffUser.first_name ?? ''} ${staffUser.last_name ?? ''}`.trim()
+        : '',
       student_id: assignment.student_id,
+      student_name: student ? `${student.first_name} ${student.last_name}`.trim() : '',
       sen_profile_id: assignment.sen_profile_id,
       schedule: assignment.schedule as Record<string, unknown>,
       status: assignment.status,
