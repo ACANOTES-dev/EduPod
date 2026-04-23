@@ -9153,31 +9153,19 @@
       }
     },
     "octoberReturns": {
-      "pageTitle": "تقارير أكتوبر",
-      "pageDescription": "جاهزية بيانات تعداد أكتوبر والمعاينة وفحوصات جودة البيانات",
+      "subHubTitle": "تقارير أكتوبر",
+      "subHubDescription": "التعداد السنوي للطلاب المطلوب من وزارة التعليم.",
+      "backToRegulatory": "العودة إلى التنظيمية",
+      "backToHub": "العودة إلى تقارير أكتوبر",
+      "retry": "إعادة المحاولة",
+      "loadError": "تعذر تحميل بيانات تقارير أكتوبر. حاول مرة أخرى.",
       "academicYear": "السنة الدراسية",
+      "academicYearPlaceholder": "مثال: 2025-2026",
       "applyYear": "تطبيق",
-      "bannerPass": "جميع الفحوصات نجحت — البيانات جاهزة لتقارير أكتوبر",
-      "bannerWarning": "بعض الفحوصات بها تحذيرات — راجع قبل التقديم",
-      "bannerFail": "وُجدت مشكلات في جودة البيانات — حل المشكلات قبل التقديم",
-      "statusPass": "ناجح",
-      "statusWarning": "تحذير",
-      "statusFail": "فشل",
+      "previewSubmissionAction": "معاينة التقديم",
+      "studentNumberLabel": "رقم الطالب",
       "totalStudents": "إجمالي الطلاب",
-      "studentsChecked": "الطلاب المفحوصون",
-      "valid": "صالح",
-      "of": "من",
-      "issues": "المشكلات",
-      "issuesCount": "المشكلات",
-      "studentName": "اسم الطالب",
-      "studentNumber": "رقم الطالب",
-      "severity": "الخطورة",
-      "severityError": "خطأ",
-      "severityWarning": "تحذير",
-      "studentsHaveIssues": "{count} من {total} طالب لديهم مشكلات في جودة البيانات",
-      "allStudentsComplete": "جميع الطلاب لديهم بيانات كاملة وصالحة",
       "noData": "لا توجد بيانات متاحة لهذه السنة الدراسية",
-      "generatedAt": "تاريخ الإنشاء",
       "genderMale": "ذكر",
       "genderFemale": "أنثى",
       "genderOther": "آخر",
@@ -9187,9 +9175,93 @@
       "count": "العدد",
       "yearGroupBreakdown": "توزيع الصفوف",
       "yearGroup": "الصف",
-      "tabReadiness": "الجاهزية",
-      "tabPreview": "معاينة",
-      "tabIssues": "المشكلات"
+      "kpi": {
+        "ariaLabel": "المؤشرات الرئيسية لتقارير أكتوبر",
+        "studentsIncluded": "الطلاب المُضَمَّنون",
+        "studentsIncludedTooltip": "الطلاب النشطون الذين سيُدرَجون في تعداد أكتوبر للسنة الدراسية المحددة.",
+        "blockingIssues": "المشكلات الحاجبة",
+        "blockingIssuesTooltip": "الطلاب الذين لديهم مشكلات في جودة البيانات يجب حلها قبل التقديم.",
+        "daysUntilDeadline": "الأيام حتى الموعد النهائي",
+        "daysUntilDeadlineTooltip": "الأيام التقويمية حتى الموعد النهائي لتقديم تقارير أكتوبر (31 أكتوبر).",
+        "deadlinePassed": "انقضى",
+        "lastPreview": "آخر معاينة",
+        "lastPreviewTooltip": "أحدث وقت تم فيه إنشاء معاينة التعداد المُجمَّعة.",
+        "never": "أبدًا"
+      },
+      "tiles": {
+        "ariaLabel": "إجراءات تقارير أكتوبر",
+        "issues": {
+          "title": "مشكلات لحلها",
+          "description": "راجع كل طالب لديه بيانات ناقصة أو غير صالحة وانتقل إلى الشاشة التي تصلحها."
+        },
+        "preview": {
+          "title": "معاينة التقديم",
+          "description": "اطَّلع على التعداد المُجمَّع تمامًا كما سيُقدَّم وقم بتنزيل ملف CSV."
+        }
+      },
+      "checklist": {
+        "title": "قائمة الجاهزية",
+        "description": "حالة كل حقل عبر الطلاب النشطين.",
+        "loading": "جاري تحميل قائمة الجاهزية",
+        "empty": "لا توجد بيانات جاهزية لهذه السنة الدراسية.",
+        "required": "مطلوب",
+        "optional": "اختياري",
+        "countAffected": "{count, plural, zero {# طالب متأثر} one {# طالب متأثر} two {طالبان متأثران} few {# طلاب متأثرون} many {# طالبًا متأثرًا} other {# طالب متأثر}}",
+        "fix": "إصلاح"
+      },
+      "status": {
+        "pass": "ناجح",
+        "warning": "تحذير",
+        "fail": "فشل",
+        "not_applicable": "غير منطبق"
+      },
+      "severity": {
+        "error": "خطأ",
+        "warning": "تحذير"
+      },
+      "fields": {
+        "student_count": { "label": "إجمالي عدد الطلاب" },
+        "gender_breakdown": { "label": "توزيع الجنس" },
+        "nationality_breakdown": { "label": "توزيع الجنسيات" },
+        "year_group_enrolment": { "label": "تسجيل الصفوف الدراسية" },
+        "sen_students": { "label": "طلاب الاحتياجات الخاصة" },
+        "traveller_students": { "label": "طلاب الرحّل" },
+        "eal_students": { "label": "طلاب اللغة الإنجليزية لغة إضافية" },
+        "new_entrants": { "label": "الطلاب الجدد" },
+        "repeat_students": { "label": "الطلاب المعيدون" }
+      },
+      "issueFields": {
+        "national_id": "رقم PPSN",
+        "date_of_birth": "تاريخ الميلاد",
+        "gender": "الجنس",
+        "nationality": "الجنسية",
+        "entry_date": "تاريخ الالتحاق",
+        "class_enrolment": "تسجيل الفصل",
+        "year_group": "الصف الدراسي",
+        "address": "العنوان"
+      },
+      "filter": {
+        "severity": "الخطورة",
+        "field": "الحقل",
+        "all": "الكل"
+      },
+      "issues": {
+        "pageTitle": "مشكلات لحلها",
+        "pageDescription": "كل طالب لديه بيانات ناقصة أو غير صالحة تحجب تقديم تقارير أكتوبر.",
+        "summary": "{withIssues} من {total} طالب لديهم مشكلات في جودة البيانات.",
+        "problemCount": "{count, plural, zero {# مشكلة} one {# مشكلة} two {مشكلتان} few {# مشكلات} many {# مشكلة} other {# مشكلة}}",
+        "emptyStateTitle": "جميع الطلاب لديهم بيانات كاملة",
+        "emptyStateBody": "{total, plural, zero {تم فحص # طالب} one {تم فحص # طالب} two {تم فحص طالبَين} few {تم فحص # طلاب} many {تم فحص # طالبًا} other {تم فحص # طالب}} — لا شيء يحجب التقديم.",
+        "noResultsForFilter": "لا توجد مشكلات مطابقة للمرشحات المحددة.",
+        "fixLink": "إصلاح"
+      },
+      "preview": {
+        "pageTitle": "معاينة التقديم",
+        "pageDescription": "تعداد تقارير أكتوبر المُجمَّع للسنة الدراسية المحددة.",
+        "downloadCsv": "تنزيل CSV",
+        "empty": "لا توجد معاينة متاحة لهذه السنة الدراسية.",
+        "generatedAt": "تاريخ الإنشاء"
+      }
     },
     "antiBullying": {
       "pageTitle": "امتثال مكافحة التنمر",

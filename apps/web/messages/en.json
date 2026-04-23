@@ -9153,43 +9153,115 @@
       }
     },
     "octoberReturns": {
-      "pageTitle": "October Returns",
-      "pageDescription": "October census data readiness, preview, and student data quality checks",
-      "academicYear": "Academic Year",
+      "subHubTitle": "October Returns",
+      "subHubDescription": "Annual student census required by the Department of Education.",
+      "backToRegulatory": "Back to Regulatory",
+      "backToHub": "Back to October Returns",
+      "retry": "Retry",
+      "loadError": "Could not load October Returns data. Try again.",
+      "academicYear": "Academic year",
+      "academicYearPlaceholder": "e.g. 2025-2026",
       "applyYear": "Apply",
-      "bannerPass": "All checks passed — data is ready for October returns",
-      "bannerWarning": "Some checks have warnings — review before submission",
-      "bannerFail": "Data quality issues found — resolve before submission",
-      "statusPass": "Pass",
-      "statusWarning": "Warning",
-      "statusFail": "Fail",
-      "totalStudents": "Total Students",
-      "studentsChecked": "Students Checked",
-      "valid": "valid",
-      "of": "of",
-      "issues": "Issues",
-      "issuesCount": "Issues",
-      "studentName": "Student Name",
-      "studentNumber": "Student Number",
-      "severity": "Severity",
-      "severityError": "Error",
-      "severityWarning": "Warning",
-      "studentsHaveIssues": "{count} of {total} students have data quality issues",
-      "allStudentsComplete": "All students have complete and valid data",
+      "previewSubmissionAction": "Preview submission",
+      "studentNumberLabel": "Student number",
+      "totalStudents": "Total students",
       "noData": "No data available for this academic year",
-      "generatedAt": "Generated",
       "genderMale": "Male",
       "genderFemale": "Female",
       "genderOther": "Other",
-      "newEntrants": "New Entrants",
-      "nationalityBreakdown": "Nationality Breakdown",
+      "newEntrants": "New entrants",
+      "nationalityBreakdown": "Nationality breakdown",
       "nationality": "Nationality",
       "count": "Count",
-      "yearGroupBreakdown": "Year Group Breakdown",
-      "yearGroup": "Year Group",
-      "tabReadiness": "Readiness",
-      "tabPreview": "Preview",
-      "tabIssues": "Issues"
+      "yearGroupBreakdown": "Year group breakdown",
+      "yearGroup": "Year group",
+      "kpi": {
+        "ariaLabel": "October returns key indicators",
+        "studentsIncluded": "Students included",
+        "studentsIncludedTooltip": "Active students that would be included in the October census for the selected academic year.",
+        "blockingIssues": "Blocking issues",
+        "blockingIssuesTooltip": "Students with data quality problems that must be resolved before submission.",
+        "daysUntilDeadline": "Days until deadline",
+        "daysUntilDeadlineTooltip": "Calendar days until the DES October returns submission deadline (31 October).",
+        "deadlinePassed": "Passed",
+        "lastPreview": "Last preview",
+        "lastPreviewTooltip": "Most recent time the aggregated census preview was generated.",
+        "never": "Never"
+      },
+      "tiles": {
+        "ariaLabel": "October returns actions",
+        "issues": {
+          "title": "Issues to resolve",
+          "description": "Review every student with missing or invalid data and jump to the screen that fixes it."
+        },
+        "preview": {
+          "title": "Preview submission",
+          "description": "See the aggregated census exactly as it will be submitted and download the CSV."
+        }
+      },
+      "checklist": {
+        "title": "Readiness checklist",
+        "description": "Per-field status across the active student population.",
+        "loading": "Loading readiness checklist",
+        "empty": "No readiness data for this academic year.",
+        "required": "Required",
+        "optional": "Optional",
+        "countAffected": "{count, plural, one {# student affected} other {# students affected}}",
+        "fix": "Fix"
+      },
+      "status": {
+        "pass": "Pass",
+        "warning": "Warning",
+        "fail": "Fail",
+        "not_applicable": "N/A"
+      },
+      "severity": {
+        "error": "Error",
+        "warning": "Warning"
+      },
+      "fields": {
+        "student_count": { "label": "Total student count" },
+        "gender_breakdown": { "label": "Gender breakdown" },
+        "nationality_breakdown": { "label": "Nationality breakdown" },
+        "year_group_enrolment": { "label": "Year group enrolment" },
+        "sen_students": { "label": "SEN students" },
+        "traveller_students": { "label": "Traveller students" },
+        "eal_students": { "label": "EAL students" },
+        "new_entrants": { "label": "New entrants" },
+        "repeat_students": { "label": "Repeat students" }
+      },
+      "issueFields": {
+        "national_id": "PPSN",
+        "date_of_birth": "Date of birth",
+        "gender": "Gender",
+        "nationality": "Nationality",
+        "entry_date": "Entry date",
+        "class_enrolment": "Class enrolment",
+        "year_group": "Year group",
+        "address": "Address"
+      },
+      "filter": {
+        "severity": "Severity",
+        "field": "Field",
+        "all": "All"
+      },
+      "issues": {
+        "pageTitle": "Issues to resolve",
+        "pageDescription": "Every student with missing or invalid data that blocks the October returns submission.",
+        "summary": "{withIssues} of {total} students have data quality issues.",
+        "problemCount": "{count, plural, one {# issue} other {# issues}}",
+        "emptyStateTitle": "All students have complete data",
+        "emptyStateBody": "{total, plural, one {# student} other {# students}} checked — nothing blocking submission.",
+        "noResultsForFilter": "No issues match the selected filters.",
+        "fixLink": "Go fix"
+      },
+      "preview": {
+        "pageTitle": "Preview submission",
+        "pageDescription": "Aggregated October returns census for the selected academic year.",
+        "downloadCsv": "Download CSV",
+        "empty": "No preview available for this academic year.",
+        "generatedAt": "Generated"
+      }
     },
     "antiBullying": {
       "pageTitle": "Anti-Bullying Compliance",
