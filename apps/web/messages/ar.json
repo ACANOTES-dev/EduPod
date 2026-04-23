@@ -9141,6 +9141,15 @@
         "all": "كل التعيينات",
         "verifiedOnly": "المحقَّقة فقط",
         "unverifiedOnly": "غير المحقَّقة فقط"
+      },
+      "preview": {
+        "loading": "جارٍ تحميل المعاينة",
+        "empty": "لا تتوفر بيانات معاينة.",
+        "noSampleData": "لا توجد بيانات عينة للعرض.",
+        "errorsFound": "{count, plural, zero {لا توجد أخطاء} one {# خطأ} two {خطآن} few {# أخطاء} many {# خطأً} other {# خطأ}}",
+        "warningsFound": "{count, plural, zero {لا توجد تحذيرات} one {# تحذير} two {تحذيران} few {# تحذيرات} many {# تحذيرًا} other {# تحذير}}",
+        "rowCount": "{count, plural, zero {لا توجد صفوف} one {# صف} two {صفّان} few {# صفوف} many {# صفًا} other {# صف}}",
+        "showingOfTotal": "عرض {shown} من {total} صف"
       }
     },
     "octoberReturns": {

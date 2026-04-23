@@ -9141,6 +9141,15 @@
         "all": "All mappings",
         "verifiedOnly": "Verified only",
         "unverifiedOnly": "Unverified only"
+      },
+      "preview": {
+        "loading": "Loading preview",
+        "empty": "No preview data available.",
+        "noSampleData": "No sample data to display.",
+        "errorsFound": "{count, plural, one {# error found} other {# errors found}}",
+        "warningsFound": "{count, plural, one {# warning} other {# warnings}}",
+        "rowCount": "{count, plural, one {# row} other {# rows}}",
+        "showingOfTotal": "Showing {shown} of {total} rows"
       }
     },
     "octoberReturns": {

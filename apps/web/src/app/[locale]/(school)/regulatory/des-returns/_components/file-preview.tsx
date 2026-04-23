@@ -30,21 +30,12 @@ interface FilePreviewProps {
   isLoading: boolean;
 }
 
-// ─── File Type Labels ─────────────────────────────────────────────────────────
-
-const FILE_TYPE_LABELS: Record<string, string> = {
-  file_a: 'File A — Staff Returns',
-  file_c: 'File C — Class Returns',
-  file_d: 'File D — Subject Returns',
-  file_e: 'File E — Student Returns',
-  form_tl: 'Form TL — Timetable Returns',
-};
-
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function PreviewSkeleton() {
+  const t = useTranslations('regulatory.desReturns');
   return (
-    <div className="space-y-4" aria-busy="true" aria-label={t('loadingPreview')}>
+    <div className="space-y-4" aria-busy="true" aria-label={t('preview.loading')}>
       {/* Header skeleton */}
       <div className="animate-pulse rounded-xl border border-border bg-surface-primary p-4">
         <div className="flex items-center justify-between">
@@ -73,6 +64,8 @@ function ValidationWarnings({
 }: {
   warnings: Array<{ field: string; message: string; severity: 'error' | 'warning' }>;
 }) {
+  const t = useTranslations('regulatory.desReturns');
+
   if (warnings.length === 0) return null;
 
   const errors = warnings.filter((w) => w.severity === 'error');
@@ -83,7 +76,8 @@ function ValidationWarnings({
       {errors.length > 0 && (
         <div className="rounded-xl border border-danger-200 bg-danger-50 p-3">
           <p className="mb-1.5 text-sm font-medium text-danger-800">
-            {errors.length}{t('error')}{errors.length !== 1 ? 's' : ''}{t('found')}</p>
+            {t('preview.errorsFound', { count: errors.length })}
+          </p>
           <ul className="space-y-1">
             {errors.map((err, idx) => (
               <li key={idx} className="flex items-start gap-2 text-sm text-danger-700">
@@ -100,7 +94,7 @@ function ValidationWarnings({
       {warningItems.length > 0 && (
         <div className="rounded-xl border border-warning-200 bg-warning-50 p-3">
           <p className="mb-1.5 text-sm font-medium text-warning-800">
-            {warningItems.length}{t('warning')}{warningItems.length !== 1 ? 's' : ''}
+            {t('preview.warningsFound', { count: warningItems.length })}
           </p>
           <ul className="space-y-1">
             {warningItems.map((warn, idx) => (
@@ -121,14 +115,17 @@ function ValidationWarnings({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function FilePreview({ preview, isLoading }: FilePreviewProps) {
-  const t = useTranslations('regulatory');
+  const t = useTranslations('regulatory.desReturns');
+
   if (isLoading) {
     return <PreviewSkeleton />;
   }
 
   if (!preview) {
     return (
-      <div className="rounded-xl border border-border bg-surface-secondary p-6 text-center text-sm text-text-secondary">{t('noPreviewDataAvailable')}</div>
+      <div className="rounded-xl border border-border bg-surface-secondary p-6 text-center text-sm text-text-secondary">
+        {t('preview.empty')}
+      </div>
     );
   }
 
@@ -144,11 +141,10 @@ export function FilePreview({ preview, isLoading }: FilePreviewProps) {
       {/* ─── Header ──────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-surface-primary px-4 py-3">
         <p className="text-sm font-semibold text-text-primary">
-          {FILE_TYPE_LABELS[preview.file_type] ?? preview.file_type}
+          {t(`scorecard.files.${preview.file_type}.label`)} —{' '}
+          {t(`scorecard.files.${preview.file_type}.description`)}
         </p>
-        <p className="text-sm text-text-secondary">
-          {rowCount}{t('row')}{rowCount !== 1 ? 's' : ''}
-        </p>
+        <p className="text-sm text-text-secondary">{t('preview.rowCount', { count: rowCount })}</p>
       </div>
 
       {/* ─── Validation Warnings ─────────────────────────────────────────── */}
@@ -190,11 +186,15 @@ export function FilePreview({ preview, isLoading }: FilePreviewProps) {
           </table>
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-surface-secondary p-6 text-center text-sm text-text-secondary">{t('noSampleDataToDisplay')}</div>
+        <div className="rounded-xl border border-border bg-surface-secondary p-6 text-center text-sm text-text-secondary">
+          {t('preview.noSampleData')}
+        </div>
       )}
 
       {sampleRows.length > 0 && rowCount > sampleRows.length && (
-        <p className="text-xs text-text-tertiary">{t('showing')}{sampleRows.length}{t('of')}{rowCount}{t('rows')}</p>
+        <p className="text-xs text-text-tertiary">
+          {t('preview.showingOfTotal', { shown: sampleRows.length, total: rowCount })}
+        </p>
       )}
     </div>
   );
