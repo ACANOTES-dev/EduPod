@@ -398,11 +398,15 @@ export function FileGenerationWizard({
     setIsPreviewLoading(true);
     setPreview(null);
     try {
-      const data = await apiClient<DesPreviewResponse>(
+      const res = await apiClient<{ data: DesPreviewResponse } | DesPreviewResponse>(
         `/api/v1/regulatory/des/preview/${encodeURIComponent(fileType)}?academic_year=${encodeURIComponent(year)}`,
         { silent: true },
       );
-      setPreview(data);
+      const inner =
+        res && typeof res === 'object' && 'data' in (res as object)
+          ? (res as { data: DesPreviewResponse }).data
+          : (res as DesPreviewResponse);
+      setPreview(inner);
     } catch (err) {
       console.error('[FileGenerationWizard.fetchPreview]', err);
       setPreview(null);
@@ -416,14 +420,18 @@ export function FileGenerationWizard({
     setIsGenerating(true);
     setGenerateResult(null);
     try {
-      const data = await apiClient<DesGenerateResponse>(
+      const res = await apiClient<{ data: DesGenerateResponse } | DesGenerateResponse>(
         `/api/v1/regulatory/des/generate/${encodeURIComponent(fileType)}`,
         {
           method: 'POST',
           body: JSON.stringify({ academic_year: year }),
         },
       );
-      setGenerateResult(data);
+      const inner =
+        res && typeof res === 'object' && 'data' in (res as object)
+          ? (res as { data: DesGenerateResponse }).data
+          : (res as DesGenerateResponse);
+      setGenerateResult(inner);
     } catch (err) {
       console.error('[FileGenerationWizard.generateFile]', err);
       setGenerateResult(null);
