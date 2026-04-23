@@ -192,13 +192,26 @@ describe('SenSupportPlanService', () => {
     it('returns a plan detail when the user can access it', async () => {
       const detail = {
         id: PLAN_ID,
+        sen_profile_id: PROFILE_ID,
+        sen_profile: {
+          id: PROFILE_ID,
+          student_id: 'student-1',
+          student: { id: 'student-1', first_name: 'Sam', last_name: 'Lee' },
+        },
+        academic_year: { id: 'ay-1', name: '2025-2026' },
+        academic_period: null,
         goals: [{ id: GOAL_ID, strategies: [], progress_notes: [] }],
       };
       senSupportPlanMock.findFirst.mockResolvedValue(detail);
 
       const result = await service.findOne(TENANT_ID, USER_ID, ['sen.view'], PLAN_ID);
 
-      expect(result).toEqual(detail);
+      expect(result).toMatchObject({
+        id: PLAN_ID,
+        student_name: 'Sam Lee',
+        academic_year_name: '2025-2026',
+        academic_period_name: null,
+      });
     });
 
     it('throws when a class-scoped user cannot access the plan', async () => {

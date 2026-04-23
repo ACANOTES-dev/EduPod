@@ -296,6 +296,25 @@ export class SenSupportPlanService {
           select: {
             id: true,
             student_id: true,
+            student: {
+              select: {
+                id: true,
+                first_name: true,
+                last_name: true,
+              },
+            },
+          },
+        },
+        academic_year: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        academic_period: {
+          select: {
+            id: true,
+            name: true,
           },
         },
         goals: {
@@ -335,7 +354,16 @@ export class SenSupportPlanService {
       throw this.buildSupportPlanNotFound(id);
     }
 
-    return plan;
+    const flat = {
+      ...plan,
+      student_name: plan.sen_profile?.student
+        ? `${plan.sen_profile.student.first_name} ${plan.sen_profile.student.last_name}`.trim()
+        : '',
+      academic_year_name: plan.academic_year?.name ?? '',
+      academic_period_name: plan.academic_period?.name ?? null,
+      sen_profile_id: plan.sen_profile_id,
+    };
+    return flat as unknown as SupportPlanDetail;
   }
 
   async update(tenantId: string, id: string, dto: UpdateSupportPlanDto) {
