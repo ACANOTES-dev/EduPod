@@ -36,6 +36,7 @@ interface PaginationResult<T> {
 interface ResourceAllocationSummary {
   id: string;
   academic_year_id: string;
+  academic_year_name: string;
   total_hours: number;
   source: string;
   notes: string | null;
@@ -54,6 +55,7 @@ interface StudentHoursSummary {
   id: string;
   resource_allocation_id: string;
   student_id: string;
+  student_name: string;
   sen_profile_id: string;
   allocated_hours: number;
   used_hours: number;
@@ -112,6 +114,9 @@ interface UtilisationByYearGroup {
 
 interface UtilisationResult {
   academic_year_id: string | null;
+  total_allocated_hours: number;
+  total_used_hours: number;
+  utilisation_percentage: number;
   totals: UtilisationTotals;
   bySource: UtilisationBySource[];
   byYearGroup: UtilisationByYearGroup[];
@@ -674,6 +679,10 @@ export class SenResourceService {
 
     return {
       academic_year_id: query.academic_year_id ?? null,
+      // Flat aliases for the SEN dashboard + resource-allocation page UIs
+      total_allocated_hours: toNumber(totalAllocated),
+      total_used_hours: toNumber(totalUsed),
+      utilisation_percentage: calculatePercentage(totalUsed, totalAllocated),
       totals: {
         total_allocated_hours: toNumber(totalAllocated),
         total_assigned_hours: toNumber(totalAssigned),
@@ -752,6 +761,7 @@ export class SenResourceService {
     return {
       id: allocation.id,
       academic_year_id: allocation.academic_year_id,
+      academic_year_name: allocation.academic_year.name,
       total_hours: toNumber(allocation.total_hours),
       source: allocation.source,
       notes: allocation.notes,
@@ -772,6 +782,7 @@ export class SenResourceService {
       id: assignment.id,
       resource_allocation_id: assignment.resource_allocation_id,
       student_id: assignment.student_id,
+      student_name: `${assignment.student.first_name} ${assignment.student.last_name}`.trim(),
       sen_profile_id: assignment.sen_profile_id,
       allocated_hours: toNumber(assignment.allocated_hours),
       used_hours: toNumber(assignment.used_hours),
