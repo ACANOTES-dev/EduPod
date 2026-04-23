@@ -503,7 +503,8 @@ Owner of per-class/per-subject scheduling requirements (Stage 6 of the solver).
 
 ### LeaveModule
 
-Staff leave request lifecycle (apply → approve → coverage planning).
+Staff leave request lifecycle (apply → approve → coverage planning) plus
+tenant-configurable leave-type catalogue and per-staff balance aggregator.
 
-- **Imports**: StaffProfilesModule (staff identity and contract data), SchedulingModule (generates substitution coverage when leave is approved)
-- **Consumed by**: HR/payroll workflows (payroll reads approved leave days)
+- **Imports**: StaffProfilesModule (staff identity + facade-backed reads), SchedulingModule (generates substitution coverage when leave is approved), AcademicsModule (AcademicReadFacade.findCurrentYear drives the balance window)
+- **Consumed by**: HR/payroll workflows (payroll reads approved leave days via `GET /v1/payroll/absence-periods`; month-end UI at `/payroll/absences` consumes it directly)

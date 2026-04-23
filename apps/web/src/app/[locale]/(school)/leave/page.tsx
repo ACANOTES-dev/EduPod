@@ -111,12 +111,16 @@ export default function LeaveHubPage() {
   const refresh = React.useCallback(async () => {
     setLoading(true);
     try {
+      // The balance endpoint returns a raw object; the ResponseTransformInterceptor
+      // wraps it as { data: LeaveBalanceResponse }. types + requests/my already
+      // ship with their own `data` key (with optional `meta`), so the interceptor
+      // leaves those alone and the shape below reflects what the client receives.
       const [balanceRes, typesRes, myRes] = await Promise.all([
-        apiClient<LeaveBalanceResponse>('/api/v1/leave/balance'),
+        apiClient<{ data: LeaveBalanceResponse }>('/api/v1/leave/balance'),
         apiClient<{ data: LeaveTypeResponse[] }>('/api/v1/leave/types'),
         apiClient<{ data: LeaveRequestRow[] }>('/api/v1/leave/requests/my?pageSize=50'),
       ]);
-      setBalance(balanceRes);
+      setBalance(balanceRes.data ?? null);
       setTypes(typesRes.data ?? []);
       setRequests(myRes.data ?? []);
     } catch (err) {
