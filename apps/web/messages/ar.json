@@ -8973,18 +8973,28 @@
     "desReturns": {
       "pageTitle": "تقارير الوزارة",
       "pageDescription": "إدارة تقارير وزارة التعليم في سبتمبر — فحوصات الجاهزية وتعيينات المواد وإنشاء الملفات",
+      "subHubTitle": "تقارير الوزارة — سبتمبر",
+      "subHubDescription": "أنشئ ملفات التقديم السنوية لوزارة التعليم الخاصة بمدرستك.",
+      "backToRegulatory": "العودة إلى الامتثال",
+      "backToDesReturns": "العودة إلى تقارير الوزارة",
+      "generateFilesAction": "إنشاء الملفات",
+      "loadError": "تعذّر تحميل بيانات الجاهزية. يرجى المحاولة مرة أخرى.",
+      "retry": "إعادة المحاولة",
       "readinessTitle": "قائمة الجاهزية",
       "academicYear": "السنة الدراسية",
+      "academicYearPlaceholder": "مثال: 2025-2026",
       "applyYear": "تطبيق",
       "actionsTitle": "الإجراءات",
       "generateFilesTitle": "إنشاء الملفات",
       "generateFilesDescription": "إنشاء ملفات تقارير الوزارة (A, C, D, E, Form TL)",
       "subjectMappingsTitle": "تعيينات المواد",
-      "subjectMappingsDescription": "ربط مواد المدرسة برموز مواد الوزارة",
+      "subjectMappingsDescription": "ربط مواد المدرسة برموز مواد الوزارة.",
+      "searchMappingsPlaceholder": "بحث باسم المادة أو رمز الوزارة أو المستوى",
       "addMapping": "إضافة تعيين",
       "addMappingTitle": "إضافة تعيين مادة",
-      "addMappingDescription": "ربط مادة مدرسية برمز مادة الوزارة",
+      "addMappingDescription": "ربط مادة مدرسية برمز مادة الوزارة.",
       "subjectId": "معرف المادة",
+      "subjectIdPlaceholder": "مثال: 550e8400-e29b-41d4-a716-446655440000",
       "desCode": "رمز الوزارة",
       "desName": "اسم الوزارة",
       "selectDesCode": "اختر رمز الوزارة",
@@ -8992,7 +9002,7 @@
       "levelPlaceholder": "مثال: شهادة الثانوية",
       "markVerified": "وضع علامة تم التحقق",
       "save": "حفظ",
-      "saving": "جارٍ الحفظ...",
+      "saving": "جارٍ الحفظ…",
       "cancel": "إلغاء",
       "mappingCreated": "تم إنشاء تعيين المادة",
       "mappingCreateFailed": "فشل إنشاء تعيين المادة",
@@ -9005,16 +9015,17 @@
       "unverified": "لم يتم التحقق",
       "actions": "الإجراءات",
       "deleteTitle": "حذف التعيين",
-      "confirmDelete": "هل أنت متأكد من حذف تعيين المادة هذا؟ لا يمكن التراجع عن هذا الإجراء.",
+      "deleteDescription": "حذف تعيين {name}؟ لا يمكن التراجع عن هذا الإجراء.",
+      "confirmDelete": "حذف",
       "noMappings": "لا توجد تعيينات مواد. أضف تعيينات لربط موادك برموز الوزارة.",
       "generateTitle": "إنشاء ملفات الوزارة",
-      "generateDescription": "اختر نوع الملف، استعرض البيانات، وأنشئ ملف CSV للتقديم",
+      "generateDescription": "اختر نوع الملف، استعرض البيانات، وأنشئ ملف CSV للتقديم.",
       "selectFileType": "اختر نوع الملف",
       "fileType": "نوع الملف",
       "next": "التالي",
       "back": "رجوع",
       "generateFile": "إنشاء الملف",
-      "generating": "جارٍ الإنشاء...",
+      "generating": "جارٍ الإنشاء…",
       "generateFailed": "فشل إنشاء الملف",
       "generateSuccess": "تم إنشاء الملف بنجاح",
       "generatedAt": "تاريخ الإنشاء",
@@ -9025,6 +9036,111 @@
         "selectFile": "اختيار الملف",
         "preview": "معاينة",
         "generate": "إنشاء"
+      },
+      "kpi": {
+        "ariaLabel": "ملخص جاهزية تقارير الوزارة",
+        "filesReady": "ملفات جاهزة",
+        "filesReadyTooltip": "عدد ملفات الوزارة التي اجتازت بياناتها جميع فحوصات الجاهزية.",
+        "filesPending": "ملفات قيد الانتظار",
+        "filesPendingTooltip": "الملفات التي لا تزال بها فجوات بيانات يجب حلها قبل إنشائها.",
+        "blockingIssues": "مشكلات معيقة",
+        "blockingIssuesTooltip": "إجمالي السجلات عبر جميع الفئات التي تفتقر إلى حقول مطلوبة.",
+        "lastSubmission": "آخر تقديم",
+        "lastSubmissionTooltip": "أحدث تقديم لملف تقارير الوزارة للسنة الدراسية المحددة.",
+        "never": "لا يوجد"
+      },
+      "tiles": {
+        "ariaLabel": "إجراءات تقارير الوزارة",
+        "subjectMappings": {
+          "title": "تعيينات المواد",
+          "description": "ربط مواد المدرسة برموز الوزارة الرسمية."
+        },
+        "generate": {
+          "title": "إنشاء الملفات",
+          "description": "إنشاء ملفات CSV للـ A و C و D و E و Form TL."
+        },
+        "submittedReturns": {
+          "title": "عرض التقارير المقدَّمة",
+          "description": "استعراض ملفات تقارير الوزارة التي أُنشئت أو قُدِّمت سابقًا."
+        }
+      },
+      "scorecard": {
+        "ariaLabel": "بطاقة أداء الجاهزية",
+        "title": "بطاقة أداء الجاهزية",
+        "description": "حالة الجاهزية لكل ملف وفحوصات جودة البيانات للسنة الدراسية المحددة.",
+        "loading": "جارٍ تحميل بيانات الجاهزية",
+        "empty": "لا تتوفر بيانات جاهزية لهذه السنة الدراسية.",
+        "perFileTitle": "حالة كل ملف",
+        "detailsTitle": "فحوصات جودة البيانات",
+        "ready": "جاهز",
+        "incomplete": "غير مكتمل",
+        "notStarted": "لم يبدأ",
+        "lastGenerated": "آخر إنشاء {date}",
+        "neverGenerated": "لم يُنشأ من قبل",
+        "files": {
+          "file_a": {
+            "label": "ملف A",
+            "description": "تقارير الموظفين"
+          },
+          "file_c": {
+            "label": "ملف C",
+            "description": "تقارير الفصول"
+          },
+          "file_d": {
+            "label": "ملف D",
+            "description": "تقارير المواد"
+          },
+          "file_e": {
+            "label": "ملف E",
+            "description": "تقارير الطلاب"
+          },
+          "form_tl": {
+            "label": "نموذج TL",
+            "description": "تقارير الجدول الزمني"
+          }
+        }
+      },
+      "category": {
+        "staff_data": {
+          "name": "بيانات الموظفين",
+          "fixLink": "مراجعة ملفات الموظفين"
+        },
+        "class_data": {
+          "name": "بيانات الفصول",
+          "fixLink": "مراجعة تسجيلات الفصول"
+        },
+        "subject_mappings": {
+          "name": "تعيينات المواد",
+          "fixLink": "إضافة تعيينات رموز الوزارة المفقودة"
+        },
+        "student_data": {
+          "name": "بيانات الطلاب",
+          "fixLink": "مراجعة سجلات الطلاب"
+        },
+        "schedule_data": {
+          "name": "بيانات الجدول الزمني",
+          "fixLink": "فتح الجدول الزمني"
+        }
+      },
+      "status": {
+        "pass": "جاهز",
+        "warning": "يحتاج متابعة",
+        "fail": "معيق"
+      },
+      "summary": {
+        "allPassed": "نجحت جميع الفحوصات — أنت جاهز لإنشاء الملفات.",
+        "warnings": "{count, plural, zero {لا توجد فئات} one {# فئة تحتاج متابعة} two {فئتان تحتاجان متابعة} few {# فئات تحتاج متابعة} many {# فئة تحتاج متابعة} other {# فئة تحتاج متابعة}} قبل التقديم.",
+        "failed": "{count, plural, zero {لا توجد فئات} one {# فئة معيقة} two {فئتان معيقتان} few {# فئات معيقة} many {# فئة معيقة} other {# فئة معيقة}} — يلزم اتخاذ إجراء.",
+        "passedCount": "{count} ناجحة",
+        "warningCount": "{count, plural, zero {لا توجد تحذيرات} one {# تحذير} two {تحذيران} few {# تحذيرات} many {# تحذيرًا} other {# تحذير}}",
+        "failedCount": "{count, plural, zero {لا توجد إخفاقات} one {# إخفاق} two {إخفاقان} few {# إخفاقات} many {# إخفاقًا} other {# إخفاق}}",
+        "validOfTotal": "{valid} من {total} صحيحة",
+        "issuesCount": "({count, plural, zero {لا توجد مشكلات} one {# مشكلة} two {مشكلتان} few {# مشكلات} many {# مشكلة} other {# مشكلة}})"
+      },
+      "filter": {
+        "all": "كل التعيينات",
+        "verifiedOnly": "المحقَّقة فقط",
+        "unverifiedOnly": "غير المحقَّقة فقط"
       }
     },
     "octoberReturns": {

@@ -1,5 +1,6 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -39,12 +40,17 @@ const PAGE_SIZE = 20;
 
 export default function RegulatorySubmissionsPage() {
   const t = useTranslations('regulatory');
+  const searchParams = useSearchParams();
+
+  const urlDomain = searchParams?.get('domain');
+  const urlStatus = searchParams?.get('status');
+  const initialDomain = urlDomain && urlDomain in REGULATORY_DOMAINS ? urlDomain : 'all';
 
   const [submissions, setSubmissions] = React.useState<Submission[]>([]);
   const [page, setPage] = React.useState(1);
   const [total, setTotal] = React.useState(0);
-  const [domain, setDomain] = React.useState('all');
-  const [status, setStatus] = React.useState('all');
+  const [domain, setDomain] = React.useState(initialDomain);
+  const [status, setStatus] = React.useState(urlStatus ?? 'all');
   const [isLoading, setIsLoading] = React.useState(true);
 
   const fetchSubmissions = React.useCallback(async () => {

@@ -8973,18 +8973,28 @@
     "desReturns": {
       "pageTitle": "DES Returns",
       "pageDescription": "Manage Department of Education September Returns — readiness checks, subject mappings, and file generation",
+      "subHubTitle": "DES September Returns",
+      "subHubDescription": "Generate the annual DES submission files for your school.",
+      "backToRegulatory": "Back to Regulatory",
+      "backToDesReturns": "Back to DES Returns",
+      "generateFilesAction": "Generate files",
+      "loadError": "Couldn't load readiness data. Please try again.",
+      "retry": "Retry",
       "readinessTitle": "Readiness Checklist",
       "academicYear": "Academic Year",
+      "academicYearPlaceholder": "e.g. 2025-2026",
       "applyYear": "Apply",
       "actionsTitle": "Actions",
       "generateFilesTitle": "Generate Files",
       "generateFilesDescription": "Generate DES return files (A, C, D, E, Form TL)",
       "subjectMappingsTitle": "Subject Mappings",
-      "subjectMappingsDescription": "Map tenant subjects to DES subject codes",
+      "subjectMappingsDescription": "Map tenant subjects to DES subject codes.",
+      "searchMappingsPlaceholder": "Search subject, DES code, or level",
       "addMapping": "Add Mapping",
       "addMappingTitle": "Add Subject Mapping",
-      "addMappingDescription": "Map a tenant subject to a DES subject code",
+      "addMappingDescription": "Map a tenant subject to a DES subject code.",
       "subjectId": "Subject ID",
+      "subjectIdPlaceholder": "e.g. 550e8400-e29b-41d4-a716-446655440000",
       "desCode": "DES Code",
       "desName": "DES Name",
       "selectDesCode": "Select DES code",
@@ -8992,7 +9002,7 @@
       "levelPlaceholder": "e.g. Leaving Certificate",
       "markVerified": "Mark as verified",
       "save": "Save",
-      "saving": "Saving...",
+      "saving": "Saving…",
       "cancel": "Cancel",
       "mappingCreated": "Subject mapping created",
       "mappingCreateFailed": "Failed to create subject mapping",
@@ -9005,16 +9015,17 @@
       "unverified": "Unverified",
       "actions": "Actions",
       "deleteTitle": "Delete Mapping",
-      "confirmDelete": "Are you sure you want to delete this subject mapping? This action cannot be undone.",
+      "deleteDescription": "Delete the mapping for {name}? This action cannot be undone.",
+      "confirmDelete": "Delete",
       "noMappings": "No subject mappings configured. Add mappings to link your subjects to DES codes.",
       "generateTitle": "Generate DES Files",
-      "generateDescription": "Select a file type, preview the data, and generate a CSV for submission",
+      "generateDescription": "Select a file type, preview the data, and generate a CSV for submission.",
       "selectFileType": "Select file type",
       "fileType": "File Type",
       "next": "Next",
       "back": "Back",
       "generateFile": "Generate File",
-      "generating": "Generating...",
+      "generating": "Generating…",
       "generateFailed": "Failed to generate file",
       "generateSuccess": "File generated successfully",
       "generatedAt": "Generated At",
@@ -9025,6 +9036,111 @@
         "selectFile": "Select File",
         "preview": "Preview",
         "generate": "Generate"
+      },
+      "kpi": {
+        "ariaLabel": "DES Returns readiness summary",
+        "filesReady": "Files ready",
+        "filesReadyTooltip": "Number of DES files whose underlying data passes all readiness checks.",
+        "filesPending": "Files pending",
+        "filesPendingTooltip": "Files that still have data gaps to resolve before they can be generated.",
+        "blockingIssues": "Blocking issues",
+        "blockingIssuesTooltip": "Total records across all categories that are missing required fields.",
+        "lastSubmission": "Last submission",
+        "lastSubmissionTooltip": "The most recent DES file submission for the selected academic year.",
+        "never": "Never"
+      },
+      "tiles": {
+        "ariaLabel": "DES Returns actions",
+        "subjectMappings": {
+          "title": "Subject Mappings",
+          "description": "Map tenant subjects to official DES codes."
+        },
+        "generate": {
+          "title": "Generate files",
+          "description": "Create CSV files for A, C, D, E, and Form TL."
+        },
+        "submittedReturns": {
+          "title": "View submitted returns",
+          "description": "Review previously generated and submitted DES returns."
+        }
+      },
+      "scorecard": {
+        "ariaLabel": "Readiness scorecard",
+        "title": "Readiness scorecard",
+        "description": "Per-file readiness and data quality checks for the selected academic year.",
+        "loading": "Loading readiness data",
+        "empty": "No readiness data available for this academic year.",
+        "perFileTitle": "Per-file status",
+        "detailsTitle": "Data quality checks",
+        "ready": "Ready",
+        "incomplete": "Incomplete",
+        "notStarted": "Not started",
+        "lastGenerated": "Last generated {date}",
+        "neverGenerated": "Never generated",
+        "files": {
+          "file_a": {
+            "label": "File A",
+            "description": "Staff Returns"
+          },
+          "file_c": {
+            "label": "File C",
+            "description": "Class Returns"
+          },
+          "file_d": {
+            "label": "File D",
+            "description": "Subject Returns"
+          },
+          "file_e": {
+            "label": "File E",
+            "description": "Student Returns"
+          },
+          "form_tl": {
+            "label": "Form TL",
+            "description": "Timetable Returns"
+          }
+        }
+      },
+      "category": {
+        "staff_data": {
+          "name": "Staff data",
+          "fixLink": "Review staff profiles"
+        },
+        "class_data": {
+          "name": "Class data",
+          "fixLink": "Review class enrolments"
+        },
+        "subject_mappings": {
+          "name": "Subject mappings",
+          "fixLink": "Add missing DES code mappings"
+        },
+        "student_data": {
+          "name": "Student data",
+          "fixLink": "Review student records"
+        },
+        "schedule_data": {
+          "name": "Schedule data",
+          "fixLink": "Open timetable"
+        }
+      },
+      "status": {
+        "pass": "Ready",
+        "warning": "Attention",
+        "fail": "Blocked"
+      },
+      "summary": {
+        "allPassed": "All checks passed — you're ready to generate files.",
+        "warnings": "{count, plural, one {# category needs attention} other {# categories need attention}} before submitting.",
+        "failed": "{count, plural, one {# category is blocking} other {# categories are blocking}} — action required.",
+        "passedCount": "{count} passed",
+        "warningCount": "{count, plural, one {# warning} other {# warnings}}",
+        "failedCount": "{count, plural, one {# failed} other {# failed}}",
+        "validOfTotal": "{valid} of {total} valid",
+        "issuesCount": "({count, plural, one {# issue} other {# issues}})"
+      },
+      "filter": {
+        "all": "All mappings",
+        "verifiedOnly": "Verified only",
+        "unverifiedOnly": "Unverified only"
       }
     },
     "octoberReturns": {

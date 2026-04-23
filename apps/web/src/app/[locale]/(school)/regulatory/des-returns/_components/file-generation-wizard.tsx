@@ -6,12 +6,10 @@ import * as React from 'react';
 
 import { Button, Input, Label, cn } from '@school/ui';
 
-
 import { apiClient } from '@/lib/api-client';
 
 import type { DesPreviewResponse } from './file-preview';
 import { FilePreview } from './file-preview';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -106,8 +104,8 @@ function StepIndicator({ currentStep, labels, t }: StepIndicatorProps) {
                 <span
                   className={cn(
                     'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors',
-                    isComplete && 'bg-success-text text-white',
-                    isActive && 'bg-primary-700 text-white',
+                    isComplete && 'bg-teal-600 text-white',
+                    isActive && 'bg-teal-500 text-white',
                     !isComplete && !isActive && 'bg-surface-secondary text-text-secondary',
                   )}
                   aria-current={isActive ? 'step' : undefined}
@@ -127,7 +125,7 @@ function StepIndicator({ currentStep, labels, t }: StepIndicatorProps) {
                 <div
                   className={cn(
                     'mx-3 h-px flex-1',
-                    stepNum < currentStep ? 'bg-success-text' : 'bg-border',
+                    stepNum < currentStep ? 'bg-teal-600' : 'bg-border',
                   )}
                   aria-hidden="true"
                 />
@@ -149,8 +147,8 @@ function StepIndicator({ currentStep, labels, t }: StepIndicatorProps) {
               <span
                 className={cn(
                   'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors',
-                  isComplete && 'bg-success-text text-white',
-                  isActive && 'bg-primary-700 text-white',
+                  isComplete && 'bg-teal-600 text-white',
+                  isActive && 'bg-teal-500 text-white',
                   !isComplete && !isActive && 'bg-surface-secondary text-text-secondary',
                 )}
                 aria-current={isActive ? 'step' : undefined}
@@ -219,18 +217,18 @@ function StepSelectFile({
                 onClick={() => onFileTypeSelect(option.value)}
                 className={cn(
                   'flex flex-col gap-1 rounded-xl border-2 p-4 text-start transition-colors',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500',
                   'min-h-[44px]',
                   isSelected
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-border bg-surface-primary hover:border-primary-300 hover:bg-surface-secondary',
+                    ? 'border-teal-500 bg-teal-50'
+                    : 'border-border bg-surface-primary hover:border-teal-300 hover:bg-surface-secondary',
                 )}
                 aria-pressed={isSelected}
               >
                 <span
                   className={cn(
                     'text-sm font-semibold',
-                    isSelected ? 'text-primary-700' : 'text-text-primary',
+                    isSelected ? 'text-teal-700' : 'text-text-primary',
                   )}
                 >
                   {option.label}
@@ -244,7 +242,11 @@ function StepSelectFile({
 
       {/* Next Button */}
       <div className="flex justify-end">
-        <Button onClick={onNext} disabled={!selectedFileType || !academicYear.trim()}>
+        <Button
+          onClick={onNext}
+          disabled={!selectedFileType || !academicYear.trim()}
+          className="min-h-[44px] bg-teal-600 text-white hover:bg-teal-700"
+        >
           {t('desReturns.next')}
         </Button>
       </div>
@@ -269,11 +271,15 @@ function StepPreview({ preview, isLoading, onBack, onGenerate, hasErrors, t }: S
       <FilePreview preview={preview} isLoading={isLoading} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button variant="outline" onClick={onBack}>
-          <ChevronLeft className="me-1.5 h-4 w-4" aria-hidden="true" />
+        <Button variant="outline" onClick={onBack} className="min-h-[44px]">
+          <ChevronLeft className="me-1.5 h-4 w-4 rtl:rotate-180" aria-hidden="true" />
           {t('desReturns.back')}
         </Button>
-        <Button onClick={onGenerate} disabled={isLoading || hasErrors}>
+        <Button
+          onClick={onGenerate}
+          disabled={isLoading || hasErrors}
+          className="min-h-[44px] bg-teal-600 text-white hover:bg-teal-700"
+        >
           <FileDown className="me-1.5 h-4 w-4" aria-hidden="true" />
           {t('desReturns.generateFile')}
         </Button>
@@ -296,7 +302,7 @@ function StepGenerate({ result, isGenerating, onDownload, onRestart, t }: StepGe
   if (isGenerating) {
     return (
       <div className="flex flex-col items-center gap-4 py-12" aria-busy="true">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary-200 border-t-primary-700" />
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-teal-200 border-t-teal-600" />
         <p className="text-sm font-medium text-text-secondary">{t('desReturns.generating')}</p>
       </div>
     );
@@ -343,11 +349,14 @@ function StepGenerate({ result, isGenerating, onDownload, onRestart, t }: StepGe
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3">
-        <Button onClick={onDownload}>
+        <Button
+          onClick={onDownload}
+          className="min-h-[44px] bg-teal-600 text-white hover:bg-teal-700"
+        >
           <Download className="me-1.5 h-4 w-4" aria-hidden="true" />
           {t('desReturns.downloadCsv')}
         </Button>
-        <Button variant="outline" onClick={onRestart}>
+        <Button variant="outline" onClick={onRestart} className="min-h-[44px]">
           <RefreshCw className="me-1.5 h-4 w-4" aria-hidden="true" />
           {t('desReturns.generateAnother')}
         </Button>
@@ -358,13 +367,23 @@ function StepGenerate({ result, isGenerating, onDownload, onRestart, t }: StepGe
 
 // ─── Wizard Component ─────────────────────────────────────────────────────────
 
-export function FileGenerationWizard() {
+interface FileGenerationWizardProps {
+  initialFileType?: string;
+  initialAcademicYear?: string;
+}
+
+export function FileGenerationWizard({
+  initialFileType,
+  initialAcademicYear,
+}: FileGenerationWizardProps = {}) {
   const t = useTranslations('regulatory');
 
   // ─── State ─────────────────────────────────────────────────────────────────
   const [step, setStep] = React.useState(1);
-  const [academicYear, setAcademicYear] = React.useState('2025-2026');
-  const [selectedFileType, setSelectedFileType] = React.useState<string | null>(null);
+  const [academicYear, setAcademicYear] = React.useState(initialAcademicYear ?? '2025-2026');
+  const [selectedFileType, setSelectedFileType] = React.useState<string | null>(
+    initialFileType && isSupportedFileType(initialFileType) ? initialFileType : null,
+  );
 
   // Preview state
   const [preview, setPreview] = React.useState<DesPreviewResponse | null>(null);

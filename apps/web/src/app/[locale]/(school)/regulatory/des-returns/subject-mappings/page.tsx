@@ -1,27 +1,13 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { Plus, Search } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
-import { useForm } from 'react-hook-form';
 
-import {
-  type CreateDesSubjectCodeMappingDto,
-  createDesSubjectCodeMappingSchema,
-  DES_SUBJECT_CODES,
-} from '@school/shared/regulatory';
+import { type CreateDesSubjectCodeMappingDto } from '@school/shared/regulatory';
 import {
   Button,
-  Checkbox,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   Input,
-  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -33,41 +19,41 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { SubjectMappingDialog } from '../_components/subject-mapping-dialog';
 import { SubjectMappingTable } from '../_components/subject-mapping-table';
 import type { SubjectMapping } from '../_components/subject-mapping-table';
 
-// ─── Page ────────────────────────────────────────────────────────────────────
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+type VerifiedFilter = 'all' | 'verified' | 'unverified';
+
+// ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function SubjectMappingsPage() {
-  const t = useTranslations('regulatory');
+  const t = useTranslations('regulatory.desReturns');
+  const locale = useLocale();
 
   const [mappings, setMappings] = React.useState<SubjectMapping[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  // ─── Form setup ──────────────────────────────────────────────────────────
-
-  const form = useForm<CreateDesSubjectCodeMappingDto>({
-    resolver: zodResolver(createDesSubjectCodeMappingSchema),
-    defaultValues: {
-      subject_id: '',
-      des_code: '',
-      des_name: '',
-      des_level: '',
-      is_verified: false,
-    },
-  });
+  const [search, setSearch] = React.useState('');
+  const [verifiedFilter, setVerifiedFilter] = React.useState<VerifiedFilter>('all');
 
   // ─── Fetch mappings ──────────────────────────────────────────────────────
-
   const fetchMappings = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await apiClient<SubjectMapping[]>('/api/v1/regulatory/des/subject-mappings', {
-        silent: true,
-      });
-      setMappings(data);
+      const res = await apiClient<{ data: SubjectMapping[] } | SubjectMapping[]>(
+        '/api/v1/regulatory/des/subject-mappings',
+        { silent: true },
+      );
+      const inner =
+        res && typeof res === 'object' && !Array.isArray(res) && 'data' in res
+          ? res.data
+          : (res as SubjectMapping[]);
+      setMappings(Array.isArray(inner) ? inner : []);
     } catch (err) {
       console.error('[SubjectMappingsPage.fetchMappings]', err);
       setMappings([]);
@@ -80,21 +66,7 @@ export default function SubjectMappingsPage() {
     void fetchMappings();
   }, [fetchMappings]);
 
-  // ─── Auto-fill DES name when code is selected ────────────────────────────
-
-  const selectedCode = form.watch('des_code');
-
-  React.useEffect(() => {
-    if (!selectedCode) return;
-    const match = DES_SUBJECT_CODES.find((s) => s.code === selectedCode);
-    if (match) {
-      form.setValue('des_name', match.name, { shouldValidate: true });
-      form.setValue('des_level', match.level ?? '', { shouldValidate: false });
-    }
-  }, [selectedCode, form]);
-
   // ─── Create mapping ──────────────────────────────────────────────────────
-
   async function handleCreate(values: CreateDesSubjectCodeMappingDto) {
     setIsSubmitting(true);
     try {
@@ -102,155 +74,100 @@ export default function SubjectMappingsPage() {
         method: 'POST',
         body: JSON.stringify(values),
       });
-      toast.success(t('desReturns.mappingCreated'));
-      form.reset();
+      toast.success(t('mappingCreated'));
       setIsDialogOpen(false);
       void fetchMappings();
     } catch (err) {
       console.error('[SubjectMappingsPage.handleCreate]', err);
-      toast.error(t('desReturns.mappingCreateFailed'));
+      toast.error(t('mappingCreateFailed'));
     } finally {
       setIsSubmitting(false);
     }
   }
 
   // ─── Delete mapping ──────────────────────────────────────────────────────
-
   async function handleDelete(id: string) {
     try {
-      await apiClient(`/api/v1/regulatory/des/subject-mappings/${id}`, {
-        method: 'DELETE',
-      });
-      toast.success(t('desReturns.mappingDeleted'));
+      await apiClient(`/api/v1/regulatory/des/subject-mappings/${id}`, { method: 'DELETE' });
+      toast.success(t('mappingDeleted'));
       void fetchMappings();
     } catch (err) {
       console.error('[SubjectMappingsPage.handleDelete]', err);
-      toast.error(t('desReturns.mappingDeleteFailed'));
+      toast.error(t('mappingDeleteFailed'));
     }
   }
 
-  // ─── Dialog close/reset ──────────────────────────────────────────────────
-
-  function handleDialogOpenChange(open: boolean) {
-    setIsDialogOpen(open);
-    if (!open) {
-      form.reset();
-    }
-  }
-
-  // ─── Render ──────────────────────────────────────────────────────────────
+  // ─── Filter mappings ─────────────────────────────────────────────────────
+  const filteredMappings = React.useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return mappings.filter((row) => {
+      if (verifiedFilter === 'verified' && !row.is_verified) return false;
+      if (verifiedFilter === 'unverified' && row.is_verified) return false;
+      if (!needle) return true;
+      const hay =
+        `${row.subject?.name ?? ''} ${row.des_code} ${row.des_name} ${row.des_level ?? ''}`.toLowerCase();
+      return hay.includes(needle);
+    });
+  }, [mappings, search, verifiedFilter]);
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-w-0 flex-col gap-6 pb-10">
       <PageHeader
-        title={t('desReturns.subjectMappingsTitle')}
-        description={t('desReturns.subjectMappingsDescription')}
+        title={t('subjectMappingsTitle')}
+        description={t('subjectMappingsDescription')}
+        back={{ href: `/${locale}/regulatory/des-returns`, label: t('backToDesReturns') }}
         actions={
-          <Button size="sm" onClick={() => setIsDialogOpen(true)}>
-            <Plus className="me-1.5 h-4 w-4" />
-            {t('desReturns.addMapping')}
+          <Button
+            size="sm"
+            onClick={() => setIsDialogOpen(true)}
+            className="min-h-[44px] bg-teal-600 text-white hover:bg-teal-700"
+          >
+            <Plus className="me-1.5 h-4 w-4" aria-hidden="true" />
+            {t('addMapping')}
           </Button>
         }
       />
 
-      {/* ─── Mappings Table ───────────────────────────────────────────────── */}
-      <SubjectMappingTable data={mappings} onDelete={handleDelete} isLoading={isLoading} />
+      {/* ── Filter bar ──────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-primary p-4 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search
+            className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary"
+            aria-hidden="true"
+          />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('searchMappingsPlaceholder')}
+            className="min-h-[44px] w-full ps-9 text-base"
+            aria-label={t('searchMappingsPlaceholder')}
+          />
+        </div>
+        <Select
+          value={verifiedFilter}
+          onValueChange={(v) => setVerifiedFilter(v as VerifiedFilter)}
+        >
+          <SelectTrigger className="min-h-[44px] w-full sm:w-52">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('filter.all')}</SelectItem>
+            <SelectItem value="verified">{t('filter.verifiedOnly')}</SelectItem>
+            <SelectItem value="unverified">{t('filter.unverifiedOnly')}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      {/* ─── Add Mapping Dialog ───────────────────────────────────────────── */}
-      <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t('desReturns.addMappingTitle')}</DialogTitle>
-            <DialogDescription>{t('desReturns.addMappingDescription')}</DialogDescription>
-          </DialogHeader>
+      {/* ── Mappings table ──────────────────────────────────────────────── */}
+      <SubjectMappingTable data={filteredMappings} onDelete={handleDelete} isLoading={isLoading} />
 
-          <form onSubmit={form.handleSubmit(handleCreate)} className="space-y-4">
-            {/* Subject ID */}
-            <div className="space-y-1.5">
-              <Label htmlFor="subject_id">{t('desReturns.subjectId')}</Label>
-              <Input
-                id="subject_id"
-                placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
-                className="text-base"
-                {...form.register('subject_id')}
-              />
-              {form.formState.errors.subject_id && (
-                <p className="text-xs text-danger-text">
-                  {form.formState.errors.subject_id.message}
-                </p>
-              )}
-            </div>
-
-            {/* DES Code */}
-            <div className="space-y-1.5">
-              <Label htmlFor="des_code">{t('desReturns.desCode')}</Label>
-              <Select
-                value={form.watch('des_code')}
-                onValueChange={(val) => form.setValue('des_code', val, { shouldValidate: true })}
-              >
-                <SelectTrigger id="des_code" className="text-base">
-                  <SelectValue placeholder={t('desReturns.selectDesCode')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {DES_SUBJECT_CODES.map((subj) => (
-                    <SelectItem key={subj.code} value={subj.code}>
-                      {subj.code} — {subj.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {form.formState.errors.des_code && (
-                <p className="text-xs text-danger-text">{form.formState.errors.des_code.message}</p>
-              )}
-            </div>
-
-            {/* DES Name (auto-filled) */}
-            <div className="space-y-1.5">
-              <Label htmlFor="des_name">{t('desReturns.desName')}</Label>
-              <Input id="des_name" className="text-base" {...form.register('des_name')} />
-              {form.formState.errors.des_name && (
-                <p className="text-xs text-danger-text">{form.formState.errors.des_name.message}</p>
-              )}
-            </div>
-
-            {/* DES Level */}
-            <div className="space-y-1.5">
-              <Label htmlFor="des_level">{t('desReturns.level')}</Label>
-              <Input
-                id="des_level"
-                placeholder={t('desReturns.levelPlaceholder')}
-                className="text-base"
-                {...form.register('des_level')}
-              />
-            </div>
-
-            {/* Is Verified */}
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="is_verified"
-                checked={form.watch('is_verified') ?? false}
-                onCheckedChange={(checked) =>
-                  form.setValue('is_verified', checked === true, {
-                    shouldValidate: true,
-                  })
-                }
-              />
-              <Label htmlFor="is_verified" className="cursor-pointer">
-                {t('desReturns.markVerified')}
-              </Label>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
-                {t('desReturns.cancel')}
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? t('desReturns.saving') : t('desReturns.save')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* ── Create dialog ───────────────────────────────────────────────── */}
+      <SubjectMappingDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onSubmit={handleCreate}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
 }
