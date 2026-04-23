@@ -39,16 +39,31 @@
 -- same state automatically.
 
 -- ─── Fix mv_behaviour_exposure_rates unique index ─────────────────────────
+--
+-- Guarded: the MV lives in `20260326200000/post_migrate.sql`, which runs
+-- AFTER all Prisma migrations. On fresh CI databases the MV does not yet
+-- exist when this migration runs, so we skip the index here and let the
+-- same-directory post_migrate.sql rebuild it idempotently once the MV is
+-- guaranteed to exist. On production the MV was already in place when
+-- this migration was applied manually, so the IF EXISTS check takes the
+-- rebuild branch there.
 
-DROP INDEX IF EXISTS uq_mv_behaviour_exposure_rates;
-CREATE UNIQUE INDEX uq_mv_behaviour_exposure_rates
-  ON mv_behaviour_exposure_rates (
-    tenant_id,
-    academic_period_id,
-    subject_id,
-    staff_id,
-    year_group_id
-  ) NULLS NOT DISTINCT;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_matviews WHERE matviewname = 'mv_behaviour_exposure_rates') THEN
+    EXECUTE 'DROP INDEX IF EXISTS uq_mv_behaviour_exposure_rates';
+    EXECUTE $idx$
+      CREATE UNIQUE INDEX uq_mv_behaviour_exposure_rates
+        ON mv_behaviour_exposure_rates (
+          tenant_id,
+          academic_period_id,
+          subject_id,
+          staff_id,
+          year_group_id
+        ) NULLS NOT DISTINCT
+    $idx$;
+  END IF;
+END $$;
 
 -- ─── SECURITY DEFINER refresh functions ──────────────────────────────────
 

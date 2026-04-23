@@ -41,6 +41,23 @@ CREATE POLICY "exam_solve_jobs_tenant_isolation" ON "exam_solve_jobs"
     WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
 
 -- Bump updated_at trigger (matches pattern used on other tenant-scoped tables).
-CREATE TRIGGER "trg_exam_solve_jobs_updated_at"
-    BEFORE UPDATE ON "exam_solve_jobs"
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+--
+-- Guarded: `set_updated_at()` is created in
+-- `20260316072748_add_p1_tenancy_users_rbac/post_migrate.sql`, which runs
+-- AFTER all Prisma migrations. On fresh CI / dev DBs the function does
+-- not yet exist at this point, so we skip and let the same-directory
+-- post_migrate.sql attach the trigger once the function is guaranteed to
+-- exist. On production the function was already present when this
+-- migration was applied manually, so the IF EXISTS check succeeds there.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_proc WHERE proname = 'set_updated_at' AND pg_function_is_visible(oid)
+  ) THEN
+    EXECUTE $trg$
+      CREATE TRIGGER "trg_exam_solve_jobs_updated_at"
+        BEFORE UPDATE ON "exam_solve_jobs"
+        FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+    $trg$;
+  END IF;
+END $$;
