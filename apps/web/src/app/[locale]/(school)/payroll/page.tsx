@@ -7,6 +7,7 @@ import {
   BookOpen,
   CalendarCheck,
   CalendarDays,
+  CalendarX,
   ClipboardList,
   Clock,
   Download,
@@ -97,6 +98,7 @@ interface HubCardConfig {
     | 'runs'
     | 'compensation'
     | 'attendance'
+    | 'absences'
     | 'classDelivery'
     | 'reports'
     | 'exports'
@@ -132,6 +134,14 @@ const HUB_CARDS: HubCardConfig[] = [
     accent: 'from-emerald-400 via-emerald-500 to-emerald-600',
     iconBg: 'bg-emerald-100 text-emerald-700',
     glow: 'from-emerald-50/80',
+  },
+  {
+    key: 'absences',
+    href: '/payroll/absences',
+    icon: CalendarX,
+    accent: 'from-orange-400 via-orange-500 to-orange-600',
+    iconBg: 'bg-orange-100 text-orange-700',
+    glow: 'from-orange-50/80',
   },
   {
     key: 'classDelivery',
@@ -201,9 +211,7 @@ function KpiTile({
               {value}
             </p>
           )}
-          {subtitle && !isLoading && (
-            <p className="mt-1 text-xs text-text-tertiary">{subtitle}</p>
-          )}
+          {subtitle && !isLoading && <p className="mt-1 text-xs text-text-tertiary">{subtitle}</p>}
         </div>
         <div className={`shrink-0 rounded-xl bg-surface-secondary p-2 ${accent}`}>
           <Icon className="h-5 w-5" />
@@ -307,8 +315,7 @@ function TrendTooltip(props: {
         const name = String(entry.name ?? '');
         return (
           <p key={`${name}-${idx}`} className="text-xs" style={{ color: entry.color }}>
-            {name}:{' '}
-            <CurrencyDisplay amount={amount} currency_code={currencyCode} locale={locale} />
+            {name}: <CurrencyDisplay amount={amount} currency_code={currencyCode} locale={locale} />
           </p>
         );
       })}

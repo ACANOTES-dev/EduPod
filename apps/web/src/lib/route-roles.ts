@@ -157,6 +157,8 @@ export const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
   },
   { prefix: '/finance', roles: [...ADMIN_ROLES, 'accounting'] },
   { prefix: '/payroll', roles: ['school_owner', 'school_principal'] },
+  // Leave hub — any staff member who can submit or approve leave requests.
+  { prefix: '/leave', roles: STAFF_ROLES },
   // Communications hub pages are admin-only. Non-admin users land
   // directly on /inbox when they click the morph bar hub (see
   // handleHubClick in the school layout — it skips basePaths the

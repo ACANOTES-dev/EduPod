@@ -2,6 +2,7 @@
 
 import {
   ArrowRight,
+  CalendarClock,
   CalendarDays,
   CheckCheck,
   DoorOpen,
@@ -94,6 +95,15 @@ const CARDS: OperationsCardConfig[] = [
     iconBg: 'bg-indigo-100 text-indigo-700',
     glow: 'from-indigo-50/80',
     roles: ADMIN_ROLES,
+  },
+  {
+    key: 'leave',
+    href: '/leave',
+    icon: CalendarClock,
+    accent: 'from-orange-400 via-orange-500 to-orange-600',
+    iconBg: 'bg-orange-100 text-orange-700',
+    glow: 'from-orange-50/80',
+    roles: STAFF_ROLES,
   },
 ];
 

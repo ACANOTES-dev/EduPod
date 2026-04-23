@@ -327,7 +327,15 @@ export const hubConfigs: HubConfig[] = [
     // there is intentionally no sub-strip config for `operations` — the
     // dashboard itself is the navigation surface.
     labelKey: 'nav.operations',
-    basePaths: ['/operations', '/admissions', '/approvals', '/scheduling', '/rooms', '/engagement'],
+    basePaths: [
+      '/operations',
+      '/admissions',
+      '/approvals',
+      '/scheduling',
+      '/rooms',
+      '/engagement',
+      '/leave',
+    ],
     roles: STAFF_ROLES,
   },
   {

@@ -444,6 +444,12 @@
       "methods": ["$executeRaw"],
       "category": "backfill-script",
       "reason": "One-shot operational backfill (W-S6-001, 2026-04-21): idempotent INSERT ... ON CONFLICT DO NOTHING to grant early_warning.* permissions to owner/principal/vice-principal roles that the Impl-01 role seed missed. Runs manually against prod with DATABASE_URL; not in request path."
+    },
+    {
+      "file": "packages/prisma/scripts/grant-leave-manage-types-permission.ts",
+      "methods": ["$executeRaw", "$executeRawUnsafe", "$queryRaw"],
+      "category": "backfill-script",
+      "reason": "One-shot operational backfill (Category C, 2026-04-23): idempotent INSERT ... ON CONFLICT DO NOTHING to grant leave.manage_types to owner/principal/admin roles after the new settings/leave-types UI shipped. Sets RLS context via set_config, scans tenants via $queryRaw, inserts via $executeRaw. Runs manually against prod; not in request path."
     }
   ]
 }

@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -15,8 +17,10 @@ import { z } from 'zod';
 import type { JwtPayload } from '@school/shared';
 import {
   createLeaveRequestSchema,
+  createLeaveTypeSchema,
   leaveRequestQuerySchema,
   reviewLeaveRequestSchema,
+  updateLeaveTypeSchema,
 } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -43,13 +47,77 @@ export class LeaveController {
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
-  // ─── Leave Types ──────────────────────────────────────────────────────────
+  // ─── Leave Types — Read (staff) ───────────────────────────────────────────
 
   // Readable by any teacher submitting a request or admin reviewing one.
+  // GET /v1/leave/types
   @Get('types')
   @RequiresPermission('leave.submit_request')
   async listTypes(@CurrentTenant() tenant: { tenant_id: string }) {
     return this.leaveTypesService.list(tenant.tenant_id);
+  }
+
+  // ─── Leave Types — Admin catalogue management ─────────────────────────────
+
+  // GET /v1/leave/types/admin — full catalogue incl. inactive + system rows.
+  @Get('types/admin')
+  @RequiresPermission('leave.manage_types')
+  async listTypesAdmin(@CurrentTenant() tenant: { tenant_id: string }) {
+    return this.leaveTypesService.listAdmin(tenant.tenant_id);
+  }
+
+  // POST /v1/leave/types
+  @Post('types')
+  @RequiresPermission('leave.manage_types')
+  @HttpCode(HttpStatus.CREATED)
+  async createType(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(createLeaveTypeSchema))
+    dto: z.infer<typeof createLeaveTypeSchema>,
+  ) {
+    return this.leaveTypesService.create(tenant.tenant_id, dto);
+  }
+
+  // PATCH /v1/leave/types/:id
+  @Patch('types/:id')
+  @RequiresPermission('leave.manage_types')
+  async updateType(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateLeaveTypeSchema))
+    dto: z.infer<typeof updateLeaveTypeSchema>,
+  ) {
+    return this.leaveTypesService.update(tenant.tenant_id, id, dto);
+  }
+
+  // DELETE /v1/leave/types/:id — archive (soft delete, sets is_active=false).
+  @Delete('types/:id')
+  @RequiresPermission('leave.manage_types')
+  @HttpCode(HttpStatus.OK)
+  async archiveType(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.leaveTypesService.archive(tenant.tenant_id, id);
+  }
+
+  // ─── Balance (staff hub) ──────────────────────────────────────────────────
+
+  // GET /v1/leave/balance — the authenticated user's own balance.
+  @Get('balance')
+  @RequiresPermission('leave.submit_request')
+  async myBalance(@CurrentTenant() tenant: { tenant_id: string }, @CurrentUser() user: JwtPayload) {
+    return this.leaveTypesService.getBalanceForUser(tenant.tenant_id, user.sub);
+  }
+
+  // GET /v1/leave/balance/:staffProfileId — admin variant for any staff member.
+  @Get('balance/:staffProfileId')
+  @RequiresPermission('leave.approve_requests')
+  async staffBalance(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('staffProfileId', ParseUUIDPipe) staffProfileId: string,
+  ) {
+    return this.leaveTypesService.getBalanceForStaff(tenant.tenant_id, staffProfileId);
   }
 
   // ─── Submit ───────────────────────────────────────────────────────────────

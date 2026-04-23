@@ -5622,6 +5622,20 @@
   },
   {
     "method": "GET",
+    "path": "/v1/leave/balance",
+    "controller": "LeaveController",
+    "module": "leave",
+    "permission": "leave.manage_types"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/leave/balance/:staffProfileId",
+    "controller": "LeaveController",
+    "module": "leave",
+    "permission": "leave.submit_request"
+  },
+  {
+    "method": "GET",
     "path": "/v1/leave/requests",
     "controller": "LeaveController",
     "module": "leave",
@@ -5632,7 +5646,7 @@
     "path": "/v1/leave/requests",
     "controller": "LeaveController",
     "module": "leave",
-    "permission": "leave.submit_request"
+    "permission": "leave.approve_requests"
   },
   {
     "method": "POST",
@@ -5665,6 +5679,34 @@
   {
     "method": "GET",
     "path": "/v1/leave/types",
+    "controller": "LeaveController",
+    "module": "leave",
+    "permission": "leave.submit_request"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/leave/types",
+    "controller": "LeaveController",
+    "module": "leave",
+    "permission": "leave.manage_types"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/leave/types/:id",
+    "controller": "LeaveController",
+    "module": "leave",
+    "permission": "leave.manage_types"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/leave/types/:id",
+    "controller": "LeaveController",
+    "module": "leave",
+    "permission": "leave.manage_types"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/leave/types/admin",
     "controller": "LeaveController",
     "module": "leave",
     "permission": "leave.submit_request"

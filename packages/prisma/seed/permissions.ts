@@ -242,6 +242,11 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     permission_tier: 'admin',
   },
   {
+    permission_key: 'leave.manage_types',
+    description: 'Manage the tenant leave-type catalogue (create, update, archive)',
+    permission_tier: 'admin',
+  },
+  {
     permission_key: 'schedule.view_reports',
     description: 'View scheduling reports: cover analytics, workload heatmap, room utilization',
     permission_tier: 'admin',

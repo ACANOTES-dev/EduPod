@@ -72,6 +72,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       // Leave & Cover
       'schedule.manage_substitutions',
       'leave.approve_requests',
+      'leave.manage_types',
       // Search
       'search.view',
       // Students & Attendance
@@ -203,6 +204,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'schedule.manage_exams',
       'schedule.manage_scenarios',
       'leave.approve_requests',
+      'leave.manage_types',
       // Students, Attendance, Gradebook
       'students.manage',
       'students.view',
@@ -312,6 +314,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'schedule.manage_exams',
       'schedule.manage_scenarios',
       'leave.approve_requests',
+      'leave.manage_types',
       // Students, Attendance, Gradebook
       'students.manage',
       'students.view',

@@ -2,7 +2,7 @@
 
 > **Purpose**: Complete inventory of every implemented feature, mapped to its code location. This document answers "what does the product do and where does it live?"
 > **Maintenance**: Update only when a feature change is confirmed final. This file is intended to be the architecture-level source of truth for product scope.
-> **Last verified**: 2026-04-21 (wellbeing rebuild — Impl 24 Wave 7 sign-off)
+> **Last verified**: 2026-04-23 (Category C — Leave Management UI shipped)
 
 ---
 
@@ -49,7 +49,8 @@
 | [Staff Wellbeing](#37-staff-wellbeing)                                                             | `modules/staff-wellbeing/`                                                                                                                                                                                                                | 24            | 7              | —           |
 | [Inbox & Messaging](#38-inbox--messaging)                                                          | `modules/inbox/`                                                                                                                                                                                                                          | 34            | 10             | 5           |
 | [Wellbeing Super-Hub + AI Flags + Notifications](#39-wellbeing-super-hub--ai-flags--notifications) | `modules/wellbeing-aggregate/`, `modules/ai-flags/`, `modules/wellbeing-notifications/`                                                                                                                                                   | 4             | 2              | —           |
-| **TOTAL**                                                                                          | **39 product domains across 54+ active modules**                                                                                                                                                                                          | **~1,413+**   | **~335+**      | **77+**     |
+| [Leave Management](#40-leave-management)                                                           | `modules/leave/`                                                                                                                                                                                                                          | 15            | 5              | —           |
+| **TOTAL**                                                                                          | **40 product domains across 55+ active modules**                                                                                                                                                                                          | **~1,428+**   | **~340+**      | **77+**     |
 
 ---
 
@@ -1257,3 +1258,48 @@ Four new permissions: `ai_flag.manage`, `wellbeing.view_dashboard`, `safeguardin
 **Depends on**: Behaviour, pastoral, safeguarding, early-warning, staff-wellbeing (via `ReadFacadesModule`); notifications queue; tenant_modules flag table; inbox (for in-app channel writes).
 
 **Source of truth for the rebuild**: `wellbeing_new/PLAN.md`, `wellbeing_new/IMPLEMENTATION_LOG.md`, `wellbeing_new/SIGN_OFF.md`.
+
+---
+
+## 40. Leave Management
+
+**What it does**: Planned-absence workflow for teaching and non-teaching staff: a tenant-configurable leave-type catalogue (annual / sick / bereavement / unpaid…), submission of leave requests with optional evidence, admin approval with notes, automatic creation of the backing `teacher_absence` row on approval (which triggers the existing substitution cascade), staff self-service balance, and a month-end aggregation used by payroll to compute paid / unpaid days missed per staff member. Integrates with the scheduling module's substitution cascade so approved leave automatically fans out cover offers.
+
+**Backend**: `apps/api/src/modules/leave/`
+
+- `LeaveController` — routes mounted at `/v1/leave`:
+  - `GET /types` — effective catalogue for the submit dropdown (tenant rows shadow same-code system rows). Permission: `leave.submit_request`.
+  - `GET /types/admin`, `POST /types`, `PATCH /types/:id`, `DELETE /types/:id` — admin catalogue management. Permission: `leave.manage_types`.
+  - `GET /balance`, `GET /balance/:staffProfileId` — per-staff balance summary aggregated across the current academic year. Self-serve endpoint is `leave.submit_request`; the admin-targeted `:staffProfileId` variant requires `leave.approve_requests`.
+  - `POST /requests`, `GET /requests/my`, `POST /requests/:id/withdraw` — staff submission + withdraw. Permission: `leave.submit_request`.
+  - `GET /requests`, `POST /requests/:id/approve`, `POST /requests/:id/reject` — admin queue. Permission: `leave.approve_requests`.
+- `PayrollAttendanceController` — `GET /v1/payroll/absence-periods?period=YYYY-MM` returns per-staff days_worked / days_missed with paid / unpaid breakdown and leave-type split for month-end payroll. Permission: `payroll.manage_attendance`.
+- `LeaveRequestsService` — submission, approval (creates `teacher_absence` with `absence_type='approved_leave'` + `leave_request_id` link, triggers `SubstitutionCascadeService.runCascade`), rejection, withdrawal. State machine: `pending → approved / rejected / withdrawn`; `approved → cancelled`. Cross-day overlap check against the date range + max-days-per-request enforcement.
+- `LeaveTypesService` — list (effective), listAdmin (full catalogue + override flags), create / update / archive (system rows are read-only; tenants create an override row with the same code to customise), and two balance aggregators (`getBalanceForUser` / `getBalanceForStaff`) that sum `teacher_absences.days_counted` for the current academic year and count pending-request days per leave type.
+- `PayrollAttendanceService` — aggregates overlap-weighted days missed per staff for a calendar month, excluding weekends. School holidays are NOT yet excluded (no `school_holidays` table).
+
+**Frontend**:
+
+- `/leave` — staff hub: balance tiles (academic year, days taken, days pending, pending request count) + per-type balance table + pending + history + submit dialog. Links to the admin review queue and leave-type catalogue when the role permits.
+- `/dashboard/teacher/leave` — original teacher self-service entry (form + history). Kept in place alongside `/leave`; the new hub is the unified surface.
+- `/scheduling/leave-requests` — admin approve / reject queue with optional review notes.
+- `/settings/leave-types` — tenant leave-type catalogue: table of system + tenant rows with scope / paid / approval / evidence / max-days / active columns, create / edit / archive, and a one-click "Override" for shadowing a system default.
+- `/payroll/absences` — month-end absence summary: month picker, totals (school days, staff, with absences, paid vs unpaid days missed), per-staff table with per-type breakdown badges, and CSV export. Reachable from the payroll hub card.
+
+**Tables** (all with RLS tenant_isolation policies in `post_migrate.sql` of `20260414140000_add_leave_and_cover`):
+
+- `leave_types` — tenant-scoped catalogue with `tenant_id IS NULL` system defaults (`USING tenant_id IS NULL OR tenant_id = current_tenant`). Partial unique indexes `idx_leave_types_system_code` (where tenant_id IS NULL) + `idx_leave_types_tenant_code` (where tenant_id IS NOT NULL).
+- `leave_requests` — submission state, reviewer metadata, and the backing `LeaveRequestStatus` enum (`pending` / `approved` / `rejected` / `cancelled` / `withdrawn`). Approval creates a `teacher_absences` row linked via `leave_request_id`.
+- `teacher_absences` — already owned by scheduling; extended in the same migration with `date_to`, `absence_type` enum (`self_reported` / `approved_leave`), `leave_type_id`, `leave_request_id`, `is_paid`, `days_counted`.
+- Sibling tables from the same migration: `substitution_offers`, `tenant_scheduling_settings`.
+
+**Permissions**: `leave.submit_request`, `leave.approve_requests`, `leave.manage_types` (all in `packages/prisma/seed/permissions.ts`). Default role mapping: `school_owner` / `school_principal` / `admin` get all three; `school_vice_principal` gets submit + approve; `teacher` gets submit.
+
+**Shared types**: `packages/shared/src/schemas/leave.schema.ts` — `leaveTypeResponseSchema`, `leaveTypeAdminResponseSchema`, `createLeaveTypeSchema`, `updateLeaveTypeSchema`, `createLeaveRequestSchema`, `reviewLeaveRequestSchema`, `leaveRequestQuerySchema`, `leaveBalanceResponseSchema`.
+
+**Backfill scripts** (production — run once post-deploy):
+
+- `packages/prisma/scripts/sync-missing-permissions.ts` — registers `leave.manage_types` in the global `permissions` table. Idempotent.
+- `packages/prisma/scripts/grant-leave-manage-types-permission.ts` — grants `leave.manage_types` to `school_owner` / `school_principal` / `admin` roles on every tenant. Idempotent.
+
+**Depends on**: Scheduling (`SubstitutionCascadeService`, `CoverNotificationsService`), Staff Profiles (`StaffProfileReadFacade`), Academics (`AcademicReadFacade` for current-year balance window), Notifications (via `cover-notifications.service`).
