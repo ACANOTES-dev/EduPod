@@ -168,6 +168,7 @@ export const wellbeingDashboardSummarySchema = z.object({
     behaviour: z.number().int().nonnegative(),
     pastoral: z.number().int().nonnegative(),
     safeguarding: z.number().int().nonnegative(),
+    sen: z.number().int().nonnegative(),
     early_warnings: z.number().int().nonnegative(),
     staff_wellbeing: z.number().int().nonnegative(),
   }),

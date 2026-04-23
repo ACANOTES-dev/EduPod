@@ -1,11 +1,13 @@
 'use client';
 
-import { Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { SEN_CATEGORY_VALUES, SEN_SUPPORT_LEVEL_VALUES } from '@school/shared/sen';
 import {
+  Button,
   Input,
   Select,
   SelectContent,
@@ -18,6 +20,8 @@ import {
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+import { CreateProfileDialog } from './_components/create-profile-dialog';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,21 +42,6 @@ interface SenProfilesResponse {
   meta: { page: number; pageSize: number; total: number };
 }
 
-// ─── Category and support-level options ───────────────────────────────────────
-
-const SEN_CATEGORY_VALUES = [
-  'learning',
-  'social_emotional_behavioural',
-  'communication_interaction',
-  'sensory_physical',
-  'autism_spectrum',
-  'specific_learning_disability',
-  'intellectual_disability',
-  'multiple_disabilities',
-] as const;
-
-const SUPPORT_LEVELS = ['school_support', 'school_support_plus'] as const;
-
 // ─── Student directory page ───────────────────────────────────────────────────
 
 export default function SenStudentsPage() {
@@ -64,6 +53,8 @@ export default function SenStudentsPage() {
   const [page, setPage] = React.useState(1);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
+  const [reloadKey, setReloadKey] = React.useState(0);
+  const [createOpen, setCreateOpen] = React.useState(false);
   const pageSize = 20;
 
   // Filters
@@ -126,7 +117,7 @@ export default function SenStudentsPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, debouncedSearch, category, supportLevel, activeFilter]);
+  }, [page, debouncedSearch, category, supportLevel, activeFilter, reloadKey]);
 
   // ─── Table columns ────────────────────────────────────────────────────────
 
@@ -218,7 +209,7 @@ export default function SenStudentsPage() {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{t('students.allLevels')}</SelectItem>
-          {SUPPORT_LEVELS.map((level) => (
+          {SEN_SUPPORT_LEVEL_VALUES.map((level) => (
             <SelectItem key={level} value={level}>
               {t(`supportLevel.${level}`)}
             </SelectItem>
@@ -242,7 +233,16 @@ export default function SenStudentsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('students.title')} description={t('students.description')} />
+      <PageHeader
+        title={t('students.title')}
+        description={t('students.description')}
+        actions={
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="me-2 h-4 w-4" />
+            {t('students.createProfile')}
+          </Button>
+        }
+      />
 
       <DataTable
         columns={columns}
@@ -255,6 +255,15 @@ export default function SenStudentsPage() {
         onRowClick={handleRowClick}
         keyExtractor={(row) => row.id}
         isLoading={loading}
+      />
+
+      <CreateProfileDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={(profile) => {
+          setReloadKey((k) => k + 1);
+          router.push(`/${locale}/sen/students/${profile.student_id}`);
+        }}
       />
     </div>
   );

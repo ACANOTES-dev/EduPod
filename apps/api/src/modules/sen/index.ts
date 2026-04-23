@@ -4,5 +4,6 @@
  */
 export { SenModule } from './sen.module';
 export { SenProfileService } from './sen-profile.service';
+export { SenReadFacade } from './sen-read.facade';
 export { SenScopeService } from './sen-scope.service';
 export { SenSupportPlanService } from './sen-support-plan.service';

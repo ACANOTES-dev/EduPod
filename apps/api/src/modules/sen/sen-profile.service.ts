@@ -73,12 +73,13 @@ interface SenProfileWithRelations {
 }
 
 interface OverviewResult {
-  totalSenStudents: number;
-  byCategory: Record<string, number>;
-  bySupportLevel: Record<string, number>;
-  byYearGroup: Array<{
-    yearGroupId: string;
-    yearGroupName: string;
+  total_profiles: number;
+  active_profiles: number;
+  by_category: Record<string, number>;
+  by_support_level: Record<string, number>;
+  by_year_group: Array<{
+    year_group_id: string;
+    year_group_name: string;
     count: number;
   }>;
 }
@@ -591,12 +592,13 @@ export class SenProfileService {
     }
 
     return {
-      totalSenStudents,
-      byCategory: categoryMap,
-      bySupportLevel: supportLevelMap,
-      byYearGroup: Object.entries(yearGroupCounts).map(([yearGroupId, count]) => ({
-        yearGroupId,
-        yearGroupName: yearGroupNames[yearGroupId] || 'Unknown',
+      total_profiles: totalSenStudents,
+      active_profiles: totalSenStudents,
+      by_category: categoryMap,
+      by_support_level: supportLevelMap,
+      by_year_group: Object.entries(yearGroupCounts).map(([yearGroupId, count]) => ({
+        year_group_id: yearGroupId,
+        year_group_name: yearGroupNames[yearGroupId] || 'Unknown',
         count,
       })),
     };

@@ -603,7 +603,7 @@ function getHubCount(
     case 'safeguarding':
       return hub_counts.safeguarding;
     case 'sen':
-      return undefined;
+      return hub_counts.sen;
     case 'earlyWarnings':
       return hub_counts.early_warnings;
     case 'staffWellbeing':

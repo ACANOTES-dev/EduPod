@@ -14739,7 +14739,99 @@
       "allLevels": "All Levels",
       "statusAll": "All Statuses",
       "statusActive": "Active",
-      "statusInactive": "Inactive"
+      "statusInactive": "Inactive",
+      "createProfile": "Create Profile"
+    },
+    "createProfile": {
+      "title": "Create SEN Profile",
+      "student": "Student",
+      "searchStudent": "Search students by name…",
+      "primaryCategory": "Primary Category",
+      "supportLevel": "Support Level",
+      "flaggedDate": "Flagged Date",
+      "diagnosis": "Diagnosis",
+      "diagnosisPlaceholder": "e.g. Dyslexia",
+      "diagnosisDate": "Diagnosis Date",
+      "diagnosisSource": "Diagnosis Source",
+      "diagnosisSourcePlaceholder": "e.g. Educational Psychologist",
+      "assessmentNotes": "Assessment Notes",
+      "assessmentNotesPlaceholder": "Notes from initial assessment…",
+      "create": "Create Profile",
+      "cancel": "Cancel",
+      "success": "SEN profile created successfully.",
+      "error": "Failed to create SEN profile."
+    },
+    "createPlan": {
+      "title": "Create Support Plan",
+      "academicYear": "Academic Year",
+      "selectAcademicYear": "Select academic year",
+      "reviewDate": "Initial Review Date",
+      "create": "Create Plan",
+      "cancel": "Cancel",
+      "success": "Support plan created successfully.",
+      "error": "Failed to create support plan."
+    },
+    "addProfessional": {
+      "title": "Add Professional Involvement",
+      "professionalType": "Professional Type",
+      "professionalName": "Professional Name",
+      "professionalNamePlaceholder": "Optional",
+      "organisation": "Organisation",
+      "organisationPlaceholder": "Optional",
+      "referralDate": "Referral Date",
+      "assessmentDate": "Assessment Date",
+      "reportReceivedDate": "Report Received Date",
+      "status": "Status",
+      "recommendations": "Recommendations",
+      "recommendationsPlaceholder": "Key recommendations from this professional…",
+      "notes": "Notes",
+      "notesPlaceholder": "Additional notes…",
+      "add": "Add Professional",
+      "cancel": "Cancel",
+      "success": "Professional involvement added.",
+      "error": "Failed to add professional involvement."
+    },
+    "addAccommodation": {
+      "title": "Add Accommodation",
+      "type": "Accommodation Type",
+      "description": "Description",
+      "descriptionPlaceholder": "Describe the accommodation…",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "isActive": "Active",
+      "add": "Add Accommodation",
+      "cancel": "Cancel",
+      "success": "Accommodation added.",
+      "error": "Failed to add accommodation."
+    },
+    "editProfile": {
+      "title": "Edit SEN Profile",
+      "edit": "Edit",
+      "save": "Save Changes",
+      "cancel": "Cancel",
+      "success": "SEN profile updated successfully.",
+      "error": "Failed to update SEN profile."
+    },
+    "professionalType": {
+      "educational_psychologist": "Educational Psychologist",
+      "speech_therapist": "Speech & Language Therapist",
+      "occupational_therapist": "Occupational Therapist",
+      "camhs": "CAMHS",
+      "physiotherapist": "Physiotherapist",
+      "seno": "SENO",
+      "neps": "NEPS",
+      "other": "Other"
+    },
+    "referralStatus": {
+      "pending": "Pending",
+      "scheduled": "Scheduled",
+      "completed": "Completed",
+      "report_received": "Report Received"
+    },
+    "accommodationType": {
+      "exam": "Exam",
+      "classroom": "Classroom",
+      "assistive_technology": "Assistive Technology"
     },
     "profile": {
       "coreDetails": "Core Details",

@@ -504,19 +504,20 @@ describe('SenProfileService', () => {
 
       const result = await service.getOverview(TENANT_ID);
 
-      expect(result.totalSenStudents).toBe(10);
-      expect(result.byCategory).toEqual({
+      expect(result.total_profiles).toBe(10);
+      expect(result.active_profiles).toBe(10);
+      expect(result.by_category).toEqual({
         learning: 5,
         sensory: 3,
       });
-      expect(result.bySupportLevel).toEqual({
+      expect(result.by_support_level).toEqual({
         school_support: 7,
         school_support_plus: 3,
       });
-      expect(result.byYearGroup).toHaveLength(2);
-      expect(result.byYearGroup).toContainEqual({
-        yearGroupId: 'yg-1',
-        yearGroupName: 'Year 1',
+      expect(result.by_year_group).toHaveLength(2);
+      expect(result.by_year_group).toContainEqual({
+        year_group_id: 'yg-1',
+        year_group_name: 'Year 1',
         count: 2,
       });
     });
@@ -535,8 +536,8 @@ describe('SenProfileService', () => {
 
       const result = await service.getOverview(TENANT_ID);
 
-      expect(result.byYearGroup).toHaveLength(1);
-      expect(result.byYearGroup[0]!.count).toBe(1);
+      expect(result.by_year_group).toHaveLength(1);
+      expect(result.by_year_group[0]!.count).toBe(1);
     });
 
     it('should return "Unknown" for year groups not found in academic facade', async () => {
@@ -551,8 +552,8 @@ describe('SenProfileService', () => {
 
       const result = await service.getOverview(TENANT_ID);
 
-      expect(result.byYearGroup).toHaveLength(1);
-      expect(result.byYearGroup[0]!.yearGroupName).toBe('Unknown');
+      expect(result.by_year_group).toHaveLength(1);
+      expect(result.by_year_group[0]!.year_group_name).toBe('Unknown');
     });
 
     it('should skip fetching year group names when no year groups found', async () => {
@@ -564,7 +565,7 @@ describe('SenProfileService', () => {
 
       const result = await service.getOverview(TENANT_ID);
 
-      expect(result.byYearGroup).toHaveLength(0);
+      expect(result.by_year_group).toHaveLength(0);
       expect(mockAcademicReadFacade.findAllYearGroups).not.toHaveBeenCalled();
     });
   });

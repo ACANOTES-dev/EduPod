@@ -27,6 +27,7 @@ import { SchedulesReadFacade } from '../modules/schedules/schedules-read.facade'
 import { SchedulingReadFacade } from '../modules/scheduling/scheduling-read.facade';
 import { SchedulingRunsReadFacade } from '../modules/scheduling-runs/scheduling-runs-read.facade';
 import { SchoolClosuresReadFacade } from '../modules/school-closures/school-closures-read.facade';
+import { SenReadFacade } from '../modules/sen/sen-read.facade';
 import { StaffAvailabilityReadFacade } from '../modules/staff-availability/staff-availability-read.facade';
 import { StaffPreferencesReadFacade } from '../modules/staff-preferences/staff-preferences-read.facade';
 import { StaffProfileReadFacade } from '../modules/staff-profiles/staff-profile-read.facade';
@@ -66,6 +67,7 @@ const FACADES = [
   RbacReadFacade,
   RoomsReadFacade,
   SafeguardingReadFacade,
+  SenReadFacade,
   SchedulesReadFacade,
   SchedulingReadFacade,
   SchedulingRunsReadFacade,

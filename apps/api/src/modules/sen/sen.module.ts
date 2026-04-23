@@ -16,6 +16,7 @@ import { SenProfessionalController } from './sen-professional.controller';
 import { SenProfessionalService } from './sen-professional.service';
 import { SenProfileController } from './sen-profile.controller';
 import { SenProfileService } from './sen-profile.service';
+import { SenReadFacade } from './sen-read.facade';
 import { SenReportsController } from './sen-reports.controller';
 import { SenReportsService } from './sen-reports.service';
 import { SenResourceController } from './sen-resource.controller';
@@ -60,7 +61,8 @@ import { SenTransitionService } from './sen-transition.service';
     SenAccommodationService,
     SenReportsService,
     SenTransitionService,
+    SenReadFacade,
   ],
-  exports: [SenProfileService, SenScopeService, SenSupportPlanService],
+  exports: [SenProfileService, SenScopeService, SenSupportPlanService, SenReadFacade],
 })
 export class SenModule {}

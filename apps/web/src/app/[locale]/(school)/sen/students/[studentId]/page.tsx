@@ -7,6 +7,8 @@ import {
   FileText,
   HeartHandshake,
   Lock,
+  Pencil,
+  Plus,
   ShieldCheck,
   User,
 } from 'lucide-react';
@@ -14,10 +16,15 @@ import { useParams, useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Badge, EmptyState, Skeleton, StatusBadge } from '@school/ui';
+import { Badge, Button, EmptyState, Skeleton, StatusBadge } from '@school/ui';
 
 import { RecordHub } from '@/components/record-hub';
 import { apiClient } from '@/lib/api-client';
+
+import { AddAccommodationDialog } from './_components/add-accommodation-dialog';
+import { AddProfessionalDialog } from './_components/add-professional-dialog';
+import { CreatePlanDialog } from './_components/create-plan-dialog';
+import { EditProfileDialog } from './_components/edit-profile-dialog';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -207,9 +214,12 @@ function PlansTab({
   const locale = useLocale();
   const [plans, setPlans] = React.useState<SenPlan[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [reloadKey, setReloadKey] = React.useState(0);
 
   React.useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     apiClient<{ data: SenPlan[] }>(`/api/v1/sen/profiles/${profileId}/plans`)
       .then((res) => {
         if (!cancelled) setPlans(res.data);
@@ -223,52 +233,86 @@ function PlansTab({
     return () => {
       cancelled = true;
     };
-  }, [profileId]);
+  }, [profileId, reloadKey]);
+
+  const headerActions = (
+    <div className="mb-3 flex items-center justify-end">
+      <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Plus className="me-1.5 h-4 w-4" />
+        {t('createPlan.create')}
+      </Button>
+    </div>
+  );
 
   if (loading) {
     return (
-      <div className="space-y-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={`plan-skel-${i}`} className="h-20 rounded-xl" />
-        ))}
+      <div>
+        {headerActions}
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={`plan-skel-${i}`} className="h-20 rounded-xl" />
+          ))}
+        </div>
+        <CreatePlanDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          onCreated={(plan) => router.push(`/${locale}/sen/plans/${plan.id}`)}
+          profileId={profileId}
+        />
       </div>
     );
   }
 
-  if (plans.length === 0) {
-    return (
-      <EmptyState
-        icon={ClipboardList}
-        title={t('plans.empty')}
-        description={t('plans.emptyDescription')}
-      />
-    );
-  }
-
   return (
-    <div className="space-y-3">
-      {plans.map((plan) => (
-        <button
-          key={plan.id}
-          type="button"
-          onClick={() => router.push(`/${locale}/sen/plans/${plan.id}`)}
-          className="flex w-full items-center justify-between rounded-xl border border-border bg-surface p-4 text-start transition-colors hover:bg-surface-secondary"
-        >
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-text-primary">{plan.plan_number}</span>
-              <StatusBadge status={STATUS_VARIANT_MAP[plan.status] ?? 'neutral'}>
-                {t(`planStatus.${plan.status}`)}
-              </StatusBadge>
-            </div>
-            <p className="text-xs text-text-secondary">
-              {plan.academic_year} &middot; {new Date(plan.start_date).toLocaleDateString()}
-              {plan.review_date && ` — ${new Date(plan.review_date).toLocaleDateString()}`}
-            </p>
-          </div>
-          <FileText className="h-4 w-4 shrink-0 text-text-tertiary" />
-        </button>
-      ))}
+    <div>
+      {headerActions}
+      {plans.length === 0 ? (
+        <EmptyState
+          icon={ClipboardList}
+          title={t('plans.empty')}
+          description={t('plans.emptyDescription')}
+          action={{
+            label: t('createPlan.create'),
+            onClick: () => setCreateOpen(true),
+          }}
+        />
+      ) : (
+        <div className="space-y-3">
+          {plans.map((plan) => (
+            <button
+              key={plan.id}
+              type="button"
+              onClick={() => router.push(`/${locale}/sen/plans/${plan.id}`)}
+              className="flex w-full items-center justify-between rounded-xl border border-border bg-surface p-4 text-start transition-colors hover:bg-surface-secondary"
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-text-primary">
+                    {plan.plan_number}
+                  </span>
+                  <StatusBadge status={STATUS_VARIANT_MAP[plan.status] ?? 'neutral'}>
+                    {t(`planStatus.${plan.status}`)}
+                  </StatusBadge>
+                </div>
+                <p className="text-xs text-text-secondary">
+                  {plan.academic_year} &middot; {new Date(plan.start_date).toLocaleDateString()}
+                  {plan.review_date && ` — ${new Date(plan.review_date).toLocaleDateString()}`}
+                </p>
+              </div>
+              <FileText className="h-4 w-4 shrink-0 text-text-tertiary" />
+            </button>
+          ))}
+        </div>
+      )}
+      <CreatePlanDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={(plan) => {
+          setReloadKey((k) => k + 1);
+          router.push(`/${locale}/sen/plans/${plan.id}`);
+        }}
+        profileId={profileId}
+      />
     </div>
   );
 }
@@ -372,9 +416,12 @@ function ProfessionalsTab({
   const [professionals, setProfessionals] = React.useState<ProfessionalInvolvement[]>([]);
   const [restrictedCount, setRestrictedCount] = React.useState<number | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [reloadKey, setReloadKey] = React.useState(0);
 
   React.useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     apiClient<{ data?: ProfessionalInvolvement[]; count?: number }>(
       `/api/v1/sen/profiles/${profileId}/professionals`,
     )
@@ -382,6 +429,7 @@ function ProfessionalsTab({
         if (!cancelled) {
           if (res.data) {
             setProfessionals(res.data);
+            setRestrictedCount(null);
           } else if (typeof res.count === 'number') {
             setRestrictedCount(res.count);
           }
@@ -396,14 +444,26 @@ function ProfessionalsTab({
     return () => {
       cancelled = true;
     };
-  }, [profileId]);
+  }, [profileId, reloadKey]);
+
+  const headerActions = restrictedCount === null && (
+    <div className="mb-3 flex items-center justify-end">
+      <Button size="sm" onClick={() => setAddOpen(true)}>
+        <Plus className="me-1.5 h-4 w-4" />
+        {t('addProfessional.add')}
+      </Button>
+    </div>
+  );
 
   if (loading) {
     return (
-      <div className="space-y-3">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <Skeleton key={`prof-skel-${i}`} className="h-16 rounded-xl" />
-        ))}
+      <div>
+        {headerActions}
+        <div className="space-y-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={`prof-skel-${i}`} className="h-16 rounded-xl" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -423,34 +483,49 @@ function ProfessionalsTab({
     );
   }
 
-  if (professionals.length === 0) {
-    return (
-      <EmptyState
-        icon={User}
-        title={t('professionals.empty')}
-        description={t('professionals.emptyDescription')}
-      />
-    );
-  }
-
   return (
-    <div className="space-y-3">
-      {professionals.map((prof) => (
-        <div key={prof.id} className="rounded-xl border border-border bg-surface p-4 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-text-primary">{prof.professional_name}</span>
-            <Badge variant="secondary">{prof.role}</Badge>
-          </div>
-          {prof.organisation && <p className="text-xs text-text-secondary">{prof.organisation}</p>}
-          <p className="text-xs text-text-tertiary">
-            {new Date(prof.start_date).toLocaleDateString()}
-            {prof.end_date
-              ? ` — ${new Date(prof.end_date).toLocaleDateString()}`
-              : ` — ${t('professionals.ongoing')}`}
-          </p>
-          {prof.notes && <p className="text-xs text-text-secondary mt-1">{prof.notes}</p>}
+    <div>
+      {headerActions}
+      {professionals.length === 0 ? (
+        <EmptyState
+          icon={User}
+          title={t('professionals.empty')}
+          description={t('professionals.emptyDescription')}
+          action={{
+            label: t('addProfessional.add'),
+            onClick: () => setAddOpen(true),
+          }}
+        />
+      ) : (
+        <div className="space-y-3">
+          {professionals.map((prof) => (
+            <div key={prof.id} className="rounded-xl border border-border bg-surface p-4 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-text-primary">
+                  {prof.professional_name}
+                </span>
+                <Badge variant="secondary">{prof.role}</Badge>
+              </div>
+              {prof.organisation && (
+                <p className="text-xs text-text-secondary">{prof.organisation}</p>
+              )}
+              <p className="text-xs text-text-tertiary">
+                {new Date(prof.start_date).toLocaleDateString()}
+                {prof.end_date
+                  ? ` — ${new Date(prof.end_date).toLocaleDateString()}`
+                  : ` — ${t('professionals.ongoing')}`}
+              </p>
+              {prof.notes && <p className="text-xs text-text-secondary mt-1">{prof.notes}</p>}
+            </div>
+          ))}
         </div>
-      ))}
+      )}
+      <AddProfessionalDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onCreated={() => setReloadKey((k) => k + 1)}
+        profileId={profileId}
+      />
     </div>
   );
 }
@@ -466,9 +541,12 @@ function AccommodationsTab({
 }) {
   const [accommodations, setAccommodations] = React.useState<Accommodation[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [reloadKey, setReloadKey] = React.useState(0);
 
   React.useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     apiClient<{ data: Accommodation[] }>(`/api/v1/sen/profiles/${profileId}/accommodations`)
       .then((res) => {
         if (!cancelled) setAccommodations(res.data);
@@ -482,48 +560,73 @@ function AccommodationsTab({
     return () => {
       cancelled = true;
     };
-  }, [profileId]);
+  }, [profileId, reloadKey]);
+
+  const headerActions = (
+    <div className="mb-3 flex items-center justify-end">
+      <Button size="sm" onClick={() => setAddOpen(true)}>
+        <Plus className="me-1.5 h-4 w-4" />
+        {t('addAccommodation.add')}
+      </Button>
+    </div>
+  );
 
   if (loading) {
     return (
-      <div className="space-y-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={`acc-skel-${i}`} className="h-16 rounded-xl" />
-        ))}
+      <div>
+        {headerActions}
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={`acc-skel-${i}`} className="h-16 rounded-xl" />
+          ))}
+        </div>
       </div>
     );
   }
 
-  if (accommodations.length === 0) {
-    return (
-      <EmptyState
-        icon={ShieldCheck}
-        title={t('accommodations.empty')}
-        description={t('accommodations.emptyDescription')}
-      />
-    );
-  }
-
   return (
-    <div className="space-y-3">
-      {accommodations.map((acc) => (
-        <div key={acc.id} className="rounded-xl border border-border bg-surface p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">{acc.accommodation_type}</Badge>
-              <StatusBadge status={acc.is_active ? 'success' : 'neutral'}>
-                {acc.is_active ? t('accommodations.active') : t('accommodations.inactive')}
-              </StatusBadge>
+    <div>
+      {headerActions}
+      {accommodations.length === 0 ? (
+        <EmptyState
+          icon={ShieldCheck}
+          title={t('accommodations.empty')}
+          description={t('accommodations.emptyDescription')}
+          action={{
+            label: t('addAccommodation.add'),
+            onClick: () => setAddOpen(true),
+          }}
+        />
+      ) : (
+        <div className="space-y-3">
+          {accommodations.map((acc) => (
+            <div key={acc.id} className="rounded-xl border border-border bg-surface p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">
+                    {t(`accommodationType.${acc.accommodation_type}`)}
+                  </Badge>
+                  <StatusBadge status={acc.is_active ? 'success' : 'neutral'}>
+                    {acc.is_active ? t('accommodations.active') : t('accommodations.inactive')}
+                  </StatusBadge>
+                </div>
+                {acc.applied_date && (
+                  <span className="text-xs text-text-tertiary">
+                    {new Date(acc.applied_date).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-text-secondary">{acc.description}</p>
             </div>
-            {acc.applied_date && (
-              <span className="text-xs text-text-tertiary">
-                {new Date(acc.applied_date).toLocaleDateString()}
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-text-secondary">{acc.description}</p>
+          ))}
         </div>
-      ))}
+      )}
+      <AddAccommodationDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onCreated={() => setReloadKey((k) => k + 1)}
+        profileId={profileId}
+      />
     </div>
   );
 }
@@ -617,9 +720,12 @@ export default function SenStudentProfilePage() {
 
   const [profile, setProfile] = React.useState<SenStudentProfile | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [reloadKey, setReloadKey] = React.useState(0);
 
   React.useEffect(() => {
     let cancelled = false;
+    setLoading(true);
 
     apiClient<{ data: SenStudentProfile }>(`/api/v1/sen/students/${studentId}/profile`)
       .then((res) => {
@@ -635,7 +741,7 @@ export default function SenStudentProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [studentId]);
+  }, [studentId, reloadKey]);
 
   if (loading) {
     return (
@@ -694,15 +800,39 @@ export default function SenStudentProfilePage() {
   ];
 
   return (
-    <RecordHub
-      title={profile.student_name}
-      subtitle={profile.student_year_group ?? undefined}
-      status={{
-        label: profile.is_active ? t('status.active') : t('status.inactive'),
-        variant: profile.is_active ? 'success' : 'neutral',
-      }}
-      reference={profile.id}
-      tabs={tabs}
-    />
+    <>
+      <RecordHub
+        title={profile.student_name}
+        subtitle={profile.student_year_group ?? undefined}
+        status={{
+          label: profile.is_active ? t('status.active') : t('status.inactive'),
+          variant: profile.is_active ? 'success' : 'neutral',
+        }}
+        reference={profile.id}
+        actions={
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil className="me-1.5 h-4 w-4" />
+            {t('editProfile.edit')}
+          </Button>
+        }
+        tabs={tabs}
+      />
+      <EditProfileDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSaved={() => setReloadKey((k) => k + 1)}
+        initial={{
+          id: profile.id,
+          primary_category: profile.primary_category,
+          support_level: profile.support_level,
+          sen_categories: profile.sen_categories,
+          diagnosis: profile.diagnosis,
+          diagnosis_date: profile.diagnosis_date ? profile.diagnosis_date.slice(0, 10) : null,
+          diagnosis_source: profile.diagnosis_source,
+          assessment_notes: profile.assessment_notes,
+          is_active: profile.is_active,
+        }}
+      />
+    </>
   );
 }

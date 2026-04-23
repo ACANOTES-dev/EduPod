@@ -87,10 +87,11 @@ describe('SenProfileController', () => {
   describe('getOverview', () => {
     it('should delegate to service.getOverview', async () => {
       const mockOverview = {
-        totalSenStudents: 10,
-        byCategory: { learning: 5 },
-        bySupportLevel: { school_support: 7 },
-        byYearGroup: [],
+        total_profiles: 10,
+        active_profiles: 10,
+        by_category: { learning: 5 },
+        by_support_level: { school_support: 7 },
+        by_year_group: [],
       };
       mockService.getOverview.mockResolvedValue(mockOverview);
 

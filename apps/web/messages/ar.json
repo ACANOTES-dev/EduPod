@@ -14739,7 +14739,99 @@
       "allLevels": "جميع المستويات",
       "statusAll": "جميع الحالات",
       "statusActive": "نشط",
-      "statusInactive": "غير نشط"
+      "statusInactive": "غير نشط",
+      "createProfile": "إنشاء ملف"
+    },
+    "createProfile": {
+      "title": "إنشاء ملف احتياجات خاصة",
+      "student": "الطالب",
+      "searchStudent": "ابحث عن الطلاب بالاسم…",
+      "primaryCategory": "الفئة الرئيسية",
+      "supportLevel": "مستوى الدعم",
+      "flaggedDate": "تاريخ التحديد",
+      "diagnosis": "التشخيص",
+      "diagnosisPlaceholder": "مثال: عسر القراءة",
+      "diagnosisDate": "تاريخ التشخيص",
+      "diagnosisSource": "مصدر التشخيص",
+      "diagnosisSourcePlaceholder": "مثال: أخصائي نفسي تربوي",
+      "assessmentNotes": "ملاحظات التقييم",
+      "assessmentNotesPlaceholder": "ملاحظات من التقييم الأولي…",
+      "create": "إنشاء الملف",
+      "cancel": "إلغاء",
+      "success": "تم إنشاء ملف الاحتياجات الخاصة بنجاح.",
+      "error": "فشل إنشاء ملف الاحتياجات الخاصة."
+    },
+    "createPlan": {
+      "title": "إنشاء خطة دعم",
+      "academicYear": "السنة الأكاديمية",
+      "selectAcademicYear": "اختر السنة الأكاديمية",
+      "reviewDate": "تاريخ المراجعة الأولى",
+      "create": "إنشاء الخطة",
+      "cancel": "إلغاء",
+      "success": "تم إنشاء خطة الدعم بنجاح.",
+      "error": "فشل إنشاء خطة الدعم."
+    },
+    "addProfessional": {
+      "title": "إضافة تدخل مختص",
+      "professionalType": "نوع المختص",
+      "professionalName": "اسم المختص",
+      "professionalNamePlaceholder": "اختياري",
+      "organisation": "المؤسسة",
+      "organisationPlaceholder": "اختياري",
+      "referralDate": "تاريخ الإحالة",
+      "assessmentDate": "تاريخ التقييم",
+      "reportReceivedDate": "تاريخ استلام التقرير",
+      "status": "الحالة",
+      "recommendations": "التوصيات",
+      "recommendationsPlaceholder": "أهم التوصيات من هذا المختص…",
+      "notes": "ملاحظات",
+      "notesPlaceholder": "ملاحظات إضافية…",
+      "add": "إضافة المختص",
+      "cancel": "إلغاء",
+      "success": "تمت إضافة تدخل المختص.",
+      "error": "فشل إضافة تدخل المختص."
+    },
+    "addAccommodation": {
+      "title": "إضافة تكييف",
+      "type": "نوع التكييف",
+      "description": "الوصف",
+      "descriptionPlaceholder": "وصف التكييف…",
+      "startDate": "تاريخ البدء",
+      "endDate": "تاريخ الانتهاء",
+      "isActive": "نشط",
+      "add": "إضافة التكييف",
+      "cancel": "إلغاء",
+      "success": "تمت إضافة التكييف.",
+      "error": "فشل إضافة التكييف."
+    },
+    "editProfile": {
+      "title": "تعديل ملف الاحتياجات الخاصة",
+      "edit": "تعديل",
+      "save": "حفظ التغييرات",
+      "cancel": "إلغاء",
+      "success": "تم تحديث ملف الاحتياجات الخاصة بنجاح.",
+      "error": "فشل تحديث ملف الاحتياجات الخاصة."
+    },
+    "professionalType": {
+      "educational_psychologist": "أخصائي نفسي تربوي",
+      "speech_therapist": "أخصائي نطق ولغة",
+      "occupational_therapist": "أخصائي علاج وظيفي",
+      "camhs": "خدمات الصحة النفسية للأطفال",
+      "physiotherapist": "أخصائي علاج طبيعي",
+      "seno": "مسؤول احتياجات خاصة",
+      "neps": "خدمة علم النفس التربوي",
+      "other": "آخر"
+    },
+    "referralStatus": {
+      "pending": "قيد الانتظار",
+      "scheduled": "مجدول",
+      "completed": "مكتمل",
+      "report_received": "تم استلام التقرير"
+    },
+    "accommodationType": {
+      "exam": "الامتحان",
+      "classroom": "الفصل",
+      "assistive_technology": "التكنولوجيا المساعدة"
     },
     "profile": {
       "coreDetails": "التفاصيل الأساسية",

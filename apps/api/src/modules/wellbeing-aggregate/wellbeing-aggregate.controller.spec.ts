@@ -24,7 +24,14 @@ const SAMPLE: WellbeingDashboardSummary = {
     overdue_actions: { sanctions: 0, tasks: 0, sla_breaches: 0, total: 0 },
   },
   pending_attention: [],
-  hub_counts: { behaviour: 0, pastoral: 0, safeguarding: 0, early_warnings: 0, staff_wellbeing: 0 },
+  hub_counts: {
+    behaviour: 0,
+    pastoral: 0,
+    safeguarding: 0,
+    sen: 0,
+    early_warnings: 0,
+    staff_wellbeing: 0,
+  },
   recent_activity: [],
 };
 

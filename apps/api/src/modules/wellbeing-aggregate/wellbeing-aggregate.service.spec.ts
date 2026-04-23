@@ -4,6 +4,7 @@ import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 import { EarlyWarningReadFacade } from '../early-warning/early-warning-read.facade';
 import { PastoralReadFacade } from '../pastoral/pastoral-read.facade';
 import { SafeguardingReadFacade } from '../safeguarding/safeguarding-read.facade';
+import { SenReadFacade } from '../sen/sen-read.facade';
 import { StaffWellbeingReadFacade } from '../staff-wellbeing/staff-wellbeing-read.facade';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
@@ -70,6 +71,9 @@ function buildFacades() {
       ]),
       countSafeguardingHub: jest.fn().mockResolvedValue(4),
     },
+    sen: {
+      countSenHub: jest.fn().mockResolvedValue(7),
+    },
     earlyWarning: {
       getAtRiskCounts: jest.fn().mockResolvedValue({ amber: 9, red: 3, total: 12 }),
       countEarlyWarningHub: jest.fn().mockResolvedValue(18),
@@ -97,6 +101,7 @@ describe('WellbeingAggregateService', () => {
         { provide: BehaviourReadFacade, useValue: facades.behaviour },
         { provide: PastoralReadFacade, useValue: facades.pastoral },
         { provide: SafeguardingReadFacade, useValue: facades.safeguarding },
+        { provide: SenReadFacade, useValue: facades.sen },
         { provide: EarlyWarningReadFacade, useValue: facades.earlyWarning },
         { provide: StaffWellbeingReadFacade, useValue: facades.staffWellbeing },
         { provide: TenantReadFacade, useValue: facades.tenants },
@@ -129,6 +134,7 @@ describe('WellbeingAggregateService', () => {
       behaviour: 5,
       pastoral: 3,
       safeguarding: 4,
+      sen: 7,
       early_warnings: 18,
       staff_wellbeing: 1,
     });

@@ -17,6 +17,7 @@ import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 import { EarlyWarningReadFacade } from '../early-warning/early-warning-read.facade';
 import { PastoralReadFacade } from '../pastoral/pastoral-read.facade';
 import { SafeguardingReadFacade } from '../safeguarding/safeguarding-read.facade';
+import { SenReadFacade } from '../sen/sen-read.facade';
 import { StaffWellbeingReadFacade } from '../staff-wellbeing/staff-wellbeing-read.facade';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
@@ -46,6 +47,7 @@ export class WellbeingAggregateService {
     private readonly behaviour: BehaviourReadFacade,
     private readonly pastoral: PastoralReadFacade,
     private readonly safeguarding: SafeguardingReadFacade,
+    private readonly sen: SenReadFacade,
     private readonly earlyWarning: EarlyWarningReadFacade,
     private readonly staffWellbeing: StaffWellbeingReadFacade,
     private readonly tenants: TenantReadFacade,
@@ -68,6 +70,7 @@ export class WellbeingAggregateService {
       behaviourHubRes,
       pastoralHubRes,
       safeguardingHubRes,
+      senHubRes,
       earlyWarningHubRes,
       staffWellbeingHubRes,
       recentIncidentsRes,
@@ -96,6 +99,7 @@ export class WellbeingAggregateService {
       enabled.behaviour ? this.behaviour.countBehaviourHub(tenantId) : Promise.resolve(0),
       enabled.pastoral ? this.pastoral.countPastoralHub(tenantId) : Promise.resolve(0),
       this.safeguarding.countSafeguardingHub(tenantId),
+      this.sen.countSenHub(tenantId),
       enabled.early_warning ? this.earlyWarning.countEarlyWarningHub(tenantId) : Promise.resolve(0),
       enabled.staff_wellbeing
         ? this.staffWellbeing.countStaffWellbeingHub(tenantId)
@@ -149,6 +153,7 @@ export class WellbeingAggregateService {
         behaviour: this.unwrap(behaviourHubRes, 0),
         pastoral: this.unwrap(pastoralHubRes, 0),
         safeguarding: this.unwrap(safeguardingHubRes, 0),
+        sen: this.unwrap(senHubRes, 0),
         early_warnings: this.unwrap(earlyWarningHubRes, 0),
         staff_wellbeing: this.unwrap(staffWellbeingHubRes, 0),
       },
