@@ -39,46 +39,51 @@ interface ParsedCsv {
   totalRows: number;
 }
 
-// ─── Step Indicator ──────────────────────────────────────────────────────────
+// ─── Step Indicator (teal) ───────────────────────────────────────────────────
 
 function StepIndicator({ steps, currentStep }: { steps: string[]; currentStep: number }) {
   return (
-    <div className="flex items-center justify-center gap-2">
-      {steps.map((label, i) => (
-        <React.Fragment key={label}>
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors',
-                i < currentStep
-                  ? 'bg-success-text text-white'
-                  : i === currentStep
-                    ? 'bg-primary-700 text-white'
-                    : 'bg-surface-secondary text-text-tertiary',
-              )}
-            >
-              {i < currentStep ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
-            </div>
-            <span
-              className={cn(
-                'hidden text-sm sm:inline',
-                i === currentStep ? 'font-medium text-text-primary' : 'text-text-tertiary',
-              )}
-            >
-              {label}
-            </span>
-          </div>
-          {i < steps.length - 1 && (
-            <div
-              className={cn(
-                'h-0.5 w-6 rounded-full sm:w-10',
-                i < currentStep ? 'bg-success-text' : 'bg-border',
-              )}
-            />
-          )}
-        </React.Fragment>
-      ))}
-    </div>
+    <ol className="flex flex-wrap items-center justify-center gap-2" aria-label="Import steps">
+      {steps.map((label, i) => {
+        const isDone = i < currentStep;
+        const isActive = i === currentStep;
+        return (
+          <React.Fragment key={label}>
+            <li className="flex items-center gap-2">
+              <span
+                className={cn(
+                  'flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors',
+                  isDone
+                    ? 'bg-teal-600 text-white'
+                    : isActive
+                      ? 'bg-teal-500 text-white'
+                      : 'bg-surface-secondary text-text-tertiary',
+                )}
+                aria-current={isActive ? 'step' : undefined}
+              >
+                {isDone ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
+              </span>
+              <span
+                className={cn(
+                  'hidden text-xs font-medium sm:inline',
+                  isActive ? 'text-teal-700' : 'text-text-tertiary',
+                )}
+              >
+                {label}
+              </span>
+            </li>
+            {i < steps.length - 1 && (
+              <span
+                className={cn(
+                  'h-0.5 w-6 rounded-full transition-colors sm:w-10',
+                  isDone ? 'bg-teal-500' : 'bg-border',
+                )}
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </ol>
   );
 }
 

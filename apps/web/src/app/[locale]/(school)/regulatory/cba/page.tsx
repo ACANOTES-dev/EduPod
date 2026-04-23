@@ -9,7 +9,7 @@ import { Badge, Button, StatCard, StatusBadge, toast } from '@school/ui';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { CbaSyncTable } from '../_components/cba-sync-table';
+import { CbaSyncTable } from './_components/cba-sync-table';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

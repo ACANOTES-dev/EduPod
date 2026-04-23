@@ -214,8 +214,8 @@ export const navSectionConfigs: NavSectionConfig[] = [
         href: '/regulatory/october-returns',
       },
       { labelKey: 'nav.regulatoryPpod', href: '/regulatory/ppod' },
-      { labelKey: 'nav.regulatoryCba', href: '/regulatory/ppod/cba' },
-      { labelKey: 'nav.regulatoryTransfers', href: '/regulatory/ppod/transfers' },
+      { labelKey: 'nav.regulatoryCba', href: '/regulatory/cba' },
+      { labelKey: 'nav.regulatoryTransfers', href: '/regulatory/transfers' },
       { labelKey: 'nav.regulatoryAntiBullying', href: '/regulatory/anti-bullying' },
       { labelKey: 'nav.regulatorySubmissions', href: '/regulatory/submissions' },
       {

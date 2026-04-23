@@ -89,7 +89,7 @@ export const REGULATORY_TILES: RegulatoryTileConfig[] = [
   },
   {
     key: 'cba',
-    href: '/regulatory/ppod/cba',
+    href: '/regulatory/cba',
     icon: Award,
     accent: 'from-violet-400 via-violet-500 to-violet-600',
     iconBg: 'bg-violet-100 text-violet-700',
@@ -98,7 +98,7 @@ export const REGULATORY_TILES: RegulatoryTileConfig[] = [
   },
   {
     key: 'transfers',
-    href: '/regulatory/ppod/transfers',
+    href: '/regulatory/transfers',
     icon: ArrowLeftRight,
     accent: 'from-emerald-400 via-emerald-500 to-emerald-600',
     iconBg: 'bg-emerald-100 text-emerald-700',

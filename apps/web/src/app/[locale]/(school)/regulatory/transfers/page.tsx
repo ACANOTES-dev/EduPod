@@ -355,7 +355,7 @@ export default function TransfersListPage() {
         title={t('transfers.title')}
         description={t('transfers.description')}
         actions={
-          <Link href={`/${locale}/regulatory/ppod/transfers/new`}>
+          <Link href={`/${locale}/regulatory/transfers/new`}>
             <Button className="min-h-[44px]">
               <Plus className="me-2 h-4 w-4" />
               {t('transfers.addTransfer')}

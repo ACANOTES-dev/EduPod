@@ -16,6 +16,32 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    // CBA and Transfers were promoted out of /regulatory/ppod in Phase 4.
+    // Keep old deep links working with 308 permanent redirects.
+    return [
+      {
+        source: '/:locale/regulatory/ppod/cba',
+        destination: '/:locale/regulatory/cba',
+        permanent: true,
+      },
+      {
+        source: '/:locale/regulatory/ppod/cba/:path*',
+        destination: '/:locale/regulatory/cba/:path*',
+        permanent: true,
+      },
+      {
+        source: '/:locale/regulatory/ppod/transfers',
+        destination: '/:locale/regulatory/transfers',
+        permanent: true,
+      },
+      {
+        source: '/:locale/regulatory/ppod/transfers/:path*',
+        destination: '/:locale/regulatory/transfers/:path*',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default withSentryConfig(withNextIntl(nextConfig), {

@@ -10,7 +10,7 @@ import { Button } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 
-import { TransferForm } from '../../_components/transfer-form';
+import { TransferForm } from '../_components/transfer-form';
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ export default function NewTransferPage() {
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/')[1] ?? 'en';
 
-  const transfersPath = `/${locale}/regulatory/ppod/transfers`;
+  const transfersPath = `/${locale}/regulatory/transfers`;
 
   const handleSuccess = React.useCallback(() => {
     router.push(transfersPath);

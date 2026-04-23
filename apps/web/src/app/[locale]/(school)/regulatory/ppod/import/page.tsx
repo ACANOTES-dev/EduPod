@@ -2,98 +2,63 @@
 
 import { CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
+import { Button } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 
 import { CsvImportWizard } from '../_components/csv-import-wizard';
+import { DatabaseToggle, type DatabaseType } from '../_components/database-toggle';
 
-// ─── Page ────────────────────────────────────────────────────────────────────
+// ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function PpodImportPage() {
-  const t = useTranslations('regulatory');
-  const pathname = usePathname();
+  const t = useTranslations('regulatory.ppod');
+  const locale = useLocale();
 
-  const segments = (pathname ?? '').split('/').filter(Boolean);
-  const locale = segments[0] ?? 'en';
-
-  const [databaseType, setDatabaseType] = React.useState<'ppod' | 'pod'>('ppod');
+  const [databaseType, setDatabaseType] = React.useState<DatabaseType>('ppod');
   const [isComplete, setIsComplete] = React.useState(false);
 
-  const handleComplete = React.useCallback(() => {
-    setIsComplete(true);
-  }, []);
-
-  const handleCancel = React.useCallback(() => {
-    // Navigate back — use window.history for SPA back navigation
-    window.history.back();
-  }, []);
-
-  const handleReset = React.useCallback(() => {
-    setIsComplete(false);
-  }, []);
-
   return (
-    <div className="space-y-6">
-      <PageHeader title={t('ppod.importTitle')} description={t('ppod.importDescription')} />
+    <div className="flex min-w-0 flex-col gap-6 pb-10">
+      <PageHeader
+        title={t('importTitle')}
+        description={t('importDescription')}
+        back={{ href: `/${locale}/regulatory/ppod`, label: t('backToPpod') }}
+        actions={!isComplete && <DatabaseToggle value={databaseType} onChange={setDatabaseType} />}
+      />
 
       {isComplete ? (
-        // ─── Success State ───────────────────────────────────────────────
-        <div className="flex flex-col items-center gap-4 rounded-xl border border-success-text/20 bg-success-fill px-6 py-12">
-          <CheckCircle2 className="h-12 w-12 text-success-text" />
+        <section className="flex flex-col items-center gap-4 rounded-2xl border border-teal-200 bg-teal-50/60 px-6 py-12">
+          <CheckCircle2 className="h-12 w-12 text-teal-600" />
           <div className="text-center">
-            <p className="text-lg font-semibold text-success-text">
-              {t('ppod.importSuccessTitle')}
-            </p>
-            <p className="mt-1 text-sm text-success-text/80">
-              {t('ppod.importSuccessDescription')}
-            </p>
+            <p className="text-lg font-semibold text-teal-900">{t('importSuccessTitle')}</p>
+            <p className="mt-1 text-sm text-teal-800/80">{t('importSuccessDescription')}</p>
           </div>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row">
             <Link href={`/${locale}/regulatory/ppod`}>
               <Button variant="outline" className="min-h-[44px] w-full sm:w-auto">
-                {t('ppod.backToDashboard')}
+                {t('backToPpod')}
               </Button>
             </Link>
-            <Button onClick={handleReset} className="min-h-[44px] w-full sm:w-auto">
-              {t('ppod.importAnother')}
+            <Link href={`/${locale}/regulatory/ppod/sync-log`}>
+              <Button variant="outline" className="min-h-[44px] w-full sm:w-auto">
+                {t('viewSyncLog')}
+              </Button>
+            </Link>
+            <Button onClick={() => setIsComplete(false)} className="min-h-[44px] w-full sm:w-auto">
+              {t('importAnother')}
             </Button>
           </div>
-        </div>
+        </section>
       ) : (
-        <>
-          {/* ─── Database Type Selector ───────────────────────────────────── */}
-          <div className="rounded-xl border border-border bg-surface-primary px-4 py-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="text-sm font-medium text-text-primary">
-                {t('ppod.databaseType')}
-              </label>
-              <Select
-                value={databaseType}
-                onValueChange={(val) => setDatabaseType(val as 'ppod' | 'pod')}
-              >
-                <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ppod">{t('ppod.typePpod')}</SelectItem>
-                  <SelectItem value="pod">{t('ppod.typePod')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* ─── Import Wizard ────────────────────────────────────────────── */}
-          <CsvImportWizard
-            databaseType={databaseType}
-            onComplete={handleComplete}
-            onCancel={handleCancel}
-          />
-        </>
+        <CsvImportWizard
+          databaseType={databaseType}
+          onComplete={() => setIsComplete(true)}
+          onCancel={() => window.history.back()}
+        />
       )}
     </div>
   );
