@@ -1,8 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import type { RegulatoryDomain } from '@prisma/client';
-import { PodSyncStatus, RegulatorySubmissionStatus, TransferStatus } from '@prisma/client';
+import {
+  PodSyncStatus,
+  RegulatorySubmissionStatus,
+  SanctionType,
+  TransferStatus,
+} from '@prisma/client';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
+import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 import { ComplianceReadFacade } from '../compliance/compliance-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { SafeguardingReadFacade } from '../safeguarding/safeguarding-read.facade';
@@ -14,6 +21,12 @@ const COMPLETED_STATUSES: RegulatorySubmissionStatus[] = [
   RegulatorySubmissionStatus.reg_accepted,
 ];
 const MS_PER_DAY = 86_400_000;
+
+const TUSLA_SUSPENSION_TYPES: SanctionType[] = [
+  SanctionType.suspension_internal,
+  SanctionType.suspension_external,
+];
+const TUSLA_NOTIFIABLE_SUSPENSION_DAYS = 6;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,6 +48,8 @@ interface DashboardSummary {
     students_approaching_threshold: number;
     students_exceeded_threshold: number;
     active_alerts: number;
+    open_suspensions_count: number;
+    last_sar_submitted_at: Date | null;
   };
   des: {
     readiness_status: 'not_started' | 'incomplete' | 'ready';
@@ -86,7 +101,9 @@ interface OverdueItem {
 export class RegulatoryDashboardService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
     private readonly attendanceReadFacade: AttendanceReadFacade,
+    private readonly behaviourReadFacade: BehaviourReadFacade,
     private readonly safeguardingReadFacade: SafeguardingReadFacade,
     private readonly complianceReadFacade: ComplianceReadFacade,
   ) {}
@@ -202,10 +219,26 @@ export class RegulatoryDashboardService {
   }
 
   private async getTuslaSummary(tenantId: string) {
-    const [activeAlerts, excessiveAbsenceAlerts] = await Promise.all([
-      this.attendanceReadFacade.countActivePatternAlerts(tenantId),
-      this.attendanceReadFacade.findActiveAlertsByType(tenantId, 'excessive_absences'),
-    ]);
+    const [activeAlerts, excessiveAbsenceAlerts, openSuspensionsCount, lastSar] = await Promise.all(
+      [
+        this.attendanceReadFacade.countActivePatternAlerts(tenantId),
+        this.attendanceReadFacade.findActiveAlertsByType(tenantId, 'excessive_absences'),
+        this.behaviourReadFacade.countSanctionsForTusla(tenantId, {
+          types: TUSLA_SUSPENSION_TYPES,
+          minSuspensionDays: TUSLA_NOTIFIABLE_SUSPENSION_DAYS,
+        }),
+        this.prisma.regulatorySubmission.findFirst({
+          where: {
+            tenant_id: tenantId,
+            domain: 'tusla_attendance',
+            submission_type: 'sar',
+            status: { in: COMPLETED_STATUSES },
+          },
+          orderBy: { submitted_at: 'desc' },
+          select: { submitted_at: true },
+        }),
+      ],
+    );
 
     type AlertRow = { student_id: string; details_json: unknown };
 
@@ -232,7 +265,23 @@ export class RegulatoryDashboardService {
       students_approaching_threshold: approachingStudents.size,
       students_exceeded_threshold: exceededStudents.size,
       active_alerts: activeAlerts,
+      open_suspensions_count: openSuspensionsCount,
+      last_sar_submitted_at: lastSar?.submitted_at ?? null,
     };
+  }
+
+  // ─── Academic Years (helper for Tusla wizards) ────────────────────────────
+
+  async listAcademicYears(tenantId: string): Promise<
+    Array<{
+      id: string;
+      name: string;
+      start_date: Date;
+      end_date: Date;
+      status: string;
+    }>
+  > {
+    return this.academicReadFacade.findAllYears(tenantId);
   }
 
   private async getSubmissionReadiness(tenantId: string, domain: RegulatoryDomain) {

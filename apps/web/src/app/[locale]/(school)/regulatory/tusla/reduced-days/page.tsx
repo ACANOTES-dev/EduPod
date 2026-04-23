@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -59,6 +59,7 @@ const REASON_LABELS: Record<string, string> = {
 
 export default function ReducedSchoolDaysPage() {
   const t = useTranslations('regulatory');
+  const locale = useLocale();
 
   const [records, setRecords] = React.useState<ReducedSchoolDayRecord[]>([]);
   const [page, setPage] = React.useState(1);
@@ -183,6 +184,7 @@ export default function ReducedSchoolDaysPage() {
       <PageHeader
         title={t('tusla.reducedDaysTitle')}
         description={t('tusla.reducedDaysPageDescription')}
+        back={{ href: `/${locale}/regulatory/tusla`, label: t('tusla.backToTusla') }}
         actions={
           <Button onClick={openCreateDialog} className="min-h-[44px]">
             <Plus className="me-2 h-4 w-4" />

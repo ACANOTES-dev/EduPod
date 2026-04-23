@@ -8857,7 +8857,118 @@
       "reducedDaysCreate": "Create Record",
       "reducedDaysUpdate": "Update Record",
       "reducedDaysSaving": "Saving...",
-      "reducedDaysSaveError": "Failed to save reduced school day record"
+      "reducedDaysSaveError": "Failed to save reduced school day record",
+      "hubTitle": "Tusla Compliance",
+      "hubDescription": "Attendance monitoring, Tusla reports, reduced-day tracking.",
+      "backToRegulatory": "Back to Regulatory",
+      "backToTusla": "Back to Tusla",
+      "generateSar": "Generate SAR",
+      "retry": "Retry",
+      "loadError": "Failed to load Tusla dashboard.",
+      "thresholdMonitorTitle": "Threshold Monitor",
+      "thresholdMonitorSubtitle": "Students approaching or exceeding the {threshold}-day threshold",
+      "kpi": {
+        "ariaLabel": "Tusla key performance indicators",
+        "approaching": "Approaching",
+        "approachingTooltip": "Students whose absences are approaching the 20-day notification threshold.",
+        "exceeded": "Exceeded",
+        "exceededTooltip": "Students who have exceeded the 20-day absence threshold and require a Tusla notification.",
+        "openSuspensions": "Open Suspensions",
+        "openSuspensionsTooltip": "Suspensions of 6+ days that require Tusla notification and have not yet been resolved.",
+        "lastSar": "Last SAR",
+        "lastSarTooltip": "Date of the most recent Student Absence Report submitted to Tusla.",
+        "never": "Never"
+      },
+      "tiles": {
+        "ariaLabel": "Tusla workflows",
+        "sar": {
+          "title": "SAR Generation",
+          "description": "Generate Student Absence Reports for the current or past periods."
+        },
+        "aar": {
+          "title": "AAR Generation",
+          "description": "Generate the Annual Attendance Report for a full academic year."
+        },
+        "reducedDays": {
+          "title": "Reduced School Days",
+          "description": "Record and monitor reduced-timetable arrangements and Tusla notifications."
+        },
+        "mappings": {
+          "title": "Absence Code Mappings",
+          "description": "Map school attendance codes to the corresponding Tusla categories."
+        }
+      },
+      "sarSteps": {
+        "ariaLabel": "SAR wizard steps",
+        "selectPeriod": "Select Period",
+        "preview": "Preview",
+        "result": "Result"
+      },
+      "sarSelectAcademicYear": "Select academic year",
+      "sarLoadingYears": "Loading academic years…",
+      "sarActive": "Active",
+      "sarGeneratedAt": "Generated on {date}",
+      "sarDownloading": "Preparing CSV…",
+      "sarDownloadError": "Failed to download SAR CSV.",
+      "aarSteps": {
+        "ariaLabel": "AAR wizard steps",
+        "selectYear": "Select Year",
+        "preview": "Preview",
+        "result": "Result"
+      },
+      "aarSelectAcademicYear": "Select academic year",
+      "aarLoadingYears": "Loading academic years…",
+      "aarActive": "Active",
+      "aarGeneratedAt": "Generated on {date}",
+      "aarTotalDaysLost": "Total Days Lost",
+      "aarStudentsOver20Days": "Students Over 20 Days",
+      "aarDownload": "Download CSV",
+      "aarDownloading": "Preparing CSV…",
+      "aarDownloadError": "Failed to download AAR CSV.",
+      "mappingsTitle": "Absence Code Mappings",
+      "mappingsDescription": "Define how attendance codes translate to Tusla reporting categories.",
+      "mappingsAdd": "Add Mapping",
+      "mappingsCount": "{count, plural, =0 {No mappings} one {# mapping} other {# mappings}}",
+      "mappingsConfirmDelete": "Delete this mapping? This cannot be undone.",
+      "mappingsDelete": "Delete mapping",
+      "mappingsColAttendanceStatus": "Attendance Status",
+      "mappingsColTuslaCategory": "Tusla Category",
+      "mappingsColDisplayLabel": "Label",
+      "mappingsColDefault": "Default",
+      "mappingsColActions": "Actions",
+      "mappingsAttendanceStatus": "Attendance Status",
+      "mappingsTuslaCategory": "Tusla Category",
+      "mappingsDisplayLabel": "Display Label",
+      "mappingsDisplayLabelPlaceholder": "e.g. Sick (Certified)",
+      "mappingsReasonPattern": "Reason Pattern (optional)",
+      "mappingsReasonPatternPlaceholder": "Regex or keyword to match absence reason",
+      "mappingsIsDefault": "Use as default for this attendance status",
+      "mappingsCancel": "Cancel",
+      "mappingsCreate": "Create Mapping",
+      "mappingsSaving": "Saving…",
+      "mappingsSaveError": "Failed to save mapping",
+      "mappingsCreateTitle": "New Absence Code Mapping",
+      "mappingsCreateDescription": "Map a school attendance code to a Tusla reporting category.",
+      "mappingsEmptyTitle": "No mappings configured yet",
+      "mappingsEmptyDescription": "Add a mapping so absences flow into the correct Tusla category on SAR reports.",
+      "mappingsYes": "Yes",
+      "mappingsNo": "No",
+      "mappingsAttendanceStatusOptions": {
+        "absent_excused": "Absent (Excused)",
+        "absent_unexcused": "Absent (Unexcused)",
+        "absent": "Absent",
+        "late": "Late",
+        "left_early": "Left Early"
+      },
+      "mappingsTuslaCategoryOptions": {
+        "illness": "Illness",
+        "urgent_family_reason": "Urgent Family Reason",
+        "holiday": "Holiday",
+        "suspension": "Suspension",
+        "expulsion": "Expulsion",
+        "other": "Other",
+        "unexplained": "Unexplained"
+      }
     },
     "desReturns": {
       "pageTitle": "DES Returns",

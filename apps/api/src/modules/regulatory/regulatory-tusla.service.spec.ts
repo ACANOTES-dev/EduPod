@@ -8,7 +8,23 @@ import { StudentReadFacade } from '../students/student-read.facade';
 
 import { RegulatoryTuslaService } from './regulatory-tusla.service';
 
+jest.mock('../../common/middleware/rls.middleware', () => ({
+  createRlsClient: jest.fn().mockReturnValue({
+    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      // The persistSubmission callback calls tx.regulatorySubmission.create.
+      // Return a fake row with a predictable id so assertions work.
+      const tx = {
+        regulatorySubmission: {
+          create: jest.fn().mockResolvedValue({ id: 'submission-1' }),
+        },
+      };
+      return fn(tx);
+    }),
+  }),
+}));
+
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const USER_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const STUDENT_A = '11111111-1111-1111-1111-111111111111';
 const STUDENT_B = '22222222-2222-2222-2222-222222222222';
 const SANCTION_ID = '33333333-3333-3333-3333-333333333333';
@@ -38,6 +54,9 @@ describe('RegulatoryTuslaService', () => {
     tuslaAbsenceCodeMapping: {
       findMany: jest.Mock;
     };
+    regulatorySubmission: {
+      findFirst: jest.Mock;
+    };
   };
   let mockStudentReadFacade: {
     findManyGeneric: jest.Mock;
@@ -57,6 +76,9 @@ describe('RegulatoryTuslaService', () => {
     mockPrisma = {
       tuslaAbsenceCodeMapping: {
         findMany: jest.fn().mockResolvedValue([]),
+      },
+      regulatorySubmission: {
+        findFirst: jest.fn().mockResolvedValue(null),
       },
     };
     mockStudentReadFacade = {
@@ -179,20 +201,22 @@ describe('RegulatoryTuslaService', () => {
 
       mockStudentReadFacade.findManyGeneric.mockResolvedValue([mockStudentA, mockStudentB]);
 
-      const result = await service.generateSar(TENANT_ID, {
+      const result = await service.generateSar(TENANT_ID, USER_ID, {
         academic_year: '2025-2026',
         period: 1,
         start_date: '2025-09-01',
         end_date: '2025-12-20',
       });
 
+      expect(result.submission_id).toBe('submission-1');
       expect(result.total_students).toBe(2);
-      expect(result.rows).toHaveLength(2);
+      expect(result.students).toHaveLength(2);
 
-      const aliceRow = result.rows.find((r) => r.student!.id === STUDENT_A);
-      expect(aliceRow!.total_absent_days).toBe(2);
+      const aliceRow = result.students.find((s) => s.student_id === STUDENT_A);
+      expect(aliceRow!.absent_days).toBe(2);
       expect(aliceRow!.categories['illness']).toBe(1);
       expect(aliceRow!.categories['unexplained']).toBe(1);
+      expect(aliceRow!.student_name).toBe('Alice Murphy');
     });
 
     it('should deduplicate multiple sessions on the same day', async () => {
@@ -215,7 +239,7 @@ describe('RegulatoryTuslaService', () => {
 
       mockStudentReadFacade.findManyGeneric.mockResolvedValue([mockStudentA]);
 
-      const result = await service.generateSar(TENANT_ID, {
+      const result = await service.generateSar(TENANT_ID, USER_ID, {
         academic_year: '2025-2026',
         period: 1,
         start_date: '2025-09-01',
@@ -223,7 +247,7 @@ describe('RegulatoryTuslaService', () => {
       });
 
       // Two records on same day should count as 1 day
-      expect(result.rows[0]!.total_absent_days).toBe(1);
+      expect(result.students[0]!.absent_days).toBe(1);
     });
 
     it('should default to unexplained when no mapping exists', async () => {
@@ -238,14 +262,14 @@ describe('RegulatoryTuslaService', () => {
       mockPrisma.tuslaAbsenceCodeMapping.findMany.mockResolvedValue([]);
       mockStudentReadFacade.findManyGeneric.mockResolvedValue([mockStudentA]);
 
-      const result = await service.generateSar(TENANT_ID, {
+      const result = await service.generateSar(TENANT_ID, USER_ID, {
         academic_year: '2025-2026',
         period: 1,
         start_date: '2025-09-01',
         end_date: '2025-12-20',
       });
 
-      expect(result.rows[0]!.categories['unexplained']).toBe(1);
+      expect(result.students[0]!.categories['unexplained']).toBe(1);
     });
   });
 
@@ -260,10 +284,11 @@ describe('RegulatoryTuslaService', () => {
         { student_id: STUDENT_B, _count: { student_id: 22 } },
       ]);
 
-      const result = await service.generateAar(TENANT_ID, {
+      const result = await service.generateAar(TENANT_ID, USER_ID, {
         academic_year: '2025-2026',
       });
 
+      expect(result.submission_id).toBe('submission-1');
       expect(result.academic_year).toBe('2025-2026');
       expect(result.total_students).toBe(120);
       expect(result.total_days_lost).toBe(450);
@@ -275,7 +300,7 @@ describe('RegulatoryTuslaService', () => {
       mockAttendanceReadFacade.countDailySummaries.mockResolvedValue(0);
       mockAttendanceReadFacade.groupDailySummariesByStudent.mockResolvedValue([]);
 
-      await service.generateAar(TENANT_ID, { academic_year: '2025-2026' });
+      await service.generateAar(TENANT_ID, USER_ID, { academic_year: '2025-2026' });
 
       expect(mockAttendanceReadFacade.countDailySummaries).toHaveBeenCalledWith(
         TENANT_ID,
@@ -481,11 +506,11 @@ describe('RegulatoryTuslaService', () => {
   // ─── SAR Generation — additional branches ──────────────────────────────────
 
   describe('RegulatoryTuslaService — generateSar additional branches', () => {
-    it('should return empty rows when no attendance records exist', async () => {
+    it('should return empty students array when no attendance records exist', async () => {
       mockAttendanceReadFacade.findRecordsByStatusWithSession.mockResolvedValue([]);
       mockPrisma.tuslaAbsenceCodeMapping.findMany.mockResolvedValue([]);
 
-      const result = await service.generateSar(TENANT_ID, {
+      const result = await service.generateSar(TENANT_ID, USER_ID, {
         academic_year: '2025-2026',
         period: 1,
         start_date: '2025-09-01',
@@ -493,7 +518,7 @@ describe('RegulatoryTuslaService', () => {
       });
 
       expect(result.total_students).toBe(0);
-      expect(result.rows).toHaveLength(0);
+      expect(result.students).toHaveLength(0);
       // Students should not have been fetched since studentIds is empty
       expect(mockStudentReadFacade.findManyGeneric).not.toHaveBeenCalled();
     });
@@ -512,7 +537,7 @@ describe('RegulatoryTuslaService', () => {
       // Return empty students list — no match
       mockStudentReadFacade.findManyGeneric.mockResolvedValue([]);
 
-      const result = await service.generateSar(TENANT_ID, {
+      const result = await service.generateSar(TENANT_ID, USER_ID, {
         academic_year: '2025-2026',
         period: 1,
         start_date: '2025-09-01',
@@ -521,7 +546,7 @@ describe('RegulatoryTuslaService', () => {
 
       // Row for non-existent student should be filtered out
       expect(result.total_students).toBe(0);
-      expect(result.rows).toHaveLength(0);
+      expect(result.students).toHaveLength(0);
     });
 
     it('should use tusla_category mapping from Prisma enum to API string', async () => {
@@ -537,17 +562,17 @@ describe('RegulatoryTuslaService', () => {
       ]);
       mockStudentReadFacade.findManyGeneric.mockResolvedValue([mockStudentA]);
 
-      const result = await service.generateSar(TENANT_ID, {
+      const result = await service.generateSar(TENANT_ID, USER_ID, {
         academic_year: '2025-2026',
         period: 1,
         start_date: '2025-09-01',
         end_date: '2025-12-20',
       });
 
-      expect(result.rows[0]!.categories['urgent_family_reason']).toBe(1);
+      expect(result.students[0]!.categories['urgent_family_reason']).toBe(1);
     });
 
-    it('should sort SAR rows by total_absent_days descending', async () => {
+    it('should sort SAR students by absent_days descending', async () => {
       mockAttendanceReadFacade.findRecordsByStatusWithSession.mockResolvedValue([
         {
           student_id: STUDENT_A,
@@ -570,7 +595,7 @@ describe('RegulatoryTuslaService', () => {
       ]);
       mockStudentReadFacade.findManyGeneric.mockResolvedValue([mockStudentA, mockStudentB]);
 
-      const result = await service.generateSar(TENANT_ID, {
+      const result = await service.generateSar(TENANT_ID, USER_ID, {
         academic_year: '2025-2026',
         period: 1,
         start_date: '2025-09-01',
@@ -578,8 +603,8 @@ describe('RegulatoryTuslaService', () => {
       });
 
       // Student B has 2 days, Student A has 1 day → B should be first
-      expect(result.rows[0]!.total_absent_days).toBe(2);
-      expect(result.rows[1]!.total_absent_days).toBe(1);
+      expect(result.students[0]!.absent_days).toBe(2);
+      expect(result.students[1]!.absent_days).toBe(1);
     });
   });
 
@@ -611,9 +636,84 @@ describe('RegulatoryTuslaService', () => {
         { student_id: STUDENT_B, _count: { student_id: 15 } }, // < 20 → not counted
       ]);
 
-      const result = await service.generateAar(TENANT_ID, { academic_year: '2025-2026' });
+      const result = await service.generateAar(TENANT_ID, USER_ID, { academic_year: '2025-2026' });
 
       expect(result.students_over_20_days).toBe(1); // only Student A
+    });
+  });
+
+  // ─── CSV Export ─────────────────────────────────────────────────────────────
+
+  describe('RegulatoryTuslaService — exportSarCsv', () => {
+    it('should throw NotFoundException for unknown submission', async () => {
+      mockPrisma.regulatorySubmission.findFirst.mockResolvedValue(null);
+
+      await expect(service.exportSarCsv(TENANT_ID, 'missing-id')).rejects.toThrow(
+        'SAR submission with id "missing-id" not found',
+      );
+    });
+
+    it('should regenerate CSV with correct header and row data', async () => {
+      mockPrisma.regulatorySubmission.findFirst.mockResolvedValue({
+        id: 'sub-1',
+        academic_year: '2025-2026',
+        period_label: 'period_1',
+        domain: 'tusla_attendance',
+        submission_type: 'sar',
+      });
+
+      mockAttendanceReadFacade.findRecordsByStatusWithSession.mockResolvedValue([
+        {
+          student_id: STUDENT_A,
+          status: 'absent_excused',
+          session: { session_date: new Date('2025-10-01') },
+        },
+      ]);
+      mockPrisma.tuslaAbsenceCodeMapping.findMany.mockResolvedValue([
+        { attendance_status: 'absent_excused', tusla_category: 'illness' },
+      ]);
+      mockStudentReadFacade.findManyGeneric.mockResolvedValue([mockStudentA]);
+
+      const result = await service.exportSarCsv(TENANT_ID, 'sub-1');
+
+      expect(result.filename).toBe('tusla-sar-2025-2026-p1.csv');
+      expect(result.csv.split('\r\n')[0]).toBe(
+        'student_number,student_name,academic_year,period,total_absent_days,illness,urgent_family_reason,holiday,suspension,expulsion,other,unexplained',
+      );
+      expect(result.csv).toContain('STU-001,Alice Murphy,2025-2026,1,1,1,0,0,0,0,0,0');
+    });
+  });
+
+  describe('RegulatoryTuslaService — exportAarCsv', () => {
+    it('should throw NotFoundException for unknown submission', async () => {
+      mockPrisma.regulatorySubmission.findFirst.mockResolvedValue(null);
+
+      await expect(service.exportAarCsv(TENANT_ID, 'missing-id')).rejects.toThrow(
+        'AAR submission with id "missing-id" not found',
+      );
+    });
+
+    it('should regenerate CSV with aggregate row', async () => {
+      mockPrisma.regulatorySubmission.findFirst.mockResolvedValue({
+        id: 'sub-2',
+        academic_year: '2025-2026',
+        period_label: null,
+        domain: 'tusla_attendance',
+        submission_type: 'aar',
+      });
+
+      mockStudentReadFacade.count.mockResolvedValue(120);
+      mockAttendanceReadFacade.countDailySummaries.mockResolvedValue(450);
+      mockAttendanceReadFacade.groupDailySummariesByStudent.mockResolvedValue([
+        { student_id: STUDENT_A, _count: { student_id: 25 } },
+      ]);
+
+      const result = await service.exportAarCsv(TENANT_ID, 'sub-2');
+
+      expect(result.filename).toBe('tusla-aar-2025-2026.csv');
+      const lines = result.csv.split('\r\n');
+      expect(lines[0]).toBe('academic_year,total_students,total_days_lost,students_over_20_days');
+      expect(lines[1]).toBe('2025-2026,120,450,1');
     });
   });
 });

@@ -295,9 +295,14 @@ If a module is not listed individually, it is either:
 - **Contract**: calendar, submissions, Tusla, DES/October returns, PPOD/POD, transfers
 - **Primary consumers**: worker processors on the `regulatory` queue, academic/attendance/behaviour/staff data contracts
 - **Imports**: SchedulesModule
-- **Read-facade dependencies**: `AttendanceReadFacade` (Tusla alerts), `SafeguardingReadFacade` (open concern count for `/regulatory` super-hub GDPR/safeguarding tiles), `ComplianceReadFacade` (open DSAR count for the GDPR tile).
+- **Read-facade dependencies**:
+  - `AttendanceReadFacade` — Tusla threshold scans, SAR/AAR absence pulls.
+  - `BehaviourReadFacade` — `findSanctionsForTusla` / `countSanctionsForTusla` (Phase 3 Tusla sub-hub KPI).
+  - `AcademicReadFacade` — `findAllYears` feeds the Tusla wizard academic-year dropdown.
+  - `SafeguardingReadFacade` — open concern count for `/regulatory` super-hub GDPR/safeguarding tiles.
+  - `ComplianceReadFacade` — open DSAR count for the GDPR tile.
 - **Blast radius**: HIGH
-- **Notes**: exports are limited, but the module is a wide reader of other domain data
+- **Notes**: exports are limited, but the module is a wide reader of other domain data. Tusla SAR/AAR generation now persists a `regulatory_submissions` row (`domain=tusla_attendance`, `submission_type=sar|aar`) so the dashboard can surface last-submission metadata; CSV export regenerates from live data via `exportSarCsv` / `exportAarCsv`.
 
 ### SchedulingModule
 

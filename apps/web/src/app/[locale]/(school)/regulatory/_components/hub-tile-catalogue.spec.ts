@@ -23,6 +23,8 @@ function buildSummary(): RegulatoryDashboardSummary {
       students_approaching_threshold: 1,
       students_exceeded_threshold: 3,
       active_alerts: 5,
+      open_suspensions_count: 2,
+      last_sar_submitted_at: null,
     },
     des: {
       readiness_status: 'not_started',

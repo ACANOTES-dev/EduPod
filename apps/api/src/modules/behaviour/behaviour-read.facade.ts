@@ -728,6 +728,29 @@ export class BehaviourReadFacade {
   // ─── Tusla / Regulatory Methods ────────────────────────────────────────────
 
   /**
+   * Count sanctions matching Tusla notification criteria.
+   * Cheaper than `findSanctionsForTusla` when only the count is needed
+   * (used by the regulatory dashboard KPI strip).
+   */
+  async countSanctionsForTusla(
+    tenantId: string,
+    filters: {
+      types: string[];
+      minSuspensionDays: number;
+      dateFilter?: { gte: Date; lte: Date };
+    },
+  ): Promise<number> {
+    return this.prisma.behaviourSanction.count({
+      where: {
+        tenant_id: tenantId,
+        type: { in: filters.types as never[] },
+        suspension_days: { gte: filters.minSuspensionDays },
+        ...(filters.dateFilter ? { created_at: filters.dateFilter } : {}),
+      },
+    });
+  }
+
+  /**
    * Find sanctions matching Tusla notification criteria (suspension type + minimum days).
    * Used by regulatory-tusla for suspension notifications.
    */

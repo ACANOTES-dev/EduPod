@@ -73,6 +73,8 @@ describe('RegulatoryController', () => {
     getThresholdMonitor: jest.Mock;
     generateSar: jest.Mock;
     generateAar: jest.Mock;
+    exportSarCsv: jest.Mock;
+    exportAarCsv: jest.Mock;
     getSuspensions: jest.Mock;
     getExpulsions: jest.Mock;
   };
@@ -116,6 +118,7 @@ describe('RegulatoryController', () => {
   let mockDashboardService: {
     getDashboardSummary: jest.Mock;
     getOverdueItems: jest.Mock;
+    listAcademicYears: jest.Mock;
   };
   let mockTransfersService: {
     findAll: jest.Mock;
@@ -151,6 +154,8 @@ describe('RegulatoryController', () => {
       getThresholdMonitor: jest.fn(),
       generateSar: jest.fn(),
       generateAar: jest.fn(),
+      exportSarCsv: jest.fn(),
+      exportAarCsv: jest.fn(),
       getSuspensions: jest.fn(),
       getExpulsions: jest.fn(),
     };
@@ -201,6 +206,7 @@ describe('RegulatoryController', () => {
     mockDashboardService = {
       getDashboardSummary: jest.fn(),
       getOverdueItems: jest.fn(),
+      listAcademicYears: jest.fn(),
     };
 
     mockTransfersService = {
@@ -427,18 +433,19 @@ describe('RegulatoryController', () => {
       start_date: '2025-09-01',
       end_date: '2025-12-20',
     };
-    const expected = { ...dto, total_students: 5, rows: [] };
+    const expected = { submission_id: 'sub-1', ...dto, total_students: 5, students: [] };
     mockTuslaService.generateSar.mockResolvedValue(expected);
 
-    const result = await controller.generateSar(mockTenant, dto);
+    const result = await controller.generateSar(mockTenant, mockUser, dto);
 
     expect(result).toEqual(expected);
-    expect(mockTuslaService.generateSar).toHaveBeenCalledWith(TENANT_ID, dto);
+    expect(mockTuslaService.generateSar).toHaveBeenCalledWith(TENANT_ID, mockUser.sub, dto);
   });
 
   it('should generate AAR report', async () => {
     const dto = { academic_year: '2025-2026' };
     const expected = {
+      submission_id: 'sub-2',
       academic_year: '2025-2026',
       total_students: 120,
       total_days_lost: 450,
@@ -446,10 +453,55 @@ describe('RegulatoryController', () => {
     };
     mockTuslaService.generateAar.mockResolvedValue(expected);
 
-    const result = await controller.generateAar(mockTenant, dto);
+    const result = await controller.generateAar(mockTenant, mockUser, dto);
 
     expect(result).toEqual(expected);
-    expect(mockTuslaService.generateAar).toHaveBeenCalledWith(TENANT_ID, dto);
+    expect(mockTuslaService.generateAar).toHaveBeenCalledWith(TENANT_ID, mockUser.sub, dto);
+  });
+
+  it('should stream SAR CSV export with attachment headers', async () => {
+    mockTuslaService.exportSarCsv.mockResolvedValue({
+      csv: 'student_number,student_name\nSTU-001,Alice',
+      filename: 'tusla-sar-2025-2026-p1.csv',
+    });
+
+    const res = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+
+    await controller.exportSar(mockTenant, 'aaaaaaaa-1111-1111-1111-aaaaaaaaaaaa', res as never);
+
+    expect(mockTuslaService.exportSarCsv).toHaveBeenCalledWith(
+      TENANT_ID,
+      'aaaaaaaa-1111-1111-1111-aaaaaaaaaaaa',
+    );
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/csv; charset=utf-8');
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Content-Disposition',
+      'attachment; filename="tusla-sar-2025-2026-p1.csv"',
+    );
+    expect(res.send).toHaveBeenCalledWith('student_number,student_name\nSTU-001,Alice');
+  });
+
+  it('should stream AAR CSV export with attachment headers', async () => {
+    mockTuslaService.exportAarCsv.mockResolvedValue({
+      csv: 'academic_year,total_students\n2025-2026,120',
+      filename: 'tusla-aar-2025-2026.csv',
+    });
+
+    const res = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+
+    await controller.exportAar(mockTenant, 'bbbbbbbb-2222-2222-2222-bbbbbbbbbbbb', res as never);
+
+    expect(mockTuslaService.exportAarCsv).toHaveBeenCalledWith(
+      TENANT_ID,
+      'bbbbbbbb-2222-2222-2222-bbbbbbbbbbbb',
+    );
+    expect(res.send).toHaveBeenCalledWith('academic_year,total_students\n2025-2026,120');
   });
 
   it('should get suspensions requiring Tusla notification', async () => {
@@ -886,6 +938,24 @@ describe('RegulatoryController', () => {
 
     expect(result).toEqual(expected);
     expect(mockDashboardService.getDashboardSummary).toHaveBeenCalledWith(TENANT_ID);
+  });
+
+  it('should return academic years list', async () => {
+    const expected = [
+      {
+        id: '11111111-1111-1111-1111-111111111111',
+        name: '2025-2026',
+        start_date: '2025-09-01',
+        end_date: '2026-08-31',
+        status: 'active',
+      },
+    ];
+    mockDashboardService.listAcademicYears.mockResolvedValue(expected);
+
+    const result = await controller.listAcademicYears(mockTenant);
+
+    expect(result).toEqual(expected);
+    expect(mockDashboardService.listAcademicYears).toHaveBeenCalledWith(TENANT_ID);
   });
 
   it('should return overdue items', async () => {

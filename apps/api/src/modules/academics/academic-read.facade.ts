@@ -128,6 +128,17 @@ export class AcademicReadFacade {
   }
 
   /**
+   * Return all academic years for a tenant, newest first.
+   * Used by regulatory Tusla wizards to populate the academic-year picker.
+   */
+  async findAllYears(tenantId: string): Promise<AcademicYearSummary[]> {
+    return this.prisma.academicYear.findMany({
+      where: { tenant_id: tenantId },
+      orderBy: { start_date: 'desc' },
+    });
+  }
+
+  /**
    * Find an academic year by ID. Returns `null` if not found.
    * Used by scheduling, scheduling-runs, and other modules to validate year references.
    */

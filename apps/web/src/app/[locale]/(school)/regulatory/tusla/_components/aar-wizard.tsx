@@ -1,15 +1,33 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Loader2,
+} from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
-import { type GenerateTuslaAarDto, generateTuslaAarSchema } from '@school/shared/regulatory';
-import { Button, Input, Label } from '@school/ui';
+import {
+  type AcademicYearOption,
+  type GenerateTuslaAarDto,
+  generateTuslaAarSchema,
+} from '@school/shared/regulatory';
+import {
+  Button,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
@@ -17,61 +35,79 @@ import { formatDate } from '@/lib/format-date';
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface AarGenerateResponse {
+  submission_id: string;
   academic_year: string;
   total_students: number;
-  total_absent_days: number;
-  average_attendance_rate: number;
-  students_exceeding_threshold: number;
+  total_days_lost: number;
+  students_over_20_days: number;
   generated_at: string;
 }
 
-// ─── Step Indicator ─────────────────────────────────────────────────────────
+interface AarWizardProps {
+  locale: string;
+}
 
-const STEPS = ['selectYear', 'preview', 'result'] as const;
+// ─── Step Indicator (teal accent) ───────────────────────────────────────────
+
+const STEP_KEYS = ['selectYear', 'preview', 'result'] as const;
 
 function StepIndicator({ currentStep }: { currentStep: number }) {
+  const t = useTranslations('regulatory.tusla');
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {STEPS.map((s, i) => (
-        <React.Fragment key={s}>
-          <div
-            className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors ${
-              i + 1 < currentStep
-                ? 'bg-success-text text-white'
-                : i + 1 === currentStep
-                  ? 'bg-primary-700 text-white'
-                  : 'bg-surface-secondary text-text-tertiary'
-            }`}
-          >
-            {i + 1 < currentStep ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
-          </div>
-          {i < STEPS.length - 1 && (
-            <div
-              className={`h-0.5 w-8 rounded-full transition-colors ${
-                i + 1 < currentStep ? 'bg-success-text' : 'bg-border'
-              }`}
-            />
-          )}
-        </React.Fragment>
-      ))}
-    </div>
+    <ol className="flex flex-wrap items-center gap-2" aria-label={t('aarSteps.ariaLabel')}>
+      {STEP_KEYS.map((stepKey, i) => {
+        const stepNum = i + 1;
+        const isDone = stepNum < currentStep;
+        const isActive = stepNum === currentStep;
+        return (
+          <React.Fragment key={stepKey}>
+            <li className="flex items-center gap-2">
+              <span
+                className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors ${
+                  isDone
+                    ? 'bg-teal-600 text-white'
+                    : isActive
+                      ? 'bg-teal-500 text-white'
+                      : 'bg-surface-secondary text-text-tertiary'
+                }`}
+                aria-current={isActive ? 'step' : undefined}
+              >
+                {isDone ? <CheckCircle2 className="h-4 w-4" /> : stepNum}
+              </span>
+              <span
+                className={`hidden sm:inline text-xs font-medium ${
+                  isActive ? 'text-teal-700' : 'text-text-tertiary'
+                }`}
+              >
+                {t(`aarSteps.${stepKey}`)}
+              </span>
+            </li>
+            {i < STEP_KEYS.length - 1 && (
+              <span
+                className={`h-0.5 w-6 rounded-full transition-colors ${
+                  isDone ? 'bg-teal-500' : 'bg-border'
+                }`}
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </ol>
   );
 }
 
-// ─── Wizard Component ───────────────────────────────────────────────────────
+// ─── Wizard ──────────────────────────────────────────────────────────────────
 
-export function AarWizard() {
-  const t = useTranslations('regulatory');
-  const pathname = usePathname();
-  const segments = (pathname ?? '').split('/').filter(Boolean);
-  const locale = segments[0] ?? 'en';
+export function AarWizard({ locale }: AarWizardProps) {
+  const t = useTranslations('regulatory.tusla');
 
   const [step, setStep] = React.useState(1);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [generateError, setGenerateError] = React.useState('');
   const [result, setResult] = React.useState<AarGenerateResponse | null>(null);
-
-  // ─── Form (Step 1) ─────────────────────────────────────────────────────
+  const [academicYears, setAcademicYears] = React.useState<AcademicYearOption[]>([]);
+  const [yearsLoading, setYearsLoading] = React.useState(true);
+  const [downloading, setDownloading] = React.useState(false);
 
   const form = useForm<GenerateTuslaAarDto>({
     resolver: zodResolver(generateTuslaAarSchema),
@@ -80,7 +116,31 @@ export function AarWizard() {
     },
   });
 
-  // ─── Navigation ─────────────────────────────────────────────────────────
+  const academicYear = form.watch('academic_year');
+
+  // ── Fetch academic years ────────────────────────────────────────────
+  React.useEffect(() => {
+    let cancelled = false;
+    setYearsLoading(true);
+
+    apiClient<{ data: AcademicYearOption[] }>('/api/v1/regulatory/academic-years')
+      .then((res) => {
+        if (!cancelled) setAcademicYears(res.data ?? []);
+      })
+      .catch((err) => {
+        console.error('[AarWizard] academic years failed', err);
+        if (!cancelled) setAcademicYears([]);
+      })
+      .finally(() => {
+        if (!cancelled) setYearsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ── Navigation ──────────────────────────────────────────────────────
 
   const handleNext = async () => {
     if (step === 1) {
@@ -89,7 +149,6 @@ export function AarWizard() {
       setStep(2);
       return;
     }
-
     if (step === 2) {
       await handleGenerate();
     }
@@ -105,7 +164,7 @@ export function AarWizard() {
     setStep((s) => Math.max(1, s - 1));
   };
 
-  // ─── Generate Report ──────────────────────────────────────────────────
+  // ── Generate ────────────────────────────────────────────────────────
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -121,32 +180,69 @@ export function AarWizard() {
       setStep(3);
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string }; message?: string };
-      setGenerateError(ex?.error?.message ?? ex?.message ?? t('tusla.aarGenerateError'));
-      console.error('[AarWizard]', err);
+      setGenerateError(ex?.error?.message ?? ex?.message ?? t('aarGenerateError'));
+      console.error('[AarWizard] generate failed', err);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleRetry = () => {
-    setGenerateError('');
-    void handleGenerate();
+  // ── CSV download (server-side generated) ────────────────────────────
+
+  const handleDownloadCsv = async () => {
+    if (!result) return;
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/v1/regulatory/tusla/aar/${result.submission_id}/export`, {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        throw new Error(`Export failed with status ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tusla-aar-${result.academic_year}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('[AarWizard] CSV download failed', err);
+      setGenerateError(t('aarDownloadError'));
+    } finally {
+      setDownloading(false);
+    }
   };
 
-  // ─── Step 1: Select Year ──────────────────────────────────────────────
+  // ── Step renderers ──────────────────────────────────────────────────
 
   const renderStep1 = () => (
     <div className="space-y-5">
-      <p className="text-sm text-text-secondary">{t('tusla.aarStepSelectDescription')}</p>
+      <p className="text-sm text-text-secondary">{t('aarStepSelectDescription')}</p>
 
       <div className="space-y-1.5">
-        <Label htmlFor="academic_year">{t('tusla.aarAcademicYear')}</Label>
-        <Input
-          id="academic_year"
-          placeholder="2025-2026"
-          className="w-full sm:w-64 text-base"
-          {...form.register('academic_year')}
-        />
+        <Label htmlFor="academic_year">{t('aarAcademicYear')}</Label>
+        <Select
+          value={academicYear}
+          onValueChange={(val) => form.setValue('academic_year', val, { shouldValidate: true })}
+          disabled={yearsLoading}
+        >
+          <SelectTrigger className="w-full sm:w-64">
+            <SelectValue
+              placeholder={yearsLoading ? t('aarLoadingYears') : t('aarSelectAcademicYear')}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {academicYears.map((ay) => (
+              <SelectItem key={ay.id} value={ay.name}>
+                {ay.name}
+                {ay.status === 'active' ? ` · ${t('aarActive')}` : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {form.formState.errors.academic_year && (
           <p className="text-xs text-danger-text">{form.formState.errors.academic_year.message}</p>
         )}
@@ -154,116 +250,99 @@ export function AarWizard() {
     </div>
   );
 
-  // ─── Step 2: Preview ──────────────────────────────────────────────────
-
   const renderStep2 = () => {
     const values = form.getValues();
     return (
       <div className="space-y-5">
-        <p className="text-sm text-text-secondary">{t('tusla.aarStepPreviewDescription')}</p>
+        <p className="text-sm text-text-secondary">{t('aarStepPreviewDescription')}</p>
 
-        {/* Summary Card */}
         <div className="rounded-xl border border-border bg-surface-secondary px-4 py-4 sm:px-6">
           <div>
-            <p className="text-xs font-medium text-text-tertiary">{t('tusla.aarAcademicYear')}</p>
+            <p className="text-xs font-medium text-text-tertiary">{t('aarAcademicYear')}</p>
             <p className="mt-0.5 text-sm font-semibold text-text-primary">{values.academic_year}</p>
           </div>
         </div>
 
-        {/* Informational Text */}
-        <div className="flex items-start gap-3 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3">
-          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
-          <p className="text-sm text-primary-800">{t('tusla.aarPreviewInfo')}</p>
+        <div className="flex items-start gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-teal-600" />
+          <p className="text-sm text-teal-800">{t('aarPreviewInfo')}</p>
         </div>
 
-        {/* Error from a failed generation attempt */}
         {generateError && (
           <div className="flex items-start gap-3 rounded-xl border border-danger-text/20 bg-danger-fill px-4 py-3">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" />
-            <div>
-              <p className="text-sm font-medium text-danger-text">{generateError}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2 min-h-[44px]"
-                onClick={handleRetry}
-              >
-                {t('tusla.aarRetry')}
-              </Button>
-            </div>
+            <p className="text-sm font-medium text-danger-text">{generateError}</p>
           </div>
         )}
       </div>
     );
   };
 
-  // ─── Step 3: Result ───────────────────────────────────────────────────
-
   const renderStep3 = () => {
     if (!result) return null;
-
     return (
       <div className="space-y-5">
-        {/* Success Banner */}
         <div className="flex items-center gap-3 rounded-xl border border-success-text/20 bg-success-fill px-5 py-4">
           <CheckCircle2 className="h-6 w-6 shrink-0 text-success-text" />
           <div>
-            <p className="font-semibold text-success-text">{t('tusla.aarGenerateSuccess')}</p>
+            <p className="font-semibold text-success-text">{t('aarGenerateSuccess')}</p>
             <p className="text-sm text-success-text/80">
-              {t('tusla.aarGeneratedAt', { date: formatDate(result.generated_at) })}
+              {t('aarGeneratedAt', { date: formatDate(result.generated_at) })}
             </p>
           </div>
         </div>
 
-        {/* Report Stats */}
         <div className="rounded-xl border border-border bg-surface-secondary px-4 py-4 sm:px-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <p className="text-xs font-medium text-text-tertiary">{t('tusla.aarAcademicYear')}</p>
+              <p className="text-xs font-medium text-text-tertiary">{t('aarAcademicYear')}</p>
               <p className="mt-0.5 text-sm font-semibold text-text-primary">
                 {result.academic_year}
               </p>
             </div>
             <div>
-              <p className="text-xs font-medium text-text-tertiary">
-                {t('tusla.aarTotalStudents')}
-              </p>
+              <p className="text-xs font-medium text-text-tertiary">{t('aarTotalStudents')}</p>
               <p className="mt-0.5 text-2xl font-bold text-text-primary">{result.total_students}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-text-tertiary">
-                {t('tusla.aarTotalAbsentDays')}
-              </p>
+              <p className="text-xs font-medium text-text-tertiary">{t('aarTotalDaysLost')}</p>
               <p className="mt-0.5 text-2xl font-bold text-text-primary">
-                {result.total_absent_days}
+                {result.total_days_lost}
               </p>
             </div>
             <div>
-              <p className="text-xs font-medium text-text-tertiary">
-                {t('tusla.aarAverageAttendance')}
-              </p>
+              <p className="text-xs font-medium text-text-tertiary">{t('aarStudentsOver20Days')}</p>
               <p className="mt-0.5 text-2xl font-bold text-text-primary">
-                {result.average_attendance_rate}%
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 border-t border-border pt-4">
-            <div>
-              <p className="text-xs font-medium text-text-tertiary">
-                {t('tusla.aarExceedingThreshold')}
-              </p>
-              <p className="mt-0.5 text-sm font-semibold text-text-primary">
-                {result.students_exceeding_threshold}
+                {result.students_over_20_days}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Back to Tusla */}
-        <div>
+        {generateError && (
+          <div className="flex items-start gap-3 rounded-xl border border-danger-text/20 bg-danger-fill px-4 py-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" />
+            <p className="text-sm font-medium text-danger-text">{generateError}</p>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Button className="min-h-[44px]" onClick={handleDownloadCsv} disabled={downloading}>
+            {downloading ? (
+              <>
+                <Loader2 className="me-2 h-4 w-4 animate-spin" />
+                {t('aarDownloading')}
+              </>
+            ) : (
+              <>
+                <Download className="me-2 h-4 w-4" />
+                {t('aarDownload')}
+              </>
+            )}
+          </Button>
           <Link href={`/${locale}/regulatory/tusla`}>
-            <Button variant="ghost" size="sm" className="min-h-[44px]">
-              {t('tusla.aarBackToTusla')}
+            <Button variant="ghost" className="min-h-[44px]">
+              {t('aarBackToTusla')}
             </Button>
           </Link>
         </div>
@@ -271,11 +350,8 @@ export function AarWizard() {
     );
   };
 
-  // ─── Navigation Buttons ───────────────────────────────────────────────
-
   const renderNavigation = () => {
     if (step === 3) return null;
-
     return (
       <div className="flex items-center justify-between border-t border-border pt-4">
         <Button
@@ -285,20 +361,20 @@ export function AarWizard() {
           className="min-h-[44px]"
         >
           <ChevronLeft className="me-1.5 h-4 w-4 rtl:rotate-180" />
-          {t('tusla.aarBack')}
+          {t('aarBack')}
         </Button>
 
         <Button onClick={handleNext} disabled={isGenerating} className="min-h-[44px]">
           {isGenerating ? (
             <>
               <Loader2 className="me-2 h-4 w-4 animate-spin" />
-              {t('tusla.aarGenerating')}
+              {t('aarGenerating')}
             </>
           ) : step === 2 ? (
-            t('tusla.aarGenerateReport')
+            t('aarGenerateReport')
           ) : (
             <>
-              {t('tusla.aarNext')}
+              {t('aarNext')}
               <ChevronRight className="ms-1.5 h-4 w-4 rtl:rotate-180" />
             </>
           )}
@@ -306,8 +382,6 @@ export function AarWizard() {
       </div>
     );
   };
-
-  // ─── Render ───────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6">

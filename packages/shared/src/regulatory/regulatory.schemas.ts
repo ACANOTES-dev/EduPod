@@ -311,6 +311,8 @@ export const regulatoryDashboardSummarySchema = z.object({
     students_approaching_threshold: z.number().int().nonnegative(),
     students_exceeded_threshold: z.number().int().nonnegative(),
     active_alerts: z.number().int().nonnegative(),
+    open_suspensions_count: z.number().int().nonnegative(),
+    last_sar_submitted_at: z.string().nullable(),
   }),
   des: z.object({
     readiness_status: readinessStatusEnum,
@@ -350,3 +352,12 @@ export const regulatoryDashboardSummarySchema = z.object({
 });
 
 export type RegulatoryDashboardSummary = z.infer<typeof regulatoryDashboardSummarySchema>;
+
+export const academicYearOptionSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  start_date: z.string(),
+  end_date: z.string(),
+  status: z.enum(['planned', 'active', 'closed']),
+});
+export type AcademicYearOption = z.infer<typeof academicYearOptionSchema>;

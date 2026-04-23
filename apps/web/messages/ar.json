@@ -8857,7 +8857,118 @@
       "reducedDaysCreate": "إنشاء سجل",
       "reducedDaysUpdate": "تحديث سجل",
       "reducedDaysSaving": "جارٍ الحفظ...",
-      "reducedDaysSaveError": "فشل حفظ سجل اليوم الدراسي المخفض"
+      "reducedDaysSaveError": "فشل حفظ سجل اليوم الدراسي المخفض",
+      "hubTitle": "امتثال توسلا",
+      "hubDescription": "مراقبة الحضور، تقارير توسلا، وتتبع الأيام المخفضة.",
+      "backToRegulatory": "رجوع إلى الامتثال",
+      "backToTusla": "رجوع إلى توسلا",
+      "generateSar": "إنشاء SAR",
+      "retry": "إعادة المحاولة",
+      "loadError": "فشل تحميل لوحة توسلا.",
+      "thresholdMonitorTitle": "مراقب الحد الأقصى",
+      "thresholdMonitorSubtitle": "الطلاب الذين يقتربون أو تجاوزوا حد {threshold} يومًا",
+      "kpi": {
+        "ariaLabel": "مؤشرات أداء توسلا الرئيسية",
+        "approaching": "يقتربون",
+        "approachingTooltip": "الطلاب الذين تقترب غياباتهم من حد الإخطار البالغ 20 يومًا.",
+        "exceeded": "تجاوزوا",
+        "exceededTooltip": "الطلاب الذين تجاوزوا حد الغياب البالغ 20 يومًا ويتطلبون إخطار توسلا.",
+        "openSuspensions": "إيقافات مفتوحة",
+        "openSuspensionsTooltip": "حالات الإيقاف التي تتطلب إخطار توسلا (6 أيام فأكثر) ولم تُحل بعد.",
+        "lastSar": "آخر SAR",
+        "lastSarTooltip": "تاريخ آخر تقرير غياب طلاب أُرسل إلى توسلا.",
+        "never": "لا يوجد"
+      },
+      "tiles": {
+        "ariaLabel": "سير أعمال توسلا",
+        "sar": {
+          "title": "إنشاء SAR",
+          "description": "إنشاء تقارير غياب الطلاب للفترات الحالية أو السابقة."
+        },
+        "aar": {
+          "title": "إنشاء AAR",
+          "description": "إنشاء تقرير الحضور السنوي لسنة دراسية كاملة."
+        },
+        "reducedDays": {
+          "title": "الأيام الدراسية المخفضة",
+          "description": "تسجيل ومتابعة الجداول المخفضة وإخطارات توسلا."
+        },
+        "mappings": {
+          "title": "تعيينات رموز الغياب",
+          "description": "ربط رموز الحضور المدرسية بفئات توسلا المقابلة."
+        }
+      },
+      "sarSteps": {
+        "ariaLabel": "خطوات معالج SAR",
+        "selectPeriod": "اختر الفترة",
+        "preview": "المعاينة",
+        "result": "النتيجة"
+      },
+      "sarSelectAcademicYear": "اختر السنة الدراسية",
+      "sarLoadingYears": "جارٍ تحميل السنوات الدراسية…",
+      "sarActive": "نشطة",
+      "sarGeneratedAt": "تم الإنشاء في {date}",
+      "sarDownloading": "جارٍ تحضير CSV…",
+      "sarDownloadError": "فشل تنزيل CSV الخاص بـ SAR.",
+      "aarSteps": {
+        "ariaLabel": "خطوات معالج AAR",
+        "selectYear": "اختر السنة",
+        "preview": "المعاينة",
+        "result": "النتيجة"
+      },
+      "aarSelectAcademicYear": "اختر السنة الدراسية",
+      "aarLoadingYears": "جارٍ تحميل السنوات الدراسية…",
+      "aarActive": "نشطة",
+      "aarGeneratedAt": "تم الإنشاء في {date}",
+      "aarTotalDaysLost": "إجمالي الأيام المفقودة",
+      "aarStudentsOver20Days": "الطلاب فوق 20 يومًا",
+      "aarDownload": "تنزيل CSV",
+      "aarDownloading": "جارٍ تحضير CSV…",
+      "aarDownloadError": "فشل تنزيل CSV الخاص بـ AAR.",
+      "mappingsTitle": "تعيينات رموز الغياب",
+      "mappingsDescription": "حدد كيفية ترجمة رموز الحضور إلى فئات تقارير توسلا.",
+      "mappingsAdd": "إضافة تعيين",
+      "mappingsCount": "{count, plural, =0 {لا توجد تعيينات} one {تعيين واحد} other {# تعيينات}}",
+      "mappingsConfirmDelete": "حذف هذا التعيين؟ لا يمكن التراجع عن هذا الإجراء.",
+      "mappingsDelete": "حذف التعيين",
+      "mappingsColAttendanceStatus": "حالة الحضور",
+      "mappingsColTuslaCategory": "فئة توسلا",
+      "mappingsColDisplayLabel": "التسمية",
+      "mappingsColDefault": "افتراضي",
+      "mappingsColActions": "الإجراءات",
+      "mappingsAttendanceStatus": "حالة الحضور",
+      "mappingsTuslaCategory": "فئة توسلا",
+      "mappingsDisplayLabel": "التسمية المعروضة",
+      "mappingsDisplayLabelPlaceholder": "مثال: مرضي (موثق)",
+      "mappingsReasonPattern": "نمط السبب (اختياري)",
+      "mappingsReasonPatternPlaceholder": "تعبير منتظم أو كلمة مفتاحية لمطابقة السبب",
+      "mappingsIsDefault": "استخدام كافتراضي لحالة الحضور هذه",
+      "mappingsCancel": "إلغاء",
+      "mappingsCreate": "إنشاء تعيين",
+      "mappingsSaving": "جارٍ الحفظ…",
+      "mappingsSaveError": "فشل حفظ التعيين",
+      "mappingsCreateTitle": "تعيين رمز غياب جديد",
+      "mappingsCreateDescription": "ربط رمز حضور مدرسي بفئة تقارير توسلا.",
+      "mappingsEmptyTitle": "لم يتم تكوين تعيينات بعد",
+      "mappingsEmptyDescription": "أضف تعيينًا حتى تصل الغيابات إلى فئة توسلا الصحيحة في تقارير SAR.",
+      "mappingsYes": "نعم",
+      "mappingsNo": "لا",
+      "mappingsAttendanceStatusOptions": {
+        "absent_excused": "غائب (معذور)",
+        "absent_unexcused": "غائب (غير معذور)",
+        "absent": "غائب",
+        "late": "متأخر",
+        "left_early": "غادر مبكرًا"
+      },
+      "mappingsTuslaCategoryOptions": {
+        "illness": "مرض",
+        "urgent_family_reason": "سبب عائلي طارئ",
+        "holiday": "إجازة",
+        "suspension": "إيقاف",
+        "expulsion": "فصل",
+        "other": "أخرى",
+        "unexplained": "غير مفسّر"
+      }
     },
     "desReturns": {
       "pageTitle": "تقارير الوزارة",

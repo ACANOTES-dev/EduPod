@@ -11,9 +11,11 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { PodDatabaseType } from '@prisma/client';
+import type { Response } from 'express';
 import { z } from 'zod';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
@@ -188,6 +190,13 @@ export class RegulatoryController {
     return this.dashboardService.getOverdueItems(tenant.tenant_id);
   }
 
+  // GET /v1/regulatory/academic-years
+  @Get('academic-years')
+  @RequiresPermission('regulatory.view')
+  async listAcademicYears(@CurrentTenant() tenant: TenantContext) {
+    return this.dashboardService.listAcademicYears(tenant.tenant_id);
+  }
+
   // ─── Calendar ───────────────────────────────────────────────────────────────
 
   // POST /v1/regulatory/calendar/seed-defaults
@@ -360,9 +369,24 @@ export class RegulatoryController {
   @RequiresPermission('regulatory.manage_tusla')
   async generateSar(
     @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
     @Body(new ZodValidationPipe(generateTuslaSarSchema)) dto: GenerateTuslaSarDto,
   ) {
-    return this.tuslaService.generateSar(tenant.tenant_id, dto);
+    return this.tuslaService.generateSar(tenant.tenant_id, user.sub, dto);
+  }
+
+  // GET /v1/regulatory/tusla/sar/:id/export
+  @Get('tusla/sar/:id/export')
+  @RequiresPermission('regulatory.view')
+  async exportSar(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: false }) res: Response,
+  ) {
+    const { csv, filename } = await this.tuslaService.exportSarCsv(tenant.tenant_id, id);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
   }
 
   // POST /v1/regulatory/tusla/aar/generate
@@ -370,9 +394,24 @@ export class RegulatoryController {
   @RequiresPermission('regulatory.manage_tusla')
   async generateAar(
     @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
     @Body(new ZodValidationPipe(generateTuslaAarSchema)) dto: GenerateTuslaAarDto,
   ) {
-    return this.tuslaService.generateAar(tenant.tenant_id, dto);
+    return this.tuslaService.generateAar(tenant.tenant_id, user.sub, dto);
+  }
+
+  // GET /v1/regulatory/tusla/aar/:id/export
+  @Get('tusla/aar/:id/export')
+  @RequiresPermission('regulatory.view')
+  async exportAar(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: false }) res: Response,
+  ) {
+    const { csv, filename } = await this.tuslaService.exportAarCsv(tenant.tenant_id, id);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
   }
 
   // GET /v1/regulatory/tusla/suspensions

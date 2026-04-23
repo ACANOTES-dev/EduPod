@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { AttendanceReadFacade, MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 import { ComplianceReadFacade } from '../compliance/compliance-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { SafeguardingReadFacade } from '../safeguarding/safeguarding-read.facade';
@@ -46,6 +48,8 @@ describe('RegulatoryDashboardService', () => {
     countActivePatternAlerts: jest.Mock;
     findActiveAlertsByType: jest.Mock;
   };
+  let mockAcademicReadFacade: { findAllYears: jest.Mock };
+  let mockBehaviourReadFacade: { countSanctionsForTusla: jest.Mock };
   let mockSafeguardingReadFacade: { countSafeguardingHub: jest.Mock };
   let mockComplianceReadFacade: { countOpenDsarRequests: jest.Mock };
 
@@ -54,6 +58,12 @@ describe('RegulatoryDashboardService', () => {
     mockAttendanceReadFacade = {
       countActivePatternAlerts: jest.fn().mockResolvedValue(0),
       findActiveAlertsByType: jest.fn().mockResolvedValue([]),
+    };
+    mockAcademicReadFacade = {
+      findAllYears: jest.fn().mockResolvedValue([]),
+    };
+    mockBehaviourReadFacade = {
+      countSanctionsForTusla: jest.fn().mockResolvedValue(0),
     };
     mockSafeguardingReadFacade = {
       countSafeguardingHub: jest.fn().mockResolvedValue(0),
@@ -67,7 +77,9 @@ describe('RegulatoryDashboardService', () => {
         ...MOCK_FACADE_PROVIDERS,
         RegulatoryDashboardService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
         { provide: AttendanceReadFacade, useValue: mockAttendanceReadFacade },
+        { provide: BehaviourReadFacade, useValue: mockBehaviourReadFacade },
         { provide: SafeguardingReadFacade, useValue: mockSafeguardingReadFacade },
         { provide: ComplianceReadFacade, useValue: mockComplianceReadFacade },
       ],
@@ -91,6 +103,8 @@ describe('RegulatoryDashboardService', () => {
       expect(result.tusla.active_alerts).toBe(0);
       expect(result.tusla.students_approaching_threshold).toBe(0);
       expect(result.tusla.students_exceeded_threshold).toBe(0);
+      expect(result.tusla.open_suspensions_count).toBe(0);
+      expect(result.tusla.last_sar_submitted_at).toBeNull();
       expect(result.des.readiness_status).toBe('not_started');
       expect(result.des.recent_submissions).toBe(0);
       expect(result.des.last_submission_at).toBeNull();
@@ -310,6 +324,34 @@ describe('RegulatoryDashboardService', () => {
       expect(result.cba.last_sync_at).toEqual(cbaSyncDate);
     });
 
+    it('should surface open Tusla-notifiable suspensions and last SAR submission', async () => {
+      const sarSubmittedAt = new Date('2026-01-15T10:00:00Z');
+      mockBehaviourReadFacade.countSanctionsForTusla.mockResolvedValue(4);
+      mockPrisma.regulatorySubmission.findFirst.mockImplementation(
+        (args: {
+          where: {
+            domain?: string;
+            submission_type?: string;
+            status?: { in?: string[] };
+          };
+        }) => {
+          if (
+            args.where.domain === 'tusla_attendance' &&
+            args.where.submission_type === 'sar' &&
+            args.where.status?.in
+          ) {
+            return Promise.resolve({ submitted_at: sarSubmittedAt });
+          }
+          return Promise.resolve(null);
+        },
+      );
+
+      const result = await service.getDashboardSummary(TENANT_ID);
+
+      expect(result.tusla.open_suspensions_count).toBe(4);
+      expect(result.tusla.last_sar_submitted_at).toEqual(sarSubmittedAt);
+    });
+
     it('should count pending transfers, open safeguarding concerns, and open DSARs', async () => {
       mockPrisma.interSchoolTransfer.count.mockResolvedValue(7);
       mockSafeguardingReadFacade.countSafeguardingHub.mockResolvedValue(4);
@@ -343,6 +385,28 @@ describe('RegulatoryDashboardService', () => {
 
       expect(result.anti_bullying.open_count).toBe(3);
       expect(result.submissions.this_year_count).toBe(9);
+    });
+  });
+
+  // ─── listAcademicYears ─────────────────────────────────────────────────
+
+  describe('listAcademicYears', () => {
+    it('should return academic years via AcademicReadFacade', async () => {
+      const years = [
+        {
+          id: '11111111-1111-1111-1111-111111111111',
+          name: '2025-2026',
+          start_date: new Date('2025-09-01'),
+          end_date: new Date('2026-08-31'),
+          status: 'active',
+        },
+      ];
+      mockAcademicReadFacade.findAllYears.mockResolvedValue(years);
+
+      const result = await service.listAcademicYears(TENANT_ID);
+
+      expect(result).toEqual(years);
+      expect(mockAcademicReadFacade.findAllYears).toHaveBeenCalledWith(TENANT_ID);
     });
   });
 

@@ -8044,6 +8044,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/regulatory/academic-years",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "regulatory.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/regulatory/calendar",
     "controller": "RegulatoryController",
     "module": "regulatory",
@@ -8323,11 +8330,18 @@
     "permission": "regulatory.manage_transfers"
   },
   {
+    "method": "GET",
+    "path": "/v1/regulatory/tusla/aar/:id/export",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "regulatory.manage_tusla"
+  },
+  {
     "method": "POST",
     "path": "/v1/regulatory/tusla/aar/generate",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.manage_tusla"
+    "permission": "regulatory.view"
   },
   {
     "method": "GET",
@@ -8358,6 +8372,13 @@
     "permission": "regulatory.view"
   },
   {
+    "method": "GET",
+    "path": "/v1/regulatory/tusla/sar/:id/export",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "regulatory.manage_tusla"
+  },
+  {
     "method": "POST",
     "path": "/v1/regulatory/tusla/sar/generate",
     "controller": "RegulatoryController",
@@ -8369,7 +8390,7 @@
     "path": "/v1/regulatory/tusla/suspensions",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.manage_tusla"
+    "permission": "regulatory.view"
   },
   {
     "method": "GET",
