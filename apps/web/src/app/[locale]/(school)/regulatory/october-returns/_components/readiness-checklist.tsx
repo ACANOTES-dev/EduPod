@@ -135,7 +135,9 @@ export function ReadinessChecklist({ readiness, isLoading }: ReadinessChecklistP
 
       <ul className="space-y-2 rounded-2xl border border-border bg-surface-primary p-3">
         {readiness.categories.map((category) => {
-          const hasFix = isKnownField(category.field) && category.status !== 'pass';
+          const hasFix =
+            isKnownField(category.field) &&
+            (category.status === 'fail' || category.status === 'warning');
           const fixHref = `/${locale}${fixLinkForField(category.field)}`;
           const fieldLabel = isKnownField(category.field)
             ? t(`fields.${category.field}.label`)
