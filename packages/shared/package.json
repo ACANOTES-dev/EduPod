@@ -51,6 +51,9 @@
       "wellbeing": [
         "src/wellbeing/index.ts"
       ],
+      "reports": [
+        "src/reports/index.ts"
+      ],
       "households/*": [
         "src/households/*.ts"
       ]
@@ -136,6 +139,10 @@
     "./wellbeing": {
       "types": "./src/wellbeing/index.ts",
       "default": "./dist/wellbeing/index.js"
+    },
+    "./reports": {
+      "types": "./src/reports/index.ts",
+      "default": "./dist/reports/index.js"
     }
   },
   "scripts": {

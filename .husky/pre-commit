@@ -1,4 +1,7 @@
-export NODE_OPTIONS="--max-old-space-size=6144"
+# Keep the 6GB default that was added in ff6a8a05 to tame eslint swap-thrash,
+# but respect an explicit outer override so contributors on boxes that need
+# more headroom (larger diff sets, high memory pressure) can pass it in.
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=6144}"
 
 # 120-second SIGALRM timeout via perl (stock macOS has no coreutils `timeout`)
 # After exec, the alarm fires SIGALRM whose default action terminates the process.

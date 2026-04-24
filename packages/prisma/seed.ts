@@ -16,6 +16,7 @@ import { LEAVE_TYPE_SEEDS } from './seed/leave-types';
 import { PERMISSION_SEEDS } from './seed/permissions';
 import { SYSTEM_ROLES } from './seed/system-roles';
 import { seedInboxDefaultsForTenant } from './src/inbox-defaults';
+import { seedReportsDefaultsForTenant } from './src/reports-defaults';
 import { seedWellbeingDefaultsForTenant } from './src/wellbeing-defaults';
 
 /**
@@ -474,6 +475,10 @@ async function main() {
       // Seed wellbeing defaults (AI flags, notification channel prefs,
       // 31 default behaviour categories when the tenant has zero) — idempotent.
       await seedWellbeingDefaultsForTenant(prisma, tenant.id);
+
+      // Seed reports defaults (three reports AI flag rows, all
+      // enabled=false). Idempotent upsert on (tenant_id, module_key).
+      await seedReportsDefaultsForTenant(prisma, tenant.id);
 
       console.log(`  Tenant "${t.name}" seeded with all defaults.`);
     }

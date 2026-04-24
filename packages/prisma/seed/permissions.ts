@@ -473,6 +473,38 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     permission_tier: 'admin',
   },
 
+  // ─── Admin tier — Reports (rebuild) ────────────────────────────────────────
+  {
+    permission_key: 'reports.builder',
+    description: 'View and use the custom report builder',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'reports.share',
+    description: 'Share saved reports into the inbox',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'reports.settings',
+    description: 'Change tenant reports settings (AI flags, KPI visibility)',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'reports.ai.narration',
+    description: 'See and regenerate AI-written report narrations',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'reports.ai.ask_ai',
+    description: 'Use the Ask-AI natural-language report builder',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'reports.ai.predictions',
+    description: 'See AI-generated predictive analytics panels',
+    permission_tier: 'admin',
+  },
+
   // ─── Admin tier — Compliance ───────────────────────────────────────────────
   {
     permission_key: 'curriculum_matrix.manage',

@@ -22,3 +22,9 @@ export {
   seedWellbeingDefaultsForTenant,
 } from './wellbeing-defaults';
 export type { WellbeingAiModuleKey, WellbeingDefaultCategorySeed } from './wellbeing-defaults';
+export {
+  REPORTS_AI_MODULE_KEYS,
+  seedReportsDefaultsForAllTenants,
+  seedReportsDefaultsForTenant,
+} from './reports-defaults';
+export type { ReportsAiModuleKey } from './reports-defaults';

@@ -688,57 +688,60 @@ model Tenant {
 
   // Reports World-Class Relations
   saved_reports               SavedReport[]
+  saved_report_drafts         SavedReportDraft[]
   board_reports               BoardReport[]
   compliance_report_templates ComplianceReportTemplate[]
   scheduled_reports           ScheduledReport[]
   report_alerts               ReportAlert[]
+  report_share_logs           ReportShareLog[]
+  reports_kpi_tenant_prefs    ReportsKpiTenantPreferences?
 
   // Wellbeing Foundation Relations (Impl 01)
-  tenant_ai_flags                     TenantAiFlag[]
-  tenant_notification_preferences     TenantNotificationPreferences?
+  tenant_ai_flags                 TenantAiFlag[]
+  tenant_notification_preferences TenantNotificationPreferences?
 
   // Behaviour Management Relations
-  behaviour_categories               BehaviourCategory[]
-  behaviour_incidents                BehaviourIncident[]
-  behaviour_incident_participants    BehaviourIncidentParticipant[]
-  behaviour_description_templates    BehaviourDescriptionTemplate[]
-  behaviour_entity_history           BehaviourEntityHistory[]
-  behaviour_tasks                    BehaviourTask[]
-  behaviour_parent_acknowledgements  BehaviourParentAcknowledgement[]
-  behaviour_sanctions                BehaviourSanction[]
-  behaviour_appeals                  BehaviourAppeal[]
-  behaviour_amendment_notices        BehaviourAmendmentNotice[]
-  behaviour_exclusion_cases          BehaviourExclusionCase[]
-  behaviour_attachments              BehaviourAttachment[]
-  behaviour_interventions            BehaviourIntervention[]
-  behaviour_intervention_incidents   BehaviourInterventionIncident[]
-  behaviour_intervention_reviews     BehaviourInterventionReview[]
-  behaviour_recognition_awards       BehaviourRecognitionAward[]
-  behaviour_award_types              BehaviourAwardType[]
-  behaviour_house_teams              BehaviourHouseTeam[]
-  behaviour_house_memberships        BehaviourHouseMembership[]
-  behaviour_policy_rules             BehaviourPolicyRule[]
-  behaviour_policy_rule_actions      BehaviourPolicyRuleAction[]
-  behaviour_policy_rule_versions     BehaviourPolicyRuleVersion[]
-  behaviour_policy_evaluations       BehaviourPolicyEvaluation[]
-  behaviour_policy_action_executions BehaviourPolicyActionExecution[]
-  behaviour_alerts                   BehaviourAlert[]
-  behaviour_alert_recipients         BehaviourAlertRecipient[]
-  behaviour_documents                BehaviourDocument[]
-  behaviour_document_templates       BehaviourDocumentTemplate[]
-  behaviour_guardian_restrictions    BehaviourGuardianRestriction[]
-  behaviour_publication_approvals    BehaviourPublicationApproval[]
-  behaviour_legal_holds              BehaviourLegalHold[]
-  behaviour_ai_query_history         BehaviourAiQueryHistory[]
-  safeguarding_concerns              SafeguardingConcern[]
-  safeguarding_actions               SafeguardingAction[]
-  safeguarding_concern_incidents     SafeguardingConcernIncident[]
-  safeguarding_break_glass_grants    SafeguardingBreakGlassGrant[]
+  behaviour_categories                BehaviourCategory[]
+  behaviour_incidents                 BehaviourIncident[]
+  behaviour_incident_participants     BehaviourIncidentParticipant[]
+  behaviour_description_templates     BehaviourDescriptionTemplate[]
+  behaviour_entity_history            BehaviourEntityHistory[]
+  behaviour_tasks                     BehaviourTask[]
+  behaviour_parent_acknowledgements   BehaviourParentAcknowledgement[]
+  behaviour_sanctions                 BehaviourSanction[]
+  behaviour_appeals                   BehaviourAppeal[]
+  behaviour_amendment_notices         BehaviourAmendmentNotice[]
+  behaviour_exclusion_cases           BehaviourExclusionCase[]
+  behaviour_attachments               BehaviourAttachment[]
+  behaviour_interventions             BehaviourIntervention[]
+  behaviour_intervention_incidents    BehaviourInterventionIncident[]
+  behaviour_intervention_reviews      BehaviourInterventionReview[]
+  behaviour_recognition_awards        BehaviourRecognitionAward[]
+  behaviour_award_types               BehaviourAwardType[]
+  behaviour_house_teams               BehaviourHouseTeam[]
+  behaviour_house_memberships         BehaviourHouseMembership[]
+  behaviour_policy_rules              BehaviourPolicyRule[]
+  behaviour_policy_rule_actions       BehaviourPolicyRuleAction[]
+  behaviour_policy_rule_versions      BehaviourPolicyRuleVersion[]
+  behaviour_policy_evaluations        BehaviourPolicyEvaluation[]
+  behaviour_policy_action_executions  BehaviourPolicyActionExecution[]
+  behaviour_alerts                    BehaviourAlert[]
+  behaviour_alert_recipients          BehaviourAlertRecipient[]
+  behaviour_documents                 BehaviourDocument[]
+  behaviour_document_templates        BehaviourDocumentTemplate[]
+  behaviour_guardian_restrictions     BehaviourGuardianRestriction[]
+  behaviour_publication_approvals     BehaviourPublicationApproval[]
+  behaviour_legal_holds               BehaviourLegalHold[]
+  behaviour_ai_query_history          BehaviourAiQueryHistory[]
+  safeguarding_concerns               SafeguardingConcern[]
+  safeguarding_actions                SafeguardingAction[]
+  safeguarding_concern_incidents      SafeguardingConcernIncident[]
+  safeguarding_break_glass_grants     SafeguardingBreakGlassGrant[]
   safeguarding_break_glass_access_log SafeguardingBreakGlassAccessLog[]
-  admin_repair_runs                  AdminRepairRun[]
-  dlp_register_entries               DlpRegisterEntry[]
-  staff_vetting_records              StaffVettingRecord[]
-  child_protection_reviews           ChildProtectionReview[]
+  admin_repair_runs                   AdminRepairRun[]
+  dlp_register_entries                DlpRegisterEntry[]
+  staff_vetting_records               StaffVettingRecord[]
+  child_protection_reviews            ChildProtectionReview[]
 
   // Pastoral Care Relations
   pastoral_concerns                  PastoralConcern[]
@@ -812,14 +815,14 @@ model Tenant {
   sen_transition_notes          SenTransitionNote[]
 
   // Homework Relations
-  homework_assignments      HomeworkAssignment[]
-  homework_attachments      HomeworkAttachment[]
-  homework_completions      HomeworkCompletion[]
-  homework_recurrence_rules HomeworkRecurrenceRule[]
-  homework_submissions      HomeworkSubmission[]
+  homework_assignments            HomeworkAssignment[]
+  homework_attachments            HomeworkAttachment[]
+  homework_completions            HomeworkCompletion[]
+  homework_recurrence_rules       HomeworkRecurrenceRule[]
+  homework_submissions            HomeworkSubmission[]
   homework_submission_attachments HomeworkSubmissionAttachment[]
-  diary_notes               DiaryNote[]
-  diary_parent_notes        DiaryParentNote[]
+  diary_notes                     DiaryNote[]
+  diary_parent_notes              DiaryParentNote[]
 
   // Engagement Relations
   eng_form_templates     EngagementFormTemplate[]
@@ -1254,54 +1257,57 @@ model User {
   scheduling_scenarios_created SchedulingScenario[]        @relation("scenario_creator")
 
   // Reports World-Class Relations
-  saved_reports_created     SavedReport[]     @relation("saved_report_creator")
-  board_reports_generated   BoardReport[]     @relation("board_report_generator")
-  scheduled_reports_created ScheduledReport[] @relation("scheduled_report_creator")
-  report_alerts_created     ReportAlert[]     @relation("report_alert_creator")
+  saved_reports_created     SavedReport[]      @relation("saved_report_creator")
+  saved_report_drafts       SavedReportDraft[]
+  saved_reports_executed    SavedReport[]      @relation("saved_report_last_executor")
+  board_reports_generated   BoardReport[]      @relation("board_report_generator")
+  scheduled_reports_created ScheduledReport[]  @relation("scheduled_report_creator")
+  report_alerts_created     ReportAlert[]      @relation("report_alert_creator")
+  report_shares_initiated   ReportShareLog[]   @relation("report_share_sharer")
 
   // Behaviour Management Relations
-  bh_incidents_reported             BehaviourIncident[]            @relation("bh_incident_reporter")
-  bh_parent_descriptions_set        BehaviourIncident[]            @relation("bh_parent_desc_setter")
-  bh_entity_history_changes         BehaviourEntityHistory[]       @relation("bh_entity_history_changer")
-  bh_tasks_assigned                 BehaviourTask[]                @relation("bh_task_assignee")
-  bh_tasks_created                  BehaviourTask[]                @relation("bh_task_creator")
-  bh_tasks_completed                BehaviourTask[]                @relation("bh_task_completer")
-  bh_sanctions_supervised           BehaviourSanction[]            @relation("bh_sanction_supervisor")
-  bh_sanctions_served               BehaviourSanction[]            @relation("bh_sanction_server")
-  bh_appeals_reviewed               BehaviourAppeal[]              @relation("bh_appeal_reviewer")
-  bh_appeals_decided                BehaviourAppeal[]              @relation("bh_appeal_decider")
-  bh_amendments_changed             BehaviourAmendmentNotice[]     @relation("bh_amendment_changer")
-  bh_amendments_authorised          BehaviourAmendmentNotice[]     @relation("bh_amendment_authoriser")
-  bh_exclusions_decided             BehaviourExclusionCase[]       @relation("bh_exclusion_decider")
-  bh_attachments_uploaded           BehaviourAttachment[]          @relation("bh_attachment_uploader")
-  bh_interventions_assigned         BehaviourIntervention[]        @relation("bh_intervention_assignee")
-  bh_intervention_reviews_done      BehaviourInterventionReview[]  @relation("bh_intervention_reviewer")
-  bh_recognition_awards_given       BehaviourRecognitionAward[]    @relation("bh_award_giver")
-  bh_policy_rule_versions_changed   BehaviourPolicyRuleVersion[]   @relation("bh_policy_version_changer")
-  bh_alert_recipients               BehaviourAlertRecipient[]      @relation("bh_alert_recipient")
-  bh_documents_generated            BehaviourDocument[]            @relation("bh_document_generator")
-  bh_guardian_restrictions_set      BehaviourGuardianRestriction[] @relation("bh_restriction_setter")
-  bh_guardian_restrictions_approved BehaviourGuardianRestriction[] @relation("bh_restriction_approver")
-  bh_guardian_restrictions_revoked  BehaviourGuardianRestriction[] @relation("bh_restriction_revoker")
-  bh_publication_approvals_admin    BehaviourPublicationApproval[] @relation("bh_publication_admin")
-  bh_legal_holds_set                BehaviourLegalHold[]           @relation("bh_legal_hold_setter")
-  bh_legal_holds_released           BehaviourLegalHold[]           @relation("bh_legal_hold_releaser")
-  bh_ai_query_history               BehaviourAiQueryHistory[]      @relation("bh_ai_query_history_user")
-  sg_concerns_reported              SafeguardingConcern[]          @relation("sg_concern_reporter")
-  sg_concerns_liaison               SafeguardingConcern[]          @relation("sg_concern_liaison")
-  sg_concerns_assigned              SafeguardingConcern[]          @relation("sg_concern_assignee")
-  sg_concerns_sealed                SafeguardingConcern[]          @relation("sg_concern_sealer")
-  sg_concerns_seal_approved         SafeguardingConcern[]          @relation("sg_concern_seal_approver")
-  sg_actions_performed              SafeguardingAction[]           @relation("sg_action_performer")
-  sg_concern_incidents_linked       SafeguardingConcernIncident[]  @relation("sg_concern_incident_linker")
-  sg_break_glass_granted_to         SafeguardingBreakGlassGrant[]  @relation("sg_break_glass_grantee")
-  sg_break_glass_granted_by         SafeguardingBreakGlassGrant[]  @relation("sg_break_glass_grantor")
-  sg_break_glass_reviewed           SafeguardingBreakGlassGrant[]  @relation("sg_break_glass_reviewer")
+  bh_incidents_reported             BehaviourIncident[]               @relation("bh_incident_reporter")
+  bh_parent_descriptions_set        BehaviourIncident[]               @relation("bh_parent_desc_setter")
+  bh_entity_history_changes         BehaviourEntityHistory[]          @relation("bh_entity_history_changer")
+  bh_tasks_assigned                 BehaviourTask[]                   @relation("bh_task_assignee")
+  bh_tasks_created                  BehaviourTask[]                   @relation("bh_task_creator")
+  bh_tasks_completed                BehaviourTask[]                   @relation("bh_task_completer")
+  bh_sanctions_supervised           BehaviourSanction[]               @relation("bh_sanction_supervisor")
+  bh_sanctions_served               BehaviourSanction[]               @relation("bh_sanction_server")
+  bh_appeals_reviewed               BehaviourAppeal[]                 @relation("bh_appeal_reviewer")
+  bh_appeals_decided                BehaviourAppeal[]                 @relation("bh_appeal_decider")
+  bh_amendments_changed             BehaviourAmendmentNotice[]        @relation("bh_amendment_changer")
+  bh_amendments_authorised          BehaviourAmendmentNotice[]        @relation("bh_amendment_authoriser")
+  bh_exclusions_decided             BehaviourExclusionCase[]          @relation("bh_exclusion_decider")
+  bh_attachments_uploaded           BehaviourAttachment[]             @relation("bh_attachment_uploader")
+  bh_interventions_assigned         BehaviourIntervention[]           @relation("bh_intervention_assignee")
+  bh_intervention_reviews_done      BehaviourInterventionReview[]     @relation("bh_intervention_reviewer")
+  bh_recognition_awards_given       BehaviourRecognitionAward[]       @relation("bh_award_giver")
+  bh_policy_rule_versions_changed   BehaviourPolicyRuleVersion[]      @relation("bh_policy_version_changer")
+  bh_alert_recipients               BehaviourAlertRecipient[]         @relation("bh_alert_recipient")
+  bh_documents_generated            BehaviourDocument[]               @relation("bh_document_generator")
+  bh_guardian_restrictions_set      BehaviourGuardianRestriction[]    @relation("bh_restriction_setter")
+  bh_guardian_restrictions_approved BehaviourGuardianRestriction[]    @relation("bh_restriction_approver")
+  bh_guardian_restrictions_revoked  BehaviourGuardianRestriction[]    @relation("bh_restriction_revoker")
+  bh_publication_approvals_admin    BehaviourPublicationApproval[]    @relation("bh_publication_admin")
+  bh_legal_holds_set                BehaviourLegalHold[]              @relation("bh_legal_hold_setter")
+  bh_legal_holds_released           BehaviourLegalHold[]              @relation("bh_legal_hold_releaser")
+  bh_ai_query_history               BehaviourAiQueryHistory[]         @relation("bh_ai_query_history_user")
+  sg_concerns_reported              SafeguardingConcern[]             @relation("sg_concern_reporter")
+  sg_concerns_liaison               SafeguardingConcern[]             @relation("sg_concern_liaison")
+  sg_concerns_assigned              SafeguardingConcern[]             @relation("sg_concern_assignee")
+  sg_concerns_sealed                SafeguardingConcern[]             @relation("sg_concern_sealer")
+  sg_concerns_seal_approved         SafeguardingConcern[]             @relation("sg_concern_seal_approver")
+  sg_actions_performed              SafeguardingAction[]              @relation("sg_action_performer")
+  sg_concern_incidents_linked       SafeguardingConcernIncident[]     @relation("sg_concern_incident_linker")
+  sg_break_glass_granted_to         SafeguardingBreakGlassGrant[]     @relation("sg_break_glass_grantee")
+  sg_break_glass_granted_by         SafeguardingBreakGlassGrant[]     @relation("sg_break_glass_grantor")
+  sg_break_glass_reviewed           SafeguardingBreakGlassGrant[]     @relation("sg_break_glass_reviewer")
   sg_break_glass_access_log_actor   SafeguardingBreakGlassAccessLog[] @relation("sg_break_glass_access_actor")
-  admin_repair_runs_actor           AdminRepairRun[]               @relation("admin_repair_run_actor")
-  dlp_register_entries              DlpRegisterEntry[]             @relation("dlp_register_entry_user")
-  staff_vetting_records             StaffVettingRecord[]           @relation("staff_vetting_record_user")
-  cp_reviews_conducted              ChildProtectionReview[]        @relation("cp_review_conductor")
+  admin_repair_runs_actor           AdminRepairRun[]                  @relation("admin_repair_run_actor")
+  dlp_register_entries              DlpRegisterEntry[]                @relation("dlp_register_entry_user")
+  staff_vetting_records             StaffVettingRecord[]              @relation("staff_vetting_record_user")
+  cp_reviews_conducted              ChildProtectionReview[]           @relation("cp_review_conductor")
 
   // Pastoral Care Relations
   pc_concerns_logged                     PastoralConcern[]                @relation("pc_concern_logged_by")
@@ -6315,25 +6321,33 @@ model StaffRecurringDeduction {
 // ─── Reports World-Class Models ──────────────────────────────────────────────
 
 model SavedReport {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id          String   @db.Uuid
-  name               String   @db.VarChar(255)
-  data_source        String   @db.VarChar(50)
+  id                 String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String                @db.Uuid
+  name               String                @db.VarChar(255)
+  description        String?               @db.Text
+  data_source        String                @db.VarChar(50)
   dimensions_json    Json
   measures_json      Json
   filters_json       Json
-  chart_type         String?  @db.VarChar(50)
-  is_shared          Boolean  @default(false)
-  created_by_user_id String   @db.Uuid
-  created_at         DateTime @default(now()) @db.Timestamptz()
-  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+  chart_type         String?               @db.VarChar(50)
+  is_shared          Boolean               @default(false)
+  visibility         SavedReportVisibility @default(private)
+  is_favorite        Boolean               @default(false)
+  last_executed_at   DateTime?             @db.Timestamptz()
+  last_executed_by   String?               @db.Uuid
+  created_by_user_id String                @db.Uuid
+  created_at         DateTime              @default(now()) @db.Timestamptz()
+  updated_at         DateTime              @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  created_by User   @relation("saved_report_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  tenant        Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by    User             @relation("saved_report_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  last_executor User?            @relation("saved_report_last_executor", fields: [last_executed_by], references: [id], onDelete: SetNull)
+  share_logs    ReportShareLog[]
 
   @@unique([tenant_id, name], name: "idx_saved_reports_tenant_name")
   @@index([tenant_id], name: "idx_saved_reports_tenant")
+  @@index([tenant_id, visibility], map: "idx_saved_reports_tenant_visibility")
   @@map("saved_reports")
 }
 
@@ -6390,8 +6404,9 @@ model ScheduledReport {
   updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  created_by User   @relation("scheduled_report_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  tenant     Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by User                 @relation("scheduled_report_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  runs       ScheduledReportRun[]
 
   @@index([tenant_id, active], name: "idx_scheduled_reports_tenant_active")
   @@map("scheduled_reports")
@@ -6413,11 +6428,142 @@ model ReportAlert {
   updated_at                   DateTime  @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  created_by User   @relation("report_alert_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  tenant     Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by User             @relation("report_alert_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  runs       ReportAlertRun[]
 
   @@index([tenant_id, active], name: "idx_report_alerts_tenant_active")
   @@map("report_alerts")
+}
+
+// ─── Reports Rebuild (Impl 01) ──────────────────────────────────────────────
+
+enum SavedReportVisibility {
+  private
+  shared
+}
+
+enum ScheduledReportRunStatus {
+  pending
+  running
+  succeeded
+  failed
+}
+
+enum ReportAlertRunOutcome {
+  ok
+  threshold_crossed
+  error
+}
+
+enum ReportShareFormat {
+  pdf
+  excel
+  word
+  all
+}
+
+/// In-progress custom-builder state, one row per (tenant, user). Upserted
+/// with every debounced edit; cleared when the author formally saves.
+model SavedReportDraft {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String   @db.Uuid
+  user_id           String   @db.Uuid
+  subject_key       String   @db.VarChar(64)
+  columns_json      Json     @db.JsonB
+  filters_json      Json     @default("{}") @db.JsonB
+  group_by_json     Json?    @db.JsonB
+  chart_type        String?  @db.VarChar(32)
+  chart_config_json Json?    @db.JsonB
+  updated_at        DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, user_id], map: "uq_saved_report_drafts_tenant_user")
+  @@map("saved_report_drafts")
+}
+
+/// Log of each scheduled-report execution. Feeds the "last N runs" view
+/// in the Scheduled Reports UI.
+model ScheduledReportRun {
+  id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String                   @db.Uuid
+  scheduled_report_id String                   @db.Uuid
+  started_at          DateTime                 @default(now()) @db.Timestamptz()
+  finished_at         DateTime?                @db.Timestamptz()
+  status              ScheduledReportRunStatus
+  row_count           Int?
+  error_message       String?                  @db.Text
+  artifact_object_key String?                  @db.VarChar(512)
+  delivered_via       String[]                 @default([])
+
+  // Relations
+  scheduled_report ScheduledReport @relation(fields: [scheduled_report_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, scheduled_report_id, started_at(sort: Desc)], map: "idx_scheduled_report_runs_recent")
+  @@index([tenant_id, status], map: "idx_scheduled_report_runs_status")
+  @@map("scheduled_report_runs")
+}
+
+/// Log of each alert evaluation. Used for spam prevention
+/// (no re-fire within 24h) and audit history.
+model ReportAlertRun {
+  id                String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String                @db.Uuid
+  report_alert_id   String                @db.Uuid
+  evaluated_at      DateTime              @default(now()) @db.Timestamptz()
+  outcome           ReportAlertRunOutcome
+  measured_value    Decimal?              @db.Decimal(12, 2)
+  threshold_value   Decimal?              @db.Decimal(12, 2)
+  notified_user_ids String[]              @default([])
+  error_message     String?               @db.Text
+
+  // Relations
+  report_alert ReportAlert @relation(fields: [report_alert_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, report_alert_id, evaluated_at(sort: Desc)], map: "idx_report_alert_runs_recent")
+  @@map("report_alert_runs")
+}
+
+/// Audit of every share action: who shared what to whom in which format,
+/// and the inbox conversation it produced.
+model ReportShareLog {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String            @db.Uuid
+  saved_report_id String            @db.Uuid
+  shared_by       String            @db.Uuid
+  shared_at       DateTime          @default(now()) @db.Timestamptz()
+  format          ReportShareFormat
+  conversation_id String?           @db.Uuid
+  recipients_json Json              @db.JsonB
+  message_body    String?           @db.Text
+
+  // Relations
+  tenant       Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  saved_report SavedReport @relation(fields: [saved_report_id], references: [id], onDelete: Cascade)
+  sharer       User        @relation("report_share_sharer", fields: [shared_by], references: [id])
+
+  @@index([tenant_id, shared_at(sort: Desc)], map: "idx_report_share_log_tenant_recent")
+  @@index([tenant_id, saved_report_id, shared_at(sort: Desc)], map: "idx_report_share_log_report")
+  @@map("report_share_log")
+}
+
+/// Tenant-level KPI card visibility toggles. One row per tenant; absent
+/// row means all KPIs visible. `hidden_kpi_keys` is a string array of the
+/// 10 KPI keys the tenant wishes to hide on the dashboard.
+model ReportsKpiTenantPreferences {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String   @unique @db.Uuid
+  hidden_kpi_keys String[] @default([])
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz()
+  updated_by      String?  @db.Uuid
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("reports_kpi_tenant_preferences")
 }
 
 // ─── Behaviour Management Enums ─────────────────────────────────────────────

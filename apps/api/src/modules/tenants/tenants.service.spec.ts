@@ -336,9 +336,17 @@ describe('TenantsService', () => {
 
       await service.createTenant(createDto);
 
-      // 4 AI flags: one per module key, all upserted with enabled: false
-      expect(mockPrisma.tenantAiFlag.upsert).toHaveBeenCalledTimes(4);
-      for (const moduleKey of ['behaviour', 'pastoral', 'staff_wellbeing', 'early_warning']) {
+      // 7 AI flags: 4 wellbeing + 3 reports, all upserted with enabled: false
+      expect(mockPrisma.tenantAiFlag.upsert).toHaveBeenCalledTimes(7);
+      for (const moduleKey of [
+        'behaviour',
+        'pastoral',
+        'staff_wellbeing',
+        'early_warning',
+        'reports_narration',
+        'reports_ask_ai',
+        'reports_predictions',
+      ]) {
         expect(mockPrisma.tenantAiFlag.upsert).toHaveBeenCalledWith(
           expect.objectContaining({
             where: expect.objectContaining({
@@ -409,8 +417,9 @@ describe('TenantsService', () => {
       await service.createTenant(createDto);
 
       expect(mockPrisma.behaviourCategory.createMany).not.toHaveBeenCalled();
-      // AI flags and notification prefs still upserted (they're idempotent)
-      expect(mockPrisma.tenantAiFlag.upsert).toHaveBeenCalledTimes(4);
+      // AI flags and notification prefs still upserted (they're idempotent).
+      // 7 = 4 wellbeing module keys + 3 reports module keys.
+      expect(mockPrisma.tenantAiFlag.upsert).toHaveBeenCalledTimes(7);
       expect(mockPrisma.tenantNotificationPreferences.upsert).toHaveBeenCalled();
     });
 

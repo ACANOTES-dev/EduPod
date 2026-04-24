@@ -166,6 +166,15 @@ export const PERMISSIONS = {
     view_board_reports: 'analytics.view_board_reports',
     manage_compliance: 'analytics.manage_compliance',
   },
+  // Reports (rebuild — custom builder, AI, sharing, settings)
+  reports: {
+    builder: 'reports.builder',
+    share: 'reports.share',
+    settings: 'reports.settings',
+    ai_narration: 'reports.ai.narration',
+    ai_ask_ai: 'reports.ai.ask_ai',
+    ai_predictions: 'reports.ai.predictions',
+  },
   // Curriculum Matrix (admin)
   curriculum_matrix: {
     manage: 'curriculum_matrix.manage',
@@ -342,6 +351,12 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.analytics.manage_reports]: 'admin',
   [PERMISSIONS.analytics.view_board_reports]: 'admin',
   [PERMISSIONS.analytics.manage_compliance]: 'admin',
+  [PERMISSIONS.reports.builder]: 'admin',
+  [PERMISSIONS.reports.share]: 'admin',
+  [PERMISSIONS.reports.settings]: 'admin',
+  [PERMISSIONS.reports.ai_narration]: 'admin',
+  [PERMISSIONS.reports.ai_ask_ai]: 'admin',
+  [PERMISSIONS.reports.ai_predictions]: 'admin',
   [PERMISSIONS.curriculum_matrix.manage]: 'admin',
   [PERMISSIONS.compliance.manage]: 'admin',
   [PERMISSIONS.compliance.view]: 'admin',
@@ -502,6 +517,13 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.analytics.manage_reports,
     PERMISSIONS.analytics.view_board_reports,
     PERMISSIONS.analytics.manage_compliance,
+    // Reports rebuild — Owner tier gets every new reports.* permission
+    PERMISSIONS.reports.builder,
+    PERMISSIONS.reports.share,
+    PERMISSIONS.reports.settings,
+    PERMISSIONS.reports.ai_narration,
+    PERMISSIONS.reports.ai_ask_ai,
+    PERMISSIONS.reports.ai_predictions,
     PERMISSIONS.curriculum_matrix.manage,
     PERMISSIONS.compliance.manage,
     PERMISSIONS.compliance.view,
@@ -605,6 +627,13 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.analytics.manage_reports,
     PERMISSIONS.analytics.view_board_reports,
     PERMISSIONS.analytics.manage_compliance,
+    // Reports rebuild — school_admin mirrors Owner's reports grant
+    PERMISSIONS.reports.builder,
+    PERMISSIONS.reports.share,
+    PERMISSIONS.reports.settings,
+    PERMISSIONS.reports.ai_narration,
+    PERMISSIONS.reports.ai_ask_ai,
+    PERMISSIONS.reports.ai_predictions,
     PERMISSIONS.compliance.manage,
     PERMISSIONS.compliance.view,
     PERMISSIONS.gdpr.view,
@@ -674,6 +703,9 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.finance.view_reports,
     PERMISSIONS.finance.bulk_operations,
     PERMISSIONS.legal.view,
+    // Reports rebuild — accounting/finance staff can build and share reports
+    PERMISSIONS.reports.builder,
+    PERMISSIONS.reports.share,
     // Inbox — finance staff can send
     PERMISSIONS.inbox.send,
   ],
@@ -682,6 +714,8 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.admissions.manage,
     PERMISSIONS.admissions.view,
     PERMISSIONS.legal.view,
+    // Reports rebuild — front-office can build reports over students + applications
+    PERMISSIONS.reports.builder,
     // Inbox — front-office / admissions staff can send
     PERMISSIONS.inbox.send,
   ],
