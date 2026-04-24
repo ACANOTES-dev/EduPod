@@ -211,7 +211,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 06  | Board Report aggregation                              | 2    | 01             | `completed` | 2026-04-24T22:28 Europe/Dublin | `d1876454` |
 | 07  | Compliance Report aggregation                         | 2    | 01             | `completed` | 2026-04-24T21:46 Europe/Dublin | `89cb78f0` |
 | 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `deploying` |                                |            |
-| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `in-progress` |                                |            |
+| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `deploying`   |                                | `5cb8c9bf` |
 | 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `deploying`   |                                |            |
 | 11  | AI Ask-AI service                                     | 3    | 01, 02         | `in-progress` |                                |            |
 | 12  | AI Predictions service                                | 3    | 01             | `in-progress` |                                |            |

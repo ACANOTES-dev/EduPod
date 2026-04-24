@@ -1,11 +1,9 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
-import type { WellbeingAiModuleKey } from '@school/shared/wellbeing';
-
 import { AiFlagsService } from '../ai-flags.service';
 
-import { REQUIRES_AI_FLAG_KEY } from './requires-ai-flag.decorator';
+import { REQUIRES_AI_FLAG_KEY, type AiModuleKeyParam } from './requires-ai-flag.decorator';
 
 /**
  * AiFlagGuard — gates routes decorated with `@RequiresAiFlag(moduleKey)`.
@@ -22,7 +20,7 @@ export class AiFlagGuard implements CanActivate {
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
-    const moduleKey = this.reflector.getAllAndOverride<WellbeingAiModuleKey | undefined>(
+    const moduleKey = this.reflector.getAllAndOverride<AiModuleKeyParam | undefined>(
       REQUIRES_AI_FLAG_KEY,
       [ctx.getHandler(), ctx.getClass()],
     );

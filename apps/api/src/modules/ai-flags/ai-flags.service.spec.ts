@@ -99,11 +99,14 @@ describe('AiFlagsService', () => {
   });
 
   describe('list', () => {
-    it('returns the four canonical flag rows when all present', async () => {
+    it('returns the seven canonical flag rows when all present (4 wellbeing + 3 reports)', async () => {
       mockPrisma.tenantAiFlag.findMany.mockResolvedValue([
         row('behaviour', false),
         row('early_warning', false),
         row('pastoral', true),
+        row('reports_ask_ai', false),
+        row('reports_narration', false),
+        row('reports_predictions', false),
         row('staff_wellbeing', false),
       ]);
 
@@ -113,11 +116,14 @@ describe('AiFlagsService', () => {
         where: { tenant_id: TENANT_ID },
         orderBy: { module_key: 'asc' },
       });
-      expect(result).toHaveLength(4);
+      expect(result).toHaveLength(7);
       expect(result.map((r) => r.module_key)).toEqual([
         'behaviour',
         'early_warning',
         'pastoral',
+        'reports_ask_ai',
+        'reports_narration',
+        'reports_predictions',
         'staff_wellbeing',
       ]);
       expect(result.find((r) => r.module_key === 'pastoral')!.enabled).toBe(true);
@@ -131,6 +137,9 @@ describe('AiFlagsService', () => {
           row('behaviour', false),
           row('early_warning', false),
           row('pastoral', false),
+          row('reports_ask_ai', false),
+          row('reports_narration', false),
+          row('reports_predictions', false),
           row('staff_wellbeing', false),
         ]);
 
@@ -140,14 +149,18 @@ describe('AiFlagsService', () => {
       const result = await service.list(TENANT_ID);
 
       expect(createRlsClient).toHaveBeenCalledWith(mockPrisma, { tenant_id: TENANT_ID });
-      expect(tx.tenantAiFlag.create).toHaveBeenCalledTimes(2);
+      // 5 missing rows after impl 01 widened the canonical set to 7.
+      expect(tx.tenantAiFlag.create).toHaveBeenCalledTimes(5);
       expect(tx.tenantAiFlag.create).toHaveBeenCalledWith({
         data: { tenant_id: TENANT_ID, module_key: 'early_warning', enabled: false },
       });
       expect(tx.tenantAiFlag.create).toHaveBeenCalledWith({
         data: { tenant_id: TENANT_ID, module_key: 'staff_wellbeing', enabled: false },
       });
-      expect(result).toHaveLength(4);
+      expect(tx.tenantAiFlag.create).toHaveBeenCalledWith({
+        data: { tenant_id: TENANT_ID, module_key: 'reports_predictions', enabled: false },
+      });
+      expect(result).toHaveLength(7);
     });
   });
 

@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import type { PrismaClient } from '@prisma/client';
 import type Redis from 'ioredis';
 
+import { REPORTS_AI_MODULE_KEYS, type ReportsAiModuleKey } from '@school/shared/reports';
 import {
   WELLBEING_AI_MODULE_KEYS,
   type TenantAiFlag,
@@ -11,6 +12,8 @@ import {
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+
+export type AiModuleKey = WellbeingAiModuleKey | ReportsAiModuleKey;
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -29,7 +32,7 @@ interface CacheEntry {
 
 interface InvalidationPayload {
   tenant_id: string;
-  module_key: WellbeingAiModuleKey;
+  module_key: AiModuleKey;
 }
 
 /**
@@ -97,13 +100,14 @@ export class AiFlagsService implements OnModuleInit, OnModuleDestroy {
     });
 
     const present = new Set(rows.map((row) => row.module_key));
-    const missing = WELLBEING_AI_MODULE_KEYS.filter((key) => !present.has(key));
+    const allModuleKeys = [...WELLBEING_AI_MODULE_KEYS, ...REPORTS_AI_MODULE_KEYS];
+    const missing = allModuleKeys.filter((key) => !present.has(key as string));
 
     if (missing.length > 0) {
-      // Defensive: impl 01's seed creates all four rows, but a tenant
-      // created after the seed shipped without going through the helper
+      // Defensive: impl 01's seed creates all seven rows (four wellbeing + three reports),
+      // but a tenant created after the seed shipped without going through the helper
       // could be missing rows. Fill them in lazily so /list always returns
-      // the canonical four entries.
+      // the canonical seven entries.
       this.logger.warn(
         `Tenant ${tenantId} missing AI flag rows for: ${missing.join(', ')} — backfilling`,
       );
@@ -112,7 +116,7 @@ export class AiFlagsService implements OnModuleInit, OnModuleDestroy {
         const tx = txClient as unknown as PrismaClient;
         for (const moduleKey of missing) {
           await tx.tenantAiFlag.create({
-            data: { tenant_id: tenantId, module_key: moduleKey, enabled: false },
+            data: { tenant_id: tenantId, module_key: moduleKey as string, enabled: false },
           });
         }
       });
@@ -124,7 +128,7 @@ export class AiFlagsService implements OnModuleInit, OnModuleDestroy {
 
   async setFlag(
     tenantId: string,
-    moduleKey: WellbeingAiModuleKey,
+    moduleKey: AiModuleKey,
     enabled: boolean,
     byUserId: string,
   ): Promise<TenantAiFlag> {
@@ -153,7 +157,7 @@ export class AiFlagsService implements OnModuleInit, OnModuleDestroy {
 
   private async publishInvalidation(
     tenantId: string,
-    moduleKey: WellbeingAiModuleKey,
+    moduleKey: AiModuleKey,
   ): Promise<void> {
     try {
       const payload: InvalidationPayload = { tenant_id: tenantId, module_key: moduleKey };
@@ -163,7 +167,7 @@ export class AiFlagsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async isEnabled(tenantId: string, moduleKey: WellbeingAiModuleKey): Promise<boolean> {
+  async isEnabled(tenantId: string, moduleKey: AiModuleKey): Promise<boolean> {
     const key = this.cacheKey(tenantId, moduleKey);
     const cached = this.cache.get(key);
     const now = Date.now();
@@ -184,7 +188,7 @@ export class AiFlagsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Invalidate cache for tests and Wave 5 admin UI hot-reload scenarios. */
-  invalidate(tenantId?: string, moduleKey?: WellbeingAiModuleKey): void {
+  invalidate(tenantId?: string, moduleKey?: AiModuleKey): void {
     if (tenantId && moduleKey) {
       this.cache.delete(this.cacheKey(tenantId, moduleKey));
       return;
@@ -198,7 +202,7 @@ export class AiFlagsService implements OnModuleInit, OnModuleDestroy {
     this.cache.clear();
   }
 
-  private cacheKey(tenantId: string, moduleKey: WellbeingAiModuleKey): string {
+  private cacheKey(tenantId: string, moduleKey: AiModuleKey): string {
     return `${tenantId}:${moduleKey}`;
   }
 
@@ -213,7 +217,11 @@ export class AiFlagsService implements OnModuleInit, OnModuleDestroy {
     return {
       id: row.id,
       tenant_id: row.tenant_id,
-      module_key: row.module_key as WellbeingAiModuleKey,
+      // The shared `TenantAiFlag.module_key` is typed as `WellbeingAiModuleKey`;
+      // in this rebuild the row may also carry a `ReportsAiModuleKey` (impl 01
+      // seeds three new keys). Until the shared DTO is widened, we narrow the
+      // cast back so `toDto`'s return type stays compatible with the wire DTO.
+      module_key: row.module_key as TenantAiFlag['module_key'],
       enabled: row.enabled,
       updated_at: row.updated_at.toISOString(),
       updated_by: row.updated_by,

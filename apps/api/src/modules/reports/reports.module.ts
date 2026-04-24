@@ -3,6 +3,7 @@ import { forwardRef, Module } from '@nestjs/common';
 import { AcademicsModule } from '../academics/academics.module';
 import { AdmissionsModule } from '../admissions/admissions.module';
 import { AiModule } from '../ai/ai.module';
+import { AiFlagsModule } from '../ai-flags/ai-flags.module';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
@@ -19,6 +20,8 @@ import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { StudentsModule } from '../students/students.module';
 
 import { AdmissionsAnalyticsService } from './admissions-analytics.service';
+import { AiAskAiController } from './ai-ask-ai/ai-ask-ai.controller';
+import { AiAskAiService } from './ai-ask-ai/ai-ask-ai.service';
 import { AiPredictionsService } from './ai-predictions.service';
 import { AiReportNarratorService } from './ai-report-narrator.service';
 import { AttendanceAnalyticsService } from './attendance-analytics.service';
@@ -59,6 +62,14 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
 @Module({
   imports: [
     AiModule,
+    // impl 10: declares the dependency on the AI-flags subsystem for
+    // intent. `AiFlagGuard` is registered globally via `APP_GUARD` in
+    // `AiFlagsModule`, so importing it here is documentary; without the
+    // import, `@RequiresAiFlag('reports_narration')` on the new
+    // narration endpoints would still resolve. Kept explicit so the
+    // module dependency surface is honest and matches the pattern used
+    // by `BehaviourAIModule`.
+    AiFlagsModule,
     ConfigurationModule,
     GdprModule,
     forwardRef(() => AcademicsModule),
@@ -89,6 +100,10 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     // ReportsEnhancedController so its routes aren't shadowed by the
     // compliance-template routes that live on the enhanced controller.
     ComplianceReportController,
+    // AiAskAiController (impl 11) owns `/v1/reports/ai-ask-ai*`. Registered
+    // before ReportsEnhancedController so its specific path prefix is matched
+    // ahead of any wildcard / dynamic segment on the enhanced controller.
+    AiAskAiController,
     ReportsEnhancedController,
   ],
   providers: [
@@ -124,6 +139,9 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     ReportAlertsService,
     AiReportNarratorService,
     AiPredictionsService,
+    // Ask-AI service (impl 11) — translates natural-language questions
+    // into builder query proposals via the curated subject registry.
+    AiAskAiService,
     ReportExportService,
     // Subject registry + query engine + builder drafts (impl 02)
     ReportsSubjectRegistryService,
