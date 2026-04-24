@@ -2314,10 +2314,7 @@
     "path": "/v1/behaviour/tasks/:id/complete",
     "controller": "BehaviourTasksController",
     "module": "behaviour",
-    "permission": [
-      "behaviour.view",
-      "behaviour.manage"
-    ]
+    "permission": ["behaviour.view", "behaviour.manage"]
   },
   {
     "method": "GET",
@@ -2877,10 +2874,7 @@
     "path": "/v1/diary/:studentId/parent-notes",
     "controller": "HomeworkDiaryController",
     "module": "homework",
-    "permission": [
-      "homework.write_diary",
-      "parent.homework"
-    ]
+    "permission": ["homework.write_diary", "parent.homework"]
   },
   {
     "method": "PATCH",
@@ -7864,10 +7858,7 @@
     "path": "/v1/period-grid",
     "controller": "PeriodGridController",
     "module": "period-grid",
-    "permission": [
-      "schedule.configure_period_grid",
-      "schedule.view_own"
-    ]
+    "permission": ["schedule.configure_period_grid", "schedule.view_own"]
   },
   {
     "method": "POST",
@@ -9327,6 +9318,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/reports/analytics/dashboard",
+    "controller": "ReportsEnhancedController",
+    "module": "reports",
+    "permission": "analytics.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/reports/analytics/demographics/age-distribution",
     "controller": "ReportsEnhancedController",
     "module": "reports",
@@ -9526,7 +9524,42 @@
     "path": "/v1/reports/builder/:reportId/execute",
     "controller": "ReportsEnhancedController",
     "module": "reports",
-    "permission": "analytics.manage_reports"
+    "permission": ["analytics.manage_reports", "reports.builder"]
+  },
+  {
+    "method": "POST",
+    "path": "/v1/reports/builder/:reportId/export",
+    "controller": "ReportsEnhancedController",
+    "module": "reports",
+    "permission": "reports.builder"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/reports/builder/draft",
+    "controller": "SavedReportDraftController",
+    "module": "reports",
+    "permission": null
+  },
+  {
+    "method": "GET",
+    "path": "/v1/reports/builder/draft",
+    "controller": "SavedReportDraftController",
+    "module": "reports",
+    "permission": null
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/reports/builder/draft",
+    "controller": "SavedReportDraftController",
+    "module": "reports",
+    "permission": null
+  },
+  {
+    "method": "POST",
+    "path": "/v1/reports/builder/preview",
+    "controller": "ReportsEnhancedController",
+    "module": "reports",
+    "permission": ["analytics.manage_reports", "reports.builder"]
   },
   {
     "method": "GET",
@@ -9569,13 +9602,6 @@
     "controller": "ReportsEnhancedController",
     "module": "reports",
     "permission": "analytics.manage_compliance"
-  },
-  {
-    "method": "POST",
-    "path": "/v1/reports/export/excel",
-    "controller": "ReportsEnhancedController",
-    "module": "reports",
-    "permission": "analytics.view"
   },
   {
     "method": "GET",
@@ -9681,6 +9707,20 @@
     "controller": "ReportsController",
     "module": "reports",
     "permission": "students.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/reports/subject-registry",
+    "controller": "SubjectRegistryController",
+    "module": "reports",
+    "permission": null
+  },
+  {
+    "method": "GET",
+    "path": "/v1/reports/subject-registry/:subjectKey",
+    "controller": "SubjectRegistryController",
+    "module": "reports",
+    "permission": null
   },
   {
     "method": "GET",

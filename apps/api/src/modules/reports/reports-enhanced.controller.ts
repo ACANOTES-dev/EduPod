@@ -37,6 +37,8 @@ import {
   updateSavedReportSchema,
   updateScheduledReportSchema,
 } from '@school/shared';
+import { previewQuerySchema } from '@school/shared/reports';
+import type { PreviewQueryDto } from '@school/shared/reports';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -45,6 +47,7 @@ import { SensitiveDataAccess } from '../../common/decorators/sensitive-data-acce
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { PermissionCacheService } from '../../common/services/permission-cache.service';
 
 import { AdmissionsAnalyticsService } from './admissions-analytics.service';
 import { AiPredictionsService } from './ai-predictions.service';
@@ -56,11 +59,13 @@ import { CrossModuleInsightsService } from './cross-module-insights.service';
 import { CustomReportBuilderService } from './custom-report-builder.service';
 import { DemographicsService } from './demographics.service';
 import { GradeAnalyticsService } from './grade-analytics.service';
+import { QueryEngineService } from './query-engine/query-engine.service';
 import { ReportAlertsService } from './report-alerts.service';
 import { ReportExportService } from './report-export.service';
 import { ScheduledReportsService } from './scheduled-reports.service';
 import { StaffAnalyticsService } from './staff-analytics.service';
 import { StudentProgressService } from './student-progress.service';
+import { OWNER_SENTINEL_PERMISSION } from './subject-registry/reports-subject-registry.service';
 import { UnifiedDashboardService } from './unified-dashboard.service';
 
 @Controller('v1/reports')
@@ -84,6 +89,8 @@ export class ReportsEnhancedController {
     private readonly aiNarrator: AiReportNarratorService,
     private readonly aiPredictions: AiPredictionsService,
     private readonly reportExport: ReportExportService,
+    private readonly queryEngine: QueryEngineService,
+    private readonly permissionCache: PermissionCacheService,
   ) {}
 
   // ─── Unified KPI Dashboard ─────────────────────────────────────────────────
@@ -528,19 +535,55 @@ export class ReportsEnhancedController {
   }
 
   @Get('builder/:reportId/execute')
-  @RequiresPermission('analytics.manage_reports')
+  @RequiresPermission('analytics.manage_reports', 'reports.builder')
   async executeReport(
     @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
     @Param('reportId', ParseUUIDPipe) reportId: string,
     @Query(new ZodValidationPipe(executeSavedReportSchema))
     query: z.infer<typeof executeSavedReportSchema>,
   ) {
+    const permissions = await this.resolveBuilderPermissions(user);
     return this.customReportBuilder.executeReport(
       tenant.tenant_id,
+      user.sub,
+      permissions,
       reportId,
       query.page,
       query.pageSize,
     );
+  }
+
+  // POST /v1/reports/builder/preview — fires on every debounced builder
+  // edit. Body carries the current in-progress query. The engine returns
+  // a 50-row preview with row-cap + timeout + permission guardrails.
+  @Post('builder/preview')
+  @RequiresPermission('analytics.manage_reports', 'reports.builder')
+  async previewReport(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(previewQuerySchema)) body: PreviewQueryDto,
+  ) {
+    const permissions = await this.resolveBuilderPermissions(user);
+    return this.queryEngine.execute(tenant.tenant_id, user.sub, permissions, body.query, {
+      page: 1,
+      pageSize: 50,
+    });
+  }
+
+  /**
+   * Resolve the caller's effective permissions including the owner-bypass
+   * sentinel for `school_owner` / `school_principal` /
+   * `school_vice_principal`. Consumed by the subject registry's field
+   * scoping and by the query engine's field validator.
+   */
+  private async resolveBuilderPermissions(user: JwtPayload): Promise<string[]> {
+    if (!user.membership_id) return [];
+    const [permissions, owner] = await Promise.all([
+      this.permissionCache.getPermissions(user.membership_id),
+      this.permissionCache.isOwner(user.membership_id),
+    ]);
+    return owner ? [...permissions, OWNER_SENTINEL_PERMISSION] : permissions;
   }
 
   // ─── Board Reports ────────────────────────────────────────────────────────

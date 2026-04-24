@@ -778,15 +778,34 @@ describe('ReportsEnhancedController', () => {
   });
 
   it('should call customReportBuilder.executeReport', async () => {
-    mockCustomReportBuilder.executeReport.mockResolvedValue({ data: [], meta: {} });
+    mockCustomReportBuilder.executeReport.mockResolvedValue({
+      rows: [],
+      columns: [],
+      meta: { row_count: 0, truncated: false, execution_ms: 1 },
+    });
 
-    const result = await controller.executeReport(tenantContext, 'r-1', {
+    // Impl 02: controller.executeReport now resolves the caller's
+    // permissions up front and forwards `(tenantId, userId, permissions,
+    // reportId, page, pageSize)` to the service. When membership_id is
+    // null (as in this test JWT), permissions resolve to [].
+    const user = { sub: 'u-1', membership_id: null } as unknown as Parameters<
+      typeof controller.executeReport
+    >[1];
+
+    const result = await controller.executeReport(tenantContext, user, 'r-1', {
       page: 2,
       pageSize: 10,
     });
 
-    expect(mockCustomReportBuilder.executeReport).toHaveBeenCalledWith(TENANT_ID, 'r-1', 2, 10);
-    expect(result).toEqual({ data: [], meta: {} });
+    expect(mockCustomReportBuilder.executeReport).toHaveBeenCalledWith(
+      TENANT_ID,
+      'u-1',
+      [],
+      'r-1',
+      2,
+      10,
+    );
+    expect((result as { meta: { row_count: number } }).meta.row_count).toBe(0);
   });
 
   // ─── Board Reports (remaining endpoints) ─────────────────────────────

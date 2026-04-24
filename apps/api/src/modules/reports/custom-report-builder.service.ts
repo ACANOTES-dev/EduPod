@@ -2,10 +2,19 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { Prisma } from '@prisma/client';
 
 import type { CreateSavedReportDto, UpdateSavedReportDto } from '@school/shared';
+import { reportSubjectKeySchema } from '@school/shared/reports';
+import type {
+  ColumnSpec,
+  FilterGroup,
+  QueryExecutionResult,
+  SavedReportQuery,
+  SortSpec,
+} from '@school/shared/reports';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
+import { QueryEngineService } from './query-engine/query-engine.service';
 import { ReportsDataAccessService } from './reports-data-access.service';
 
 export interface SavedReportRow {
@@ -26,7 +35,11 @@ export interface SavedReportRow {
 export class CustomReportBuilderService {
   constructor(
     private readonly prisma: PrismaService,
+    // Retained on the constructor so the legacy cross-module reads proxy
+    // is still wired. The new query-engine path does not call it.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     private readonly dataAccess: ReportsDataAccessService,
+    private readonly queryEngine: QueryEngineService,
   ) {}
 
   async listSavedReports(
@@ -258,86 +271,111 @@ export class CustomReportBuilderService {
     });
   }
 
+  // ─── Execute a saved report ───────────────────────────────────────────────
+
+  /**
+   * Execute a saved report. Routes through the subject registry + query
+   * engine so every query respects RLS, per-field permission scoping, a
+   * 50 000-row cap, and a 30-second timeout budget.
+   *
+   * Legacy reports (where `data_source` is a pre-rebuild enum like
+   * `students`/`staff`/`admissions`) are rejected with
+   * `REPORT_LEGACY_FORMAT`. Wave 4's saved-report management UI will
+   * offer a migration path; we intentionally do not emulate the old
+   * stub executor because it produced incomplete results — the root
+   * cause of this rebuild.
+   */
   async executeReport(
     tenantId: string,
+    userId: string,
+    permissions: string[],
     reportId: string,
     page: number,
     pageSize: number,
-  ): Promise<{ data: unknown[]; meta: { page: number; pageSize: number; total: number } }> {
+  ): Promise<QueryExecutionResult> {
     const report = await this.getSavedReport(tenantId, reportId);
-
-    // Execute a generic count/list query based on data_source
-    // Full implementation requires a query builder — returns summarised data for now
-    const skip = (page - 1) * pageSize;
-
-    let data: unknown[] = [];
-    let total = 0;
-
-    switch (report.data_source) {
-      case 'students': {
-        const [students, count] = await Promise.all([
-          this.dataAccess.findStudents(tenantId, {
-            skip,
-            take: pageSize,
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              status: true,
-              gender: true,
-              nationality: true,
-            },
-          }),
-          this.dataAccess.countStudents(tenantId),
-        ]);
-        data = students;
-        total = count;
-        break;
-      }
-      case 'staff': {
-        const [staff, count] = await Promise.all([
-          this.dataAccess.findStaffProfiles(tenantId, {
-            skip,
-            take: pageSize,
-            select: {
-              id: true,
-              job_title: true,
-              department: true,
-              employment_status: true,
-              employment_type: true,
-            },
-          }),
-          this.dataAccess.countStaff(tenantId),
-        ]);
-        data = staff;
-        total = count;
-        break;
-      }
-      case 'admissions': {
-        const [apps, count] = await Promise.all([
-          this.dataAccess.findApplications(tenantId, {
-            skip,
-            take: pageSize,
-            select: {
-              id: true,
-              student_first_name: true,
-              student_last_name: true,
-              status: true,
-              submitted_at: true,
-            },
-          }),
-          this.dataAccess.countApplications(tenantId),
-        ]);
-        data = apps;
-        total = count;
-        break;
-      }
-      default: {
-        data = [];
-        total = 0;
-      }
-    }
-
-    return { data, meta: { page, pageSize, total } };
+    const query = deserialiseQuery(report);
+    return this.queryEngine.execute(tenantId, userId, permissions, query, { page, pageSize });
   }
+}
+
+// ─── Legacy → new query deserialiser ────────────────────────────────────────
+
+/**
+ * Re-hydrate the persisted columns/filters/group-by into a
+ * `SavedReportQuery`. New builder saves encode the entire query under
+ * `dimensions_json` (columns), `measures_json` (group-by + sort), and
+ * `filters_json` (filter tree).
+ *
+ * Legacy saves (pre-rebuild `data_source`: 'students' | 'staff' |
+ * 'admissions' | 'attendance' | 'grades' | 'finance') are rejected with
+ * `REPORT_LEGACY_FORMAT`. Wave 4's saved-report management UI will
+ * offer a migration path; we intentionally do not emulate the old stub
+ * executor because it produced incomplete results — the motivator for
+ * this rebuild.
+ */
+export function deserialiseQuery(report: SavedReportRow): SavedReportQuery {
+  const subjectCandidate = reportSubjectKeySchema.safeParse(report.data_source);
+  if (!subjectCandidate.success) {
+    throw new BadRequestException({
+      code: 'REPORT_LEGACY_FORMAT',
+      message: `Saved report "${report.name}" was created under the legacy schema. Open it in the builder to migrate.`,
+    });
+  }
+
+  const dims = report.dimensions_json;
+  if (!Array.isArray(dims) || dims.length === 0) {
+    throw new BadRequestException({
+      code: 'REPORT_INVALID_STATE',
+      message: `Saved report "${report.name}" has no columns selected.`,
+    });
+  }
+
+  // Accept two shapes: a plain string[] of field ids (no aggregations),
+  // and a `ColumnSpec[]` with optional aggregations. The former is what
+  // early builder saves produce before group-by support lands.
+  const columns: ColumnSpec[] = dims.map((entry) => {
+    if (typeof entry === 'string') {
+      return { field_id: entry };
+    }
+    if (entry && typeof entry === 'object' && 'field_id' in entry) {
+      const e = entry as { field_id: string; aggregation?: ColumnSpec['aggregation'] };
+      return { field_id: e.field_id, ...(e.aggregation ? { aggregation: e.aggregation } : {}) };
+    }
+    throw new BadRequestException({
+      code: 'REPORT_INVALID_STATE',
+      message: `Saved report "${report.name}" has an unrecognised column shape.`,
+    });
+  });
+
+  const measures = report.measures_json;
+  const sort: SortSpec[] = [];
+  let group_by: SavedReportQuery['group_by'];
+
+  if (measures && typeof measures === 'object' && !Array.isArray(measures)) {
+    const m = measures as {
+      sort?: Array<{ field_id: string; direction: 'asc' | 'desc' }>;
+      group_by?: Array<{ field_id: string }>;
+    };
+    if (Array.isArray(m.sort)) sort.push(...m.sort);
+    if (Array.isArray(m.group_by)) group_by = m.group_by;
+  }
+
+  // Filters: accept a FilterGroup. The legacy record-shape filter blob
+  // cannot be faithfully round-tripped into the new operator model, so
+  // we ignore it — the builder UI will prompt the author to re-specify
+  // filters on migration.
+  let filters: FilterGroup | undefined;
+  const rawFilters = report.filters_json;
+  if (rawFilters && typeof rawFilters === 'object' && 'combinator' in rawFilters) {
+    filters = rawFilters as FilterGroup;
+  }
+
+  return {
+    subject: subjectCandidate.data,
+    columns,
+    filters,
+    group_by,
+    sort: sort.length > 0 ? sort : undefined,
+  };
 }

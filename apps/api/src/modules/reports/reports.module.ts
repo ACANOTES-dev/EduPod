@@ -28,15 +28,20 @@ import { CrossModuleInsightsService } from './cross-module-insights.service';
 import { CustomReportBuilderService } from './custom-report-builder.service';
 import { DemographicsService } from './demographics.service';
 import { GradeAnalyticsService } from './grade-analytics.service';
+import { QueryEngineService } from './query-engine/query-engine.service';
 import { ReportAlertsService } from './report-alerts.service';
 import { ReportExportService } from './report-export.service';
 import { ReportsDataAccessService } from './reports-data-access.service';
 import { ReportsEnhancedController } from './reports-enhanced.controller';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
+import { SavedReportDraftController } from './saved-report-draft/saved-report-draft.controller';
+import { SavedReportDraftService } from './saved-report-draft/saved-report-draft.service';
 import { ScheduledReportsService } from './scheduled-reports.service';
 import { StaffAnalyticsService } from './staff-analytics.service';
 import { StudentProgressService } from './student-progress.service';
+import { ReportsSubjectRegistryService } from './subject-registry/reports-subject-registry.service';
+import { SubjectRegistryController } from './subject-registry/subject-registry.controller';
 import { UnifiedDashboardService } from './unified-dashboard.service';
 
 @Module({
@@ -59,7 +64,12 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     forwardRef(() => StaffProfilesModule),
     forwardRef(() => StudentsModule),
   ],
-  controllers: [ReportsController, ReportsEnhancedController],
+  controllers: [
+    ReportsController,
+    ReportsEnhancedController,
+    SubjectRegistryController,
+    SavedReportDraftController,
+  ],
   providers: [
     ReportsDataAccessService,
     ReportsService,
@@ -79,6 +89,10 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     AiReportNarratorService,
     AiPredictionsService,
     ReportExportService,
+    // Subject registry + query engine + builder drafts (impl 02)
+    ReportsSubjectRegistryService,
+    QueryEngineService,
+    SavedReportDraftService,
   ],
   exports: [
     ReportsDataAccessService,
@@ -86,6 +100,9 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     UnifiedDashboardService,
     ScheduledReportsService,
     ReportAlertsService,
+    ReportsSubjectRegistryService,
+    QueryEngineService,
+    SavedReportDraftService,
   ],
 })
 export class ReportsModule {}

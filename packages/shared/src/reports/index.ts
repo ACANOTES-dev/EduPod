@@ -9,9 +9,11 @@
  *   - REPORT_KPI_KEYS: the 10 dashboard KPI identifiers.
  *   - SavedReportDraft CRUD schemas: builder auto-save contract.
  *   - Share request schema: report → inbox broadcast request.
+ *   - Query engine types: field/subject descriptors, query execution.
  */
 export * from './subjects';
 export * from './ai-flags';
 export * from './kpi';
 export * from './saved-report-draft';
 export * from './share';
+export * from './query-engine';

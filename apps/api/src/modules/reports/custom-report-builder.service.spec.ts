@@ -1,9 +1,12 @@
+import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
 
 import { CustomReportBuilderService } from './custom-report-builder.service';
+import { ReportExportService } from './exports/report-export.service';
+import { QueryEngineService } from './query-engine/query-engine.service';
 import { ReportsDataAccessService } from './reports-data-access.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -54,6 +57,7 @@ describe('CustomReportBuilderService', () => {
     findApplications: jest.Mock;
     countApplications: jest.Mock;
   };
+  let mockQueryEngine: { execute: jest.Mock };
 
   beforeEach(async () => {
     // Reset transaction mocks
@@ -73,11 +77,42 @@ describe('CustomReportBuilderService', () => {
       countApplications: jest.fn().mockResolvedValue(0),
     };
 
+    const mockExportService = {
+      exportPdf: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4 fake')),
+      exportExcel: jest.fn().mockResolvedValue(Buffer.from('PK fake-xlsx')),
+      exportWord: jest.fn().mockResolvedValue(Buffer.from('PK fake-docx')),
+      exportByFormat: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4 fake')),
+      getTenantBranding: jest.fn().mockResolvedValue({
+        tenant_id: TENANT_ID,
+        school_name: 'Test School',
+        logo_url: null,
+        primary_color: '#0f172a',
+        secondary_color: '#64748b',
+        locale: 'en',
+        currency_code: 'EUR',
+      }),
+    };
+
+    const mockReportsQueue = {
+      add: jest.fn().mockResolvedValue({ id: 'job-xyz' }),
+    };
+
+    mockQueryEngine = {
+      execute: jest.fn().mockResolvedValue({
+        rows: [],
+        columns: [],
+        meta: { row_count: 0, truncated: false, execution_ms: 1 },
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CustomReportBuilderService,
         { provide: PrismaService, useValue: {} },
         { provide: ReportsDataAccessService, useValue: mockDataAccess },
+        { provide: ReportExportService, useValue: mockExportService },
+        { provide: getQueueToken('reports'), useValue: mockReportsQueue },
+        { provide: QueryEngineService, useValue: mockQueryEngine },
       ],
     }).compile();
 
@@ -171,76 +206,59 @@ describe('CustomReportBuilderService', () => {
     );
   });
 
-  it('should execute students data source report and return paginated data', async () => {
-    mockDataAccess.findStudents.mockResolvedValue([
-      {
-        id: 'stu-1',
-        first_name: 'Alice',
-        last_name: 'Smith',
-        status: 'active',
-        gender: 'female',
-        nationality: 'IE',
-      },
-    ]);
-    mockDataAccess.countStudents.mockResolvedValue(1);
+  // Legacy executeReport tests were removed: impl 02 replaced the
+  // four-arg `executeReport(tenantId, reportId, page, pageSize)` method
+  // with a query-engine-backed signature returning `QueryExecutionResult`.
+  // The three tests below cover the new path at the service layer;
+  // deeper coverage of the engine itself lives in query-engine.service.spec.
 
-    const result = await service.executeReport(TENANT_ID, REPORT_ID, 1, 20);
-
-    expect(result.data).toHaveLength(1);
-    expect(result.meta.total).toBe(1);
-  });
-
-  it('should execute staff data source report and return paginated data', async () => {
-    mockTx.savedReport.findFirst.mockResolvedValue({ ...MOCK_REPORT_DB, data_source: 'staff' });
-    mockDataAccess.findStaffProfiles.mockResolvedValue([
-      {
-        id: 'staff-1',
-        job_title: 'Teacher',
-        department: 'Science',
-        employment_status: 'active',
-        employment_type: 'full_time',
-      },
-    ]);
-    mockDataAccess.countStaff.mockResolvedValue(1);
-
-    const result = await service.executeReport(TENANT_ID, REPORT_ID, 1, 20);
-
-    expect(result.data).toHaveLength(1);
-    expect(result.meta.total).toBe(1);
-  });
-
-  it('should return empty data for unknown data source', async () => {
+  it('should delegate executeReport to the query engine for a student subject', async () => {
     mockTx.savedReport.findFirst.mockResolvedValue({
       ...MOCK_REPORT_DB,
-      data_source: 'unknown_source',
+      data_source: 'student',
+      dimensions_json: ['student.identity.first_name', 'student.identity.last_name'],
+      measures_json: {},
     });
 
-    const result = await service.executeReport(TENANT_ID, REPORT_ID, 1, 20);
+    mockQueryEngine.execute.mockResolvedValue({
+      rows: [{ 'student.identity.first_name': 'Alice', 'student.identity.last_name': 'Smith' }],
+      columns: [
+        { id: 'student.identity.first_name', label_key: 'first_name', type: 'string' },
+        { id: 'student.identity.last_name', label_key: 'last_name', type: 'string' },
+      ],
+      meta: { row_count: 1, truncated: false, execution_ms: 5 },
+    });
 
-    expect(result.data).toHaveLength(0);
-    expect(result.meta.total).toBe(0);
+    const result = await service.executeReport(TENANT_ID, USER_ID, [], REPORT_ID, 1, 20);
+
+    expect(mockQueryEngine.execute).toHaveBeenCalledTimes(1);
+    expect(mockQueryEngine.execute.mock.calls[0]?.[0]).toBe(TENANT_ID);
+    expect(result.rows).toHaveLength(1);
+    expect(result.meta.row_count).toBe(1);
   });
 
-  it('should execute admissions data source report', async () => {
+  it('should reject legacy data_source values with REPORT_LEGACY_FORMAT', async () => {
     mockTx.savedReport.findFirst.mockResolvedValue({
       ...MOCK_REPORT_DB,
-      data_source: 'admissions',
+      data_source: 'students',
+      dimensions_json: ['first_name'],
     });
-    mockDataAccess.findApplications.mockResolvedValue([
-      {
-        id: 'app-1',
-        student_first_name: 'Ali',
-        student_last_name: 'H',
-        status: 'submitted',
-        submitted_at: new Date(),
-      },
-    ]);
-    mockDataAccess.countApplications.mockResolvedValue(1);
 
-    const result = await service.executeReport(TENANT_ID, REPORT_ID, 1, 20);
+    await expect(service.executeReport(TENANT_ID, USER_ID, [], REPORT_ID, 1, 20)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
 
-    expect(result.data).toHaveLength(1);
-    expect(result.meta.total).toBe(1);
+  it('should reject reports with no columns as REPORT_INVALID_STATE', async () => {
+    mockTx.savedReport.findFirst.mockResolvedValue({
+      ...MOCK_REPORT_DB,
+      data_source: 'student',
+      dimensions_json: [],
+    });
+
+    await expect(service.executeReport(TENANT_ID, USER_ID, [], REPORT_ID, 1, 20)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should apply includeShared=false to add OR condition for listing', async () => {
