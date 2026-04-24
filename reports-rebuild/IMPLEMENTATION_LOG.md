@@ -128,30 +128,30 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                 | Wave | Depends on     | Status      | Completed at | Commit SHA |
-| --- | ----------------------------------------------------- | ---- | -------------- | ----------- | ------------ | ---------- |
-| 01  | Schema foundation                                     | 1    | —              | `deploying` |              |            |
-| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `pending`   |              |            |
-| 03  | KPI Dashboard Service                                 | 2    | 01             | `pending`   |              |            |
-| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `pending`   |              |            |
-| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `pending`   |              |            |
-| 06  | Board Report aggregation                              | 2    | 01             | `pending`   |              |            |
-| 07  | Compliance Report aggregation                         | 2    | 01             | `pending`   |              |            |
-| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `pending`   |              |            |
-| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `pending`   |              |            |
-| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `pending`   |              |            |
-| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `pending`   |              |            |
-| 12  | AI Predictions service                                | 3    | 01             | `pending`   |              |            |
-| 13  | Report Sharing service                                | 3    | 01, 04         | `pending`   |              |            |
-| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`   |              |            |
-| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`   |              |            |
-| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`   |              |            |
-| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`   |              |            |
-| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`   |              |            |
-| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`   |              |            |
-| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`   |              |            |
-| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`   |              |            |
-| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`   |              |            |
+| #   | Title                                                 | Wave | Depends on     | Status      | Completed at                   | Commit SHA |
+| --- | ----------------------------------------------------- | ---- | -------------- | ----------- | ------------------------------ | ---------- |
+| 01  | Schema foundation                                     | 1    | —              | `completed` | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
+| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `pending`   |                                |            |
+| 03  | KPI Dashboard Service                                 | 2    | 01             | `pending`   |                                |            |
+| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `pending`   |                                |            |
+| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `pending`   |                                |            |
+| 06  | Board Report aggregation                              | 2    | 01             | `pending`   |                                |            |
+| 07  | Compliance Report aggregation                         | 2    | 01             | `pending`   |                                |            |
+| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `pending`   |                                |            |
+| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `pending`   |                                |            |
+| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `pending`   |                                |            |
+| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `pending`   |                                |            |
+| 12  | AI Predictions service                                | 3    | 01             | `pending`   |                                |            |
+| 13  | Report Sharing service                                | 3    | 01, 04         | `pending`   |                                |            |
+| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`   |                                |            |
+| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`   |                                |            |
+| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`   |                                |            |
+| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`   |                                |            |
+| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`   |                                |            |
+| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`   |                                |            |
+| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`   |                                |            |
+| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`   |                                |            |
+| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`   |                                |            |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
 
@@ -177,3 +177,77 @@ Append new records below in chronological order. Format:
 ```
 
 <!-- ─── Append records below this line ─── -->
+
+### [IMPL 01] — Schema foundation
+
+- **Completed:** 2026-04-24T17:00 Europe/Dublin
+- **Commit:** `ef3beb84` (feat), `5e448ed0` (type-check heap bump fix-forward)
+- **CI run:** https://github.com/ACANOTES-dev/EduPod/actions/runs/24898354041
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Lands all DB, Prisma, permission, shared-type, and AI-flag seed
+  changes Wave 2+ needs. Five new tenant-scoped tables with FORCE RLS +
+  `<table>_tenant_isolation` policies: `saved_report_drafts` (builder
+  autosave), `scheduled_report_runs`, `report_alert_runs`,
+  `report_share_log`, `reports_kpi_tenant_preferences`. Extends
+  `saved_reports` with `description`, `visibility` (private|shared),
+  `is_favorite`, `last_executed_at`, `last_executed_by` + tenant+visibility
+  index. Four new enums: `SavedReportVisibility`, `ScheduledReportRunStatus`,
+  `ReportAlertRunOutcome`, `ReportShareFormat`.
+
+  Six new admin-tier permissions (`reports.builder`, `reports.share`,
+  `reports.settings`, `reports.ai.{narration,ask_ai,predictions}`) seeded
+  globally and backfilled onto every existing tenant's system roles
+  (owner/principal/VP/admin → all six; accounting → builder+share;
+  front_office → builder).
+
+  Three new tenant AI flag module keys seeded `enabled=false` for every
+  tenant (existing via migration.sql CROSS JOIN; new tenants via
+  `seedReportsDefaultsForTenant` called from `TenantsService.createTenant`
+  and `packages/prisma/seed.ts`). Shared namespace `@school/shared/reports`
+  (subjects, ai-flags, kpi, saved-report-draft, share) exported via
+  package.json subpath. RLS leakage spec
+  (`apps/api/test/reports-rebuild-foundation.rls.spec.ts`) with 12 passing
+  cases over all five tables.
+
+- **Follow-ups:**
+  - Wave 2 impls 02+ can import `ReportSubjectKey`, `REPORT_SUBJECT_KEYS`,
+    `reportsAiModuleKeySchema`, and `SavedReportDraft*` schemas from
+    `@school/shared/reports`.
+  - Wave 2 impl 02 (query engine) owns the `saved_report_drafts` RLS
+    service; its field-tree enforcement is the guarantee that makes the
+    tenant_id-isolated table safe.
+  - `seed/system-roles.ts` still doesn't reference the new reports._
+    permissions — fresh `pnpm db:seed` tenants get them only through the
+    `PERMISSION_SEEDS` + `SYSTEM_ROLE_PERMISSIONS` path in the API layer.
+    Integration tests use the legacy seed path, so no action needed in
+    Wave 1. Wave 4 UI impls should verify role-granting for the reports._
+    keys when they ship.
+- **Rollback:** `git revert 5e448ed0 ef3beb84`. Manual DB rollback to drop
+  the 5 new tables + the added `saved_reports` columns + the 4 new enums:
+  ```
+  DROP TABLE reports_kpi_tenant_preferences, report_share_log,
+    report_alert_runs, scheduled_report_runs, saved_report_drafts CASCADE;
+  ALTER TABLE saved_reports
+    DROP COLUMN description, DROP COLUMN visibility,
+    DROP COLUMN is_favorite, DROP COLUMN last_executed_at,
+    DROP COLUMN last_executed_by;
+  DROP TYPE "ReportShareFormat", "ReportAlertRunOutcome",
+    "ScheduledReportRunStatus", "SavedReportVisibility";
+  ```
+  The AI flag backfill rows and permission inserts are harmless with no
+  code reading them — leave in place.
+- **Session notes:**
+  - First CI run failed with OOM (exit 134) in `@school/api#type-check` at
+    the previous 12G heap cap; bumped to 14G in `apps/api/package.json`
+    (`5e448ed0`). GH runners are 16G, so 14G leaves ~2G for the host VM.
+  - First parallel-integration run failed on 5 platform-admin test suites
+    (403 Forbidden on `/api/v1/admin/tenants*`). A plain `gh run rerun
+--failed` came back green — unrelated to this phase. The failing
+    specs all auth as the platform admin and hit the Redis-backed
+    `PlatformOwnerGuard`; the race appears to be with the Redis
+    set-population helper. Flagged as a latent flake for the next session
+    to investigate.
+  - `.husky/pre-commit` updated to honour an outer `NODE_OPTIONS` override
+    (was hard-coded to 6144). The 6G cap from ff6a8a05 still applies as
+    the default.
