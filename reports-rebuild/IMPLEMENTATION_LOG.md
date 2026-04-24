@@ -128,30 +128,30 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                 | Wave | Depends on     | Status      | Completed at                   | Commit SHA |
-| --- | ----------------------------------------------------- | ---- | -------------- | ----------- | ------------------------------ | ---------- |
-| 01  | Schema foundation                                     | 1    | —              | `completed` | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
-| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `deploying` |                                |            |
-| 03  | KPI Dashboard Service                                 | 2    | 01             | `deploying` |                                |            |
-| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `deploying` |                                |            |
-| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `pending`   |                                |            |
-| 06  | Board Report aggregation                              | 2    | 01             | `pending`   |                                |            |
-| 07  | Compliance Report aggregation                         | 2    | 01             | `pending`   |                                |            |
-| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `pending`   |                                |            |
-| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `pending`   |                                |            |
-| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `pending`   |                                |            |
-| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `pending`   |                                |            |
-| 12  | AI Predictions service                                | 3    | 01             | `pending`   |                                |            |
-| 13  | Report Sharing service                                | 3    | 01, 04         | `pending`   |                                |            |
-| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`   |                                |            |
-| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`   |                                |            |
-| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`   |                                |            |
-| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`   |                                |            |
-| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`   |                                |            |
-| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`   |                                |            |
-| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`   |                                |            |
-| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`   |                                |            |
-| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`   |                                |            |
+| #   | Title                                                 | Wave | Depends on     | Status       | Completed at                   | Commit SHA |
+| --- | ----------------------------------------------------- | ---- | -------------- | ------------ | ------------------------------ | ---------- |
+| 01  | Schema foundation                                     | 1    | —              | `completed`  | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
+| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `deploying`  |                                |            |
+| 03  | KPI Dashboard Service                                 | 2    | 01             | `🛑 blocked` | 2026-04-24T18:12 Europe/Dublin | `7abb26c7` |
+| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `deploying`  |                                |            |
+| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `pending`    |                                |            |
+| 06  | Board Report aggregation                              | 2    | 01             | `pending`    |                                |            |
+| 07  | Compliance Report aggregation                         | 2    | 01             | `pending`    |                                |            |
+| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `pending`    |                                |            |
+| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `pending`    |                                |            |
+| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `pending`    |                                |            |
+| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `pending`    |                                |            |
+| 12  | AI Predictions service                                | 3    | 01             | `pending`    |                                |            |
+| 13  | Report Sharing service                                | 3    | 01, 04         | `pending`    |                                |            |
+| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`    |                                |            |
+| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`    |                                |            |
+| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`    |                                |            |
+| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`    |                                |            |
+| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`    |                                |            |
+| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`    |                                |            |
+| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`    |                                |            |
+| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`    |                                |            |
+| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`    |                                |            |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
 
@@ -251,3 +251,81 @@ Append new records below in chronological order. Format:
   - `.husky/pre-commit` updated to honour an outer `NODE_OPTIONS` override
     (was hard-coded to 6144). The 6G cap from ff6a8a05 still applies as
     the default.
+
+### [IMPL 03] — KPI Dashboard Service (🛑 blocked)
+
+- **Status:** 🛑 blocked — code landed, CI and deploy blocked by
+  unrelated impl 02 / impl 04 compile errors on the same SHA.
+- **Attempted commits:** `0cc0367b` (feat), `7abb26c7` (fix — strip
+  accidental impl 02/04 WIP references from the controller diff),
+  `c8a668bd` (chore — sync pnpm-lockfile with impl 04 `docx` dep).
+- **CI runs:** https://github.com/ACANOTES-dev/EduPod/actions/runs/24901335707 (fail),
+  https://github.com/ACANOTES-dev/EduPod/actions/runs/24901717039 (fail),
+  https://github.com/ACANOTES-dev/EduPod/actions/runs/24902033967 (fail),
+  https://github.com/ACANOTES-dev/EduPod/actions/runs/24902190538 (fail — impl 04 `Cannot find module 'docx'`).
+- **Deployed to production:** no — CI currently failing on impl 04's
+  `apps/api/src/modules/reports/exports/renderers/word-renderer.ts`
+  (TS2307 Cannot find module 'docx') and impl 02's
+  `subject-registry/fields/*.ts` (TS2305 `SubjectDescriptor` not
+  exported). Neither is impl 03 code.
+
+- **Summary (≤ 200 words):**
+  Rewrote `UnifiedDashboardService` to return the 10-KPI dashboard
+  response shape from `PLAN.md §3`. One calculator file per KPI under
+  `apps/api/src/modules/reports/kpi-calculators/` (10 files + shared
+  types + `kpi-calculators.spec.ts` with 18 unit cases). All calculators
+  now run inside a single `createRlsClient(...).$transaction` so RLS is
+  enforced for every query (the previous half-written version ran
+  through `PrismaService` directly). The trends roll-up and the
+  `reports_kpi_tenant_preferences` lookup moved inside the same
+  transaction.
+
+  New types `KpiCard`, `KpiDelta`, `KpiDashboardResponse` plus their
+  Zod schemas added to `@school/shared/reports/kpi.ts`; the service
+  validates cached payloads against the schema before returning them.
+  Redis cache is 5 min TTL at `reports:kpi-dashboard:<tenant>`; the new
+  optional `?refresh=true` query param bypasses.
+
+  Controller exposes `GET /v1/reports/analytics/dashboard` (spec §7).
+  The legacy `/v1/reports/kpi-dashboard` alias is kept untouched.
+  `ReportAlertsService.getMetricValue` now reads from
+  `response.data.kpis[].value_raw` by key; legacy metrics not in the
+  new 10-KPI set return 0 until impl 09 retires them.
+
+- **Follow-ups:**
+  - Impl 14 (Reports Hub UI) consumes
+    `GET /v1/reports/analytics/dashboard` — replace the frontend's
+    silent mock fallback with a real error state.
+  - Impl 21 (Settings page) exposes `hidden_kpi_keys` toggles.
+  - Deferred: snapshot job that hydrates sparklines for state KPIs
+    (open_safeguarding_concerns, parent_escalations, cover_gaps_this_week).
+    Ship with length-1 placeholders for now.
+  - **CI is red on SHA `c8a668bd`** from impl 02 + impl 04 compile
+    errors (not from impl 03 code). Next session needs to either push
+    the impl 02 / impl 04 fix-forward commits, or roll them back. Impl
+    03's code is sound in isolation — verified locally with the full
+    `kpi-calculators | unified-dashboard | report-alerts.service |
+board-report.service | reports-enhanced.controller | reports.contract`
+    jest run: **207 / 207 tests passing**.
+
+- **Rollback:** `git revert 7abb26c7 0cc0367b`. No schema changes, no
+  new tables — pure service rewrite. The new Redis cache key
+  `reports:kpi-dashboard:<tenant>` will be orphaned on rollback; it
+  expires automatically after 5 min.
+
+- **Session notes:**
+  - The impl 03 / impl 02 / impl 04 sessions all edited the same
+    `apps/api/src/modules/reports/reports-enhanced.controller.ts` at
+    overlapping times. Several of my edits were reverted mid-session
+    by the other sessions' checkouts, which led to `0cc0367b` including
+    references to impl 02 services (`QueryEngineService`,
+    `ReportsSubjectRegistryService`, `PermissionCacheService`) that
+    weren't in the commit tree. Fix-forward commit `7abb26c7` strips
+    those and keeps only my `analytics/dashboard` route addition.
+  - The `pnpm-lock.yaml` was out of sync with `apps/api/package.json`
+    after impl 04 added `docx`. Regenerated via `pnpm install` and
+    committed as `c8a668bd` to unblock CI's `--frozen-lockfile` install.
+  - Wave 2 parallel execution is feasible but needs a discipline: each
+    session should edit **only its own** controller hunks and coordinate
+    spec changes out-of-band. The controller spec file in particular
+    needs a single owner per wave.
