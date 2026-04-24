@@ -1,12 +1,13 @@
 'use client';
 
 import { Check, ChevronLeft, Download, FileDown, RefreshCw } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Button, Input, Label, cn } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 import type { DesPreviewResponse } from './file-preview';
 import { FilePreview } from './file-preview';
@@ -296,9 +297,17 @@ interface StepGenerateProps {
   onDownload: () => void;
   onRestart: () => void;
   t: (key: string) => string;
+  locale: string;
 }
 
-function StepGenerate({ result, isGenerating, onDownload, onRestart, t }: StepGenerateProps) {
+function StepGenerate({
+  result,
+  isGenerating,
+  onDownload,
+  onRestart,
+  t,
+  locale,
+}: StepGenerateProps) {
   if (isGenerating) {
     return (
       <div className="flex flex-col items-center gap-4 py-12" aria-busy="true">
@@ -340,7 +349,7 @@ function StepGenerate({ result, isGenerating, onDownload, onRestart, t }: StepGe
               </p>
               <p>
                 <span className="font-medium">{t('desReturns.generatedAt')}:</span>{' '}
-                {new Date(result.generated_at).toLocaleString()}
+                {new Date(result.generated_at).toLocaleString(fmtLocale(locale))}
               </p>
             </div>
           </div>
@@ -377,6 +386,7 @@ export function FileGenerationWizard({
   initialAcademicYear,
 }: FileGenerationWizardProps = {}) {
   const t = useTranslations('regulatory');
+  const locale = useLocale();
 
   // ─── State ─────────────────────────────────────────────────────────────────
   const [step, setStep] = React.useState(1);
@@ -514,6 +524,7 @@ export function FileGenerationWizard({
           onDownload={handleDownload}
           onRestart={handleRestart}
           t={t}
+          locale={locale}
         />
       )}
     </div>

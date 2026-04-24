@@ -9,6 +9,7 @@ import { Button, EmptyState, StatusBadge } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -156,7 +157,7 @@ export default function MandatoryReportingPage() {
                     </td>
                     <td className="px-4 py-3 text-xs text-text-secondary sm:px-6">
                       {r.tusla_referred_at
-                        ? new Date(r.tusla_referred_at).toLocaleDateString(locale)
+                        ? new Date(r.tusla_referred_at).toLocaleDateString(fmtLocale(locale))
                         : t('pendingReferral')}
                     </td>
                   </tr>

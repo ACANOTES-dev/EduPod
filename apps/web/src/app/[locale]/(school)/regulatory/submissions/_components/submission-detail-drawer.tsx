@@ -8,6 +8,7 @@ import { REGULATORY_DOMAINS } from '@school/shared/regulatory';
 import { Button, Drawer, StatusBadge, toast } from '@school/ui';
 
 import { apiClient, unwrap } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -91,7 +92,7 @@ function formatDateTime(value: string | null, locale: string): string {
   if (!value) return '—';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString(locale === 'ar' ? 'ar' : 'en-IE', {
+  return d.toLocaleString(fmtLocale(locale, 'en-IE'), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

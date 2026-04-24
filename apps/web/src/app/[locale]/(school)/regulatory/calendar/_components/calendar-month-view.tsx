@@ -6,6 +6,8 @@ import * as React from 'react';
 
 import { cn } from '@school/ui';
 
+import { fmtLocale } from '@/lib/i18n-format';
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface MonthViewEvent {
@@ -39,7 +41,7 @@ function firstDayOffset(year: number, month: number): number {
 }
 
 function monthYearLabel(locale: string, year: number, month: number): string {
-  return new Intl.DateTimeFormat(locale === 'ar' ? 'ar' : 'en-IE', {
+  return new Intl.DateTimeFormat(fmtLocale(locale, 'en-IE'), {
     month: 'long',
     year: 'numeric',
   }).format(new Date(year, month, 1));

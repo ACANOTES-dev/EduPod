@@ -30,6 +30,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -163,10 +164,10 @@ export default function AnnualReviewPage() {
                       {r.academic_year}
                     </td>
                     <td className="px-4 py-3 text-xs text-text-secondary sm:px-6">
-                      {new Date(r.review_date).toLocaleDateString(locale)}
+                      {new Date(r.review_date).toLocaleDateString(fmtLocale(locale))}
                     </td>
                     <td className="px-4 py-3 text-xs text-text-secondary sm:px-6">
-                      {new Date(r.next_review_due).toLocaleDateString(locale)}
+                      {new Date(r.next_review_due).toLocaleDateString(fmtLocale(locale))}
                     </td>
                     <td className="px-4 py-3 text-text-secondary sm:px-6">
                       {r.conducted_by_name ?? '—'}

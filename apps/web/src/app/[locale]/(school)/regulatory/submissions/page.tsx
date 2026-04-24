@@ -22,6 +22,7 @@ import { KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 import { ErrorBanner } from '../_components/error-banner';
 
@@ -87,7 +88,7 @@ function formatDate(value: string | null, locale: string): string {
   if (!value) return '—';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString(locale === 'ar' ? 'ar' : 'en-IE', {
+  return d.toLocaleDateString(fmtLocale(locale, 'en-IE'), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

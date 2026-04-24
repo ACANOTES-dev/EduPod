@@ -29,6 +29,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 import { VettingExpiryBadge } from '../_components/vetting-expiry-badge';
 
@@ -170,10 +171,10 @@ export default function StaffVettingPage() {
                       {r.reference_number ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-xs text-text-secondary sm:px-6">
-                      {new Date(r.vetting_date).toLocaleDateString(locale)}
+                      {new Date(r.vetting_date).toLocaleDateString(fmtLocale(locale))}
                     </td>
                     <td className="px-4 py-3 text-xs text-text-secondary sm:px-6">
-                      {new Date(r.expiry_date).toLocaleDateString(locale)}
+                      {new Date(r.expiry_date).toLocaleDateString(fmtLocale(locale))}
                     </td>
                     <td className="px-4 py-3 sm:px-6">
                       <VettingExpiryBadge daysRemaining={r.days_remaining} />

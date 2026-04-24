@@ -9,6 +9,10 @@ import { resolve } from 'path';
  * The test flattens both trees to dot-paths (leaf keys only) and asserts
  * exact equality. If a diff appears, the failure message lists every key
  * that needs attention so the fix is mechanical.
+ *
+ * Also guards against `[AR] ...` placeholder values leaking into the
+ * regulatory namespace — Phase 11 cleaned these out, and this test keeps
+ * new ones from sneaking back in during later phases.
  */
 
 type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
@@ -24,6 +28,19 @@ function flattenKeys(value: Json, prefix = ''): string[] {
   return Object.entries(value).flatMap(([key, child]) => {
     const next = prefix ? `${prefix}.${key}` : key;
     return flattenKeys(child, next);
+  });
+}
+
+function flattenEntries(value: Json, prefix = ''): Array<[string, string]> {
+  if (typeof value === 'string') {
+    return [[prefix, value]];
+  }
+  if (!isPlainObject(value)) {
+    return [];
+  }
+  return Object.entries(value).flatMap(([key, child]) => {
+    const next = prefix ? `${prefix}.${key}` : key;
+    return flattenEntries(child, next);
   });
 }
 
@@ -47,5 +64,14 @@ describe('Translation parity — en.json vs ar.json', () => {
   it('every Arabic key is mirrored in English', () => {
     const extra = [...arKeys].filter((k) => !enKeys.has(k)).sort();
     expect(extra).toEqual([]);
+  });
+
+  it('regulatory namespace has no [AR] placeholder values', () => {
+    const arObj = (ar as Record<string, Json>)['regulatory'] ?? {};
+    const placeholders = flattenEntries(arObj)
+      .filter(([, value]) => value.includes('[AR]'))
+      .map(([key]) => `regulatory.${key}`)
+      .sort();
+    expect(placeholders).toEqual([]);
   });
 });

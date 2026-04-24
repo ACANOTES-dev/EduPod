@@ -10,6 +10,7 @@ import { KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient, unwrap } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 import { CbaSyncTable } from './_components/cba-sync-table';
 
@@ -65,7 +66,7 @@ function formatLastSync(raw: string | null, locale: string, neverLabel: string):
   if (!raw) return neverLabel;
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return neverLabel;
-  return d.toLocaleString(locale === 'ar' ? 'ar' : 'en-IE', {
+  return d.toLocaleString(fmtLocale(locale, 'en-IE'), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -178,7 +179,9 @@ export default function CbaSyncStatusPage() {
           canManage && (
             <Button
               onClick={() => void handleSyncAll()}
-              disabled={isSyncingAll || ((status?.pending ?? 0) === 0 && (status?.errors ?? 0) === 0)}
+              disabled={
+                isSyncingAll || ((status?.pending ?? 0) === 0 && (status?.errors ?? 0) === 0)
+              }
               className="min-h-[44px] bg-teal-600 text-white hover:bg-teal-700"
             >
               {isSyncingAll ? (
@@ -212,10 +215,7 @@ export default function CbaSyncStatusPage() {
       </div>
 
       {/* ── KPI strip ─────────────────────────────────────────────────── */}
-      <section
-        aria-label={t('kpi.ariaLabel')}
-        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
-      >
+      <section aria-label={t('kpi.ariaLabel')} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiTile
           icon={CheckCircle2}
           label={t('kpi.synced')}
@@ -281,10 +281,7 @@ export default function CbaSyncStatusPage() {
                 <tbody>
                   {(status?.by_subject ?? []).length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={5}
-                        className="px-4 py-10 text-center text-sm text-text-tertiary"
-                      >
+                      <td colSpan={5} className="px-4 py-10 text-center text-sm text-text-tertiary">
                         {t('noSubjectData')}
                       </td>
                     </tr>

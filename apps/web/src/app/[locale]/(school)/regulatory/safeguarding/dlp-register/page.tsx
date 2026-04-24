@@ -30,6 +30,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -156,7 +157,7 @@ export default function DlpRegisterPage() {
                     </td>
                     <td className="px-4 py-3 text-text-secondary sm:px-6">{t(`role.${e.role}`)}</td>
                     <td className="px-4 py-3 text-xs text-text-secondary sm:px-6">
-                      {new Date(e.appointed_at).toLocaleDateString(locale)}
+                      {new Date(e.appointed_at).toLocaleDateString(fmtLocale(locale))}
                     </td>
                     <td className="px-4 py-3 sm:px-6">
                       {e.is_active ? (

@@ -21,6 +21,7 @@ import { HubTile } from '@/components/hub-tile';
 import { KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
 import { apiClient, unwrap } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -259,7 +260,7 @@ export default function RegulatorySafeguardingPage() {
                       dateTime={report.tusla_referred_at}
                       className="shrink-0 text-xs text-text-tertiary"
                     >
-                      {new Date(report.tusla_referred_at).toLocaleDateString(locale)}
+                      {new Date(report.tusla_referred_at).toLocaleDateString(fmtLocale(locale))}
                     </time>
                   ) : (
                     <span className="shrink-0 rounded-full bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-700">
@@ -282,7 +283,7 @@ export default function RegulatorySafeguardingPage() {
           })}
           {dashboard?.last_review_date
             ? ` · ${t('audit.lastReviewDate', {
-                date: new Date(dashboard.last_review_date).toLocaleDateString(locale),
+                date: new Date(dashboard.last_review_date).toLocaleDateString(fmtLocale(locale)),
               })}`
             : ''}
         </p>

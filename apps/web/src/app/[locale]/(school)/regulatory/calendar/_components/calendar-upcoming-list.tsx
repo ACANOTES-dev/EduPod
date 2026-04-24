@@ -6,6 +6,8 @@ import * as React from 'react';
 import { REGULATORY_DOMAINS } from '@school/shared/regulatory';
 import { cn, StatusBadge } from '@school/ui';
 
+import { fmtLocale } from '@/lib/i18n-format';
+
 import type { MonthViewEvent } from './calendar-month-view';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -64,7 +66,7 @@ function statusKey(status: string): string {
 function formatDate(value: string, locale: string): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString(locale === 'ar' ? 'ar' : 'en-IE', {
+  return d.toLocaleDateString(fmtLocale(locale, 'en-IE'), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

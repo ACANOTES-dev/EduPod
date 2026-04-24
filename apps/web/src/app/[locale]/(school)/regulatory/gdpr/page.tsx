@@ -21,6 +21,7 @@ import { HubTile } from '@/components/hub-tile';
 import { KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
 import { apiClient, unwrap } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -110,9 +111,7 @@ export default function RegulatoryGdprPage() {
           value={dashboard?.overdue_dsar_count}
           isLoading={isLoading}
           accent={
-            dashboard && dashboard.overdue_dsar_count > 0
-              ? 'text-danger-600'
-              : 'text-text-tertiary'
+            dashboard && dashboard.overdue_dsar_count > 0 ? 'text-danger-600' : 'text-text-tertiary'
           }
           tooltip={t('kpi.overdueDsarsTooltip')}
         />
@@ -234,7 +233,7 @@ export default function RegulatoryGdprPage() {
                     {t(`status.${row.status}` as never, { defaultValue: row.status })}
                   </StatusBadge>
                   <time dateTime={row.created_at} className="shrink-0 text-xs text-text-tertiary">
-                    {new Date(row.created_at).toLocaleDateString(locale)}
+                    {new Date(row.created_at).toLocaleDateString(fmtLocale(locale))}
                   </time>
                 </Link>
               </li>

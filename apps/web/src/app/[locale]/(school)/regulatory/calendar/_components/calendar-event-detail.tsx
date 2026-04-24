@@ -18,6 +18,7 @@ import {
 } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 import type { UpcomingListEvent } from './calendar-upcoming-list';
 
@@ -65,7 +66,7 @@ function statusKey(status: string): string {
 function formatDate(value: string, locale: string): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString(locale === 'ar' ? 'ar' : 'en-IE', {
+  return d.toLocaleDateString(fmtLocale(locale, 'en-IE'), {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

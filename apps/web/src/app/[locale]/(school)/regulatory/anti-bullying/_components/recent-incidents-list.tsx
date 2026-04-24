@@ -7,6 +7,8 @@ import * as React from 'react';
 
 import { StatusBadge } from '@school/ui';
 
+import { fmtLocale } from '@/lib/i18n-format';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface RecentIncident {
@@ -45,7 +47,7 @@ function statusVariant(status: string): 'success' | 'warning' | 'danger' | 'info
 function formatDate(raw: string, locale: string): string {
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString(locale === 'ar' ? 'ar' : 'en-IE', {
+  return d.toLocaleDateString(fmtLocale(locale, 'en-IE'), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

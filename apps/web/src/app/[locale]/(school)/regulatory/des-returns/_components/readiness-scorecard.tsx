@@ -7,6 +7,8 @@ import * as React from 'react';
 
 import { StatusBadge, cn } from '@school/ui';
 
+import { fmtLocale } from '@/lib/i18n-format';
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type CategoryKey =
@@ -364,7 +366,7 @@ function FileTile({ fileKey, status, lastGenerated }: FileTileProps) {
         {lastGenerated ? (
           <span>
             {t('scorecard.lastGenerated', {
-              date: new Date(lastGenerated).toLocaleDateString(locale),
+              date: new Date(lastGenerated).toLocaleDateString(fmtLocale(locale)),
             })}
           </span>
         ) : (

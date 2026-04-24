@@ -30,6 +30,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -119,8 +120,8 @@ function formatActionBadge(action: string): {
   }
 }
 
-function formatDateTimeLocale(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
+function formatDateTimeLocale(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(fmtLocale(locale), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -491,7 +492,7 @@ export default function RegulatoryDataRetentionPage() {
                       {hold.held_by_user_id}
                     </td>
                     <td className="px-5 py-3 text-sm text-text-secondary">
-                      {formatDateTimeLocale(hold.held_at)}
+                      {formatDateTimeLocale(hold.held_at, locale)}
                     </td>
                     <td className="px-5 py-3 text-end">
                       <Button
@@ -629,7 +630,7 @@ export default function RegulatoryDataRetentionPage() {
                             <Badge variant={action.variant}>{action.label}</Badge>
                           </td>
                           <td className="px-4 py-3 text-end text-sm font-semibold text-text-primary">
-                            {item.affected_count.toLocaleString()}
+                            {item.affected_count.toLocaleString(fmtLocale(locale))}
                           </td>
                         </tr>
                       );

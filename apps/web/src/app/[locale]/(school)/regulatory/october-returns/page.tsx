@@ -20,6 +20,7 @@ import { HubTile } from '@/components/hub-tile';
 import { KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { fmtLocale } from '@/lib/i18n-format';
 
 import { ErrorBanner } from '../_components/error-banner';
 
@@ -306,7 +307,7 @@ export default function OctoberReturnsHubPage() {
           label={t('kpi.lastPreview')}
           value={
             previewTimestamp
-              ? new Date(previewTimestamp).toLocaleDateString(locale)
+              ? new Date(previewTimestamp).toLocaleDateString(fmtLocale(locale))
               : t('kpi.never')
           }
           isLoading={isLoading}
