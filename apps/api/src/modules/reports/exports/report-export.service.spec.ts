@@ -119,6 +119,30 @@ describe('ReportExportService', () => {
       await service.exportByFormat('word', { ...BASE_INPUT, branding: EN_BRANDING });
       expect(wordRenderer.render).toHaveBeenCalledTimes(1);
     });
+
+    it('exportPdf delegates directly to the PDF renderer', async () => {
+      await service.exportPdf({ ...BASE_INPUT, branding: EN_BRANDING });
+      expect(pdfRenderer.render).toHaveBeenCalledTimes(1);
+    });
+
+    it('exportExcel delegates directly to the Excel renderer', async () => {
+      await service.exportExcel({ ...BASE_INPUT, branding: EN_BRANDING });
+      expect(excelRenderer.render).toHaveBeenCalledTimes(1);
+    });
+
+    it('exportWord delegates directly to the Word renderer', async () => {
+      await service.exportWord({ ...BASE_INPUT, branding: EN_BRANDING });
+      expect(wordRenderer.render).toHaveBeenCalledTimes(1);
+    });
+
+    it('exportByFormat throws on an unsupported format', async () => {
+      await expect(
+        service.exportByFormat('csv' as unknown as Parameters<typeof service.exportByFormat>[0], {
+          ...BASE_INPUT,
+          branding: EN_BRANDING,
+        }),
+      ).rejects.toThrow(/Unsupported export format/);
+    });
   });
 
   describe('getTenantBranding', () => {
