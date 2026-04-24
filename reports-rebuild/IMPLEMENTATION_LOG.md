@@ -213,7 +213,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `deploying` |                                |            |
 | 09  | Report Alerts Worker                                  | 3    | 01, 03         | `deploying`   |                                | `5cb8c9bf` |
 | 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `deploying`   |                                |            |
-| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `in-progress` |                                |            |
+| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `completed` | 2026-04-24T22:35 Europe/Dublin | `20b6899c` |
 | 12  | AI Predictions service                                | 3    | 01             | `in-progress` |                                |            |
 | 13  | Report Sharing service                                | 3    | 01, 04         | `pending`   |                                |            |
 | 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`   |                                |            |
@@ -1145,3 +1145,144 @@ compliance_report_generations CASCADE;` (no downstream FKs reference
   - `packages/shared/src/reports/index.ts` — no new shared exports;
     payload types are worker-local.
 - Until: committed OR flipped to `blocked`.
+
+### [IMPL 11] — AI Ask-AI Service
+
+- **Completed:** 2026-04-24T22:35 Europe/Dublin
+- **Commits:** `bf1565b6` (feat — service + controller + prompts +
+  validator + spec + migration + RLS + shared types), `20b6899c`
+  (fix-forward — wire AiAskAiController + AiAskAiService into
+  ReportsModule; the parallel-edit thrash on `reports.module.ts`
+  meant my registrations didn't make it into the first commit's
+  index even though my edits were correct on disk).
+- **CI run:** https://github.com/ACANOTES-dev/EduPod/actions/runs/24914595474
+  (deploy ran on the trailing fix-forward `0efa73de` from impl 10
+  that widened the AI-flag row helper type — the deploy ships
+  every commit on `main` since the last green deploy, including
+  mine).
+- **Deployed to production:** yes — verified on `nhqs.edupod.app`:
+  - `GET /api/health` → 200 immediately after pm2 restart.
+  - API logs (`api-out-197.log`) show:
+    `RoutesResolver: AiAskAiController {/api/v1/reports/ai-ask-ai}` and
+    `RouterExplorer: Mapped {/api/v1/reports/ai-ask-ai, POST}`,
+    `Mapped {/api/v1/reports/ai-ask-ai/history, GET}`,
+    `Mapped {/api/v1/reports/ai-ask-ai/history/:id/mark-saved, POST}` —
+    all three routes registered. Direct curl to the routes returns
+    404 with the same shape as impl 10's `/reports/analytics/
+ai-summary`; that's the platform-owner-token-without-tenant
+    middleware behaviour shared by every reports endpoint, not an
+    impl-11-specific regression. Tenant-scoped verification will land
+    via impl 16/18 (UI) once a tenant flag toggle is exposed.
+  - `ai_ask_ai_history` table present with FORCE RLS + the
+    `ai_ask_ai_history_tenant_isolation` policy (verified in the
+    20260425130000 migration).
+
+- **Summary (≤ 200 words):**
+  Translates natural-language report questions into the builder's
+  `SavedReportQuery` shape via Claude, gated on the
+  `tenant_ai_flags[reports_ask_ai]` flag (default off). New
+  `apps/api/src/modules/reports/ai-ask-ai/` contains
+  `AiAskAiService` (orchestrator over `AnthropicClientService` +
+  `RedisService` + `ReportsSubjectRegistryService` +
+  `PrismaService`), `AiAskAiController` (3 routes), `prompts/`
+  (system prompt + few-shot examples + compact-catalogue prompt
+  builder), and `translators/query-validator.ts` (Zod-shape +
+  permission-scoped field-id + operator-type-matrix validator that
+  hard-rejects unknown subjects and soft-drops unknown columns /
+  illegal operators with explicit warnings).
+
+  The service NEVER executes the proposed query — the caller pipes
+  the returned `SavedReportQuery` through the existing query engine.
+  Per-user rate limit of 20 calls / hour via Redis INCR + 1-hour
+  TTL; 24-hour Redis cache keyed on tenant + user + question +
+  permissions hash + prompt version (bumped via
+  `ASK_AI_PROMPT_VERSION` when the prompt changes). Every
+  translation persists to `ai_ask_ai_history` (tenant-scoped, RLS-
+  enforced) and writes a cost / prompt audit row to
+  `ai_processing_logs`.
+
+  Shared Zod contracts in `@school/shared/reports/ask-ai` —
+  `askAiRequestSchema`, `askAiTranslationResultSchema`,
+  `askAiHistoryResponseSchema`, `ASK_AI_ERROR_CODES`,
+  `ASK_AI_RATE_LIMIT_PER_HOUR`, `ASK_AI_CACHE_TTL_SECONDS`,
+  `ASK_AI_PROMPT_VERSION`. New `AiAskAiHistory` Prisma model +
+  `20260425130000_add_ai_ask_ai_history` migration with FORCE RLS +
+  `ai_ask_ai_history_tenant_isolation` policy mirrored to
+  `packages/prisma/rls/policies.sql`.
+
+  29 unit tests across three spec files (service, validator,
+  build-prompt) all green locally and in the CI shard that ran them.
+
+- **Follow-ups:**
+  - **Impl 16 (Builder UI)** consumes `POST /v1/reports/ai-ask-ai`.
+    The builder's "Ask AI" input above the subject picker submits
+    the question, populates the builder from the returned
+    `SavedReportQuery`, and surfaces `rationale` + `warnings` +
+    `confidence` in a small AI banner. On save, post the
+    `history_id` to
+    `POST /v1/reports/ai-ask-ai/history/:id/mark-saved` so we can
+    measure the Ask-AI utility ratio.
+  - **Impl 18 (AI Panel UI)** lists `GET /v1/reports/ai-ask-ai/
+history` — last 20 attempts per user, grouped by date. Tapping
+    an entry re-loads the proposed query into the builder.
+  - **Impl 21 (Settings)** wires the `reports_ask_ai` AI flag
+    toggle into `Settings → Reports`. Default state is `false` for
+    every tenant — the migration in impl 01 already seeded the row.
+  - **Subject registry coverage.** The validator is permission-
+    scoped via `ReportsSubjectRegistryService.getAllSubjects`. As
+    impl 16 / future impls add fields to a subject's catalogue,
+    the AI gains the ability to reference them for free — no code
+    change here. If a sibling impl adds a new subject key, bump
+    `REPORT_SUBJECT_KEYS` in `@school/shared/reports/subjects` and
+    the validator picks it up.
+  - **Prompt iteration.** When tweaking
+    `prompts/{system-prompt,examples,build-prompt}.ts`, bump
+    `ASK_AI_PROMPT_VERSION` in the shared package so the 24-hour
+    cache invalidates. Without the bump, users will see stale
+    proposals for a day.
+
+- **Rollback:** `git revert 20b6899c bf1565b6`. Manual DB rollback
+  to drop the new table:
+  ```
+  DROP TABLE ai_ask_ai_history CASCADE;
+  ```
+  The Prisma client and shared package will need a regenerate /
+  rebuild (CI handles automatically). The Redis keys
+  (`ai_ask_ai:*`, `ai_ask_ai_rl:*`) expire on their own.
+  `tenant_ai_flags[reports_ask_ai]` rows remain harmless with no
+  consumer reading them — leave in place.
+
+- **Session notes:**
+  - **Wave 3 parallel-edit thrash, recurring.** Five Wave 3
+    sessions (impls 08, 09, 10, 11, 12) edited
+    `apps/api/src/modules/reports/reports.module.ts`,
+    `packages/shared/src/reports/index.ts`,
+    `packages/prisma/schema.prisma`, and the global jest /
+    pnpm-lock files at overlapping times. My `ai-ask-ai/` folder
+    was deleted twice from the working tree by sibling sessions'
+    git operations (`git checkout HEAD -- …`); the staged
+    `reports.module.ts` was overwritten between my `git add` and
+    `git commit` and my AiAskAi imports/registrations were lost
+    in `bf1565b6`. The fix-forward `20b6899c` re-applies the
+    registration on top of impl 12's
+    `AiPredictionsController` registration so both controllers
+    coexist. Rules 17–26 from §2a need stronger enforcement (or
+    a tooling-level lock) when more than two sessions are live in
+    the same wave on the reports module.
+  - **`--no-verify` push.** Pre-push husky cohesion gate blocks
+    every reports commit until impl 22 lands the decomposition.
+    Rule 27 sanctions this for Wave 3.
+  - **Type/spec failures during the deploy window** were impl 09
+    (empty payload interfaces — `ad67267f`), impl 10 (ai-flags
+    type union missing reports keys — `0efa73de`), and impl 10
+    (`ai-audit.service.spec.ts` mock — `f1d3ee62`). None of those
+    were impl 11's responsibility, but they delayed the CI run
+    that ultimately deployed my commits by ~15 min.
+  - **Anthropic SDK API.** The canonical wrapper is
+    `AnthropicClientService.createMessage(params)` (note: NOT
+    `complete()`). I use `model: 'claude-sonnet-4-6'`,
+    `max_tokens: 1500`, and a `system` parameter for the schema +
+    examples. If the SDK signature ever changes, every AI
+    consumer in `apps/api/src/modules/reports/` needs to update
+    in lockstep — there are now four (`ai-report-narrator`,
+    `ai-predictions`, `ai-ask-ai`, plus the gradebook AI module).
