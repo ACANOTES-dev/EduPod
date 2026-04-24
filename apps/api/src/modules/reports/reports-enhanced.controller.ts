@@ -1,19 +1,15 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
-  HttpStatus,
   Param,
   ParseUUIDPipe,
   Post,
   Put,
   Query,
-  Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Response } from 'express';
 import type { z } from 'zod';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
@@ -32,6 +28,7 @@ import {
   executeSavedReportSchema,
   gradeAnalyticsQuerySchema,
   reportAlertsQuerySchema,
+  reportExportQuerySchema,
   savedReportsQuerySchema,
   scheduledReportsQuerySchema,
   studentProgressQuerySchema,
@@ -40,8 +37,6 @@ import {
   updateSavedReportSchema,
   updateScheduledReportSchema,
 } from '@school/shared';
-import { previewQuerySchema } from '@school/shared/reports';
-import type { PreviewQueryDto } from '@school/shared/reports';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -50,7 +45,6 @@ import { SensitiveDataAccess } from '../../common/decorators/sensitive-data-acce
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { PermissionCacheService } from '../../common/services/permission-cache.service';
 
 import { AdmissionsAnalyticsService } from './admissions-analytics.service';
 import { AiPredictionsService } from './ai-predictions.service';
@@ -62,12 +56,11 @@ import { CrossModuleInsightsService } from './cross-module-insights.service';
 import { CustomReportBuilderService } from './custom-report-builder.service';
 import { DemographicsService } from './demographics.service';
 import { GradeAnalyticsService } from './grade-analytics.service';
-import { QueryEngineService } from './query-engine/query-engine.service';
 import { ReportAlertsService } from './report-alerts.service';
+import { ReportExportService } from './report-export.service';
 import { ScheduledReportsService } from './scheduled-reports.service';
 import { StaffAnalyticsService } from './staff-analytics.service';
 import { StudentProgressService } from './student-progress.service';
-import { OWNER_SENTINEL_PERMISSION } from './subject-registry/reports-subject-registry.service';
 import { UnifiedDashboardService } from './unified-dashboard.service';
 
 @Controller('v1/reports')
@@ -90,17 +83,15 @@ export class ReportsEnhancedController {
     private readonly reportAlerts: ReportAlertsService,
     private readonly aiNarrator: AiReportNarratorService,
     private readonly aiPredictions: AiPredictionsService,
-    private readonly queryEngine: QueryEngineService,
-    private readonly permissionCache: PermissionCacheService,
+    private readonly reportExport: ReportExportService,
   ) {}
 
   // ─── Unified KPI Dashboard ─────────────────────────────────────────────────
 
-  // GET /v1/reports/analytics/dashboard — the frontend's entry point for the
-  // rebuilt hub. Returns the new 10-KPI shape (see PLAN.md §3 + impl 03).
-  // `/v1/reports/kpi-dashboard` is kept as a legacy alias during the
-  // transition so internal clients and integration tests don't break
-  // mid-rebuild; both routes delegate to the same service method.
+  // GET /v1/reports/analytics/dashboard — the frontend's entry point for
+  // the rebuilt hub. Returns the new 10-KPI shape (see PLAN.md §3 + impl
+  // 03). `/v1/reports/kpi-dashboard` is kept as a transitional alias;
+  // both delegate to the same service method.
   @Get('analytics/dashboard')
   @RequiresPermission('analytics.view')
   async analyticsDashboard(
@@ -112,8 +103,8 @@ export class ReportsEnhancedController {
 
   @Get('kpi-dashboard')
   @RequiresPermission('analytics.view')
-  async kpiDashboard(@CurrentTenant() tenant: TenantContext, @Query('refresh') refresh?: string) {
-    return this.unifiedDashboard.getKpiDashboard(tenant.tenant_id, refresh === 'true');
+  async kpiDashboard(@CurrentTenant() tenant: TenantContext) {
+    return this.unifiedDashboard.getKpiDashboard(tenant.tenant_id);
   }
 
   // ─── Cross-Module Insights ────────────────────────────────────────────────
@@ -537,55 +528,19 @@ export class ReportsEnhancedController {
   }
 
   @Get('builder/:reportId/execute')
-  @RequiresPermission('analytics.manage_reports', 'reports.builder')
+  @RequiresPermission('analytics.manage_reports')
   async executeReport(
     @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
     @Param('reportId', ParseUUIDPipe) reportId: string,
     @Query(new ZodValidationPipe(executeSavedReportSchema))
     query: z.infer<typeof executeSavedReportSchema>,
   ) {
-    const permissions = await this.resolveBuilderPermissions(user);
     return this.customReportBuilder.executeReport(
       tenant.tenant_id,
-      user.sub,
-      permissions,
       reportId,
       query.page,
       query.pageSize,
     );
-  }
-
-  // POST /v1/reports/builder/preview — fires on every debounced builder
-  // edit. Body carries the current in-progress query. The engine returns
-  // a 50-row preview with row-cap + timeout + permission guardrails.
-  @Post('builder/preview')
-  @RequiresPermission('analytics.manage_reports', 'reports.builder')
-  async previewReport(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-    @Body(new ZodValidationPipe(previewQuerySchema)) body: PreviewQueryDto,
-  ) {
-    const permissions = await this.resolveBuilderPermissions(user);
-    return this.queryEngine.execute(tenant.tenant_id, user.sub, permissions, body.query, {
-      page: 1,
-      pageSize: 50,
-    });
-  }
-
-  /**
-   * Resolve the caller's effective permissions including the owner-bypass
-   * sentinel for `school_owner` / `school_principal` /
-   * `school_vice_principal`. Consumed by the subject registry's field
-   * scoping and by the query engine's field validator.
-   */
-  private async resolveBuilderPermissions(user: JwtPayload): Promise<string[]> {
-    if (!user.membership_id) return [];
-    const [permissions, owner] = await Promise.all([
-      this.permissionCache.getPermissions(user.membership_id),
-      this.permissionCache.isOwner(user.membership_id),
-    ]);
-    return owner ? [...permissions, OWNER_SENTINEL_PERMISSION] : permissions;
   }
 
   // ─── Board Reports ────────────────────────────────────────────────────────
@@ -815,54 +770,14 @@ export class ReportsEnhancedController {
 
   // ─── Export ───────────────────────────────────────────────────────────────
 
-  // POST /v1/reports/builder/:reportId/export
-  // Renders a saved report to PDF/Excel/Word and streams the buffer back.
-  // When the result set exceeds SYNCHRONOUS_EXPORT_ROW_LIMIT (5 000 rows) a
-  // `reports:export-batch` BullMQ job is enqueued instead and the response is
-  // 202 Accepted with a job id so the client can poll / subscribe.
-  // See impl 04 spec §7.
-  @Post('builder/:reportId/export')
-  @RequiresPermission('reports.builder')
-  async exportSavedReport(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-    @Param('reportId', ParseUUIDPipe) reportId: string,
-    @Body() body: { format?: string } | undefined,
-    @Res({ passthrough: false }) res: Response,
-  ): Promise<void> {
-    const format = body?.format;
-    if (format !== 'pdf' && format !== 'excel' && format !== 'word') {
-      throw new BadRequestException({
-        code: 'INVALID_EXPORT_FORMAT',
-        message: 'format must be one of "pdf" | "excel" | "word"',
-      });
-    }
-
-    const permissions = await this.resolveBuilderPermissions(user);
-    const result = await this.customReportBuilder.exportReport(
-      tenant.tenant_id,
-      user.sub,
-      permissions,
-      reportId,
-      format,
-    );
-
-    if (result.kind === 'batched') {
-      res.status(HttpStatus.ACCEPTED).json({
-        kind: 'batched',
-        job_id: result.job_id,
-        row_count: result.row_count,
-        message:
-          'Result set exceeds the synchronous export limit. Your export is being prepared; you will be notified when it is ready.',
-      });
-      return;
-    }
-
-    res.status(HttpStatus.OK);
-    res.setHeader('Content-Type', result.content_type);
-    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
-    res.setHeader('Content-Length', String(result.buffer.length));
-    res.setHeader('Cache-Control', 'no-store');
-    res.end(result.buffer);
+  @Post('export/excel')
+  @RequiresPermission('analytics.view')
+  async exportExcel(
+    @Query(new ZodValidationPipe(reportExportQuerySchema))
+    _query: z.infer<typeof reportExportQuerySchema>,
+    @Body()
+    body: { data: unknown[]; config: { title: string; school_name?: string; date_range?: string } },
+  ) {
+    return this.reportExport.generateFormattedExcel(body.data, body.config);
   }
 }

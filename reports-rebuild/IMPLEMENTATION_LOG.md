@@ -133,7 +133,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 01  | Schema foundation                                     | 1    | —              | `completed`   | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
 | 02  | Report Subject Registry + Query Engine                | 2    | 01             | `in-progress` |                                |            |
 | 03  | KPI Dashboard Service                                 | 2    | 01             | `deploying`   |                                |            |
-| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `in-progress` |                                |            |
+| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `deploying`   |                                |            |
 | 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `pending`     |                                |            |
 | 06  | Board Report aggregation                              | 2    | 01             | `pending`     |                                |            |
 | 07  | Compliance Report aggregation                         | 2    | 01             | `pending`     |                                |            |
