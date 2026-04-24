@@ -20,8 +20,7 @@ import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { StudentsModule } from '../students/students.module';
 
 import { AdmissionsAnalyticsService } from './admissions-analytics.service';
-import { AiAskAiController } from './ai-ask-ai/ai-ask-ai.controller';
-import { AiAskAiService } from './ai-ask-ai/ai-ask-ai.service';
+import { AiPredictionsController } from './ai-predictions.controller';
 import { AiPredictionsService } from './ai-predictions.service';
 import { AiReportNarratorService } from './ai-report-narrator.service';
 import { AttendanceAnalyticsService } from './attendance-analytics.service';
@@ -62,13 +61,12 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
 @Module({
   imports: [
     AiModule,
-    // impl 10: declares the dependency on the AI-flags subsystem for
-    // intent. `AiFlagGuard` is registered globally via `APP_GUARD` in
-    // `AiFlagsModule`, so importing it here is documentary; without the
-    // import, `@RequiresAiFlag('reports_narration')` on the new
-    // narration endpoints would still resolve. Kept explicit so the
-    // module dependency surface is honest and matches the pattern used
-    // by `BehaviourAIModule`.
+    // impl 12: imported so `AiFlagsService` resolves for the per-handler
+    // `@UseGuards(AiFlagGuard)` on AiPredictionsController. The guard
+    // itself is registered globally via APP_GUARD inside AiFlagsModule;
+    // this import wires the DI provider into the reports scope. Mirrors
+    // the `BehaviourAIModule` pattern. Forthcoming impls 10 (narration)
+    // and 11 (ask-AI) reuse the same import without re-adding it.
     AiFlagsModule,
     ConfigurationModule,
     GdprModule,
@@ -100,10 +98,11 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     // ReportsEnhancedController so its routes aren't shadowed by the
     // compliance-template routes that live on the enhanced controller.
     ComplianceReportController,
-    // AiAskAiController (impl 11) owns `/v1/reports/ai-ask-ai*`. Registered
-    // before ReportsEnhancedController so its specific path prefix is matched
-    // ahead of any wildcard / dynamic segment on the enhanced controller.
-    AiAskAiController,
+    // AiPredictionsController (impl 12) owns `/v1/reports/predictions/*`.
+    // Registered before ReportsEnhancedController; the controller itself
+    // declares `student-risk/bulk` before the dynamic `student-risk/:id`
+    // (route-order lesson from impl 02's `builder/draft` fix).
+    AiPredictionsController,
     ReportsEnhancedController,
   ],
   providers: [
@@ -139,9 +138,6 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     ReportAlertsService,
     AiReportNarratorService,
     AiPredictionsService,
-    // Ask-AI service (impl 11) — translates natural-language questions
-    // into builder query proposals via the curated subject registry.
-    AiAskAiService,
     ReportExportService,
     // Subject registry + query engine + builder drafts (impl 02)
     ReportsSubjectRegistryService,

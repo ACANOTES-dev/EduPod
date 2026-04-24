@@ -2842,3 +2842,14 @@ DROP POLICY IF EXISTS reports_kpi_tenant_preferences_tenant_isolation ON reports
 CREATE POLICY reports_kpi_tenant_preferences_tenant_isolation ON reports_kpi_tenant_preferences
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- ai_ask_ai_history (impl 11) — audit trail of natural-language → query translations.
+-- Tenant-isolated; only visible inside the originating tenant. The user_id column
+-- is a separate guarantee above RLS that a user only ever reads their own history
+-- (enforced at the service layer with a `where: { user_id }` clause).
+ALTER TABLE ai_ask_ai_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_ask_ai_history FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS ai_ask_ai_history_tenant_isolation ON ai_ask_ai_history;
+CREATE POLICY ai_ask_ai_history_tenant_isolation ON ai_ask_ai_history
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);

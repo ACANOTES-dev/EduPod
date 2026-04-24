@@ -853,6 +853,7 @@ model Tenant {
   message_flags                  MessageFlag[]
   oversight_access_log           OversightAccessLog[]
   complianceReportGenerations    ComplianceReportGeneration[]
+  ai_ask_ai_history              AiAskAiHistory[]
 
   @@map("tenants")
 }
@@ -1407,6 +1408,7 @@ model User {
   message_flags_reviewed      MessageFlag[]
   oversight_actions           OversightAccessLog[]         @relation("oversight_actor")
   complianceReportGenerations ComplianceReportGeneration[]
+  ai_ask_ai_history           AiAskAiHistory[]             @relation("ai_ask_ai_history")
 
   @@map("users")
 }
@@ -6587,6 +6589,27 @@ model ReportsKpiTenantPreferences {
   @@map("reports_kpi_tenant_preferences")
 }
 
+/// History of Ask-AI translation attempts. One row per successful translation
+/// or validation failure. Used for audit, debugging, and measuring utility
+/// (was_saved flag). Supports backfilling the builder with user's historical
+/// queries.
+model AiAskAiHistory {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  user_id     String   @db.Uuid
+  query_text  String   @db.Text
+  result_json Json     @db.JsonB
+  was_saved   Boolean  @default(false)
+  created_at  DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user   User   @relation("ai_ask_ai_history", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, user_id, created_at(sort: Desc)], map: "idx_ai_ask_ai_history_user_recent")
+  @@map("ai_ask_ai_history")
+}
+
 // ─── Behaviour Management Enums ─────────────────────────────────────────────
 
 enum BehaviourPolarity {
@@ -9672,6 +9695,7 @@ model AiProcessingLog {
   rejected_reason       String?
   confidence_score      Decimal?  @db.Decimal(3, 2)
   processing_time_ms    Int?
+  cost_usd_estimate     Decimal?  @db.Decimal(10, 6)
   created_at            DateTime  @default(now()) @db.Timestamptz
 
   tenant           Tenant @relation(fields: [tenant_id], references: [id])
