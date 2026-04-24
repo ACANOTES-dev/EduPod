@@ -199,30 +199,30 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                 | Wave | Depends on     | Status      | Completed at                   | Commit SHA |
-| --- | ----------------------------------------------------- | ---- | -------------- | ----------- | ------------------------------ | ---------- |
-| 01  | Schema foundation                                     | 1    | —              | `completed` | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
-| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed` | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
-| 03  | KPI Dashboard Service                                 | 2    | 01             | `completed` | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
-| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed` | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
-| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `pending`   |                                |            |
-| 06  | Board Report aggregation                              | 2    | 01             | `pending`   |                                |            |
-| 07  | Compliance Report aggregation                         | 2    | 01             | `pending`   |                                |            |
-| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `pending`   |                                |            |
-| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `pending`   |                                |            |
-| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `pending`   |                                |            |
-| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `pending`   |                                |            |
-| 12  | AI Predictions service                                | 3    | 01             | `pending`   |                                |            |
-| 13  | Report Sharing service                                | 3    | 01, 04         | `pending`   |                                |            |
-| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`   |                                |            |
-| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`   |                                |            |
-| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`   |                                |            |
-| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`   |                                |            |
-| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`   |                                |            |
-| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`   |                                |            |
-| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`   |                                |            |
-| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`   |                                |            |
-| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`   |                                |            |
+| #   | Title                                                 | Wave | Depends on     | Status        | Completed at                   | Commit SHA |
+| --- | ----------------------------------------------------- | ---- | -------------- | ------------- | ------------------------------ | ---------- |
+| 01  | Schema foundation                                     | 1    | —              | `completed`   | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
+| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed`   | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
+| 03  | KPI Dashboard Service                                 | 2    | 01             | `completed`   | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
+| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed`   | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
+| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `deploying`   |                                |            |
+| 06  | Board Report aggregation                              | 2    | 01             | `in-progress` |                                |            |
+| 07  | Compliance Report aggregation                         | 2    | 01             | `in-progress` |                                |            |
+| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `pending`     |                                |            |
+| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `pending`     |                                |            |
+| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `pending`     |                                |            |
+| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `pending`     |                                |            |
+| 12  | AI Predictions service                                | 3    | 01             | `pending`     |                                |            |
+| 13  | Report Sharing service                                | 3    | 01, 04         | `pending`     |                                |            |
+| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`     |                                |            |
+| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`     |                                |            |
+| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`     |                                |            |
+| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`     |                                |            |
+| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`     |                                |            |
+| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`     |                                |            |
+| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`     |                                |            |
+| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`     |                                |            |
+| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`     |                                |            |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
 
@@ -560,3 +560,54 @@ export` endpoint streams `Content-Type`/`Content-Disposition` via
     Effectively impl 02 had to land with or immediately after them —
     not before. Next time, the lead session should coordinate commit
     order across wave-parallel impls to avoid this chicken-and-egg.
+
+### [WAVE 2 SHARED-FILE CLAIM] — impl 07
+
+- Claims: `apps/api/src/modules/reports/reports.module.ts` (need to register
+  new `ComplianceReportController` + `ComplianceGenerationService` +
+  aggregator registry). Minimal edit: one import block + one controllers
+  entry + one providers entry.
+- Explicitly **not** touching `reports-enhanced.controller.ts` or
+  `reports-enhanced.controller.spec.ts` — new endpoints live in a dedicated
+  `compliance-report/compliance-report.controller.ts` under their own spec
+  file. Rule 21 conflict avoided.
+- Until: committed OR flipped to `blocked`.
+
+### [WAVE 2 SHARED-FILE CLAIM] — impl 06
+
+- Claims (surgical, region-scoped):
+  - `apps/api/src/modules/reports/reports.module.ts` — ADD aggregator
+    providers (8 × `…SectionAggregator`) + `BoardReportGenerator` helper.
+    Leaves every other module wiring intact. Sharing this file with
+    impl 07's ComplianceController claim — our edits are in different
+    regions (imports alphabetical, providers appended end-of-list).
+  - `apps/api/src/modules/reports/reports-enhanced.controller.ts` —
+    EDIT ONLY the existing `// ─── Board Reports ──────────` region
+    (approx lines 589–628 at start of session). Adds `GET
+/v1/reports/board/history`, updates `POST /v1/reports/board` body
+    schema to the new Zod shape. No touching of analytics / builder
+    routes (impl 05's turf).
+  - `packages/shared/src/reports/index.ts` — already carries
+    `export * from './board-report'` as an uncommitted stub.
+    Keeping as-is.
+- **Discarding** the uncommitted `apps/api/src/modules/reports/board-report/`
+  sections/\*.ts stubs: they reference Prisma fields that don't exist
+  (`studentGrade`, `incident_type`, `is_appealed`, `action_type`,
+  `staffAttendance`, `staffLeave`, `invoice.amount_paid`,
+  `staffProfile.departure_date`). Rewriting from scratch against
+  the real schema.
+- **Keeping** `packages/shared/src/reports/board-report.ts` — the Zod
+  schemas there are correct and match the plan; only small tweaks
+  (adding `generated_by_name` to the history entry + migrating
+  `sections` to be a partial record mirroring the service return
+  shape).
+- **Keeping** `apps/api/src/modules/reports/board-report/sections/section-aggregator.types.ts`
+  after correction — the existing file uses a non-distinct return
+  union; will tighten to a generic `SectionAggregator<S extends
+BoardReportSection>` for per-aggregator type safety.
+- Legacy `CreateBoardReportDto` / `createBoardReportSchema` in
+  `packages/shared/src/schemas/reports-enhanced.schema.ts` stays —
+  it's referenced by the existing controller signature and impl 07
+  may also touch the same file for compliance schemas. New board
+  request schema lives in `@school/shared/reports/board-report`.
+- Until: committed OR flipped to `blocked`.
