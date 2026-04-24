@@ -41,8 +41,8 @@ import {
   updateScheduledReportSchema,
   yearGroupTrendQuerySchema,
 } from '@school/shared';
-import { previewQuerySchema } from '@school/shared/reports';
-import type { PreviewQueryDto } from '@school/shared/reports';
+import { boardReportRequestSchema, previewQuerySchema } from '@school/shared/reports';
+import type { BoardReportRequest, PreviewQueryDto } from '@school/shared/reports';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -696,6 +696,20 @@ export class ReportsEnhancedController {
     return this.boardReport.listBoardReports(tenant.tenant_id, query.page, query.pageSize);
   }
 
+  // GET /v1/reports/board/history — new history endpoint returning
+  // BoardReportHistoryEntry rows: term label, sections included, anonymise
+  // flag, generator name. Consumed by impl 21 (Reports Settings page) so
+  // an admin can re-download a prior packet.
+  @Get('board/history')
+  @RequiresPermission('analytics.view_board_reports')
+  async listBoardReportHistory(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(boardReportsQuerySchema))
+    query: z.infer<typeof boardReportsQuerySchema>,
+  ) {
+    return this.boardReport.listHistory(tenant.tenant_id, query.page, query.pageSize);
+  }
+
   @Get('board/:reportId')
   @RequiresPermission('analytics.view_board_reports')
   async getBoardReport(
@@ -705,15 +719,43 @@ export class ReportsEnhancedController {
     return this.boardReport.getBoardReport(tenant.tenant_id, reportId);
   }
 
+  // POST /v1/reports/board — generate a Board Report packet.
+  //
+  // The body follows the new `boardReportRequestSchema`:
+  //   { term: { academic_year_id, term_number }, sections[], anonymise }
+  // Legacy payload shape (`{ title, academic_period_id, report_type,
+  // sections_json }`) is detected by the presence of `sections_json` /
+  // `report_type` / `title` and falls through to the legacy path so the
+  // existing admin UI keeps working until impl 20 ships.
   @Post('board')
   @RequiresPermission('analytics.view_board_reports')
   async generateBoardReport(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
-    @Body(new ZodValidationPipe(createBoardReportSchema))
-    body: z.infer<typeof createBoardReportSchema>,
+    @Body() rawBody: unknown,
   ) {
-    return this.boardReport.generateBoardReport(tenant.tenant_id, user.sub, body);
+    if (this.isLegacyBoardReportBody(rawBody)) {
+      const legacyParsed = createBoardReportSchema.parse(rawBody);
+      return this.boardReport.generateBoardReport(tenant.tenant_id, user.sub, legacyParsed);
+    }
+
+    const parsed = boardReportRequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      throw new BadRequestException({
+        code: 'BOARD_REPORT_INVALID_BODY',
+        message: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+      });
+    }
+    const body: BoardReportRequest = parsed.data;
+
+    const boardReport = await this.boardReport.generate(tenant.tenant_id, user.sub, body);
+    return {
+      data: boardReport,
+      meta: {
+        generated_at: boardReport.generated_at,
+        generated_by: boardReport.generated_by_user_id,
+      },
+    };
   }
 
   @Delete('board/:reportId')
@@ -723,6 +765,12 @@ export class ReportsEnhancedController {
     @Param('reportId', ParseUUIDPipe) reportId: string,
   ) {
     return this.boardReport.deleteBoardReport(tenant.tenant_id, reportId);
+  }
+
+  private isLegacyBoardReportBody(body: unknown): boolean {
+    if (!body || typeof body !== 'object') return false;
+    const o = body as Record<string, unknown>;
+    return 'sections_json' in o || 'report_type' in o || 'title' in o;
   }
 
   // ─── Compliance Report Templates ─────────────────────────────────────────

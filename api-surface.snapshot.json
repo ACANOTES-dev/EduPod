@@ -2314,10 +2314,7 @@
     "path": "/v1/behaviour/tasks/:id/complete",
     "controller": "BehaviourTasksController",
     "module": "behaviour",
-    "permission": [
-      "behaviour.view",
-      "behaviour.manage"
-    ]
+    "permission": ["behaviour.view", "behaviour.manage"]
   },
   {
     "method": "GET",
@@ -2877,10 +2874,7 @@
     "path": "/v1/diary/:studentId/parent-notes",
     "controller": "HomeworkDiaryController",
     "module": "homework",
-    "permission": [
-      "homework.write_diary",
-      "parent.homework"
-    ]
+    "permission": ["homework.write_diary", "parent.homework"]
   },
   {
     "method": "PATCH",
@@ -7864,10 +7858,7 @@
     "path": "/v1/period-grid",
     "controller": "PeriodGridController",
     "module": "period-grid",
-    "permission": [
-      "schedule.configure_period_grid",
-      "schedule.view_own"
-    ]
+    "permission": ["schedule.configure_period_grid", "schedule.view_own"]
   },
   {
     "method": "POST",
@@ -9516,6 +9507,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/reports/board/history",
+    "controller": "ReportsEnhancedController",
+    "module": "reports",
+    "permission": "analytics.view_board_reports"
+  },
+  {
+    "method": "GET",
     "path": "/v1/reports/builder",
     "controller": "ReportsEnhancedController",
     "module": "reports",
@@ -9554,10 +9552,7 @@
     "path": "/v1/reports/builder/:reportId/execute",
     "controller": "ReportsEnhancedController",
     "module": "reports",
-    "permission": [
-      "analytics.manage_reports",
-      "reports.builder"
-    ]
+    "permission": ["analytics.manage_reports", "reports.builder"]
   },
   {
     "method": "DELETE",
@@ -9585,10 +9580,7 @@
     "path": "/v1/reports/builder/preview",
     "controller": "ReportsEnhancedController",
     "module": "reports",
-    "permission": [
-      "analytics.manage_reports",
-      "reports.builder"
-    ]
+    "permission": ["analytics.manage_reports", "reports.builder"]
   },
   {
     "method": "POST",

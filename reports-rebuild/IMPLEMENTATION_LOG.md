@@ -199,30 +199,30 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                 | Wave | Depends on     | Status       | Completed at                   | Commit SHA |
-| --- | ----------------------------------------------------- | ---- | -------------- | ------------ | ------------------------------ | ---------- |
-| 01  | Schema foundation                                     | 1    | —              | `completed`  | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
-| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed`  | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
-| 03  | KPI Dashboard Service                                 | 2    | 01             | `completed`  | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
-| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed`  | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
-| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `completed`  | 2026-04-24T20:35 Europe/Dublin | `03cd4297` |
-| 06  | Board Report aggregation                              | 2    | 01             | `🛑 blocked` |                                |            |
-| 07  | Compliance Report aggregation                         | 2    | 01             | `completed`  | 2026-04-24T21:46 Europe/Dublin | `89cb78f0` |
-| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `pending`    |                                |            |
-| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `pending`    |                                |            |
-| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `pending`    |                                |            |
-| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `pending`    |                                |            |
-| 12  | AI Predictions service                                | 3    | 01             | `pending`    |                                |            |
-| 13  | Report Sharing service                                | 3    | 01, 04         | `pending`    |                                |            |
-| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`    |                                |            |
-| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`    |                                |            |
-| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`    |                                |            |
-| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`    |                                |            |
-| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`    |                                |            |
-| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`    |                                |            |
-| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`    |                                |            |
-| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`    |                                |            |
-| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`    |                                |            |
+| #   | Title                                                 | Wave | Depends on     | Status      | Completed at                   | Commit SHA |
+| --- | ----------------------------------------------------- | ---- | -------------- | ----------- | ------------------------------ | ---------- |
+| 01  | Schema foundation                                     | 1    | —              | `completed` | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
+| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed` | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
+| 03  | KPI Dashboard Service                                 | 2    | 01             | `completed` | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
+| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed` | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
+| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `completed` | 2026-04-24T20:35 Europe/Dublin | `03cd4297` |
+| 06  | Board Report aggregation                              | 2    | 01             | `deploying` |                                |            |
+| 07  | Compliance Report aggregation                         | 2    | 01             | `completed` | 2026-04-24T21:46 Europe/Dublin | `89cb78f0` |
+| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `pending`   |                                |            |
+| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `pending`   |                                |            |
+| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `pending`   |                                |            |
+| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `pending`   |                                |            |
+| 12  | AI Predictions service                                | 3    | 01             | `pending`   |                                |            |
+| 13  | Report Sharing service                                | 3    | 01, 04         | `pending`   |                                |            |
+| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`   |                                |            |
+| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`   |                                |            |
+| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`   |                                |            |
+| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`   |                                |            |
+| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`   |                                |            |
+| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`   |                                |            |
+| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`   |                                |            |
+| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`   |                                |            |
+| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`   |                                |            |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
 
@@ -812,7 +812,7 @@ controller.ts` must claim it and ALL other sessions wait for
 - **Deployed to production:** yes — verified on `nhqs.edupod.app`:
   - `POST /v1/reports/compliance/generate` with
     `{academic_year_id: "<2025-2026 id>", fields: ["student_headcount",
-    "qualified_teachers_percent", "instruction_hours_held"]}` returns
+"qualified_teachers_percent", "instruction_hours_held"]}` returns
     real values: student_headcount=207, qualified_teachers_percent=null
     with `gap_reason: "qualification_field_not_yet_collected"`,
     instruction_hours_held=null with
@@ -840,7 +840,7 @@ controller.ts` must claim it and ALL other sessions wait for
   orchestrator `ComplianceGenerationService`, its co-located spec
   (20 cases), a focused per-aggregator spec (`aggregators.spec.ts`, 19
   cases), and `ComplianceReportController` exposing `POST /v1/reports/
-  compliance/generate` and `GET /v1/reports/compliance/history`.
+compliance/generate` and `GET /v1/reports/compliance/history`.
 
   New `compliance_report_generations` table (UUID + FORCE RLS policy,
   mirrored in `packages/prisma/rls/policies.sql`) + Prisma relations on
@@ -869,7 +869,7 @@ controller.ts` must claim it and ALL other sessions wait for
   - **Teacher-headcount gap path** on NHQS is triggered because staff
     there use job-title strings that don't match the curated list
     (`Teacher`, `Class Teacher`, `Subject Teacher`, `Head of
-    Department`, `SNA`, `Vice Principal`, `Deputy Principal`,
+Department`, `SNA`, `Vice Principal`, `Deputy Principal`,
     `Principal`). Either expand `TEACHER_JOB_TITLES` (if tenants add
     new titles) or add a proper `is_teacher`/`role` column to
     StaffProfile. Aligned with the staff-analytics convention — do
@@ -891,7 +891,7 @@ controller.ts` must claim it and ALL other sessions wait for
 
 - **Rollback:** `git revert 89cb78f0 e0a37ee6 fe1357e3 f288ce26 60bd8eb2 d1fae29f 9d10ecee`
   (reverse-chronological). Manual DB rollback: `DROP TABLE
-  compliance_report_generations CASCADE;` (no downstream FKs reference
+compliance_report_generations CASCADE;` (no downstream FKs reference
   it; cascade protects the relation-reverse side on Tenant / User).
   The `compliance.view` permission is pre-existing — no rollback
   needed there. The CI workflow bump is a standalone concern; reverting
@@ -901,24 +901,24 @@ controller.ts` must claim it and ALL other sessions wait for
 - **Session notes:**
   - Wave 2 parallel-edit chaos continues. Between my `git add` and
     my `git commit`, a sibling session re-added `export * from
-    './board-report'` to `packages/shared/src/reports/index.ts`
+'./board-report'` to `packages/shared/src/reports/index.ts`
     (impl 06's WIP), which ended up in my commit and broke CI
     because the `board-report.ts` file wasn't committed. Resolved by
     committing a placeholder `board-report.ts` (10 lines, `export
-    {}`) and a placeholder `board-report/sections/index.ts` with 8
+{}`) and a placeholder `board-report/sections/index.ts` with 8
     empty `@Injectable()` classes — impl 06 will replace these when
     their real implementation lands.
   - My commit `9d10ecee` also lost the `ComplianceReportController`
-    + `ComplianceGenerationService` registrations from
-    `reports.module.ts`. Discovered during production smoke — the
-    two endpoints returned 404 even though the files were committed.
-    `89cb78f0` re-applied the registration. Rule 18 + Rule 22 would
-    have caught this earlier if the pre-push type-check had been
-    run against a clean tree; the thrash prevented that.
+    - `ComplianceGenerationService` registrations from
+      `reports.module.ts`. Discovered during production smoke — the
+      two endpoints returned 404 even though the files were committed.
+      `89cb78f0` re-applied the registration. Rule 18 + Rule 22 would
+      have caught this earlier if the pre-push type-check had been
+      run against a clean tree; the thrash prevented that.
   - Production smoke on NHQS returns real numbers for all non-gap
-    fields: attendance_rate_annual is 99.89% (nearly perfect — NHQS
+    fields: attendance*rate_annual is 99.89% (nearly perfect — NHQS
     has very few marked sessions), chronic_absenteeism_count=0,
     fees_collected_ytd=$34,601.01, outstanding_balance_total=$48,400,
-    school_days_held=7 (only a week of data), teacher_absence_days_
+    school_days_held=7 (only a week of data), teacher_absence_days*
     uncovered=4. Gap fields honestly flag where the data isn't
     sourced yet — exactly the behaviour regulators should see.

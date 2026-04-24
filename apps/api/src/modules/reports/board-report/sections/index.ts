@@ -1,34 +1,16 @@
 /**
- * Placeholder section aggregators — impl 05 unblocks CI after impl 07's
- * commit (`9d10ecee`) landed imports to these classes without the file
- * tree they expected. Impl 06 (Board Report aggregation) owns the real
- * implementations and will replace this file when it lands.
- *
- * Each class is an empty `@Injectable()` so the NestJS DI graph resolves
- * without runtime errors. Methods will be added by impl 06.
+ * Barrel re-export for the Board Report aggregators (impl 06). Replaces
+ * the empty-class placeholder that impl 05 shipped to unblock CI.
+ * Importers pull everything from this file so individual aggregator
+ * files stay internal to the folder and can be re-organised without
+ * cascading import changes.
  */
-import { Injectable } from '@nestjs/common';
-
-@Injectable()
-export class AcademicSectionAggregator {}
-
-@Injectable()
-export class AttendanceSectionAggregator {}
-
-@Injectable()
-export class BehaviourSectionAggregator {}
-
-@Injectable()
-export class EnrolmentSectionAggregator {}
-
-@Injectable()
-export class ExecutiveSummarySectionAggregator {}
-
-@Injectable()
-export class FinanceSectionAggregator {}
-
-@Injectable()
-export class SafeguardingSectionAggregator {}
-
-@Injectable()
-export class StaffingSectionAggregator {}
+export * from './section-aggregator.types';
+export { ExecutiveSummarySectionAggregator } from './executive-summary.aggregator';
+export { EnrolmentSectionAggregator } from './enrolment.aggregator';
+export { AttendanceSectionAggregator } from './attendance.aggregator';
+export { AcademicSectionAggregator } from './academic.aggregator';
+export { BehaviourSectionAggregator } from './behaviour.aggregator';
+export { SafeguardingSectionAggregator } from './safeguarding.aggregator';
+export { FinanceSectionAggregator } from './finance.aggregator';
+export { StaffingSectionAggregator } from './staffing.aggregator';
