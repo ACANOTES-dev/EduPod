@@ -63,6 +63,28 @@ cleanup_build_outputs() {
   fi
 }
 
+# Curl-with-retry: try the URL up to `attempts` times, sleeping `delay`
+# seconds between attempts. Returns 0 the moment any attempt succeeds.
+# This lets slow-booting services (especially the NestJS worker after a
+# pm2 restart, which takes 8-15s on the production VM) clear the smoke
+# test instead of triggering an immediate auto-rollback.
+curl_with_retry() {
+  local url="$1"
+  local attempts="${2:-12}"
+  local delay="${3:-5}"
+  local n=1
+  while (( n <= attempts )); do
+    if curl -sf "$url" > /dev/null; then
+      return 0
+    fi
+    if (( n < attempts )); then
+      sleep "$delay"
+    fi
+    n=$((n + 1))
+  done
+  return 1
+}
+
 run_smoke_test() {
   local web_ok=0
   local api_ok=0
@@ -72,7 +94,7 @@ run_smoke_test() {
   local solver_ok=0
   local auth_status
 
-  if curl -sf "$SMOKE_WEB_URL" > /dev/null; then
+  if curl_with_retry "$SMOKE_WEB_URL" 12 5; then
     log 'WEB OK'
     web_ok=1
   else
@@ -82,7 +104,7 @@ run_smoke_test() {
     curl -I "$SMOKE_WEB_URL" || true
   fi
 
-  if curl -sf "$SMOKE_API_URL" > /dev/null; then
+  if curl_with_retry "$SMOKE_API_URL" 12 5; then
     log 'API OK'
     api_ok=1
   else
@@ -91,7 +113,7 @@ run_smoke_test() {
     run_as_pm2_user pm2 logs api --lines 80 --nostream || true
   fi
 
-  if curl -sf "$SMOKE_API_READY_URL" > /dev/null; then
+  if curl_with_retry "$SMOKE_API_READY_URL" 12 5; then
     log 'API READY OK'
     api_ready_ok=1
   else
@@ -99,7 +121,7 @@ run_smoke_test() {
     curl -I "$SMOKE_API_READY_URL" || true
   fi
 
-  if curl -sf "$SMOKE_WORKER_URL" > /dev/null; then
+  if curl_with_retry "$SMOKE_WORKER_URL" 12 5; then
     log 'WORKER OK'
     worker_ok=1
   else
@@ -116,7 +138,7 @@ run_smoke_test() {
   # as CP_SAT_UNREACHABLE. The omission of a solver health probe here
   # meant two-plus days of crashed runs passed deploy. Curl /health so
   # a dead sidecar fails the deploy.
-  if curl -sf "$SMOKE_SOLVER_URL" > /dev/null; then
+  if curl_with_retry "$SMOKE_SOLVER_URL" 12 5; then
     log 'SOLVER OK'
     solver_ok=1
   else
