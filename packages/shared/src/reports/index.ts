@@ -22,3 +22,4 @@ export * from './board-report';
 export * from './predictions';
 export * from './ask-ai';
 export * from './alerts';
+export * from './narration';

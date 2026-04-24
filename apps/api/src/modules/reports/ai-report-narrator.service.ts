@@ -1,136 +1,378 @@
+import { createHash } from 'crypto';
+
+import type Anthropic from '@anthropic-ai/sdk';
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 
-import { SYSTEM_USER_SENTINEL } from '@school/shared';
-import type { GdprOutboundData } from '@school/shared/gdpr';
-
 import { AnthropicClientService } from '../ai/anthropic-client.service';
-import { SettingsService } from '../configuration/settings.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
-import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { RedisService } from '../redis/redis.service';
 
+import {
+  buildDashboardPrompt,
+  buildReportPrompt,
+  buildSavedReportPrompt,
+  DASHBOARD_NARRATION_PROMPT_VERSION,
+  REPORT_NARRATION_PROMPT_VERSION,
+  SAVED_REPORT_NARRATION_PROMPT_VERSION,
+} from './ai-narration/prompts';
+import { CustomReportBuilderService } from './custom-report-builder.service';
+import { UnifiedDashboardService } from './unified-dashboard.service';
+
+// ─── Public response shape ──────────────────────────────────────────────────
+
+export interface NarrativeResponse {
+  narrative: string;
+  generated_at: string;
+  cache_hit: boolean;
+  /** Estimated USD cost — `undefined` on cache hit (no new spend). */
+  cost_usd_estimate?: number;
+}
+
+// ─── Tunables ────────────────────────────────────────────────────────────────
+
+const NARRATION_CACHE_TTL_SECONDS = 10 * 60; // 10 minutes per spec
+const NARRATION_AI_SERVICE = 'reports_narrator';
+const NARRATION_MODEL = 'claude-sonnet-4-6';
+
+/**
+ * Anthropic price sheet at impl-10 ship time. Source:
+ * https://www.anthropic.com/pricing#api (Sonnet 4.6).
+ *   - Input:  $3.00 per 1M tokens
+ *   - Output: $15.00 per 1M tokens
+ *
+ * Bumping the model means revisiting these constants — the cost column
+ * in `ai_processing_logs` is only as accurate as this table.
+ */
+const SONNET_PRICE_PER_M_INPUT_USD = 3;
+const SONNET_PRICE_PER_M_OUTPUT_USD = 15;
+
+const SAVED_REPORT_SAMPLE_SIZE = 10;
+
+// ─── Service ────────────────────────────────────────────────────────────────
+
+/**
+ * `AiReportNarratorService` produces three flavours of AI-written narrative:
+ *
+ *   - **Dashboard** (`narrateDashboard`): a 3-sentence "what changed this
+ *     week" summary over the 10-KPI dashboard payload from impl 03.
+ *   - **Report** (`narrateReport`): a 1-paragraph contextual explanation
+ *     of any individual domain report (attendance, grades, demographics,
+ *     etc).
+ *   - **Saved report** (`narrateSavedReport`): a 1-paragraph summary of
+ *     the result set produced by executing a custom-builder saved report
+ *     through the query engine.
+ *
+ * Every narration is cached for 10 minutes in Redis (key:
+ * `ai_narration:<tenant>:<feature>:<sha256(data + prompt_version)>`),
+ * audit-logged via `AiAuditService` (cache hits and misses both — cache
+ * hits log only the cache-key reference, cache misses log the full
+ * prompt summary + response summary + estimated cost), and protected by
+ * `@RequiresAiFlag('reports_narration')` at the controller level. The
+ * service itself does not consult the flag — the guard is the single
+ * source of truth so a flag toggle takes effect immediately on the next
+ * request without a service-cache to invalidate.
+ *
+ * On Anthropic / network failure the service throws `AI_UNAVAILABLE` —
+ * never a stub narrative. The user sees the error and retries.
+ */
 @Injectable()
 export class AiReportNarratorService {
   private readonly logger = new Logger(AiReportNarratorService.name);
-  private readonly CACHE_TTL = 3600; // 1 hour
 
   constructor(
-    private readonly settingsService: SettingsService,
     private readonly redis: RedisService,
-    private readonly gdprTokenService: GdprTokenService,
-    private readonly aiAuditService: AiAuditService,
-    private readonly anthropicClient: AnthropicClientService,
+    private readonly anthropic: AnthropicClientService,
+    private readonly aiAudit: AiAuditService,
+    private readonly customReportBuilder: CustomReportBuilderService,
+    private readonly unifiedDashboard: UnifiedDashboardService,
   ) {}
 
-  async generateNarrative(
-    tenantId: string,
-    data: Record<string, unknown>,
-    reportType: string,
-    userId?: string,
-  ): Promise<string> {
-    if (!this.anthropicClient.isConfigured) {
-      throw new ServiceUnavailableException({
-        error: {
-          code: 'AI_SERVICE_UNAVAILABLE',
-          message: 'AI narration is not configured. ANTHROPIC_API_KEY is not set.',
-        },
-      });
+  // ─── Dashboard ────────────────────────────────────────────────────────────
+
+  async narrateDashboard(tenantId: string, _userId: string): Promise<NarrativeResponse> {
+    this.assertConfigured();
+
+    // Fetch the live 10-KPI dashboard. Pass `refresh = false` so we ride
+    // on the dashboard's own 5-min cache — the narrative refreshes when
+    // the dashboard does, which is the right cadence per spec §6.1.
+    const dashboard = await this.unifiedDashboard.getKpiDashboard(tenantId);
+
+    const promptVersion = DASHBOARD_NARRATION_PROMPT_VERSION;
+    const prompt = buildDashboardPrompt(dashboard);
+    const cacheKey = this.cacheKey(tenantId, 'dashboard', prompt, promptVersion);
+
+    const cached = await this.readCache(cacheKey);
+    if (cached) {
+      await this.auditCacheHit(tenantId, 'dashboard', cacheKey);
+      return { ...cached, cache_hit: true };
     }
 
-    const settings = await this.settingsService.getSettings(tenantId);
-    if (!settings.ai.reportNarrationEnabled) {
-      throw new ServiceUnavailableException({
-        error: {
-          code: 'AI_FEATURE_DISABLED',
-          message: 'This feature requires opt-in. Enable it in Settings > AI Features.',
-        },
-      });
-    }
-
-    // GDPR audit trail for AI data processing
-    await this.gdprTokenService.processOutbound(
+    const result = await this.callAndAudit({
       tenantId,
-      'ai_report_narrator',
-      { entities: [], entityCount: 0 } as GdprOutboundData,
-      userId ?? SYSTEM_USER_SENTINEL,
+      subjectType: 'dashboard',
+      subjectId: null,
+      prompt,
+      maxTokens: 320,
+    });
+
+    await this.writeCache(cacheKey, result);
+    return result;
+  }
+
+  // ─── Single report ────────────────────────────────────────────────────────
+
+  async narrateReport(
+    tenantId: string,
+    _userId: string,
+    reportKey: string,
+    data: unknown,
+  ): Promise<NarrativeResponse> {
+    this.assertConfigured();
+
+    const promptVersion = REPORT_NARRATION_PROMPT_VERSION;
+    const prompt = buildReportPrompt(reportKey, data);
+    const cacheKey = this.cacheKey(
+      tenantId,
+      `report:${reportKey}`,
+      prompt,
+      promptVersion,
     );
 
-    // Cache key based on report type + data hash
-    const cacheKey = `ai_narrative:${reportType}:${this.hashData(data)}`;
-    const client = this.redis.getClient();
+    const cached = await this.readCache(cacheKey);
+    if (cached) {
+      await this.auditCacheHit(tenantId, `report:${reportKey}`, cacheKey);
+      return { ...cached, cache_hit: true };
+    }
 
-    const cached = await client.get(cacheKey);
-    if (cached) return cached;
-
-    const prompt = this.buildNarrativePrompt(data, reportType);
-
-    const startTime = Date.now();
-    const response = await this.anthropicClient.createMessage({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 500,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    });
-    const elapsed = Date.now() - startTime;
-
-    const content = response.content.find((c) => c.type === 'text');
-    const narrative = content?.type === 'text' ? content.text : 'No narrative generated.';
-
-    await this.aiAuditService.log({
+    const result = await this.callAndAudit({
       tenantId,
-      aiService: 'ai_report_narrator',
-      subjectType: null,
+      subjectType: 'report',
       subjectId: null,
-      modelUsed: 'claude-sonnet-4-6',
-      promptHash: AiAuditService.hashPrompt(prompt),
-      promptSummary: AiAuditService.truncate(prompt, 500),
-      responseSummary: AiAuditService.truncate(narrative, 500),
-      inputDataCategories: ['report_data'],
-      tokenised: true,
-      processingTimeMs: elapsed,
+      prompt,
+      maxTokens: 420,
     });
 
-    await client.setex(cacheKey, this.CACHE_TTL, narrative);
-
-    return narrative;
+    await this.writeCache(cacheKey, result);
+    return result;
   }
 
-  private buildNarrativePrompt(data: Record<string, unknown>, reportType: string): string {
-    const dataStr = JSON.stringify(data, null, 2);
+  // ─── Saved (custom-builder) report ────────────────────────────────────────
 
-    switch (reportType) {
-      case 'attendance':
-        return `You are a school analytics assistant. Based on the following attendance data, write a 3-5 sentence plain-language narrative summary for school administrators. Focus on key findings, trends, and any concerns.\n\nData:\n${dataStr}\n\nWrite only the narrative, no headers or bullet points.`;
+  async narrateSavedReport(
+    tenantId: string,
+    userId: string,
+    permissions: string[],
+    savedReportId: string,
+  ): Promise<NarrativeResponse> {
+    this.assertConfigured();
 
-      case 'grades':
-        return `You are a school analytics assistant. Based on the following grade analytics data, write a 3-5 sentence plain-language narrative summary. Highlight performance trends, subject challenges, and notable achievements.\n\nData:\n${dataStr}\n\nWrite only the narrative.`;
+    // Resolve the saved report's name (used in the prompt) and execute its
+    // query through the builder service so the engine's RLS, permission,
+    // row-cap, and timeout guardrails apply uniformly.
+    const savedReport = await this.customReportBuilder.getSavedReport(tenantId, savedReportId);
+    const execution = await this.customReportBuilder.executeReport(
+      tenantId,
+      userId,
+      permissions,
+      savedReportId,
+      1,
+      SAVED_REPORT_SAMPLE_SIZE,
+    );
 
-      case 'board_report':
-        return `You are a school executive assistant. Based on the following KPI snapshot, write a concise executive summary (4-6 sentences) suitable for a school board report. Cover enrolment, academic performance, financial health, and any areas of concern.\n\nData:\n${dataStr}\n\nWrite only the executive summary.`;
+    const promptVersion = SAVED_REPORT_NARRATION_PROMPT_VERSION;
+    const prompt = buildSavedReportPrompt({
+      reportName: savedReport.name,
+      subjectLabel: savedReport.data_source,
+      columns: execution.columns,
+      rowCount: execution.meta.row_count,
+      sampleRows: execution.rows,
+    });
+    const cacheKey = this.cacheKey(
+      tenantId,
+      `saved:${savedReportId}`,
+      prompt,
+      promptVersion,
+    );
 
-      case 'admissions':
-        return `You are a school analytics assistant. Based on the following admissions funnel data, write a 3-5 sentence summary highlighting application volumes, conversion rates, and pipeline health.\n\nData:\n${dataStr}\n\nWrite only the narrative.`;
+    const cached = await this.readCache(cacheKey);
+    if (cached) {
+      await this.auditCacheHit(tenantId, `saved:${savedReportId}`, cacheKey);
+      return { ...cached, cache_hit: true };
+    }
 
-      case 'demographics':
-        return `You are a school analytics assistant. Based on the following student demographics data, write a 3-5 sentence summary covering the school's student population composition and any notable patterns.\n\nData:\n${dataStr}\n\nWrite only the narrative.`;
+    const result = await this.callAndAudit({
+      tenantId,
+      subjectType: 'saved_report',
+      subjectId: savedReportId,
+      prompt,
+      maxTokens: 520,
+    });
 
-      default:
-        return `You are a school analytics assistant. Based on the following report data, write a 3-5 sentence plain-language narrative summary for school administrators.\n\nReport type: ${reportType}\n\nData:\n${dataStr}\n\nWrite only the narrative.`;
+    await this.writeCache(cacheKey, result);
+    return result;
+  }
+
+  // ─── Internals: cache key, Redis, Anthropic ──────────────────────────────
+
+  private assertConfigured(): void {
+    if (!this.anthropic.isConfigured) {
+      // ANTHROPIC_API_KEY missing on this environment. The guard already
+      // gated on the tenant's flag; if we got here the platform is
+      // misconfigured. Surface the friendly user-facing error code.
+      throw new ServiceUnavailableException({
+        code: 'AI_UNAVAILABLE',
+        message: 'AI narration is temporarily unavailable. Please try again in a moment.',
+      });
     }
   }
 
-  private hashData(data: Record<string, unknown>): string {
-    const str = JSON.stringify(data);
-    let hash = 0;
-    for (let i = 0; i < Math.min(str.length, 200); i++) {
-      const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash |= 0;
-    }
-    return Math.abs(hash).toString(16);
+  /**
+   * Stable cache key. The hash includes the full prompt (which already
+   * embeds the dashboard / report / saved-report data) plus the
+   * monotonic prompt version so a prompt edit invalidates old caches.
+   */
+  private cacheKey(
+    tenantId: string,
+    feature: string,
+    prompt: string,
+    promptVersion: number,
+  ): string {
+    const dataHash = createHash('sha256')
+      .update(`${prompt}::v${promptVersion}`)
+      .digest('hex')
+      .slice(0, 32);
+    return `ai_narration:${tenantId}:${feature}:${dataHash}`;
   }
+
+  private async readCache(key: string): Promise<NarrativeResponse | null> {
+    try {
+      const raw = await this.redis.getClient().get(key);
+      if (!raw) return null;
+      return JSON.parse(raw) as NarrativeResponse;
+    } catch (err) {
+      this.logger.warn(`[ai-narration] cache read failed for "${key}": ${(err as Error).message}`);
+      return null;
+    }
+  }
+
+  private async writeCache(key: string, payload: NarrativeResponse): Promise<void> {
+    try {
+      await this.redis
+        .getClient()
+        .setex(key, NARRATION_CACHE_TTL_SECONDS, JSON.stringify(payload));
+    } catch (err) {
+      this.logger.warn(`[ai-narration] cache write failed for "${key}": ${(err as Error).message}`);
+    }
+  }
+
+  /**
+   * Run the Anthropic call inside a try/catch and then write the audit row
+   * regardless of success — auditing must not throw (handled by
+   * `AiAuditService.log`). On Anthropic failure: bubble `AI_UNAVAILABLE`.
+   */
+  private async callAndAudit(args: {
+    tenantId: string;
+    subjectType: string;
+    subjectId: string | null;
+    prompt: string;
+    maxTokens: number;
+  }): Promise<NarrativeResponse> {
+    const { tenantId, subjectType, subjectId, prompt, maxTokens } = args;
+
+    let response: Anthropic.Message;
+    const startedAt = Date.now();
+    try {
+      response = await this.anthropic.createMessage({
+        model: NARRATION_MODEL,
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: prompt }],
+      });
+    } catch (err) {
+      this.logger.error(
+        `[ai-narration] Anthropic call failed for tenant=${tenantId} subject=${subjectType}: ${(err as Error).message}`,
+      );
+      throw new ServiceUnavailableException({
+        code: 'AI_UNAVAILABLE',
+        message: 'AI narration is temporarily unavailable. Please try again in a moment.',
+      });
+    }
+    const elapsed = Date.now() - startedAt;
+
+    const narrative = extractText(response);
+    const costUsdEstimate = estimateCost(response);
+    const generatedAt = new Date().toISOString();
+
+    // Cache-miss audit row carries the full prompt summary (truncated)
+    // and the full response summary, so future retrieval can review what
+    // the model actually said.
+    await this.aiAudit.log({
+      tenantId,
+      aiService: NARRATION_AI_SERVICE,
+      subjectType,
+      subjectId,
+      modelUsed: NARRATION_MODEL,
+      promptHash: AiAuditService.hashPrompt(prompt),
+      promptSummary: AiAuditService.truncate(prompt, 1000),
+      responseSummary: AiAuditService.truncate(narrative, 1000),
+      inputDataCategories: ['report_data'],
+      tokenised: false,
+      processingTimeMs: elapsed,
+      costUsdEstimate,
+    });
+
+    return {
+      narrative,
+      generated_at: generatedAt,
+      cache_hit: false,
+      cost_usd_estimate: costUsdEstimate,
+    };
+  }
+
+  /**
+   * Cache-hit audit row — only stores the cache key reference, not the
+   * full prompt/response (we already wrote those when the entry was
+   * created). Keeps the audit complete without blob duplication.
+   */
+  private async auditCacheHit(
+    tenantId: string,
+    subjectType: string,
+    cacheKey: string,
+  ): Promise<void> {
+    await this.aiAudit.log({
+      tenantId,
+      aiService: NARRATION_AI_SERVICE,
+      subjectType,
+      subjectId: null,
+      modelUsed: NARRATION_MODEL,
+      promptHash: '',
+      promptSummary: `[cache hit] ${cacheKey}`,
+      responseSummary: '[cache hit — see prior log entry for content]',
+      inputDataCategories: ['report_data'],
+      tokenised: false,
+      processingTimeMs: 0,
+      costUsdEstimate: null,
+    });
+  }
+}
+
+// ─── Helpers (exported for unit tests) ──────────────────────────────────────
+
+export function extractText(response: Anthropic.Message): string {
+  const textBlock = response.content.find((b) => b.type === 'text');
+  if (textBlock?.type !== 'text') return '';
+  return textBlock.text.trim();
+}
+
+/**
+ * Estimate USD spend from input/output token counts. Returns 0 when the
+ * Anthropic SDK didn't surface usage (older mocks, errors). Decimal
+ * precision matches the schema column (`NUMERIC(10,6)`).
+ */
+export function estimateCost(response: Anthropic.Message): number {
+  const inputTokens = response.usage?.input_tokens ?? 0;
+  const outputTokens = response.usage?.output_tokens ?? 0;
+  const inputCost = (inputTokens / 1_000_000) * SONNET_PRICE_PER_M_INPUT_USD;
+  const outputCost = (outputTokens / 1_000_000) * SONNET_PRICE_PER_M_OUTPUT_USD;
+  // Round to 6 decimals to fit `NUMERIC(10,6)` and avoid float drift.
+  return Math.round((inputCost + outputCost) * 1_000_000) / 1_000_000;
 }

@@ -125,7 +125,7 @@ If a module is not listed individually, it is either:
 
 - **Contract**: cross-domain analytics aggregation
 - **Primary consumers**: dashboard, board reporting, workload/leadership reporting, compliance-style exports
-- **Imports**: AdmissionsModule, SchedulesModule
+- **Imports**: AdmissionsModule, SchedulesModule, AiFlagsModule (impl 10 — gates the three reports AI features `reports_narration`, `reports_ask_ai`, `reports_predictions` via `@RequiresAiFlag(...)`)
 - **Blast radius**: MEDIUM-HIGH
 - **Notes**: this module is where table-shape changes surface after features seem to work elsewhere
 

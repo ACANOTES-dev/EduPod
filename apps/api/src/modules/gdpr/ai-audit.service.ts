@@ -21,6 +21,12 @@ export interface CreateAiLogDto {
   tokenUsageLogId?: string | null;
   confidenceScore?: number | null;
   processingTimeMs: number;
+  /**
+   * Estimated USD cost of the AI call computed from token counts and the
+   * Anthropic price sheet at call time. NULL is the default — leave unset
+   * for cache hits or pre-impl-10 callers. Stored as `NUMERIC(10,6)`.
+   */
+  costUsdEstimate?: number | null;
 }
 
 export interface AiDecisionDto {
@@ -78,6 +84,7 @@ export class AiAuditService {
             token_usage_log_id: entry.tokenUsageLogId ?? null,
             confidence_score: entry.confidenceScore ?? null,
             processing_time_ms: entry.processingTimeMs,
+            cost_usd_estimate: entry.costUsdEstimate ?? null,
           },
           select: { id: true },
         });

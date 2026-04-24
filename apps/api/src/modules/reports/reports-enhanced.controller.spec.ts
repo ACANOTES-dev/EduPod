@@ -131,7 +131,14 @@ const mockReportAlerts = {
   update: jest.fn(),
   delete: jest.fn(),
 };
-const mockAiNarrator = { generateNarrative: jest.fn() };
+const mockAiNarrator = {
+  // impl 10: legacy `generateNarrative` is gone — three named entry points
+  // replace it. Tests for the legacy `POST /v1/reports/ai/narrate` alias
+  // still cover one of them (`narrateReport`).
+  narrateDashboard: jest.fn(),
+  narrateReport: jest.fn(),
+  narrateSavedReport: jest.fn(),
+};
 const mockAiPredictions = { predictTrend: jest.fn() };
 const mockReportExport = { generateFormattedExcel: jest.fn() };
 const mockQueryEngine = { execute: jest.fn() };
@@ -335,18 +342,88 @@ describe('ReportsEnhancedController', () => {
 
   // ─── AI Endpoints ─────────────────────────────────────────────────────────
 
-  it('should call aiNarrator.generateNarrative and return narrative string', async () => {
-    mockAiNarrator.generateNarrative.mockResolvedValue('Attendance is improving.');
+  it('aiNarrateDashboard delegates to aiNarrator.narrateDashboard', async () => {
+    const payload = {
+      narrative: 'KPIs are stable.',
+      generated_at: '2026-04-24T20:05:00.000Z',
+      cache_hit: false,
+      cost_usd_estimate: 0.0042,
+    };
+    mockAiNarrator.narrateDashboard.mockResolvedValue(payload);
+
+    const result = await controller.aiNarrateDashboard(tenantContext, userPayload, {});
+
+    expect(mockAiNarrator.narrateDashboard).toHaveBeenCalledWith(TENANT_ID, USER_ID);
+    expect(result).toEqual(payload);
+  });
+
+  it('aiNarrateReport delegates to aiNarrator.narrateReport with reportKey + body data', async () => {
+    const payload = {
+      narrative: 'Attendance is improving.',
+      generated_at: '2026-04-24T20:05:00.000Z',
+      cache_hit: false,
+      cost_usd_estimate: 0.0021,
+    };
+    mockAiNarrator.narrateReport.mockResolvedValue(payload);
+
+    const result = await controller.aiNarrateReport(tenantContext, userPayload, 'attendance', {
+      data: { attendance_rate: 85 },
+    });
+
+    expect(mockAiNarrator.narrateReport).toHaveBeenCalledWith(TENANT_ID, USER_ID, 'attendance', {
+      attendance_rate: 85,
+    });
+    expect(result).toEqual(payload);
+  });
+
+  it('aiNarrateSavedReport resolves builder permissions and delegates to narrateSavedReport', async () => {
+    const SAVED_ID = '33333333-3333-3333-3333-333333333333';
+    const payload = {
+      narrative: 'The report lists 42 students with outstanding balances.',
+      generated_at: '2026-04-24T20:05:00.000Z',
+      cache_hit: false,
+      cost_usd_estimate: 0.0064,
+    };
+    mockAiNarrator.narrateSavedReport.mockResolvedValue(payload);
+    mockPermissionCache.getPermissions.mockResolvedValue(['analytics.view']);
+    mockPermissionCache.isOwner.mockResolvedValue(false);
+
+    const userWithMembership = { ...userPayload, membership_id: 'mem-1' };
+    const result = await controller.aiNarrateSavedReport(
+      tenantContext,
+      userWithMembership,
+      SAVED_ID,
+      {},
+    );
+
+    expect(mockAiNarrator.narrateSavedReport).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      ['analytics.view'],
+      SAVED_ID,
+    );
+    expect(result).toEqual(payload);
+  });
+
+  it('aiNarrate (legacy) routes to narrateReport with body.report_type as the path key', async () => {
+    const payload = {
+      narrative: 'Legacy alias narrative.',
+      generated_at: '2026-04-24T20:05:00.000Z',
+      cache_hit: false,
+      cost_usd_estimate: 0.001,
+    };
+    mockAiNarrator.narrateReport.mockResolvedValue(payload);
 
     const body = { data: { attendance_rate: 85 }, report_type: 'attendance' };
-    const result = await controller.aiNarrate(tenantContext, body);
+    const result = await controller.aiNarrate(tenantContext, userPayload, body);
 
-    expect(mockAiNarrator.generateNarrative).toHaveBeenCalledWith(
+    expect(mockAiNarrator.narrateReport).toHaveBeenCalledWith(
       TENANT_ID,
-      { attendance_rate: 85 },
+      USER_ID,
       'attendance',
+      { attendance_rate: 85 },
     );
-    expect(result).toBe('Attendance is improving.');
+    expect(result).toEqual(payload);
   });
 
   it('should call aiPredictions.predictTrend with historical data and report type', async () => {

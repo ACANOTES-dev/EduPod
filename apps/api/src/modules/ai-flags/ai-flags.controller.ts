@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import { z } from 'zod';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
+import { reportsAiModuleKeySchema } from '@school/shared/reports';
 import { updateTenantAiFlagSchema, wellbeingAiModuleKeySchema } from '@school/shared/wellbeing';
-import type { UpdateTenantAiFlagDto, WellbeingAiModuleKey } from '@school/shared/wellbeing';
+import type { UpdateTenantAiFlagDto } from '@school/shared/wellbeing';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -11,9 +13,9 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
-import { AiFlagsService } from './ai-flags.service';
+import { AiFlagsService, type AiModuleKey } from './ai-flags.service';
 
-const moduleKeyParamSchema = wellbeingAiModuleKeySchema;
+const moduleKeyParamSchema = z.union([wellbeingAiModuleKeySchema, reportsAiModuleKeySchema]);
 
 @Controller('v1/ai-flags')
 @UseGuards(AuthGuard, PermissionGuard)
@@ -33,7 +35,7 @@ export class AiFlagsController {
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
     @Param('moduleKey', new ZodValidationPipe(moduleKeyParamSchema))
-    moduleKey: WellbeingAiModuleKey,
+    moduleKey: AiModuleKey,
     @Body(new ZodValidationPipe(updateTenantAiFlagSchema.pick({ enabled: true })))
     body: Pick<UpdateTenantAiFlagDto, 'enabled'>,
   ) {
