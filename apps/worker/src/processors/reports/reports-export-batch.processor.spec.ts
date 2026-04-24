@@ -2,21 +2,36 @@ import type { PrismaClient } from '@prisma/client';
 import type { Job } from 'bullmq';
 
 import {
+  REPORTS_ALERT_EVALUATE_JOB,
+  REPORTS_ALERT_EVALUATE_TENANT_JOB,
+  type ReportAlertsHandler,
+} from './report-alerts.processor';
+import {
   REPORTS_EXPORT_BATCH_JOB,
+  ReportsExportBatchHandler,
   ReportsExportBatchProcessor,
   type ReportsExportBatchPayload,
 } from './reports-export-batch.processor';
+import {
+  REPORTS_SCHEDULED_DELIVER_JOB,
+  type ScheduledReportsDeliverProcessor,
+} from './scheduled-reports-deliver.processor';
+import {
+  REPORTS_SCHEDULED_RUN_JOB,
+  type ScheduledReportsTickProcessor,
+} from './scheduled-reports-tick.processor';
 
 const TENANT_ID = '11111111-1111-1111-1111-111111111111';
 const USER_ID = '22222222-2222-2222-2222-222222222222';
 const REPORT_ID = '33333333-3333-3333-3333-333333333333';
 
-function buildJob(
+function buildExportJob(
   name: string,
-  data: Partial<ReportsExportBatchPayload>,
+  data: Partial<ReportsExportBatchPayload> = {},
 ): Job<ReportsExportBatchPayload> {
   return {
     name,
+    id: 'job-1',
     data: {
       tenant_id: TENANT_ID,
       user_id: USER_ID,
@@ -28,14 +43,12 @@ function buildJob(
   } as unknown as Job<ReportsExportBatchPayload>;
 }
 
+function buildBareJob(name: string): Job {
+  return { name, id: `job-${name}`, data: {} } as unknown as Job;
+}
+
 function buildPrisma(): PrismaClient {
-  // TenantAwareJob wraps processJob in $transaction and calls
-  // set_config('app.current_tenant_id') / set_config('app.current_user_id')
-  // inside the transaction; mimic that here so the processor's execute() path
-  // runs end-to-end without hitting a real DB.
-  const tx = {
-    $executeRaw: jest.fn().mockResolvedValue(1),
-  };
+  const tx = { $executeRaw: jest.fn().mockResolvedValue(1) };
   return {
     $transaction: jest
       .fn()
@@ -43,35 +56,113 @@ function buildPrisma(): PrismaClient {
   } as unknown as PrismaClient;
 }
 
-describe('ReportsExportBatchProcessor', () => {
-  let processor: ReportsExportBatchProcessor;
+describe('ReportsExportBatchHandler', () => {
+  let handler: ReportsExportBatchHandler;
   let prisma: PrismaClient;
 
   beforeEach(() => {
     prisma = buildPrisma();
-    processor = new ReportsExportBatchProcessor(prisma);
+    handler = new ReportsExportBatchHandler(prisma);
   });
 
+  afterEach(() => jest.clearAllMocks());
+
   it('ignores jobs with a different name (shared REPORTS queue)', async () => {
-    const job = buildJob('reports:scheduled-run', {});
-    await processor.process(job);
+    const job = buildExportJob(REPORTS_SCHEDULED_RUN_JOB);
+    await handler.process(job);
     expect(job.updateProgress).not.toHaveBeenCalled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('rejects jobs missing tenant_id', async () => {
-    const job = buildJob(REPORTS_EXPORT_BATCH_JOB, {
+    const job = buildExportJob(REPORTS_EXPORT_BATCH_JOB, {
       tenant_id: '' as unknown as string,
     });
-    await expect(processor.process(job)).rejects.toThrow(/tenant_id/);
+    await expect(handler.process(job)).rejects.toThrow(/tenant_id/);
   });
 
   it('runs the TenantAwareJob pipeline for valid payloads and completes', async () => {
-    const job = buildJob(REPORTS_EXPORT_BATCH_JOB, {});
-    await processor.process(job);
-    // TenantAwareJob opens a $transaction; the stub processJob body returns
-    // cleanly so the processor updates progress to 100.
+    const job = buildExportJob(REPORTS_EXPORT_BATCH_JOB);
+    await handler.process(job);
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(job.updateProgress).toHaveBeenCalledWith(100);
+  });
+});
+
+describe('ReportsExportBatchProcessor (dispatcher)', () => {
+  let dispatcher: ReportsExportBatchProcessor;
+  let exportBatch: jest.Mocked<Pick<ReportsExportBatchHandler, 'process'>>;
+  let scheduledTick: jest.Mocked<Pick<ScheduledReportsTickProcessor, 'process'>>;
+  let scheduledDeliver: jest.Mocked<Pick<ScheduledReportsDeliverProcessor, 'process'>>;
+  let alertsHandler: jest.Mocked<Pick<ReportAlertsHandler, 'process'>>;
+
+  beforeEach(() => {
+    exportBatch = { process: jest.fn().mockResolvedValue(undefined) };
+    scheduledTick = { process: jest.fn().mockResolvedValue(undefined) };
+    scheduledDeliver = { process: jest.fn().mockResolvedValue(undefined) };
+    alertsHandler = { process: jest.fn().mockResolvedValue(undefined) };
+    dispatcher = new ReportsExportBatchProcessor(
+      exportBatch as unknown as ReportsExportBatchHandler,
+      scheduledTick as unknown as ScheduledReportsTickProcessor,
+      scheduledDeliver as unknown as ScheduledReportsDeliverProcessor,
+      alertsHandler as unknown as ReportAlertsHandler,
+    );
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('routes export-batch jobs to the export-batch handler', async () => {
+    const job = buildExportJob(REPORTS_EXPORT_BATCH_JOB);
+    await dispatcher.process(job);
+    expect(exportBatch.process).toHaveBeenCalledTimes(1);
+    expect(scheduledTick.process).not.toHaveBeenCalled();
+    expect(scheduledDeliver.process).not.toHaveBeenCalled();
+    expect(alertsHandler.process).not.toHaveBeenCalled();
+  });
+
+  it('routes alert-evaluate jobs to the alerts handler', async () => {
+    const job = buildBareJob(REPORTS_ALERT_EVALUATE_JOB);
+    await dispatcher.process(job);
+    expect(alertsHandler.process).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes alert-evaluate-tenant jobs to the alerts handler', async () => {
+    const job = buildBareJob(REPORTS_ALERT_EVALUATE_TENANT_JOB);
+    await dispatcher.process(job);
+    expect(alertsHandler.process).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes scheduled-run jobs to the tick handler', async () => {
+    const job = buildBareJob(REPORTS_SCHEDULED_RUN_JOB);
+    await dispatcher.process(job);
+    expect(scheduledTick.process).toHaveBeenCalledTimes(1);
+    expect(exportBatch.process).not.toHaveBeenCalled();
+    expect(scheduledDeliver.process).not.toHaveBeenCalled();
+  });
+
+  it('routes scheduled-deliver jobs to the deliver handler', async () => {
+    const job = buildBareJob(REPORTS_SCHEDULED_DELIVER_JOB);
+    await dispatcher.process(job);
+    expect(scheduledDeliver.process).toHaveBeenCalledTimes(1);
+    expect(scheduledTick.process).not.toHaveBeenCalled();
+    expect(exportBatch.process).not.toHaveBeenCalled();
+  });
+
+  it('silently swallows monitoring canary jobs without warning', async () => {
+    const warnSpy = jest.spyOn(dispatcher['logger'], 'warn').mockImplementation();
+    const job = buildBareJob('monitoring:canary-echo');
+    await dispatcher.process(job);
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('logs and ignores unknown job names', async () => {
+    const warnSpy = jest.spyOn(dispatcher['logger'], 'warn').mockImplementation();
+    const job = buildBareJob('reports:totally-unknown');
+    await dispatcher.process(job);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('reports:totally-unknown'),
+    );
+    warnSpy.mockRestore();
   });
 });

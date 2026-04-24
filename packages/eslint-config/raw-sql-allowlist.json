@@ -248,6 +248,12 @@
       "reason": "Per-test tenant fixture teardown: DELETE FROM tenants cascades to all tenant-scoped children; session_replication_role = replica toggles off append-only triggers on pastoral_events, pastoral_concern_versions, audit_logs so the cascade completes"
     },
     {
+      "file": "apps/worker/src/processors/reports/scheduled-reports-deliver.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "Worker RLS context-setting via set_config() — same split-tx pattern as dispatch-notifications.processor (Phase 1 read inside RLS tx, Phase 2 external IO outside, Phase 3 finalise inside RLS tx). The S3 upload + Resend email must NOT hold a PgBouncer connection; tagged template, tenant_id is validated UUID via TenantAwareJob base."
+    },
+    {
       "file": "apps/worker/src/processors/communications/dispatch-notifications.processor.ts",
       "methods": ["$executeRaw"],
       "category": "rls-infrastructure",

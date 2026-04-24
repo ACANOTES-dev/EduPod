@@ -124,6 +124,12 @@ import { RegulatoryPpodSyncProcessor } from './processors/regulatory/ppod-sync.p
 import { RegulatoryQueueDispatcher } from './processors/regulatory/regulatory-queue.processor';
 import { RegulatoryTuslaThresholdScanProcessor } from './processors/regulatory/tusla-threshold-scan.processor';
 import { REPORT_CARD_RENDERER_TOKEN } from './processors/report-card-render.contract';
+import {
+  ReportsExportBatchHandler,
+  ReportsExportBatchProcessor,
+} from './processors/reports/reports-export-batch.processor';
+import { ScheduledReportsDeliverProcessor } from './processors/reports/scheduled-reports-deliver.processor';
+import { ScheduledReportsTickProcessor } from './processors/reports/scheduled-reports-tick.processor';
 import { AttachmentScanProcessor } from './processors/safeguarding/attachment-scan.processor';
 import { BreakGlassExpiryProcessor } from './processors/safeguarding/break-glass-expiry.processor';
 import { CriticalEscalationProcessor } from './processors/safeguarding/critical-escalation.processor';
@@ -564,6 +570,11 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     ExpirePendingProcessor,
     GenerateEventInvoicesProcessor,
     GenerateTripPackProcessor,
+    // Reports queue handlers — routed via the ReportsExportBatchProcessor
+    // dispatcher (the sole `@Processor(REPORTS)` class).
+    ReportsExportBatchHandler,
+    ScheduledReportsTickProcessor,
+    ScheduledReportsDeliverProcessor,
     // Staff Wellbeing queue processors
     ModerationScanProcessor,
     SurveyOpenNotifyProcessor,
@@ -586,6 +597,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     PastoralQueueDispatcher,
     PayrollQueueDispatcher,
     RegulatoryQueueDispatcher,
+    ReportsExportBatchProcessor,
     SafeguardingQueueDispatcher,
     SearchSyncQueueDispatcher,
     SecurityQueueDispatcher,

@@ -210,11 +210,11 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `completed` | 2026-04-24T20:35 Europe/Dublin | `03cd4297` |
 | 06  | Board Report aggregation                              | 2    | 01             | `completed` | 2026-04-24T22:28 Europe/Dublin | `d1876454` |
 | 07  | Compliance Report aggregation                         | 2    | 01             | `completed` | 2026-04-24T21:46 Europe/Dublin | `89cb78f0` |
-| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `pending`   |                                |            |
-| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `pending`   |                                |            |
-| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `pending`   |                                |            |
-| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `pending`   |                                |            |
-| 12  | AI Predictions service                                | 3    | 01             | `pending`   |                                |            |
+| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `deploying` |                                |            |
+| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `in-progress` |                                |            |
+| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `deploying`   |                                |            |
+| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `in-progress` |                                |            |
+| 12  | AI Predictions service                                | 3    | 01             | `in-progress` |                                |            |
 | 13  | Report Sharing service                                | 3    | 01, 04         | `pending`   |                                |            |
 | 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`   |                                |            |
 | 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`   |                                |            |
@@ -1051,3 +1051,97 @@ compliance_report_generations CASCADE;` (no downstream FKs reference
   - API-surface snapshot was regenerated (`pnpm -w run snapshot:api`)
     to add the `GET /v1/reports/board/history` route; snapshot test
     passes.
+
+### [WAVE 3 SHARED-FILE CLAIM] — impl 09
+
+- Claims (surgical, region-scoped):
+  - `apps/api/src/modules/reports/report-alerts.service.ts` — REWRITE
+    (`getMetricValue` + `checkThresholds` + new evaluator entry point);
+    no sibling impl in Wave 3 needs this file.
+  - `apps/api/src/modules/reports/report-alerts.service.spec.ts` —
+    REWRITE alongside the service (legacy `getMetricValue` cases retire,
+    new metric-registry cases land).
+  - `apps/api/src/modules/reports/reports.module.ts` — APPEND-ONLY
+    additions to register `ReportAlertEvaluatorService`. Will not
+    reorder providers/imports/exports. Sharing this file with impls 08
+    / 10 / 11 / 12; my edits land at the end of the providers list.
+  - `apps/worker/src/worker.module.ts` — APPEND-ONLY: register
+    `ReportAlertsProcessor` (and `ReportsExportBatchProcessor` if it's
+    not already there — IMPL 04's record claimed it landed but the file
+    has no reference to it). Will not touch other modules' wiring.
+  - `apps/worker/src/cron/cron-scheduler.service.ts` — APPEND-ONLY:
+    inject the REPORTS queue and add `registerReportsCronJobs()` in a
+    new region. Sharing with impl 08 (scheduled-reports cron); both
+    impls will register on the same queue, so the second impl to commit
+    will need to fold in the first impl's `@InjectQueue(QUEUE_NAMES.REPORTS)`
+    constructor entry rather than duplicate.
+  - `packages/shared/src/reports/index.ts` — APPEND-ONLY: new
+    `export * from './alerts'` line.
+- Explicitly **not** touching `reports-enhanced.controller.ts` /
+  `reports-enhanced.controller.spec.ts` — the alerts CRUD + history
+  routes already exist on the controller from earlier impls. Rule 21
+  conflict avoided.
+- Until: committed OR flipped to `blocked`.
+
+### [WAVE 3 SHARED-FILE CLAIM] — impl 12
+
+- Claims (surgical, region-scoped):
+  - `apps/api/src/modules/reports/reports.module.ts` — ADD one new
+    controller (`AiPredictionsController`) to the controllers array
+    in alphabetical position before `ReportsEnhancedController`. NOT
+    touching providers / imports / exports beyond this single line.
+  - `apps/api/src/modules/ai-flags/decorators/requires-ai-flag.decorator.ts`
+    — WIDEN the parameter type from `WellbeingAiModuleKey` to
+    `AiModuleKey` (union of wellbeing + reports keys). Necessary so the
+    decorator accepts `'reports_predictions'`. This is the same change
+    impl 10 and impl 11 will need; first one to land carries the change,
+    others verify the widening is in place.
+  - `apps/api/src/modules/ai-flags/decorators/ai-flag.guard.ts` — match
+    the type widening on the `Reflector.getAllAndOverride<...>()` call
+    (one line). Same first-come-first-served as the decorator.
+- Explicitly **NOT** touching:
+  - `apps/api/src/modules/reports/reports-enhanced.controller.ts` (impl 10
+    and impl 11 may need it — I'm using a dedicated
+    `apps/api/src/modules/reports/ai-predictions.controller.ts` for impl 12).
+  - `apps/api/src/modules/reports/reports-enhanced.controller.spec.ts`.
+  - `packages/shared/src/reports/predictions.ts` is already in place from
+    a previous attempt and aligns with impl 12's required shape — leaving
+    as-is.
+- Until: committed OR flipped to `blocked`.
+
+### [WAVE 3 SHARED-FILE CLAIM] — impl 08
+
+- Claims (surgical, region-scoped):
+  - `apps/worker/src/processors/reports/reports-export-batch.processor.ts`
+    — REWRITE the existing class to act as the REPORTS-queue dispatcher
+    (still `@Processor(QUEUE_NAMES.REPORTS)` to avoid the DZ-48
+    competitive-consumer race). The current export-batch logic stays as
+    an `@Injectable()` handler; new scheduled-reports handlers are
+    routed by `job.name`. Sharing this file with impl 09's
+    `ReportAlertsProcessor` registration — impl 09 will inject its
+    handler into the same dispatcher when it lands.
+  - `apps/worker/src/cron/cron-scheduler.service.ts` — APPEND-ONLY:
+    inject `@InjectQueue(QUEUE_NAMES.REPORTS)` into the constructor and
+    add `registerReportsCronJobs()` registering the
+    `reports:scheduled-run` repeatable. Sharing with impl 09 (alerts
+    cron) per its earlier claim — first-come carries the queue
+    injection, second-come adds only its own cron line.
+  - `apps/worker/src/worker.module.ts` — APPEND-ONLY: register
+    `ScheduledReportsTickHandler`, `ScheduledReportsDeliverHandler`,
+    and the existing `ReportsExportBatchHandler` factor-out alongside
+    the existing `ReportsExportBatchProcessor` (now the dispatcher).
+  - `apps/worker/package.json` + `pnpm-lock.yaml` — ADD `cron-parser`
+    as a direct dep (already a transitive via BullMQ; promoting to
+    direct so `import { parseExpression } from 'cron-parser'` is
+    type-stable). Lockfile regenerated mechanically via
+    `pnpm install` — no hand edits.
+- Explicitly **NOT** touching:
+  - `apps/api/src/modules/reports/scheduled-reports.service.ts` — the
+    API CRUD service stays untouched; the worker reads `scheduled_reports`
+    directly via its own `PrismaClient` (matches the existing
+    report-card-generation worker pattern).
+  - `apps/api/src/modules/reports/reports-enhanced.controller.ts` — no
+    new HTTP endpoints from this impl.
+  - `packages/shared/src/reports/index.ts` — no new shared exports;
+    payload types are worker-local.
+- Until: committed OR flipped to `blocked`.

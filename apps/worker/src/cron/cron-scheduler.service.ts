@@ -52,6 +52,7 @@ import { PARENT_DAILY_DIGEST_JOB } from '../processors/notifications/parent-dail
 import { PASTORAL_CRON_DISPATCH_OVERDUE_JOB } from '../processors/pastoral/pastoral-cron-dispatch.processor';
 import { REGULATORY_DEADLINE_CHECK_JOB } from '../processors/regulatory/deadline-check.processor';
 import { REGULATORY_TUSLA_THRESHOLD_SCAN_JOB } from '../processors/regulatory/tusla-threshold-scan.processor';
+import { REPORTS_SCHEDULED_RUN_JOB } from '../processors/reports/scheduled-reports-tick.processor';
 import { SCHEDULING_REAP_STALE_JOB } from '../processors/scheduling-stale-reaper.processor';
 import { ANOMALY_SCAN_JOB } from '../processors/security/anomaly-scan.processor';
 import { BREACH_DEADLINE_JOB } from '../processors/security/breach-deadline.processor';
@@ -87,6 +88,7 @@ export class CronSchedulerService implements OnModuleInit {
     @InjectQueue(QUEUE_NAMES.FINANCE) private readonly financeQueue: Queue,
     @InjectQueue(QUEUE_NAMES.SCHEDULING) private readonly schedulingQueue: Queue,
     @InjectQueue(QUEUE_NAMES.ATTENDANCE) private readonly attendanceQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.REPORTS) private readonly reportsQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -111,6 +113,7 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerFinanceCronJobs();
     await this.registerSchedulingCronJobs();
     await this.registerAttendanceCronJobs();
+    await this.registerReportsCronJobs();
   }
 
   // ─── Attendance ────────────────────────────────────────────────────────────
@@ -933,5 +936,27 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${CANARY_PING_JOB} (every 5 minutes)`);
+  }
+
+  private async registerReportsCronJobs(): Promise<void> {
+    // ── reports:scheduled-run ───────────────────────────────────────────────
+    // Cross-tenant scheduled-reports tick. Fired every 15 minutes. The
+    // processor scans `scheduled_reports`, checks each row's
+    // `schedule_cron` against `last_sent_at`, and fans out one
+    // `reports:scheduled-deliver` job per due report.
+    await this.reportsQueue.add(
+      REPORTS_SCHEDULED_RUN_JOB,
+      {},
+      {
+        repeat: { pattern: '*/15 * * * *' },
+        jobId: `cron:${REPORTS_SCHEDULED_RUN_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${REPORTS_SCHEDULED_RUN_JOB} (every 15 minutes)`);
+
+    // Impl 09 (Report Alerts Worker) lands `reports:alert-evaluate` on a
+    // 30-minute cron in this same method when it ships.
   }
 }

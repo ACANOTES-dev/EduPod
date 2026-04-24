@@ -41,8 +41,20 @@ import {
   updateScheduledReportSchema,
   yearGroupTrendQuerySchema,
 } from '@school/shared';
-import { boardReportRequestSchema, previewQuerySchema } from '@school/shared/reports';
-import type { BoardReportRequest, PreviewQueryDto } from '@school/shared/reports';
+import {
+  boardReportRequestSchema,
+  dashboardNarrationRequestSchema,
+  previewQuerySchema,
+  reportNarrationRequestSchema,
+  savedReportNarrationRequestSchema,
+} from '@school/shared/reports';
+import type {
+  BoardReportRequest,
+  DashboardNarrationRequestDto,
+  PreviewQueryDto,
+  ReportNarrationRequestDto,
+  SavedReportNarrationRequestDto,
+} from '@school/shared/reports';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -52,6 +64,7 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { RequiresAiFlag } from '../ai-flags/decorators/requires-ai-flag.decorator';
 
 import { AdmissionsAnalyticsService } from './admissions-analytics.service';
 import { AiPredictionsService } from './ai-predictions.service';
@@ -933,15 +946,93 @@ export class ReportsEnhancedController {
     return this.reportAlerts.delete(tenant.tenant_id, alertId);
   }
 
-  // ─── AI Endpoints ─────────────────────────────────────────────────────────
+  // GET /v1/reports/alerts/:alertId/history (impl 09)
+  // Lists the last N `report_alert_runs` rows for an alert. Consumed by
+  // the alerts management UI (impl 17). Permission scoped to view, not
+  // manage — admins can read history without holding the manage role.
+  @Get('alerts/:alertId/history')
+  @RequiresPermission('analytics.view')
+  async getReportAlertHistory(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('alertId', ParseUUIDPipe) alertId: string,
+    @Query('page') page: number = 1,
+    @Query('pageSize') pageSize: number = 50,
+  ) {
+    return this.reportAlerts.getHistory(tenant.tenant_id, alertId, page, pageSize);
+  }
 
+  // ─── AI Narration Endpoints (impl 10) ─────────────────────────────────────
+  //
+  // Three endpoints, one method per narration type. Each is gated by:
+  //   - `AuthGuard + PermissionGuard` from the class-level @UseGuards
+  //   - `AiFlagGuard` registered globally via `APP_GUARD` in
+  //     `AiFlagsModule`; activated by `@RequiresAiFlag('reports_narration')`
+  //     and rejects 403 AI_DISABLED if the tenant has not enabled
+  //     `reports_narration` in Settings → Reports.
+  // The legacy `POST /v1/reports/ai/narrate` is kept as a deprecated alias
+  // so any in-flight UI mid-migration keeps working; it routes to
+  // `narrateReport` with the body's `report_type` becoming the path key.
+
+  // POST /v1/reports/analytics/ai-summary — narrate the live KPI dashboard.
+  @Post('analytics/ai-summary')
+  @RequiresPermission('analytics.view')
+  @RequiresAiFlag('reports_narration')
+  async aiNarrateDashboard(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(dashboardNarrationRequestSchema))
+    _body: DashboardNarrationRequestDto,
+  ) {
+    return this.aiNarrator.narrateDashboard(tenant.tenant_id, user.sub);
+  }
+
+  // POST /v1/reports/ai-narrator/report/:reportKey — narrate a domain report.
+  @Post('ai-narrator/report/:reportKey')
+  @RequiresPermission('analytics.view')
+  @RequiresAiFlag('reports_narration')
+  async aiNarrateReport(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('reportKey') reportKey: string,
+    @Body(new ZodValidationPipe(reportNarrationRequestSchema))
+    body: ReportNarrationRequestDto,
+  ) {
+    return this.aiNarrator.narrateReport(tenant.tenant_id, user.sub, reportKey, body.data);
+  }
+
+  // POST /v1/reports/ai-narrator/saved/:savedReportId — narrate a saved
+  // custom-builder report by re-executing it through the query engine.
+  @Post('ai-narrator/saved/:savedReportId')
+  @RequiresPermission('analytics.view')
+  @RequiresAiFlag('reports_narration')
+  async aiNarrateSavedReport(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('savedReportId', ParseUUIDPipe) savedReportId: string,
+    @Body(new ZodValidationPipe(savedReportNarrationRequestSchema))
+    _body: SavedReportNarrationRequestDto,
+  ) {
+    const permissions = await this.resolveBuilderPermissions(user);
+    return this.aiNarrator.narrateSavedReport(
+      tenant.tenant_id,
+      user.sub,
+      permissions,
+      savedReportId,
+    );
+  }
+
+  // POST /v1/reports/ai/narrate — DEPRECATED legacy alias. Routes to
+  // narrateReport so callers carrying the old `{report_type, data}` body
+  // shape during the Wave 4 UI cutover keep working. Removed in Wave 5.
   @Post('ai/narrate')
   @RequiresPermission('analytics.view')
+  @RequiresAiFlag('reports_narration')
   async aiNarrate(
     @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
     @Body(new ZodValidationPipe(aiNarratorSchema)) body: z.infer<typeof aiNarratorSchema>,
   ) {
-    return this.aiNarrator.generateNarrative(tenant.tenant_id, body.data, body.report_type);
+    return this.aiNarrator.narrateReport(tenant.tenant_id, user.sub, body.report_type, body.data);
   }
 
   @Post('ai/predict')

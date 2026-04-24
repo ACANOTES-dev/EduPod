@@ -134,6 +134,11 @@ Missing any one of those leaves “approved but not actually executed” items i
 
 - `pastoral:cron-dispatch-overdue` -> hourly
 
+### `reports`
+
+- `reports:scheduled-run` -> every 15 min (Wave 3 / impl 08 — scheduled-reports tick, fans out per due saved-report into `reports:scheduled-deliver`)
+- `reports:alert-evaluate` -> every 30 min (Wave 3 / impl 09 — cross-tenant tick that fans out per active tenant into `reports:alert-evaluate-tenant`)
+
 ---
 
 ## Queue Inventory
@@ -370,8 +375,23 @@ Missing any one of those leaves “approved but not actually executed” items i
 
 ### `reports`
 
-- no active processors currently discovered
-- **Contract**: queue constant exists but the queue is presently reserved capacity rather than a live worker surface
+- `reports:export-batch`
+  - **Source**: `ReportExportService` enqueues this when a synchronous export's row count exceeds 5 000 (Wave 2 / impl 04).
+  - **Side effects**: stub render → upload → deliver pipeline (full body lands in Wave 3 / impl 13).
+- `reports:scheduled-run`
+  - **Source**: cron registered in `CronSchedulerService` (every 15 min, Wave 3 / impl 08).
+  - **Side effects**: scans `scheduled_reports` rows whose `next_run_at <= now()`, fans out `reports:scheduled-deliver` per due saved report.
+- `reports:scheduled-deliver`
+  - **Source**: enqueued by `reports:scheduled-run` (Wave 3 / impl 08) per due report.
+  - **Side effects**: executes the saved report query, renders the configured export format, delivers via email + inbox, writes a `scheduled_report_runs` row with the outcome.
+- `reports:alert-evaluate`
+  - **Source**: cron registered in `CronSchedulerService` (every 30 min, Wave 3 / impl 09).
+  - **Side effects**: dispatcher only — reads active tenants and fans out `reports:alert-evaluate-tenant` per tenant. Does no DB writes itself.
+- `reports:alert-evaluate-tenant`
+  - **Source**: enqueued by `reports:alert-evaluate` (Wave 3 / impl 09) per active tenant.
+  - **Side effects**: per-tenant evaluator inside a `TenantAwareJob` transaction (RLS context set). For every enabled `report_alert` for that tenant: runs the registered metric calculator (8 calculators today — `overdue_invoices_count`, `attendance_rate_today`, `open_safeguarding_concerns_count`, `at_risk_students_count`, `unpaid_balance_total`, `behaviour_incidents_week`, `teacher_submission_compliance_week`, `cover_gaps_week`), applies the alert's operator (`gt | gte | lt | lte | eq | ne`) to the threshold, applies 24-hour anti-spam suppression (a `threshold_crossed` outcome inside the window without an intervening `ok` is recorded as `threshold_crossed` with `notified_user_ids: []` so the run is logged but no notification fires), creates `Notification` rows (channel `in_app`, template `reports.alert_threshold_crossed`) for each resolved recipient, and updates `report_alerts.last_measured_value` (and `last_triggered_at` only when a notification actually dispatched). Every tick writes a `report_alert_runs` row with `outcome ∈ {ok, threshold_crossed, error}`.
+  - **Recipient resolution**: alert's `notification_recipients_json` (string-array of emails) is resolved to user IDs via `tenant_memberships` (membership_status = active). Emails with no matching active member are silently skipped.
+- **Routing**: all four jobs land on the shared `REPORTS` queue. The single `@Processor(QUEUE_NAMES.REPORTS)` (`ReportsExportBatchProcessor`) is a thin dispatcher that switches on `job.name` to per-job `@Injectable()` handlers — `ReportsExportBatchHandler`, `ScheduledReportsTickProcessor`, `ScheduledReportsDeliverProcessor`, `ReportAlertsHandler`. This pattern eliminates the DZ-48 race where multiple `@Processor(REPORTS)` classes silently dropped jobs to a competitive-consumer winner.
 
 ### `scheduling`
 

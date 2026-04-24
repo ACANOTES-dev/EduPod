@@ -302,4 +302,47 @@ export class ReportAlertsService {
       updated_at: a.updated_at.toISOString(),
     };
   }
+
+  async getHistory(
+    tenantId: string,
+    alertId: string,
+    page: number = 1,
+    pageSize: number = 50,
+  ): Promise<{ data: unknown[]; meta: { page: number; pageSize: number; total: number } }> {
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const txClient = tx as unknown as PrismaService;
+      const skip = (page - 1) * pageSize;
+
+      // Verify the alert exists and belongs to this tenant
+      const alert = await txClient.reportAlert.findFirst({
+        where: { id: alertId, tenant_id: tenantId },
+      });
+
+      if (!alert) {
+        throw new NotFoundException({
+          code: 'REPORT_ALERT_NOT_FOUND',
+          message: `Report alert with id "${alertId}" not found`,
+        });
+      }
+
+      const [runs, total] = await Promise.all([
+        txClient.reportAlertRun.findMany({
+          where: { report_alert_id: alertId, tenant_id: tenantId },
+          orderBy: { evaluated_at: 'desc' },
+          skip,
+          take: pageSize,
+        }),
+        txClient.reportAlertRun.count({
+          where: { report_alert_id: alertId, tenant_id: tenantId },
+        }),
+      ]);
+
+      return {
+        data: runs,
+        meta: { page, pageSize, total },
+      };
+    }) as unknown as { data: unknown[]; meta: { page: number; pageSize: number; total: number } };
+  }
 }

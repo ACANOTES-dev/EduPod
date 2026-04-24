@@ -19,3 +19,4 @@ export * from './share';
 export * from './query-engine';
 export * from './compliance-report';
 export * from './board-report';
+export * from './predictions';
