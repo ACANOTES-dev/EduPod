@@ -186,5 +186,8 @@ export const METRIC_REGISTRY: Record<ReportAlertMetricKey, MetricCalculator> = {
 
 export function getMetricCalculator(metric: string): MetricCalculator | null {
   if (!(metric in METRIC_REGISTRY)) return null;
-  return METRIC_REGISTRY[metric as ReportAlertMetricKey];
+  // `Record<K, V>` indexed access becomes `V | undefined` under
+  // `noUncheckedIndexedAccess` even though the `in` guard above proves
+  // existence. Coerce to null for the documented null-or-fn contract.
+  return METRIC_REGISTRY[metric as ReportAlertMetricKey] ?? null;
 }

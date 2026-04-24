@@ -20,3 +20,6 @@ export * from './query-engine';
 export * from './compliance-report';
 export * from './board-report';
 export * from './predictions';
+export * from './narration';
+export * from './ask-ai';
+export * from './alerts';
