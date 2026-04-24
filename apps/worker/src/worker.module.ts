@@ -124,11 +124,11 @@ import { RegulatoryPpodSyncProcessor } from './processors/regulatory/ppod-sync.p
 import { RegulatoryQueueDispatcher } from './processors/regulatory/regulatory-queue.processor';
 import { RegulatoryTuslaThresholdScanProcessor } from './processors/regulatory/tusla-threshold-scan.processor';
 import { REPORT_CARD_RENDERER_TOKEN } from './processors/report-card-render.contract';
+import { ReportAlertsHandler } from './processors/reports/report-alerts.processor';
 import {
   ReportsExportBatchHandler,
   ReportsExportBatchProcessor,
 } from './processors/reports/reports-export-batch.processor';
-import { ReportAlertsHandler } from './processors/reports/report-alerts.processor';
 import { ScheduledReportsDeliverProcessor } from './processors/reports/scheduled-reports-deliver.processor';
 import { ScheduledReportsTickProcessor } from './processors/reports/scheduled-reports-tick.processor';
 import { AttachmentScanProcessor } from './processors/safeguarding/attachment-scan.processor';
