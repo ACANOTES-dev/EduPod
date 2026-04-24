@@ -128,6 +128,7 @@ import {
   ReportsExportBatchHandler,
   ReportsExportBatchProcessor,
 } from './processors/reports/reports-export-batch.processor';
+import { ReportAlertsHandler } from './processors/reports/report-alerts.processor';
 import { ScheduledReportsDeliverProcessor } from './processors/reports/scheduled-reports-deliver.processor';
 import { ScheduledReportsTickProcessor } from './processors/reports/scheduled-reports-tick.processor';
 import { AttachmentScanProcessor } from './processors/safeguarding/attachment-scan.processor';
@@ -575,6 +576,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     ReportsExportBatchHandler,
     ScheduledReportsTickProcessor,
     ScheduledReportsDeliverProcessor,
+    ReportAlertsHandler,
     // Staff Wellbeing queue processors
     ModerationScanProcessor,
     SurveyOpenNotifyProcessor,
