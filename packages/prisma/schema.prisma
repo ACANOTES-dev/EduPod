@@ -736,6 +736,9 @@ model Tenant {
   safeguarding_break_glass_grants    SafeguardingBreakGlassGrant[]
   safeguarding_break_glass_access_log SafeguardingBreakGlassAccessLog[]
   admin_repair_runs                  AdminRepairRun[]
+  dlp_register_entries               DlpRegisterEntry[]
+  staff_vetting_records              StaffVettingRecord[]
+  child_protection_reviews           ChildProtectionReview[]
 
   // Pastoral Care Relations
   pastoral_concerns                  PastoralConcern[]
@@ -1296,6 +1299,9 @@ model User {
   sg_break_glass_reviewed           SafeguardingBreakGlassGrant[]  @relation("sg_break_glass_reviewer")
   sg_break_glass_access_log_actor   SafeguardingBreakGlassAccessLog[] @relation("sg_break_glass_access_actor")
   admin_repair_runs_actor           AdminRepairRun[]               @relation("admin_repair_run_actor")
+  dlp_register_entries              DlpRegisterEntry[]             @relation("dlp_register_entry_user")
+  staff_vetting_records             StaffVettingRecord[]           @relation("staff_vetting_record_user")
+  cp_reviews_conducted              ChildProtectionReview[]        @relation("cp_review_conductor")
 
   // Pastoral Care Relations
   pc_concerns_logged                     PastoralConcern[]                @relation("pc_concern_logged_by")
@@ -8505,6 +8511,110 @@ model AdminRepairRun {
   @@index([tenant_id, actor_id, started_at(sort: Desc)], name: "idx_admin_repair_runs_actor")
   @@index([tenant_id, operation, started_at(sort: Desc)], name: "idx_admin_repair_runs_operation")
   @@map("admin_repair_runs")
+}
+
+// ─── Regulatory Safeguarding Registers ────────────────────────────────────
+
+enum DlpRole {
+  designated_liaison
+  deputy_liaison
+}
+
+enum StaffVettingType {
+  garda_vetting
+  international
+  other
+}
+
+enum StaffVettingStatus {
+  active
+  expiring_soon
+  expired
+  pending_renewal
+  revoked
+}
+
+enum ChildProtectionReviewStatus {
+  scheduled
+  in_progress
+  completed
+  overdue
+}
+
+/// Regulatory compliance register of Designated Liaison Persons (DLPs) and
+/// deputies. Distinct from `SafeguardingConcern.designated_liaison_id`, which
+/// tracks which DLP owns a concern; this table tracks the school's DLP
+/// appointments for the Child Safeguarding Statement.
+model DlpRegisterEntry {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String    @db.Uuid
+  user_id      String    @db.Uuid
+  role         DlpRole
+  appointed_at DateTime  @db.Date
+  retired_at   DateTime? @db.Date
+  notes        String?   @db.Text
+  created_at   DateTime  @default(now()) @db.Timestamptz()
+  updated_at   DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user   User   @relation("dlp_register_entry_user", fields: [user_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id, retired_at], name: "idx_dlp_register_tenant_active")
+  @@index([tenant_id, user_id], name: "idx_dlp_register_user")
+  @@map("dlp_register_entries")
+}
+
+/// Garda (or international) vetting record for a staff member, with expiry
+/// tracking. The `status` column is denormalised for fast filtering; a cron
+/// job recomputes it nightly from `expiry_date`.
+model StaffVettingRecord {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String             @db.Uuid
+  user_id          String             @db.Uuid
+  vetting_type     StaffVettingType
+  reference_number String?            @db.VarChar(100)
+  vetting_date     DateTime           @db.Date
+  expiry_date      DateTime           @db.Date
+  status           StaffVettingStatus
+  notes            String?            @db.Text
+  created_at       DateTime           @default(now()) @db.Timestamptz()
+  updated_at       DateTime           @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user   User   @relation("staff_vetting_record_user", fields: [user_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id, expiry_date], name: "idx_staff_vetting_tenant_expiry")
+  @@index([tenant_id, user_id], name: "idx_staff_vetting_user")
+  @@index([tenant_id, status], name: "idx_staff_vetting_status")
+  @@map("staff_vetting_records")
+}
+
+/// Annual Child Protection Policy review record (per Children First Act 2015
+/// §11). The school must review the policy at least once a year.
+model ChildProtectionReview {
+  id               String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String                      @db.Uuid
+  academic_year    String                      @db.VarChar(20)
+  review_date      DateTime                    @db.Date
+  next_review_due  DateTime                    @db.Date
+  conducted_by_id  String?                     @db.Uuid
+  attendees        String?                     @db.Text
+  findings         String?                     @db.Text
+  actions_required String?                     @db.Text
+  status           ChildProtectionReviewStatus
+  created_at       DateTime                    @default(now()) @db.Timestamptz()
+  updated_at       DateTime                    @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  conducted_by User?  @relation("cp_review_conductor", fields: [conducted_by_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, review_date(sort: Desc)], name: "idx_cp_reviews_tenant_date")
+  @@index([tenant_id, next_review_due], name: "idx_cp_reviews_next_due")
+  @@index([tenant_id, academic_year], name: "idx_cp_reviews_academic_year")
+  @@map("child_protection_reviews")
 }
 
 // ─── Pastoral Care Models ─────────────────────────────────────────────────

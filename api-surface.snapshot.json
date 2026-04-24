@@ -2314,10 +2314,7 @@
     "path": "/v1/behaviour/tasks/:id/complete",
     "controller": "BehaviourTasksController",
     "module": "behaviour",
-    "permission": [
-      "behaviour.view",
-      "behaviour.manage"
-    ]
+    "permission": ["behaviour.view", "behaviour.manage"]
   },
   {
     "method": "GET",
@@ -2877,10 +2874,7 @@
     "path": "/v1/diary/:studentId/parent-notes",
     "controller": "HomeworkDiaryController",
     "module": "homework",
-    "permission": [
-      "homework.write_diary",
-      "parent.homework"
-    ]
+    "permission": ["homework.write_diary", "parent.homework"]
   },
   {
     "method": "PATCH",
@@ -7864,10 +7858,7 @@
     "path": "/v1/period-grid",
     "controller": "PeriodGridController",
     "module": "period-grid",
-    "permission": [
-      "schedule.configure_period_grid",
-      "schedule.view_own"
-    ]
+    "permission": ["schedule.configure_period_grid", "schedule.view_own"]
   },
   {
     "method": "POST",
@@ -8288,6 +8279,104 @@
     "controller": "RegulatoryController",
     "module": "regulatory",
     "permission": "regulatory.manage_reduced_days"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/regulatory/safeguarding/cp-reviews",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "safeguarding.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/regulatory/safeguarding/cp-reviews",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "safeguarding.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/regulatory/safeguarding/cp-reviews/:id",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "safeguarding.manage"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/regulatory/safeguarding/cp-reviews/:id",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "safeguarding.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/regulatory/safeguarding/dashboard",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "safeguarding.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/regulatory/safeguarding/dlp-register",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "safeguarding.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/regulatory/safeguarding/dlp-register",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "safeguarding.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/regulatory/safeguarding/dlp-register/:id",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "safeguarding.manage"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/regulatory/safeguarding/dlp-register/:id",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "safeguarding.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/regulatory/safeguarding/mandatory-reports",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "safeguarding.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/regulatory/safeguarding/staff-vetting",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "safeguarding.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/regulatory/safeguarding/staff-vetting",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "safeguarding.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/regulatory/safeguarding/staff-vetting/:id",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "safeguarding.manage"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/regulatory/safeguarding/staff-vetting/:id",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "safeguarding.manage"
   },
   {
     "method": "GET",

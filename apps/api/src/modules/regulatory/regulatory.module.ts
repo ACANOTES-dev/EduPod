@@ -25,6 +25,7 @@ import { RegulatoryDesService } from './regulatory-des.service';
 import { RegulatoryOctoberReturnsService } from './regulatory-october-returns.service';
 import { RegulatoryPpodService } from './regulatory-ppod.service';
 import { RegulatoryReducedDaysService } from './regulatory-reduced-days.service';
+import { RegulatorySafeguardingService } from './regulatory-safeguarding.service';
 import { RegulatorySubmissionService } from './regulatory-submission.service';
 import { RegulatoryTransfersService } from './regulatory-transfers.service';
 import { RegulatoryTuslaMappingsService } from './regulatory-tusla-mappings.service';
@@ -65,6 +66,7 @@ import { RegulatoryController } from './regulatory.controller';
     RegulatoryOctoberReturnsService,
     RegulatoryPpodService,
     RegulatoryReducedDaysService,
+    RegulatorySafeguardingService,
     RegulatorySubmissionService,
     RegulatoryTransfersService,
     RegulatoryTuslaMappingsService,

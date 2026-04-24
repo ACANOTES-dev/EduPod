@@ -22,8 +22,11 @@ import type { JwtPayload, TenantContext } from '@school/shared';
 import {
   cbaSyncSchema,
   createCalendarEventSchema,
+  createCpReviewSchema,
   createDesSubjectCodeMappingSchema,
+  createDlpEntrySchema,
   createReducedSchoolDaySchema,
+  createStaffVettingSchema,
   createSubmissionSchema,
   createTransferSchema,
   createTuslaAbsenceCodeMappingSchema,
@@ -32,6 +35,8 @@ import {
   generateTuslaAarSchema,
   generateTuslaSarSchema,
   listCalendarEventsQuerySchema,
+  listMandatoryReportsQuerySchema,
+  listStaffVettingQuerySchema,
   listSubmissionsQuerySchema,
   listTransfersQuerySchema,
   octoberReturnsReadinessSchema,
@@ -39,13 +44,19 @@ import {
   ppodImportSchema,
   seedDefaultsSchema,
   updateCalendarEventSchema,
+  updateCpReviewSchema,
+  updateDlpEntrySchema,
   updateReducedSchoolDaySchema,
+  updateStaffVettingSchema,
   updateSubmissionSchema,
   updateTransferSchema,
   type CbaSyncDto,
   type CreateCalendarEventDto,
+  type CreateCpReviewDto,
   type CreateDesSubjectCodeMappingDto,
+  type CreateDlpEntryDto,
   type CreateReducedSchoolDayDto,
+  type CreateStaffVettingDto,
   type CreateSubmissionDto,
   type CreateTransferDto,
   type CreateTuslaAbsenceCodeMappingDto,
@@ -54,13 +65,18 @@ import {
   type GenerateTuslaAarDto,
   type GenerateTuslaSarDto,
   type ListCalendarEventsQueryDto,
+  type ListMandatoryReportsQueryDto,
+  type ListStaffVettingQueryDto,
   type ListSubmissionsQueryDto,
   type ListTransfersQueryDto,
   type OctoberReturnsReadinessDto,
   type PpodExportDto,
   type PpodImportDto,
   type UpdateCalendarEventDto,
+  type UpdateCpReviewDto,
+  type UpdateDlpEntryDto,
   type UpdateReducedSchoolDayDto,
+  type UpdateStaffVettingDto,
   type UpdateSubmissionDto,
   type UpdateTransferDto,
 } from '@school/shared/regulatory';
@@ -82,6 +98,7 @@ import { RegulatoryDesService } from './regulatory-des.service';
 import { RegulatoryOctoberReturnsService } from './regulatory-october-returns.service';
 import { RegulatoryPpodService } from './regulatory-ppod.service';
 import { RegulatoryReducedDaysService } from './regulatory-reduced-days.service';
+import { RegulatorySafeguardingService } from './regulatory-safeguarding.service';
 import { RegulatorySubmissionService } from './regulatory-submission.service';
 import { RegulatoryTransfersService } from './regulatory-transfers.service';
 import { RegulatoryTuslaMappingsService } from './regulatory-tusla-mappings.service';
@@ -170,6 +187,7 @@ export class RegulatoryController {
     private readonly octoberReturnsService: RegulatoryOctoberReturnsService,
     private readonly ppodService: RegulatoryPpodService,
     private readonly reducedDaysService: RegulatoryReducedDaysService,
+    private readonly safeguardingRegulatoryService: RegulatorySafeguardingService,
     private readonly submissionService: RegulatorySubmissionService,
     private readonly transfersService: RegulatoryTransfersService,
     private readonly tuslaMappingsService: RegulatoryTuslaMappingsService,
@@ -798,6 +816,162 @@ export class RegulatoryController {
   @RequiresPermission('regulatory.view')
   async getAntiBullyingSummary(@CurrentTenant() tenant: TenantContext) {
     return this.antiBullyingService.getSummary(tenant.tenant_id);
+  }
+
+  // ─── Regulatory Safeguarding ──────────────────────────────────────────────
+
+  // GET /v1/regulatory/safeguarding/dashboard
+  @Get('safeguarding/dashboard')
+  @RequiresPermission('safeguarding.view')
+  async getSafeguardingRegulatoryDashboard(@CurrentTenant() tenant: TenantContext) {
+    return this.safeguardingRegulatoryService.getDashboard(tenant.tenant_id);
+  }
+
+  // GET /v1/regulatory/safeguarding/mandatory-reports
+  @Get('safeguarding/mandatory-reports')
+  @RequiresPermission('safeguarding.view')
+  async listMandatoryReports(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(listMandatoryReportsQuerySchema))
+    query: ListMandatoryReportsQueryDto,
+  ) {
+    return this.safeguardingRegulatoryService.listMandatoryReports(tenant.tenant_id, query);
+  }
+
+  // GET /v1/regulatory/safeguarding/dlp-register
+  @Get('safeguarding/dlp-register')
+  @RequiresPermission('safeguarding.view')
+  async listDlpRegister(@CurrentTenant() tenant: TenantContext) {
+    const data = await this.safeguardingRegulatoryService.listDlpRegister(tenant.tenant_id);
+    return { data };
+  }
+
+  // POST /v1/regulatory/safeguarding/dlp-register
+  @Post('safeguarding/dlp-register')
+  @RequiresPermission('safeguarding.manage')
+  @HttpCode(HttpStatus.CREATED)
+  async createDlpEntry(
+    @CurrentTenant() tenant: TenantContext,
+    @Body(new ZodValidationPipe(createDlpEntrySchema)) dto: CreateDlpEntryDto,
+  ) {
+    const data = await this.safeguardingRegulatoryService.createDlpEntry(tenant.tenant_id, dto);
+    return { data };
+  }
+
+  // PATCH /v1/regulatory/safeguarding/dlp-register/:id
+  @Patch('safeguarding/dlp-register/:id')
+  @RequiresPermission('safeguarding.manage')
+  async updateDlpEntry(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateDlpEntrySchema)) dto: UpdateDlpEntryDto,
+  ) {
+    const data = await this.safeguardingRegulatoryService.updateDlpEntry(tenant.tenant_id, id, dto);
+    return { data };
+  }
+
+  // DELETE /v1/regulatory/safeguarding/dlp-register/:id
+  @Delete('safeguarding/dlp-register/:id')
+  @RequiresPermission('safeguarding.manage')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteDlpEntry(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.safeguardingRegulatoryService.deleteDlpEntry(tenant.tenant_id, id);
+  }
+
+  // GET /v1/regulatory/safeguarding/staff-vetting
+  @Get('safeguarding/staff-vetting')
+  @RequiresPermission('safeguarding.view')
+  async listStaffVetting(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(listStaffVettingQuerySchema))
+    query: ListStaffVettingQueryDto,
+  ) {
+    return this.safeguardingRegulatoryService.listStaffVetting(tenant.tenant_id, query);
+  }
+
+  // POST /v1/regulatory/safeguarding/staff-vetting
+  @Post('safeguarding/staff-vetting')
+  @RequiresPermission('safeguarding.manage')
+  @HttpCode(HttpStatus.CREATED)
+  async createStaffVetting(
+    @CurrentTenant() tenant: TenantContext,
+    @Body(new ZodValidationPipe(createStaffVettingSchema)) dto: CreateStaffVettingDto,
+  ) {
+    const data = await this.safeguardingRegulatoryService.createStaffVetting(tenant.tenant_id, dto);
+    return { data };
+  }
+
+  // PATCH /v1/regulatory/safeguarding/staff-vetting/:id
+  @Patch('safeguarding/staff-vetting/:id')
+  @RequiresPermission('safeguarding.manage')
+  async updateStaffVetting(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateStaffVettingSchema)) dto: UpdateStaffVettingDto,
+  ) {
+    const data = await this.safeguardingRegulatoryService.updateStaffVetting(
+      tenant.tenant_id,
+      id,
+      dto,
+    );
+    return { data };
+  }
+
+  // DELETE /v1/regulatory/safeguarding/staff-vetting/:id
+  @Delete('safeguarding/staff-vetting/:id')
+  @RequiresPermission('safeguarding.manage')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteStaffVetting(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.safeguardingRegulatoryService.deleteStaffVetting(tenant.tenant_id, id);
+  }
+
+  // GET /v1/regulatory/safeguarding/cp-reviews
+  @Get('safeguarding/cp-reviews')
+  @RequiresPermission('safeguarding.view')
+  async listCpReviews(@CurrentTenant() tenant: TenantContext) {
+    const data = await this.safeguardingRegulatoryService.listCpReviews(tenant.tenant_id);
+    return { data };
+  }
+
+  // POST /v1/regulatory/safeguarding/cp-reviews
+  @Post('safeguarding/cp-reviews')
+  @RequiresPermission('safeguarding.manage')
+  @HttpCode(HttpStatus.CREATED)
+  async createCpReview(
+    @CurrentTenant() tenant: TenantContext,
+    @Body(new ZodValidationPipe(createCpReviewSchema)) dto: CreateCpReviewDto,
+  ) {
+    const data = await this.safeguardingRegulatoryService.createCpReview(tenant.tenant_id, dto);
+    return { data };
+  }
+
+  // PATCH /v1/regulatory/safeguarding/cp-reviews/:id
+  @Patch('safeguarding/cp-reviews/:id')
+  @RequiresPermission('safeguarding.manage')
+  async updateCpReview(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateCpReviewSchema)) dto: UpdateCpReviewDto,
+  ) {
+    const data = await this.safeguardingRegulatoryService.updateCpReview(tenant.tenant_id, id, dto);
+    return { data };
+  }
+
+  // DELETE /v1/regulatory/safeguarding/cp-reviews/:id
+  @Delete('safeguarding/cp-reviews/:id')
+  @RequiresPermission('safeguarding.manage')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteCpReview(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.safeguardingRegulatoryService.deleteCpReview(tenant.tenant_id, id);
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

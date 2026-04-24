@@ -26,6 +26,27 @@ export interface SafeguardingSlaBreachRow {
   created_at: Date;
 }
 
+export interface TuslaReferralRow {
+  id: string;
+  concern_number: string;
+  student_id: string;
+  concern_type: string;
+  severity: string;
+  status: string;
+  tusla_referred_at: Date | null;
+  tusla_reference_number: string | null;
+  created_at: Date;
+}
+
+export interface RecentTuslaReferralRow {
+  id: string;
+  concern_number: string;
+  severity: string;
+  status: string;
+  tusla_referred_at: Date | null;
+  tusla_reference_number: string | null;
+}
+
 @Injectable()
 export class SafeguardingReadFacade {
   constructor(private readonly prisma: PrismaService) {}
@@ -85,5 +106,77 @@ export class SafeguardingReadFacade {
         },
       },
     });
+  }
+
+  /**
+   * Count Tusla referrals whose referral flag is set but `tusla_referred_at`
+   * is still null — i.e. pending submission to Tusla.
+   */
+  async countPendingTuslaReferrals(tenantId: string): Promise<number> {
+    return this.prisma.safeguardingConcern.count({
+      where: {
+        tenant_id: tenantId,
+        is_tusla_referral: true,
+        tusla_referred_at: null,
+      },
+    });
+  }
+
+  /**
+   * Fetch the last N Tusla-referred concerns, newest first. Used by the
+   * regulatory safeguarding hub's "recent reports" strip.
+   */
+  async findRecentTuslaReferrals(
+    tenantId: string,
+    limit: number,
+  ): Promise<RecentTuslaReferralRow[]> {
+    const rows = await this.prisma.safeguardingConcern.findMany({
+      where: { tenant_id: tenantId, is_tusla_referral: true },
+      orderBy: [{ tusla_referred_at: 'desc' }, { created_at: 'desc' }],
+      take: limit,
+      select: {
+        id: true,
+        concern_number: true,
+        severity: true,
+        status: true,
+        tusla_referred_at: true,
+        tusla_reference_number: true,
+      },
+    });
+    return rows;
+  }
+
+  /**
+   * Paginated list of Tusla-referred concerns for the regulatory
+   * mandatory-reporting page. Returns minimal fields — the detail view in the
+   * standalone Safeguarding module enforces stricter permission gating.
+   */
+  async listTuslaReferrals(
+    tenantId: string,
+    skip: number,
+    take: number,
+  ): Promise<{ rows: TuslaReferralRow[]; total: number }> {
+    const where = { tenant_id: tenantId, is_tusla_referral: true };
+    const [rows, total] = await Promise.all([
+      this.prisma.safeguardingConcern.findMany({
+        where,
+        orderBy: [{ tusla_referred_at: 'desc' }, { created_at: 'desc' }],
+        skip,
+        take,
+        select: {
+          id: true,
+          concern_number: true,
+          student_id: true,
+          concern_type: true,
+          severity: true,
+          status: true,
+          tusla_referred_at: true,
+          tusla_reference_number: true,
+          created_at: true,
+        },
+      }),
+      this.prisma.safeguardingConcern.count({ where }),
+    ]);
+    return { rows, total };
   }
 }

@@ -14,6 +14,7 @@ import { RegulatoryDesService } from './regulatory-des.service';
 import { RegulatoryOctoberReturnsService } from './regulatory-october-returns.service';
 import { RegulatoryPpodService } from './regulatory-ppod.service';
 import { RegulatoryReducedDaysService } from './regulatory-reduced-days.service';
+import { RegulatorySafeguardingService } from './regulatory-safeguarding.service';
 import { RegulatorySubmissionService } from './regulatory-submission.service';
 import { RegulatoryTransfersService } from './regulatory-transfers.service';
 import { RegulatoryTuslaMappingsService } from './regulatory-tusla-mappings.service';
@@ -233,6 +234,25 @@ describe('RegulatoryController', () => {
         { provide: RegulatoryReducedDaysService, useValue: mockReducedDaysService },
         { provide: RegulatoryCbaService, useValue: mockCbaService },
         { provide: RegulatoryTransfersService, useValue: mockTransfersService },
+        {
+          provide: RegulatorySafeguardingService,
+          useValue: {
+            getDashboard: jest.fn(),
+            listMandatoryReports: jest.fn(),
+            listDlpRegister: jest.fn(),
+            createDlpEntry: jest.fn(),
+            updateDlpEntry: jest.fn(),
+            deleteDlpEntry: jest.fn(),
+            listStaffVetting: jest.fn(),
+            createStaffVetting: jest.fn(),
+            updateStaffVetting: jest.fn(),
+            deleteStaffVetting: jest.fn(),
+            listCpReviews: jest.fn(),
+            createCpReview: jest.fn(),
+            updateCpReview: jest.fn(),
+            deleteCpReview: jest.fn(),
+          },
+        },
       ],
     })
       .overrideGuard(AuthGuard)

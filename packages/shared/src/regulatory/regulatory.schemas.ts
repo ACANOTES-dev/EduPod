@@ -361,3 +361,108 @@ export const academicYearOptionSchema = z.object({
   status: z.enum(['planned', 'active', 'closed']),
 });
 export type AcademicYearOption = z.infer<typeof academicYearOptionSchema>;
+
+// ─── Regulatory Safeguarding (Phase 9) ──────────────────────────────────────
+
+const dateString = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD')
+  .refine((v) => !Number.isNaN(Date.parse(v)), 'Invalid calendar date');
+
+export const dlpRoleEnum = z.enum(['designated_liaison', 'deputy_liaison']);
+export type DlpRole = z.infer<typeof dlpRoleEnum>;
+
+export const createDlpEntrySchema = z.object({
+  user_id: z.string().uuid(),
+  role: dlpRoleEnum,
+  appointed_at: dateString,
+  retired_at: dateString.nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
+export type CreateDlpEntryDto = z.infer<typeof createDlpEntrySchema>;
+
+export const updateDlpEntrySchema = z.object({
+  role: dlpRoleEnum.optional(),
+  appointed_at: dateString.optional(),
+  retired_at: dateString.nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
+export type UpdateDlpEntryDto = z.infer<typeof updateDlpEntrySchema>;
+
+export const staffVettingTypeEnum = z.enum(['garda_vetting', 'international', 'other']);
+export type StaffVettingType = z.infer<typeof staffVettingTypeEnum>;
+
+export const staffVettingStatusEnum = z.enum([
+  'active',
+  'expiring_soon',
+  'expired',
+  'pending_renewal',
+  'revoked',
+]);
+export type StaffVettingStatus = z.infer<typeof staffVettingStatusEnum>;
+
+export const createStaffVettingSchema = z
+  .object({
+    user_id: z.string().uuid(),
+    vetting_type: staffVettingTypeEnum,
+    reference_number: z.string().max(100).nullable().optional(),
+    vetting_date: dateString,
+    expiry_date: dateString,
+    status: staffVettingStatusEnum.optional(),
+    notes: z.string().max(2000).nullable().optional(),
+  })
+  .refine((d) => Date.parse(d.expiry_date) > Date.parse(d.vetting_date), {
+    message: 'expiry_date must be after vetting_date',
+    path: ['expiry_date'],
+  });
+export type CreateStaffVettingDto = z.infer<typeof createStaffVettingSchema>;
+
+export const updateStaffVettingSchema = z.object({
+  vetting_type: staffVettingTypeEnum.optional(),
+  reference_number: z.string().max(100).nullable().optional(),
+  vetting_date: dateString.optional(),
+  expiry_date: dateString.optional(),
+  status: staffVettingStatusEnum.optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
+export type UpdateStaffVettingDto = z.infer<typeof updateStaffVettingSchema>;
+
+export const listStaffVettingQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  status: staffVettingStatusEnum.optional(),
+  vetting_type: staffVettingTypeEnum.optional(),
+});
+export type ListStaffVettingQueryDto = z.infer<typeof listStaffVettingQuerySchema>;
+
+export const cpReviewStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 'overdue']);
+export type CpReviewStatus = z.infer<typeof cpReviewStatusEnum>;
+
+export const createCpReviewSchema = z.object({
+  academic_year: z.string().min(1).max(20),
+  review_date: dateString,
+  next_review_due: dateString,
+  conducted_by_id: z.string().uuid().nullable().optional(),
+  attendees: z.string().max(2000).nullable().optional(),
+  findings: z.string().max(5000).nullable().optional(),
+  actions_required: z.string().max(5000).nullable().optional(),
+  status: cpReviewStatusEnum,
+});
+export type CreateCpReviewDto = z.infer<typeof createCpReviewSchema>;
+
+export const updateCpReviewSchema = z.object({
+  review_date: dateString.optional(),
+  next_review_due: dateString.optional(),
+  conducted_by_id: z.string().uuid().nullable().optional(),
+  attendees: z.string().max(2000).nullable().optional(),
+  findings: z.string().max(5000).nullable().optional(),
+  actions_required: z.string().max(5000).nullable().optional(),
+  status: cpReviewStatusEnum.optional(),
+});
+export type UpdateCpReviewDto = z.infer<typeof updateCpReviewSchema>;
+
+export const listMandatoryReportsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+export type ListMandatoryReportsQueryDto = z.infer<typeof listMandatoryReportsQuerySchema>;

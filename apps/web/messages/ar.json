@@ -8830,13 +8830,235 @@
       }
     },
     "safeguarding": {
-      "title": "امتثال الحماية",
-      "description": "مراقبة حماية الطفل والسلامة",
-      "goToSafeguarding": "الذهاب إلى وحدة الحماية",
-      "safeguardingInfo": "تربط وحدة الحماية التنظيمية بأدوات الحماية الحالية لإدارة حماية الأطفال وفحص الموظفين والإبلاغ الإلزامي.",
-      "childProtection": "حماية الطفل",
-      "staffVetting": "فحص الموظفين",
-      "mandatoryReporting": "الإبلاغ الإلزامي"
+      "pageTitle": "امتثال الحماية",
+      "pageDescription": "الإشراف على حماية الأطفال والإبلاغ الإلزامي وفحص الموظفين.",
+      "backToRegulatory": "العودة إلى الامتثال التنظيمي",
+      "openSafeguardingModule": "فتح وحدة الحماية",
+      "bannerTitle": "عدسة تنظيمية على وحدة الحماية",
+      "bannerDescription": "تُسجَّل البلاغات والإجراءات التفصيلية في وحدة الحماية. تعرض هذه اللوحة وضع الامتثال وفق قانون حماية الأطفال أولاً لعام 2015.",
+      "loading": "جارٍ التحميل…",
+      "kpi": {
+        "ariaLabel": "مؤشرات الحماية",
+        "openConcerns": "البلاغات المفتوحة",
+        "openConcernsTooltip": "البلاغات التي لا تزال تستدعي اهتماماً (باستثناء المحلولة والمغلقة).",
+        "pendingTusla": "بلاغات تُسلا المعلّقة",
+        "pendingTuslaTooltip": "البلاغات المؤشّرة لإحالتها إلى تُسلا ولم تُرسَل بعد.",
+        "vettingExpiringSoon": "فحوصات تنتهي خلال 60 يوماً",
+        "vettingExpiringSoonTooltip": "سجلات فحص الموظفين التي تنتهي صلاحيتها خلال 60 يوماً.",
+        "daysUntilReview": "أيام حتى المراجعة السنوية",
+        "daysUntilReviewTooltip": "عدد الأيام حتى المراجعة المقرّرة القادمة لسياسة حماية الطفل."
+      },
+      "noReviewScheduled": "غير مجدولة",
+      "tiles": {
+        "ariaLabel": "أقسام الحماية الفرعية",
+        "mandatoryReporting": {
+          "title": "الإبلاغ الإلزامي",
+          "description": "الإحالات إلى تُسلا وفق قانون حماية الأطفال أولاً 2015."
+        },
+        "staffVetting": {
+          "title": "فحص الموظفين",
+          "description": "سجل فحوص الشرطة مع تتبع مواعيد الانتهاء."
+        },
+        "annualReview": {
+          "title": "المراجعة السنوية",
+          "description": "جدول مراجعات سياسة حماية الطفل."
+        },
+        "dlpRegister": {
+          "title": "سجل ضباط الاتصال",
+          "description": "ضباط الاتصال المعيّنون ونوّابهم."
+        }
+      },
+      "recentReports": {
+        "ariaLabel": "أحدث بلاغات تُسلا",
+        "title": "أحدث بلاغات تُسلا",
+        "description": "آخر خمس إحالات بجميع درجات الخطورة.",
+        "empty": "لم تُسجَّل أي إحالة إلى تُسلا بعد.",
+        "pending": "قيد الإرسال",
+        "tuslaRef": "مرجع تُسلا"
+      },
+      "severity": {
+        "critical": "حرجة",
+        "high": "عالية",
+        "medium": "متوسطة",
+        "low": "منخفضة"
+      },
+      "audit": {
+        "dlpCount": "{active} ضباط اتصال، {deputy} نوّاب",
+        "lastReviewDate": "آخر مراجعة لسياسة الحماية {date}"
+      },
+      "mandatoryReporting": {
+        "pageTitle": "الإبلاغ الإلزامي",
+        "pageDescription": "إحالات قانون حماية الأطفال أولاً 2015 المقدّمة إلى تُسلا.",
+        "backToSafeguarding": "العودة إلى الحماية",
+        "logNewReport": "تسجيل بلاغ جديد",
+        "childrenFirstNotice": "وفق قانون حماية الأطفال أولاً لعام 2015، يجب على الأشخاص المعنيّين إبلاغ تُسلا بأي أسس معقولة تدعو للقلق على سلامة طفل. تُخفى هوية الطلبة في هذا السجل — لعرض السجل الكامل ارجع إلى وحدة الحماية.",
+        "tableTitle": "البلاغات المرسَلة",
+        "totalReports": "{count} بلاغ",
+        "loading": "جارٍ التحميل…",
+        "emptyTitle": "لا توجد بلاغات إلزامية بعد",
+        "emptyDescription": "ستظهر هنا إحالات تُسلا التي تُنشأ في وحدة الحماية.",
+        "pendingReferral": "قيد الإرسال",
+        "columns": {
+          "reference": "المرجع",
+          "student": "الطالب (مُخفى)",
+          "type": "النوع",
+          "severity": "الخطورة",
+          "tuslaRef": "مرجع تُسلا",
+          "referredAt": "تاريخ الإحالة"
+        },
+        "severity": {
+          "critical": "حرجة",
+          "high": "عالية",
+          "medium": "متوسطة",
+          "low": "منخفضة"
+        },
+        "concernType": {
+          "neglect": "إهمال",
+          "emotional_abuse": "إساءة عاطفية",
+          "physical_abuse": "إساءة جسدية",
+          "sexual_abuse": "إساءة جنسية",
+          "disclosure": "إفصاح",
+          "observed_behavior": "سلوك ملاحَظ",
+          "third_party_report": "بلاغ من طرف ثالث",
+          "other": "أخرى"
+        }
+      },
+      "staffVetting": {
+        "pageTitle": "فحص الموظفين",
+        "pageDescription": "سجل فحص الشرطة مع تتبع مواعيد الانتهاء.",
+        "backToSafeguarding": "العودة إلى الحماية",
+        "addRecord": "إضافة سجل",
+        "notice": "يجب أن يحمل كل موظف يعمل في المدرسة ويتعامل مع الأطفال فحص شرطة ساري المفعول. السجلات القريبة من الانتهاء (خلال 60 يوماً) تُعرض بالأصفر، والمنتهية بالأحمر.",
+        "tableTitle": "سجلات الفحص",
+        "loading": "جارٍ التحميل…",
+        "emptyTitle": "لا توجد سجلات فحص بعد",
+        "emptyDescription": "أضِف سجلاً لتتبع حالة فحص الشرطة وتاريخ انتهائه لكل موظف.",
+        "created": "تمت إضافة سجل الفحص",
+        "createFailed": "تعذّر إضافة السجل",
+        "deleted": "تم حذف السجل",
+        "deleteFailed": "تعذّر حذف السجل",
+        "confirmDelete": "حذف سجل فحص {name}؟",
+        "delete": "حذف",
+        "daysRemaining": "{days} يوم متبقٍ",
+        "overdueBy": "متأخر بـ {days} يوم",
+        "columns": {
+          "name": "الموظف",
+          "type": "النوع",
+          "reference": "المرجع",
+          "vettingDate": "تاريخ الفحص",
+          "expiryDate": "تاريخ الانتهاء",
+          "status": "الحالة",
+          "actions": "إجراءات"
+        },
+        "type": {
+          "garda_vetting": "فحص الشرطة (Garda)",
+          "international": "دولي",
+          "other": "أخرى"
+        },
+        "dialog": {
+          "title": "إضافة سجل فحص",
+          "description": "سجّل فحصاً قائماً بالفعل. سيتم احتساب تنبيهات الانتهاء تلقائياً.",
+          "staffMember": "الموظف",
+          "staffPlaceholder": "اختر موظفاً…",
+          "type": "نوع الفحص",
+          "reference": "رقم المرجع",
+          "vettingDate": "تاريخ الفحص",
+          "expiryDate": "تاريخ الانتهاء",
+          "notes": "ملاحظات",
+          "cancel": "إلغاء",
+          "save": "حفظ",
+          "saving": "جارٍ الحفظ…"
+        }
+      },
+      "annualReview": {
+        "pageTitle": "المراجعة السنوية",
+        "pageDescription": "سجل مراجعة سياسة حماية الطفل.",
+        "backToSafeguarding": "العودة إلى الحماية",
+        "logReview": "تسجيل مراجعة",
+        "notice": "وفق المادة 11 من قانون حماية الأطفال أولاً 2015، يجب على المدرسة مراجعة سياسة حماية الطفل مرة على الأقل سنوياً. سجّل كل مراجعة هنا مع النتائج وإجراءات المتابعة.",
+        "tableTitle": "المراجعات المسجّلة",
+        "loading": "جارٍ التحميل…",
+        "emptyTitle": "لا توجد مراجعات مسجّلة بعد",
+        "emptyDescription": "سجّل أول مراجعة سنوية لسياسة حماية الطفل لبدء تتبّع الجدول.",
+        "created": "تم تسجيل المراجعة",
+        "createFailed": "تعذّر تسجيل المراجعة",
+        "deleted": "تم حذف المراجعة",
+        "deleteFailed": "تعذّر حذف المراجعة",
+        "confirmDelete": "حذف مراجعة {year}؟",
+        "delete": "حذف",
+        "columns": {
+          "academicYear": "السنة الدراسية",
+          "reviewDate": "تاريخ المراجعة",
+          "nextDue": "الاستحقاق التالي",
+          "conductedBy": "بواسطة",
+          "status": "الحالة",
+          "actions": "إجراءات"
+        },
+        "status": {
+          "scheduled": "مجدولة",
+          "in_progress": "قيد التنفيذ",
+          "completed": "مكتملة",
+          "overdue": "متأخرة"
+        },
+        "dialog": {
+          "title": "تسجيل مراجعة سنوية",
+          "description": "سجّل تفاصيل مراجعة سياسة حماية الطفل.",
+          "academicYear": "السنة الدراسية",
+          "reviewDate": "تاريخ المراجعة",
+          "nextDue": "الاستحقاق التالي",
+          "status": "الحالة",
+          "attendees": "الحاضرون",
+          "findings": "النتائج",
+          "actionsRequired": "الإجراءات المطلوبة",
+          "cancel": "إلغاء",
+          "save": "حفظ",
+          "saving": "جارٍ الحفظ…"
+        }
+      },
+      "dlpRegister": {
+        "pageTitle": "سجل ضباط الاتصال",
+        "pageDescription": "ضباط الاتصال المعيّنون (DLP) ونوّابهم.",
+        "backToSafeguarding": "العودة إلى الحماية",
+        "addEntry": "إضافة مدخل",
+        "notice": "يجب أن يُسمّى في بيان حماية الأطفال في كل مدرسة ضابط اتصال معيّن واحد على الأقل ونائب. حدّث هذا السجل عند تغيير التعيينات ليُطابق الواقع في عمليات التدقيق.",
+        "tableTitle": "التعيينات",
+        "loading": "جارٍ التحميل…",
+        "emptyTitle": "لا توجد تسجيلات بعد",
+        "emptyDescription": "أضِف ضابط الاتصال المعيّن وأي نوّاب مدرجين في بيان حماية الأطفال.",
+        "created": "تمت إضافة المدخل",
+        "createFailed": "تعذّر إضافة المدخل",
+        "deleted": "تم حذف المدخل",
+        "deleteFailed": "تعذّر حذف المدخل",
+        "confirmDelete": "إزالة {name} من سجل ضباط الاتصال؟",
+        "delete": "حذف",
+        "columns": {
+          "name": "الموظف",
+          "role": "الدور",
+          "appointedAt": "تاريخ التعيين",
+          "status": "الحالة",
+          "actions": "إجراءات"
+        },
+        "role": {
+          "designated_liaison": "ضابط اتصال معيّن",
+          "deputy_liaison": "نائب ضابط الاتصال"
+        },
+        "status": {
+          "active": "نشط",
+          "retired": "متقاعد"
+        },
+        "dialog": {
+          "title": "إضافة مدخل DLP",
+          "description": "سجّل تعيين ضابط اتصال معيّن أو نائب.",
+          "staffMember": "الموظف",
+          "staffPlaceholder": "اختر موظفاً…",
+          "role": "الدور",
+          "appointedAt": "تاريخ التعيين",
+          "notes": "ملاحظات",
+          "cancel": "إلغاء",
+          "save": "حفظ",
+          "saving": "جارٍ الحفظ…"
+        }
+      }
     },
     "status": {
       "notStarted": "لم يبدأ",

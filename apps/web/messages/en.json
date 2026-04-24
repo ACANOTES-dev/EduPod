@@ -8830,13 +8830,235 @@
       }
     },
     "safeguarding": {
-      "title": "Safeguarding Compliance",
-      "description": "Child safeguarding and protection oversight",
-      "goToSafeguarding": "Go to Safeguarding Module",
-      "safeguardingInfo": "The safeguarding compliance module links to your existing safeguarding tools for managing child protection concerns, staff vetting, and mandatory reporting.",
-      "childProtection": "Child Protection",
-      "staffVetting": "Staff Vetting",
-      "mandatoryReporting": "Mandatory Reporting"
+      "pageTitle": "Safeguarding Compliance",
+      "pageDescription": "Child-protection oversight, mandatory reporting, and staff vetting.",
+      "backToRegulatory": "Back to Regulatory",
+      "openSafeguardingModule": "Open Safeguarding module",
+      "bannerTitle": "Regulatory lens on the Safeguarding module",
+      "bannerDescription": "Deep actions like logging a concern or filing a report happen in the Safeguarding module. This hub shows your compliance posture under the Children First Act 2015.",
+      "loading": "Loading…",
+      "kpi": {
+        "ariaLabel": "Safeguarding KPIs",
+        "openConcerns": "Open concerns",
+        "openConcernsTooltip": "Concerns still requiring attention (excludes resolved and sealed).",
+        "pendingTusla": "Pending Tusla reports",
+        "pendingTuslaTooltip": "Tusla-flagged concerns not yet referred.",
+        "vettingExpiringSoon": "Vetting expiring ≤ 60 days",
+        "vettingExpiringSoonTooltip": "Staff vetting records due to expire in the next 60 days.",
+        "daysUntilReview": "Days until annual review",
+        "daysUntilReviewTooltip": "Days until the next scheduled Child Protection Policy review."
+      },
+      "noReviewScheduled": "Not scheduled",
+      "tiles": {
+        "ariaLabel": "Safeguarding sub-hubs",
+        "mandatoryReporting": {
+          "title": "Mandatory Reporting",
+          "description": "Tusla referrals under Children First Act 2015."
+        },
+        "staffVetting": {
+          "title": "Staff Vetting",
+          "description": "Garda vetting register with expiry tracking."
+        },
+        "annualReview": {
+          "title": "Annual Review",
+          "description": "Child Protection Policy review schedule."
+        },
+        "dlpRegister": {
+          "title": "DLP Register",
+          "description": "Designated liaison persons and deputies."
+        }
+      },
+      "recentReports": {
+        "ariaLabel": "Recent Tusla reports",
+        "title": "Recent Tusla reports",
+        "description": "Last 5 referrals across all severities.",
+        "empty": "No Tusla referrals logged yet.",
+        "pending": "Pending",
+        "tuslaRef": "Tusla ref"
+      },
+      "severity": {
+        "critical": "Critical",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "audit": {
+        "dlpCount": "{active} designated liaison, {deputy} deputies",
+        "lastReviewDate": "last CPP review {date}"
+      },
+      "mandatoryReporting": {
+        "pageTitle": "Mandatory Reporting",
+        "pageDescription": "Children First Act 2015 referrals submitted to Tusla.",
+        "backToSafeguarding": "Back to Safeguarding",
+        "logNewReport": "Log new report",
+        "childrenFirstNotice": "Under the Children First Act 2015, mandated persons must report reasonable grounds for concern about a child's welfare to Tusla. Student identities are anonymised in this register — reveal the full record from the Safeguarding module if needed.",
+        "tableTitle": "Reports submitted",
+        "totalReports": "{count} reports",
+        "loading": "Loading…",
+        "emptyTitle": "No mandatory reports yet",
+        "emptyDescription": "Tusla referrals created in the Safeguarding module will appear here.",
+        "pendingReferral": "Pending",
+        "columns": {
+          "reference": "Reference",
+          "student": "Student (anon.)",
+          "type": "Type",
+          "severity": "Severity",
+          "tuslaRef": "Tusla ref",
+          "referredAt": "Referred at"
+        },
+        "severity": {
+          "critical": "Critical",
+          "high": "High",
+          "medium": "Medium",
+          "low": "Low"
+        },
+        "concernType": {
+          "neglect": "Neglect",
+          "emotional_abuse": "Emotional abuse",
+          "physical_abuse": "Physical abuse",
+          "sexual_abuse": "Sexual abuse",
+          "disclosure": "Disclosure",
+          "observed_behavior": "Observed behaviour",
+          "third_party_report": "Third-party report",
+          "other": "Other"
+        }
+      },
+      "staffVetting": {
+        "pageTitle": "Staff Vetting",
+        "pageDescription": "Garda vetting register with expiry tracking.",
+        "backToSafeguarding": "Back to Safeguarding",
+        "addRecord": "Add record",
+        "notice": "Every person working in a school with access to children must hold current Garda vetting. Records near expiry (within 60 days) show in amber; overdue records show in red.",
+        "tableTitle": "Vetting records",
+        "loading": "Loading…",
+        "emptyTitle": "No vetting records yet",
+        "emptyDescription": "Add a record to track a staff member's Garda vetting status and expiry.",
+        "created": "Vetting record added",
+        "createFailed": "Could not add record",
+        "deleted": "Record deleted",
+        "deleteFailed": "Could not delete record",
+        "confirmDelete": "Delete vetting record for {name}?",
+        "delete": "Delete",
+        "daysRemaining": "{days}d remaining",
+        "overdueBy": "Overdue by {days}d",
+        "columns": {
+          "name": "Staff member",
+          "type": "Type",
+          "reference": "Reference",
+          "vettingDate": "Vetted",
+          "expiryDate": "Expires",
+          "status": "Status",
+          "actions": "Actions"
+        },
+        "type": {
+          "garda_vetting": "Garda vetting",
+          "international": "International",
+          "other": "Other"
+        },
+        "dialog": {
+          "title": "Add vetting record",
+          "description": "Record an existing vetting clearance. Expiry warnings trigger automatically.",
+          "staffMember": "Staff member",
+          "staffPlaceholder": "Choose a staff member…",
+          "type": "Vetting type",
+          "reference": "Reference number",
+          "vettingDate": "Vetting date",
+          "expiryDate": "Expiry date",
+          "notes": "Notes",
+          "cancel": "Cancel",
+          "save": "Save",
+          "saving": "Saving…"
+        }
+      },
+      "annualReview": {
+        "pageTitle": "Annual Review",
+        "pageDescription": "Child Protection Policy review record.",
+        "backToSafeguarding": "Back to Safeguarding",
+        "logReview": "Log review",
+        "notice": "Under §11 of the Children First Act 2015, the school must review its Child Protection Policy at least once a year. Log each review here with findings and follow-up actions.",
+        "tableTitle": "Reviews logged",
+        "loading": "Loading…",
+        "emptyTitle": "No reviews logged yet",
+        "emptyDescription": "Log your first annual Child Protection Policy review to start tracking the schedule.",
+        "created": "Review logged",
+        "createFailed": "Could not log review",
+        "deleted": "Review deleted",
+        "deleteFailed": "Could not delete review",
+        "confirmDelete": "Delete the {year} review?",
+        "delete": "Delete",
+        "columns": {
+          "academicYear": "Academic year",
+          "reviewDate": "Review date",
+          "nextDue": "Next due",
+          "conductedBy": "Conducted by",
+          "status": "Status",
+          "actions": "Actions"
+        },
+        "status": {
+          "scheduled": "Scheduled",
+          "in_progress": "In progress",
+          "completed": "Completed",
+          "overdue": "Overdue"
+        },
+        "dialog": {
+          "title": "Log annual review",
+          "description": "Record details of the Child Protection Policy review.",
+          "academicYear": "Academic year",
+          "reviewDate": "Review date",
+          "nextDue": "Next review due",
+          "status": "Status",
+          "attendees": "Attendees",
+          "findings": "Findings",
+          "actionsRequired": "Actions required",
+          "cancel": "Cancel",
+          "save": "Save",
+          "saving": "Saving…"
+        }
+      },
+      "dlpRegister": {
+        "pageTitle": "DLP Register",
+        "pageDescription": "Designated Liaison Persons and their deputies.",
+        "backToSafeguarding": "Back to Safeguarding",
+        "addEntry": "Add entry",
+        "notice": "Every school's Child Safeguarding Statement must name at least one DLP and a deputy. Update this register when appointments change so audits reflect reality.",
+        "tableTitle": "Appointments",
+        "loading": "Loading…",
+        "emptyTitle": "No DLP entries yet",
+        "emptyDescription": "Add the designated liaison person and any deputies listed on your Child Safeguarding Statement.",
+        "created": "Entry added",
+        "createFailed": "Could not add entry",
+        "deleted": "Entry deleted",
+        "deleteFailed": "Could not delete entry",
+        "confirmDelete": "Remove {name} from the DLP register?",
+        "delete": "Delete",
+        "columns": {
+          "name": "Staff member",
+          "role": "Role",
+          "appointedAt": "Appointed",
+          "status": "Status",
+          "actions": "Actions"
+        },
+        "role": {
+          "designated_liaison": "Designated Liaison Person",
+          "deputy_liaison": "Deputy DLP"
+        },
+        "status": {
+          "active": "Active",
+          "retired": "Retired"
+        },
+        "dialog": {
+          "title": "Add DLP entry",
+          "description": "Record a Designated Liaison Person or deputy appointment.",
+          "staffMember": "Staff member",
+          "staffPlaceholder": "Choose a staff member…",
+          "role": "Role",
+          "appointedAt": "Appointed on",
+          "notes": "Notes",
+          "cancel": "Cancel",
+          "save": "Save",
+          "saving": "Saving…"
+        }
+      }
     },
     "status": {
       "notStarted": "Not Started",
