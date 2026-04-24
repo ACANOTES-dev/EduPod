@@ -9527,13 +9527,6 @@
     "permission": ["analytics.manage_reports", "reports.builder"]
   },
   {
-    "method": "POST",
-    "path": "/v1/reports/builder/:reportId/export",
-    "controller": "ReportsEnhancedController",
-    "module": "reports",
-    "permission": "reports.builder"
-  },
-  {
     "method": "DELETE",
     "path": "/v1/reports/builder/draft",
     "controller": "SavedReportDraftController",
@@ -9602,6 +9595,13 @@
     "controller": "ReportsEnhancedController",
     "module": "reports",
     "permission": "analytics.manage_compliance"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/reports/export/excel",
+    "controller": "ReportsEnhancedController",
+    "module": "reports",
+    "permission": "analytics.view"
   },
   {
     "method": "GET",

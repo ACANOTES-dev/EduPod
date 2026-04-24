@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { PermissionCacheService } from '../../common/services/permission-cache.service';
+
 import { AdmissionsAnalyticsService } from './admissions-analytics.service';
 import { AiPredictionsService } from './ai-predictions.service';
 import { AiReportNarratorService } from './ai-report-narrator.service';
@@ -11,6 +13,7 @@ import { CrossModuleInsightsService } from './cross-module-insights.service';
 import { CustomReportBuilderService } from './custom-report-builder.service';
 import { DemographicsService } from './demographics.service';
 import { GradeAnalyticsService } from './grade-analytics.service';
+import { QueryEngineService } from './query-engine/query-engine.service';
 import { ReportAlertsService } from './report-alerts.service';
 import { ReportExportService } from './report-export.service';
 import { ReportsEnhancedController } from './reports-enhanced.controller';
@@ -125,6 +128,11 @@ const mockReportAlerts = {
 const mockAiNarrator = { generateNarrative: jest.fn() };
 const mockAiPredictions = { predictTrend: jest.fn() };
 const mockReportExport = { generateFormattedExcel: jest.fn() };
+const mockQueryEngine = { execute: jest.fn() };
+const mockPermissionCache = {
+  getPermissions: jest.fn().mockResolvedValue([]),
+  isOwner: jest.fn().mockResolvedValue(false),
+};
 
 describe('ReportsEnhancedController', () => {
   let controller: ReportsEnhancedController;
@@ -149,6 +157,8 @@ describe('ReportsEnhancedController', () => {
         { provide: AiReportNarratorService, useValue: mockAiNarrator },
         { provide: AiPredictionsService, useValue: mockAiPredictions },
         { provide: ReportExportService, useValue: mockReportExport },
+        { provide: QueryEngineService, useValue: mockQueryEngine },
+        { provide: PermissionCacheService, useValue: mockPermissionCache },
       ],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
