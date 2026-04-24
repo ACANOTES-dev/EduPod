@@ -199,30 +199,30 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                 | Wave | Depends on     | Status        | Completed at                   | Commit SHA |
-| --- | ----------------------------------------------------- | ---- | -------------- | ------------- | ------------------------------ | ---------- |
-| 01  | Schema foundation                                     | 1    | —              | `completed`   | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
-| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed`   | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
-| 03  | KPI Dashboard Service                                 | 2    | 01             | `completed`   | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
-| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed`   | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
-| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `deploying`   |                                |            |
-| 06  | Board Report aggregation                              | 2    | 01             | `in-progress` |                                |            |
-| 07  | Compliance Report aggregation                         | 2    | 01             | `deploying`   |                                |            |
-| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `pending`     |                                |            |
-| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `pending`     |                                |            |
-| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `pending`     |                                |            |
-| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `pending`     |                                |            |
-| 12  | AI Predictions service                                | 3    | 01             | `pending`     |                                |            |
-| 13  | Report Sharing service                                | 3    | 01, 04         | `pending`     |                                |            |
-| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`     |                                |            |
-| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`     |                                |            |
-| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`     |                                |            |
-| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`     |                                |            |
-| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`     |                                |            |
-| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`     |                                |            |
-| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`     |                                |            |
-| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`     |                                |            |
-| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`     |                                |            |
+| #   | Title                                                 | Wave | Depends on     | Status       | Completed at                   | Commit SHA |
+| --- | ----------------------------------------------------- | ---- | -------------- | ------------ | ------------------------------ | ---------- |
+| 01  | Schema foundation                                     | 1    | —              | `completed`  | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
+| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed`  | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
+| 03  | KPI Dashboard Service                                 | 2    | 01             | `completed`  | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
+| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed`  | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
+| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `deploying`  |                                |            |
+| 06  | Board Report aggregation                              | 2    | 01             | `🛑 blocked` |                                |            |
+| 07  | Compliance Report aggregation                         | 2    | 01             | `deploying`  |                                |            |
+| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `pending`    |                                |            |
+| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `pending`    |                                |            |
+| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `pending`    |                                |            |
+| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `pending`    |                                |            |
+| 12  | AI Predictions service                                | 3    | 01             | `pending`    |                                |            |
+| 13  | Report Sharing service                                | 3    | 01, 04         | `pending`    |                                |            |
+| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`    |                                |            |
+| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`    |                                |            |
+| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`    |                                |            |
+| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`    |                                |            |
+| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`    |                                |            |
+| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`    |                                |            |
+| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`    |                                |            |
+| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`    |                                |            |
+| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`    |                                |            |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
 
@@ -611,3 +611,89 @@ BoardReportSection>` for per-aggregator type safety.
   may also touch the same file for compliance schemas. New board
   request schema lives in `@school/shared/reports/board-report`.
 - Until: committed OR flipped to `blocked`.
+
+### [IMPL 06] — 🛑 BLOCKED (parallel-session worktree thrash)
+
+- **Timestamp:** 2026-04-24T21:05 Europe/Dublin
+- **Deployed to production:** no
+- **What was built (but never committed):**
+  - `packages/shared/src/reports/board-report.ts` — full Zod contract
+    for the Board Report (8 per-section schemas, `BoardReport`
+    envelope, `BoardReportRequest`, `BoardReportHistoryEntry`,
+    `BoardReportHistoryResponse`).
+  - `apps/api/src/modules/reports/board-report/sections/` — ten
+    files: `section-aggregator.types.ts` (PrismaTransaction +
+    ResolvedTerm + SectionAggregator<S> + `displayName`/`toNumber`/
+    `round` helpers), eight `@Injectable()` aggregators (one per
+    section), an `index.ts` barrel, and a 25-case
+    `section-aggregators.spec.ts` covering every aggregator with
+    the KPI-calculator mock-tx pattern.
+  - `board-report.service.ts` rewrite — `generate()` wraps all
+    aggregators in ONE `createRlsClient.$transaction`, resolves
+    term/tenant, persists a `BoardReport` row; `listHistory()` for
+    `GET /v1/reports/board/history`; legacy CRUD preserved.
+  - `board-report.service.spec.ts` — covers RLS wrap, section
+    filtering, term resolution, payload persistence, anonymise flag,
+    fallback windows, and error paths.
+  - `reports.module.ts` — registered 8 aggregator providers.
+  - `reports-enhanced.controller.ts` — Board Reports region rewritten
+    (`POST /v1/reports/board` sniffs legacy vs new body, `GET
+/v1/reports/board/history` added, `isLegacyBoardReportBody`
+    helper). **These controller edits WERE committed as part of impl
+    05's `03cd4297` commit** — they landed on main but not via an
+    impl 06 commit.
+- **Why blocked:** Across three successive attempts this session
+  wrote every file above, then a parallel wave-2 session (impl 07,
+  based on the commit cadence: `9d10ecee feat(reports): compliance
+report aggregation — impl 07` landed at 21:01:04) ran a git op
+  (likely `git reset HEAD --` or `git checkout HEAD -- …` from their
+  own workflow) that deleted the entire
+  `apps/api/src/modules/reports/board-report/` directory AND the
+  `packages/shared/src/reports/board-report.ts` file AND reverted my
+  `board-report.service.ts` / `board-report.service.spec.ts` /
+  `reports.module.ts` edits back to their HEAD state. The thrash
+  happened three times — re-writing the files a fourth time and
+  racing a fourth commit is not a productive loop.
+- **What stayed on main:** the impl 06 controller edits accidentally
+  rode along in impl 05's `03cd4297` commit, so `POST
+/v1/reports/board` / `GET /v1/reports/board/history` / the legacy
+  sniffer are live in the codebase but have no service
+  implementation behind them — calling the new-shape body on
+  `POST /v1/reports/board` throws at runtime because
+  `BoardReportService.generate` doesn't exist; `GET
+/v1/reports/board/history` throws because
+  `BoardReportService.listHistory` doesn't exist.
+  **This is a broken state: a future commit must either re-land
+  the service + aggregator files OR revert those controller
+  additions.**
+- **Ask of the user:**
+  1. Quiesce parallel wave-2 sessions (impl 05 + impl 07 both
+     committed; impl 06 is the only straggler).
+  2. In a clean session, re-run `/NI 06`. The on-disk state will
+     be:
+     - `board-report/sections/` = missing (rebuild from spec)
+     - `board-report.ts` in shared = missing (rebuild from spec)
+     - `board-report.service.ts` = legacy unchanged (rewrite per
+       spec)
+     - controller = has new board routes but the service backing
+       them is missing (wire them up during rewrite)
+     - `reports.module.ts` = no aggregator providers (add during
+       rewrite)
+  3. Rules 17–21 (shared-file ownership + no `git checkout HEAD
+--`) need stricter enforcement. Three sessions cannot concurrently
+     `git add`/`git reset` across overlapping files.
+- **Prevention recipe for next attempt:** run the WHOLE of impl 06
+  (files + edits + commit) behind ONE staged add + commit without
+  any intermediate git operations that touch other impls' files. If
+  a parallel session is still active on the shared module, stop and
+  wait — do not try to coexist on worktree edits.
+- **Rollback:** N/A — nothing committed by impl 06. To unblock,
+  either revert impl 05's `03cd4297` controller additions (noisy)
+  or accept the broken route and fix-forward with a dedicated impl
+  06 commit that re-authors the aggregator stack.
+- **Session notes:** Lint-staged pre-commit hook "automatic backup"
+  stashes (`stash@{18}`, `stash@{19}`) contain unrelated admissions
+  work, not impl 06's board-report files — the backups didn't
+  cover this diff. The thrash that destroyed my files did not
+  itself go through stash; it looks like a peer session's cleanup
+  path that operates directly on the worktree.
