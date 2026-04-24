@@ -39,7 +39,7 @@
     "path": "/v1/academic-periods/:id",
     "controller": "AcademicPeriodsController",
     "module": "academics",
-    "permission": "students.view"
+    "permission": "students.manage"
   },
   {
     "method": "PATCH",
@@ -53,7 +53,7 @@
     "path": "/v1/academic-years",
     "controller": "AcademicYearsController",
     "module": "academics",
-    "permission": "students.manage"
+    "permission": "students.view"
   },
   {
     "method": "POST",
@@ -74,7 +74,7 @@
     "path": "/v1/academic-years/:id",
     "controller": "AcademicYearsController",
     "module": "academics",
-    "permission": "students.view"
+    "permission": "students.manage"
   },
   {
     "method": "PATCH",
@@ -88,14 +88,14 @@
     "path": "/v1/academic-years/:yearId/periods",
     "controller": "AcademicPeriodsController",
     "module": "academics",
-    "permission": "students.manage"
+    "permission": "students.view"
   },
   {
     "method": "POST",
     "path": "/v1/academic-years/:yearId/periods",
     "controller": "AcademicPeriodsController",
     "module": "academics",
-    "permission": "students.view"
+    "permission": "students.manage"
   },
   {
     "method": "GET",
@@ -312,7 +312,7 @@
     "path": "/v1/admission-forms/system/rebuild",
     "controller": "AdmissionFormsController",
     "module": "admissions",
-    "permission": "admissions.view"
+    "permission": "admissions.manage"
   },
   {
     "method": "GET",
@@ -368,7 +368,7 @@
     "path": "/v1/ai-flags",
     "controller": "AiFlagsController",
     "module": "ai-flags",
-    "permission": "ai_flag.manage"
+    "permission": null
   },
   {
     "method": "PATCH",
@@ -389,14 +389,14 @@
     "path": "/v1/announcements",
     "controller": "AnnouncementsController",
     "module": "communications",
-    "permission": "communications.view"
+    "permission": "communications.manage"
   },
   {
     "method": "GET",
     "path": "/v1/announcements/:id",
     "controller": "AnnouncementsController",
     "module": "communications",
-    "permission": "parent.view_announcements"
+    "permission": "communications.view"
   },
   {
     "method": "PATCH",
@@ -410,7 +410,7 @@
     "path": "/v1/announcements/:id/archive",
     "controller": "AnnouncementsController",
     "module": "communications",
-    "permission": "communications.send"
+    "permission": "communications.manage"
   },
   {
     "method": "GET",
@@ -424,14 +424,14 @@
     "path": "/v1/announcements/:id/publish",
     "controller": "AnnouncementsController",
     "module": "communications",
-    "permission": "communications.manage"
+    "permission": "communications.send"
   },
   {
     "method": "GET",
     "path": "/v1/announcements/my",
     "controller": "AnnouncementsController",
     "module": "communications",
-    "permission": "communications.view"
+    "permission": "parent.view_announcements"
   },
   {
     "method": "GET",
@@ -445,14 +445,14 @@
     "path": "/v1/applications/:applicationId/notes",
     "controller": "ApplicationsController",
     "module": "admissions",
-    "permission": "admissions.manage"
+    "permission": "admissions.view"
   },
   {
     "method": "POST",
     "path": "/v1/applications/:applicationId/notes",
     "controller": "ApplicationsController",
     "module": "admissions",
-    "permission": "admissions.view"
+    "permission": "admissions.manage"
   },
   {
     "method": "GET",
@@ -508,7 +508,7 @@
     "path": "/v1/applications/:id/review",
     "controller": "ApplicationsController",
     "module": "admissions",
-    "permission": "admissions.view"
+    "permission": "admissions.manage"
   },
   {
     "method": "POST",
@@ -571,14 +571,14 @@
     "path": "/v1/approval-requests/:id",
     "controller": "ApprovalRequestsController",
     "module": "approvals",
-    "permission": "approvals.manage"
+    "permission": "approvals.view"
   },
   {
     "method": "POST",
     "path": "/v1/approval-requests/:id/approve",
     "controller": "ApprovalRequestsController",
     "module": "approvals",
-    "permission": "approvals.view"
+    "permission": "approvals.manage"
   },
   {
     "method": "POST",
@@ -613,7 +613,7 @@
     "path": "/v1/approval-requests/callback-health",
     "controller": "ApprovalRequestsController",
     "module": "approvals",
-    "permission": "approvals.view"
+    "permission": "approvals.manage"
   },
   {
     "method": "GET",
@@ -627,7 +627,7 @@
     "path": "/v1/approval-workflows",
     "controller": "ApprovalWorkflowsController",
     "module": "approvals",
-    "permission": "approvals.view"
+    "permission": "approvals.manage"
   },
   {
     "method": "DELETE",
@@ -648,14 +648,14 @@
     "path": "/v1/attendance-records/:id/amend",
     "controller": "AttendanceController",
     "module": "attendance",
-    "permission": "attendance.take"
+    "permission": "attendance.amend_historical"
   },
   {
     "method": "GET",
     "path": "/v1/attendance-sessions",
     "controller": "AttendanceController",
     "module": "attendance",
-    "permission": "attendance.take"
+    "permission": "attendance.view"
   },
   {
     "method": "POST",
@@ -669,21 +669,21 @@
     "path": "/v1/attendance-sessions/:id",
     "controller": "AttendanceController",
     "module": "attendance",
-    "permission": "attendance.take_any_class"
+    "permission": "attendance.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/attendance-sessions/:id/cancel",
     "controller": "AttendanceController",
     "module": "attendance",
-    "permission": "attendance.view"
+    "permission": "attendance.manage"
   },
   {
     "method": "PUT",
     "path": "/v1/attendance-sessions/:sessionId/records",
     "controller": "AttendanceController",
     "module": "attendance",
-    "permission": "attendance.manage"
+    "permission": "attendance.take"
   },
   {
     "method": "PATCH",
@@ -697,7 +697,7 @@
     "path": "/v1/attendance/daily-summaries",
     "controller": "AttendanceController",
     "module": "attendance",
-    "permission": "attendance.amend_historical"
+    "permission": "attendance.view"
   },
   {
     "method": "GET",
@@ -711,7 +711,7 @@
     "path": "/v1/attendance/exceptions",
     "controller": "AttendanceController",
     "module": "attendance",
-    "permission": "attendance.view"
+    "permission": "attendance.manage"
   },
   {
     "method": "POST",
@@ -725,14 +725,14 @@
     "path": "/v1/attendance/officer-dashboard",
     "controller": "AttendanceController",
     "module": "attendance",
-    "permission": "attendance.view"
+    "permission": "attendance.take_any_class"
   },
   {
     "method": "GET",
     "path": "/v1/attendance/pattern-alerts",
     "controller": "AttendanceController",
     "module": "attendance",
-    "permission": "attendance.manage"
+    "permission": "attendance.view_pattern_reports"
   },
   {
     "method": "PATCH",
@@ -788,7 +788,7 @@
     "path": "/v1/attendance/upload-template",
     "controller": "AttendanceController",
     "module": "attendance",
-    "permission": "parent.view_attendance"
+    "permission": "attendance.manage"
   },
   {
     "method": "POST",
@@ -1152,7 +1152,7 @@
     "path": "/v1/behaviour/amendments/:id/send-correction",
     "controller": "BehaviourAmendmentsController",
     "module": "behaviour",
-    "permission": "behaviour.manage"
+    "permission": "behaviour.amend"
   },
   {
     "method": "GET",
@@ -1166,7 +1166,7 @@
     "path": "/v1/behaviour/analytics/ai-query",
     "controller": "BehaviourAIController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.ai_query"
   },
   {
     "method": "GET",
@@ -1180,7 +1180,7 @@
     "path": "/v1/behaviour/analytics/benchmarks",
     "controller": "BehaviourAnalyticsController",
     "module": "behaviour",
-    "permission": "behaviour.manage"
+    "permission": "behaviour.admin"
   },
   {
     "method": "GET",
@@ -1194,7 +1194,7 @@
     "path": "/v1/behaviour/analytics/class-comparisons",
     "controller": "BehaviourAnalyticsController",
     "module": "behaviour",
-    "permission": "behaviour.view_staff_analytics"
+    "permission": "behaviour.view"
   },
   {
     "method": "GET",
@@ -1208,7 +1208,7 @@
     "path": "/v1/behaviour/analytics/export/csv",
     "controller": "BehaviourAnalyticsController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.manage"
   },
   {
     "method": "GET",
@@ -1229,7 +1229,7 @@
     "path": "/v1/behaviour/analytics/interventions",
     "controller": "BehaviourAnalyticsController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.manage"
   },
   {
     "method": "GET",
@@ -1243,7 +1243,7 @@
     "path": "/v1/behaviour/analytics/policy-effectiveness",
     "controller": "BehaviourAnalyticsController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.admin"
   },
   {
     "method": "GET",
@@ -1257,21 +1257,21 @@
     "path": "/v1/behaviour/analytics/ratio",
     "controller": "BehaviourAnalyticsController",
     "module": "behaviour",
-    "permission": "behaviour.manage"
+    "permission": "behaviour.view"
   },
   {
     "method": "GET",
     "path": "/v1/behaviour/analytics/sanctions",
     "controller": "BehaviourAnalyticsController",
     "module": "behaviour",
-    "permission": "behaviour.view_staff_analytics"
+    "permission": "behaviour.view"
   },
   {
     "method": "GET",
     "path": "/v1/behaviour/analytics/staff",
     "controller": "BehaviourAnalyticsController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.view_staff_analytics"
   },
   {
     "method": "GET",
@@ -1285,14 +1285,14 @@
     "path": "/v1/behaviour/analytics/task-completion",
     "controller": "BehaviourAnalyticsController",
     "module": "behaviour",
-    "permission": "behaviour.admin"
+    "permission": "behaviour.manage"
   },
   {
     "method": "GET",
     "path": "/v1/behaviour/analytics/teachers",
     "controller": "BehaviourAnalyticsController",
     "module": "behaviour",
-    "permission": "behaviour.admin"
+    "permission": "behaviour.view_staff_analytics"
   },
   {
     "method": "GET",
@@ -1376,14 +1376,14 @@
     "path": "/v1/behaviour/award-types",
     "controller": "BehaviourConfigController",
     "module": "behaviour",
-    "permission": "behaviour.admin"
+    "permission": "behaviour.view"
   },
   {
     "method": "POST",
     "path": "/v1/behaviour/award-types",
     "controller": "BehaviourConfigController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.admin"
   },
   {
     "method": "DELETE",
@@ -1411,7 +1411,7 @@
     "path": "/v1/behaviour/categories",
     "controller": "BehaviourConfigController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.admin"
   },
   {
     "method": "PATCH",
@@ -1425,14 +1425,14 @@
     "path": "/v1/behaviour/description-templates",
     "controller": "BehaviourConfigController",
     "module": "behaviour",
-    "permission": "behaviour.admin"
+    "permission": "behaviour.view"
   },
   {
     "method": "POST",
     "path": "/v1/behaviour/description-templates",
     "controller": "BehaviourConfigController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.admin"
   },
   {
     "method": "PATCH",
@@ -1467,7 +1467,7 @@
     "path": "/v1/behaviour/documents",
     "controller": "BehaviourDocumentsController",
     "module": "behaviour",
-    "permission": "behaviour.manage"
+    "permission": "behaviour.view"
   },
   {
     "method": "GET",
@@ -1481,14 +1481,14 @@
     "path": "/v1/behaviour/documents/:id/download",
     "controller": "BehaviourDocumentsController",
     "module": "behaviour",
-    "permission": "behaviour.manage"
+    "permission": "behaviour.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/behaviour/documents/:id/finalise",
     "controller": "BehaviourDocumentsController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.manage"
   },
   {
     "method": "GET",
@@ -1677,7 +1677,7 @@
     "path": "/v1/behaviour/incidents",
     "controller": "BehaviourController",
     "module": "behaviour",
-    "permission": "behaviour.log"
+    "permission": "behaviour.view"
   },
   {
     "method": "POST",
@@ -1698,14 +1698,14 @@
     "path": "/v1/behaviour/incidents/:id",
     "controller": "BehaviourController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.manage"
   },
   {
     "method": "GET",
     "path": "/v1/behaviour/incidents/:id/attachments",
     "controller": "BehaviourController",
     "module": "behaviour",
-    "permission": "behaviour.manage"
+    "permission": "behaviour.view"
   },
   {
     "method": "POST",
@@ -1733,7 +1733,7 @@
     "path": "/v1/behaviour/incidents/:id/history",
     "controller": "BehaviourController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.manage"
   },
   {
     "method": "POST",
@@ -1796,7 +1796,7 @@
     "path": "/v1/behaviour/incidents/my",
     "controller": "BehaviourController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.log"
   },
   {
     "method": "POST",
@@ -1810,7 +1810,7 @@
     "path": "/v1/behaviour/incidents/stats",
     "controller": "BehaviourController",
     "module": "behaviour",
-    "permission": "behaviour.log"
+    "permission": "behaviour.view"
   },
   {
     "method": "GET",
@@ -1992,7 +1992,7 @@
     "path": "/v1/behaviour/quick-log/context",
     "controller": "BehaviourController",
     "module": "behaviour",
-    "permission": "behaviour.manage"
+    "permission": "behaviour.log"
   },
   {
     "method": "GET",
@@ -2013,14 +2013,14 @@
     "path": "/v1/behaviour/recognition/awards",
     "controller": "BehaviourRecognitionController",
     "module": "behaviour",
-    "permission": "behaviour.manage"
+    "permission": "behaviour.view"
   },
   {
     "method": "POST",
     "path": "/v1/behaviour/recognition/awards",
     "controller": "BehaviourRecognitionController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.manage"
   },
   {
     "method": "GET",
@@ -2041,7 +2041,7 @@
     "path": "/v1/behaviour/recognition/houses/bulk-assign",
     "controller": "BehaviourRecognitionController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.admin"
   },
   {
     "method": "GET",
@@ -2055,14 +2055,14 @@
     "path": "/v1/behaviour/recognition/public/feed",
     "controller": "BehaviourRecognitionController",
     "module": "behaviour",
-    "permission": "behaviour.admin"
+    "permission": "behaviour.view"
   },
   {
     "method": "POST",
     "path": "/v1/behaviour/recognition/publications",
     "controller": "BehaviourRecognitionController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.manage"
   },
   {
     "method": "GET",
@@ -2076,7 +2076,7 @@
     "path": "/v1/behaviour/recognition/publications/:id/approve",
     "controller": "BehaviourRecognitionController",
     "module": "behaviour",
-    "permission": "behaviour.manage"
+    "permission": "behaviour.admin"
   },
   {
     "method": "PATCH",
@@ -2167,14 +2167,14 @@
     "path": "/v1/behaviour/sanctions/calendar",
     "controller": "BehaviourSanctionsController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.manage"
   },
   {
     "method": "GET",
     "path": "/v1/behaviour/sanctions/my-supervision",
     "controller": "BehaviourSanctionsController",
     "module": "behaviour",
-    "permission": "behaviour.manage"
+    "permission": "behaviour.view"
   },
   {
     "method": "GET",
@@ -2209,7 +2209,7 @@
     "path": "/v1/behaviour/students/:studentId/ai-summary",
     "controller": "BehaviourAIController",
     "module": "behaviour",
-    "permission": "behaviour.log"
+    "permission": "behaviour.view"
   },
   {
     "method": "GET",
@@ -2230,7 +2230,7 @@
     "path": "/v1/behaviour/students/:studentId/export",
     "controller": "BehaviourStudentsController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.manage"
   },
   {
     "method": "GET",
@@ -2244,7 +2244,7 @@
     "path": "/v1/behaviour/students/:studentId/parent-view",
     "controller": "BehaviourStudentsController",
     "module": "behaviour",
-    "permission": "behaviour.manage"
+    "permission": "parent.view_behaviour"
   },
   {
     "method": "GET",
@@ -2272,7 +2272,7 @@
     "path": "/v1/behaviour/students/:studentId/tasks",
     "controller": "BehaviourStudentsController",
     "module": "behaviour",
-    "permission": "parent.view_behaviour"
+    "permission": "behaviour.view"
   },
   {
     "method": "GET",
@@ -2300,21 +2300,24 @@
     "path": "/v1/behaviour/tasks/:id",
     "controller": "BehaviourTasksController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.manage"
   },
   {
     "method": "POST",
     "path": "/v1/behaviour/tasks/:id/cancel",
     "controller": "BehaviourTasksController",
     "module": "behaviour",
-    "permission": ["behaviour.view", "behaviour.manage"]
+    "permission": "behaviour.manage"
   },
   {
     "method": "POST",
     "path": "/v1/behaviour/tasks/:id/complete",
     "controller": "BehaviourTasksController",
     "module": "behaviour",
-    "permission": "behaviour.manage"
+    "permission": [
+      "behaviour.view",
+      "behaviour.manage"
+    ]
   },
   {
     "method": "GET",
@@ -2328,14 +2331,14 @@
     "path": "/v1/behaviour/tasks/overdue",
     "controller": "BehaviourTasksController",
     "module": "behaviour",
-    "permission": "behaviour.view"
+    "permission": "behaviour.manage"
   },
   {
     "method": "GET",
     "path": "/v1/behaviour/tasks/stats",
     "controller": "BehaviourTasksController",
     "module": "behaviour",
-    "permission": "behaviour.manage"
+    "permission": "behaviour.view"
   },
   {
     "method": "GET",
@@ -2384,7 +2387,7 @@
     "path": "/v1/child-protection/access/check/:studentId",
     "controller": "CpAccessController",
     "module": "child-protection",
-    "permission": "pastoral.manage_cp_access"
+    "permission": null
   },
   {
     "method": "POST",
@@ -2461,7 +2464,7 @@
     "path": "/v1/child-protection/export/download/:token",
     "controller": "CpExportController",
     "module": "child-protection",
-    "permission": "pastoral.export_tier3"
+    "permission": null
   },
   {
     "method": "POST",
@@ -2580,7 +2583,7 @@
     "path": "/v1/classes",
     "controller": "ClassesController",
     "module": "classes",
-    "permission": "students.manage"
+    "permission": "students.view"
   },
   {
     "method": "POST",
@@ -2601,7 +2604,7 @@
     "path": "/v1/classes/:classId/enrolments",
     "controller": "ClassEnrolmentsController",
     "module": "classes",
-    "permission": "students.view"
+    "permission": "students.manage"
   },
   {
     "method": "POST",
@@ -2629,28 +2632,28 @@
     "path": "/v1/classes/:id",
     "controller": "ClassesController",
     "module": "classes",
-    "permission": "students.view"
+    "permission": "students.manage"
   },
   {
     "method": "GET",
     "path": "/v1/classes/:id/preview",
     "controller": "ClassesController",
     "module": "classes",
-    "permission": "students.manage"
+    "permission": "students.view"
   },
   {
     "method": "GET",
     "path": "/v1/classes/:id/staff",
     "controller": "ClassesController",
     "module": "classes",
-    "permission": "students.manage"
+    "permission": "students.view"
   },
   {
     "method": "POST",
     "path": "/v1/classes/:id/staff",
     "controller": "ClassesController",
     "module": "classes",
-    "permission": "students.view"
+    "permission": "students.manage"
   },
   {
     "method": "PATCH",
@@ -2664,7 +2667,7 @@
     "path": "/v1/compliance-requests",
     "controller": "ComplianceController",
     "module": "compliance",
-    "permission": "compliance.manage"
+    "permission": "compliance.view"
   },
   {
     "method": "POST",
@@ -2678,7 +2681,7 @@
     "path": "/v1/compliance-requests/:id",
     "controller": "ComplianceController",
     "module": "compliance",
-    "permission": "compliance.manage"
+    "permission": "compliance.view"
   },
   {
     "method": "POST",
@@ -2692,7 +2695,7 @@
     "path": "/v1/compliance-requests/:id/classify",
     "controller": "ComplianceController",
     "module": "compliance",
-    "permission": "compliance.view"
+    "permission": "compliance.manage"
   },
   {
     "method": "POST",
@@ -2734,7 +2737,7 @@
     "path": "/v1/compliance-requests/overdue",
     "controller": "ComplianceController",
     "module": "compliance",
-    "permission": "compliance.view"
+    "permission": "compliance.manage"
   },
   {
     "method": "POST",
@@ -2762,14 +2765,14 @@
     "path": "/v1/consent/subject/:type/:id",
     "controller": "ConsentController",
     "module": "gdpr",
-    "permission": "consent.manage"
+    "permission": "consent.view"
   },
   {
     "method": "GET",
     "path": "/v1/consent/type/:consentType",
     "controller": "ConsentController",
     "module": "gdpr",
-    "permission": "consent.view"
+    "permission": "consent.manage"
   },
   {
     "method": "GET",
@@ -2783,7 +2786,7 @@
     "path": "/v1/contact-submissions/:id/status",
     "controller": "ContactSubmissionsController",
     "module": "website",
-    "permission": "communications.view"
+    "permission": "communications.manage"
   },
   {
     "method": "GET",
@@ -2797,14 +2800,14 @@
     "path": "/v1/curriculum-matrix/bulk-assessments",
     "controller": "CurriculumMatrixController",
     "module": "academics",
-    "permission": "curriculum_matrix.manage"
+    "permission": "gradebook.enter_grades"
   },
   {
     "method": "POST",
     "path": "/v1/curriculum-matrix/toggle",
     "controller": "CurriculumMatrixController",
     "module": "academics",
-    "permission": "students.view"
+    "permission": "curriculum_matrix.manage"
   },
   {
     "method": "POST",
@@ -2818,7 +2821,7 @@
     "path": "/v1/dashboard/parent",
     "controller": "DashboardController",
     "module": "dashboard",
-    "permission": "students.view"
+    "permission": "parent.view_own_students"
   },
   {
     "method": "GET",
@@ -2832,14 +2835,14 @@
     "path": "/v1/dashboard/student",
     "controller": "DashboardController",
     "module": "dashboard",
-    "permission": "parent.view_own_students"
+    "permission": "schedule.view_class"
   },
   {
     "method": "GET",
     "path": "/v1/dashboard/teacher",
     "controller": "DashboardController",
     "module": "dashboard",
-    "permission": "schedule.view_class"
+    "permission": "attendance.take"
   },
   {
     "method": "GET",
@@ -2853,7 +2856,7 @@
     "path": "/v1/diary/:studentId",
     "controller": "HomeworkDiaryController",
     "module": "homework",
-    "permission": "homework.view_diary"
+    "permission": "homework.write_diary"
   },
   {
     "method": "PATCH",
@@ -2867,14 +2870,17 @@
     "path": "/v1/diary/:studentId/parent-notes",
     "controller": "HomeworkDiaryController",
     "module": "homework",
-    "permission": "homework.write_diary"
+    "permission": "homework.view_diary"
   },
   {
     "method": "POST",
     "path": "/v1/diary/:studentId/parent-notes",
     "controller": "HomeworkDiaryController",
     "module": "homework",
-    "permission": "homework.view_diary"
+    "permission": [
+      "homework.write_diary",
+      "parent.homework"
+    ]
   },
   {
     "method": "PATCH",
@@ -2895,21 +2901,21 @@
     "path": "/v1/early-warnings/:studentId",
     "controller": "EarlyWarningController",
     "module": "early-warning",
-    "permission": "early_warning.manage"
+    "permission": "early_warning.view"
   },
   {
     "method": "POST",
     "path": "/v1/early-warnings/:studentId/acknowledge",
     "controller": "EarlyWarningController",
     "module": "early-warning",
-    "permission": "early_warning.view"
+    "permission": "early_warning.acknowledge"
   },
   {
     "method": "POST",
     "path": "/v1/early-warnings/:studentId/assign",
     "controller": "EarlyWarningController",
     "module": "early-warning",
-    "permission": "early_warning.acknowledge"
+    "permission": "early_warning.assign"
   },
   {
     "method": "GET",
@@ -2923,7 +2929,7 @@
     "path": "/v1/early-warnings/config",
     "controller": "EarlyWarningController",
     "module": "early-warning",
-    "permission": "early_warning.view"
+    "permission": "early_warning.manage"
   },
   {
     "method": "PUT",
@@ -2958,7 +2964,7 @@
     "path": "/v1/engagement/calendar-events",
     "controller": "EngagementAnalyticsController",
     "module": "engagement",
-    "permission": "engagement.events.view_dashboard"
+    "permission": "engagement.events.view"
   },
   {
     "method": "GET",
@@ -2986,21 +2992,21 @@
     "path": "/v1/engagement/conferences/:eventId/my-schedule",
     "controller": "ConferencesController",
     "module": "engagement",
-    "permission": "engagement.conferences.manage"
+    "permission": "engagement.conferences.view_schedule"
   },
   {
     "method": "PATCH",
     "path": "/v1/engagement/conferences/:eventId/my-slots/:slotId",
     "controller": "ConferencesController",
     "module": "engagement",
-    "permission": "engagement.conferences.manage"
+    "permission": "engagement.conferences.view_schedule"
   },
   {
     "method": "GET",
     "path": "/v1/engagement/conferences/:eventId/stats",
     "controller": "ConferencesController",
     "module": "engagement",
-    "permission": "engagement.conferences.view_schedule"
+    "permission": "engagement.conferences.manage"
   },
   {
     "method": "GET",
@@ -3014,7 +3020,7 @@
     "path": "/v1/engagement/conferences/:eventId/time-slots/:slotId",
     "controller": "ConferencesController",
     "module": "engagement",
-    "permission": "engagement.conferences.view_schedule"
+    "permission": "engagement.conferences.manage"
   },
   {
     "method": "POST",
@@ -3042,7 +3048,7 @@
     "path": "/v1/engagement/events",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.events.create"
+    "permission": "engagement.events.view"
   },
   {
     "method": "POST",
@@ -3070,28 +3076,28 @@
     "path": "/v1/engagement/events/:id",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.events.view"
+    "permission": "engagement.events.edit"
   },
   {
     "method": "GET",
     "path": "/v1/engagement/events/:id/attendance",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.trip_pack.download"
+    "permission": "engagement.events.view"
   },
   {
     "method": "POST",
     "path": "/v1/engagement/events/:id/attendance",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.events.view"
+    "permission": "engagement.events.edit"
   },
   {
     "method": "POST",
     "path": "/v1/engagement/events/:id/cancel",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.events.edit"
+    "permission": "engagement.events.cancel"
   },
   {
     "method": "POST",
@@ -3112,7 +3118,7 @@
     "path": "/v1/engagement/events/:id/dashboard",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.events.edit"
+    "permission": "engagement.events.view_dashboard"
   },
   {
     "method": "POST",
@@ -3126,56 +3132,56 @@
     "path": "/v1/engagement/events/:id/incidents",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.incidents.create"
+    "permission": "engagement.incidents.view"
   },
   {
     "method": "POST",
     "path": "/v1/engagement/events/:id/incidents",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.events.edit"
+    "permission": "engagement.incidents.create"
   },
   {
     "method": "POST",
     "path": "/v1/engagement/events/:id/open",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.events.publish"
+    "permission": "engagement.events.edit"
   },
   {
     "method": "GET",
     "path": "/v1/engagement/events/:id/participants",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.events.edit"
+    "permission": "engagement.events.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/engagement/events/:id/participants/:participantId",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.events.view"
+    "permission": "engagement.events.edit"
   },
   {
     "method": "POST",
     "path": "/v1/engagement/events/:id/publish",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.events.edit"
+    "permission": "engagement.events.publish"
   },
   {
     "method": "POST",
     "path": "/v1/engagement/events/:id/remind-outstanding",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.events.view_dashboard"
+    "permission": "engagement.events.edit"
   },
   {
     "method": "POST",
     "path": "/v1/engagement/events/:id/risk-assessment/approve",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.events.edit"
+    "permission": "engagement.risk_assessment.approve"
   },
   {
     "method": "POST",
@@ -3189,14 +3195,14 @@
     "path": "/v1/engagement/events/:id/staff",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.events.cancel"
+    "permission": "engagement.events.view"
   },
   {
     "method": "POST",
     "path": "/v1/engagement/events/:id/staff",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.events.view"
+    "permission": "engagement.events.edit"
   },
   {
     "method": "DELETE",
@@ -3217,14 +3223,14 @@
     "path": "/v1/engagement/events/:id/trip-pack/download",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.trip_pack.generate"
+    "permission": "engagement.trip_pack.download"
   },
   {
     "method": "POST",
     "path": "/v1/engagement/events/:id/trip-pack/generate",
     "controller": "EventsController",
     "module": "engagement",
-    "permission": "engagement.risk_assessment.approve"
+    "permission": "engagement.trip_pack.generate"
   },
   {
     "method": "GET",
@@ -3245,7 +3251,7 @@
     "path": "/v1/engagement/form-submissions/:id/acknowledge",
     "controller": "FormSubmissionsController",
     "module": "engagement",
-    "permission": "engagement.form_templates.view"
+    "permission": "engagement.form_templates.edit"
   },
   {
     "method": "GET",
@@ -3259,7 +3265,7 @@
     "path": "/v1/engagement/form-templates",
     "controller": "FormTemplatesController",
     "module": "engagement",
-    "permission": "engagement.form_templates.create"
+    "permission": "engagement.form_templates.view"
   },
   {
     "method": "POST",
@@ -3273,7 +3279,7 @@
     "path": "/v1/engagement/form-templates/:id",
     "controller": "FormTemplatesController",
     "module": "engagement",
-    "permission": "engagement.form_templates.edit"
+    "permission": "engagement.form_templates.delete"
   },
   {
     "method": "GET",
@@ -3287,7 +3293,7 @@
     "path": "/v1/engagement/form-templates/:id",
     "controller": "FormTemplatesController",
     "module": "engagement",
-    "permission": "engagement.form_templates.view"
+    "permission": "engagement.form_templates.edit"
   },
   {
     "method": "POST",
@@ -3308,7 +3314,7 @@
     "path": "/v1/engagement/form-templates/:id/publish",
     "controller": "FormTemplatesController",
     "module": "engagement",
-    "permission": "engagement.form_templates.delete"
+    "permission": "engagement.form_templates.publish"
   },
   {
     "method": "POST",
@@ -3322,7 +3328,7 @@
     "path": "/v1/finance/audit-trail",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.manage"
+    "permission": "finance.view"
   },
   {
     "method": "POST",
@@ -3336,7 +3342,7 @@
     "path": "/v1/finance/bulk/issue",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.bulk_operations"
   },
   {
     "method": "POST",
@@ -3364,7 +3370,7 @@
     "path": "/v1/finance/credit-notes",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage_credit_notes"
   },
   {
     "method": "GET",
@@ -3399,7 +3405,7 @@
     "path": "/v1/finance/dashboard/currency",
     "controller": "FinanceDashboardController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "GET",
@@ -3427,7 +3433,7 @@
     "path": "/v1/finance/discounts",
     "controller": "DiscountsController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "DELETE",
@@ -3462,7 +3468,7 @@
     "path": "/v1/finance/fee-assignments",
     "controller": "FeeAssignmentsController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "GET",
@@ -3511,7 +3517,7 @@
     "path": "/v1/finance/fee-structures",
     "controller": "FeeStructuresController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "DELETE",
@@ -3546,7 +3552,7 @@
     "path": "/v1/finance/fee-types",
     "controller": "FeeTypesController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "DELETE",
@@ -3595,7 +3601,7 @@
     "path": "/v1/finance/invoices",
     "controller": "InvoicesController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "GET",
@@ -3637,14 +3643,14 @@
     "path": "/v1/finance/invoices/:id/installments",
     "controller": "InvoicesController",
     "module": "finance",
-    "permission": "finance.manage"
+    "permission": "finance.view"
   },
   {
     "method": "POST",
     "path": "/v1/finance/invoices/:id/installments",
     "controller": "InvoicesController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "POST",
@@ -3686,14 +3692,14 @@
     "path": "/v1/finance/late-fee-configs",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.manage_credit_notes"
+    "permission": "finance.view"
   },
   {
     "method": "POST",
     "path": "/v1/finance/late-fee-configs",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage_late_fees"
   },
   {
     "method": "GET",
@@ -3714,21 +3720,21 @@
     "path": "/v1/finance/payment-plans",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.view_reports"
+    "permission": "finance.view"
   },
   {
     "method": "GET",
     "path": "/v1/finance/payment-plans/:id",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.manage"
+    "permission": "finance.view"
   },
   {
     "method": "POST",
     "path": "/v1/finance/payment-plans/:id/approve",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "POST",
@@ -3756,7 +3762,7 @@
     "path": "/v1/finance/payment-plans/admin-create",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "GET",
@@ -3770,14 +3776,14 @@
     "path": "/v1/finance/payments",
     "controller": "PaymentsController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "GET",
     "path": "/v1/finance/payments/:id",
     "controller": "PaymentsController",
     "module": "finance",
-    "permission": "finance.manage"
+    "permission": "finance.view"
   },
   {
     "method": "POST",
@@ -3798,7 +3804,7 @@
     "path": "/v1/finance/payments/:id/receipt",
     "controller": "PaymentsController",
     "module": "finance",
-    "permission": "finance.manage"
+    "permission": "finance.view"
   },
   {
     "method": "GET",
@@ -3812,21 +3818,21 @@
     "path": "/v1/finance/payments/staff",
     "controller": "PaymentsController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "GET",
     "path": "/v1/finance/recurring-configs",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.manage"
+    "permission": "finance.view"
   },
   {
     "method": "POST",
     "path": "/v1/finance/recurring-configs",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "GET",
@@ -3861,7 +3867,7 @@
     "path": "/v1/finance/refunds",
     "controller": "RefundsController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage"
   },
   {
     "method": "POST",
@@ -3889,7 +3895,7 @@
     "path": "/v1/finance/reminders/due-soon",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.manage_scholarships"
+    "permission": "finance.manage"
   },
   {
     "method": "POST",
@@ -3910,7 +3916,7 @@
     "path": "/v1/finance/reports/aging",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.manage"
+    "permission": "finance.view_reports"
   },
   {
     "method": "GET",
@@ -3952,14 +3958,14 @@
     "path": "/v1/finance/scholarships",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.manage_late_fees"
+    "permission": "finance.view"
   },
   {
     "method": "POST",
     "path": "/v1/finance/scholarships",
     "controller": "FinanceEnhancedController",
     "module": "finance",
-    "permission": "finance.view"
+    "permission": "finance.manage_scholarships"
   },
   {
     "method": "GET",
@@ -4001,7 +4007,7 @@
     "path": "/v1/gradebook/ai/generate-comment/:reportCardId",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.view_analytics"
+    "permission": "gradebook.enter_grades"
   },
   {
     "method": "POST",
@@ -4022,21 +4028,21 @@
     "path": "/v1/gradebook/ai/grading-instructions",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.manage_ai_grading"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/ai/grading-instructions",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.enter_grades"
+    "permission": "gradebook.manage_ai_grading"
   },
   {
     "method": "DELETE",
     "path": "/v1/gradebook/ai/grading-instructions/:id",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.approve_ai_grading"
+    "permission": "gradebook.manage_ai_grading"
   },
   {
     "method": "GET",
@@ -4050,7 +4056,7 @@
     "path": "/v1/gradebook/ai/grading-instructions/:id/approve",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.approve_ai_grading"
   },
   {
     "method": "POST",
@@ -4064,35 +4070,35 @@
     "path": "/v1/gradebook/ai/grading-references/:assessmentId",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.manage_ai_grading"
+    "permission": "gradebook.view"
   },
   {
     "method": "DELETE",
     "path": "/v1/gradebook/ai/grading-references/:id",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.approve_ai_grading"
+    "permission": "gradebook.manage_ai_grading"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/ai/grading-references/:id/approve",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.approve_ai_grading"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/ai/progress-summary",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.view_analytics"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/ai/query",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.manage_ai_grading"
+    "permission": "gradebook.view_analytics"
   },
   {
     "method": "GET",
@@ -4113,7 +4119,7 @@
     "path": "/v1/gradebook/analytics/classes/:classId/trend",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.view_analytics"
   },
   {
     "method": "GET",
@@ -4134,7 +4140,7 @@
     "path": "/v1/gradebook/analytics/students/:studentId/trend",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.view_analytics"
+    "permission": "gradebook.view"
   },
   {
     "method": "GET",
@@ -4148,7 +4154,7 @@
     "path": "/v1/gradebook/assessment-categories",
     "controller": "AssessmentCategoriesController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
@@ -4176,35 +4182,35 @@
     "path": "/v1/gradebook/assessment-categories/:id",
     "controller": "AssessmentCategoriesController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/assessment-categories/:id/review",
     "controller": "AssessmentCategoriesController",
     "module": "gradebook",
-    "permission": "gradebook.manage_own_config"
+    "permission": "gradebook.approve_config"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/assessment-categories/:id/submit",
     "controller": "AssessmentCategoriesController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.manage_own_config"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/assessment-templates",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/assessment-templates",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "DELETE",
@@ -4225,49 +4231,49 @@
     "path": "/v1/gradebook/assessment-templates/:id",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/assessment-templates/:id/create-assessment",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.enter_grades"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/assessments",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.enter_grades"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/assessments",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.enter_grades"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/assessments/:assessmentId/grades",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.enter_grades"
+    "permission": "gradebook.view"
   },
   {
     "method": "PUT",
     "path": "/v1/gradebook/assessments/:assessmentId/grades",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.enter_grades"
   },
   {
     "method": "DELETE",
     "path": "/v1/gradebook/assessments/:id",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.enter_grades"
+    "permission": "gradebook.manage"
   },
   {
     "method": "GET",
@@ -4281,7 +4287,7 @@
     "path": "/v1/gradebook/assessments/:id",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.enter_grades"
   },
   {
     "method": "DELETE",
@@ -4295,14 +4301,14 @@
     "path": "/v1/gradebook/assessments/:id/curve",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.apply_curve"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/assessments/:id/curve-history",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.apply_curve"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
@@ -4323,7 +4329,7 @@
     "path": "/v1/gradebook/assessments/:id/standards",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.enter_grades"
   },
   {
     "method": "PATCH",
@@ -4337,28 +4343,28 @@
     "path": "/v1/gradebook/assessments/:id/unlock-request",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.approve_config"
+    "permission": "gradebook.request_unlock"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/assessments/:id/unlock-requests",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.approve_unlock"
+    "permission": "gradebook.view"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/classes/:classId/allocations",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/classes/:classId/grade-configs",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "GET",
@@ -4372,14 +4378,14 @@
     "path": "/v1/gradebook/classes/:classId/results-matrix",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.enter_grades"
   },
   {
     "method": "DELETE",
     "path": "/v1/gradebook/classes/:classId/subjects/:subjectId/grade-config",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "GET",
@@ -4393,21 +4399,21 @@
     "path": "/v1/gradebook/classes/:classId/subjects/:subjectId/grade-config",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/competency-scales",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/competency-scales",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "DELETE",
@@ -4428,42 +4434,42 @@
     "path": "/v1/gradebook/competency-scales/:id",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/curriculum-standards",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/curriculum-standards",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.enter_grades"
+    "permission": "gradebook.manage"
   },
   {
     "method": "DELETE",
     "path": "/v1/gradebook/curriculum-standards/:id",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/curriculum-standards/:id/review",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage_own_config"
+    "permission": "gradebook.approve_config"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/curriculum-standards/:id/submit",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.approve_config"
+    "permission": "gradebook.manage_own_config"
   },
   {
     "method": "POST",
@@ -4477,14 +4483,14 @@
     "path": "/v1/gradebook/grades/:gradeId/rubric-grades",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.enter_grades"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/grading-scales",
     "controller": "GradingScalesController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
@@ -4512,7 +4518,7 @@
     "path": "/v1/gradebook/grading-scales/:id",
     "controller": "GradingScalesController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "POST",
@@ -4526,7 +4532,7 @@
     "path": "/v1/gradebook/import/template",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.approve_unlock"
+    "permission": "gradebook.manage"
   },
   {
     "method": "POST",
@@ -4540,28 +4546,28 @@
     "path": "/v1/gradebook/period-grades",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/period-grades/:id/override",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.override_final_grade"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/period-grades/compute",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/period-grades/compute-gpa",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "GET",
@@ -4575,7 +4581,7 @@
     "path": "/v1/gradebook/period-grades/cross-subject",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.override_final_grade"
+    "permission": "gradebook.view"
   },
   {
     "method": "GET",
@@ -4589,28 +4595,28 @@
     "path": "/v1/gradebook/progress-reports",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/progress-reports",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.publish_grades_to_parents"
+    "permission": "gradebook.manage"
   },
   {
     "method": "PATCH",
     "path": "/v1/gradebook/progress-reports/entries/:entryId",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.enter_grades"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/progress-reports/send",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.enter_grades"
+    "permission": "gradebook.manage"
   },
   {
     "method": "POST",
@@ -4631,14 +4637,14 @@
     "path": "/v1/gradebook/publishing/readiness",
     "controller": "GradebookInsightsController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.publish_grades_to_parents"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/rubric-templates",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
@@ -4666,35 +4672,35 @@
     "path": "/v1/gradebook/rubric-templates/:id",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/rubric-templates/:id/review",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage_own_config"
+    "permission": "gradebook.approve_config"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/rubric-templates/:id/submit",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.enter_grades"
+    "permission": "gradebook.manage_own_config"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/students/:studentId/competency-snapshots",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.enter_grades"
+    "permission": "gradebook.view"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/students/:studentId/gpa",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "GET",
@@ -4708,14 +4714,14 @@
     "path": "/v1/gradebook/teacher-grading-weights",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.manage_own_config"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/teacher-grading-weights",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.manage_own_config"
   },
   {
     "method": "DELETE",
@@ -4736,14 +4742,14 @@
     "path": "/v1/gradebook/teacher-grading-weights/:id",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage_own_config"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/teacher-grading-weights/:id/review",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.manage_own_config"
+    "permission": "gradebook.approve_config"
   },
   {
     "method": "POST",
@@ -4764,21 +4770,21 @@
     "path": "/v1/gradebook/teaching-allocations/all",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/unlock-requests",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.request_unlock"
+    "permission": "gradebook.approve_unlock"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/unlock-requests/:id/review",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.approve_unlock"
   },
   {
     "method": "GET",
@@ -4827,28 +4833,28 @@
     "path": "/v1/gradebook/year-group-weights",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.enter_grades"
+    "permission": "gradebook.manage"
   },
   {
     "method": "GET",
     "path": "/v1/gradebook/year-group-weights/:yearGroupId",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
     "path": "/v1/gradebook/year-group-weights/copy",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "GET",
     "path": "/v1/homework",
     "controller": "HomeworkController",
     "module": "homework",
-    "permission": "homework.manage"
+    "permission": "homework.view"
   },
   {
     "method": "POST",
@@ -4862,21 +4868,21 @@
     "path": "/v1/homework/:id",
     "controller": "HomeworkController",
     "module": "homework",
-    "permission": "homework.view"
+    "permission": "homework.manage"
   },
   {
     "method": "GET",
     "path": "/v1/homework/:id",
     "controller": "HomeworkController",
     "module": "homework",
-    "permission": "homework.manage"
+    "permission": "homework.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/homework/:id",
     "controller": "HomeworkController",
     "module": "homework",
-    "permission": "homework.view"
+    "permission": "homework.manage"
   },
   {
     "method": "POST",
@@ -4897,7 +4903,7 @@
     "path": "/v1/homework/:id/completion-rate",
     "controller": "HomeworkCompletionsController",
     "module": "homework",
-    "permission": "homework.manage"
+    "permission": "homework.view"
   },
   {
     "method": "GET",
@@ -4911,7 +4917,7 @@
     "path": "/v1/homework/:id/completions",
     "controller": "HomeworkCompletionsController",
     "module": "homework",
-    "permission": "homework.view"
+    "permission": "homework.manage"
   },
   {
     "method": "PATCH",
@@ -4939,7 +4945,7 @@
     "path": "/v1/homework/:id/notification-preview",
     "controller": "HomeworkController",
     "module": "homework",
-    "permission": "homework.manage"
+    "permission": "homework.view"
   },
   {
     "method": "POST",
@@ -4967,7 +4973,7 @@
     "path": "/v1/homework/:id/submissions/:submissionId/grade",
     "controller": "HomeworkCompletionsController",
     "module": "homework",
-    "permission": "homework.view"
+    "permission": "homework.manage"
   },
   {
     "method": "POST",
@@ -5079,7 +5085,7 @@
     "path": "/v1/homework/recurrence-rules",
     "controller": "HomeworkController",
     "module": "homework",
-    "permission": "homework.view"
+    "permission": "homework.manage"
   },
   {
     "method": "DELETE",
@@ -5114,7 +5120,7 @@
     "path": "/v1/households",
     "controller": "HouseholdsController",
     "module": "households",
-    "permission": "students.manage"
+    "permission": "students.view"
   },
   {
     "method": "POST",
@@ -5149,14 +5155,14 @@
     "path": "/v1/households/:id",
     "controller": "HouseholdsController",
     "module": "households",
-    "permission": "students.manage"
+    "permission": "students.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/households/:id",
     "controller": "HouseholdsController",
     "module": "households",
-    "permission": "students.view"
+    "permission": "students.manage"
   },
   {
     "method": "PUT",
@@ -5184,7 +5190,7 @@
     "path": "/v1/households/:id/preview",
     "controller": "HouseholdsController",
     "module": "households",
-    "permission": "students.manage"
+    "permission": "students.view"
   },
   {
     "method": "PATCH",
@@ -5205,21 +5211,21 @@
     "path": "/v1/households/merge",
     "controller": "HouseholdsController",
     "module": "households",
-    "permission": "students.manage"
+    "permission": "students.view"
   },
   {
     "method": "POST",
     "path": "/v1/households/merge",
     "controller": "HouseholdsController",
     "module": "households",
-    "permission": "students.view"
+    "permission": "students.manage"
   },
   {
     "method": "GET",
     "path": "/v1/households/next-number",
     "controller": "HouseholdsController",
     "module": "households",
-    "permission": "students.view"
+    "permission": "students.manage"
   },
   {
     "method": "POST",
@@ -5387,7 +5393,7 @@
     "path": "/v1/inbox/conversations/read-all",
     "controller": "ConversationsController",
     "module": "inbox",
-    "permission": "inbox.send"
+    "permission": "inbox.read"
   },
   {
     "method": "DELETE",
@@ -5408,7 +5414,7 @@
     "path": "/v1/inbox/oversight/audit-log",
     "controller": "InboxOversightController",
     "module": "inbox",
-    "permission": "inbox.oversight.write"
+    "permission": "inbox.oversight.read"
   },
   {
     "method": "GET",
@@ -5436,7 +5442,7 @@
     "path": "/v1/inbox/oversight/conversations/:id/freeze",
     "controller": "InboxOversightController",
     "module": "inbox",
-    "permission": "inbox.oversight.read"
+    "permission": "inbox.oversight.write"
   },
   {
     "method": "POST",
@@ -5450,14 +5456,14 @@
     "path": "/v1/inbox/oversight/flags",
     "controller": "InboxOversightController",
     "module": "inbox",
-    "permission": "inbox.oversight.write"
+    "permission": "inbox.oversight.read"
   },
   {
     "method": "POST",
     "path": "/v1/inbox/oversight/flags/:id/dismiss",
     "controller": "InboxOversightController",
     "module": "inbox",
-    "permission": "inbox.oversight.read"
+    "permission": "inbox.oversight.write"
   },
   {
     "method": "POST",
@@ -5506,7 +5512,7 @@
     "path": "/v1/inbox/settings/inbox",
     "controller": "InboxSettingsController",
     "module": "inbox",
-    "permission": "inbox.settings.read"
+    "permission": "inbox.settings.write"
   },
   {
     "method": "GET",
@@ -5555,42 +5561,42 @@
     "path": "/v1/inquiries/:id",
     "controller": "ParentInquiriesController",
     "module": "parent-inquiries",
-    "permission": "parent.submit_inquiry"
+    "permission": "inquiries.view"
   },
   {
     "method": "POST",
     "path": "/v1/inquiries/:id/close",
     "controller": "ParentInquiriesController",
     "module": "parent-inquiries",
-    "permission": "parent.submit_inquiry"
+    "permission": "inquiries.respond"
   },
   {
     "method": "POST",
     "path": "/v1/inquiries/:id/messages",
     "controller": "ParentInquiriesController",
     "module": "parent-inquiries",
-    "permission": "parent.submit_inquiry"
+    "permission": "inquiries.respond"
   },
   {
     "method": "POST",
     "path": "/v1/inquiries/:id/messages/parent",
     "controller": "ParentInquiriesController",
     "module": "parent-inquiries",
-    "permission": "inquiries.respond"
+    "permission": "parent.submit_inquiry"
   },
   {
     "method": "GET",
     "path": "/v1/inquiries/:id/parent",
     "controller": "ParentInquiriesController",
     "module": "parent-inquiries",
-    "permission": "inquiries.view"
+    "permission": "parent.submit_inquiry"
   },
   {
     "method": "GET",
     "path": "/v1/inquiries/my",
     "controller": "ParentInquiriesController",
     "module": "parent-inquiries",
-    "permission": "inquiries.view"
+    "permission": "parent.submit_inquiry"
   },
   {
     "method": "GET",
@@ -5618,31 +5624,24 @@
     "path": "/v1/invitations/accept",
     "controller": "InvitationsController",
     "module": "rbac",
-    "permission": "users.invite"
+    "permission": null
   },
   {
     "method": "GET",
     "path": "/v1/leave/balance",
     "controller": "LeaveController",
     "module": "leave",
-    "permission": "leave.manage_types"
+    "permission": "leave.submit_request"
   },
   {
     "method": "GET",
     "path": "/v1/leave/balance/:staffProfileId",
     "controller": "LeaveController",
     "module": "leave",
-    "permission": "leave.submit_request"
+    "permission": "leave.approve_requests"
   },
   {
     "method": "GET",
-    "path": "/v1/leave/requests",
-    "controller": "LeaveController",
-    "module": "leave",
-    "permission": "leave.submit_request"
-  },
-  {
-    "method": "POST",
     "path": "/v1/leave/requests",
     "controller": "LeaveController",
     "module": "leave",
@@ -5650,10 +5649,17 @@
   },
   {
     "method": "POST",
-    "path": "/v1/leave/requests/:id/approve",
+    "path": "/v1/leave/requests",
     "controller": "LeaveController",
     "module": "leave",
     "permission": "leave.submit_request"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/leave/requests/:id/approve",
+    "controller": "LeaveController",
+    "module": "leave",
+    "permission": "leave.approve_requests"
   },
   {
     "method": "POST",
@@ -5667,14 +5673,14 @@
     "path": "/v1/leave/requests/:id/withdraw",
     "controller": "LeaveController",
     "module": "leave",
-    "permission": "leave.approve_requests"
+    "permission": "leave.submit_request"
   },
   {
     "method": "GET",
     "path": "/v1/leave/requests/my",
     "controller": "LeaveController",
     "module": "leave",
-    "permission": "leave.approve_requests"
+    "permission": "leave.submit_request"
   },
   {
     "method": "GET",
@@ -5709,14 +5715,14 @@
     "path": "/v1/leave/types/admin",
     "controller": "LeaveController",
     "module": "leave",
-    "permission": "leave.submit_request"
+    "permission": "leave.manage_types"
   },
   {
     "method": "POST",
     "path": "/v1/legal/dpa/accept",
     "controller": "LegalDpaController",
     "module": "gdpr",
-    "permission": "legal.view"
+    "permission": "legal.manage"
   },
   {
     "method": "GET",
@@ -5765,7 +5771,7 @@
     "path": "/v1/notification-templates",
     "controller": "NotificationTemplatesController",
     "module": "communications",
-    "permission": "communications.manage"
+    "permission": null
   },
   {
     "method": "POST",
@@ -5800,7 +5806,7 @@
     "path": "/v1/notifications/:id/read",
     "controller": "NotificationsController",
     "module": "communications",
-    "permission": "communications.view"
+    "permission": null
   },
   {
     "method": "GET",
@@ -5891,7 +5897,7 @@
     "path": "/v1/parent/behaviour/appeal",
     "controller": "BehaviourParentController",
     "module": "behaviour",
-    "permission": "parent.view_behaviour"
+    "permission": "behaviour.appeal"
   },
   {
     "method": "GET",
@@ -5926,7 +5932,7 @@
     "path": "/v1/parent/behaviour/recognition/pending",
     "controller": "BehaviourParentController",
     "module": "behaviour",
-    "permission": "behaviour.appeal"
+    "permission": "parent.view_behaviour"
   },
   {
     "method": "PATCH",
@@ -5968,21 +5974,21 @@
     "path": "/v1/parent/engagement/conferences/:eventId/book",
     "controller": "ParentConferencesController",
     "module": "engagement",
-    "permission": "parent.view_engagement"
+    "permission": "parent.manage_engagement"
   },
   {
     "method": "DELETE",
     "path": "/v1/parent/engagement/conferences/:eventId/bookings/:bookingId",
     "controller": "ParentConferencesController",
     "module": "engagement",
-    "permission": "parent.view_engagement"
+    "permission": "parent.manage_engagement"
   },
   {
     "method": "GET",
     "path": "/v1/parent/engagement/conferences/:eventId/my-bookings",
     "controller": "ParentConferencesController",
     "module": "engagement",
-    "permission": "parent.manage_engagement"
+    "permission": "parent.view_engagement"
   },
   {
     "method": "POST",
@@ -6010,7 +6016,7 @@
     "path": "/v1/parent/engagement/events/:id/register/:studentId",
     "controller": "ParentEventsController",
     "module": "engagement",
-    "permission": "parent.view_engagement"
+    "permission": "parent.manage_engagement"
   },
   {
     "method": "POST",
@@ -6087,14 +6093,14 @@
     "path": "/v1/parent/invoices/:id/pay",
     "controller": "ParentFinanceController",
     "module": "finance",
-    "permission": "parent.view_finances"
+    "permission": "parent.make_payments"
   },
   {
     "method": "POST",
     "path": "/v1/parent/invoices/:id/request-payment-plan",
     "controller": "ParentFinanceController",
     "module": "finance",
-    "permission": "parent.make_payments"
+    "permission": "parent.view_finances"
   },
   {
     "method": "GET",
@@ -6136,14 +6142,14 @@
     "path": "/v1/parent/report-cards/:reportCardId/acknowledge",
     "controller": "ParentGradebookController",
     "module": "gradebook",
-    "permission": "parent.view_transcripts"
+    "permission": "parent.view_grades"
   },
   {
     "method": "GET",
     "path": "/v1/parent/students/:studentId/attendance",
     "controller": "AttendanceController",
     "module": "attendance",
-    "permission": "attendance.manage"
+    "permission": "parent.view_attendance"
   },
   {
     "method": "GET",
@@ -6178,7 +6184,7 @@
     "path": "/v1/parent/students/:studentId/transcript/pdf",
     "controller": "ParentGradebookController",
     "module": "gradebook",
-    "permission": "parent.view_grades"
+    "permission": "parent.view_transcripts"
   },
   {
     "method": "GET",
@@ -6199,7 +6205,7 @@
     "path": "/v1/parents",
     "controller": "ParentsController",
     "module": "parents",
-    "permission": "students.manage"
+    "permission": "students.view"
   },
   {
     "method": "POST",
@@ -6220,7 +6226,7 @@
     "path": "/v1/parents/:id",
     "controller": "ParentsController",
     "module": "parents",
-    "permission": "students.view"
+    "permission": "students.manage"
   },
   {
     "method": "POST",
@@ -6241,7 +6247,7 @@
     "path": "/v1/pastoral/admin/escalation-dashboard",
     "controller": "PastoralAdminController",
     "module": "pastoral",
-    "permission": "pastoral.manage_sst"
+    "permission": "pastoral.view_tier2"
   },
   {
     "method": "GET",
@@ -6353,7 +6359,7 @@
     "path": "/v1/pastoral/categories",
     "controller": "ConcernsController",
     "module": "pastoral",
-    "permission": "pastoral.view_tier2"
+    "permission": "pastoral.log_concern"
   },
   {
     "method": "POST",
@@ -6374,7 +6380,7 @@
     "path": "/v1/pastoral/checkins/:id/escalate",
     "controller": "CheckinAdminController",
     "module": "pastoral",
-    "permission": "pastoral.view_checkin_aggregate"
+    "permission": "pastoral.view_checkin_monitoring"
   },
   {
     "method": "GET",
@@ -6388,14 +6394,14 @@
     "path": "/v1/pastoral/checkins/analytics/exam-comparison",
     "controller": "CheckinAdminController",
     "module": "pastoral",
-    "permission": "pastoral.view_checkin_monitoring"
+    "permission": "pastoral.view_checkin_aggregate"
   },
   {
     "method": "GET",
     "path": "/v1/pastoral/checkins/analytics/mood-trends",
     "controller": "CheckinAdminController",
     "module": "pastoral",
-    "permission": "pastoral.view_checkin_monitoring"
+    "permission": "pastoral.view_checkin_aggregate"
   },
   {
     "method": "GET",
@@ -6451,14 +6457,14 @@
     "path": "/v1/pastoral/chronology/:studentId",
     "controller": "ConcernsController",
     "module": "pastoral",
-    "permission": "pastoral.log_concern"
+    "permission": "pastoral.view_tier1"
   },
   {
     "method": "GET",
     "path": "/v1/pastoral/concerns",
     "controller": "ConcernsController",
     "module": "pastoral",
-    "permission": "pastoral.log_concern"
+    "permission": "pastoral.view_tier1"
   },
   {
     "method": "POST",
@@ -6479,14 +6485,14 @@
     "path": "/v1/pastoral/concerns/:id",
     "controller": "ConcernsController",
     "module": "pastoral",
-    "permission": "pastoral.view_tier1"
+    "permission": "pastoral.view_tier2"
   },
   {
     "method": "POST",
     "path": "/v1/pastoral/concerns/:id/amend",
     "controller": "ConcernsController",
     "module": "pastoral",
-    "permission": "pastoral.view_tier2"
+    "permission": "pastoral.log_concern"
   },
   {
     "method": "POST",
@@ -6500,14 +6506,14 @@
     "path": "/v1/pastoral/concerns/:id/events",
     "controller": "ConcernsController",
     "module": "pastoral",
-    "permission": "pastoral.view_tier1"
+    "permission": "pastoral.view_tier2"
   },
   {
     "method": "POST",
     "path": "/v1/pastoral/concerns/:id/share",
     "controller": "ConcernsController",
     "module": "pastoral",
-    "permission": "pastoral.view_tier2"
+    "permission": null
   },
   {
     "method": "POST",
@@ -6521,7 +6527,7 @@
     "path": "/v1/pastoral/concerns/:id/versions",
     "controller": "ConcernsController",
     "module": "pastoral",
-    "permission": "pastoral.log_concern"
+    "permission": "pastoral.view_tier1"
   },
   {
     "method": "GET",
@@ -6710,7 +6716,7 @@
     "path": "/v1/pastoral/exports/student-summary/:studentId",
     "controller": "PastoralReportsController",
     "module": "pastoral",
-    "permission": "pastoral.view_reports"
+    "permission": "pastoral.export_tier1_2"
   },
   {
     "method": "POST",
@@ -6731,7 +6737,7 @@
     "path": "/v1/pastoral/exports/tier3/init",
     "controller": "PastoralReportsController",
     "module": "pastoral",
-    "permission": "pastoral.export_tier1_2"
+    "permission": "pastoral.export_tier3"
   },
   {
     "method": "POST",
@@ -7123,7 +7129,7 @@
     "path": "/v1/pastoral/sst/actions/:id",
     "controller": "SstController",
     "module": "pastoral",
-    "permission": "pastoral.manage_sst"
+    "permission": "pastoral.view_tier2"
   },
   {
     "method": "PATCH",
@@ -7144,14 +7150,14 @@
     "path": "/v1/pastoral/sst/meetings",
     "controller": "SstController",
     "module": "pastoral",
-    "permission": "pastoral.manage_sst"
+    "permission": "pastoral.view_tier2"
   },
   {
     "method": "POST",
     "path": "/v1/pastoral/sst/meetings",
     "controller": "SstController",
     "module": "pastoral",
-    "permission": "pastoral.view_tier2"
+    "permission": "pastoral.manage_sst"
   },
   {
     "method": "GET",
@@ -7172,28 +7178,28 @@
     "path": "/v1/pastoral/sst/meetings/:id/actions",
     "controller": "SstController",
     "module": "pastoral",
-    "permission": "pastoral.manage_sst"
+    "permission": "pastoral.view_tier2"
   },
   {
     "method": "POST",
     "path": "/v1/pastoral/sst/meetings/:id/actions",
     "controller": "SstController",
     "module": "pastoral",
-    "permission": "pastoral.view_tier2"
+    "permission": "pastoral.manage_sst"
   },
   {
     "method": "GET",
     "path": "/v1/pastoral/sst/meetings/:id/agenda",
     "controller": "SstController",
     "module": "pastoral",
-    "permission": "pastoral.manage_sst"
+    "permission": "pastoral.view_tier2"
   },
   {
     "method": "POST",
     "path": "/v1/pastoral/sst/meetings/:id/agenda",
     "controller": "SstController",
     "module": "pastoral",
-    "permission": "pastoral.view_tier2"
+    "permission": "pastoral.manage_sst"
   },
   {
     "method": "DELETE",
@@ -7249,7 +7255,7 @@
     "path": "/v1/pastoral/sst/members",
     "controller": "SstController",
     "module": "pastoral",
-    "permission": "pastoral.view_tier2"
+    "permission": "pastoral.manage_sst"
   },
   {
     "method": "DELETE",
@@ -7284,7 +7290,7 @@
     "path": "/v1/pastoral/students/:studentId/wellbeing-flags",
     "controller": "CriticalIncidentsController",
     "module": "pastoral",
-    "permission": "pastoral.manage_critical_incidents"
+    "permission": "pastoral.view"
   },
   {
     "method": "GET",
@@ -7305,21 +7311,21 @@
     "path": "/v1/payroll/adjustments/:id",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.create_run"
   },
   {
     "method": "GET",
     "path": "/v1/payroll/allowance-types",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.manage_compensation"
+    "permission": "payroll.view"
   },
   {
     "method": "POST",
     "path": "/v1/payroll/allowance-types",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.generate_payslips"
+    "permission": "payroll.manage_compensation"
   },
   {
     "method": "DELETE",
@@ -7340,14 +7346,14 @@
     "path": "/v1/payroll/allowance-types/:id",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.manage_compensation"
   },
   {
     "method": "GET",
     "path": "/v1/payroll/analytics/cost-dashboard",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.manage_compensation"
+    "permission": "payroll.view_reports"
   },
   {
     "method": "GET",
@@ -7382,7 +7388,7 @@
     "path": "/v1/payroll/attendance/:id",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.create_run"
   },
   {
     "method": "GET",
@@ -7403,14 +7409,14 @@
     "path": "/v1/payroll/attendance/calculate-days-worked",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.create_run"
+    "permission": "payroll.view"
   },
   {
     "method": "GET",
     "path": "/v1/payroll/attendance/daily",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.create_run"
+    "permission": "payroll.view"
   },
   {
     "method": "GET",
@@ -7445,28 +7451,28 @@
     "path": "/v1/payroll/class-delivery",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.create_run"
+    "permission": "payroll.view"
   },
   {
     "method": "PUT",
     "path": "/v1/payroll/class-delivery/:id/confirm",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.create_run"
   },
   {
     "method": "POST",
     "path": "/v1/payroll/class-delivery/auto-populate",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.create_run"
   },
   {
     "method": "POST",
     "path": "/v1/payroll/class-delivery/calculate-classes-taught",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.create_run"
+    "permission": "payroll.view"
   },
   {
     "method": "GET",
@@ -7480,7 +7486,7 @@
     "path": "/v1/payroll/compensation",
     "controller": "CompensationController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.manage_compensation"
   },
   {
     "method": "GET",
@@ -7515,14 +7521,14 @@
     "path": "/v1/payroll/deductions",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.manage_compensation"
+    "permission": "payroll.view"
   },
   {
     "method": "POST",
     "path": "/v1/payroll/deductions",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.create_run"
+    "permission": "payroll.manage_compensation"
   },
   {
     "method": "DELETE",
@@ -7543,28 +7549,28 @@
     "path": "/v1/payroll/deductions/:id",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.manage_compensation"
   },
   {
     "method": "GET",
     "path": "/v1/payroll/entries/:entryId/adjustments",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.create_run"
+    "permission": "payroll.view"
   },
   {
     "method": "GET",
     "path": "/v1/payroll/entries/:entryId/one-offs",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.create_run"
+    "permission": "payroll.view"
   },
   {
     "method": "POST",
     "path": "/v1/payroll/entries/:entryId/one-offs",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.manage_compensation"
+    "permission": "payroll.create_run"
   },
   {
     "method": "PATCH",
@@ -7578,21 +7584,21 @@
     "path": "/v1/payroll/entries/:id/calculate",
     "controller": "PayrollEntriesController",
     "module": "payroll",
-    "permission": "payroll.create_run"
+    "permission": "payroll.view"
   },
   {
     "method": "GET",
     "path": "/v1/payroll/export-templates",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.generate_payslips"
+    "permission": "payroll.view"
   },
   {
     "method": "POST",
     "path": "/v1/payroll/export-templates",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.create_run"
+    "permission": "payroll.generate_payslips"
   },
   {
     "method": "DELETE",
@@ -7613,7 +7619,7 @@
     "path": "/v1/payroll/export-templates/:id",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.generate_payslips"
   },
   {
     "method": "DELETE",
@@ -7627,7 +7633,7 @@
     "path": "/v1/payroll/one-offs/:id",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.create_run"
   },
   {
     "method": "GET",
@@ -7648,7 +7654,7 @@
     "path": "/v1/payroll/payslips/:id/pdf",
     "controller": "PayslipsController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.generate_payslips"
   },
   {
     "method": "GET",
@@ -7683,7 +7689,7 @@
     "path": "/v1/payroll/reports/staff/:staffProfileId/history",
     "controller": "PayrollReportsController",
     "module": "payroll",
-    "permission": "payroll.view_reports"
+    "permission": "payroll.view"
   },
   {
     "method": "GET",
@@ -7711,7 +7717,7 @@
     "path": "/v1/payroll/runs",
     "controller": "PayrollRunsController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.create_run"
   },
   {
     "method": "GET",
@@ -7732,28 +7738,28 @@
     "path": "/v1/payroll/runs/:id/cancel",
     "controller": "PayrollRunsController",
     "module": "payroll",
-    "permission": "payroll.finalise_run"
+    "permission": "payroll.create_run"
   },
   {
     "method": "GET",
     "path": "/v1/payroll/runs/:id/entries",
     "controller": "PayrollRunsController",
     "module": "payroll",
-    "permission": "payroll.create_run"
+    "permission": "payroll.view"
   },
   {
     "method": "POST",
     "path": "/v1/payroll/runs/:id/finalise",
     "controller": "PayrollRunsController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.finalise_run"
   },
   {
     "method": "POST",
     "path": "/v1/payroll/runs/:id/mass-export",
     "controller": "PayrollRunsController",
     "module": "payroll",
-    "permission": "payroll.create_run"
+    "permission": "payroll.generate_payslips"
   },
   {
     "method": "GET",
@@ -7767,14 +7773,14 @@
     "path": "/v1/payroll/runs/:id/refresh-entries",
     "controller": "PayrollRunsController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.create_run"
   },
   {
     "method": "GET",
     "path": "/v1/payroll/runs/:id/session-generation-status",
     "controller": "PayrollRunsController",
     "module": "payroll",
-    "permission": "payroll.create_run"
+    "permission": "payroll.view"
   },
   {
     "method": "POST",
@@ -7788,14 +7794,14 @@
     "path": "/v1/payroll/runs/:runId/adjustments",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.create_run"
   },
   {
     "method": "POST",
     "path": "/v1/payroll/runs/:runId/email-to-accountant",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.generate_payslips"
   },
   {
     "method": "POST",
@@ -7809,21 +7815,21 @@
     "path": "/v1/payroll/runs/:runId/export-history",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.generate_payslips"
+    "permission": "payroll.view"
   },
   {
     "method": "POST",
     "path": "/v1/payroll/runs/:runId/scan-anomalies",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.view_reports"
+    "permission": "payroll.view"
   },
   {
     "method": "GET",
     "path": "/v1/payroll/staff-allowances",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.manage_compensation"
+    "permission": "payroll.view"
   },
   {
     "method": "POST",
@@ -7844,7 +7850,7 @@
     "path": "/v1/payroll/staff-allowances/:id",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
-    "permission": "payroll.view"
+    "permission": "payroll.manage_compensation"
   },
   {
     "method": "GET",
@@ -7858,14 +7864,17 @@
     "path": "/v1/period-grid",
     "controller": "PeriodGridController",
     "module": "period-grid",
-    "permission": ["schedule.configure_period_grid", "schedule.view_own"]
+    "permission": [
+      "schedule.configure_period_grid",
+      "schedule.view_own"
+    ]
   },
   {
     "method": "POST",
     "path": "/v1/period-grid",
     "controller": "PeriodGridController",
     "module": "period-grid",
-    "permission": ["schedule.configure_period_grid", "schedule.view_own"]
+    "permission": "schedule.configure_period_grid"
   },
   {
     "method": "DELETE",
@@ -7928,7 +7937,7 @@
     "path": "/v1/privacy-notices",
     "controller": "PrivacyNoticesController",
     "module": "gdpr",
-    "permission": "privacy.view"
+    "permission": "privacy.manage"
   },
   {
     "method": "PATCH",
@@ -7949,7 +7958,7 @@
     "path": "/v1/privacy-notices/acknowledge",
     "controller": "PrivacyNoticesController",
     "module": "gdpr",
-    "permission": "privacy.manage"
+    "permission": null
   },
   {
     "method": "GET",
@@ -8051,17 +8060,24 @@
   },
   {
     "method": "GET",
+    "path": "/v1/regulatory/anti-bullying/summary",
+    "controller": "RegulatoryController",
+    "module": "regulatory",
+    "permission": "regulatory.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/regulatory/calendar",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.manage"
+    "permission": "regulatory.view"
   },
   {
     "method": "POST",
     "path": "/v1/regulatory/calendar",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.view"
+    "permission": "regulatory.manage"
   },
   {
     "method": "DELETE",
@@ -8082,7 +8098,7 @@
     "path": "/v1/regulatory/calendar/seed-defaults",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.view"
+    "permission": "regulatory.manage"
   },
   {
     "method": "GET",
@@ -8096,7 +8112,7 @@
     "path": "/v1/regulatory/cba/status",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.manage_ppod"
+    "permission": "regulatory.manage_cba"
   },
   {
     "method": "POST",
@@ -8145,14 +8161,14 @@
     "path": "/v1/regulatory/des/readiness",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.manage_reduced_days"
+    "permission": "regulatory.manage_des"
   },
   {
     "method": "GET",
     "path": "/v1/regulatory/des/subject-mappings",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.view"
+    "permission": "regulatory.manage_des"
   },
   {
     "method": "POST",
@@ -8187,7 +8203,7 @@
     "path": "/v1/regulatory/october-returns/readiness",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.manage_des"
+    "permission": "regulatory.manage_october_returns"
   },
   {
     "method": "GET",
@@ -8215,7 +8231,7 @@
     "path": "/v1/regulatory/ppod/status",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.manage_october_returns"
+    "permission": "regulatory.manage_ppod"
   },
   {
     "method": "GET",
@@ -8250,7 +8266,7 @@
     "path": "/v1/regulatory/reduced-school-days",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.manage_des"
+    "permission": "regulatory.manage_reduced_days"
   },
   {
     "method": "POST",
@@ -8278,14 +8294,14 @@
     "path": "/v1/regulatory/submissions",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.manage"
+    "permission": "regulatory.view"
   },
   {
     "method": "POST",
     "path": "/v1/regulatory/submissions",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.view"
+    "permission": "regulatory.manage"
   },
   {
     "method": "GET",
@@ -8306,7 +8322,7 @@
     "path": "/v1/regulatory/transfers",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.manage_cba"
+    "permission": "regulatory.manage_transfers"
   },
   {
     "method": "POST",
@@ -8334,21 +8350,21 @@
     "path": "/v1/regulatory/tusla/aar/:id/export",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.manage_tusla"
+    "permission": "regulatory.view"
   },
   {
     "method": "POST",
     "path": "/v1/regulatory/tusla/aar/generate",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.view"
+    "permission": "regulatory.manage_tusla"
   },
   {
     "method": "GET",
     "path": "/v1/regulatory/tusla/absence-mappings",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.manage"
+    "permission": "regulatory.manage_tusla"
   },
   {
     "method": "POST",
@@ -8376,14 +8392,14 @@
     "path": "/v1/regulatory/tusla/sar/:id/export",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.manage_tusla"
+    "permission": "regulatory.view"
   },
   {
     "method": "POST",
     "path": "/v1/regulatory/tusla/sar/generate",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.view"
+    "permission": "regulatory.manage_tusla"
   },
   {
     "method": "GET",
@@ -8397,7 +8413,7 @@
     "path": "/v1/regulatory/tusla/threshold-monitor",
     "controller": "RegulatoryController",
     "module": "regulatory",
-    "permission": "regulatory.manage_tusla"
+    "permission": "regulatory.view"
   },
   {
     "method": "GET",
@@ -8411,7 +8427,7 @@
     "path": "/v1/report-card-overall-comments",
     "controller": "ReportCardOverallCommentsController",
     "module": "gradebook",
-    "permission": "report_cards.view"
+    "permission": "report_cards.comment"
   },
   {
     "method": "GET",
@@ -8446,7 +8462,7 @@
     "path": "/v1/report-card-subject-comments",
     "controller": "ReportCardSubjectCommentsController",
     "module": "gradebook",
-    "permission": "report_cards.view"
+    "permission": "report_cards.comment"
   },
   {
     "method": "GET",
@@ -8523,14 +8539,14 @@
     "path": "/v1/report-card-teacher-requests/:id",
     "controller": "ReportCardTeacherRequestsController",
     "module": "gradebook",
-    "permission": "report_cards.manage"
+    "permission": "report_cards.comment"
   },
   {
     "method": "PATCH",
     "path": "/v1/report-card-teacher-requests/:id/approve",
     "controller": "ReportCardTeacherRequestsController",
     "module": "gradebook",
-    "permission": "report_cards.comment"
+    "permission": "report_cards.manage"
   },
   {
     "method": "PATCH",
@@ -8558,7 +8574,7 @@
     "path": "/v1/report-card-teacher-requests/pending",
     "controller": "ReportCardTeacherRequestsController",
     "module": "gradebook",
-    "permission": "report_cards.comment"
+    "permission": "report_cards.manage"
   },
   {
     "method": "GET",
@@ -8572,7 +8588,7 @@
     "path": "/v1/report-card-tenant-settings",
     "controller": "ReportCardTenantSettingsController",
     "module": "gradebook",
-    "permission": "report_cards.view"
+    "permission": "report_cards.manage"
   },
   {
     "method": "DELETE",
@@ -8593,7 +8609,7 @@
     "path": "/v1/report-cards",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "DELETE",
@@ -8607,21 +8623,21 @@
     "path": "/v1/report-cards/:id",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "report_cards.view"
+    "permission": "gradebook.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/report-cards/:id",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "POST",
     "path": "/v1/report-cards/:id/acknowledge",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "GET",
@@ -8635,7 +8651,7 @@
     "path": "/v1/report-cards/:id/custom-field-values",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "PUT",
@@ -8649,42 +8665,42 @@
     "path": "/v1/report-cards/:id/deliver",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "report_cards.approve"
+    "permission": "gradebook.publish_report_cards"
   },
   {
     "method": "GET",
     "path": "/v1/report-cards/:id/delivery-status",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.publish_report_cards"
+    "permission": "gradebook.view"
   },
   {
     "method": "GET",
     "path": "/v1/report-cards/:id/pdf",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "report_cards.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
     "path": "/v1/report-cards/:id/publish",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.publish_report_cards"
   },
   {
     "method": "POST",
     "path": "/v1/report-cards/:id/revise",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "gradebook.publish_report_cards"
+    "permission": "gradebook.manage"
   },
   {
     "method": "GET",
     "path": "/v1/report-cards/:id/revision-chain",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "report_cards.view"
   },
   {
     "method": "POST",
@@ -8698,14 +8714,14 @@
     "path": "/v1/report-cards/:id/verification-token",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "report_cards.manage"
   },
   {
     "method": "POST",
     "path": "/v1/report-cards/:id/verification-token",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "transcripts.generate"
+    "permission": "gradebook.manage"
   },
   {
     "method": "GET",
@@ -8719,21 +8735,21 @@
     "path": "/v1/report-cards/analytics/dashboard",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.view_analytics"
   },
   {
     "method": "GET",
     "path": "/v1/report-cards/approval-configs",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
     "path": "/v1/report-cards/approval-configs",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "report_cards.manage_templates"
+    "permission": "gradebook.manage"
   },
   {
     "method": "DELETE",
@@ -8754,14 +8770,14 @@
     "path": "/v1/report-cards/approval-configs/:id",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "POST",
     "path": "/v1/report-cards/approvals/:id/approve",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "report_cards.approve"
   },
   {
     "method": "POST",
@@ -8789,14 +8805,14 @@
     "path": "/v1/report-cards/batch-pdf",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "report_cards.manage"
+    "permission": "report_cards.bulk_operations"
   },
   {
     "method": "POST",
     "path": "/v1/report-cards/bulk-delete",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "report_cards.view"
+    "permission": "report_cards.manage"
   },
   {
     "method": "POST",
@@ -8810,7 +8826,7 @@
     "path": "/v1/report-cards/bulk/generate",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.view_analytics"
+    "permission": "report_cards.bulk_operations"
   },
   {
     "method": "POST",
@@ -8824,21 +8840,21 @@
     "path": "/v1/report-cards/classes/:classId/matrix",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "report_cards.manage"
+    "permission": "report_cards.view"
   },
   {
     "method": "GET",
     "path": "/v1/report-cards/custom-fields",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
     "path": "/v1/report-cards/custom-fields",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "report_cards.manage"
+    "permission": "gradebook.manage"
   },
   {
     "method": "DELETE",
@@ -8859,14 +8875,14 @@
     "path": "/v1/report-cards/custom-fields/:id",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "POST",
     "path": "/v1/report-cards/deliveries/:deliveryId/retry",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "report_cards.manage"
   },
   {
     "method": "POST",
@@ -8901,21 +8917,21 @@
     "path": "/v1/report-cards/generation-runs/dry-run",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "report_cards.manage"
   },
   {
     "method": "GET",
     "path": "/v1/report-cards/grade-thresholds",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
     "path": "/v1/report-cards/grade-thresholds",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "DELETE",
@@ -8936,21 +8952,21 @@
     "path": "/v1/report-cards/grade-thresholds/:id",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "gradebook.manage"
   },
   {
     "method": "GET",
     "path": "/v1/report-cards/library",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "report_cards.manage"
+    "permission": "report_cards.view"
   },
   {
     "method": "GET",
     "path": "/v1/report-cards/library/bundle-pdf",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "report_cards.view"
+    "permission": "report_cards.manage"
   },
   {
     "method": "GET",
@@ -8964,14 +8980,14 @@
     "path": "/v1/report-cards/students/:studentId/transcript",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "report_cards.bulk_operations"
+    "permission": "transcripts.generate"
   },
   {
     "method": "GET",
     "path": "/v1/report-cards/templates",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "report_cards.manage_templates"
+    "permission": "gradebook.view"
   },
   {
     "method": "POST",
@@ -8992,21 +9008,21 @@
     "path": "/v1/report-cards/templates/:id",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "report_cards.view"
+    "permission": "gradebook.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/report-cards/templates/:id",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "report_cards.manage_templates"
   },
   {
     "method": "GET",
     "path": "/v1/report-cards/templates/content-scopes",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "report_cards.view"
   },
   {
     "method": "POST",
@@ -9027,7 +9043,7 @@
     "path": "/v1/report-comment-windows",
     "controller": "ReportCommentWindowsController",
     "module": "gradebook",
-    "permission": "report_cards.view"
+    "permission": "report_cards.manage"
   },
   {
     "method": "GET",
@@ -9083,7 +9099,7 @@
     "path": "/v1/reports/ai/narrate",
     "controller": "ReportsEnhancedController",
     "module": "reports",
-    "permission": "analytics.manage_reports"
+    "permission": "analytics.view"
   },
   {
     "method": "POST",
@@ -9342,7 +9358,7 @@
     "path": "/v1/reports/board",
     "controller": "ReportsEnhancedController",
     "module": "reports",
-    "permission": "analytics.manage_reports"
+    "permission": "analytics.view_board_reports"
   },
   {
     "method": "POST",
@@ -9370,7 +9386,7 @@
     "path": "/v1/reports/builder",
     "controller": "ReportsEnhancedController",
     "module": "reports",
-    "permission": "analytics.view"
+    "permission": "analytics.manage_reports"
   },
   {
     "method": "POST",
@@ -9412,7 +9428,7 @@
     "path": "/v1/reports/compliance/templates",
     "controller": "ReportsEnhancedController",
     "module": "reports",
-    "permission": "analytics.view_board_reports"
+    "permission": "analytics.manage_compliance"
   },
   {
     "method": "POST",
@@ -9461,14 +9477,14 @@
     "path": "/v1/reports/fee-generation-runs",
     "controller": "ReportsController",
     "module": "reports",
-    "permission": "analytics.view"
+    "permission": "finance.view"
   },
   {
     "method": "GET",
     "path": "/v1/reports/household-export/:householdId",
     "controller": "ReportsController",
     "module": "reports",
-    "permission": "students.view"
+    "permission": "finance.view"
   },
   {
     "method": "GET",
@@ -9510,7 +9526,7 @@
     "path": "/v1/reports/notification-delivery",
     "controller": "ReportsController",
     "module": "reports",
-    "permission": "finance.view"
+    "permission": "analytics.view"
   },
   {
     "method": "GET",
@@ -9524,7 +9540,7 @@
     "path": "/v1/reports/scheduled",
     "controller": "ReportsEnhancedController",
     "module": "reports",
-    "permission": "analytics.manage_compliance"
+    "permission": "analytics.manage_reports"
   },
   {
     "method": "POST",
@@ -9559,7 +9575,7 @@
     "path": "/v1/reports/student-export/:studentId",
     "controller": "ReportsController",
     "module": "reports",
-    "permission": "analytics.view"
+    "permission": "students.view"
   },
   {
     "method": "GET",
@@ -9727,7 +9743,7 @@
     "path": "/v1/safeguarding/break-glass",
     "controller": "SafeguardingController",
     "module": "safeguarding",
-    "permission": "safeguarding.view"
+    "permission": "safeguarding.seal"
   },
   {
     "method": "GET",
@@ -9748,14 +9764,14 @@
     "path": "/v1/safeguarding/break-glass/:id/review",
     "controller": "SafeguardingController",
     "module": "safeguarding",
-    "permission": "safeguarding.seal"
+    "permission": "safeguarding.manage"
   },
   {
     "method": "GET",
     "path": "/v1/safeguarding/concerns",
     "controller": "SafeguardingController",
     "module": "safeguarding",
-    "permission": "safeguarding.report"
+    "permission": "safeguarding.view"
   },
   {
     "method": "POST",
@@ -9776,14 +9792,14 @@
     "path": "/v1/safeguarding/concerns/:id",
     "controller": "SafeguardingController",
     "module": "safeguarding",
-    "permission": "safeguarding.view"
+    "permission": "safeguarding.manage"
   },
   {
     "method": "GET",
     "path": "/v1/safeguarding/concerns/:id/actions",
     "controller": "SafeguardingController",
     "module": "safeguarding",
-    "permission": "safeguarding.manage"
+    "permission": "safeguarding.view"
   },
   {
     "method": "POST",
@@ -9811,14 +9827,14 @@
     "path": "/v1/safeguarding/concerns/:id/attachments/:aid/download",
     "controller": "SafeguardingController",
     "module": "safeguarding",
-    "permission": "safeguarding.manage"
+    "permission": "safeguarding.view"
   },
   {
     "method": "POST",
     "path": "/v1/safeguarding/concerns/:id/case-file",
     "controller": "SafeguardingController",
     "module": "safeguarding",
-    "permission": "safeguarding.view"
+    "permission": "safeguarding.manage"
   },
   {
     "method": "POST",
@@ -9839,7 +9855,7 @@
     "path": "/v1/safeguarding/concerns/:id/seal-status",
     "controller": "SafeguardingController",
     "module": "safeguarding",
-    "permission": "safeguarding.seal"
+    "permission": "safeguarding.view"
   },
   {
     "method": "POST",
@@ -9853,7 +9869,7 @@
     "path": "/v1/safeguarding/concerns/:id/seal/initiate",
     "controller": "SafeguardingController",
     "module": "safeguarding",
-    "permission": "safeguarding.manage"
+    "permission": "safeguarding.seal"
   },
   {
     "method": "POST",
@@ -9874,7 +9890,7 @@
     "path": "/v1/safeguarding/concerns/:id/tusla-referral",
     "controller": "SafeguardingController",
     "module": "safeguarding",
-    "permission": "safeguarding.view"
+    "permission": "safeguarding.manage"
   },
   {
     "method": "GET",
@@ -10000,7 +10016,7 @@
     "path": "/v1/schedules/bulk-pin",
     "controller": "SchedulesController",
     "module": "schedules",
-    "permission": "schedule.manage"
+    "permission": "schedule.pin_entries"
   },
   {
     "method": "GET",
@@ -10014,7 +10030,7 @@
     "path": "/v1/scheduling-dashboard/preferences",
     "controller": "SchedulingDashboardController",
     "module": "scheduling-runs",
-    "permission": "schedule.view_auto_reports"
+    "permission": "schedule.view_own_satisfaction"
   },
   {
     "method": "GET",
@@ -10049,7 +10065,7 @@
     "path": "/v1/scheduling-runs",
     "controller": "SchedulingRunsController",
     "module": "scheduling-runs",
-    "permission": "schedule.run_auto"
+    "permission": "schedule.view_auto_reports"
   },
   {
     "method": "POST",
@@ -10070,7 +10086,7 @@
     "path": "/v1/scheduling-runs/:id/adjustments",
     "controller": "SchedulingRunsController",
     "module": "scheduling-runs",
-    "permission": "schedule.run_auto"
+    "permission": "schedule.apply_auto"
   },
   {
     "method": "POST",
@@ -10084,14 +10100,14 @@
     "path": "/v1/scheduling-runs/:id/cancel",
     "controller": "SchedulingRunsController",
     "module": "scheduling-runs",
-    "permission": "schedule.view_auto_reports"
+    "permission": "schedule.run_auto"
   },
   {
     "method": "GET",
     "path": "/v1/scheduling-runs/:id/diagnostics",
     "controller": "SchedulingRunsController",
     "module": "scheduling-runs",
-    "permission": "schedule.run_auto"
+    "permission": "schedule.view_auto_reports"
   },
   {
     "method": "POST",
@@ -10119,7 +10135,7 @@
     "path": "/v1/scheduling-runs/:id/progress",
     "controller": "SchedulingRunsController",
     "module": "scheduling-runs",
-    "permission": "schedule.view_auto_reports"
+    "permission": "schedule.run_auto"
   },
   {
     "method": "POST",
@@ -10147,7 +10163,7 @@
     "path": "/v1/scheduling/absences",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.report_own_absence"
+    "permission": "schedule.manage_substitutions"
   },
   {
     "method": "POST",
@@ -10182,28 +10198,28 @@
     "path": "/v1/scheduling/absences/:id/cancel",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.respond_to_offer"
+    "permission": "schedule.manage_substitutions"
   },
   {
     "method": "POST",
     "path": "/v1/scheduling/absences/:id/cancel-own",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.manage_substitutions"
+    "permission": "schedule.report_own_absence"
   },
   {
     "method": "POST",
     "path": "/v1/scheduling/absences/self-report",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.manage_substitutions"
+    "permission": "schedule.report_own_absence"
   },
   {
     "method": "GET",
     "path": "/v1/scheduling/analytics/efficiency",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.manage_scenarios"
+    "permission": "schedule.view_reports"
   },
   {
     "method": "GET",
@@ -10266,7 +10282,7 @@
     "path": "/v1/scheduling/calendar-tokens",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.view_reports"
+    "permission": "schedule.view_own"
   },
   {
     "method": "DELETE",
@@ -10280,14 +10296,14 @@
     "path": "/v1/scheduling/colleagues",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.respond_to_offer"
+    "permission": "schedule.report_own_absence"
   },
   {
     "method": "GET",
     "path": "/v1/scheduling/cover-reports",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.manage_substitutions"
+    "permission": "schedule.view_reports"
   },
   {
     "method": "GET",
@@ -10378,7 +10394,7 @@
     "path": "/v1/scheduling/exam-sessions",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.view_reports"
+    "permission": "schedule.manage_exams"
   },
   {
     "method": "DELETE",
@@ -10525,7 +10541,7 @@
     "path": "/v1/scheduling/offers/:id/accept",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.manage_substitutions"
+    "permission": "schedule.respond_to_offer"
   },
   {
     "method": "POST",
@@ -10539,7 +10555,7 @@
     "path": "/v1/scheduling/offers/my",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.report_own_absence"
+    "permission": "schedule.respond_to_offer"
   },
   {
     "method": "GET",
@@ -10567,35 +10583,35 @@
     "path": "/v1/scheduling/rotation",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.view_reports"
+    "permission": "schedule.manage"
   },
   {
     "method": "GET",
     "path": "/v1/scheduling/rotation",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.manage"
+    "permission": "schedule.view_reports"
   },
   {
     "method": "PUT",
     "path": "/v1/scheduling/rotation",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.view_own"
+    "permission": "schedule.manage"
   },
   {
     "method": "GET",
     "path": "/v1/scheduling/rotation/current-week",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.manage"
+    "permission": "schedule.view_reports"
   },
   {
     "method": "GET",
     "path": "/v1/scheduling/runs",
     "controller": "SchedulerOrchestrationController",
     "module": "scheduling",
-    "permission": "schedule.run_auto"
+    "permission": "schedule.view_auto_reports"
   },
   {
     "method": "GET",
@@ -10609,7 +10625,7 @@
     "path": "/v1/scheduling/runs/:id/apply",
     "controller": "SchedulerOrchestrationController",
     "module": "scheduling",
-    "permission": "schedule.view_auto_reports"
+    "permission": "schedule.apply_auto"
   },
   {
     "method": "POST",
@@ -10623,7 +10639,7 @@
     "path": "/v1/scheduling/runs/:id/discard",
     "controller": "SchedulerOrchestrationController",
     "module": "scheduling",
-    "permission": "schedule.apply_auto"
+    "permission": "schedule.run_auto"
   },
   {
     "method": "GET",
@@ -10665,7 +10681,7 @@
     "path": "/v1/scheduling/scenarios",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.manage_exams"
+    "permission": "schedule.manage_scenarios"
   },
   {
     "method": "DELETE",
@@ -10812,7 +10828,7 @@
     "path": "/v1/scheduling/swaps/validate",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.view_reports"
+    "permission": "schedule.manage"
   },
   {
     "method": "GET",
@@ -10924,35 +10940,35 @@
     "path": "/v1/scheduling/teachers",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.report_own_absence"
+    "permission": "schedule.manage_substitutions"
   },
   {
     "method": "GET",
     "path": "/v1/scheduling/timetable/class/:classId",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.view_own"
+    "permission": "schedule.view_reports"
   },
   {
     "method": "GET",
     "path": "/v1/scheduling/timetable/my",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.view_reports"
+    "permission": "schedule.view_own"
   },
   {
     "method": "GET",
     "path": "/v1/scheduling/timetable/teacher/:staffId",
     "controller": "SchedulingEnhancedController",
     "module": "scheduling",
-    "permission": "schedule.manage"
+    "permission": "schedule.view_reports"
   },
   {
     "method": "GET",
     "path": "/v1/school-closures",
     "controller": "SchoolClosuresController",
     "module": "school-closures",
-    "permission": "schedule.manage_closures"
+    "permission": "attendance.view"
   },
   {
     "method": "POST",
@@ -10966,7 +10982,7 @@
     "path": "/v1/school-closures/:id",
     "controller": "SchoolClosuresController",
     "module": "school-closures",
-    "permission": "attendance.view"
+    "permission": "schedule.manage_closures"
   },
   {
     "method": "POST",
@@ -10994,7 +11010,7 @@
     "path": "/v1/sen/accommodations/:id",
     "controller": "SenAccommodationController",
     "module": "sen",
-    "permission": "sen.view"
+    "permission": "sen.manage"
   },
   {
     "method": "GET",
@@ -11008,14 +11024,14 @@
     "path": "/v1/sen/goals/:id",
     "controller": "SenGoalController",
     "module": "sen",
-    "permission": "sen.view"
+    "permission": "sen.manage"
   },
   {
     "method": "GET",
     "path": "/v1/sen/goals/:id/progress",
     "controller": "SenGoalController",
     "module": "sen",
-    "permission": "sen.manage"
+    "permission": "sen.view"
   },
   {
     "method": "POST",
@@ -11036,14 +11052,14 @@
     "path": "/v1/sen/goals/:id/strategies",
     "controller": "SenGoalController",
     "module": "sen",
-    "permission": "sen.manage"
+    "permission": "sen.view"
   },
   {
     "method": "POST",
     "path": "/v1/sen/goals/:id/strategies",
     "controller": "SenGoalController",
     "module": "sen",
-    "permission": "sen.view"
+    "permission": "sen.manage"
   },
   {
     "method": "GET",
@@ -11064,7 +11080,7 @@
     "path": "/v1/sen/plans/:id",
     "controller": "SenSupportPlanController",
     "module": "sen",
-    "permission": "sen.view"
+    "permission": "sen.manage"
   },
   {
     "method": "POST",
@@ -11085,7 +11101,7 @@
     "path": "/v1/sen/plans/:planId/goals",
     "controller": "SenGoalController",
     "module": "sen",
-    "permission": "sen.manage"
+    "permission": "sen.view"
   },
   {
     "method": "POST",
@@ -11106,21 +11122,21 @@
     "path": "/v1/sen/professionals/:id",
     "controller": "SenProfessionalController",
     "module": "sen",
-    "permission": "sen.view"
+    "permission": "sen.manage"
   },
   {
     "method": "GET",
     "path": "/v1/sen/profiles",
     "controller": "SenProfileController",
     "module": "sen",
-    "permission": "sen.manage"
+    "permission": "sen.view"
   },
   {
     "method": "POST",
     "path": "/v1/sen/profiles",
     "controller": "SenProfileController",
     "module": "sen",
-    "permission": "sen.view"
+    "permission": "sen.manage"
   },
   {
     "method": "GET",
@@ -11134,28 +11150,28 @@
     "path": "/v1/sen/profiles/:id",
     "controller": "SenProfileController",
     "module": "sen",
-    "permission": "sen.view"
+    "permission": "sen.manage"
   },
   {
     "method": "GET",
     "path": "/v1/sen/profiles/:profileId/accommodations",
     "controller": "SenAccommodationController",
     "module": "sen",
-    "permission": "sen.manage"
+    "permission": "sen.view"
   },
   {
     "method": "POST",
     "path": "/v1/sen/profiles/:profileId/accommodations",
     "controller": "SenAccommodationController",
     "module": "sen",
-    "permission": "sen.admin"
+    "permission": "sen.manage"
   },
   {
     "method": "GET",
     "path": "/v1/sen/profiles/:profileId/plans",
     "controller": "SenSupportPlanController",
     "module": "sen",
-    "permission": "sen.manage"
+    "permission": "sen.view"
   },
   {
     "method": "POST",
@@ -11169,7 +11185,7 @@
     "path": "/v1/sen/profiles/:profileId/professionals",
     "controller": "SenProfessionalController",
     "module": "sen",
-    "permission": "sen.manage"
+    "permission": "sen.view"
   },
   {
     "method": "POST",
@@ -11183,7 +11199,7 @@
     "path": "/v1/sen/profiles/:profileId/transition-notes",
     "controller": "SenTransitionController",
     "module": "sen",
-    "permission": "sen.manage"
+    "permission": "sen.view"
   },
   {
     "method": "POST",
@@ -11204,35 +11220,35 @@
     "path": "/v1/sen/reports/overview",
     "controller": "SenReportsController",
     "module": "sen",
-    "permission": "sen.admin"
+    "permission": "sen.view"
   },
   {
     "method": "GET",
     "path": "/v1/sen/reports/plan-compliance",
     "controller": "SenReportsController",
     "module": "sen",
-    "permission": "sen.admin"
+    "permission": "sen.view"
   },
   {
     "method": "GET",
     "path": "/v1/sen/reports/professional-involvement",
     "controller": "SenReportsController",
     "module": "sen",
-    "permission": "sen.view"
+    "permission": "sen.admin"
   },
   {
     "method": "GET",
     "path": "/v1/sen/reports/resource-utilisation",
     "controller": "SenReportsController",
     "module": "sen",
-    "permission": "sen.view"
+    "permission": "sen.admin"
   },
   {
     "method": "GET",
     "path": "/v1/sen/resource-allocations",
     "controller": "SenResourceController",
     "module": "sen",
-    "permission": "sen.manage_resources"
+    "permission": "sen.view"
   },
   {
     "method": "POST",
@@ -11246,21 +11262,21 @@
     "path": "/v1/sen/resource-allocations/:id",
     "controller": "SenResourceController",
     "module": "sen",
-    "permission": "sen.view"
+    "permission": "sen.manage_resources"
   },
   {
     "method": "GET",
     "path": "/v1/sen/resource-utilisation",
     "controller": "SenResourceController",
     "module": "sen",
-    "permission": "sen.manage_resources"
+    "permission": "sen.view"
   },
   {
     "method": "GET",
     "path": "/v1/sen/sna-assignments",
     "controller": "SenSnaController",
     "module": "sen",
-    "permission": "sen.manage_resources"
+    "permission": "sen.view"
   },
   {
     "method": "POST",
@@ -11274,7 +11290,7 @@
     "path": "/v1/sen/sna-assignments/:id",
     "controller": "SenSnaController",
     "module": "sen",
-    "permission": "sen.view"
+    "permission": "sen.manage_resources"
   },
   {
     "method": "PATCH",
@@ -11309,14 +11325,14 @@
     "path": "/v1/sen/strategies/:id",
     "controller": "SenGoalController",
     "module": "sen",
-    "permission": "sen.view"
+    "permission": "sen.manage"
   },
   {
     "method": "GET",
     "path": "/v1/sen/student-hours",
     "controller": "SenResourceController",
     "module": "sen",
-    "permission": "sen.manage_resources"
+    "permission": "sen.view"
   },
   {
     "method": "POST",
@@ -11330,7 +11346,7 @@
     "path": "/v1/sen/student-hours/:id",
     "controller": "SenResourceController",
     "module": "sen",
-    "permission": "sen.view"
+    "permission": "sen.manage_resources"
   },
   {
     "method": "GET",
@@ -11400,7 +11416,7 @@
     "path": "/v1/staff-profiles",
     "controller": "StaffProfilesController",
     "module": "staff-profiles",
-    "permission": "users.manage"
+    "permission": "users.view"
   },
   {
     "method": "POST",
@@ -11421,21 +11437,21 @@
     "path": "/v1/staff-profiles/:id",
     "controller": "StaffProfilesController",
     "module": "staff-profiles",
-    "permission": "users.view"
+    "permission": "users.manage"
   },
   {
     "method": "GET",
     "path": "/v1/staff-profiles/:id/bank-details",
     "controller": "StaffProfilesController",
     "module": "staff-profiles",
-    "permission": "users.manage"
+    "permission": "payroll.view_bank_details"
   },
   {
     "method": "GET",
     "path": "/v1/staff-profiles/:id/preview",
     "controller": "StaffProfilesController",
     "module": "staff-profiles",
-    "permission": "payroll.view_bank_details"
+    "permission": "users.view"
   },
   {
     "method": "GET",
@@ -11449,7 +11465,7 @@
     "path": "/v1/staff-scheduling-preferences",
     "controller": "StaffPreferencesController",
     "module": "staff-preferences",
-    "permission": "schedule.manage_own_preferences"
+    "permission": "schedule.manage_preferences"
   },
   {
     "method": "DELETE",
@@ -11470,7 +11486,7 @@
     "path": "/v1/staff-scheduling-preferences/own",
     "controller": "StaffPreferencesController",
     "module": "staff-preferences",
-    "permission": "schedule.manage_preferences"
+    "permission": "schedule.manage_own_preferences"
   },
   {
     "method": "GET",
@@ -11554,7 +11570,7 @@
     "path": "/v1/staff-wellbeing/respond/:surveyId",
     "controller": "SurveyController",
     "module": "staff-wellbeing",
-    "permission": "wellbeing.manage_surveys"
+    "permission": null
   },
   {
     "method": "GET",
@@ -11617,7 +11633,7 @@
     "path": "/v1/staff-wellbeing/surveys/:id/moderation",
     "controller": "SurveyResultsController",
     "module": "staff-wellbeing",
-    "permission": "wellbeing.view_survey_results"
+    "permission": "wellbeing.moderate_surveys"
   },
   {
     "method": "PATCH",
@@ -11638,7 +11654,7 @@
     "path": "/v1/staff-wellbeing/surveys/:id/results/comments",
     "controller": "SurveyResultsController",
     "module": "staff-wellbeing",
-    "permission": "wellbeing.moderate_surveys"
+    "permission": "wellbeing.view_survey_results"
   },
   {
     "method": "GET",
@@ -11722,7 +11738,7 @@
     "path": "/v1/students",
     "controller": "StudentsController",
     "module": "students",
-    "permission": "students.manage"
+    "permission": "students.view"
   },
   {
     "method": "POST",
@@ -11743,21 +11759,21 @@
     "path": "/v1/students/:id",
     "controller": "StudentsController",
     "module": "students",
-    "permission": "students.view"
+    "permission": "students.manage"
   },
   {
     "method": "GET",
     "path": "/v1/students/:id/export-pack",
     "controller": "StudentsController",
     "module": "students",
-    "permission": "students.view"
+    "permission": "students.manage"
   },
   {
     "method": "GET",
     "path": "/v1/students/:id/preview",
     "controller": "StudentsController",
     "module": "students",
-    "permission": "students.manage"
+    "permission": "students.view"
   },
   {
     "method": "PATCH",
@@ -11785,7 +11801,7 @@
     "path": "/v1/subjects",
     "controller": "SubjectsController",
     "module": "academics",
-    "permission": "students.manage"
+    "permission": "students.view"
   },
   {
     "method": "POST",
@@ -11806,7 +11822,7 @@
     "path": "/v1/subjects/:id",
     "controller": "SubjectsController",
     "module": "academics",
-    "permission": "students.view"
+    "permission": "students.manage"
   },
   {
     "method": "GET",
@@ -11827,7 +11843,7 @@
     "path": "/v1/timetables/student/:studentId",
     "controller": "TimetablesController",
     "module": "schedules",
-    "permission": "schedule.manage"
+    "permission": null
   },
   {
     "method": "GET",
@@ -11869,7 +11885,7 @@
     "path": "/v1/users/:id/membership",
     "controller": "MembershipsController",
     "module": "rbac",
-    "permission": "users.view"
+    "permission": "users.manage"
   },
   {
     "method": "POST",
@@ -11918,7 +11934,7 @@
     "path": "/v1/website/pages",
     "controller": "WebsitePagesController",
     "module": "website",
-    "permission": "website.manage"
+    "permission": null
   },
   {
     "method": "POST",
@@ -11988,7 +12004,7 @@
     "path": "/v1/year-groups",
     "controller": "YearGroupsController",
     "module": "academics",
-    "permission": "students.manage"
+    "permission": "students.view"
   },
   {
     "method": "POST",
@@ -12009,6 +12025,6 @@
     "path": "/v1/year-groups/:id",
     "controller": "YearGroupsController",
     "module": "academics",
-    "permission": "students.view"
+    "permission": "students.manage"
   }
 ]

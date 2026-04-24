@@ -173,11 +173,12 @@ function extractEndpointsFromBlock(block: ControllerBlock): ApiEndpoint[] {
     const route = routes[i]!;
     const fullPath = buildFullPath(block.basePath, route.suffix);
 
-    // The method block spans from after the previous route's match end
-    // to the start of the next route (or end of content).
-    const prev = i > 0 ? routes[i - 1] : undefined;
+    // The method block starts right after this route's decorator and ends at
+    // the next route's decorator (or end of content). @RequiresPermission is
+    // always below @Get/@Post on its own method, so this scope contains only
+    // the current method's decorators and body.
     const next = i + 1 < routes.length ? routes[i + 1] : undefined;
-    const blockStart = prev ? prev.matchEnd : 0;
+    const blockStart = route.matchEnd;
     const blockEnd = next ? next.index : content.length;
 
     const methodBlock = content.substring(blockStart, blockEnd);

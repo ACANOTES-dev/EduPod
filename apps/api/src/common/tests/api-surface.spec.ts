@@ -146,9 +146,8 @@ function extractEndpointsFromBlock(block: ControllerBlock): ApiEndpoint[] {
   for (let i = 0; i < routes.length; i++) {
     const route = routes[i]!;
     const fullPath = buildFullPath(block.basePath, route.suffix);
-    const prev = i > 0 ? routes[i - 1] : undefined;
     const next = i + 1 < routes.length ? routes[i + 1] : undefined;
-    const blockStart = prev ? prev.matchEnd : 0;
+    const blockStart = route.matchEnd;
     const blockEnd = next ? next.index : content.length;
     const methodBlock = content.substring(blockStart, blockEnd);
     const permission = findPermissionInMethodBlock(methodBlock);
