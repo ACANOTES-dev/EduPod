@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { PermissionCacheService } from '../../common/services/permission-cache.service';
+
 import { AdmissionsAnalyticsService } from './admissions-analytics.service';
 import { AiPredictionsService } from './ai-predictions.service';
 import { AiReportNarratorService } from './ai-report-narrator.service';
@@ -11,8 +13,8 @@ import { CrossModuleInsightsService } from './cross-module-insights.service';
 import { CustomReportBuilderService } from './custom-report-builder.service';
 import { DemographicsService } from './demographics.service';
 import { GradeAnalyticsService } from './grade-analytics.service';
+import { QueryEngineService } from './query-engine/query-engine.service';
 import { ReportAlertsService } from './report-alerts.service';
-import { ReportExportService } from './report-export.service';
 import { ReportsEnhancedController } from './reports-enhanced.controller';
 import { ScheduledReportsService } from './scheduled-reports.service';
 import { StaffAnalyticsService } from './staff-analytics.service';
@@ -124,7 +126,6 @@ const mockReportAlerts = {
 };
 const mockAiNarrator = { generateNarrative: jest.fn() };
 const mockAiPredictions = { predictTrend: jest.fn() };
-const mockReportExport = { generateFormattedExcel: jest.fn() };
 
 describe('ReportsEnhancedController', () => {
   let controller: ReportsEnhancedController;
@@ -148,7 +149,11 @@ describe('ReportsEnhancedController', () => {
         { provide: ReportAlertsService, useValue: mockReportAlerts },
         { provide: AiReportNarratorService, useValue: mockAiNarrator },
         { provide: AiPredictionsService, useValue: mockAiPredictions },
-        { provide: ReportExportService, useValue: mockReportExport },
+        // Impl 02 constructor additions — empty mocks are fine; existing
+        // tests don't exercise these paths. Impl 02's own spec file will
+        // eventually land a fuller mock surface.
+        { provide: QueryEngineService, useValue: {} },
+        { provide: PermissionCacheService, useValue: {} },
       ],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
@@ -164,14 +169,41 @@ describe('ReportsEnhancedController', () => {
 
   // ─── KPI Dashboard ────────────────────────────────────────────────────────
 
-  it('should call unifiedDashboard.getKpiDashboard with tenant_id', async () => {
-    const kpiData = { total_students: 100 };
+  const kpiResponseShape = () => ({
+    data: {
+      generated_at: new Date().toISOString(),
+      kpis: [],
+      trends: { weeks: [], attendance: [], grades: [], collection: [] },
+    },
+    meta: { cache_hit: false },
+  });
+
+  it('should call unifiedDashboard.getKpiDashboard from the legacy kpi-dashboard route', async () => {
+    const kpiData = kpiResponseShape();
     mockUnifiedDashboard.getKpiDashboard.mockResolvedValue(kpiData);
 
     const result = await controller.kpiDashboard(tenantContext);
 
-    expect(mockUnifiedDashboard.getKpiDashboard).toHaveBeenCalledWith(TENANT_ID);
+    expect(mockUnifiedDashboard.getKpiDashboard).toHaveBeenCalledWith(TENANT_ID, false);
     expect(result).toEqual(kpiData);
+  });
+
+  it('should call unifiedDashboard.getKpiDashboard from the new analytics/dashboard route', async () => {
+    const kpiData = kpiResponseShape();
+    mockUnifiedDashboard.getKpiDashboard.mockResolvedValue(kpiData);
+
+    const result = await controller.analyticsDashboard(tenantContext);
+
+    expect(mockUnifiedDashboard.getKpiDashboard).toHaveBeenCalledWith(TENANT_ID, false);
+    expect(result).toEqual(kpiData);
+  });
+
+  it('should forward refresh=true to getKpiDashboard when the query param is "true"', async () => {
+    mockUnifiedDashboard.getKpiDashboard.mockResolvedValue(kpiResponseShape());
+
+    await controller.analyticsDashboard(tenantContext, 'true');
+
+    expect(mockUnifiedDashboard.getKpiDashboard).toHaveBeenCalledWith(TENANT_ID, true);
   });
 
   // ─── Staff Analytics ──────────────────────────────────────────────────────
@@ -963,18 +995,8 @@ describe('ReportsEnhancedController', () => {
   });
 
   // ─── Export ───────────────────────────────────────────────────────────
-
-  it('should call reportExport.generateFormattedExcel with body data and config', async () => {
-    const buffer = Buffer.from('xlsx-content');
-    mockReportExport.generateFormattedExcel.mockResolvedValue(buffer);
-
-    const body = {
-      data: [{ name: 'Alice', score: 90 }],
-      config: { title: 'Student Report', school_name: 'Test School', date_range: '2025 Q1' },
-    };
-    const result = await controller.exportExcel({ format: 'xlsx' }, body);
-
-    expect(mockReportExport.generateFormattedExcel).toHaveBeenCalledWith(body.data, body.config);
-    expect(result).toEqual(buffer);
-  });
+  // The legacy POST /v1/reports/export/excel endpoint was removed in impl 04.
+  // The new POST /v1/reports/builder/:reportId/export streams the buffer via
+  // `res` directly and is exercised via integration tests in apps/api/test/
+  // rather than unit-mocked here. See impl 04 spec §7.
 });

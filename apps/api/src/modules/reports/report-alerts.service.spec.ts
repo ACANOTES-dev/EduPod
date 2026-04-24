@@ -1,6 +1,8 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import type { KpiDashboardResponse, ReportKpiKey } from '@school/shared/reports';
+
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ReportAlertsService } from './report-alerts.service';
@@ -45,6 +47,46 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+/**
+ * Build a new-shape KPI dashboard response where each `value_raw` comes
+ * from the `values` map keyed by KPI key. Any KPI not in the map gets a
+ * value of 0 — alerts tests only care about the metrics they're asserting
+ * on, so we keep the rest neutral.
+ */
+function buildDashboard(values: Partial<Record<ReportKpiKey, number>>): KpiDashboardResponse {
+  const baseKpis: ReportKpiKey[] = [
+    'attendance_today',
+    'teacher_submission_compliance',
+    'at_risk_students',
+    'behaviour_incidents_this_week',
+    'open_safeguarding_concerns',
+    'overdue_invoices',
+    'grades_submission_lag',
+    'new_applications_this_week',
+    'parent_escalations',
+    'cover_gaps_this_week',
+  ];
+
+  return {
+    data: {
+      generated_at: new Date().toISOString(),
+      kpis: baseKpis.map((key) => ({
+        key,
+        label_key: `reports.kpis.${key}.label`,
+        tooltip_key: `reports.kpis.${key}.tooltip`,
+        value: values[key] ?? 0,
+        value_raw: values[key] ?? 0,
+        delta: null,
+        sparkline: [values[key] ?? 0],
+        drill_down_href: '/reports',
+        severity: null,
+      })),
+      trends: { weeks: [], attendance: [], grades: [], collection: [] },
+    },
+    meta: { cache_hit: false },
+  };
+}
+
 describe('ReportAlertsService', () => {
   let service: ReportAlertsService;
   let mockPrisma: {
@@ -58,7 +100,6 @@ describe('ReportAlertsService', () => {
   };
 
   beforeEach(async () => {
-    // Reset per-test
     mockTx.reportAlert.findMany.mockResolvedValue([MOCK_ALERT_DB]);
     mockTx.reportAlert.count.mockResolvedValue(1);
     mockTx.reportAlert.findFirst.mockResolvedValue(MOCK_ALERT_DB);
@@ -74,18 +115,13 @@ describe('ReportAlertsService', () => {
     };
 
     mockUnifiedDashboard = {
-      getKpiDashboard: jest.fn().mockResolvedValue({
-        total_students: 100,
-        active_staff_count: 20,
-        attendance_rate: 75,
-        fee_collection_rate: 90,
-        overdue_invoices_count: 5,
-        at_risk_students_count: 3,
-        average_grade: 70,
-        pending_applications: 12,
-        scheduled_classes_today: 10,
-        generated_at: new Date().toISOString(),
-      }),
+      getKpiDashboard: jest.fn().mockResolvedValue(
+        buildDashboard({
+          attendance_today: 75,
+          overdue_invoices: 5,
+          at_risk_students: 3,
+        }),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -166,7 +202,6 @@ describe('ReportAlertsService', () => {
   });
 
   it('should trigger an alert when attendance_rate falls below threshold', async () => {
-    // KPI attendance_rate = 75, alert threshold = 80, operator = lt → triggered
     mockPrisma.reportAlert.findMany.mockResolvedValue([MOCK_ALERT_DB]);
 
     const results = await service.checkThresholds();
@@ -228,37 +263,40 @@ describe('ReportAlertsService', () => {
     expect(results[0]!.triggered).toBe(false);
   });
 
-  it('should handle collection_rate metric', async () => {
+  // Legacy metrics that are not represented in the new 10-KPI dashboard
+  // return 0 and therefore never trigger. Impl 09 (Report Alerts Worker)
+  // will retire these metrics.
+  it('should return 0 for legacy collection_rate metric', async () => {
     mockPrisma.reportAlert.findMany.mockResolvedValue([
       { ...MOCK_ALERT_DB, metric: 'collection_rate', threshold: 80, operator: 'gt' },
     ]);
 
     const results = await service.checkThresholds();
 
-    // collection_rate = 90, threshold = 80, operator gt → triggered
-    expect(results[0]!.triggered).toBe(true);
+    expect(results[0]!.current_value).toBe(0);
+    expect(results[0]!.triggered).toBe(false);
   });
 
-  it('should handle average_grade metric', async () => {
+  it('should return 0 for legacy average_grade metric', async () => {
     mockPrisma.reportAlert.findMany.mockResolvedValue([
       { ...MOCK_ALERT_DB, metric: 'average_grade', threshold: 80, operator: 'lt' },
     ]);
 
     const results = await service.checkThresholds();
 
-    // average_grade = 70, threshold = 80, operator lt → triggered
-    expect(results[0]!.triggered).toBe(true);
+    expect(results[0]!.current_value).toBe(0);
+    expect(results[0]!.triggered).toBe(true); // 0 < 80 is truthy
   });
 
-  it('should handle staff_absence_rate metric', async () => {
+  it('should return 0 for legacy staff_absence_rate metric', async () => {
     mockPrisma.reportAlert.findMany.mockResolvedValue([
       { ...MOCK_ALERT_DB, metric: 'staff_absence_rate', threshold: 50, operator: 'lt' },
     ]);
 
     const results = await service.checkThresholds();
 
-    // staff_absence_rate = 0 (all active), threshold 50, lt → triggered
-    expect(results[0]!.triggered).toBe(true);
+    expect(results[0]!.current_value).toBe(0);
+    expect(results[0]!.triggered).toBe(true); // 0 < 50
   });
 
   it('should return 0 for unknown metric', async () => {
@@ -279,18 +317,7 @@ describe('ReportAlertsService', () => {
     ]);
     mockUnifiedDashboard.getKpiDashboard
       .mockRejectedValueOnce(new Error('KPI service down'))
-      .mockResolvedValueOnce({
-        total_students: 100,
-        active_staff_count: 20,
-        attendance_rate: 75,
-        fee_collection_rate: 90,
-        overdue_invoices_count: 5,
-        at_risk_students_count: 3,
-        average_grade: 70,
-        pending_applications: 12,
-        scheduled_classes_today: 10,
-        generated_at: new Date().toISOString(),
-      });
+      .mockResolvedValueOnce(buildDashboard({ attendance_today: 75 }));
 
     const results = await service.checkThresholds();
 
@@ -416,31 +443,6 @@ describe('ReportAlertsService', () => {
     );
   });
 
-  // ─── Edge: staff_absence_rate with 0 active staff ─────────────────────
-
-  it('edge: should return 0 for staff_absence_rate when active_staff_count is 0', async () => {
-    mockPrisma.reportAlert.findMany.mockResolvedValue([
-      { ...MOCK_ALERT_DB, metric: 'staff_absence_rate', threshold: 50, operator: 'gt' },
-    ]);
-    mockUnifiedDashboard.getKpiDashboard.mockResolvedValue({
-      total_students: 100,
-      active_staff_count: 0,
-      attendance_rate: 75,
-      fee_collection_rate: 90,
-      overdue_invoices_count: 5,
-      at_risk_students_count: 3,
-      average_grade: 70,
-      pending_applications: 12,
-      scheduled_classes_today: 10,
-      generated_at: new Date().toISOString(),
-    });
-
-    const results = await service.checkThresholds();
-
-    expect(results[0]!.current_value).toBe(0);
-    expect(results[0]!.triggered).toBe(false);
-  });
-
   // ─── Edge: checkThresholds updates last_triggered_at ──────────────────
 
   it('edge: should update last_triggered_at when alert is triggered', async () => {
@@ -466,75 +468,6 @@ describe('ReportAlertsService', () => {
 
     // attendance_rate=75, threshold=50, lt -> not triggered
     expect(mockPrisma.reportAlert.update).not.toHaveBeenCalled();
-  });
-
-  // ─── Edge: attendance_rate metric with null kpi ───────────────────────
-
-  it('edge: should return 0 for attendance_rate when kpi returns null', async () => {
-    mockPrisma.reportAlert.findMany.mockResolvedValue([
-      { ...MOCK_ALERT_DB, metric: 'attendance_rate', threshold: 80, operator: 'lt' },
-    ]);
-    mockUnifiedDashboard.getKpiDashboard.mockResolvedValue({
-      total_students: 100,
-      active_staff_count: 20,
-      attendance_rate: null,
-      fee_collection_rate: null,
-      overdue_invoices_count: 5,
-      at_risk_students_count: 3,
-      average_grade: null,
-      pending_applications: 12,
-      scheduled_classes_today: 10,
-      generated_at: new Date().toISOString(),
-    });
-
-    const results = await service.checkThresholds();
-
-    // attendance_rate is null, ?? 0 -> current_value = 0
-    expect(results[0]!.current_value).toBe(0);
-  });
-
-  it('edge: should return 0 for collection_rate when kpi returns null', async () => {
-    mockPrisma.reportAlert.findMany.mockResolvedValue([
-      { ...MOCK_ALERT_DB, metric: 'collection_rate', threshold: 80, operator: 'gt' },
-    ]);
-    mockUnifiedDashboard.getKpiDashboard.mockResolvedValue({
-      total_students: 100,
-      active_staff_count: 20,
-      attendance_rate: 75,
-      fee_collection_rate: null,
-      overdue_invoices_count: 5,
-      at_risk_students_count: 3,
-      average_grade: 70,
-      pending_applications: 12,
-      scheduled_classes_today: 10,
-      generated_at: new Date().toISOString(),
-    });
-
-    const results = await service.checkThresholds();
-
-    expect(results[0]!.current_value).toBe(0);
-  });
-
-  it('edge: should return 0 for average_grade when kpi returns null', async () => {
-    mockPrisma.reportAlert.findMany.mockResolvedValue([
-      { ...MOCK_ALERT_DB, metric: 'average_grade', threshold: 80, operator: 'lt' },
-    ]);
-    mockUnifiedDashboard.getKpiDashboard.mockResolvedValue({
-      total_students: 100,
-      active_staff_count: 20,
-      attendance_rate: 75,
-      fee_collection_rate: 90,
-      overdue_invoices_count: 5,
-      at_risk_students_count: 3,
-      average_grade: null,
-      pending_applications: 12,
-      scheduled_classes_today: 10,
-      generated_at: new Date().toISOString(),
-    });
-
-    const results = await service.checkThresholds();
-
-    expect(results[0]!.current_value).toBe(0);
   });
 
   // ─── Edge: pagination offset calculation ──────────────────────────────

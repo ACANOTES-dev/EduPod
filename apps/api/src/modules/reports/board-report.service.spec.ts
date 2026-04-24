@@ -36,7 +36,9 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -48,10 +50,12 @@ describe('BoardReportService', () => {
   beforeEach(async () => {
     mockUnifiedDashboard = {
       getKpiDashboard: jest.fn().mockResolvedValue({
-        total_students: 100,
-        active_staff_count: 20,
-        attendance_rate: 90,
-        generated_at: new Date().toISOString(),
+        data: {
+          generated_at: new Date().toISOString(),
+          kpis: [],
+          trends: { weeks: [], attendance: [], grades: [], collection: [] },
+        },
+        meta: { cache_hit: false },
       }),
     };
     mockAiNarrator = {
@@ -101,7 +105,9 @@ describe('BoardReportService', () => {
     it('should throw NotFoundException when report does not exist', async () => {
       mockTx.boardReport.findFirst.mockResolvedValue(null);
 
-      await expect(service.getBoardReport(TENANT_ID, 'missing-id')).rejects.toThrow(NotFoundException);
+      await expect(service.getBoardReport(TENANT_ID, 'missing-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -144,7 +150,9 @@ describe('BoardReportService', () => {
     it('should throw NotFoundException when report does not exist', async () => {
       mockTx.boardReport.findFirst.mockResolvedValue(null);
 
-      await expect(service.deleteBoardReport(TENANT_ID, 'missing-id')).rejects.toThrow(NotFoundException);
+      await expect(service.deleteBoardReport(TENANT_ID, 'missing-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

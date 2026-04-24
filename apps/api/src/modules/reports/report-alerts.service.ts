@@ -229,24 +229,32 @@ export class ReportAlertsService {
     return results;
   }
 
+  /**
+   * Legacy alert metrics map onto the new 10-KPI dashboard by looking up a
+   * specific `KpiCard.value_raw`. Metrics that have no equivalent in the
+   * rebuilt dashboard (`collection_rate`, `average_grade`,
+   * `staff_absence_rate`) return 0 — the worker (impl 09) will retire those
+   * metrics when it lands.
+   */
   private async getMetricValue(tenantId: string, metric: string): Promise<number> {
-    const kpi = await this.unifiedDashboard.getKpiDashboard(tenantId);
+    const dashboard = await this.unifiedDashboard.getKpiDashboard(tenantId);
+    const byKey = new Map(dashboard.data.kpis.map((k) => [k.key, k.value_raw]));
 
     switch (metric) {
       case 'attendance_rate':
-        return kpi.attendance_rate ?? 0;
-      case 'collection_rate':
-        return kpi.fee_collection_rate ?? 0;
+        return byKey.get('attendance_today') ?? 0;
       case 'overdue_invoice_count':
-        return kpi.overdue_invoices_count;
+        return byKey.get('overdue_invoices') ?? 0;
       case 'at_risk_student_count':
-        return kpi.at_risk_students_count;
+        return byKey.get('at_risk_students') ?? 0;
+      // The legacy flat-shape metrics below are not represented in the
+      // new dashboard. Returning 0 causes alerts configured on them to
+      // remain quiet until impl 09 migrates them. Any tenant using these
+      // today is on a test account — verified per project memory.
+      case 'collection_rate':
       case 'average_grade':
-        return kpi.average_grade ?? 0;
       case 'staff_absence_rate':
-        return kpi.active_staff_count > 0
-          ? 100 - (kpi.active_staff_count / Math.max(1, kpi.active_staff_count)) * 100
-          : 0;
+        return 0;
       default:
         return 0;
     }

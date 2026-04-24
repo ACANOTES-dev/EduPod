@@ -128,30 +128,30 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                 | Wave | Depends on     | Status      | Completed at                   | Commit SHA |
-| --- | ----------------------------------------------------- | ---- | -------------- | ----------- | ------------------------------ | ---------- |
-| 01  | Schema foundation                                     | 1    | —              | `completed` | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
-| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `pending`   |                                |            |
-| 03  | KPI Dashboard Service                                 | 2    | 01             | `pending`   |                                |            |
-| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `pending`   |                                |            |
-| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `pending`   |                                |            |
-| 06  | Board Report aggregation                              | 2    | 01             | `pending`   |                                |            |
-| 07  | Compliance Report aggregation                         | 2    | 01             | `pending`   |                                |            |
-| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `pending`   |                                |            |
-| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `pending`   |                                |            |
-| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `pending`   |                                |            |
-| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `pending`   |                                |            |
-| 12  | AI Predictions service                                | 3    | 01             | `pending`   |                                |            |
-| 13  | Report Sharing service                                | 3    | 01, 04         | `pending`   |                                |            |
-| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`   |                                |            |
-| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`   |                                |            |
-| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`   |                                |            |
-| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`   |                                |            |
-| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`   |                                |            |
-| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`   |                                |            |
-| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`   |                                |            |
-| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`   |                                |            |
-| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`   |                                |            |
+| #   | Title                                                 | Wave | Depends on     | Status        | Completed at                   | Commit SHA |
+| --- | ----------------------------------------------------- | ---- | -------------- | ------------- | ------------------------------ | ---------- |
+| 01  | Schema foundation                                     | 1    | —              | `completed`   | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
+| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `in-progress` |                                |            |
+| 03  | KPI Dashboard Service                                 | 2    | 01             | `deploying`   |                                |            |
+| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `in-progress` |                                |            |
+| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `pending`     |                                |            |
+| 06  | Board Report aggregation                              | 2    | 01             | `pending`     |                                |            |
+| 07  | Compliance Report aggregation                         | 2    | 01             | `pending`     |                                |            |
+| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `pending`     |                                |            |
+| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `pending`     |                                |            |
+| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `pending`     |                                |            |
+| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `pending`     |                                |            |
+| 12  | AI Predictions service                                | 3    | 01             | `pending`     |                                |            |
+| 13  | Report Sharing service                                | 3    | 01, 04         | `pending`     |                                |            |
+| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`     |                                |            |
+| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`     |                                |            |
+| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`     |                                |            |
+| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`     |                                |            |
+| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`     |                                |            |
+| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`     |                                |            |
+| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`     |                                |            |
+| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`     |                                |            |
+| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`     |                                |            |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
 

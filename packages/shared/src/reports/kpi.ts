@@ -55,3 +55,50 @@ export const reportsKpiTenantPreferencesSchema = z.object({
   updated_by: z.string().uuid().nullable(),
 });
 export type ReportsKpiTenantPreferencesDto = z.infer<typeof reportsKpiTenantPreferencesSchema>;
+
+/**
+ * Delta indicator on a KPI card — shows change vs. a prior period.
+ */
+export const kpiDeltaSchema = z.object({
+  value: z.number(),
+  unit: z.enum(['percent', 'absolute']),
+  direction: z.enum(['up', 'down', 'flat']),
+  better_when: z.enum(['up', 'down']),
+});
+export type KpiDelta = z.infer<typeof kpiDeltaSchema>;
+
+/**
+ * A single KPI card on the reports dashboard.
+ */
+export const kpiCardSchema = z.object({
+  key: reportKpiKeySchema,
+  label_key: z.string(),
+  tooltip_key: z.string(),
+  value: z.union([z.string(), z.number()]),
+  value_raw: z.number(),
+  delta: kpiDeltaSchema.nullable(),
+  sparkline: z.array(z.number()),
+  drill_down_href: z.string(),
+  severity: z.enum(['normal', 'warning', 'critical']).nullable(),
+});
+export type KpiCard = z.infer<typeof kpiCardSchema>;
+
+/**
+ * Full KPI dashboard response including trends.
+ */
+export const kpiDashboardResponseSchema = z.object({
+  data: z.object({
+    generated_at: z.string().datetime(),
+    kpis: z.array(kpiCardSchema),
+    trends: z.object({
+      weeks: z.array(z.string()),
+      attendance: z.array(z.number()),
+      grades: z.array(z.number()),
+      collection: z.array(z.number()),
+    }),
+  }),
+  meta: z.object({
+    cache_hit: z.boolean(),
+  }),
+});
+export type KpiDashboardResponse = z.infer<typeof kpiDashboardResponseSchema>;
