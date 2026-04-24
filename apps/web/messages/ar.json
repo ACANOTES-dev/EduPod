@@ -8877,10 +8877,10 @@
         "tuslaRef": "مرجع تُسلا"
       },
       "severity": {
-        "critical": "حرجة",
-        "high": "عالية",
-        "medium": "متوسطة",
-        "low": "منخفضة"
+        "critical_sev": "حرجة",
+        "high_sev": "عالية",
+        "medium_sev": "متوسطة",
+        "low_sev": "منخفضة"
       },
       "audit": {
         "dlpCount": "{active} ضباط اتصال، {deputy} نوّاب",
@@ -8907,20 +8907,24 @@
           "referredAt": "تاريخ الإحالة"
         },
         "severity": {
-          "critical": "حرجة",
-          "high": "عالية",
-          "medium": "متوسطة",
-          "low": "منخفضة"
+          "critical_sev": "حرجة",
+          "high_sev": "عالية",
+          "medium_sev": "متوسطة",
+          "low_sev": "منخفضة"
         },
         "concernType": {
-          "neglect": "إهمال",
-          "emotional_abuse": "إساءة عاطفية",
           "physical_abuse": "إساءة جسدية",
+          "emotional_abuse": "إساءة عاطفية",
           "sexual_abuse": "إساءة جنسية",
-          "disclosure": "إفصاح",
-          "observed_behavior": "سلوك ملاحَظ",
-          "third_party_report": "بلاغ من طرف ثالث",
-          "other": "أخرى"
+          "neglect": "إهمال",
+          "self_harm": "إيذاء الذات",
+          "bullying": "تنمّر",
+          "online_safety": "السلامة الرقمية",
+          "domestic_violence": "عنف أسري",
+          "substance_abuse": "تعاطي مواد",
+          "mental_health": "صحة نفسية",
+          "radicalisation": "تطرّف",
+          "other_concern": "أخرى"
         }
       },
       "staffVetting": {

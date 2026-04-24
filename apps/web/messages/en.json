@@ -8877,10 +8877,10 @@
         "tuslaRef": "Tusla ref"
       },
       "severity": {
-        "critical": "Critical",
-        "high": "High",
-        "medium": "Medium",
-        "low": "Low"
+        "critical_sev": "Critical",
+        "high_sev": "High",
+        "medium_sev": "Medium",
+        "low_sev": "Low"
       },
       "audit": {
         "dlpCount": "{active} designated liaison, {deputy} deputies",
@@ -8907,20 +8907,24 @@
           "referredAt": "Referred at"
         },
         "severity": {
-          "critical": "Critical",
-          "high": "High",
-          "medium": "Medium",
-          "low": "Low"
+          "critical_sev": "Critical",
+          "high_sev": "High",
+          "medium_sev": "Medium",
+          "low_sev": "Low"
         },
         "concernType": {
-          "neglect": "Neglect",
-          "emotional_abuse": "Emotional abuse",
           "physical_abuse": "Physical abuse",
+          "emotional_abuse": "Emotional abuse",
           "sexual_abuse": "Sexual abuse",
-          "disclosure": "Disclosure",
-          "observed_behavior": "Observed behaviour",
-          "third_party_report": "Third-party report",
-          "other": "Other"
+          "neglect": "Neglect",
+          "self_harm": "Self-harm",
+          "bullying": "Bullying",
+          "online_safety": "Online safety",
+          "domestic_violence": "Domestic violence",
+          "substance_abuse": "Substance abuse",
+          "mental_health": "Mental health",
+          "radicalisation": "Radicalisation",
+          "other_concern": "Other"
         }
       },
       "staffVetting": {
