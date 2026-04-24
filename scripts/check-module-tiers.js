@@ -153,6 +153,10 @@ const WHITELISTED_VIOLATIONS = [
   { importer: 'scheduling', imported: 'parents' },
   { importer: 'students', imported: 'households' },
   { importer: 'students', imported: 'parents' },
+  // Phase 10 GDPR sub-hub — regulatory composes compliance's RetentionPoliciesService
+  // to count items past retention for the sub-hub KPI. No inverse dependency
+  // (compliance does not import regulatory). Documented in module-blast-radius.md.
+  { importer: 'regulatory', imported: 'compliance' },
 
   // T4 → T3 (documented)
   { importer: 'households', imported: 'registration' },
