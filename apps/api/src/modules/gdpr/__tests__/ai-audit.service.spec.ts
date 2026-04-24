@@ -109,6 +109,9 @@ describe('AiAuditService', () => {
           token_usage_log_id: null,
           confidence_score: null,
           processing_time_ms: 1250,
+          // impl 10: `cost_usd_estimate` defaults to null when the caller
+          // doesn't provide one (e.g. cache hits, pre-impl-10 callers).
+          cost_usd_estimate: null,
         },
         select: { id: true },
       });
