@@ -73,6 +73,7 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
+import { RegulatoryAntiBullyingService } from './regulatory-anti-bullying.service';
 import { RegulatoryCalendarService } from './regulatory-calendar.service';
 import { RegulatoryCbaService } from './regulatory-cba.service';
 import { RegulatoryDashboardService } from './regulatory-dashboard.service';
@@ -160,6 +161,7 @@ type CbaPendingQueryDto = z.infer<typeof cbaPendingQuerySchema>;
 @UseGuards(AuthGuard, PermissionGuard)
 export class RegulatoryController {
   constructor(
+    private readonly antiBullyingService: RegulatoryAntiBullyingService,
     private readonly calendarService: RegulatoryCalendarService,
     private readonly cbaService: RegulatoryCbaService,
     private readonly dashboardService: RegulatoryDashboardService,
@@ -787,6 +789,15 @@ export class RegulatoryController {
     @Body(new ZodValidationPipe(updateTransferSchema)) dto: UpdateTransferDto,
   ) {
     return this.transfersService.update(tenant.tenant_id, id, dto);
+  }
+
+  // ─── Anti-Bullying ────────────────────────────────────────────────────────
+
+  // GET /v1/regulatory/anti-bullying/summary
+  @Get('anti-bullying/summary')
+  @RequiresPermission('regulatory.view')
+  async getAntiBullyingSummary(@CurrentTenant() tenant: TenantContext) {
+    return this.antiBullyingService.getSummary(tenant.tenant_id);
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

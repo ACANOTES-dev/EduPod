@@ -1,124 +1,182 @@
 'use client';
 
-import { Shield } from 'lucide-react';
+import { AlertTriangle, CalendarClock, CheckCircle2, FileText, Layers, Shield } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { StatCard } from '@school/ui';
+import { Button } from '@school/ui';
 
+import { HubTile } from '@/components/hub-tile';
+import { KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import type { BullyingIncidentSummary } from './_components/bullying-incident-summary';
-import { BullyingIncidentSummary as BullyingIncidentSummaryComponent } from './_components/bullying-incident-summary';
+import { CategoryBreakdown, type CategoryBreakdownEntry } from './_components/category-breakdown';
+import { RecentIncidentsList, type RecentIncident } from './_components/recent-incidents-list';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface AntiBullyingSummary {
+  academic_year: string;
+  total_incidents: number;
+  open: number;
+  resolved: number;
+  resolved_this_term: number;
+  days_since_last_incident: number | null;
+  by_category: CategoryBreakdownEntry[];
+  by_month: Array<{ month: string; count: number }>;
+  recent_incidents: RecentIncident[];
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AntiBullyingPage() {
-  const t = useTranslations('regulatory');
-  const pathname = usePathname();
+  const t = useTranslations('regulatory.antiBullying');
+  const locale = useLocale();
 
-  const segments = (pathname ?? '').split('/').filter(Boolean);
-  const locale = segments[0] ?? 'en';
-
-  const [summary, setSummary] = React.useState<BullyingIncidentSummary | null>(null);
+  const [summary, setSummary] = React.useState<AntiBullyingSummary | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
     let cancelled = false;
-
-    async function fetchSummary() {
-      setIsLoading(true);
-      try {
-        const data = await apiClient<BullyingIncidentSummary>(
-          '/api/v1/behaviour/incidents/summary?categories=bullying',
-          { silent: true },
-        );
-        if (!cancelled) {
-          setSummary(data);
-        }
-      } catch (err) {
-        console.error('[AntiBullyingPage.fetchSummary]', err);
-        if (!cancelled) {
-          setSummary(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void fetchSummary();
-
+    setIsLoading(true);
+    apiClient<AntiBullyingSummary>('/api/v1/regulatory/anti-bullying/summary', { silent: true })
+      .then((data) => {
+        if (!cancelled) setSummary(data);
+      })
+      .catch((err) => {
+        console.error('[AntiBullyingPage] fetch', err);
+        if (!cancelled) setSummary(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // ── Derived stats ──
-  const total = summary?.total_incidents ?? 0;
-  const open = summary?.open ?? 0;
-  const resolved = summary?.resolved ?? 0;
-  const resolutionRate = total > 0 ? `${Math.round((resolved / total) * 100)}%` : '—';
+  const daysSinceLabel = React.useMemo(() => {
+    if (!summary) return '—';
+    if (summary.days_since_last_incident === null) return t('noIncidentsYet');
+    return String(summary.days_since_last_incident);
+  }, [summary, t]);
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={t('antiBullying.pageTitle')}
-        description={t('antiBullying.pageDescription')}
+        title={t('pageTitle')}
+        description={t('pageDescription')}
+        back={{ href: `/${locale}/regulatory`, label: t('backToRegulatory') }}
+        actions={
+          <Link href={`/${locale}/behaviour/incidents`}>
+            <Button variant="outline" className="min-h-[44px]">
+              <FileText className="me-2 h-4 w-4" />
+              {t('manageIncidents')}
+            </Button>
+          </Link>
+        }
       />
 
-      {/* ─── Bí Cineálta Info Banner ──────────────────────────────────────── */}
-      <div className="rounded-2xl border border-primary-200 bg-primary-50 px-4 py-4 sm:px-6 sm:py-5">
+      {/* ── Framework banner ──────────────────────────────────────────── */}
+      <div className="rounded-2xl border border-border bg-slate-50 px-4 py-4 sm:px-6 sm:py-5">
         <div className="flex gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary-600">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-200 text-slate-700">
             <Shield className="h-5 w-5" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-semibold text-primary-900">
-              {t('antiBullying.bannerTitle')}
-            </h2>
-            <p className="mt-1 text-sm text-primary-800 leading-relaxed">
-              {t('antiBullying.bannerDescription')}
-            </p>
-            <p className="mt-3">
-              <Link
-                href={`/${locale}/behaviour`}
-                className="inline-flex min-h-[44px] items-center rounded-lg border border-primary-300 bg-white px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-              >
-                {t('antiBullying.manageIncidents')}
-              </Link>
+            <h2 className="text-sm font-semibold text-text-primary">{t('bannerTitle')}</h2>
+            <p className="mt-1 text-sm leading-relaxed text-text-secondary">
+              {t('bannerDescription')}
             </p>
           </div>
         </div>
       </div>
 
-      {/* ─── Summary Stats ────────────────────────────────────────────────── */}
-      {!isLoading && summary !== null && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label={t('antiBullying.statsTotal')} value={total} />
-          <StatCard label={t('antiBullying.statsOpen')} value={open} />
-          <StatCard label={t('antiBullying.statsResolved')} value={resolved} />
-          <StatCard label={t('antiBullying.statsResolutionRate')} value={resolutionRate} />
-        </div>
-      )}
+      {/* ── KPI strip ─────────────────────────────────────────────────── */}
+      <section
+        aria-label={t('kpi.ariaLabel')}
+        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+      >
+        <KpiTile
+          icon={AlertTriangle}
+          label={t('kpi.open')}
+          value={summary?.open}
+          isLoading={isLoading}
+          accent={summary && summary.open > 0 ? 'text-danger-600' : 'text-text-tertiary'}
+          tooltip={t('kpi.openTooltip')}
+        />
+        <KpiTile
+          icon={CheckCircle2}
+          label={t('kpi.resolvedThisTerm')}
+          value={summary?.resolved_this_term}
+          isLoading={isLoading}
+          accent="text-success-700"
+          tooltip={t('kpi.resolvedThisTermTooltip')}
+        />
+        <KpiTile
+          icon={Layers}
+          label={t('kpi.thisYear')}
+          value={summary?.total_incidents}
+          isLoading={isLoading}
+          accent="text-cyan-700"
+          tooltip={t('kpi.thisYearTooltip')}
+        />
+        <KpiTile
+          icon={CalendarClock}
+          label={t('kpi.daysSinceLast')}
+          value={daysSinceLabel}
+          isLoading={isLoading}
+          accent="text-primary-700"
+          tooltip={t('kpi.daysSinceLastTooltip')}
+        />
+      </section>
 
-      {isLoading && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse rounded-2xl bg-surface-secondary p-5">
-              <div className="h-3 w-1/2 rounded bg-surface-primary" />
-              <div className="mt-2 h-8 w-1/3 rounded bg-surface-primary" />
-            </div>
-          ))}
-        </div>
-      )}
+      {/* ── Hub tiles ─────────────────────────────────────────────────── */}
+      <section aria-label={t('tiles.ariaLabel')} className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <HubTile
+          icon={AlertTriangle}
+          title={t('tiles.openIncidents.title')}
+          description={t('tiles.openIncidents.description')}
+          href="/behaviour/incidents?status=open"
+          accent="from-rose-400 to-rose-600"
+          iconBg="bg-rose-100 text-rose-700"
+          glow="from-rose-400/10"
+          count={summary?.open}
+          animationIndex={0}
+          moduleKey="behaviour"
+        />
+        <HubTile
+          icon={FileText}
+          title={t('tiles.annualReview.title')}
+          description={t('tiles.annualReview.description')}
+          href="/regulatory/submissions?domain=anti_bullying"
+          accent="from-indigo-400 to-indigo-600"
+          iconBg="bg-indigo-100 text-indigo-700"
+          glow="from-indigo-400/10"
+          animationIndex={1}
+        />
+        <HubTile
+          icon={Shield}
+          title={t('tiles.policy.title')}
+          description={t('tiles.policy.description')}
+          href="/regulatory"
+          accent="from-slate-400 to-slate-600"
+          iconBg="bg-slate-100 text-slate-700"
+          glow="from-slate-400/10"
+          animationIndex={2}
+        />
+      </section>
 
-      {/* ─── Category Breakdown ───────────────────────────────────────────── */}
-      <BullyingIncidentSummaryComponent data={summary} isLoading={isLoading} locale={locale} />
+      {/* ── Category breakdown ────────────────────────────────────────── */}
+      <CategoryBreakdown entries={summary?.by_category ?? []} isLoading={isLoading} />
+
+      {/* ── Recent incidents ──────────────────────────────────────────── */}
+      <RecentIncidentsList
+        incidents={summary?.recent_incidents ?? []}
+        isLoading={isLoading}
+      />
     </div>
   );
 }

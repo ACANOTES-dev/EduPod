@@ -16,6 +16,7 @@ import { CsvExportTransport } from './adapters/pod-transport.csv-export';
 import { CsvImportTransport } from './adapters/pod-transport.csv-import';
 import type { PodTransport } from './adapters/pod-transport.interface';
 import { POD_TRANSPORT } from './adapters/pod-transport.interface';
+import { RegulatoryAntiBullyingService } from './regulatory-anti-bullying.service';
 import { RegulatoryCalendarService } from './regulatory-calendar.service';
 import { RegulatoryCbaService } from './regulatory-cba.service';
 import { RegulatoryDashboardService } from './regulatory-dashboard.service';
@@ -55,6 +56,7 @@ import { RegulatoryController } from './regulatory.controller';
       }),
       inject: [CsvImportTransport, CsvExportTransport],
     },
+    RegulatoryAntiBullyingService,
     RegulatoryCalendarService,
     RegulatoryCbaService,
     RegulatoryDashboardService,

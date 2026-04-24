@@ -1,13 +1,15 @@
 'use client';
 
-import { Loader2, RefreshCw } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { AlertCircle, CheckCircle2, Clock3, Loader2, RefreshCw, XOctagon } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Badge, Button, StatCard, StatusBadge, toast } from '@school/ui';
+import { Badge, Button, StatusBadge, toast } from '@school/ui';
 
+import { KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { useRoleCheck } from '@/hooks/use-role-check';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 import { CbaSyncTable } from './_components/cba-sync-table';
 
@@ -23,17 +25,19 @@ interface SubjectBreakdown {
 }
 
 interface CbaStatusResponse {
-  total_records: number;
+  academic_year: string;
+  total: number;
   synced: number;
   pending: number;
   errors: number;
+  last_synced_at: string | null;
   by_subject: SubjectBreakdown[];
 }
 
 interface BulkSyncResponse {
-  synced: number;
-  failed: number;
-  errors: Array<{ student_id: string; message: string }>;
+  synced_count: number;
+  error_count: number;
+  errors: Array<{ record_id: string; student_id: string; error: string }>;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -41,10 +45,8 @@ interface BulkSyncResponse {
 function getCurrentAcademicYear(): string {
   const now = new Date();
   const year = now.getFullYear();
-  const month = now.getMonth() + 1; // 1-indexed
-  if (month >= 9) {
-    return `${year}-${year + 1}`;
-  }
+  const month = now.getMonth() + 1;
+  if (month >= 9) return `${year}-${year + 1}`;
   return `${year - 1}-${year}`;
 }
 
@@ -52,7 +54,6 @@ function generateAcademicYearOptions(): string[] {
   const now = new Date();
   const year = now.getFullYear();
   const options: string[] = [];
-  // Show 3 years back and current
   for (let i = -2; i <= 1; i++) {
     const startYear = year + i;
     options.push(`${startYear}-${startYear + 1}`);
@@ -60,16 +61,20 @@ function generateAcademicYearOptions(): string[] {
   return options;
 }
 
-// ─── Skeleton Components ────────────────────────────────────────────────────
-
-function StatCardSkeleton() {
-  return (
-    <div className="animate-pulse rounded-2xl bg-surface-secondary p-5">
-      <div className="h-3 w-20 rounded bg-border" />
-      <div className="mt-3 h-7 w-16 rounded bg-border" />
-    </div>
-  );
+function formatLastSync(raw: string | null, locale: string, neverLabel: string): string {
+  if (!raw) return neverLabel;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return neverLabel;
+  return d.toLocaleString(locale === 'ar' ? 'ar' : 'en-IE', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function SubjectTableSkeleton() {
   return (
@@ -103,7 +108,10 @@ function SubjectTableSkeleton() {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function CbaSyncStatusPage() {
-  const t = useTranslations('regulatory');
+  const t = useTranslations('regulatory.cba');
+  const locale = useLocale();
+  const { hasAnyRole } = useRoleCheck();
+  const canManage = hasAnyRole('school_owner', 'school_principal', 'admin');
 
   const [academicYear, setAcademicYear] = React.useState(getCurrentAcademicYear);
   const [status, setStatus] = React.useState<CbaStatusResponse | null>(null);
@@ -112,17 +120,15 @@ export default function CbaSyncStatusPage() {
 
   const academicYearOptions = React.useMemo(() => generateAcademicYearOptions(), []);
 
-  // ─── Fetch Status ───────────────────────────────────────────────────────────
-
   const fetchStatus = React.useCallback(async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ academic_year: academicYear });
-      const response = await apiClient<CbaStatusResponse>(
+      const res = await apiClient<{ data: CbaStatusResponse } | CbaStatusResponse>(
         `/api/v1/regulatory/cba/status?${params.toString()}`,
         { silent: true },
       );
-      setStatus(response);
+      setStatus(unwrap(res));
     } catch (err) {
       console.error('[CbaSyncStatusPage.fetchStatus]', err);
       setStatus(null);
@@ -135,24 +141,28 @@ export default function CbaSyncStatusPage() {
     void fetchStatus();
   }, [fetchStatus]);
 
-  // ─── Bulk Sync Handler ──────────────────────────────────────────────────────
-
   const handleSyncAll = React.useCallback(async () => {
     setIsSyncingAll(true);
     try {
-      const response = await apiClient<BulkSyncResponse>('/api/v1/regulatory/cba/sync', {
-        method: 'POST',
-        body: JSON.stringify({ academic_year: academicYear }),
-      });
-      if (response.failed > 0) {
-        toast.error(t('cba.bulkSyncPartial', { synced: response.synced, failed: response.failed }));
+      const res = await apiClient<{ data: BulkSyncResponse } | BulkSyncResponse>(
+        '/api/v1/regulatory/cba/sync',
+        {
+          method: 'POST',
+          body: JSON.stringify({ academic_year: academicYear }),
+        },
+      );
+      const response = unwrap(res);
+      if (response.error_count > 0) {
+        toast.error(
+          t('bulkSyncPartial', { synced: response.synced_count, failed: response.error_count }),
+        );
       } else {
-        toast.success(t('cba.bulkSyncSuccess', { count: response.synced }));
+        toast.success(t('bulkSyncSuccess', { count: response.synced_count }));
       }
       void fetchStatus();
     } catch (err) {
       console.error('[CbaSyncStatusPage.handleSyncAll]', err);
-      toast.error(t('cba.bulkSyncError'));
+      toast.error(t('bulkSyncError'));
     } finally {
       setIsSyncingAll(false);
     }
@@ -161,27 +171,31 @@ export default function CbaSyncStatusPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={t('cba.title')}
-        description={t('cba.description')}
+        title={t('pageTitle')}
+        description={t('pageDescription')}
+        back={{ href: `/${locale}/regulatory`, label: t('backToRegulatory') }}
         actions={
-          <Button
-            onClick={() => void handleSyncAll()}
-            disabled={isSyncingAll || (status?.pending === 0 && status?.errors === 0)}
-          >
-            {isSyncingAll ? (
-              <Loader2 className="me-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="me-2 h-4 w-4" />
-            )}
-            {t('cba.syncAll')}
-          </Button>
+          canManage && (
+            <Button
+              onClick={() => void handleSyncAll()}
+              disabled={isSyncingAll || ((status?.pending ?? 0) === 0 && (status?.errors ?? 0) === 0)}
+              className="min-h-[44px] bg-teal-600 text-white hover:bg-teal-700"
+            >
+              {isSyncingAll ? (
+                <Loader2 className="me-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="me-2 h-4 w-4" />
+              )}
+              {t('syncAll')}
+            </Button>
+          )
         }
       />
 
-      {/* ─── Academic Year Selector ──────────────────────────────────────── */}
-      <div className="flex items-center gap-3">
+      {/* ── Academic year selector ────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-3">
         <label htmlFor="academic-year-select" className="text-sm font-medium text-text-secondary">
-          {t('cba.academicYear')}
+          {t('academicYear')}
         </label>
         <select
           id="academic-year-select"
@@ -197,52 +211,48 @@ export default function CbaSyncStatusPage() {
         </select>
       </div>
 
-      {/* ─── Summary Stat Cards ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {isLoading ? (
-          <>
-            <StatCardSkeleton />
-            <StatCardSkeleton />
-            <StatCardSkeleton />
-            <StatCardSkeleton />
-          </>
-        ) : (
-          <>
-            <StatCard label={t('cba.totalRecords')} value={status?.total_records ?? 0} />
-            <StatCard
-              label={t('cba.synced')}
-              value={status?.synced ?? 0}
-              trend={
-                status && status.synced > 0
-                  ? { direction: 'up', label: t('cba.upToDate') }
-                  : undefined
-              }
-            />
-            <StatCard
-              label={t('cba.pending')}
-              value={status?.pending ?? 0}
-              trend={
-                status && status.pending > 0
-                  ? { direction: 'neutral', label: t('cba.awaitingSync') }
-                  : undefined
-              }
-            />
-            <StatCard
-              label={t('cba.errors')}
-              value={status?.errors ?? 0}
-              trend={
-                status && status.errors > 0
-                  ? { direction: 'down', label: t('cba.requiresAttention') }
-                  : undefined
-              }
-            />
-          </>
-        )}
-      </div>
+      {/* ── KPI strip ─────────────────────────────────────────────────── */}
+      <section
+        aria-label={t('kpi.ariaLabel')}
+        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+      >
+        <KpiTile
+          icon={CheckCircle2}
+          label={t('kpi.synced')}
+          value={status?.synced}
+          isLoading={isLoading}
+          accent="text-success-700"
+          tooltip={t('kpi.syncedTooltip')}
+        />
+        <KpiTile
+          icon={Clock3}
+          label={t('kpi.pending')}
+          value={status?.pending}
+          isLoading={isLoading}
+          accent={status && status.pending > 0 ? 'text-warning-600' : 'text-text-tertiary'}
+          tooltip={t('kpi.pendingTooltip')}
+        />
+        <KpiTile
+          icon={XOctagon}
+          label={t('kpi.errors')}
+          value={status?.errors}
+          isLoading={isLoading}
+          accent={status && status.errors > 0 ? 'text-danger-600' : 'text-text-tertiary'}
+          tooltip={t('kpi.errorsTooltip')}
+        />
+        <KpiTile
+          icon={AlertCircle}
+          label={t('kpi.lastSync')}
+          value={status ? formatLastSync(status.last_synced_at, locale, t('kpi.never')) : undefined}
+          isLoading={isLoading}
+          accent="text-primary-700"
+          tooltip={t('kpi.lastSyncTooltip')}
+        />
+      </section>
 
-      {/* ─── Subject Breakdown Table ─────────────────────────────────────── */}
+      {/* ── Subject breakdown ─────────────────────────────────────────── */}
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">{t('cba.subjectBreakdown')}</h2>
+        <h2 className="text-base font-semibold text-text-primary">{t('subjectBreakdown')}</h2>
         <div className="mt-3">
           {isLoading ? (
             <SubjectTableSkeleton />
@@ -252,27 +262,30 @@ export default function CbaSyncStatusPage() {
                 <thead>
                   <tr className="border-b border-border bg-surface-secondary">
                     <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                      {t('cba.columnSubject')}
+                      {t('columnSubject')}
                     </th>
                     <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                      {t('cba.columnTotal')}
+                      {t('columnTotal')}
                     </th>
                     <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                      {t('cba.columnSynced')}
+                      {t('columnSynced')}
                     </th>
                     <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                      {t('cba.columnPending')}
+                      {t('columnPending')}
                     </th>
                     <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                      {t('cba.columnErrors')}
+                      {t('columnErrors')}
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {status?.by_subject.length === 0 ? (
+                  {(status?.by_subject ?? []).length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-12 text-center text-sm text-text-tertiary">
-                        {t('cba.noSubjectData')}
+                      <td
+                        colSpan={5}
+                        className="px-4 py-10 text-center text-sm text-text-tertiary"
+                      >
+                        {t('noSubjectData')}
                       </td>
                     </tr>
                   ) : (
@@ -284,7 +297,9 @@ export default function CbaSyncStatusPage() {
                         <td className="px-4 py-3 text-sm font-medium text-text-primary">
                           {subject.subject_name}
                         </td>
-                        <td className="px-4 py-3 text-sm text-text-primary">{subject.total}</td>
+                        <td className="px-4 py-3 text-sm tabular-nums text-text-primary">
+                          {subject.total}
+                        </td>
                         <td className="px-4 py-3">
                           <StatusBadge status="success" dot>
                             {subject.synced}
@@ -314,9 +329,9 @@ export default function CbaSyncStatusPage() {
         </div>
       </div>
 
-      {/* ─── CBA Sync Records Table ──────────────────────────────────────── */}
+      {/* ── Pending records list ──────────────────────────────────────── */}
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">{t('cba.syncRecords')}</h2>
+        <h2 className="text-base font-semibold text-text-primary">{t('pendingResults')}</h2>
         <div className="mt-3">
           <CbaSyncTable academicYear={academicYear} />
         </div>

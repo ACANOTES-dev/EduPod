@@ -8,6 +8,15 @@ import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export interface CbaStatusSubject {
+  subject_id: string;
+  subject_name: string;
+  total: number;
+  pending: number;
+  synced: number;
+  errors: number;
+}
+
 export interface CbaStatusSummary {
   academic_year: string;
   total: number;
@@ -15,6 +24,7 @@ export interface CbaStatusSummary {
   synced: number;
   errors: number;
   last_synced_at: Date | null;
+  by_subject: CbaStatusSubject[];
 }
 
 export interface SyncResult {
@@ -56,15 +66,62 @@ export class RegulatoryCbaService {
       }
     }
 
-    const lastSynced = await this.prisma.ppodCbaSyncRecord.findFirst({
-      where: {
-        tenant_id: tenantId,
-        academic_year: academicYear,
-        sync_status: CbaSyncStatus.cba_synced,
-      },
-      orderBy: { synced_at: 'desc' },
-      select: { synced_at: true },
-    });
+    const [lastSynced, bySubjectRaw] = await Promise.all([
+      this.prisma.ppodCbaSyncRecord.findFirst({
+        where: {
+          tenant_id: tenantId,
+          academic_year: academicYear,
+          sync_status: CbaSyncStatus.cba_synced,
+        },
+        orderBy: { synced_at: 'desc' },
+        select: { synced_at: true },
+      }),
+      this.prisma.ppodCbaSyncRecord.groupBy({
+        by: ['subject_id', 'sync_status'],
+        where: { tenant_id: tenantId, academic_year: academicYear },
+        _count: true,
+      }),
+    ]);
+
+    const subjectIds = Array.from(new Set(bySubjectRaw.map((row) => row.subject_id)));
+    const subjects = subjectIds.length
+      ? await this.prisma.subject.findMany({
+          where: { id: { in: subjectIds }, tenant_id: tenantId },
+          select: { id: true, name: true },
+        })
+      : [];
+    const subjectNameById = new Map(subjects.map((s) => [s.id, s.name]));
+
+    const bySubjectMap = new Map<string, CbaStatusSubject>();
+    for (const row of bySubjectRaw) {
+      const entry =
+        bySubjectMap.get(row.subject_id) ??
+        {
+          subject_id: row.subject_id,
+          subject_name: subjectNameById.get(row.subject_id) ?? '—',
+          total: 0,
+          pending: 0,
+          synced: 0,
+          errors: 0,
+        };
+      entry.total += row._count;
+      switch (row.sync_status) {
+        case CbaSyncStatus.cba_pending:
+          entry.pending += row._count;
+          break;
+        case CbaSyncStatus.cba_synced:
+          entry.synced += row._count;
+          break;
+        case CbaSyncStatus.cba_error:
+          entry.errors += row._count;
+          break;
+      }
+      bySubjectMap.set(row.subject_id, entry);
+    }
+
+    const bySubject = Array.from(bySubjectMap.values()).sort((a, b) =>
+      a.subject_name.localeCompare(b.subject_name),
+    );
 
     return {
       academic_year: academicYear,
@@ -73,6 +130,7 @@ export class RegulatoryCbaService {
       synced,
       errors,
       last_synced_at: lastSynced?.synced_at ?? null,
+      by_subject: bySubject,
     };
   }
 

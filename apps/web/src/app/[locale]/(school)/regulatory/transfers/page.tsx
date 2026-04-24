@@ -1,14 +1,14 @@
 'use client';
 
-import { Check, Minus, Plus } from 'lucide-react';
+import { ArrowLeftRight, Check, CheckCircle2, Clock3, Minus, Plus, XCircle } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
   Badge,
   Button,
+  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -19,6 +19,7 @@ import {
 } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
+import { KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
@@ -28,7 +29,7 @@ import { formatDate } from '@/lib/format-date';
 interface Transfer {
   id: string;
   student_id: string;
-  student_name: string;
+  student: { id: string; first_name: string; last_name: string } | null;
   direction: 'inbound' | 'outbound';
   other_school_roll_no: string;
   other_school_name: string | null;
@@ -52,6 +53,7 @@ type SemanticVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 20;
+const SUMMARY_PAGE_SIZE = 100;
 
 const STATUS_VARIANT_MAP: Record<TransferStatus, SemanticVariant> = {
   pending: 'warning',
@@ -63,12 +65,28 @@ const STATUS_VARIANT_MAP: Record<TransferStatus, SemanticVariant> = {
 
 const TERMINAL_STATUSES: TransferStatus[] = ['completed', 'cancelled', 'rejected'];
 
-// ─── Page Component ─────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function getCurrentAcademicYearBounds(): { start: Date; end: Date } {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  if (month >= 8) {
+    return { start: new Date(year, 8, 1), end: new Date(year + 1, 8, 1) };
+  }
+  return { start: new Date(year - 1, 8, 1), end: new Date(year, 8, 1) };
+}
+
+function studentName(transfer: Transfer): string {
+  if (!transfer.student) return '—';
+  return `${transfer.student.first_name} ${transfer.student.last_name}`.trim() || '—';
+}
+
+// ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function TransfersListPage() {
-  const t = useTranslations('regulatory');
-  const pathname = usePathname();
-  const locale = (pathname ?? '').split('/')[1] ?? 'en';
+  const t = useTranslations('regulatory.transfers');
+  const locale = useLocale();
 
   const [transfers, setTransfers] = React.useState<Transfer[]>([]);
   const [page, setPage] = React.useState(1);
@@ -76,12 +94,11 @@ export default function TransfersListPage() {
   const [directionFilter, setDirectionFilter] = React.useState('all');
   const [statusFilter, setStatusFilter] = React.useState('all');
   const [isLoading, setIsLoading] = React.useState(true);
-
-  // Track which row is being updated
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
+  const [summary, setSummary] = React.useState<Transfer[] | null>(null);
+  const [isSummaryLoading, setIsSummaryLoading] = React.useState(true);
 
-  // ─── Fetch ────────────────────────────────────────────────────────────
-
+  // ── Fetch filtered list ─────────────────────────────────────────────
   const fetchTransfers = React.useCallback(async () => {
     setIsLoading(true);
     try {
@@ -89,19 +106,12 @@ export default function TransfersListPage() {
         page: String(page),
         pageSize: String(PAGE_SIZE),
       });
-
-      if (directionFilter !== 'all') {
-        params.set('direction', directionFilter);
-      }
-      if (statusFilter !== 'all') {
-        params.set('status', statusFilter);
-      }
-
+      if (directionFilter !== 'all') params.set('direction', directionFilter);
+      if (statusFilter !== 'all') params.set('status', statusFilter);
       const response = await apiClient<TransfersApiResponse>(
         `/api/v1/regulatory/transfers?${params.toString()}`,
         { silent: true },
       );
-
       setTransfers(response.data ?? []);
       setTotal(response.meta?.total ?? 0);
     } catch (err) {
@@ -117,8 +127,55 @@ export default function TransfersListPage() {
     void fetchTransfers();
   }, [fetchTransfers]);
 
-  // ─── Actions ──────────────────────────────────────────────────────────
+  // ── Fetch summary for KPI strip ─────────────────────────────────────
+  const fetchSummary = React.useCallback(async () => {
+    setIsSummaryLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: '1',
+        pageSize: String(SUMMARY_PAGE_SIZE),
+      });
+      const response = await apiClient<TransfersApiResponse>(
+        `/api/v1/regulatory/transfers?${params.toString()}`,
+        { silent: true },
+      );
+      setSummary(response.data ?? []);
+    } catch (err) {
+      console.error('[TransfersListPage.fetchSummary]', err);
+      setSummary(null);
+    } finally {
+      setIsSummaryLoading(false);
+    }
+  }, []);
 
+  React.useEffect(() => {
+    void fetchSummary();
+  }, [fetchSummary]);
+
+  // ── KPIs ────────────────────────────────────────────────────────────
+  const kpis = React.useMemo(() => {
+    if (!summary) {
+      return { pending: undefined, accepted: undefined, rejected: undefined, inTransit: undefined };
+    }
+    const { start, end } = getCurrentAcademicYearBounds();
+    let pending = 0;
+    let accepted = 0;
+    let rejected = 0;
+    let inTransit = 0;
+    for (const tr of summary) {
+      const date = new Date(tr.transfer_date);
+      const inYear = date >= start && date < end;
+      if (tr.status === 'pending') pending += 1;
+      else if (tr.status === 'accepted' && inYear) accepted += 1;
+      else if (tr.status === 'rejected' && inYear) rejected += 1;
+      if (tr.direction === 'outbound' && tr.status === 'accepted' && !tr.ppod_confirmed) {
+        inTransit += 1;
+      }
+    }
+    return { pending, accepted, rejected, inTransit };
+  }, [summary]);
+
+  // ── Actions ─────────────────────────────────────────────────────────
   const updateTransfer = React.useCallback(
     async (id: string, body: Record<string, unknown>) => {
       setUpdatingId(id);
@@ -127,61 +184,58 @@ export default function TransfersListPage() {
           method: 'PATCH',
           body: JSON.stringify(body),
         });
-        toast.success(t('transfers.updateSuccess'));
+        toast.success(t('updateSuccess'));
         void fetchTransfers();
+        void fetchSummary();
       } catch (err: unknown) {
         const ex = err as { error?: { message?: string }; message?: string };
-        toast.error(ex?.error?.message ?? ex?.message ?? t('transfers.updateError'));
+        toast.error(ex?.error?.message ?? ex?.message ?? t('updateError'));
         console.error('[TransfersListPage.updateTransfer]', err);
       } finally {
         setUpdatingId(null);
       }
     },
-    [fetchTransfers, t],
+    [fetchTransfers, fetchSummary, t],
   );
 
   const handleAccept = React.useCallback(
     (id: string) => updateTransfer(id, { status: 'accepted' }),
     [updateTransfer],
   );
-
   const handleReject = React.useCallback(
     (id: string) => updateTransfer(id, { status: 'rejected' }),
     [updateTransfer],
   );
-
   const handleTogglePpod = React.useCallback(
     (transfer: Transfer) =>
       updateTransfer(transfer.id, { ppod_confirmed: !transfer.ppod_confirmed }),
     [updateTransfer],
   );
-
   const handleStatusChange = React.useCallback(
     (id: string, status: string) => updateTransfer(id, { status }),
     [updateTransfer],
   );
 
-  // ─── Columns ──────────────────────────────────────────────────────────
-
+  // ── Columns ─────────────────────────────────────────────────────────
   const columns = React.useMemo(
     () => [
       {
         key: 'student_name',
-        header: t('transfers.colStudentName'),
-        render: (row: Transfer) => <span className="font-medium">{row.student_name}</span>,
+        header: t('colStudentName'),
+        render: (row: Transfer) => <span className="font-medium">{studentName(row)}</span>,
       },
       {
         key: 'direction',
-        header: t('transfers.colDirection'),
+        header: t('colDirection'),
         render: (row: Transfer) => (
           <Badge variant={row.direction === 'inbound' ? 'info' : 'secondary'}>
-            {row.direction === 'inbound' ? t('transfers.inbound') : t('transfers.outbound')}
+            {row.direction === 'inbound' ? t('inbound') : t('outbound')}
           </Badge>
         ),
       },
       {
         key: 'other_school',
-        header: t('transfers.colOtherSchool'),
+        header: t('colOtherSchool'),
         render: (row: Transfer) => (
           <div className="min-w-0">
             <span className="font-mono text-xs">{row.other_school_roll_no}</span>
@@ -193,21 +247,21 @@ export default function TransfersListPage() {
       },
       {
         key: 'transfer_date',
-        header: t('transfers.colTransferDate'),
+        header: t('colTransferDate'),
         render: (row: Transfer) => formatDate(row.transfer_date),
       },
       {
         key: 'status',
-        header: t('transfers.colStatus'),
+        header: t('colStatus'),
         render: (row: Transfer) => (
           <StatusBadge status={STATUS_VARIANT_MAP[row.status]} dot>
-            {t(`transfers.status_${row.status}` as never)}
+            {t(`status_${row.status}` as never)}
           </StatusBadge>
         ),
       },
       {
         key: 'ppod_confirmed',
-        header: t('transfers.colPpodConfirmed'),
+        header: t('colPpodConfirmed'),
         render: (row: Transfer) =>
           row.ppod_confirmed ? (
             <Check className="h-4 w-4 text-success-text" />
@@ -218,14 +272,12 @@ export default function TransfersListPage() {
       },
       {
         key: 'actions',
-        header: t('transfers.colActions'),
+        header: t('colActions'),
         render: (row: Transfer) => {
           const isUpdating = updatingId === row.id;
           const isTerminal = TERMINAL_STATUSES.includes(row.status);
-
           return (
             <div className="flex items-center gap-1.5">
-              {/* Inbound pending: Accept / Reject */}
               {row.direction === 'inbound' && row.status === 'pending' && (
                 <>
                   <Button
@@ -238,7 +290,7 @@ export default function TransfersListPage() {
                     }}
                     className="min-h-[36px] text-success-text hover:text-success-text"
                   >
-                    {t('transfers.accept')}
+                    {t('accept')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -250,12 +302,10 @@ export default function TransfersListPage() {
                     }}
                     className="min-h-[36px] text-danger-text hover:text-danger-text"
                   >
-                    {t('transfers.reject')}
+                    {t('reject')}
                   </Button>
                 </>
               )}
-
-              {/* Non-inbound-pending & non-terminal: status change dropdown */}
               {!(row.direction === 'inbound' && row.status === 'pending') && !isTerminal && (
                 <Select
                   value={row.status}
@@ -268,15 +318,13 @@ export default function TransfersListPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">{t('transfers.status_pending')}</SelectItem>
-                    <SelectItem value="accepted">{t('transfers.status_accepted')}</SelectItem>
-                    <SelectItem value="completed">{t('transfers.status_completed')}</SelectItem>
-                    <SelectItem value="cancelled">{t('transfers.status_cancelled')}</SelectItem>
+                    <SelectItem value="pending">{t('status_pending')}</SelectItem>
+                    <SelectItem value="accepted">{t('status_accepted')}</SelectItem>
+                    <SelectItem value="completed">{t('status_completed')}</SelectItem>
+                    <SelectItem value="cancelled">{t('status_cancelled')}</SelectItem>
                   </SelectContent>
                 </Select>
               )}
-
-              {/* PPOD confirm toggle (non-terminal) */}
               {!isTerminal && (
                 <Button
                   variant="ghost"
@@ -287,12 +335,12 @@ export default function TransfersListPage() {
                     void handleTogglePpod(row);
                   }}
                   className="min-h-[36px]"
-                  title={row.ppod_confirmed ? t('transfers.unmarkPpod') : t('transfers.markPpod')}
+                  title={row.ppod_confirmed ? t('unmarkPpod') : t('markPpod')}
                 >
                   {row.ppod_confirmed ? (
                     <Check className="h-3.5 w-3.5 text-success-text" />
                   ) : (
-                    <span className="text-xs">{t('transfers.ppod')}</span>
+                    <span className="text-xs">{t('ppod')}</span>
                   )}
                 </Button>
               )}
@@ -304,70 +352,112 @@ export default function TransfersListPage() {
     [t, updatingId, handleAccept, handleReject, handleTogglePpod, handleStatusChange],
   );
 
-  // ─── Toolbar ──────────────────────────────────────────────────────────
-
-  const toolbar = (
-    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-[200px_200px]">
-      <Select
-        value={directionFilter}
-        onValueChange={(value) => {
-          setDirectionFilter(value);
-          setPage(1);
-        }}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder={t('transfers.filterDirection')} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">{t('transfers.allDirections')}</SelectItem>
-          <SelectItem value="inbound">{t('transfers.inbound')}</SelectItem>
-          <SelectItem value="outbound">{t('transfers.outbound')}</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Select
-        value={statusFilter}
-        onValueChange={(value) => {
-          setStatusFilter(value);
-          setPage(1);
-        }}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder={t('transfers.filterStatus')} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">{t('transfers.allStatuses')}</SelectItem>
-          <SelectItem value="pending">{t('transfers.status_pending')}</SelectItem>
-          <SelectItem value="accepted">{t('transfers.status_accepted')}</SelectItem>
-          <SelectItem value="rejected">{t('transfers.status_rejected')}</SelectItem>
-          <SelectItem value="completed">{t('transfers.status_completed')}</SelectItem>
-          <SelectItem value="cancelled">{t('transfers.status_cancelled')}</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  );
-
-  // ─── Render ───────────────────────────────────────────────────────────
-
   return (
     <div className="space-y-6">
       <PageHeader
-        title={t('transfers.title')}
-        description={t('transfers.description')}
+        title={t('pageTitle')}
+        description={t('pageDescription')}
+        back={{ href: `/${locale}/regulatory`, label: t('backToRegulatory') }}
         actions={
           <Link href={`/${locale}/regulatory/transfers/new`}>
-            <Button className="min-h-[44px]">
+            <Button className="min-h-[44px] bg-teal-600 text-white hover:bg-teal-700">
               <Plus className="me-2 h-4 w-4" />
-              {t('transfers.addTransfer')}
+              {t('addTransfer')}
             </Button>
           </Link>
         }
       />
 
+      {/* ── KPI strip ─────────────────────────────────────────────────── */}
+      <section
+        aria-label={t('kpi.ariaLabel')}
+        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+      >
+        <KpiTile
+          icon={Clock3}
+          label={t('kpi.pending')}
+          value={kpis.pending}
+          isLoading={isSummaryLoading}
+          accent={kpis.pending && kpis.pending > 0 ? 'text-warning-600' : 'text-text-tertiary'}
+          tooltip={t('kpi.pendingTooltip')}
+        />
+        <KpiTile
+          icon={CheckCircle2}
+          label={t('kpi.acceptedThisYear')}
+          value={kpis.accepted}
+          isLoading={isSummaryLoading}
+          accent="text-success-700"
+          tooltip={t('kpi.acceptedThisYearTooltip')}
+        />
+        <KpiTile
+          icon={XCircle}
+          label={t('kpi.rejectedThisYear')}
+          value={kpis.rejected}
+          isLoading={isSummaryLoading}
+          accent={kpis.rejected && kpis.rejected > 0 ? 'text-danger-600' : 'text-text-tertiary'}
+          tooltip={t('kpi.rejectedThisYearTooltip')}
+        />
+        <KpiTile
+          icon={ArrowLeftRight}
+          label={t('kpi.inTransit')}
+          value={kpis.inTransit}
+          isLoading={isSummaryLoading}
+          accent="text-cyan-700"
+          tooltip={t('kpi.inTransitTooltip')}
+        />
+      </section>
+
+      {/* ── Filters ───────────────────────────────────────────────────── */}
+      <div className="rounded-2xl border border-border bg-surface-primary p-4">
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-[200px_200px_auto]">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="transfers-direction-filter">{t('filterDirection')}</Label>
+            <Select
+              value={directionFilter}
+              onValueChange={(value) => {
+                setDirectionFilter(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger id="transfers-direction-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('allDirections')}</SelectItem>
+                <SelectItem value="inbound">{t('inbound')}</SelectItem>
+                <SelectItem value="outbound">{t('outbound')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="transfers-status-filter">{t('filterStatus')}</Label>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger id="transfers-status-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('allStatuses')}</SelectItem>
+                <SelectItem value="pending">{t('status_pending')}</SelectItem>
+                <SelectItem value="accepted">{t('status_accepted')}</SelectItem>
+                <SelectItem value="rejected">{t('status_rejected')}</SelectItem>
+                <SelectItem value="completed">{t('status_completed')}</SelectItem>
+                <SelectItem value="cancelled">{t('status_cancelled')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Results table ─────────────────────────────────────────────── */}
       <DataTable
         columns={columns}
         data={transfers}
-        toolbar={toolbar}
         page={page}
         pageSize={PAGE_SIZE}
         total={total}

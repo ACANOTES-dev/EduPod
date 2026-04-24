@@ -31,6 +31,9 @@ describe('RegulatoryCbaService', () => {
     desSubjectCodeMapping: {
       findFirst: jest.Mock;
     };
+    subject: {
+      findMany: jest.Mock;
+    };
   };
 
   beforeEach(async () => {
@@ -44,6 +47,9 @@ describe('RegulatoryCbaService', () => {
       },
       desSubjectCodeMapping: {
         findFirst: jest.fn().mockResolvedValue(null),
+      },
+      subject: {
+        findMany: jest.fn().mockResolvedValue([]),
       },
     };
 
@@ -63,30 +69,42 @@ describe('RegulatoryCbaService', () => {
 
   describe('getCbaStatus', () => {
     it('should return correct status counts', async () => {
-      mockPrisma.ppodCbaSyncRecord.groupBy.mockResolvedValue([
-        { sync_status: CbaSyncStatus.cba_pending, _count: 5 },
-        { sync_status: CbaSyncStatus.cba_synced, _count: 10 },
-        { sync_status: CbaSyncStatus.cba_error, _count: 2 },
-      ]);
+      mockPrisma.ppodCbaSyncRecord.groupBy
+        .mockResolvedValueOnce([
+          { sync_status: CbaSyncStatus.cba_pending, _count: 5 },
+          { sync_status: CbaSyncStatus.cba_synced, _count: 10 },
+          { sync_status: CbaSyncStatus.cba_error, _count: 2 },
+        ])
+        .mockResolvedValueOnce([
+          { subject_id: SUBJECT_ID, sync_status: CbaSyncStatus.cba_synced, _count: 10 },
+          { subject_id: SUBJECT_ID, sync_status: CbaSyncStatus.cba_pending, _count: 5 },
+          { subject_id: SUBJECT_ID, sync_status: CbaSyncStatus.cba_error, _count: 2 },
+        ]);
       mockPrisma.ppodCbaSyncRecord.findFirst.mockResolvedValue({
         synced_at: new Date('2026-03-15T10:00:00Z'),
       });
+      mockPrisma.subject.findMany.mockResolvedValue([
+        { id: SUBJECT_ID, name: 'Mathematics' },
+      ]);
 
       const result = await service.getCbaStatus(TENANT_ID, '2025-2026');
 
-      expect(result).toEqual({
-        academic_year: '2025-2026',
-        total: 17,
-        pending: 5,
-        synced: 10,
-        errors: 2,
-        last_synced_at: new Date('2026-03-15T10:00:00Z'),
-      });
-      expect(mockPrisma.ppodCbaSyncRecord.groupBy).toHaveBeenCalledWith({
-        by: ['sync_status'],
-        where: { tenant_id: TENANT_ID, academic_year: '2025-2026' },
-        _count: true,
-      });
+      expect(result.academic_year).toBe('2025-2026');
+      expect(result.total).toBe(17);
+      expect(result.pending).toBe(5);
+      expect(result.synced).toBe(10);
+      expect(result.errors).toBe(2);
+      expect(result.last_synced_at).toEqual(new Date('2026-03-15T10:00:00Z'));
+      expect(result.by_subject).toEqual([
+        {
+          subject_id: SUBJECT_ID,
+          subject_name: 'Mathematics',
+          total: 17,
+          pending: 5,
+          synced: 10,
+          errors: 2,
+        },
+      ]);
     });
 
     it('should return zeroes when no records exist', async () => {
@@ -97,6 +115,7 @@ describe('RegulatoryCbaService', () => {
       expect(result.synced).toBe(0);
       expect(result.errors).toBe(0);
       expect(result.last_synced_at).toBeNull();
+      expect(result.by_subject).toEqual([]);
     });
   });
 
