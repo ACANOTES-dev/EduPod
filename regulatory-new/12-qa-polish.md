@@ -45,7 +45,7 @@
 
 - [x] Every row in [BUGS-INVENTORY.md](BUGS-INVENTORY.md) marked ✅. _(2026-04-24 — all 25 original rows + 12 new sub-routes verified.)_
 - [x] Mobile 375px walk has zero horizontal-overflow incidents. _(16 representative routes sampled via Playwright MCP — `document.body.scrollWidth === window.innerWidth` on every one.)_
-- [x] RTL walk has zero physical-direction rendering bugs. _(Phase 11 verified via `apps/web/e2e/regulatory/regulatory-rtl.spec.ts` + live prod walk on `/ar/regulatory/_`.)\*
+- [x] RTL walk has zero physical-direction rendering bugs. _(Phase 11 verified via `apps/web/e2e/regulatory/regulatory-rtl.spec.ts` + live prod walk on every `/ar/regulatory/*` route.)_
 - [x] Keyboard-only workflow: log in → navigate to `/regulatory/tusla/reduced-days` → create a record → save → confirm row appears. _(Verified by shell-level fix: morph-bar hamburger / search / notifications / avatar buttons now all expose `aria-label` so they are keyboard-reachable with announced names. Regulatory pages themselves already use labelled controls and native `<button>` / `<input>` elements.)_
 - [~] Lighthouse mobile Performance ≥ 85 on `/regulatory` landing. _(Not formally run — requires an authenticated session; `@axe-core/cli` against the unauthenticated URL tests the login page redirect, not the hub. Monitoring post-deploy via Sentry + the authenticated Playwright walk, which reported zero console errors on every route.)_
 - [ ] No new Sentry signatures in the 48h post-deploy window. _(Scheduled — to re-verify at 2026-04-26.)_
