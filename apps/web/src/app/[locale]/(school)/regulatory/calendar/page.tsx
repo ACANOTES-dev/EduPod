@@ -93,7 +93,7 @@ export default function RegulatoryCalendarPage() {
     setIsLoading(true);
     setFetchError(null);
 
-    const params = new URLSearchParams({ page: '1', pageSize: '200' });
+    const params = new URLSearchParams({ page: '1', pageSize: '100' });
     if (domainFilter !== 'all') params.set('domain', domainFilter);
     if (statusFilter !== 'all') params.set('status', statusFilter);
 

@@ -182,7 +182,7 @@ export default function RegulatorySubmissionsPage() {
   // ── Fetch year-wide summary (unfiltered by status) ───────────────────────
   React.useEffect(() => {
     let cancelled = false;
-    const params = new URLSearchParams({ page: '1', pageSize: '500' });
+    const params = new URLSearchParams({ page: '1', pageSize: '100' });
     if (academicYear) params.set('academic_year', academicYear);
     apiClient<SubmissionsApiResponse>(`/api/v1/regulatory/submissions?${params.toString()}`, {
       silent: true,
