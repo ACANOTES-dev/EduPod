@@ -1,25 +1,43 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import {
+  AlertCircle,
+  CalendarClock,
+  CalendarDays,
+  CheckCircle2,
+  ListOrdered,
+  Plus,
+  Sparkles,
+} from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { REGULATORY_DOMAINS } from '@school/shared/regulatory';
 import {
+  Button,
+  cn,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  StatusBadge,
+  toast,
 } from '@school/ui';
 
-import { DataTable } from '@/components/data-table';
+import { KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
+import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
-import { fmtLocale } from '@/lib/i18n-format';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { ErrorBanner } from '../_components/error-banner';
+
+import { CalendarEventDetail } from './_components/calendar-event-detail';
+import { CalendarEventDialog } from './_components/calendar-event-dialog';
+import { CalendarMonthView, type MonthViewEvent } from './_components/calendar-month-view';
+import { CalendarUpcomingList, type UpcomingListEvent } from './_components/calendar-upcoming-list';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface CalendarEvent {
   id: string;
@@ -31,6 +49,7 @@ interface CalendarEvent {
   status: string;
   academic_year: string | null;
   notes: string | null;
+  completed_at: string | null;
   created_at: string;
 }
 
@@ -39,278 +58,372 @@ interface CalendarApiResponse {
   meta: { page: number; pageSize: number; total: number };
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+type ViewMode = 'month' | 'list';
 
-const PAGE_SIZE = 20;
+const DEFAULT_ACADEMIC_YEAR = '2025-2026';
 
-const statusVariant: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
-  not_started: 'neutral',
-  in_progress: 'info',
-  ready_for_review: 'warning',
-  submitted: 'success',
-  accepted: 'success',
-  rejected: 'danger',
-  overdue: 'danger',
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getLocaleFromPathname(pathname: string): string {
-  const segments = pathname.split('/');
-  return segments[1] === 'ar' ? 'ar' : 'en';
-}
-
-function formatDateLocale(dateStr: string, locale: string): string {
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString(fmtLocale(locale, 'en-IE'), {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function getDomainLabel(domain: string): string {
-  const entry = REGULATORY_DOMAINS[domain as keyof typeof REGULATORY_DOMAINS];
-  return entry?.label ?? domain;
-}
-
-function getEventTypeKey(eventType: string): string {
-  const map: Record<string, string> = {
-    hard_deadline: 'hardDeadline',
-    soft_deadline: 'softDeadline',
-    preparation: 'preparation',
-    reminder: 'reminder',
-  };
-  return map[eventType] ?? eventType;
-}
-
-function getStatusKey(status: string): string {
-  const map: Record<string, string> = {
-    not_started: 'notStarted',
-    in_progress: 'inProgress',
-    ready_for_review: 'readyForReview',
-    submitted: 'submitted',
-    accepted: 'accepted',
-    rejected: 'rejected',
-    overdue: 'overdue',
-  };
-  return map[status] ?? status;
-}
-
-// ─── Page Component ───────────────────────────────────────────────────────────
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function RegulatoryCalendarPage() {
-  const t = useTranslations('regulatory');
-  const pathname = usePathname();
-  const locale = getLocaleFromPathname(pathname ?? '');
+  const t = useTranslations('regulatory.calendar');
+  const statusT = useTranslations('regulatory.status');
+  const locale = useLocale();
+  const { hasAnyRole } = useRoleCheck();
+  const canManage = hasAnyRole('school_owner', 'school_principal', 'admin');
 
+  const [view, setView] = React.useState<ViewMode>('list');
   const [events, setEvents] = React.useState<CalendarEvent[]>([]);
-  const [page, setPage] = React.useState(1);
-  const [total, setTotal] = React.useState(0);
-  const [domain, setDomain] = React.useState('all');
-  const [status, setStatus] = React.useState('all');
+  const [domainFilter, setDomainFilter] = React.useState('all');
+  const [statusFilter, setStatusFilter] = React.useState('all');
   const [isLoading, setIsLoading] = React.useState(true);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
+  const [reloadKey, setReloadKey] = React.useState(0);
 
-  const fetchEvents = React.useCallback(async () => {
+  const [cursorMonth, setCursorMonth] = React.useState(() => new Date().getMonth());
+  const [cursorYear, setCursorYear] = React.useState(() => new Date().getFullYear());
+
+  const [newEventOpen, setNewEventOpen] = React.useState(false);
+  const [seedingDefaults, setSeedingDefaults] = React.useState(false);
+  const [selectedEvent, setSelectedEvent] = React.useState<UpcomingListEvent | null>(null);
+  const [detailOpen, setDetailOpen] = React.useState(false);
+
+  // ── Fetch (fetch a wide page so month view has events for any month) ─────
+  React.useEffect(() => {
+    let cancelled = false;
     setIsLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: String(page),
-        pageSize: String(PAGE_SIZE),
+    setFetchError(null);
+
+    const params = new URLSearchParams({ page: '1', pageSize: '200' });
+    if (domainFilter !== 'all') params.set('domain', domainFilter);
+    if (statusFilter !== 'all') params.set('status', statusFilter);
+
+    apiClient<CalendarApiResponse>(`/api/v1/regulatory/calendar?${params.toString()}`, {
+      silent: true,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setEvents(res.data ?? []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('[RegulatoryCalendarPage] fetch', err);
+        setEvents([]);
+        setFetchError(t('loadError'));
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
       });
 
-      if (domain !== 'all') {
-        params.set('domain', domain);
-      }
-      if (status !== 'all') {
-        params.set('status', status);
-      }
+    return () => {
+      cancelled = true;
+    };
+  }, [domainFilter, statusFilter, reloadKey, t]);
 
-      const response = await apiClient<CalendarApiResponse>(
-        `/api/v1/regulatory/calendar?${params.toString()}`,
-        { silent: true },
-      );
+  // ── KPIs ──────────────────────────────────────────────────────────────────
+  const kpis = React.useMemo(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
 
-      setEvents(response.data ?? []);
-      setTotal(response.meta?.total ?? 0);
-    } catch (err) {
-      console.error('[RegulatoryCalendarPage.fetchEvents]', err);
-      setEvents([]);
-      setTotal(0);
-    } finally {
-      setIsLoading(false);
+    let upcomingThisMonth = 0;
+    let overdue = 0;
+    let completedThisYear = 0;
+    let nextDeadline: { title: string; date: Date } | null = null;
+
+    for (const ev of events) {
+      const due = new Date(ev.due_date);
+      if (Number.isNaN(due.getTime())) continue;
+
+      const status = ev.status.startsWith('reg_') ? ev.status.slice(4) : ev.status;
+      const isCompleted = status === 'submitted' || status === 'accepted';
+      const isOverdue = status === 'overdue' || (!isCompleted && due < now);
+
+      if (due >= monthStart && due <= monthEnd && !isCompleted) upcomingThisMonth += 1;
+      if (isOverdue) overdue += 1;
+      if (isCompleted && due >= yearStart && due <= yearEnd) completedThisYear += 1;
+      if (!isCompleted && due >= now && (!nextDeadline || due < nextDeadline.date)) {
+        nextDeadline = { title: ev.title, date: due };
+      }
     }
-  }, [page, domain, status]);
 
-  React.useEffect(() => {
-    void fetchEvents();
-  }, [fetchEvents]);
+    const nextDeadlineDays = nextDeadline
+      ? Math.ceil((nextDeadline.date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      : null;
 
-  // ─── Toolbar ──────────────────────────────────────────────────────────────
+    return { upcomingThisMonth, overdue, completedThisYear, nextDeadlineDays };
+  }, [events]);
 
-  const toolbar = (
-    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-[200px_200px]">
-      <Select
-        value={domain}
-        onValueChange={(value) => {
-          setDomain(value);
-          setPage(1);
-        }}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder={t('calendar.domain')} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">{t('calendar.allDomains')}</SelectItem>
-          {Object.entries(REGULATORY_DOMAINS).map(([key, val]) => (
-            <SelectItem key={key} value={key}>
-              {val.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+  // ── Upcoming list (future events, sorted, limited) ───────────────────────
+  const upcomingEvents: UpcomingListEvent[] = React.useMemo(() => {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return events
+      .filter((ev) => new Date(ev.due_date) >= thirtyDaysAgo)
+      .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+      .slice(0, 20)
+      .map((ev) => ({
+        id: ev.id,
+        domain: ev.domain,
+        event_type: ev.event_type,
+        title: ev.title,
+        due_date: ev.due_date,
+        status: ev.status,
+        description: ev.description,
+        academic_year: ev.academic_year,
+      }));
+  }, [events]);
 
-      <Select
-        value={status}
-        onValueChange={(value) => {
-          setStatus(value);
-          setPage(1);
-        }}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder={t('calendar.status')} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">{t('calendar.allStatuses')}</SelectItem>
-          <SelectItem value="not_started">{t('status.notStarted')}</SelectItem>
-          <SelectItem value="in_progress">{t('status.inProgress')}</SelectItem>
-          <SelectItem value="ready_for_review">{t('status.readyForReview')}</SelectItem>
-          <SelectItem value="submitted">{t('status.submitted')}</SelectItem>
-          <SelectItem value="accepted">{t('status.accepted')}</SelectItem>
-          <SelectItem value="rejected">{t('status.rejected')}</SelectItem>
-          <SelectItem value="overdue">{t('status.overdue')}</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
+  const monthViewEvents: MonthViewEvent[] = React.useMemo(
+    () =>
+      events.map((ev) => ({
+        id: ev.id,
+        domain: ev.domain,
+        event_type: ev.event_type,
+        title: ev.title,
+        due_date: ev.due_date,
+        status: ev.status,
+      })),
+    [events],
   );
 
-  // ─── Table columns ───────────────────────────────────────────────────────
+  // ── Handlers ─────────────────────────────────────────────────────────────
+  async function handleSeedDefaults() {
+    if (!canManage) return;
+    setSeedingDefaults(true);
+    try {
+      const result = await apiClient<{ created: number; total: number }>(
+        '/api/v1/regulatory/calendar/seed-defaults',
+        {
+          method: 'POST',
+          body: JSON.stringify({ academic_year: DEFAULT_ACADEMIC_YEAR }),
+        },
+      );
+      toast.success(t('seedSuccess', { count: result.created }));
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      const msg = (err as { error?: { message?: string }; message?: string })?.error?.message;
+      toast.error(msg ?? (err as { message?: string })?.message ?? t('seedError'));
+    } finally {
+      setSeedingDefaults(false);
+    }
+  }
 
-  const columns = React.useMemo(
-    () => [
-      {
-        key: 'title',
-        header: t('calendar.eventType'),
-        render: (row: CalendarEvent) => (
-          <div>
-            <p className="text-sm font-medium text-text-primary">{row.title}</p>
-            {row.description && (
-              <p className="mt-0.5 text-xs text-text-tertiary line-clamp-1">{row.description}</p>
-            )}
-          </div>
-        ),
-      },
-      {
-        key: 'domain',
-        header: t('calendar.domain'),
-        render: (row: CalendarEvent) => (
-          <span className="text-sm text-text-secondary">{getDomainLabel(row.domain)}</span>
-        ),
-      },
-      {
-        key: 'event_type',
-        header: t('calendar.eventType'),
-        render: (row: CalendarEvent) => (
-          <span className="text-sm text-text-secondary">
-            {t(`calendar.${getEventTypeKey(row.event_type)}` as never)}
-          </span>
-        ),
-      },
-      {
-        key: 'due_date',
-        header: t('calendar.dueDate'),
-        render: (row: CalendarEvent) => (
-          <span className="text-sm tabular-nums text-text-secondary">
-            {formatDateLocale(row.due_date, locale)}
-          </span>
-        ),
-      },
-      {
-        key: 'status',
-        header: t('calendar.status'),
-        render: (row: CalendarEvent) => (
-          <StatusBadge status={statusVariant[row.status] ?? 'neutral'} dot>
-            {t(`status.${getStatusKey(row.status)}` as never)}
-          </StatusBadge>
-        ),
-      },
-    ],
-    [locale, t],
-  );
+  function openEvent(ev: UpcomingListEvent) {
+    setSelectedEvent(ev);
+    setDetailOpen(true);
+  }
 
-  // ─── Mobile cards ─────────────────────────────────────────────────────────
-
-  const mobileCards = (
-    <div className="space-y-3 md:hidden">
-      {isLoading ? (
-        Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface-secondary" />
-        ))
-      ) : events.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-text-tertiary">
-          {t('calendar.noEvents')}
-        </p>
-      ) : (
-        events.map((event) => (
-          <div key={event.id} className="rounded-2xl border border-border bg-surface px-4 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <StatusBadge status={statusVariant[event.status] ?? 'neutral'} dot>
-                {t(`status.${getStatusKey(event.status)}` as never)}
-              </StatusBadge>
-              <span className="text-xs tabular-nums text-text-tertiary">
-                {formatDateLocale(event.due_date, locale)}
-              </span>
-            </div>
-            <p className="mt-3 text-sm font-medium text-text-primary">{event.title}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="text-xs text-text-secondary">{getDomainLabel(event.domain)}</span>
-              <span className="text-xs text-text-tertiary">
-                {t(`calendar.${getEventTypeKey(event.event_type)}` as never)}
-              </span>
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  );
-
-  // ─── Render ───────────────────────────────────────────────────────────────
+  function formatNextDeadline(): string {
+    if (kpis.nextDeadlineDays === null) return t('kpi.noneUpcoming');
+    if (kpis.nextDeadlineDays < 0) return t('kpi.overdue');
+    if (kpis.nextDeadlineDays === 0) return t('dueToday');
+    return t('dueIn', { count: kpis.nextDeadlineDays });
+  }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={t('calendar.title')} description={t('calendar.description')} />
+    <div className="flex min-w-0 flex-col gap-8 pb-10">
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        back={{ href: `/${locale}/regulatory`, label: t('backToRegulatory') }}
+        actions={
+          canManage ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSeedDefaults}
+                disabled={seedingDefaults}
+                className="min-h-[40px]"
+              >
+                <Sparkles className="me-1.5 h-4 w-4" aria-hidden="true" />
+                {t('seedDefaults')}
+              </Button>
+              <Button
+                onClick={() => setNewEventOpen(true)}
+                className="min-h-[40px] bg-teal-600 text-white hover:bg-teal-700"
+              >
+                <Plus className="me-1.5 h-4 w-4" aria-hidden="true" />
+                {t('newEvent')}
+              </Button>
+            </div>
+          ) : undefined
+        }
+      />
 
-      {/* Mobile toolbar */}
-      <div className="md:hidden">{toolbar}</div>
-
-      {/* Mobile cards */}
-      {mobileCards}
-
-      {/* Desktop table */}
-      <div className="hidden md:block">
-        <DataTable
-          columns={columns}
-          data={events}
-          toolbar={toolbar}
-          page={page}
-          pageSize={PAGE_SIZE}
-          total={total}
-          onPageChange={setPage}
-          keyExtractor={(row) => row.id}
-          isLoading={isLoading}
+      {fetchError && (
+        <ErrorBanner
+          message={fetchError}
+          retryLabel={t('retry')}
+          onRetry={() => setReloadKey((k) => k + 1)}
         />
+      )}
+
+      {/* ── KPI strip ──────────────────────────────────────────────────── */}
+      <section aria-label={t('kpi.ariaLabel')} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiTile
+          icon={CalendarClock}
+          label={t('kpi.upcomingThisMonth')}
+          value={kpis.upcomingThisMonth}
+          isLoading={isLoading}
+          accent="text-teal-700"
+          tooltip={t('kpi.upcomingThisMonthTooltip')}
+        />
+        <KpiTile
+          icon={AlertCircle}
+          label={t('kpi.overdue')}
+          value={kpis.overdue}
+          isLoading={isLoading}
+          accent={kpis.overdue > 0 ? 'text-danger-600' : 'text-text-tertiary'}
+          tooltip={t('kpi.overdueTooltip')}
+        />
+        <KpiTile
+          icon={CheckCircle2}
+          label={t('kpi.completedThisYear')}
+          value={kpis.completedThisYear}
+          isLoading={isLoading}
+          accent="text-success-700"
+          tooltip={t('kpi.completedThisYearTooltip')}
+        />
+        <KpiTile
+          icon={CalendarDays}
+          label={t('kpi.nextDeadline')}
+          value={formatNextDeadline()}
+          isLoading={isLoading}
+          accent="text-cyan-700"
+          tooltip={t('kpi.nextDeadlineTooltip')}
+        />
+      </section>
+
+      {/* ── Filters + view toggle ──────────────────────────────────────── */}
+      <div className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-border bg-surface-primary p-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="calendar-domain-filter">{t('domain')}</Label>
+            <Select value={domainFilter} onValueChange={setDomainFilter}>
+              <SelectTrigger id="calendar-domain-filter" className="w-full sm:w-56">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('allDomains')}</SelectItem>
+                {Object.entries(REGULATORY_DOMAINS).map(([key, val]) => (
+                  <SelectItem key={key} value={key}>
+                    {val.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="calendar-status-filter">{t('status')}</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger id="calendar-status-filter" className="w-full sm:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('allStatuses')}</SelectItem>
+                <SelectItem value="not_started">{statusT('notStarted')}</SelectItem>
+                <SelectItem value="in_progress">{statusT('inProgress')}</SelectItem>
+                <SelectItem value="ready_for_review">{statusT('readyForReview')}</SelectItem>
+                <SelectItem value="submitted">{statusT('submitted')}</SelectItem>
+                <SelectItem value="accepted">{statusT('accepted')}</SelectItem>
+                <SelectItem value="rejected">{statusT('rejected')}</SelectItem>
+                <SelectItem value="overdue">{statusT('overdue')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div
+          role="tablist"
+          aria-label={t('viewToggleAriaLabel')}
+          className="inline-flex overflow-hidden rounded-xl border border-border bg-surface"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'list'}
+            onClick={() => setView('list')}
+            className={cn(
+              'flex min-h-[40px] items-center gap-1.5 px-3 text-sm transition-colors',
+              view === 'list'
+                ? 'bg-teal-600 text-white'
+                : 'text-text-secondary hover:bg-surface-hover',
+            )}
+          >
+            <ListOrdered className="h-4 w-4" aria-hidden="true" />
+            {t('view.list')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'month'}
+            onClick={() => setView('month')}
+            className={cn(
+              'flex min-h-[40px] items-center gap-1.5 border-s border-border px-3 text-sm transition-colors',
+              view === 'month'
+                ? 'bg-teal-600 text-white'
+                : 'text-text-secondary hover:bg-surface-hover',
+            )}
+          >
+            <CalendarDays className="h-4 w-4" aria-hidden="true" />
+            {t('view.month')}
+          </button>
+        </div>
       </div>
+
+      {/* ── Body ────────────────────────────────────────────────────────── */}
+      {view === 'month' ? (
+        <CalendarMonthView
+          events={monthViewEvents}
+          month={cursorMonth}
+          year={cursorYear}
+          isLoading={isLoading}
+          onMonthChange={(m, y) => {
+            setCursorMonth(m);
+            setCursorYear(y);
+          }}
+          onEventClick={(ev) => {
+            const match = events.find((e) => e.id === ev.id);
+            if (match) {
+              openEvent({
+                id: match.id,
+                domain: match.domain,
+                event_type: match.event_type,
+                title: match.title,
+                due_date: match.due_date,
+                status: match.status,
+                description: match.description,
+                academic_year: match.academic_year,
+              });
+            }
+          }}
+        />
+      ) : (
+        <CalendarUpcomingList
+          events={upcomingEvents}
+          isLoading={isLoading}
+          onEventClick={openEvent}
+        />
+      )}
+
+      {/* ── Hidden inputs for accessibility placeholders removed ────────── */}
+      <CalendarEventDialog
+        open={newEventOpen}
+        onOpenChange={setNewEventOpen}
+        onCreated={() => setReloadKey((k) => k + 1)}
+        defaultAcademicYear={DEFAULT_ACADEMIC_YEAR}
+      />
+
+      <CalendarEventDetail
+        event={selectedEvent}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        onUpdated={() => setReloadKey((k) => k + 1)}
+        canManage={canManage}
+      />
     </div>
   );
 }
