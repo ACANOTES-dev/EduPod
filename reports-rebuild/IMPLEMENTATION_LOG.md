@@ -30,6 +30,8 @@ See `PLAN.md` for full scope, the 10 KPIs, the 11 report subjects, the field-tre
 
 ## 2. Rules every session must follow
 
+> **If another implementation in your wave is currently `in-progress` or `deploying`, §2a (Rules 17–26) is mandatory reading before you touch any code.** Those rules distil the Wave 2 parallel-run failure modes and exist to stop the next wave from losing a deploy cycle to the same thrash. Skipping them is not an option when parallel sessions are live.
+
 **Rule 1 — Read this file before starting any implementation.** The whole log. Not just your wave. You need to see what's been done and what's in flight.
 
 **Rule 2 — Verify prerequisites.** Look at the Wave Status table in §4. For the implementation you've been asked to run, every item in its "Depends on" column must have `status: completed`. If any prerequisite is `pending` or `in-progress`, STOP and tell the user which prerequisite is missing. Do not execute.
@@ -78,6 +80,75 @@ Never mix routes on one commit: a commit that has been rsynced cannot then be pu
 **Rule 15 — Every destructive change gets a rollback note.** If an implementation renames a table, drops a column, removes an endpoint, or deletes a permission, record in §5 the exact `git revert <sha>` command and any manual DB rollback that would be needed. The owner relies on this log to recover.
 
 **Rule 16 — Production is a live test environment for the NHQS and stress-test tenants, not end users.** Treat failures as high-priority but not catastrophic. Fix forward with a new commit; do not rollback unless a migration genuinely needs reversing. The production tenants are test accounts per project memory.
+
+---
+
+## 2a. Parallel-execution hygiene (Wave 2 post-mortem rules)
+
+The Wave 2 parallel run (impls 02 / 03 / 04 overlapping) exposed a set of failure modes specific to multiple sessions editing the same working tree. These rules exist because each of the failures below cost the rebuild 15–60 minutes to untangle and at least once broke `main`. Read and follow them every time more than one implementation in a wave is `in-progress` simultaneously.
+
+**Rule 17 — Declare shared-file ownership up front.** The first session in a wave that needs to edit a cross-impl shared file (examples in this rebuild: `apps/api/src/modules/reports/reports.module.ts`, `apps/api/src/modules/reports/reports-enhanced.controller.ts`, `apps/api/src/modules/reports/custom-report-builder.service.ts`, `apps/api/src/modules/reports/reports-enhanced.controller.spec.ts`, `apps/worker/src/worker.module.ts`, `apps/api/package.json`, `pnpm-lock.yaml`) announces that ownership by appending a one-line note to §5 of the log **before writing any code**:
+
+```
+### [WAVE N SHARED-FILE CLAIM] — impl NN
+- Claims: apps/api/src/modules/reports/reports-enhanced.controller.ts
+- Claims: apps/api/src/modules/reports/reports-enhanced.controller.spec.ts
+- Until: committed OR flipped to `blocked`
+```
+
+Other impls in the same wave that need to edit a claimed file MUST NOT do so concurrently. They wait for the owner's commit, pull, then layer their hunks on top as a fix-forward. If a claim blocks you for more than 10 minutes, flip your own row to `🛑 blocked` and leave a note naming the owner.
+
+**Rule 18 — Never commit a reference to a file that is not in the same commit.** Before pushing, audit every `import` added by your commit: if the imported file is not in the commit (either new or already on `main`) the commit will break CI the moment it lands. Concrete check:
+
+```bash
+# for every staged file, list newly-added import targets
+git diff --cached --name-only -- '*.ts' | xargs -I{} grep -H "^import .* from '\./" {} \
+  | while read line; do
+    rel=$(echo "$line" | sed -E "s|.*from '(\./[^']+)'.*|\1|")
+    # verify each rel path is either staged or already committed
+  done
+```
+
+Impl 03's commit `0cc0367b` shipped a controller that imported `./query-engine/query-engine.service` when impl 02's `query-engine/` folder was still uncommitted. Result: main's CI was red until impls 02 and 04 co-landed the files. Don't repeat this.
+
+**Rule 19 — Lockfile edits are mechanical, never manual.** `pnpm-lock.yaml` is only ever updated by running `pnpm install` locally after a `package.json` change. Never hand-edit the lockfile. Never commit a "lockfile sync" commit in isolation — always pair it with the `package.json` delta it corresponds to. If two impls add different deps in overlapping edits, the later session runs `pnpm install` once, verifies all new deps resolve, and commits the lockfile together with its own `package.json` change in the same commit. A mismatched lockfile fails CI with `ERR_PNPM_OUTDATED_LOCKFILE` and is not recoverable without a follow-up commit.
+
+_Wave 2 precedent_: commit `c8a668bd` was a well-intentioned "sync pnpm-lockfile" that accidentally stripped the `docx` package because another session had partially rolled back `apps/api/package.json`. The fix-forward (`76033b5b`) restored both files together. If you are tempted to "clean up" the lockfile, don't — regenerate it mechanically.
+
+**Rule 20 — Never `git checkout HEAD -- <shared-file>` while another impl is active.** A raw checkout silently overwrites another session's unstaged work and triggers a thrash loop where each session re-applies the other's changes in turn. Instead:
+
+1. Use targeted `Edit` operations to remove only the lines you own.
+2. If you need a clean slate, `git stash` your changes (not checkout), take a diff against HEAD, and re-apply your hunks explicitly.
+3. If the shared file has diverged in a way you cannot surgically undo, flip to `🛑 blocked` and coordinate with the owning session via §5 notes.
+
+_Wave 2 precedent_: the impl 04 session ran `git checkout HEAD -- reports-enhanced.controller.ts` to clear impl 02's edits; impl 02's session re-applied within minutes; checkout again; repeat. This cost ≈ 20 minutes before the sessions accepted a co-landed commit.
+
+**Rule 21 — Spec files (`*.spec.ts`) have a single owner per wave.** `reports-enhanced.controller.spec.ts` is the canonical example: every impl's controller additions need a matching mock in that file. The wave's first impl to touch it claims it under Rule 17. Other impls **do not edit the spec directly**; instead they leave a note in §5 naming the provider / mock they need added, and the owning session folds those additions into its next commit on that file. This prevents the "two sessions each strip the other's mocks" loop.
+
+If the owning impl finishes and the spec still needs more mocks, the next impl in the wave to claim the spec takes over ownership under Rule 17.
+
+**Rule 22 — Re-fetch and re-verify `HEAD` before every commit.** Between the time you ran `git status` and the time you run `git commit`, another session may have pushed to `main` and your local `HEAD` may be stale. Before every commit:
+
+```bash
+git fetch origin main
+git log --oneline origin/main..HEAD
+```
+
+If `origin/main` has moved and you are not on top of it, rebase (`git rebase origin/main`) and re-run the local gauntlet before pushing. A push that is rejected because your local is behind is an indicator that Rules 17–21 were not followed.
+
+**Rule 23 — Each impl owns the coverage of its own files.** The global threshold in `apps/api/jest.config.js` (`lines: 89`) is a shared floor. If an impl introduces files that fall below the per-file target, that impl must add tests for them before pushing — do not rely on the next session to backfill. Before committing, run:
+
+```bash
+pnpm -F @school/api test:coverage 2>&1 | grep "reports/<your-folder>"
+```
+
+and verify every file you authored is ≥ the global target. If your work genuinely needs a ratchet down (e.g., you added a data-heavy constant file that jest marks as partially covered), explain it in §5 and ratchet the threshold consistent with `CLAUDE.md` (never more than 2 % below the current baseline, and only with an explicit note).
+
+**Rule 24 — The pre-push hook is a floor, not a gate to bypass.** If the Husky pre-push `test:coverage` hook fails, the correct response is to add tests, not to push with `--no-verify`. The only time `--no-verify` is acceptable is when the coverage drag is caused by code **already on `main`** from another impl AND CI has verified your own commit green — and even then, the completion record in §5 must name the drag and the owning impl. `--no-verify` is not a shortcut for routine pushes.
+
+**Rule 25 — Re-read §4 before every commit.** Another session may have flipped to `completed` / `deploying` / `🛑 blocked` while you worked. Your deploy-serialisation decision (Rule 4) depends on the status **at commit time**, not on what you read when you started. If §4 shows a sibling in `deploying` that shares your service restart target, poll every 3 minutes until it clears — even if your code is ready to push.
+
+**Rule 26 — When in doubt, shrink the commit.** If the tree has diverged from your mental model because of parallel edits, the safe recovery is to commit only your new files (under `apps/api/src/modules/reports/<impl-owned-folder>/` or equivalent) and leave the shared-file edits unstaged. Let the shared-file changes ride in the next session's commit once ownership is clear. A commit that lands half-mixed state (your impl's code + another impl's incomplete rewrites) is how Wave 2 lost a full deploy cycle.
 
 ---
 
@@ -158,6 +229,8 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 ---
 
 ## 5. Completion records
+
+> **Running in parallel with other impls in the same wave?** Read §2a (Rules 17–26) first. The first four Wave 2 completion records (§5) are themselves a post-mortem — impl 03's `0cc0367b` landed imports to uncommitted files, impl 04 hit repeated `git checkout` thrash with impls 02/03, and the `c8a668bd` lockfile sync dropped `docx` by accident. Those lessons became Rules 17–26; do not re-learn them from scratch.
 
 Append new records below in chronological order. Format:
 
