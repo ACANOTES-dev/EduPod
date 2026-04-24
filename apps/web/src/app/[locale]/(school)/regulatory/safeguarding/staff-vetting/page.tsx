@@ -89,7 +89,7 @@ export default function StaffVettingPage() {
   }, [refresh]);
 
   React.useEffect(() => {
-    apiClient<{ data: StaffProfile[] }>('/api/v1/staff-profiles?page=1&pageSize=200', {
+    apiClient<{ data: StaffProfile[] }>('/api/v1/staff-profiles?page=1&pageSize=100', {
       silent: true,
     })
       .then((res) => setStaff(res.data))

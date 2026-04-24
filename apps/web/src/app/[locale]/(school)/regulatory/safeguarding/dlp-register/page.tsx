@@ -86,7 +86,7 @@ export default function DlpRegisterPage() {
   }, [refresh]);
 
   React.useEffect(() => {
-    apiClient<StaffResponse>('/api/v1/staff-profiles?page=1&pageSize=200', { silent: true })
+    apiClient<StaffResponse>('/api/v1/staff-profiles?page=1&pageSize=100', { silent: true })
       .then((res) => setStaff(res.data))
       .catch((err) => console.error('[DlpRegisterPage] staff fetch', err));
   }, []);
