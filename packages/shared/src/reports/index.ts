@@ -18,4 +18,3 @@ export * from './saved-report-draft';
 export * from './share';
 export * from './query-engine';
 export * from './compliance-report';
-export * from './board-report';
