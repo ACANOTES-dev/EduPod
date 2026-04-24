@@ -10,7 +10,7 @@ import { Button } from '@school/ui';
 import { HubTile } from '@/components/hub-tile';
 import { KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 import { CategoryBreakdown, type CategoryBreakdownEntry } from './_components/category-breakdown';
 import { RecentIncidentsList, type RecentIncident } from './_components/recent-incidents-list';
@@ -41,9 +41,12 @@ export default function AntiBullyingPage() {
   React.useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
-    apiClient<AntiBullyingSummary>('/api/v1/regulatory/anti-bullying/summary', { silent: true })
-      .then((data) => {
-        if (!cancelled) setSummary(data);
+    apiClient<{ data: AntiBullyingSummary } | AntiBullyingSummary>(
+      '/api/v1/regulatory/anti-bullying/summary',
+      { silent: true },
+    )
+      .then((res) => {
+        if (!cancelled) setSummary(unwrap(res));
       })
       .catch((err) => {
         console.error('[AntiBullyingPage] fetch', err);
