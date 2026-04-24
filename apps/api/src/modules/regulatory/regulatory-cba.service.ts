@@ -4,6 +4,7 @@ import { CbaSyncStatus } from '@prisma/client';
 import { CBA_GRADE_DESCRIPTORS, type CbaSyncDto } from '@school/shared/regulatory';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -37,7 +38,10 @@ type CbaDescriptor = (typeof CBA_GRADE_DESCRIPTORS)[number] | null;
 
 @Injectable()
 export class RegulatoryCbaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+  ) {}
 
   // ─── Get CBA Status ──────────────────────────────────────────────────────────
 
@@ -84,12 +88,7 @@ export class RegulatoryCbaService {
     ]);
 
     const subjectIds = Array.from(new Set(bySubjectRaw.map((row) => row.subject_id)));
-    const subjects = subjectIds.length
-      ? await this.prisma.subject.findMany({
-          where: { id: { in: subjectIds }, tenant_id: tenantId },
-          select: { id: true, name: true },
-        })
-      : [];
+    const subjects = await this.academicReadFacade.findSubjectsByIds(tenantId, subjectIds);
     const subjectNameById = new Map(subjects.map((s) => [s.id, s.name]));
 
     const bySubjectMap = new Map<string, CbaStatusSubject>();

@@ -1,7 +1,7 @@
-import { IncidentStatus, RetentionStatus } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
+import { IncidentStatus } from '@prisma/client';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 
 import { RegulatoryAntiBullyingService } from './regulatory-anti-bullying.service';
 
@@ -11,29 +11,26 @@ const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const CAT_CYBER = 'cat-cyber';
 const CAT_RACIST = 'cat-racist';
 
-const buildMockPrisma = () => ({
-  behaviourCategory: {
-    findMany: jest.fn().mockResolvedValue([]),
-  },
-  behaviourIncident: {
-    findMany: jest.fn().mockResolvedValue([]),
-    findFirst: jest.fn().mockResolvedValue(null),
-  },
+const buildMockFacade = () => ({
+  findBullyingCategories: jest.fn().mockResolvedValue([]),
+  findBullyingIncidentsInRange: jest.fn().mockResolvedValue([]),
+  findLastBullyingIncident: jest.fn().mockResolvedValue(null),
+  findRecentBullyingIncidents: jest.fn().mockResolvedValue([]),
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('RegulatoryAntiBullyingService', () => {
   let service: RegulatoryAntiBullyingService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockFacade: ReturnType<typeof buildMockFacade>;
 
   beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
+    mockFacade = buildMockFacade();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RegulatoryAntiBullyingService,
-        { provide: PrismaService, useValue: mockPrisma },
+        { provide: BehaviourReadFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -44,7 +41,7 @@ describe('RegulatoryAntiBullyingService', () => {
 
   describe('RegulatoryAntiBullyingService — getSummary', () => {
     it('returns zero-state when the tenant has no bullying categories', async () => {
-      mockPrisma.behaviourCategory.findMany.mockResolvedValueOnce([]);
+      mockFacade.findBullyingCategories.mockResolvedValueOnce([]);
 
       const summary = await service.getSummary(TENANT_ID);
 
@@ -58,58 +55,56 @@ describe('RegulatoryAntiBullyingService', () => {
       expect(summary.by_category.every((c) => c.count === 0 && c.trend === 'stable')).toBe(true);
       expect(summary.by_month).toHaveLength(12);
 
-      expect(mockPrisma.behaviourIncident.findMany).not.toHaveBeenCalled();
+      expect(mockFacade.findBullyingIncidentsInRange).not.toHaveBeenCalled();
     });
 
     it('aggregates incidents by normalised category and computes KPIs', async () => {
       const now = new Date();
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const tenDaysAgo = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
-      const fourtyFiveDaysAgo = new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000);
+      const fortyFiveDaysAgo = new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000);
 
-      mockPrisma.behaviourCategory.findMany.mockResolvedValueOnce([
+      mockFacade.findBullyingCategories.mockResolvedValueOnce([
         { id: CAT_CYBER, name: 'Cyberbullying' },
         { id: CAT_RACIST, name: 'Racist bullying' },
       ]);
 
-      mockPrisma.behaviourIncident.findMany
-        .mockResolvedValueOnce([
-          {
-            id: 'inc-1',
-            status: IncidentStatus.active,
-            occurred_at: oneDayAgo,
-            updated_at: oneDayAgo,
-            category_id: CAT_CYBER,
-          },
-          {
-            id: 'inc-2',
-            status: IncidentStatus.resolved,
-            occurred_at: tenDaysAgo,
-            updated_at: tenDaysAgo,
-            category_id: CAT_CYBER,
-          },
-          {
-            id: 'inc-3',
-            status: IncidentStatus.active,
-            occurred_at: fourtyFiveDaysAgo,
-            updated_at: fourtyFiveDaysAgo,
-            category_id: CAT_RACIST,
-          },
-        ])
-        .mockResolvedValueOnce([
-          {
-            id: 'inc-1',
-            incident_number: 'B-0001',
-            occurred_at: oneDayAgo,
-            status: IncidentStatus.active,
-            category: { name: 'Cyberbullying' },
-            participants: [
-              { student: { first_name: 'Ahmed', last_name: 'Khan' } },
-            ],
-          },
-        ]);
+      mockFacade.findBullyingIncidentsInRange.mockResolvedValueOnce([
+        {
+          id: 'inc-1',
+          status: IncidentStatus.active,
+          occurred_at: oneDayAgo,
+          updated_at: oneDayAgo,
+          category_id: CAT_CYBER,
+        },
+        {
+          id: 'inc-2',
+          status: IncidentStatus.resolved,
+          occurred_at: tenDaysAgo,
+          updated_at: tenDaysAgo,
+          category_id: CAT_CYBER,
+        },
+        {
+          id: 'inc-3',
+          status: IncidentStatus.active,
+          occurred_at: fortyFiveDaysAgo,
+          updated_at: fortyFiveDaysAgo,
+          category_id: CAT_RACIST,
+        },
+      ]);
 
-      mockPrisma.behaviourIncident.findFirst.mockResolvedValueOnce({ occurred_at: oneDayAgo });
+      mockFacade.findRecentBullyingIncidents.mockResolvedValueOnce([
+        {
+          id: 'inc-1',
+          incident_number: 'B-0001',
+          occurred_at: oneDayAgo,
+          status: IncidentStatus.active,
+          category: { name: 'Cyberbullying' },
+          participants: [{ student: { first_name: 'Ahmed', last_name: 'Khan' } }],
+        },
+      ]);
+
+      mockFacade.findLastBullyingIncident.mockResolvedValueOnce({ occurred_at: oneDayAgo });
 
       const summary = await service.getSummary(TENANT_ID);
 
@@ -134,30 +129,25 @@ describe('RegulatoryAntiBullyingService', () => {
       });
     });
 
-    it('filters by tenant_id, non-excluded statuses, and active retention', async () => {
-      mockPrisma.behaviourCategory.findMany.mockResolvedValueOnce([
+    it('passes tenant and category filter to the behaviour facade', async () => {
+      mockFacade.findBullyingCategories.mockResolvedValueOnce([
         { id: CAT_CYBER, name: 'Cyberbullying' },
       ]);
 
       await service.getSummary(TENANT_ID);
 
-      expect(mockPrisma.behaviourCategory.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            tenant_id: TENANT_ID,
-            name: { contains: 'bully', mode: 'insensitive' },
-          },
-        }),
+      expect(mockFacade.findBullyingCategories).toHaveBeenCalledWith(TENANT_ID);
+      expect(mockFacade.findBullyingIncidentsInRange).toHaveBeenCalledWith(
+        TENANT_ID,
+        [CAT_CYBER],
+        expect.any(Date),
+        expect.any(Date),
+        expect.arrayContaining([
+          IncidentStatus.withdrawn,
+          IncidentStatus.converted_to_safeguarding,
+          IncidentStatus.superseded,
+        ]),
       );
-
-      const firstCall = mockPrisma.behaviourIncident.findMany.mock.calls[0][0];
-      expect(firstCall.where).toMatchObject({
-        tenant_id: TENANT_ID,
-        retention_status: RetentionStatus.active,
-        category_id: { in: [CAT_CYBER] },
-      });
-      expect(firstCall.where.status.notIn).toContain(IncidentStatus.withdrawn);
-      expect(firstCall.where.status.notIn).toContain(IncidentStatus.converted_to_safeguarding);
     });
   });
 });

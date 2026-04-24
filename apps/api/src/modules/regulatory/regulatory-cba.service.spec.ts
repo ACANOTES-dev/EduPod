@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CbaSyncStatus } from '@prisma/client';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { RegulatoryCbaService } from './regulatory-cba.service';
@@ -31,10 +32,9 @@ describe('RegulatoryCbaService', () => {
     desSubjectCodeMapping: {
       findFirst: jest.Mock;
     };
-    subject: {
-      findMany: jest.Mock;
-    };
   };
+
+  let mockAcademicReadFacade: { findSubjectsByIds: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -48,15 +48,16 @@ describe('RegulatoryCbaService', () => {
       desSubjectCodeMapping: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
-      subject: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
+    };
+    mockAcademicReadFacade = {
+      findSubjectsByIds: jest.fn().mockResolvedValue([]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RegulatoryCbaService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
       ],
     }).compile();
 
@@ -83,8 +84,8 @@ describe('RegulatoryCbaService', () => {
       mockPrisma.ppodCbaSyncRecord.findFirst.mockResolvedValue({
         synced_at: new Date('2026-03-15T10:00:00Z'),
       });
-      mockPrisma.subject.findMany.mockResolvedValue([
-        { id: SUBJECT_ID, name: 'Mathematics' },
+      mockAcademicReadFacade.findSubjectsByIds.mockResolvedValue([
+        { id: SUBJECT_ID, name: 'Mathematics', code: null },
       ]);
 
       const result = await service.getCbaStatus(TENANT_ID, '2025-2026');

@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { IncidentStatus, RetentionStatus } from '@prisma/client';
+import { IncidentStatus } from '@prisma/client';
 
 import { ANTI_BULLYING_CATEGORIES } from '@school/shared/regulatory';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -57,7 +57,7 @@ export interface AntiBullyingSummary {
 
 @Injectable()
 export class RegulatoryAntiBullyingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly behaviourReadFacade: BehaviourReadFacade) {}
 
   async getSummary(tenantId: string): Promise<AntiBullyingSummary> {
     const now = new Date();
@@ -65,13 +65,7 @@ export class RegulatoryAntiBullyingService {
     const { startDate: yearStart, endDate: yearEnd } = this.getAcademicYearBounds(now);
     const termStart = this.getCurrentTermStart(now);
 
-    const bullyingCategories = await this.prisma.behaviourCategory.findMany({
-      where: {
-        tenant_id: tenantId,
-        name: { contains: 'bully', mode: 'insensitive' },
-      },
-      select: { id: true, name: true },
-    });
+    const bullyingCategories = await this.behaviourReadFacade.findBullyingCategories(tenantId);
 
     if (bullyingCategories.length === 0) {
       return {
@@ -93,59 +87,21 @@ export class RegulatoryAntiBullyingService {
 
     const categoryIds = bullyingCategories.map((c) => c.id);
 
-    const baseWhere = {
-      tenant_id: tenantId,
-      retention_status: RetentionStatus.active,
-      category_id: { in: categoryIds },
-      occurred_at: { gte: yearStart, lt: yearEnd },
-      status: { notIn: EXCLUDED_STATUSES },
-    } as const;
-
     const [incidents, lastIncident, recentIncidents] = await Promise.all([
-      this.prisma.behaviourIncident.findMany({
-        where: baseWhere,
-        select: {
-          id: true,
-          status: true,
-          occurred_at: true,
-          updated_at: true,
-          category_id: true,
-        },
-      }),
-      this.prisma.behaviourIncident.findFirst({
-        where: {
-          tenant_id: tenantId,
-          retention_status: RetentionStatus.active,
-          category_id: { in: categoryIds },
-          status: { notIn: EXCLUDED_STATUSES },
-        },
-        orderBy: { occurred_at: 'desc' },
-        select: { occurred_at: true },
-      }),
-      this.prisma.behaviourIncident.findMany({
-        where: {
-          tenant_id: tenantId,
-          retention_status: RetentionStatus.active,
-          category_id: { in: categoryIds },
-          status: { notIn: EXCLUDED_STATUSES },
-        },
-        orderBy: { occurred_at: 'desc' },
-        take: 5,
-        select: {
-          id: true,
-          incident_number: true,
-          occurred_at: true,
-          status: true,
-          category: { select: { name: true } },
-          participants: {
-            where: { role: 'subject' },
-            take: 1,
-            select: {
-              student: { select: { first_name: true, last_name: true } },
-            },
-          },
-        },
-      }),
+      this.behaviourReadFacade.findBullyingIncidentsInRange(
+        tenantId,
+        categoryIds,
+        yearStart,
+        yearEnd,
+        EXCLUDED_STATUSES,
+      ),
+      this.behaviourReadFacade.findLastBullyingIncident(tenantId, categoryIds, EXCLUDED_STATUSES),
+      this.behaviourReadFacade.findRecentBullyingIncidents(
+        tenantId,
+        categoryIds,
+        EXCLUDED_STATUSES,
+        5,
+      ),
     ]);
 
     const open = incidents.filter((i) => OPEN_STATUSES.includes(i.status)).length;

@@ -1123,4 +1123,123 @@ export class BehaviourReadFacade {
       },
     });
   }
+
+  // ─── Anti-Bullying (regulatory) ────────────────────────────────────────────
+
+  /**
+   * Find behaviour categories whose name matches the bullying filter.
+   * Used by the regulatory anti-bullying sub-hub to scope incident aggregates.
+   */
+  async findBullyingCategories(tenantId: string): Promise<Array<{ id: string; name: string }>> {
+    return this.prisma.behaviourCategory.findMany({
+      where: {
+        tenant_id: tenantId,
+        name: { contains: 'bully', mode: 'insensitive' },
+      },
+      select: { id: true, name: true },
+    });
+  }
+
+  /**
+   * List bullying-category incidents in a date range for the regulatory hub's
+   * aggregate breakdowns (total / open / resolved / by-category / by-month).
+   */
+  async findBullyingIncidentsInRange(
+    tenantId: string,
+    categoryIds: string[],
+    fromDate: Date,
+    toDate: Date,
+    excludeStatuses: $Enums.IncidentStatus[],
+  ): Promise<
+    Array<{
+      id: string;
+      status: $Enums.IncidentStatus;
+      occurred_at: Date;
+      updated_at: Date;
+      category_id: string;
+    }>
+  > {
+    return this.prisma.behaviourIncident.findMany({
+      where: {
+        tenant_id: tenantId,
+        retention_status: $Enums.RetentionStatus.active,
+        category_id: { in: categoryIds },
+        occurred_at: { gte: fromDate, lt: toDate },
+        status: { notIn: excludeStatuses },
+      },
+      select: {
+        id: true,
+        status: true,
+        occurred_at: true,
+        updated_at: true,
+        category_id: true,
+      },
+    });
+  }
+
+  /**
+   * Return the most recent non-excluded bullying incident, all-time. Drives the
+   * "days since last incident" KPI on the regulatory anti-bullying sub-hub.
+   */
+  async findLastBullyingIncident(
+    tenantId: string,
+    categoryIds: string[],
+    excludeStatuses: $Enums.IncidentStatus[],
+  ): Promise<{ occurred_at: Date } | null> {
+    return this.prisma.behaviourIncident.findFirst({
+      where: {
+        tenant_id: tenantId,
+        retention_status: $Enums.RetentionStatus.active,
+        category_id: { in: categoryIds },
+        status: { notIn: excludeStatuses },
+      },
+      orderBy: { occurred_at: 'desc' },
+      select: { occurred_at: true },
+    });
+  }
+
+  /**
+   * Return the most recent N bullying incidents with a subject participant
+   * attached. Drives the "Recent incidents" list on the regulatory hub.
+   */
+  async findRecentBullyingIncidents(
+    tenantId: string,
+    categoryIds: string[],
+    excludeStatuses: $Enums.IncidentStatus[],
+    limit: number,
+  ): Promise<
+    Array<{
+      id: string;
+      incident_number: string;
+      status: $Enums.IncidentStatus;
+      occurred_at: Date;
+      category: { name: string };
+      participants: Array<{ student: { first_name: string; last_name: string } | null }>;
+    }>
+  > {
+    return this.prisma.behaviourIncident.findMany({
+      where: {
+        tenant_id: tenantId,
+        retention_status: $Enums.RetentionStatus.active,
+        category_id: { in: categoryIds },
+        status: { notIn: excludeStatuses },
+      },
+      orderBy: { occurred_at: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        incident_number: true,
+        occurred_at: true,
+        status: true,
+        category: { select: { name: true } },
+        participants: {
+          where: { role: 'subject' },
+          take: 1,
+          select: {
+            student: { select: { first_name: true, last_name: true } },
+          },
+        },
+      },
+    });
+  }
 }
