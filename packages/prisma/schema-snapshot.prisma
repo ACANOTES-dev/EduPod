@@ -852,6 +852,7 @@ model Tenant {
   safeguarding_keywords          SafeguardingKeyword[]
   message_flags                  MessageFlag[]
   oversight_access_log           OversightAccessLog[]
+  complianceReportGenerations    ComplianceReportGeneration[]
 
   @@map("tenants")
 }
@@ -1396,15 +1397,16 @@ model User {
   eng_conf_bookings_made     ConferenceBooking[]        @relation("eng_conf_booker")
 
   // Inbox Relations (Wave 1 of new-inbox rebuild)
-  conversations_created   Conversation[]            @relation("conversation_creator")
-  conversations_frozen    Conversation[]            @relation("conversation_freezer")
-  inbox_participations    ConversationParticipant[]
-  inbox_messages_sent     Message[]
-  inbox_messages_read     MessageRead[]
-  inbox_message_edits     MessageEdit[]
-  saved_audiences_created SavedAudience[]
-  message_flags_reviewed  MessageFlag[]
-  oversight_actions       OversightAccessLog[]      @relation("oversight_actor")
+  conversations_created       Conversation[]               @relation("conversation_creator")
+  conversations_frozen        Conversation[]               @relation("conversation_freezer")
+  inbox_participations        ConversationParticipant[]
+  inbox_messages_sent         Message[]
+  inbox_messages_read         MessageRead[]
+  inbox_message_edits         MessageEdit[]
+  saved_audiences_created     SavedAudience[]
+  message_flags_reviewed      MessageFlag[]
+  oversight_actions           OversightAccessLog[]         @relation("oversight_actor")
+  complianceReportGenerations ComplianceReportGeneration[]
 
   @@map("users")
 }
@@ -6386,6 +6388,24 @@ model ComplianceReportTemplate {
 
   @@index([tenant_id], name: "idx_compliance_report_templates_tenant")
   @@map("compliance_report_templates")
+}
+
+model ComplianceReportGeneration {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String   @db.Uuid
+  academic_year_id  String   @db.Uuid
+  generated_by      String   @db.Uuid
+  fields_json       Json
+  catalogue_version String   @default("v1") @db.VarChar(20)
+  created_at        DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant            Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  generated_by_user User   @relation(fields: [generated_by], references: [id])
+
+  @@index([tenant_id], name: "idx_compliance_gen_tenant")
+  @@index([tenant_id, academic_year_id], name: "idx_compliance_gen_tenant_academic_year")
+  @@map("compliance_report_generations")
 }
 
 model ScheduledReport {
