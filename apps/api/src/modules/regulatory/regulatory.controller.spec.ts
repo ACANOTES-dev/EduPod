@@ -5,6 +5,7 @@ import type { JwtPayload, TenantContext } from '@school/shared';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
+import { RegulatoryAntiBullyingService } from './regulatory-anti-bullying.service';
 import { RegulatoryCalendarService } from './regulatory-calendar.service';
 import { RegulatoryCbaService } from './regulatory-cba.service';
 import { RegulatoryDashboardService } from './regulatory-dashboard.service';
@@ -219,6 +220,7 @@ describe('RegulatoryController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RegulatoryController],
       providers: [
+        { provide: RegulatoryAntiBullyingService, useValue: { getSummary: jest.fn() } },
         { provide: RegulatoryCalendarService, useValue: mockCalendarService },
         { provide: RegulatorySubmissionService, useValue: mockSubmissionService },
         { provide: RegulatoryTuslaMappingsService, useValue: mockTuslaMappingsService },
