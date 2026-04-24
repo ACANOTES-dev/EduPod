@@ -52,6 +52,7 @@ import { PARENT_DAILY_DIGEST_JOB } from '../processors/notifications/parent-dail
 import { PASTORAL_CRON_DISPATCH_OVERDUE_JOB } from '../processors/pastoral/pastoral-cron-dispatch.processor';
 import { REGULATORY_DEADLINE_CHECK_JOB } from '../processors/regulatory/deadline-check.processor';
 import { REGULATORY_TUSLA_THRESHOLD_SCAN_JOB } from '../processors/regulatory/tusla-threshold-scan.processor';
+import { REPORTS_ALERT_EVALUATE_JOB } from '../processors/reports/report-alerts.processor';
 import { REPORTS_SCHEDULED_RUN_JOB } from '../processors/reports/scheduled-reports-tick.processor';
 import { SCHEDULING_REAP_STALE_JOB } from '../processors/scheduling-stale-reaper.processor';
 import { ANOMALY_SCAN_JOB } from '../processors/security/anomaly-scan.processor';
@@ -956,7 +957,24 @@ export class CronSchedulerService implements OnModuleInit {
     );
     this.logger.log(`Registered repeatable cron: ${REPORTS_SCHEDULED_RUN_JOB} (every 15 minutes)`);
 
-    // Impl 09 (Report Alerts Worker) lands `reports:alert-evaluate` on a
-    // 30-minute cron in this same method when it ships.
+    // ── reports:alert-evaluate (impl 09) ───────────────────────────────────
+    // Cross-tenant report-alert tick. Fired every 30 minutes. The handler
+    // (`ReportAlertsHandler` routed via the REPORTS-queue dispatcher in
+    // `reports-export-batch.processor.ts`) scans active tenants and fans
+    // out one `reports:alert-evaluate-tenant` per tenant; each per-tenant
+    // job evaluates every enabled `report_alert` against its metric and
+    // dispatches inbox notifications when thresholds are crossed (with
+    // 24h anti-spam suppression).
+    await this.reportsQueue.add(
+      REPORTS_ALERT_EVALUATE_JOB,
+      {},
+      {
+        repeat: { pattern: '*/30 * * * *' },
+        jobId: `cron:${REPORTS_ALERT_EVALUATE_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${REPORTS_ALERT_EVALUATE_JOB} (every 30 minutes)`);
   }
 }
