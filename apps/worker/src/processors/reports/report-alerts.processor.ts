@@ -26,8 +26,19 @@ export const REPORTS_ALERT_EVALUATE_TENANT_JOB = 'reports:alert-evaluate-tenant'
 
 // ─── Payloads ─────────────────────────────────────────────────────────────────
 
-export interface ReportsAlertEvaluateTickPayload extends TenantJobPayload {}
-export interface ReportsAlertEvaluateTenantPayload extends TenantJobPayload {}
+/**
+ * Cross-tenant tick payload — only the cron-sentinel `tenant_id` is
+ * present. Re-exported as a distinct type alias rather than an empty
+ * interface so the linter's `no-empty-interface` rule doesn't flag it.
+ */
+export type ReportsAlertEvaluateTickPayload = TenantJobPayload;
+
+/**
+ * Per-tenant payload — `tenant_id` is the tenant whose alerts we
+ * evaluate. Re-exported as a distinct type alias for the same reason
+ * as the tick payload.
+ */
+export type ReportsAlertEvaluateTenantPayload = TenantJobPayload;
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
