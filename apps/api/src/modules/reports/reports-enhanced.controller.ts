@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -19,6 +20,7 @@ import {
   aiPredictSchema,
   attendanceAnalyticsQuerySchema,
   boardReportsQuerySchema,
+  cohortTrendsQuerySchema,
   createBoardReportSchema,
   createComplianceTemplateSchema,
   createReportAlertSchema,
@@ -32,13 +34,15 @@ import {
   savedReportsQuerySchema,
   scheduledReportsQuerySchema,
   studentProgressQuerySchema,
+  subjectDifficultyQuerySchema,
   updateComplianceTemplateSchema,
   updateReportAlertSchema,
   updateSavedReportSchema,
   updateScheduledReportSchema,
+  yearGroupTrendQuerySchema,
 } from '@school/shared';
-import { previewQuerySchema } from '@school/shared/reports';
-import type { PreviewQueryDto } from '@school/shared/reports';
+import { boardReportRequestSchema, previewQuerySchema } from '@school/shared/reports';
+import type { BoardReportRequest, PreviewQueryDto } from '@school/shared/reports';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -67,6 +71,16 @@ import { StaffAnalyticsService } from './staff-analytics.service';
 import { StudentProgressService } from './student-progress.service';
 import { OWNER_SENTINEL_PERMISSION } from './subject-registry/reports-subject-registry.service';
 import { UnifiedDashboardService } from './unified-dashboard.service';
+
+/**
+ * Normalise a service return value to `{ data, meta }` for the Wave 4 UI
+ * contract. `meta.generated_at` is always set at response-construction time.
+ * Consumed by the `ResponseTransformInterceptor` which sees `data` on the
+ * envelope and passes it through without double-wrapping.
+ */
+function wrap<T>(data: T): { data: T; meta: { generated_at: string } } {
+  return { data, meta: { generated_at: new Date().toISOString() } };
+}
 
 @Controller('v1/reports')
 @UseGuards(AuthGuard, PermissionGuard)
@@ -287,14 +301,37 @@ export class ReportsEnhancedController {
     return this.gradeAnalytics.gradeTrends(tenant.tenant_id, query.year_group_id, query.subject_id);
   }
 
+  // GET /v1/reports/analytics/grades/subject-difficulty
+  //
+  // Default mode returns `SubjectDifficultyEntry[]` — one row per subject.
+  // When `?by=term&subject_id=<uuid>` is passed, returns
+  // `SubjectDifficultyTrendEntry[]` — one row per academic period for the
+  // named subject, oldest→newest, capped at `?terms=N` when provided.
+  // Impl 15's "Subject Difficulty" chart uses the trend mode.
   @Get('analytics/grades/subject-difficulty')
   @RequiresPermission('analytics.view')
   async subjectDifficulty(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(gradeAnalyticsQuerySchema))
-    query: z.infer<typeof gradeAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(subjectDifficultyQuerySchema))
+    query: z.infer<typeof subjectDifficultyQuerySchema>,
   ) {
-    return this.gradeAnalytics.subjectDifficulty(tenant.tenant_id, query.year_group_id);
+    if (query.by === 'term') {
+      if (!query.subject_id) {
+        throw new BadRequestException({
+          code: 'SUBJECT_ID_REQUIRED',
+          message: 'subject_id is required when by=term',
+        });
+      }
+      const trend = await this.gradeAnalytics.subjectDifficultyTrend(
+        tenant.tenant_id,
+        query.subject_id,
+        query.terms,
+        query.year_group_id,
+      );
+      return wrap(trend);
+    }
+    const data = await this.gradeAnalytics.subjectDifficulty(tenant.tenant_id, query.year_group_id);
+    return wrap(data);
   }
 
   @Get('analytics/grades/gpa-distribution')
@@ -353,6 +390,27 @@ export class ReportsEnhancedController {
     return this.demographics.statusDistribution(tenant.tenant_id);
   }
 
+  // GET /v1/reports/analytics/demographics/year-group-enrolment/:yearGroupId
+  //
+  // Drill-down from the year-group-sizes view. Returns month-over-month
+  // headcount plus entries/exits for the given year group across the
+  // trailing `months` (default 12, max 36).
+  @Get('analytics/demographics/year-group-enrolment/:yearGroupId')
+  @RequiresPermission('analytics.view')
+  async yearGroupEnrolmentTrend(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('yearGroupId', ParseUUIDPipe) yearGroupId: string,
+    @Query(new ZodValidationPipe(yearGroupTrendQuerySchema))
+    query: z.infer<typeof yearGroupTrendQuerySchema>,
+  ) {
+    const data = await this.demographics.getEnrolmentTrendByYearGroup(
+      tenant.tenant_id,
+      yearGroupId,
+      query.months,
+    );
+    return wrap(data);
+  }
+
   // ─── Student Progress ─────────────────────────────────────────────────────
 
   @Get('analytics/student-progress')
@@ -363,6 +421,39 @@ export class ReportsEnhancedController {
     query: z.infer<typeof studentProgressQuerySchema>,
   ) {
     return this.studentProgress.getStudentProgress(tenant.tenant_id, query.student_id);
+  }
+
+  // GET /v1/reports/analytics/student-progress/trends-by-cohort/:yearGroupId
+  //
+  // Cohort-level attendance + grade trend for a single year group across a
+  // single academic period. `academic_period_id` is required as a query
+  // param — no implicit "current" fallback because the academic-period
+  // resolution rule belongs to the caller.
+  @Get('analytics/student-progress/trends-by-cohort/:yearGroupId')
+  @RequiresPermission('analytics.view')
+  async getTrendsByCohort(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('yearGroupId', ParseUUIDPipe) yearGroupId: string,
+    @Query(new ZodValidationPipe(cohortTrendsQuerySchema))
+    query: z.infer<typeof cohortTrendsQuerySchema>,
+  ) {
+    const data = await this.studentProgress.getTrendsByCohort(
+      tenant.tenant_id,
+      yearGroupId,
+      query.academic_period_id,
+    );
+    return wrap(data);
+  }
+
+  // GET /v1/reports/analytics/student-progress/at-risk-new-this-week
+  //
+  // Drill-down for KPI #3 — list of students newly flagged at-risk this
+  // ISO week (Sunday 00:00 → now). Deduplicated by student, newest first.
+  @Get('analytics/student-progress/at-risk-new-this-week')
+  @RequiresPermission('analytics.view')
+  async atRiskNewThisWeek(@CurrentTenant() tenant: TenantContext) {
+    const data = await this.studentProgress.listAtRiskStudentsNewThisWeek(tenant.tenant_id);
+    return wrap(data);
   }
 
   // ─── Admissions Analytics ─────────────────────────────────────────────────
@@ -588,6 +679,13 @@ export class ReportsEnhancedController {
 
   // ─── Board Reports ────────────────────────────────────────────────────────
 
+  // The static `board/history` route MUST appear before `board/:reportId`:
+  // Express matches routes in registration order and the dynamic segment
+  // otherwise intercepts `/board/history` with a `ParseUUIDPipe` 400.
+
+  // GET /v1/reports/board — legacy paginated list of persisted board
+  // reports. Impl 20 (Board UI) migrates to `board/history`; keeping this
+  // alive until that landing so the current admin UI doesn't break.
   @Get('board')
   @RequiresPermission('analytics.view_board_reports')
   async listBoardReports(
@@ -596,6 +694,20 @@ export class ReportsEnhancedController {
     query: z.infer<typeof boardReportsQuerySchema>,
   ) {
     return this.boardReport.listBoardReports(tenant.tenant_id, query.page, query.pageSize);
+  }
+
+  // GET /v1/reports/board/history — new history endpoint returning
+  // BoardReportHistoryEntry rows: term label, sections included, anonymise
+  // flag, generator name. Consumed by impl 21 (Reports Settings page) so
+  // an admin can re-download a prior packet.
+  @Get('board/history')
+  @RequiresPermission('analytics.view_board_reports')
+  async listBoardReportHistory(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(boardReportsQuerySchema))
+    query: z.infer<typeof boardReportsQuerySchema>,
+  ) {
+    return this.boardReport.listHistory(tenant.tenant_id, query.page, query.pageSize);
   }
 
   @Get('board/:reportId')
@@ -607,15 +719,43 @@ export class ReportsEnhancedController {
     return this.boardReport.getBoardReport(tenant.tenant_id, reportId);
   }
 
+  // POST /v1/reports/board — generate a Board Report packet.
+  //
+  // The body now follows the new `boardReportRequestSchema`:
+  //   { term: { academic_year_id, term_number }, sections[], anonymise }
+  // Legacy payload shape (`{ title, academic_period_id, report_type,
+  // sections_json }`) is detected by the presence of `sections_json` and
+  // falls through to the legacy path so the existing admin UI keeps
+  // working until impl 20 ships.
   @Post('board')
   @RequiresPermission('analytics.view_board_reports')
   async generateBoardReport(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
-    @Body(new ZodValidationPipe(createBoardReportSchema))
-    body: z.infer<typeof createBoardReportSchema>,
+    @Body() rawBody: unknown,
   ) {
-    return this.boardReport.generateBoardReport(tenant.tenant_id, user.sub, body);
+    if (this.isLegacyBoardReportBody(rawBody)) {
+      const legacyParsed = createBoardReportSchema.parse(rawBody);
+      return this.boardReport.generateBoardReport(tenant.tenant_id, user.sub, legacyParsed);
+    }
+
+    const parsed = boardReportRequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      throw new BadRequestException({
+        code: 'BOARD_REPORT_INVALID_BODY',
+        message: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+      });
+    }
+    const body: BoardReportRequest = parsed.data;
+
+    const boardReport = await this.boardReport.generate(tenant.tenant_id, user.sub, body);
+    return {
+      data: boardReport,
+      meta: {
+        generated_at: boardReport.generated_at,
+        generated_by: boardReport.generated_by_user_id,
+      },
+    };
   }
 
   @Delete('board/:reportId')
@@ -625,6 +765,12 @@ export class ReportsEnhancedController {
     @Param('reportId', ParseUUIDPipe) reportId: string,
   ) {
     return this.boardReport.deleteBoardReport(tenant.tenant_id, reportId);
+  }
+
+  private isLegacyBoardReportBody(body: unknown): boolean {
+    if (!body || typeof body !== 'object') return false;
+    const o = body as Record<string, unknown>;
+    return 'sections_json' in o || 'report_type' in o || 'title' in o;
   }
 
   // ─── Compliance Report Templates ─────────────────────────────────────────

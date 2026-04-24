@@ -2,6 +2,15 @@ import { Injectable } from '@nestjs/common';
 
 import { ReportsDataAccessService } from './reports-data-access.service';
 
+// ─── Description keys (declared here for impl 22 translation sweep) ─────────
+// reports.description.attendance =
+//   "Student attendance patterns, trends, day-of-week heatmap, and teacher
+//    marking compliance."
+// reports.description.attendance.class_comparison =
+//   "Side-by-side attendance rates for classes within a year group. Includes
+//    all active classes — homerooms, subject-only, and cross-year-group."
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface ChronicAbsenteeismEntry {
   student_id: string;
   student_name: string;

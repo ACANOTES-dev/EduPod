@@ -2,6 +2,14 @@ import { Injectable } from '@nestjs/common';
 
 import { ReportsDataAccessService } from './reports-data-access.service';
 
+// ─── Description keys (declared here for impl 22 translation sweep) ─────────
+// reports.description.admissions =
+//   "Admissions pipeline funnel, processing time, rejection reasons,
+//    monthly volume, and year-group demand."
+// Note: `rejection_reason` on the Application model is free text (String?),
+//   not an enum — labels returned verbatim, grouped by identical string.
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface PipelineFunnelResult {
   applied_count: number;
   under_review_count: number;

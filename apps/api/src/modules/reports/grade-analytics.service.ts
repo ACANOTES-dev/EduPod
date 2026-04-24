@@ -2,6 +2,14 @@ import { Injectable } from '@nestjs/common';
 
 import { ReportsDataAccessService } from './reports-data-access.service';
 
+// ─── Description keys (declared here for impl 22 translation sweep) ──────────
+// reports.description.grade_analytics =
+//   "Overview of student grade distribution, pass/fail rates, and subject
+//    difficulty analysis."
+// reports.description.grade_analytics.subject_difficulty_trend =
+//   "Per-term pass/fail trend for a single subject."
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface PassFailEntry {
   subject_id: string;
   subject_name: string;
@@ -49,6 +57,18 @@ export interface GpaDistributionBucket {
   max_gpa: number;
   count: number;
   percentage: number;
+}
+
+export interface SubjectDifficultyTrendEntry {
+  academic_period_id: string;
+  period_label: string;
+  subject_id: string;
+  subject_name: string;
+  pass_count: number;
+  fail_count: number;
+  total_count: number;
+  pass_rate: number;
+  average_score: number;
 }
 
 @Injectable()
@@ -451,6 +471,138 @@ export class GradeAnalyticsService {
     return buckets.map((b) => ({
       ...b,
       percentage: total > 0 ? Number(((b.count / total) * 100).toFixed(2)) : 0,
+    }));
+  }
+
+  /**
+   * Per-term pass/fail + average-score trend for a single subject.
+   *
+   * Consumed by the frontend "Subject Difficulty" chart so it can draw a line
+   * across terms instead of a single bar. Returns one entry per academic
+   * period the subject has graded assessments in, ordered by period start
+   * date. If `terms` is provided, only the most recent N terms are returned.
+   *
+   * Used in Wave 4 impl 15 (Individual Report Pages UI — Grades).
+   */
+  async subjectDifficultyTrend(
+    tenantId: string,
+    subjectId: string,
+    terms?: number,
+    yearGroupId?: string,
+  ): Promise<SubjectDifficultyTrendEntry[]> {
+    const PASS_THRESHOLD = 50;
+    const gradeWhere: Record<string, unknown> = {
+      is_missing: false,
+      raw_score: { not: null },
+      assessment: { status: { in: ['closed', 'locked'] }, subject_id: subjectId },
+    };
+
+    if (yearGroupId) {
+      const classes = (await this.dataAccess.findClasses(
+        tenantId,
+        { year_group_id: yearGroupId },
+        { id: true },
+      )) as Array<{ id: string }>;
+      (gradeWhere.assessment as Record<string, unknown>).class_id = {
+        in: classes.map((c) => c.id),
+      };
+    }
+
+    const grades = (await this.dataAccess.findGrades(tenantId, {
+      where: gradeWhere,
+      select: {
+        raw_score: true,
+        student_id: true,
+        assessment: {
+          select: {
+            max_score: true,
+            academic_period_id: true,
+            subject: { select: { id: true, name: true } },
+            academic_period: { select: { name: true, start_date: true } },
+          },
+        },
+      },
+    })) as Array<{
+      raw_score: unknown;
+      student_id: string;
+      assessment: {
+        max_score: unknown;
+        academic_period_id: string;
+        subject: { id: string; name: string } | null;
+        academic_period: { name: string; start_date: Date | null } | null;
+      };
+    }>;
+
+    const termMap = new Map<
+      string,
+      {
+        period_id: string;
+        period_label: string;
+        start_date: Date | null;
+        subject_id: string;
+        subject_name: string;
+        pass_count: number;
+        fail_count: number;
+        total_count: number;
+        sum_pct: number;
+      }
+    >();
+
+    for (const grade of grades) {
+      const subject = grade.assessment.subject;
+      const period = grade.assessment.academic_period;
+      const periodId = grade.assessment.academic_period_id;
+      if (!subject || !period) continue;
+
+      const maxScore = Number(grade.assessment.max_score);
+      if (maxScore <= 0) continue;
+
+      const score = Number(grade.raw_score);
+      const pct = (score / maxScore) * 100;
+
+      const entry = termMap.get(periodId) ?? {
+        period_id: periodId,
+        period_label: period.name,
+        start_date: period.start_date,
+        subject_id: subject.id,
+        subject_name: subject.name,
+        pass_count: 0,
+        fail_count: 0,
+        total_count: 0,
+        sum_pct: 0,
+      };
+      entry.total_count++;
+      entry.sum_pct += pct;
+      if (pct >= PASS_THRESHOLD) {
+        entry.pass_count++;
+      } else {
+        entry.fail_count++;
+      }
+      termMap.set(periodId, entry);
+    }
+
+    const ordered = Array.from(termMap.values()).sort((a, b) => {
+      const aTime = a.start_date ? new Date(a.start_date).getTime() : 0;
+      const bTime = b.start_date ? new Date(b.start_date).getTime() : 0;
+      return aTime - bTime;
+    });
+
+    const limited = terms && terms > 0 ? ordered.slice(-terms) : ordered;
+
+    return limited.map((entry) => ({
+      academic_period_id: entry.period_id,
+      period_label: entry.period_label,
+      subject_id: entry.subject_id,
+      subject_name: entry.subject_name,
+      pass_count: entry.pass_count,
+      fail_count: entry.fail_count,
+      total_count: entry.total_count,
+      pass_rate:
+        entry.total_count > 0
+          ? Number(((entry.pass_count / entry.total_count) * 100).toFixed(2))
+          : 0,
+      average_score:
+        entry.total_count > 0 ? Number((entry.sum_pct / entry.total_count).toFixed(2)) : 0,
     }));
   }
 }

@@ -45,6 +45,20 @@ export const gradeAnalyticsQuerySchema = z.object({
 
 export type GradeAnalyticsQueryDto = z.infer<typeof gradeAnalyticsQuerySchema>;
 
+/**
+ * Query schema for the subject-difficulty endpoint's optional "by term"
+ * mode (impl 05). When `by=term` is passed the endpoint returns a per-term
+ * split instead of the default subject list.
+ */
+export const subjectDifficultyQuerySchema = z.object({
+  year_group_id: z.string().uuid().optional(),
+  subject_id: z.string().uuid().optional(),
+  by: z.enum(['term']).optional(),
+  terms: z.coerce.number().int().min(1).max(12).optional(),
+});
+
+export type SubjectDifficultyQueryDto = z.infer<typeof subjectDifficultyQuerySchema>;
+
 // ─── Demographics ────────────────────────────────────────────────────────────
 
 export const demographicsQuerySchema = z.object({
@@ -53,6 +67,17 @@ export const demographicsQuerySchema = z.object({
 
 export type DemographicsQueryDto = z.infer<typeof demographicsQuerySchema>;
 
+/**
+ * Query schema for the "enrolment trend by year group" endpoint (impl 05).
+ * `year_group_id` travels as a path param; this schema validates the
+ * optional `months` window (default 12, max 36).
+ */
+export const yearGroupTrendQuerySchema = z.object({
+  months: z.coerce.number().int().min(1).max(36).default(12),
+});
+
+export type YearGroupTrendQueryDto = z.infer<typeof yearGroupTrendQuerySchema>;
+
 // ─── Student Progress ─────────────────────────────────────────────────────────
 
 export const studentProgressQuerySchema = z.object({
@@ -60,6 +85,18 @@ export const studentProgressQuerySchema = z.object({
 });
 
 export type StudentProgressQueryDto = z.infer<typeof studentProgressQuerySchema>;
+
+/**
+ * Query schema for the cohort-trends endpoint (impl 05) — cohort-level
+ * attendance + grade aggregates for a single year group across a single
+ * academic period. `year_group_id` travels as a path param; this schema
+ * validates the required `academic_period_id` query param.
+ */
+export const cohortTrendsQuerySchema = z.object({
+  academic_period_id: z.string().uuid(),
+});
+
+export type CohortTrendsQueryDto = z.infer<typeof cohortTrendsQuerySchema>;
 
 // ─── Admissions Analytics ────────────────────────────────────────────────────
 

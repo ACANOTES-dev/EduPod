@@ -2,6 +2,12 @@ import { Injectable } from '@nestjs/common';
 
 import { ReportsDataAccessService } from './reports-data-access.service';
 
+// ─── Description keys (declared here for impl 22 translation sweep) ─────────
+// reports.description.staff =
+//   "Staff headcount, staff-to-student ratio, tenure, attendance,
+//    qualification coverage, and compensation distribution."
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface HeadcountByDepartmentEntry {
   department: string;
   count: number;

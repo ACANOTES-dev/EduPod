@@ -63,6 +63,7 @@ const mockGradeAnalytics = {
   topBottomPerformers: jest.fn(),
   gradeTrends: jest.fn(),
   subjectDifficulty: jest.fn(),
+  subjectDifficultyTrend: jest.fn(),
   gpaDistribution: jest.fn(),
 };
 const mockDemographics = {
@@ -72,8 +73,13 @@ const mockDemographics = {
   yearGroupSizes: jest.fn(),
   enrolmentTrends: jest.fn(),
   statusDistribution: jest.fn(),
+  getEnrolmentTrendByYearGroup: jest.fn(),
 };
-const mockStudentProgress = { getStudentProgress: jest.fn() };
+const mockStudentProgress = {
+  getStudentProgress: jest.fn(),
+  getTrendsByCohort: jest.fn(),
+  listAtRiskStudentsNewThisWeek: jest.fn(),
+};
 const mockAdmissionsAnalytics = {
   pipelineFunnel: jest.fn(),
   processingTime: jest.fn(),
@@ -221,6 +227,78 @@ describe('ReportsEnhancedController', () => {
 
     expect(mockStudentProgress.getStudentProgress).toHaveBeenCalledWith(TENANT_ID, 'stu-1');
     expect(result).toEqual(progressData);
+  });
+
+  it('should call studentProgress.getTrendsByCohort with path + query params', async () => {
+    const cohortData = {
+      year_group_id: 'yg-1',
+      academic_period_id: 'period-1',
+      period_label: 'Term 1',
+      attendance_rate: 95,
+      average_grade: 72,
+      students_count: 25,
+      total_sessions: 480,
+      total_grades: 120,
+    };
+    mockStudentProgress.getTrendsByCohort.mockResolvedValue(cohortData);
+
+    const result = await controller.getTrendsByCohort(tenantContext, 'yg-1', {
+      academic_period_id: 'period-1',
+    });
+
+    expect(mockStudentProgress.getTrendsByCohort).toHaveBeenCalledWith(
+      TENANT_ID,
+      'yg-1',
+      'period-1',
+    );
+    expect(result).toEqual({
+      data: cohortData,
+      meta: { generated_at: expect.any(String) },
+    });
+  });
+
+  it('should call studentProgress.listAtRiskStudentsNewThisWeek and wrap response', async () => {
+    const atRiskList = [
+      {
+        alert_id: 'alert-1',
+        student_id: 'stu-1',
+        student_name: 'Alice',
+        year_group_name: 'Year 5',
+        risk_level: 'high',
+        alert_type: 'attendance',
+        created_at: '2026-04-20T10:00:00.000Z',
+      },
+    ];
+    mockStudentProgress.listAtRiskStudentsNewThisWeek.mockResolvedValue(atRiskList);
+
+    const result = await controller.atRiskNewThisWeek(tenantContext);
+
+    expect(mockStudentProgress.listAtRiskStudentsNewThisWeek).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual({
+      data: atRiskList,
+      meta: { generated_at: expect.any(String) },
+    });
+  });
+
+  // ─── Demographics — year-group drill-down ─────────────────────────────────
+
+  it('should call demographics.getEnrolmentTrendByYearGroup with default 12 months', async () => {
+    const trend = [{ month: '2025-11', total_students: 25, new_entries: 1, exits: 0 }];
+    mockDemographics.getEnrolmentTrendByYearGroup.mockResolvedValue(trend);
+
+    const result = await controller.yearGroupEnrolmentTrend(tenantContext, 'yg-1', {
+      months: 12,
+    });
+
+    expect(mockDemographics.getEnrolmentTrendByYearGroup).toHaveBeenCalledWith(
+      TENANT_ID,
+      'yg-1',
+      12,
+    );
+    expect(result).toEqual({
+      data: trend,
+      meta: { generated_at: expect.any(String) },
+    });
   });
 
   // ─── Report Alerts ────────────────────────────────────────────────────────
@@ -552,13 +630,67 @@ describe('ReportsEnhancedController', () => {
     expect(result).toEqual([]);
   });
 
-  it('should call gradeAnalytics.subjectDifficulty', async () => {
-    mockGradeAnalytics.subjectDifficulty.mockResolvedValue([]);
+  it('should call gradeAnalytics.subjectDifficulty in default mode', async () => {
+    const subjects = [
+      {
+        subject_id: 'math',
+        subject_name: 'Math',
+        average_score: 70,
+        student_count: 5,
+        difficulty_rank: 1,
+      },
+    ];
+    mockGradeAnalytics.subjectDifficulty.mockResolvedValue(subjects);
 
-    const result = await controller.subjectDifficulty(tenantContext, { year_group_id: 'yg-1' });
+    const result = await controller.subjectDifficulty(tenantContext, {
+      year_group_id: 'yg-1',
+    });
 
     expect(mockGradeAnalytics.subjectDifficulty).toHaveBeenCalledWith(TENANT_ID, 'yg-1');
-    expect(result).toEqual([]);
+    expect(result).toEqual({
+      data: subjects,
+      meta: { generated_at: expect.any(String) },
+    });
+  });
+
+  it('should call gradeAnalytics.subjectDifficultyTrend when by=term', async () => {
+    const trend = [
+      {
+        academic_period_id: 'period-1',
+        period_label: 'Term 1',
+        subject_id: 'math',
+        subject_name: 'Math',
+        pass_count: 10,
+        fail_count: 2,
+        total_count: 12,
+        pass_rate: 83.33,
+        average_score: 75,
+      },
+    ];
+    mockGradeAnalytics.subjectDifficultyTrend.mockResolvedValue(trend);
+
+    const result = await controller.subjectDifficulty(tenantContext, {
+      by: 'term',
+      subject_id: 'math',
+      terms: 4,
+    });
+
+    expect(mockGradeAnalytics.subjectDifficultyTrend).toHaveBeenCalledWith(
+      TENANT_ID,
+      'math',
+      4,
+      undefined,
+    );
+    expect(result).toEqual({
+      data: trend,
+      meta: { generated_at: expect.any(String) },
+    });
+  });
+
+  it('should throw BadRequestException when by=term without subject_id', async () => {
+    await expect(controller.subjectDifficulty(tenantContext, { by: 'term' })).rejects.toThrow(
+      'subject_id is required when by=term',
+    );
   });
 
   it('should call gradeAnalytics.gpaDistribution', async () => {

@@ -2,6 +2,15 @@ import { Injectable } from '@nestjs/common';
 
 import { ReportsDataAccessService } from './reports-data-access.service';
 
+// ─── Description keys (declared here for impl 22 translation sweep) ─────────
+// reports.description.demographics =
+//   "Breakdown of student population by nationality, gender, age, and
+//    enrolment status."
+// reports.description.demographics.year_group_trend =
+//   "Year group size over time — month-by-month headcount including entries
+//    and exits. Drill-down from the year-group-sizes view."
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface NationalityBreakdownEntry {
   nationality: string;
   count: number;
@@ -43,6 +52,13 @@ export interface StatusDistributionEntry {
   status: string;
   count: number;
   percentage: number;
+}
+
+export interface YearGroupTrendDataPoint {
+  month: string;
+  total_students: number;
+  new_entries: number;
+  exits: number;
 }
 
 @Injectable()
@@ -221,5 +237,55 @@ export class DemographicsService {
       count: g._count,
       percentage: total > 0 ? Number(((g._count / total) * 100).toFixed(2)) : 0,
     }));
+  }
+
+  /**
+   * Month-over-month headcount for a single year group across the last
+   * `months` months (default 12), with the count of new entries and exits per
+   * month. The "total_students" column counts students considered enrolled on
+   * the first day of each month — entry_date ≤ month AND (exit_date is null
+   * OR exit_date > month). Used by the hub's drill-down into year-group
+   * trends (Wave 4 impl 15).
+   */
+  async getEnrolmentTrendByYearGroup(
+    tenantId: string,
+    yearGroupId: string,
+    months = 12,
+  ): Promise<YearGroupTrendDataPoint[]> {
+    const students = (await this.dataAccess.findStudents(tenantId, {
+      where: { year_group_id: yearGroupId },
+      select: { id: true, entry_date: true, exit_date: true },
+    })) as Array<{ id: string; entry_date: Date | null; exit_date: Date | null }>;
+
+    const now = new Date();
+    const monthBuckets: Array<{ month: string; anchor: Date }> = [];
+    for (let i = months - 1; i >= 0; i--) {
+      const anchor = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthBuckets.push({ month: anchor.toISOString().slice(0, 7), anchor });
+    }
+
+    return monthBuckets.map(({ month, anchor }) => {
+      const nextMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1);
+      let total = 0;
+      let newEntries = 0;
+      let exits = 0;
+
+      for (const student of students) {
+        const entry = student.entry_date ? new Date(student.entry_date) : null;
+        const exit = student.exit_date ? new Date(student.exit_date) : null;
+
+        if ((!entry || entry <= anchor) && (!exit || exit > anchor)) {
+          total++;
+        }
+        if (entry && entry >= anchor && entry < nextMonth) {
+          newEntries++;
+        }
+        if (exit && exit >= anchor && exit < nextMonth) {
+          exits++;
+        }
+      }
+
+      return { month, total_students: total, new_entries: newEntries, exits };
+    });
   }
 }

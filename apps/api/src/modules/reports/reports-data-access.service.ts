@@ -18,9 +18,19 @@ import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─── Cross-module read-only data access for Reports & Dashboard ──────────────
 //
-// This service centralises ALL cross-module reads that the reports
-// and dashboard analytics services need. All cross-module reads now
-// delegate to the owning module's ReadFacade.
+// This service centralises ALL cross-module reads that the reports and
+// dashboard analytics services need. Every method:
+//   1. Delegates to the owning module's `*ReadFacade` — this file contains no
+//      direct `this.prisma.X` reads.
+//   2. Takes `tenantId: string` as its first parameter and always passes it
+//      through to the facade, which then enforces `tenant_id: tenantId` in
+//      its `where` clause. Reads are tenant-scoped at the application layer.
+//   3. Returns plain JS types (`number`, `string`, `unknown[]`). Prisma's
+//      Decimal is coerced to `number` by the facades' aggregate helpers.
+//
+// Method-level doc comments below name each caller + the shape returned so
+// Wave 4 UI impls can audit the surface without cross-referencing every
+// call site.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─── Return types ────────────────────────────────────────────────────────────
@@ -64,10 +74,20 @@ export class ReportsDataAccessService {
 
   // ─── Students ──────────────────────────────────────────────────────────────
 
+  /**
+   * Count students matching an optional `where` clause. Callers:
+   * `AdmissionsAnalyticsService.pipelineFunnel`, `DemographicsService.yearGroupSizes`,
+   * `AttendanceAnalyticsService.attendanceTrends`. Returns `number`.
+   */
   async countStudents(tenantId: string, where?: Prisma.StudentWhereInput): Promise<number> {
     return this.studentReadFacade.count(tenantId, where);
   }
 
+  /**
+   * One-shot status breakdown (`active`, `total`, `applicants`). Callers:
+   * `UnifiedDashboardService.getKpiDashboard` (legacy shape, retained for
+   * `getMetricValue` compatibility).
+   */
   async countStudentsByStatus(tenantId: string): Promise<StudentCountResult> {
     const [active, total, applicants] = await Promise.all([
       this.studentReadFacade.count(tenantId, { status: 'active' }),
@@ -77,6 +97,12 @@ export class ReportsDataAccessService {
     return { active, total, applicants };
   }
 
+  /**
+   * Generic `findMany` for students. Callers: all domain services
+   * (attendance/grade/demographics/student-progress) for cross-join lookups.
+   * The caller supplies `select`; returns `unknown[]` — narrow at call site
+   * to the shape your `select` requested.
+   */
   async findStudents(
     tenantId: string,
     options: {
@@ -90,6 +116,10 @@ export class ReportsDataAccessService {
     return this.studentReadFacade.findManyGeneric(tenantId, options);
   }
 
+  /**
+   * Single-student lookup by id. Callers: `StudentProgressService.getStudentProgress`
+   * and subject-registry student resolver. Returns `unknown | null`.
+   */
   async findStudentById(
     tenantId: string,
     studentId: string,
@@ -112,6 +142,8 @@ export class ReportsDataAccessService {
   }
 
   // ─── Staff Profiles ────────────────────────────────────────────────────────
+  // Callers: StaffAnalyticsService, AttendanceAnalyticsService.teacherMarkingCompliance,
+  // CrossModuleInsightsService.teacherEffectivenessIndex.
 
   async countStaff(tenantId: string, where?: Prisma.StaffProfileWhereInput): Promise<number> {
     return this.staffProfileReadFacade.count(tenantId, where);
@@ -146,6 +178,11 @@ export class ReportsDataAccessService {
   }
 
   // ─── Classes ───────────────────────────────────────────────────────────────
+  // Callers: AttendanceAnalyticsService (class comparison + day-of-week heatmap),
+  // GradeAnalyticsService (filter-by-year-group), DemographicsService.yearGroupSizes.
+  // `findClasses` accepts any ClassWhereInput — pass `status: 'active'` when
+  // you want to exclude archived/deactivated classes. All class types are
+  // returned (homeroom, subject-only, cross-year-group).
 
   async countClasses(tenantId: string, where?: Prisma.ClassWhereInput): Promise<number> {
     return this.classesReadFacade.countClassesGeneric(tenantId, where);
@@ -188,6 +225,9 @@ export class ReportsDataAccessService {
   }
 
   // ─── Attendance ────────────────────────────────────────────────────────────
+  // Callers: AttendanceAnalyticsService (all methods), StudentProgressService
+  // (buildAttendanceTrend + getTrendsByCohort), KPI calculator
+  // kpi-attendance-today, KPI calculator kpi-teacher-submission-compliance.
 
   async groupAttendanceRecordsBy<K extends Prisma.AttendanceRecordScalarFieldEnum>(
     tenantId: string,
@@ -245,6 +285,9 @@ export class ReportsDataAccessService {
   }
 
   // ─── Grades & Assessments ─────────────────────────────────────────────────
+  // Callers: GradeAnalyticsService, StudentProgressService (buildGradeTrends +
+  // getTrendsByCohort), CrossModuleInsightsService, KPI calculator
+  // kpi-grades-submission-lag, KPI calculator kpi-at-risk-students-new.
 
   async findGrades(
     tenantId: string,
@@ -336,6 +379,8 @@ export class ReportsDataAccessService {
   }
 
   // ─── Finance ───────────────────────────────────────────────────────────────
+  // Callers: BoardReportService (revenue aggregation), CrossModuleInsightsService
+  // (cost-per-student), KPI calculators kpi-overdue-invoices.
 
   async findInvoices(
     tenantId: string,
@@ -389,6 +434,8 @@ export class ReportsDataAccessService {
   }
 
   // ─── Admissions ────────────────────────────────────────────────────────────
+  // Callers: AdmissionsAnalyticsService (all methods), KPI calculator
+  // kpi-new-applications-week.
 
   async countApplications(tenantId: string, where?: Prisma.ApplicationWhereInput): Promise<number> {
     return this.admissionsReadFacade.countApplicationsGeneric(tenantId, where);
@@ -408,6 +455,9 @@ export class ReportsDataAccessService {
   }
 
   // ─── Academics ─────────────────────────────────────────────────────────────
+  // Callers: DemographicsService (gender balance, year group sizes),
+  // GradeAnalyticsService.gradeTrends, StudentProgressService.getTrendsByCohort,
+  // AttendanceAnalyticsService.dayOfWeekHeatmap.
 
   async findYearGroups(
     tenantId: string,

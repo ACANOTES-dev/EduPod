@@ -476,5 +476,188 @@ describe('GradeAnalyticsService', () => {
 
       expect(mockDataAccess.findAssessments).toHaveBeenCalledWith(TENANT_ID, expect.any(Object));
     });
+
+    it('should not leak grades from a different tenant via subjectDifficultyTrend', async () => {
+      const OTHER_TENANT = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+      mockDataAccess.findGrades.mockImplementation((tenantId: string) =>
+        tenantId === TENANT_ID
+          ? [
+              {
+                raw_score: '80',
+                student_id: 's1',
+                assessment: {
+                  max_score: '100',
+                  academic_period_id: 'p1',
+                  subject: { id: 'subj-1', name: 'Math' },
+                  academic_period: { name: 'Term 1', start_date: new Date('2026-01-01') },
+                },
+              },
+            ]
+          : [],
+      );
+
+      const leak = await service.subjectDifficultyTrend(OTHER_TENANT, 'subj-1');
+      expect(leak).toEqual([]);
+    });
+  });
+
+  describe('subjectDifficultyTrend', () => {
+    it('returns empty array when no grades match', async () => {
+      mockDataAccess.findGrades.mockResolvedValue([]);
+
+      const result = await service.subjectDifficultyTrend(TENANT_ID, 'subj-1');
+
+      expect(result).toEqual([]);
+    });
+
+    it('aggregates pass/fail + average score per academic period', async () => {
+      mockDataAccess.findGrades.mockResolvedValue([
+        {
+          raw_score: '80',
+          student_id: 's1',
+          assessment: {
+            max_score: '100',
+            academic_period_id: 'p1',
+            subject: { id: 'subj-1', name: 'Math' },
+            academic_period: { name: 'Term 1', start_date: new Date('2026-01-01') },
+          },
+        },
+        {
+          raw_score: '40',
+          student_id: 's2',
+          assessment: {
+            max_score: '100',
+            academic_period_id: 'p1',
+            subject: { id: 'subj-1', name: 'Math' },
+            academic_period: { name: 'Term 1', start_date: new Date('2026-01-01') },
+          },
+        },
+        {
+          raw_score: '90',
+          student_id: 's1',
+          assessment: {
+            max_score: '100',
+            academic_period_id: 'p2',
+            subject: { id: 'subj-1', name: 'Math' },
+            academic_period: { name: 'Term 2', start_date: new Date('2026-04-01') },
+          },
+        },
+      ]);
+
+      const result = await service.subjectDifficultyTrend(TENANT_ID, 'subj-1');
+
+      expect(result).toHaveLength(2);
+      const term1 = result.find((r) => r.period_label === 'Term 1');
+      expect(term1?.pass_count).toBe(1);
+      expect(term1?.fail_count).toBe(1);
+      expect(term1?.pass_rate).toBe(50);
+      expect(term1?.average_score).toBe(60);
+
+      const term2 = result.find((r) => r.period_label === 'Term 2');
+      expect(term2?.pass_count).toBe(1);
+      expect(term2?.fail_count).toBe(0);
+      expect(term2?.pass_rate).toBe(100);
+    });
+
+    it('orders results chronologically by academic period start_date', async () => {
+      mockDataAccess.findGrades.mockResolvedValue([
+        {
+          raw_score: '90',
+          student_id: 's1',
+          assessment: {
+            max_score: '100',
+            academic_period_id: 'p-later',
+            subject: { id: 'subj-1', name: 'Math' },
+            academic_period: { name: 'Term 3', start_date: new Date('2026-09-01') },
+          },
+        },
+        {
+          raw_score: '80',
+          student_id: 's2',
+          assessment: {
+            max_score: '100',
+            academic_period_id: 'p-earlier',
+            subject: { id: 'subj-1', name: 'Math' },
+            academic_period: { name: 'Term 1', start_date: new Date('2026-01-01') },
+          },
+        },
+      ]);
+
+      const result = await service.subjectDifficultyTrend(TENANT_ID, 'subj-1');
+
+      expect(result[0]?.period_label).toBe('Term 1');
+      expect(result[1]?.period_label).toBe('Term 3');
+    });
+
+    it('caps results to the last N terms when `terms` is provided', async () => {
+      mockDataAccess.findGrades.mockResolvedValue([
+        {
+          raw_score: '60',
+          student_id: 's1',
+          assessment: {
+            max_score: '100',
+            academic_period_id: 'p1',
+            subject: { id: 'subj-1', name: 'Math' },
+            academic_period: { name: 'Term 1', start_date: new Date('2026-01-01') },
+          },
+        },
+        {
+          raw_score: '70',
+          student_id: 's1',
+          assessment: {
+            max_score: '100',
+            academic_period_id: 'p2',
+            subject: { id: 'subj-1', name: 'Math' },
+            academic_period: { name: 'Term 2', start_date: new Date('2026-04-01') },
+          },
+        },
+        {
+          raw_score: '80',
+          student_id: 's1',
+          assessment: {
+            max_score: '100',
+            academic_period_id: 'p3',
+            subject: { id: 'subj-1', name: 'Math' },
+            academic_period: { name: 'Term 3', start_date: new Date('2026-09-01') },
+          },
+        },
+      ]);
+
+      const result = await service.subjectDifficultyTrend(TENANT_ID, 'subj-1', 2);
+
+      expect(result).toHaveLength(2);
+      // Keeps the 2 most recent terms.
+      expect(result[0]?.period_label).toBe('Term 2');
+      expect(result[1]?.period_label).toBe('Term 3');
+    });
+
+    it('skips grades with no subject or no period', async () => {
+      mockDataAccess.findGrades.mockResolvedValue([
+        {
+          raw_score: '80',
+          student_id: 's1',
+          assessment: {
+            max_score: '100',
+            academic_period_id: 'p1',
+            subject: null,
+            academic_period: { name: 'Term 1', start_date: new Date('2026-01-01') },
+          },
+        },
+        {
+          raw_score: '80',
+          student_id: 's1',
+          assessment: {
+            max_score: '100',
+            academic_period_id: 'p1',
+            subject: { id: 'subj-1', name: 'Math' },
+            academic_period: null,
+          },
+        },
+      ]);
+
+      const result = await service.subjectDifficultyTrend(TENANT_ID, 'subj-1');
+
+      expect(result).toEqual([]);
+    });
   });
 });

@@ -279,5 +279,87 @@ describe('DemographicsService', () => {
         expect.any(Object),
       );
     });
+
+    it('should pass tenantId to findStudents in getEnrolmentTrendByYearGroup', async () => {
+      await service.getEnrolmentTrendByYearGroup(TENANT_ID, 'yg-1', 3);
+
+      expect(mockDataAccess.findStudents).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({ where: { year_group_id: 'yg-1' } }),
+      );
+    });
+
+    it('should NOT leak data from a different tenant via findStudents', async () => {
+      const OTHER_TENANT_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+      // Data access returns only rows scoped to the requested tenant;
+      // mock assumes the facade correctly filters by tenant_id and returns
+      // an empty result for the wrong tenant.
+      mockDataAccess.findStudents.mockImplementation((tenantId: string) =>
+        tenantId === TENANT_ID ? [{ id: 'stu-1', entry_date: null, exit_date: null }] : [],
+      );
+
+      const leak = await service.getEnrolmentTrendByYearGroup(OTHER_TENANT_ID, 'yg-1', 3);
+
+      // Every month bucket should have zero students because the tenant
+      // doesn't own any rows.
+      expect(leak.every((m) => m.total_students === 0)).toBe(true);
+    });
+  });
+
+  describe('getEnrolmentTrendByYearGroup', () => {
+    it('returns `months` bucket entries in chronological order', async () => {
+      mockDataAccess.findStudents.mockResolvedValue([]);
+
+      const result = await service.getEnrolmentTrendByYearGroup(TENANT_ID, 'yg-1', 3);
+
+      expect(result).toHaveLength(3);
+      // Ascending month order (oldest first).
+      expect(result[0]?.month.localeCompare(result[2]?.month ?? '')).toBeLessThan(0);
+    });
+
+    it('counts students enrolled on first of month (entry<=month, no exit)', async () => {
+      const priorMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+      mockDataAccess.findStudents.mockResolvedValue([
+        { id: 'stu-1', entry_date: priorMonth, exit_date: null },
+      ]);
+
+      const result = await service.getEnrolmentTrendByYearGroup(TENANT_ID, 'yg-1', 3);
+
+      const current = result[result.length - 1];
+      expect(current?.total_students).toBe(1);
+    });
+
+    it('counts new_entries only in the month of entry_date', async () => {
+      const thisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 15);
+      mockDataAccess.findStudents.mockResolvedValue([
+        { id: 'stu-1', entry_date: thisMonth, exit_date: null },
+      ]);
+
+      const result = await service.getEnrolmentTrendByYearGroup(TENANT_ID, 'yg-1', 3);
+
+      const current = result[result.length - 1];
+      expect(current?.new_entries).toBe(1);
+    });
+
+    it('counts exits only in the month of exit_date', async () => {
+      const priorMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+      const thisMonthMid = new Date(new Date().getFullYear(), new Date().getMonth(), 15);
+      mockDataAccess.findStudents.mockResolvedValue([
+        { id: 'stu-1', entry_date: priorMonth, exit_date: thisMonthMid },
+      ]);
+
+      const result = await service.getEnrolmentTrendByYearGroup(TENANT_ID, 'yg-1', 3);
+
+      const current = result[result.length - 1];
+      expect(current?.exits).toBe(1);
+    });
+
+    it('defaults to 12 months when no count is passed', async () => {
+      mockDataAccess.findStudents.mockResolvedValue([]);
+
+      const result = await service.getEnrolmentTrendByYearGroup(TENANT_ID, 'yg-1');
+
+      expect(result).toHaveLength(12);
+    });
   });
 });
