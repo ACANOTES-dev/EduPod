@@ -7,7 +7,7 @@ import * as React from 'react';
 import { REGULATORY_DOMAINS } from '@school/shared/regulatory';
 import { Button, Drawer, StatusBadge, toast } from '@school/ui';
 
-import { apiClient } from '@/lib/api-client';
+import { apiClient, unwrap } from '@/lib/api-client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -124,9 +124,12 @@ export function SubmissionDetailDrawer({
     }
     let cancelled = false;
     setIsLoading(true);
-    apiClient<SubmissionDetail>(`/api/v1/regulatory/submissions/${submissionId}`, { silent: true })
+    apiClient<{ data: SubmissionDetail } | SubmissionDetail>(
+      `/api/v1/regulatory/submissions/${submissionId}`,
+      { silent: true },
+    )
       .then((res) => {
-        if (!cancelled) setDetail(res);
+        if (!cancelled) setDetail(unwrap(res));
       })
       .catch((err) => {
         if (cancelled) return;
