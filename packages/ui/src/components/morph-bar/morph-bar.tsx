@@ -72,6 +72,7 @@ export const MorphBar = React.forwardRef<HTMLElement, MorphBarProps>(
             <button
               type="button"
               onClick={onHamburgerClick}
+              aria-label="Open navigation menu"
               className="lg:hidden flex items-center justify-center p-3 lg:p-2 -ms-2 text-[var(--color-bar-text)] hover:text-[var(--color-text-primary)] hover:bg-black/5 rounded-full transition-colors"
             >
               <svg
@@ -127,6 +128,7 @@ export const MorphBar = React.forwardRef<HTMLElement, MorphBarProps>(
           </div>
           <button
             type="button"
+            aria-label="Search"
             className="lg:hidden flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-bar-text)] hover:bg-black/5 hover:text-[var(--color-text-primary)] transition-colors"
             onClick={onSearchClick}
           >
@@ -138,6 +140,11 @@ export const MorphBar = React.forwardRef<HTMLElement, MorphBarProps>(
           ) : (
             <button
               onClick={onNotificationClick}
+              aria-label={
+                notificationCount > 0
+                  ? `Notifications — ${notificationCount} unread`
+                  : 'Notifications'
+              }
               className="group relative rounded-pill p-1.5 text-[var(--color-bar-text)] transition-colors hover:bg-black/5 hover:text-[var(--color-text-primary)]"
             >
               <Bell className="h-5 w-5 group-hover:animate-[bounce_300ms_ease-in-out_1]" />
@@ -153,6 +160,7 @@ export const MorphBar = React.forwardRef<HTMLElement, MorphBarProps>(
           ) : (
             <button
               onClick={onUserClick}
+              aria-label={userName ? `Account menu — ${userName}` : 'Account menu'}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-secondary)] text-xs font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-hover)] ms-1 overflow-hidden"
             >
               {userAvatar ? (
