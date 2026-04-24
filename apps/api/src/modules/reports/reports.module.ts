@@ -33,6 +33,8 @@ import {
   StaffingSectionAggregator,
 } from './board-report/sections';
 import { BoardReportService } from './board-report.service';
+import { ComplianceGenerationService } from './compliance-report/compliance-generation.service';
+import { ComplianceReportController } from './compliance-report/compliance-report.controller';
 import { ComplianceReportService } from './compliance-report.service';
 import { CrossModuleInsightsService } from './cross-module-insights.service';
 import { CustomReportBuilderService } from './custom-report-builder.service';
@@ -82,6 +84,11 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     // `/v1/reports/builder/draft` (interpreting `draft` as a UUID).
     SavedReportDraftController,
     SubjectRegistryController,
+    // ComplianceReportController (impl 07) owns `/v1/reports/compliance/
+    // generate` and `/v1/reports/compliance/history`. Registered before
+    // ReportsEnhancedController so its routes aren't shadowed by the
+    // compliance-template routes that live on the enhanced controller.
+    ComplianceReportController,
     ReportsEnhancedController,
   ],
   providers: [
@@ -109,6 +116,10 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     FinanceSectionAggregator,
     StaffingSectionAggregator,
     ComplianceReportService,
+    // impl 07: generation orchestrator — loads the aggregator registry,
+    // runs every aggregator inside one RLS transaction, persists an audit
+    // row to `compliance_report_generations`.
+    ComplianceGenerationService,
     ScheduledReportsService,
     ReportAlertsService,
     AiReportNarratorService,
