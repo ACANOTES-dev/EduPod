@@ -20,6 +20,8 @@ import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { StudentsModule } from '../students/students.module';
 
 import { AdmissionsAnalyticsService } from './admissions-analytics.service';
+import { AiAskAiController } from './ai-ask-ai/ai-ask-ai.controller';
+import { AiAskAiService } from './ai-ask-ai/ai-ask-ai.service';
 import { AiPredictionsController } from './ai-predictions.controller';
 import { AiPredictionsService } from './ai-predictions.service';
 import { AiReportNarratorService } from './ai-report-narrator.service';
@@ -103,6 +105,10 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     // declares `student-risk/bulk` before the dynamic `student-risk/:id`
     // (route-order lesson from impl 02's `builder/draft` fix).
     AiPredictionsController,
+    // AiAskAiController (impl 11) owns `/v1/reports/ai-ask-ai*`. Registered
+    // before ReportsEnhancedController so its specific path prefix is
+    // matched ahead of any dynamic segment on the enhanced controller.
+    AiAskAiController,
     ReportsEnhancedController,
   ],
   providers: [
@@ -138,6 +144,9 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     ReportAlertsService,
     AiReportNarratorService,
     AiPredictionsService,
+    // Ask-AI service (impl 11) — translates natural-language questions
+    // into builder query proposals via the curated subject registry.
+    AiAskAiService,
     ReportExportService,
     // Subject registry + query engine + builder drafts (impl 02)
     ReportsSubjectRegistryService,
