@@ -66,9 +66,13 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
   ],
   controllers: [
     ReportsController,
-    ReportsEnhancedController,
-    SubjectRegistryController,
+    // The draft controller must be registered before ReportsEnhancedController:
+    // Express matches routes in registration order and the enhanced controller
+    // has `@Get('builder/:reportId')` which otherwise intercepts
+    // `/v1/reports/builder/draft` (interpreting `draft` as a UUID).
     SavedReportDraftController,
+    SubjectRegistryController,
+    ReportsEnhancedController,
   ],
   providers: [
     ReportsDataAccessService,
