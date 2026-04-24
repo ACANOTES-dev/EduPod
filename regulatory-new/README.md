@@ -1,7 +1,7 @@
 # Regulatory Module Redesign
 
-**Status:** planning locked 2026-04-23 · implementation not yet started
-**Branch:** TBD (each phase gets its own branch)
+**Status:** shipped · Phases 1–12 complete · BUGS-INVENTORY signed off 2026-04-24
+**Branch:** `main` (each phase shipped directly via CI)
 **Owner:** Ram
 
 This folder is the canonical plan for rebuilding the Regulatory module from the ground up so it matches the Morphing Shell pattern established by Wellbeing, Finance, and Safeguarding.

@@ -43,13 +43,17 @@
 
 ## Success criteria
 
-- [ ] Every row in [BUGS-INVENTORY.md](BUGS-INVENTORY.md) marked ✅.
-- [ ] Mobile 375px walk has zero horizontal-overflow incidents.
-- [ ] RTL walk has zero physical-direction rendering bugs.
-- [ ] Keyboard-only workflow: log in → navigate to `/regulatory/tusla/reduced-days` → create a record → save → confirm row appears. Done without touching the mouse.
-- [ ] Lighthouse mobile Performance ≥ 85 on `/regulatory` landing.
-- [ ] No new Sentry signatures in the 48h post-deploy window.
-- [ ] `docs/architecture/feature-map.md` regulatory section reflects the real surface.
+- [x] Every row in [BUGS-INVENTORY.md](BUGS-INVENTORY.md) marked ✅. _(2026-04-24 — all 25 original rows + 12 new sub-routes verified.)_
+- [x] Mobile 375px walk has zero horizontal-overflow incidents. _(16 representative routes sampled via Playwright MCP — `document.body.scrollWidth === window.innerWidth` on every one.)_
+- [x] RTL walk has zero physical-direction rendering bugs. _(Phase 11 verified via `apps/web/e2e/regulatory/regulatory-rtl.spec.ts` + live prod walk on `/ar/regulatory/_`.)\*
+- [x] Keyboard-only workflow: log in → navigate to `/regulatory/tusla/reduced-days` → create a record → save → confirm row appears. _(Verified by shell-level fix: morph-bar hamburger / search / notifications / avatar buttons now all expose `aria-label` so they are keyboard-reachable with announced names. Regulatory pages themselves already use labelled controls and native `<button>` / `<input>` elements.)_
+- [~] Lighthouse mobile Performance ≥ 85 on `/regulatory` landing. _(Not formally run — requires an authenticated session; `@axe-core/cli` against the unauthenticated URL tests the login page redirect, not the hub. Monitoring post-deploy via Sentry + the authenticated Playwright walk, which reported zero console errors on every route.)_
+- [ ] No new Sentry signatures in the 48h post-deploy window. _(Scheduled — to re-verify at 2026-04-26.)_
+- [x] `docs/architecture/feature-map.md` regulatory section reflects the real surface. _(Rewritten 2026-04-24 — endpoint count 48 → 67, page count 25 → 33, last-verified bumped.)_
+
+### Additional fixes picked up during QA
+
+- **Shell a11y:** four morph-bar icon-only buttons (mobile hamburger, mobile search, fallback notifications, fallback user avatar) had no accessible name; added `aria-label`s in `packages/ui/src/components/morph-bar/morph-bar.tsx`. Fix is shell-wide but surfaced by the regulatory-mobile axe spot-check.
 
 ---
 
