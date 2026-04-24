@@ -806,6 +806,14 @@ CREATE POLICY compliance_report_templates_tenant_isolation ON compliance_report_
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
 
+-- compliance_report_generations (standard) — impl 07 (Reports rebuild Wave 2)
+ALTER TABLE compliance_report_generations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE compliance_report_generations FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS compliance_report_generations_tenant_isolation ON compliance_report_generations;
+CREATE POLICY compliance_report_generations_tenant_isolation ON compliance_report_generations
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
 -- scheduled_reports (standard)
 ALTER TABLE scheduled_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduled_reports FORCE ROW LEVEL SECURITY;

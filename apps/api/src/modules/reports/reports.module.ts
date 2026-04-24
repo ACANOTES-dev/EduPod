@@ -22,6 +22,16 @@ import { AdmissionsAnalyticsService } from './admissions-analytics.service';
 import { AiPredictionsService } from './ai-predictions.service';
 import { AiReportNarratorService } from './ai-report-narrator.service';
 import { AttendanceAnalyticsService } from './attendance-analytics.service';
+import {
+  AcademicSectionAggregator,
+  AttendanceSectionAggregator,
+  BehaviourSectionAggregator,
+  EnrolmentSectionAggregator,
+  ExecutiveSummarySectionAggregator,
+  FinanceSectionAggregator,
+  SafeguardingSectionAggregator,
+  StaffingSectionAggregator,
+} from './board-report/sections';
 import { BoardReportService } from './board-report.service';
 import { ComplianceReportService } from './compliance-report.service';
 import { CrossModuleInsightsService } from './cross-module-insights.service';
@@ -87,6 +97,17 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     StaffAnalyticsService,
     CustomReportBuilderService,
     BoardReportService,
+    // impl 06: per-section aggregators injected into BoardReportService.
+    // Each runs inside a single `createRlsClient` transaction to build
+    // one section of the board packet.
+    ExecutiveSummarySectionAggregator,
+    EnrolmentSectionAggregator,
+    AttendanceSectionAggregator,
+    AcademicSectionAggregator,
+    BehaviourSectionAggregator,
+    SafeguardingSectionAggregator,
+    FinanceSectionAggregator,
+    StaffingSectionAggregator,
     ComplianceReportService,
     ScheduledReportsService,
     ReportAlertsService,
