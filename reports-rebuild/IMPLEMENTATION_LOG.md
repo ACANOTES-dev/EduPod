@@ -207,7 +207,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed`   | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
 | 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `deploying`   |                                |            |
 | 06  | Board Report aggregation                              | 2    | 01             | `in-progress` |                                |            |
-| 07  | Compliance Report aggregation                         | 2    | 01             | `in-progress` |                                |            |
+| 07  | Compliance Report aggregation                         | 2    | 01             | `deploying`   |                                |            |
 | 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `pending`     |                                |            |
 | 09  | Report Alerts Worker                                  | 3    | 01, 03         | `pending`     |                                |            |
 | 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `pending`     |                                |            |
