@@ -131,7 +131,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | #   | Title                                                 | Wave | Depends on     | Status      | Completed at                   | Commit SHA |
 | --- | ----------------------------------------------------- | ---- | -------------- | ----------- | ------------------------------ | ---------- |
 | 01  | Schema foundation                                     | 1    | —              | `completed` | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
-| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `deploying` |                                |            |
+| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed` | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
 | 03  | KPI Dashboard Service                                 | 2    | 01             | `completed` | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
 | 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed` | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
 | 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `pending`   |                                |            |
@@ -406,3 +406,84 @@ export` endpoint streams `Content-Type`/`Content-Disposition` via
     (42 % and 51 % lines respectively) which is impl 02's debt to fix.
     Final push used `--no-verify` once the CI surface was green (Wave 2
     test debt is impl 02's responsibility, not impl 04's).
+
+### [IMPL 02] — Report Subject Registry + Query Engine
+
+- **Completed:** 2026-04-24T18:45 Europe/Dublin
+- **Commit:** `259dd080` (feat, initial), `51ebdad2` (coverage tests),
+  `76033b5b` (restore `docx` dep), `fcfeb4f3` (route-order fix — final on main)
+- **CI run:** https://github.com/ACANOTES-dev/EduPod/actions/runs/24903208254
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Ships the subject registry + query engine + builder drafts. New
+  `apps/api/src/modules/reports/subject-registry/` contains a
+  `ReportsSubjectRegistryService` that exposes a permission-scoped
+  catalogue of the 11 report subjects (student/staff/household/class/
+  invoice/application/behaviour_incident/safeguarding_concern/
+  attendance_record/grade/payroll_entry). Each subject is a
+  `SubjectAdapter` assembled via the shared `buildAdapter()` helper
+  from per-subject data (descriptor, filterColumnMap, selectFragment,
+  resolver map, Prisma delegate accessor). Owner-tier roles bypass via
+  an `OWNER_SENTINEL_PERMISSION` injected by the controller.
+
+  `QueryEngineService.execute()` validates every field id, compiles the
+  filter tree to Prisma `where` via `compileFilterGroup`, row-cap probes
+  at 50 000, races against a 30-second timeout, and resolves rows
+  through the adapter — all inside a `createRlsClient` interactive
+  transaction.
+
+  Three new HTTP surfaces: `GET /v1/reports/subject-registry[/:key]`,
+  `POST /v1/reports/builder/preview`, `GET|PUT|DELETE
+/v1/reports/builder/draft`. `CustomReportBuilderService.executeReport`
+  rerouted through the engine; legacy `data_source` values emit
+  `REPORT_LEGACY_FORMAT`. Shared `@school/shared/reports` gains
+  `previewQuerySchema` + aligned filter-group types.
+
+  79 new unit tests. Production-smoked: 214-row student preview against
+  NHQS, full draft GET/PUT/DELETE round-trip.
+
+- **Follow-ups:**
+  - **Legacy report migration (Wave 4 / impl 19).** Reports saved with
+    `data_source` in ('students','staff','admissions','attendance',
+    'grades','finance') now throw `REPORT_LEGACY_FORMAT` on execute.
+    The saved-report management UI must offer "open in builder to
+    migrate" for any legacy report.
+  - **Per-subject field catalogues are a minimum set, not exhaustive.**
+    Student has 23 fields, others 7–10. PLAN.md §4.2 describes a much
+    fuller tree. Subsequent impls (especially impl 16 builder UI and
+    impl 11 Ask-AI) may add fields incrementally; every addition must
+    include a resolver + filterColumnMap entry.
+  - **Group-by is validated but not yet compiled.** `QueryEngineService`
+    rejects non-groupable group-by fields and requires aggregation on
+    non-group columns, but `adapter.fetchRows` doesn't switch to
+    `groupBy()` yet — grouping falls back to detail rows. Impl 11/16
+    (Ask-AI + builder UI) will exercise this. A TODO comment marks the
+    extension point.
+  - **SubjectRegistryController + SavedReportDraftController carry
+    class-level `@RequiresPermission`**; the API-surface snapshot
+    reports their per-route `permission` as `null`. That's expected for
+    class-level metadata — not a regression.
+  - **Route order matters.** `SavedReportDraftController` must be
+    registered before `ReportsEnhancedController` in the module; the
+    latter's `@Get('builder/:reportId')` otherwise intercepts
+    `/v1/reports/builder/draft` with a `ParseUUIDPipe` 400. Fixed in
+    `fcfeb4f3`; do not reorder.
+- **Rollback:** `git revert fcfeb4f3 76033b5b 51ebdad2 259dd080`. No DB
+  changes land with this phase — the migration was in impl 01. Reverts
+  are pure code/config.
+- **Session notes:**
+  - The impl 02 commit's original SHA was `259dd080`; it included the
+    bulk of the subject registry + query engine + draft service. The
+    three follow-ups were a forced sequence because a parallel
+    session's `pnpm-lock.yaml` rewrite (commit `c8a668bd`) dropped the
+    `docx` dep needed by impl 04's word-renderer, which my commit
+    didn't touch but whose type-check I had to satisfy. The route-order
+    fix (`fcfeb4f3`) surfaced only during production smoke — pre-push
+    lint/test could not catch it because local tests mock `createRlsClient`
+    and don't exercise Express routing.
+  - Impl 03 and impl 04 were already on main when I started; their
+    commits (`0cc0367b`, `92af91db`) landed subject registry + query
+    engine references that required my files to exist for CI to pass.
+    Effectively impl 02 had to land with or immediately after them —
+    not before. Next time, the lead session should coordinate commit
+    order across wave-parallel impls to avoid this chicken-and-egg.
