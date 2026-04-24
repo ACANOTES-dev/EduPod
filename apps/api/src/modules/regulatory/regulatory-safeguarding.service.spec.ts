@@ -30,31 +30,36 @@ const buildMockFacade = () => ({
   listTuslaReferrals: jest.fn().mockResolvedValue({ rows: [], total: 0 }),
 });
 
-const buildMockPrisma = () => {
-  const prisma = {
-    staffVettingRecord: {
-      count: jest.fn().mockResolvedValue(0),
-      findMany: jest.fn().mockResolvedValue([]),
-      findFirst: jest.fn().mockResolvedValue(null),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    },
-    childProtectionReview: {
-      findFirst: jest.fn().mockResolvedValue(null),
-      findMany: jest.fn().mockResolvedValue([]),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    },
-    dlpRegisterEntry: {
-      count: jest.fn().mockResolvedValue(0),
-      findFirst: jest.fn().mockResolvedValue(null),
-      findMany: jest.fn().mockResolvedValue([]),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    },
+interface MockModel {
+  count: jest.Mock;
+  findMany: jest.Mock;
+  findFirst: jest.Mock;
+  create: jest.Mock;
+  update: jest.Mock;
+  delete: jest.Mock;
+}
+
+interface MockPrisma {
+  staffVettingRecord: MockModel;
+  childProtectionReview: MockModel;
+  dlpRegisterEntry: MockModel;
+  $transaction: jest.Mock;
+}
+
+const buildMockModel = (): MockModel => ({
+  count: jest.fn().mockResolvedValue(0),
+  findMany: jest.fn().mockResolvedValue([]),
+  findFirst: jest.fn().mockResolvedValue(null),
+  create: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+});
+
+const buildMockPrisma = (): MockPrisma => {
+  const prisma: MockPrisma = {
+    staffVettingRecord: buildMockModel(),
+    childProtectionReview: buildMockModel(),
+    dlpRegisterEntry: buildMockModel(),
     $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
   };
   return prisma;
