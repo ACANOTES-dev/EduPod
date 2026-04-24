@@ -2314,7 +2314,10 @@
     "path": "/v1/behaviour/tasks/:id/complete",
     "controller": "BehaviourTasksController",
     "module": "behaviour",
-    "permission": ["behaviour.view", "behaviour.manage"]
+    "permission": [
+      "behaviour.view",
+      "behaviour.manage"
+    ]
   },
   {
     "method": "GET",
@@ -2874,7 +2877,10 @@
     "path": "/v1/diary/:studentId/parent-notes",
     "controller": "HomeworkDiaryController",
     "module": "homework",
-    "permission": ["homework.write_diary", "parent.homework"]
+    "permission": [
+      "homework.write_diary",
+      "parent.homework"
+    ]
   },
   {
     "method": "PATCH",
@@ -7858,7 +7864,10 @@
     "path": "/v1/period-grid",
     "controller": "PeriodGridController",
     "module": "period-grid",
-    "permission": ["schedule.configure_period_grid", "schedule.view_own"]
+    "permission": [
+      "schedule.configure_period_grid",
+      "schedule.view_own"
+    ]
   },
   {
     "method": "POST",
@@ -9192,6 +9201,41 @@
   },
   {
     "method": "POST",
+    "path": "/v1/reports/ai-ask-ai",
+    "controller": "AiAskAiController",
+    "module": "reports",
+    "permission": "reports.ai.ask_ai"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/reports/ai-ask-ai/history",
+    "controller": "AiAskAiController",
+    "module": "reports",
+    "permission": "reports.ai.ask_ai"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/reports/ai-ask-ai/history/:id/mark-saved",
+    "controller": "AiAskAiController",
+    "module": "reports",
+    "permission": "reports.ai.ask_ai"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/reports/ai-narrator/report/:reportKey",
+    "controller": "ReportsEnhancedController",
+    "module": "reports",
+    "permission": "analytics.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/reports/ai-narrator/saved/:savedReportId",
+    "controller": "ReportsEnhancedController",
+    "module": "reports",
+    "permission": "analytics.view"
+  },
+  {
+    "method": "POST",
     "path": "/v1/reports/ai/narrate",
     "controller": "ReportsEnhancedController",
     "module": "reports",
@@ -9241,6 +9285,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/reports/alerts/:alertId/history",
+    "controller": "ReportsEnhancedController",
+    "module": "reports",
+    "permission": "analytics.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/reports/analytics/admissions/funnel",
     "controller": "ReportsEnhancedController",
     "module": "reports",
@@ -9270,6 +9321,13 @@
   {
     "method": "GET",
     "path": "/v1/reports/analytics/admissions/year-group-demand",
+    "controller": "ReportsEnhancedController",
+    "module": "reports",
+    "permission": "analytics.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/reports/analytics/ai-summary",
     "controller": "ReportsEnhancedController",
     "module": "reports",
     "permission": "analytics.view"
@@ -9552,7 +9610,10 @@
     "path": "/v1/reports/builder/:reportId/execute",
     "controller": "ReportsEnhancedController",
     "module": "reports",
-    "permission": ["analytics.manage_reports", "reports.builder"]
+    "permission": [
+      "analytics.manage_reports",
+      "reports.builder"
+    ]
   },
   {
     "method": "DELETE",
@@ -9580,7 +9641,10 @@
     "path": "/v1/reports/builder/preview",
     "controller": "ReportsEnhancedController",
     "module": "reports",
-    "permission": ["analytics.manage_reports", "reports.builder"]
+    "permission": [
+      "analytics.manage_reports",
+      "reports.builder"
+    ]
   },
   {
     "method": "POST",
@@ -9700,6 +9764,34 @@
     "controller": "ReportsController",
     "module": "reports",
     "permission": "analytics.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/reports/predictions/attendance-forecast/:yearGroupId",
+    "controller": "AiPredictionsController",
+    "module": "reports",
+    "permission": "reports.ai.predictions"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/reports/predictions/cash-flow-forecast",
+    "controller": "AiPredictionsController",
+    "module": "reports",
+    "permission": "reports.ai.predictions"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/reports/predictions/student-risk/:studentId",
+    "controller": "AiPredictionsController",
+    "module": "reports",
+    "permission": "reports.ai.predictions"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/reports/predictions/student-risk/bulk",
+    "controller": "AiPredictionsController",
+    "module": "reports",
+    "permission": "reports.ai.predictions"
   },
   {
     "method": "GET",
