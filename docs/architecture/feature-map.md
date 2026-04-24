@@ -2,7 +2,7 @@
 
 > **Purpose**: Complete inventory of every implemented feature, mapped to its code location. This document answers "what does the product do and where does it live?"
 > **Maintenance**: Update only when a feature change is confirmed final. This file is intended to be the architecture-level source of truth for product scope.
-> **Last verified**: 2026-04-23 (Category C — Leave Management UI shipped)
+> **Last verified**: 2026-04-24 (Regulatory module redesign Phases 1-12 shipped — BUGS-INVENTORY signed off)
 
 ---
 
@@ -45,12 +45,12 @@
 | [Early Warning](#33-early-warning)                                                                 | `modules/early-warning/`                                                                                                                                                                                                                  | 8             | 3              | 3           |
 | [SEN](#34-sen)                                                                                     | `modules/sen/`                                                                                                                                                                                                                            | 35            | 10             | —           |
 | [Child Protection](#35-child-protection)                                                           | `modules/child-protection/`                                                                                                                                                                                                               | 12            | —              | —           |
-| [Regulatory](#36-regulatory)                                                                       | `modules/regulatory/`                                                                                                                                                                                                                     | 48            | 25             | —           |
+| [Regulatory](#36-regulatory)                                                                       | `modules/regulatory/`                                                                                                                                                                                                                     | 67            | 33             | —           |
 | [Staff Wellbeing](#37-staff-wellbeing)                                                             | `modules/staff-wellbeing/`                                                                                                                                                                                                                | 24            | 7              | —           |
 | [Inbox & Messaging](#38-inbox--messaging)                                                          | `modules/inbox/`                                                                                                                                                                                                                          | 34            | 10             | 5           |
 | [Wellbeing Super-Hub + AI Flags + Notifications](#39-wellbeing-super-hub--ai-flags--notifications) | `modules/wellbeing-aggregate/`, `modules/ai-flags/`, `modules/wellbeing-notifications/`                                                                                                                                                   | 4             | 2              | —           |
 | [Leave Management](#40-leave-management)                                                           | `modules/leave/`                                                                                                                                                                                                                          | 15            | 5              | —           |
-| **TOTAL**                                                                                          | **40 product domains across 55+ active modules**                                                                                                                                                                                          | **~1,428+**   | **~340+**      | **77+**     |
+| **TOTAL**                                                                                          | **40 product domains across 55+ active modules**                                                                                                                                                                                          | **~1,447+**   | **~348+**      | **77+**     |
 
 ---
 
@@ -1081,36 +1081,53 @@
 
 ## 36. Regulatory
 
-**What it does**: Irish compliance and regulatory operations including regulatory calendar, submissions tracking, Tusla attendance reporting, DES returns, October returns, P-POD sync/import/export/transfers, CBA sync, reduced school day records, anti-bullying reporting support, and compliance dashboards.
+**What it does**: Irish compliance and regulatory operations — the super-hub that stitches together Tusla attendance reporting, DES returns, October returns, PPOD sync/import/export/transfers, CBA sync, reduced school day records, anti-bullying oversight, safeguarding governance registers, GDPR/DSAR management, submissions tracking, and a cross-regulator calendar. Shipped as a 12-phase redesign (`regulatory-new/`) spanning 2026-04-23 to 2026-04-24 that eliminated 5 crash routes, 100+ missing translation keys, and the legacy in-page `RegulatoryNav`, and consolidated the four standalone compliance paths (`/dpa`, `/data-retention`, `/privacy-notices`, `/compliance`) under a single `/regulatory/gdpr/*` sub-hub.
 
-**Backend**: `apps/api/src/modules/regulatory/`
+**Backend**: `apps/api/src/modules/regulatory/` — single monolithic `RegulatoryModule` exposing one `RegulatoryController` under `v1/regulatory/`. The controller delegates to 15 domain services (dashboard, calendar, submissions, tusla, tusla-mappings, des, des-mappings, reduced-days, october-returns, ppod, cba, transfers, anti-bullying, safeguarding, gdpr). Cross-module reads go through each owning facade (behaviour, safeguarding, attendance, academics, schedules, classes, staff-profiles, students, compliance) rather than directly into their Prisma queries.
 
-- Regulatory dashboard and overdue view
-- Calendar events
-- Submission records
-- Tusla absence mappings, threshold monitor, SAR/AAR generation, suspensions, expulsions
-- DES subject mappings, readiness, preview, file generation
-- October returns readiness, preview, and issue lists
-- P-POD status, students, sync log, diff, import, export, sync, transfers
-- CBA status and sync
-- Reduced school days
+**API Endpoints** (prefixed `v1/regulatory/` — **67 total**):
 
-**Frontend**: `apps/web/src/app/[locale]/(school)/regulatory/`
+- Dashboard: `GET /dashboard`, `GET /dashboard/overdue`, `GET /academic-years`
+- Calendar: `GET /calendar`, `POST /calendar`, `PATCH /calendar/:id`, `DELETE /calendar/:id`, `POST /calendar/seed-defaults`
+- Submissions: `GET /submissions`, `GET /submissions/:id`, `POST /submissions`, `PATCH /submissions/:id`
+- Tusla: `GET /tusla/absence-mappings`, `POST /tusla/absence-mappings`, `DELETE /tusla/absence-mappings/:id`, `GET /tusla/threshold-monitor`, `POST /tusla/sar/generate`, `GET /tusla/sar/:id/export`, `POST /tusla/aar/generate`, `GET /tusla/aar/:id/export`, `GET /tusla/suspensions`, `GET /tusla/expulsions`
+- DES returns: `GET /des/subject-mappings`, `POST /des/subject-mappings`, `DELETE /des/subject-mappings/:id`, `GET /des/readiness`, `GET /des/preview/:fileType`, `POST /des/generate/:fileType`
+- Reduced school days: `GET /reduced-school-days`, `POST /reduced-school-days`, `GET /reduced-school-days/:id`, `PATCH /reduced-school-days/:id`
+- October returns: `GET /october-returns/readiness`, `GET /october-returns/preview`, `GET /october-returns/issues`
+- PPOD: `GET /ppod/status`, `GET /ppod/students`, `GET /ppod/sync-log`, `GET /ppod/diff`, `POST /ppod/import`, `POST /ppod/export-csv`, `POST /ppod/sync`, `POST /ppod/sync/:studentId`
+- CBA: `GET /cba/status`, `GET /cba/pending`, `POST /cba/sync`, `POST /cba/sync/:studentId`
+- Transfers: `GET /transfers`, `POST /transfers`, `GET /transfers/:id`, `PATCH /transfers/:id`
+- Anti-bullying: `GET /anti-bullying/summary`
+- Safeguarding registers: `GET /safeguarding/dashboard`, `GET /safeguarding/mandatory-reports`, `GET|POST|PATCH|DELETE /safeguarding/dlp-register[/:id]`, `GET|POST|PATCH|DELETE /safeguarding/staff-vetting[/:id]`, `GET|POST|PATCH|DELETE /safeguarding/cp-reviews[/:id]`
+- GDPR: `GET /gdpr/dashboard` (plus the long-standing `gdpr` module at `v1/gdpr/*` for DSAR CRUD, privacy-notice versions, retention policies, retention holds, DPA acceptance — unchanged)
 
-- Dashboard
-- Calendar
-- Compliance
-- Data retention
-- DPA and privacy-notice entry points
-- Safeguarding link surface
-- Submissions
-- Anti-bullying
-- DES returns and subject mappings
-- October returns
-- P-POD dashboard, import, export, students, sync log, transfers, CBA sync
-- Tusla hub, AAR, SAR, reduced school days
+**Frontend**: `apps/web/src/app/[locale]/(school)/regulatory/` — **33 pages** — all routed through the shared Morphing Shell pattern described in `docs/plans/ux-redesign-final-spec.md`. No per-page sub-strip (ruled off-pattern for this module); every page uses `PageHeader.back` + a KPI strip + (optional) HubTile grid or table, teal accent `from-teal-400 to-teal-600`.
 
-**Depends on**: Attendance, students, behaviour, safeguarding, academics, compliance, reports.
+- Super hub: `/regulatory` (KPI strip + 9 HubTiles)
+- Calendar: `/regulatory/calendar`
+- Submissions: `/regulatory/submissions`
+- Tusla sub-hub: `/regulatory/tusla`, `/regulatory/tusla/sar`, `/regulatory/tusla/aar`, `/regulatory/tusla/reduced-days`, `/regulatory/tusla/mappings`
+- DES returns sub-hub: `/regulatory/des-returns`, `/regulatory/des-returns/subject-mappings`, `/regulatory/des-returns/generate`
+- October returns sub-hub: `/regulatory/october-returns`, `/regulatory/october-returns/preview`, `/regulatory/october-returns/issues`
+- PPOD sub-hub: `/regulatory/ppod`, `/regulatory/ppod/students`, `/regulatory/ppod/sync-log`, `/regulatory/ppod/import`, `/regulatory/ppod/export`
+- CBA: `/regulatory/cba` (moved from `/regulatory/ppod/cba` in Phase 4)
+- Transfers: `/regulatory/transfers`, `/regulatory/transfers/new` (moved from `/regulatory/ppod/transfers*` in Phase 4)
+- Anti-bullying: `/regulatory/anti-bullying` (promoted from redirect stub in Phase 8)
+- Safeguarding sub-hub: `/regulatory/safeguarding`, `/regulatory/safeguarding/annual-review`, `/regulatory/safeguarding/dlp-register`, `/regulatory/safeguarding/mandatory-reporting`, `/regulatory/safeguarding/staff-vetting` (promoted from redirect stub in Phase 9)
+- GDPR sub-hub: `/regulatory/gdpr`, `/regulatory/gdpr/dsar`, `/regulatory/gdpr/dpa-policy`, `/regulatory/gdpr/data-retention`, `/regulatory/gdpr/privacy-notices` (Phase 10 consolidation — replaces the 4 standalone compliance pages)
+
+**Legacy-path redirects** (Phase 10 — `apps/web/next.config.mjs`, 8 entries total, `permanent: false` / 307 until ~2026-07-23 soak window closes):
+
+- `/regulatory/compliance` → `/regulatory/gdpr/dsar`
+- `/regulatory/dpa` → `/regulatory/gdpr/dpa-policy`
+- `/regulatory/data-retention` → `/regulatory/gdpr/data-retention`
+- `/regulatory/privacy-notices` → `/regulatory/gdpr/privacy-notices`
+
+Flip to `permanent: true` / 308 after the soak — tracked as item #23 in `docs/operations/PRE-LAUNCH-CHECKLIST.md`.
+
+**i18n**: full EN/AR parity for every `regulatory.*` key (Phase 11). Date/number formatters are routed through `@/lib/i18n-format.fmtLocale()` on every regulatory page so Arabic locale renders Western digits + Gregorian calendar. Parity enforced by unit test `apps/web/src/__tests__/translation-parity.spec.ts` (zero placeholder `[AR]` values, zero missing keys) and by an RTL route walk at `apps/web/e2e/regulatory/regulatory-rtl.spec.ts` (every `/ar/regulatory/*` route rendered, no `MISSING_MESSAGE` console warnings).
+
+**Depends on**: Attendance (threshold monitor, SAR/AAR data source), behaviour (anti-bullying summary, via `BehaviourModule` facade), safeguarding (safeguarding dashboard, CP reviews), academics (subject mappings, October returns), schedules + classes (calendar cross-referencing), staff-profiles (staff-vetting register), students (PPOD student sync, transfers), compliance + gdpr (GDPR dashboard, DSAR module — Phase 10 consumer).
 
 ---
 
