@@ -354,7 +354,14 @@ describe('AiFlagsService', () => {
 });
 
 function row(
-  moduleKey: 'behaviour' | 'pastoral' | 'staff_wellbeing' | 'early_warning',
+  moduleKey:
+    | 'behaviour'
+    | 'pastoral'
+    | 'staff_wellbeing'
+    | 'early_warning'
+    | 'reports_narration'
+    | 'reports_ask_ai'
+    | 'reports_predictions',
   enabled: boolean,
   updatedBy: string | null = null,
 ) {
