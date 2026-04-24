@@ -99,3 +99,4 @@ apps/solver-py/.ruff_cache/
 Code Review/
 apps/web/public/brand/edupod-logo.svg
 .worktrees/
+reports-rebuild/
