@@ -172,11 +172,62 @@ export interface AiProcessingLogRow {
   created_at: Date;
 }
 
+export interface ActivePrivacyNoticeRow {
+  id: string;
+  version_number: number;
+  effective_date: Date;
+  published_at: Date | null;
+}
+
+export interface ActiveDpaStatusRow {
+  accepted: boolean;
+  current_version: string | null;
+}
+
 // ─── Facade ─────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class GdprReadFacade {
   constructor(private readonly prisma: PrismaService) {}
+
+  // ─── Privacy Notice (active) ──────────────────────────────────────────────
+
+  /**
+   * Fetch the currently published privacy notice version for a tenant.
+   * Used by the GDPR sub-hub dashboard KPI.
+   */
+  async findActivePrivacyNoticeVersion(tenantId: string): Promise<ActivePrivacyNoticeRow | null> {
+    return this.prisma.privacyNoticeVersion.findFirst({
+      where: { tenant_id: tenantId, published_at: { not: null } },
+      select: { id: true, version_number: true, effective_date: true, published_at: true },
+      orderBy: [{ effective_date: 'desc' }, { version_number: 'desc' }],
+    });
+  }
+
+  // ─── DPA acceptance status ────────────────────────────────────────────────
+
+  /**
+   * Report whether the tenant has accepted the latest platform DPA. Returns
+   * `current_version: null` if no DPA version exists in the system yet.
+   */
+  async findDpaAcceptanceStatus(tenantId: string): Promise<ActiveDpaStatusRow> {
+    const latest = await this.prisma.dpaVersion.findFirst({
+      where: { superseded_at: null },
+      orderBy: { effective_date: 'desc' },
+      select: { version: true },
+    });
+
+    if (!latest) {
+      return { accepted: false, current_version: null };
+    }
+
+    const acceptance = await this.prisma.dataProcessingAgreement.findFirst({
+      where: { tenant_id: tenantId, dpa_version: latest.version },
+      select: { id: true },
+    });
+
+    return { accepted: Boolean(acceptance), current_version: latest.version };
+  }
 
   // ─── Consent Records ──────────────────────────────────────────────────────
 

@@ -194,6 +194,17 @@ export class RetentionPoliciesService {
     return { data: results };
   }
 
+  /**
+   * Sum of records past their retention window across every category. Used by
+   * the GDPR sub-hub dashboard to surface a single "items past retention"
+   * KPI. Wraps previewRetention — any per-category counting errors are
+   * swallowed by that function and treated as 0.
+   */
+  async countItemsPastRetention(tenantId: string): Promise<number> {
+    const preview = await this.previewRetention(tenantId);
+    return preview.data.reduce((sum, item) => sum + item.affected_count, 0);
+  }
+
   // ─── Create Hold ──────────────────────────────────────────────────────────
 
   /**

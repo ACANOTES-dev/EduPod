@@ -95,6 +95,7 @@ import { RegulatoryCbaService } from './regulatory-cba.service';
 import { RegulatoryDashboardService } from './regulatory-dashboard.service';
 import { RegulatoryDesMappingsService } from './regulatory-des-mappings.service';
 import { RegulatoryDesService } from './regulatory-des.service';
+import { RegulatoryGdprService } from './regulatory-gdpr.service';
 import { RegulatoryOctoberReturnsService } from './regulatory-october-returns.service';
 import { RegulatoryPpodService } from './regulatory-ppod.service';
 import { RegulatoryReducedDaysService } from './regulatory-reduced-days.service';
@@ -184,6 +185,7 @@ export class RegulatoryController {
     private readonly dashboardService: RegulatoryDashboardService,
     private readonly desMappingsService: RegulatoryDesMappingsService,
     private readonly desService: RegulatoryDesService,
+    private readonly gdprRegulatoryService: RegulatoryGdprService,
     private readonly octoberReturnsService: RegulatoryOctoberReturnsService,
     private readonly ppodService: RegulatoryPpodService,
     private readonly reducedDaysService: RegulatoryReducedDaysService,
@@ -972,6 +974,15 @@ export class RegulatoryController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     await this.safeguardingRegulatoryService.deleteCpReview(tenant.tenant_id, id);
+  }
+
+  // ─── GDPR / Privacy Hub (Phase 10) ────────────────────────────────────────
+
+  // GET /v1/regulatory/gdpr/dashboard
+  @Get('gdpr/dashboard')
+  @RequiresPermission('compliance.view')
+  async getGdprDashboard(@CurrentTenant() tenant: TenantContext) {
+    return this.gdprRegulatoryService.getDashboard(tenant.tenant_id);
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

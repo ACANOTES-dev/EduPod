@@ -11,6 +11,7 @@ import { RegulatoryCbaService } from './regulatory-cba.service';
 import { RegulatoryDashboardService } from './regulatory-dashboard.service';
 import { RegulatoryDesMappingsService } from './regulatory-des-mappings.service';
 import { RegulatoryDesService } from './regulatory-des.service';
+import { RegulatoryGdprService } from './regulatory-gdpr.service';
 import { RegulatoryOctoberReturnsService } from './regulatory-october-returns.service';
 import { RegulatoryPpodService } from './regulatory-ppod.service';
 import { RegulatoryReducedDaysService } from './regulatory-reduced-days.service';
@@ -252,6 +253,10 @@ describe('RegulatoryController', () => {
             updateCpReview: jest.fn(),
             deleteCpReview: jest.fn(),
           },
+        },
+        {
+          provide: RegulatoryGdprService,
+          useValue: { getDashboard: jest.fn() },
         },
       ],
     })

@@ -9532,15 +9532,33 @@
         "warning": "Warning"
       },
       "fields": {
-        "student_count": { "label": "Total student count" },
-        "gender_breakdown": { "label": "Gender breakdown" },
-        "nationality_breakdown": { "label": "Nationality breakdown" },
-        "year_group_enrolment": { "label": "Year group enrolment" },
-        "sen_students": { "label": "SEN students" },
-        "traveller_students": { "label": "Traveller students" },
-        "eal_students": { "label": "EAL students" },
-        "new_entrants": { "label": "New entrants" },
-        "repeat_students": { "label": "Repeat students" }
+        "student_count": {
+          "label": "Total student count"
+        },
+        "gender_breakdown": {
+          "label": "Gender breakdown"
+        },
+        "nationality_breakdown": {
+          "label": "Nationality breakdown"
+        },
+        "year_group_enrolment": {
+          "label": "Year group enrolment"
+        },
+        "sen_students": {
+          "label": "SEN students"
+        },
+        "traveller_students": {
+          "label": "Traveller students"
+        },
+        "eal_students": {
+          "label": "EAL students"
+        },
+        "new_entrants": {
+          "label": "New entrants"
+        },
+        "repeat_students": {
+          "label": "Repeat students"
+        }
       },
       "issueFields": {
         "national_id": "PPSN",
@@ -10127,6 +10145,76 @@
         "viewAll": "View calendar",
         "emptyTitle": "No upcoming deadlines",
         "emptyDescription": "Nothing is due in the next window — the regulatory calendar is clear."
+      }
+    },
+    "gdpr": {
+      "pageTitle": "GDPR & Privacy",
+      "pageDescription": "Data subject requests, privacy notices, retention, and DPA compliance.",
+      "backToRegulatory": "Back to Regulatory",
+      "backToGdpr": "Back to GDPR & Privacy",
+      "loading": "Loading…",
+      "bannerTitle": "Privacy & data-protection oversight",
+      "bannerDescription": "Consolidated view of DSAR workflow, privacy notice versions, retention enforcement, and DPA compliance. Deep actions happen in the individual pages below.",
+      "kpi": {
+        "ariaLabel": "GDPR KPIs",
+        "openDsars": "Open DSARs",
+        "openDsarsTooltip": "DSARs still in triage, classified, or approved but not yet completed.",
+        "overdueDsars": "Overdue DSARs",
+        "overdueDsarsTooltip": "Open DSARs submitted more than 30 days ago — past the GDPR response window.",
+        "privacyNotice": "Privacy notice",
+        "privacyNoticeTooltip": "Currently published privacy notice version for this tenant.",
+        "privacyNoticeValue": "v{version}",
+        "privacyNoticeNone": "Not published",
+        "itemsPastRetention": "Past retention",
+        "itemsPastRetentionTooltip": "Data records across all categories that have passed their retention window."
+      },
+      "tiles": {
+        "ariaLabel": "GDPR sub-pages",
+        "dsar": {
+          "title": "Data Subject Requests",
+          "description": "Access, export, rectification, and deletion requests."
+        },
+        "privacyNotices": {
+          "title": "Privacy Notices",
+          "description": "Draft, publish, and version the tenant privacy notice."
+        },
+        "dataRetention": {
+          "title": "Data Retention",
+          "description": "Retention policies, legal holds, and impact preview."
+        },
+        "dpaPolicy": {
+          "title": "DPA Compliance",
+          "description": "Data-processing agreement versions and acceptance history."
+        }
+      },
+      "recentActivity": {
+        "ariaLabel": "Recent DSAR activity",
+        "title": "Recent DSAR activity",
+        "description": "Last 5 data subject requests.",
+        "empty": "No DSAR activity yet."
+      },
+      "requestType": {
+        "data_export": "Data export",
+        "data_deletion": "Data deletion",
+        "data_access": "Data access",
+        "data_rectification": "Data rectification"
+      },
+      "subjectType": {
+        "student": "Student",
+        "parent": "Parent",
+        "staff": "Staff"
+      },
+      "status": {
+        "submitted": "Submitted",
+        "classified": "Classified",
+        "approved": "Approved",
+        "completed": "Completed",
+        "rejected": "Rejected"
+      },
+      "auditFooter": {
+        "prefix": "DPA status:",
+        "dpaAccepted": "Accepted (v{version})",
+        "dpaPending": "Pending acceptance"
       }
     }
   },
@@ -16266,27 +16354,6 @@
       "inputSaved": "Your input has been saved.",
       "inputSaveFailed": "Failed to save your input.",
       "planNotFound": "Plan not found."
-    },
-    "professionalType": {
-      "educational_psychologist": "Educational Psychologist",
-      "speech_therapist": "Speech & Language Therapist",
-      "occupational_therapist": "Occupational Therapist",
-      "camhs": "CAMHS",
-      "physiotherapist": "Physiotherapist",
-      "seno": "SENO",
-      "neps": "NEPS",
-      "other": "Other"
-    },
-    "referralStatus": {
-      "pending": "Pending",
-      "scheduled": "Scheduled",
-      "completed": "Completed",
-      "report_received": "Report Received"
-    },
-    "accommodationType": {
-      "exam": "Exam",
-      "classroom": "Classroom",
-      "assistive_technology": "Assistive Technology"
     },
     "transition": {
       "title": "Transition History",

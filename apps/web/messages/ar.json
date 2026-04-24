@@ -9532,15 +9532,33 @@
         "warning": "تحذير"
       },
       "fields": {
-        "student_count": { "label": "إجمالي عدد الطلاب" },
-        "gender_breakdown": { "label": "توزيع الجنس" },
-        "nationality_breakdown": { "label": "توزيع الجنسيات" },
-        "year_group_enrolment": { "label": "تسجيل الصفوف الدراسية" },
-        "sen_students": { "label": "طلاب الاحتياجات الخاصة" },
-        "traveller_students": { "label": "طلاب الرحّل" },
-        "eal_students": { "label": "طلاب اللغة الإنجليزية لغة إضافية" },
-        "new_entrants": { "label": "الطلاب الجدد" },
-        "repeat_students": { "label": "الطلاب المعيدون" }
+        "student_count": {
+          "label": "إجمالي عدد الطلاب"
+        },
+        "gender_breakdown": {
+          "label": "توزيع الجنس"
+        },
+        "nationality_breakdown": {
+          "label": "توزيع الجنسيات"
+        },
+        "year_group_enrolment": {
+          "label": "تسجيل الصفوف الدراسية"
+        },
+        "sen_students": {
+          "label": "طلاب الاحتياجات الخاصة"
+        },
+        "traveller_students": {
+          "label": "طلاب الرحّل"
+        },
+        "eal_students": {
+          "label": "طلاب اللغة الإنجليزية لغة إضافية"
+        },
+        "new_entrants": {
+          "label": "الطلاب الجدد"
+        },
+        "repeat_students": {
+          "label": "الطلاب المعيدون"
+        }
       },
       "issueFields": {
         "national_id": "رقم PPSN",
@@ -10127,6 +10145,76 @@
         "viewAll": "عرض التقويم",
         "emptyTitle": "لا توجد مواعيد نهائية قادمة",
         "emptyDescription": "لا شيء مستحق في النافذة القادمة — التقويم التنظيمي خالٍ."
+      }
+    },
+    "gdpr": {
+      "pageTitle": "حماية البيانات والخصوصية",
+      "pageDescription": "طلبات أصحاب البيانات، وإشعارات الخصوصية، والاحتفاظ، والامتثال لاتفاقية معالجة البيانات.",
+      "backToRegulatory": "العودة إلى الامتثال التنظيمي",
+      "backToGdpr": "العودة إلى حماية البيانات والخصوصية",
+      "loading": "جارٍ التحميل…",
+      "bannerTitle": "الإشراف على الخصوصية وحماية البيانات",
+      "bannerDescription": "عرض موحد لمسار طلبات أصحاب البيانات، وإصدارات إشعار الخصوصية، وتطبيق سياسات الاحتفاظ، والامتثال لاتفاقية معالجة البيانات. تُدار الإجراءات التفصيلية في الصفحات أدناه.",
+      "kpi": {
+        "ariaLabel": "مؤشرات أداء حماية البيانات",
+        "openDsars": "الطلبات المفتوحة",
+        "openDsarsTooltip": "طلبات أصحاب البيانات التي لا تزال في مرحلة التقييم أو التصنيف أو الموافقة دون اكتمالها.",
+        "overdueDsars": "الطلبات المتأخرة",
+        "overdueDsarsTooltip": "طلبات مفتوحة مضى على تقديمها أكثر من 30 يومًا — تجاوزت نافذة الاستجابة في اللائحة العامة لحماية البيانات.",
+        "privacyNotice": "إشعار الخصوصية",
+        "privacyNoticeTooltip": "إصدار إشعار الخصوصية المنشور حاليًا لهذه المؤسسة.",
+        "privacyNoticeValue": "الإصدار {version}",
+        "privacyNoticeNone": "غير منشور",
+        "itemsPastRetention": "تجاوز الاحتفاظ",
+        "itemsPastRetentionTooltip": "سجلات البيانات عبر جميع الفئات التي تجاوزت نافذة الاحتفاظ الخاصة بها."
+      },
+      "tiles": {
+        "ariaLabel": "الصفحات الفرعية لحماية البيانات",
+        "dsar": {
+          "title": "طلبات أصحاب البيانات",
+          "description": "طلبات الوصول والتصدير والتصحيح والحذف."
+        },
+        "privacyNotices": {
+          "title": "إشعارات الخصوصية",
+          "description": "صياغة ونشر وإصدار إشعار خصوصية المؤسسة."
+        },
+        "dataRetention": {
+          "title": "الاحتفاظ بالبيانات",
+          "description": "سياسات الاحتفاظ والإيقافات القانونية ومعاينة الأثر."
+        },
+        "dpaPolicy": {
+          "title": "الامتثال لاتفاقية معالجة البيانات",
+          "description": "إصدارات اتفاقية معالجة البيانات وسجل القبول."
+        }
+      },
+      "recentActivity": {
+        "ariaLabel": "النشاط الأخير لطلبات أصحاب البيانات",
+        "title": "النشاط الأخير",
+        "description": "آخر 5 طلبات من أصحاب البيانات.",
+        "empty": "لا يوجد نشاط بعد."
+      },
+      "requestType": {
+        "data_export": "تصدير البيانات",
+        "data_deletion": "حذف البيانات",
+        "data_access": "الوصول إلى البيانات",
+        "data_rectification": "تصحيح البيانات"
+      },
+      "subjectType": {
+        "student": "طالب",
+        "parent": "ولي أمر",
+        "staff": "موظف"
+      },
+      "status": {
+        "submitted": "مقدَّم",
+        "classified": "مصنَّف",
+        "approved": "موافق عليه",
+        "completed": "مكتمل",
+        "rejected": "مرفوض"
+      },
+      "auditFooter": {
+        "prefix": "حالة اتفاقية معالجة البيانات:",
+        "dpaAccepted": "مقبول ({version})",
+        "dpaPending": "بانتظار القبول"
       }
     }
   },
@@ -15873,22 +15961,22 @@
       "educational_psychologist": "أخصائي نفسي تربوي",
       "speech_therapist": "أخصائي نطق ولغة",
       "occupational_therapist": "أخصائي علاج وظيفي",
-      "camhs": "خدمات الصحة النفسية للأطفال",
+      "camhs": "خدمات الصحة النفسية",
       "physiotherapist": "أخصائي علاج طبيعي",
-      "seno": "مسؤول احتياجات خاصة",
-      "neps": "خدمة علم النفس التربوي",
-      "other": "آخر"
+      "seno": "SENO",
+      "neps": "NEPS",
+      "other": "أخرى"
     },
     "referralStatus": {
-      "pending": "قيد الانتظار",
-      "scheduled": "مجدول",
-      "completed": "مكتمل",
+      "pending": "معلقة",
+      "scheduled": "مجدولة",
+      "completed": "مكتملة",
       "report_received": "تم استلام التقرير"
     },
     "accommodationType": {
-      "exam": "الامتحان",
-      "classroom": "الفصل",
-      "assistive_technology": "التكنولوجيا المساعدة"
+      "exam": "امتحان",
+      "classroom": "صفي",
+      "assistive_technology": "تقنية مساعدة"
     },
     "profile": {
       "coreDetails": "التفاصيل الأساسية",
@@ -16266,27 +16354,6 @@
       "inputSaved": "تم حفظ مدخلاتك.",
       "inputSaveFailed": "فشل حفظ مدخلاتك.",
       "planNotFound": "الخطة غير موجودة."
-    },
-    "professionalType": {
-      "educational_psychologist": "أخصائي نفسي تربوي",
-      "speech_therapist": "أخصائي نطق ولغة",
-      "occupational_therapist": "أخصائي علاج وظيفي",
-      "camhs": "خدمات الصحة النفسية",
-      "physiotherapist": "أخصائي علاج طبيعي",
-      "seno": "SENO",
-      "neps": "NEPS",
-      "other": "أخرى"
-    },
-    "referralStatus": {
-      "pending": "معلقة",
-      "scheduled": "مجدولة",
-      "completed": "مكتملة",
-      "report_received": "تم استلام التقرير"
-    },
-    "accommodationType": {
-      "exam": "امتحان",
-      "classroom": "صفي",
-      "assistive_technology": "تقنية مساعدة"
     },
     "transition": {
       "title": "سجل الانتقال",

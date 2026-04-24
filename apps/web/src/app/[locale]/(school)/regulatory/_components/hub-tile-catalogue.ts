@@ -143,7 +143,7 @@ export const REGULATORY_TILES: RegulatoryTileConfig[] = [
   },
   {
     key: 'gdpr',
-    href: '/regulatory/privacy-notices',
+    href: '/regulatory/gdpr',
     icon: Lock,
     accent: 'from-zinc-400 via-zinc-500 to-zinc-600',
     iconBg: 'bg-zinc-100 text-zinc-700',

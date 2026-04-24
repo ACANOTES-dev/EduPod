@@ -25,6 +25,19 @@ const OPEN_COMPLIANCE_STATUSES: ComplianceRequestStatus[] = [
   ComplianceRequestStatus.approved,
 ];
 
+// GDPR standard response window — 30 days from submission.
+// A DSAR past this window without reaching a terminal state is "overdue".
+const DSAR_OVERDUE_THRESHOLD_DAYS = 30;
+
+export interface RecentDsarRow {
+  id: string;
+  request_type: string;
+  subject_type: string;
+  subject_id: string;
+  status: string;
+  created_at: Date;
+}
+
 @Injectable()
 export class ComplianceReadFacade {
   constructor(private readonly prisma: PrismaService) {}
@@ -39,6 +52,42 @@ export class ComplianceReadFacade {
         tenant_id: tenantId,
         status: { in: OPEN_COMPLIANCE_STATUSES },
       },
+    });
+  }
+
+  /**
+   * Count DSARs that are still open and were submitted more than
+   * DSAR_OVERDUE_THRESHOLD_DAYS ago. Drives the "Overdue DSARs" KPI on the
+   * GDPR sub-hub.
+   */
+  async countOverdueDsarRequests(tenantId: string): Promise<number> {
+    const cutoff = new Date(Date.now() - DSAR_OVERDUE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000);
+    return this.prisma.complianceRequest.count({
+      where: {
+        tenant_id: tenantId,
+        status: { in: OPEN_COMPLIANCE_STATUSES },
+        created_at: { lt: cutoff },
+      },
+    });
+  }
+
+  /**
+   * Return the N most recent DSAR requests (any status) for the GDPR sub-hub
+   * recent-activity feed.
+   */
+  async findRecentDsarRequests(tenantId: string, limit: number): Promise<RecentDsarRow[]> {
+    return this.prisma.complianceRequest.findMany({
+      where: { tenant_id: tenantId },
+      select: {
+        id: true,
+        request_type: true,
+        subject_type: true,
+        subject_id: true,
+        status: true,
+        created_at: true,
+      },
+      orderBy: { created_at: 'desc' },
+      take: limit,
     });
   }
 }

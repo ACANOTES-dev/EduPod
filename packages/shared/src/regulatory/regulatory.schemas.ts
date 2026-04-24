@@ -466,3 +466,27 @@ export const listMandatoryReportsQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 export type ListMandatoryReportsQueryDto = z.infer<typeof listMandatoryReportsQuerySchema>;
+
+// ─── Regulatory GDPR / Privacy Hub (Phase 10) ───────────────────────────────
+
+export const recentDsarRowSchema = z.object({
+  id: z.string().uuid(),
+  request_type: z.string(),
+  subject_type: z.string(),
+  subject_reference: z.string(),
+  status: z.string(),
+  created_at: z.string(),
+});
+export type RecentDsarRow = z.infer<typeof recentDsarRowSchema>;
+
+export const regulatoryGdprDashboardSchema = z.object({
+  open_dsar_count: z.number().int().nonnegative(),
+  overdue_dsar_count: z.number().int().nonnegative(),
+  active_privacy_notice_version: z.number().int().nonnegative().nullable(),
+  active_privacy_notice_effective_date: z.string().nullable(),
+  data_items_past_retention_count: z.number().int().nonnegative(),
+  active_dpa_accepted: z.boolean(),
+  active_dpa_version: z.string().nullable(),
+  recent_dsar_activity: z.array(recentDsarRowSchema),
+});
+export type RegulatoryGdprDashboard = z.infer<typeof regulatoryGdprDashboardSchema>;

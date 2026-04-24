@@ -5,6 +5,7 @@ import { AttendanceModule } from '../attendance/attendance.module';
 import { AuthModule } from '../auth/auth.module';
 import { BehaviourModule } from '../behaviour/behaviour.module';
 import { ClassesModule } from '../classes/classes.module';
+import { ComplianceModule } from '../compliance/compliance.module';
 import { S3Module } from '../s3/s3.module';
 import { SchedulesModule } from '../schedules/schedules.module';
 import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
@@ -22,6 +23,7 @@ import { RegulatoryCbaService } from './regulatory-cba.service';
 import { RegulatoryDashboardService } from './regulatory-dashboard.service';
 import { RegulatoryDesMappingsService } from './regulatory-des-mappings.service';
 import { RegulatoryDesService } from './regulatory-des.service';
+import { RegulatoryGdprService } from './regulatory-gdpr.service';
 import { RegulatoryOctoberReturnsService } from './regulatory-october-returns.service';
 import { RegulatoryPpodService } from './regulatory-ppod.service';
 import { RegulatoryReducedDaysService } from './regulatory-reduced-days.service';
@@ -36,6 +38,7 @@ import { RegulatoryController } from './regulatory.controller';
   imports: [
     AuthModule,
     S3Module,
+    ComplianceModule,
     forwardRef(() => StudentsModule),
     forwardRef(() => StaffProfilesModule),
     forwardRef(() => ClassesModule),
@@ -63,6 +66,7 @@ import { RegulatoryController } from './regulatory.controller';
     RegulatoryDashboardService,
     RegulatoryDesMappingsService,
     RegulatoryDesService,
+    RegulatoryGdprService,
     RegulatoryOctoberReturnsService,
     RegulatoryPpodService,
     RegulatoryReducedDaysService,
