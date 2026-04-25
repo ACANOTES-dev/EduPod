@@ -2517,7 +2517,6 @@
       "fresh": "Fresh",
       "loadError": "We could not load this report. Try again in a moment.",
       "predictionUnparseable": "AI returned an unexpected response. Try regenerating.",
-      "correlationLabel": "Correlation coefficient:",
       "kpi": {
         "totalStudents": "Total Students",
         "attendanceRate": "Attendance Rate",
@@ -2631,7 +2630,8 @@
         "avgStudentGrade": "Avg Student Grade",
         "avgStudentAttendance": "Avg Student Attendance",
         "effectivenessIndex": "Effectiveness Index"
-      }
+      },
+      "correlationLabel": "Correlation coefficient:"
     },
     "attendance": {
       "title": "Attendance Analytics",
