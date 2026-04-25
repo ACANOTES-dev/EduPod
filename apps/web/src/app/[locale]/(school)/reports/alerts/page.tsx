@@ -1,310 +1,285 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Bell, Plus } from 'lucide-react';
+import { Bell, History, Plus, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
-import { Controller, useForm } from 'react-hook-form';
 
-import { createReportAlertSchema, type CreateReportAlertDto } from '@school/shared';
 import {
+  Badge,
   Button,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  EmptyState,
+  Skeleton,
   Switch,
 } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { AlertForm } from './_components/alert-form';
+import { EvaluationHistoryDrawer } from './_components/evaluation-history-drawer';
 
-interface ReportAlert {
+/**
+ * Report Alerts list page (impl 17).
+ *
+ * Lists every report alert configured for the tenant, with row actions:
+ *   - Toggle Active / Paused (PUT `/v1/reports/alerts/:id`)
+ *   - View History (opens the drawer over `GET /:id/history` from impl 09)
+ *   - Delete
+ *   - "+ New alert" opens the create modal
+ *
+ * Error state is explicit — no silent fallback. Per CLAUDE.md "no
+ * silent failures" rule.
+ */
+
+interface ReportAlertRow {
   id: string;
   name: string;
   metric: string;
-  operator: 'lt' | 'gt' | 'eq';
+  operator: string;
   threshold: number;
-  check_frequency: 'daily' | 'weekly';
+  check_frequency: string;
+  notification_recipients_json: string[] | null;
   active: boolean;
   last_triggered_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
-interface AlertsResponse {
-  data: ReportAlert[];
+interface ListResponse {
+  data: ReportAlertRow[];
+  meta: { page: number; pageSize: number; total: number };
 }
 
-const METRICS = [
-  'attendance_rate',
-  'collection_rate',
-  'overdue_invoice_count',
-  'at_risk_student_count',
-  'average_grade',
-  'staff_absence_rate',
-] as const;
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
+const OPERATOR_SYMBOLS: Record<string, string> = {
+  lt: '<',
+  lte: '≤',
+  gt: '>',
+  gte: '≥',
+  eq: '=',
+  ne: '≠',
+};
 
 export default function AlertsPage() {
-  const t = useTranslations('reports');
-  const [alerts, setAlerts] = React.useState<ReportAlert[]>([]);
+  const t = useTranslations('reports.alerts');
+
+  const [items, setItems] = React.useState<ReportAlertRow[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [showCreate, setShowCreate] = React.useState(false);
-  const [saving, setSaving] = React.useState(false);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
-  // ─── Create Form ──────────────────────────────────────────────────────────
-  // recipients_raw is a comma-separated string that gets split before submission
-  const [recipientsRaw, setRecipientsRaw] = React.useState('');
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [drawerAlert, setDrawerAlert] = React.useState<ReportAlertRow | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = React.useState(0);
 
-  const form = useForm<CreateReportAlertDto>({
-    resolver: zodResolver(createReportAlertSchema),
-    defaultValues: {
-      name: '',
-      metric: undefined,
-      operator: 'lt',
-      threshold: 0,
-      check_frequency: 'daily',
-      notification_recipients_json: [],
-      active: true,
-    },
-  });
+  // ─── Fetch list ─────────────────────────────────────────────────────────
 
   React.useEffect(() => {
-    apiClient<AlertsResponse>('/api/v1/reports/alerts?pageSize=20')
-      .then((res) => setAlerts(res.data))
-      .catch((err) => { console.error('[ReportsAlertsPage]', err); })
-      .finally(() => setLoading(false));
-  }, []);
+    setLoading(true);
+    setLoadError(null);
 
-  const toggleAlert = async (id: string, active: boolean) => {
-    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, active } : a)));
+    const controller = new AbortController();
+    apiClient<ListResponse>('/api/v1/reports/alerts?page=1&pageSize=50', {
+      method: 'GET',
+      signal: controller.signal,
+      silent: true,
+    })
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setItems(res.data ?? []);
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        console.error('[AlertsPage]', err);
+        setLoadError(t('listLoadError'));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [refreshTick, t]);
+
+  // ─── Row actions ────────────────────────────────────────────────────────
+
+  const toggleActive = async (id: string, nextActive: boolean) => {
+    setItems((prev) => prev.map((r) => (r.id === id ? { ...r, active: nextActive } : r)));
     try {
       await apiClient(`/api/v1/reports/alerts/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ active }),
+        method: 'PUT',
+        body: JSON.stringify({ active: nextActive }),
+        silent: true,
       });
-    } catch (err) {
-      console.error('[ReportsAlertsPage]', err);
-      setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, active: !active } : a)));
+    } catch (err: unknown) {
+      console.error('[AlertsPage.toggleActive]', err);
+      setItems((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, active: !nextActive } : r)),
+      );
     }
   };
 
-  const handleCreate = form.handleSubmit(async (values) => {
-    setSaving(true);
+  const handleDelete = async (id: string) => {
+    setPendingDeleteId(id);
     try {
-      const payload: CreateReportAlertDto = {
-        ...values,
-        notification_recipients_json: recipientsRaw
-          .split(',')
-          .map((e) => e.trim())
-          .filter(Boolean),
-      };
-      const res = await apiClient<{ data: ReportAlert }>('/api/v1/reports/alerts', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      setAlerts((prev) => [res.data, ...prev]);
-    } catch (err) {
-      console.error('[ReportsAlertsPage]', err);
-      const mock: ReportAlert = {
-        id: crypto.randomUUID(),
-        name: values.name,
-        metric: values.metric,
-        operator: values.operator,
-        threshold: values.threshold,
-        check_frequency: values.check_frequency,
-        active: true,
-        last_triggered_at: null,
-      };
-      setAlerts((prev) => [mock, ...prev]);
+      await apiClient(`/api/v1/reports/alerts/${id}`, { method: 'DELETE', silent: true });
+      setItems((prev) => prev.filter((r) => r.id !== id));
+    } catch (err: unknown) {
+      console.error('[AlertsPage.delete]', err);
     } finally {
-      setSaving(false);
-      setShowCreate(false);
-      setRecipientsRaw('');
-      form.reset();
+      setPendingDeleteId(null);
     }
-  });
+  };
 
-  function operatorLabel(op: 'lt' | 'gt' | 'eq') {
-    return op === 'lt' ? '<' : op === 'gt' ? '>' : '=';
-  }
+  const openHistory = (alert: ReportAlertRow) => {
+    setDrawerAlert(alert);
+    setDrawerOpen(true);
+  };
+
+  const onSaved = () => setRefreshTick((n) => n + 1);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
-        title={t('alerts.title')}
-        description={t('alerts.description')}
+        title={t('title')}
+        description={t('description')}
+        back={{ href: '../', label: t('backToReports') }}
         actions={
-          <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
+          <Button onClick={() => setCreateOpen(true)}>
             <Plus className="me-2 h-4 w-4" />
-            {t('alerts.createButton')}
+            {t('createButton')}
           </Button>
         }
       />
 
-      {/* Create form */}
-      {showCreate && (
-        <form onSubmit={handleCreate}>
-          <section className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:p-6">
-            <h2 className="text-base font-semibold text-text-primary">{t('alerts.createTitle')}</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <Label htmlFor="alert-name">{t('alerts.name')}</Label>
-                <Input
-                  id="alert-name"
-                  {...form.register('name')}
-                  placeholder={t('alerts.namePlaceholder')}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>{t('alerts.metric')}</Label>
-                <Controller
-                  control={form.control}
-                  name="metric"
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder={t('alerts.selectMetric')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {METRICS.map((m) => (
-                          <SelectItem key={m} value={m}>
-                            {t(`alerts.metrics.${m}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </div>
-              <div>
-                <Label>{t('alerts.operator')}</Label>
-                <Controller
-                  control={form.control}
-                  name="operator"
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="lt">{t('alerts.operatorLt')}</SelectItem>
-                        <SelectItem value="gt">{t('alerts.operatorGt')}</SelectItem>
-                        <SelectItem value="eq">{t('alerts.operatorEq')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </div>
-              <div>
-                <Label htmlFor="alert-threshold">{t('alerts.threshold')}</Label>
-                <Input
-                  id="alert-threshold"
-                  type="number"
-                  {...form.register('threshold', { valueAsNumber: true })}
-                  placeholder={t('eG80')}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>{t('alerts.frequency')}</Label>
-                <Controller
-                  control={form.control}
-                  name="check_frequency"
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="daily">{t('alerts.daily')}</SelectItem>
-                        <SelectItem value="weekly">{t('alerts.weekly')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </div>
-              <div>
-                <Label htmlFor="alert-recipients">{t('alerts.recipients')}</Label>
-                <Input
-                  id="alert-recipients"
-                  value={recipientsRaw}
-                  onChange={(e) => setRecipientsRaw(e.target.value)}
-                  placeholder={t('alerts.recipientsPlaceholder')}
-                  className="mt-1"
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="submit"
-                disabled={saving || !form.watch('name').trim() || !form.watch('metric')}
-              >
-                {saving ? t('alerts.saving') : t('alerts.save')}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>
-                {t('alerts.cancel')}
-              </Button>
-            </div>
-          </section>
-        </form>
+      {loadError && !loading && (
+        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-red-700">{t('listLoadErrorTitle')}</p>
+            <p className="mt-1 text-sm text-red-600">{loadError}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setRefreshTick((n) => n + 1)}>
+            {t('retry')}
+          </Button>
+        </div>
       )}
 
-      {/* List */}
       {loading ? (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-secondary" />
+            <Skeleton key={i} className="h-20 w-full rounded-xl" />
           ))}
         </div>
-      ) : alerts.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface py-16">
-          <Bell className="h-10 w-10 text-text-tertiary" />
-          <p className="text-sm text-text-tertiary">{t('alerts.noAlerts')}</p>
-        </div>
+      ) : items.length === 0 && !loadError ? (
+        <EmptyState
+          icon={Bell}
+          title={t('emptyTitle')}
+          description={t('emptyDescription')}
+          action={{
+            label: t('createButton'),
+            onClick: () => setCreateOpen(true),
+          }}
+        />
       ) : (
-        <div className="space-y-2">
-          {alerts.map((alert) => (
-            <div
-              key={alert.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100">
-                  <Bell className="h-4 w-4 text-amber-600" />
+        <ul className="space-y-2">
+          {items.map((row) => {
+            const recipientCount = Array.isArray(row.notification_recipients_json)
+              ? row.notification_recipients_json.length
+              : 0;
+            const opSymbol = OPERATOR_SYMBOLS[row.operator] ?? row.operator;
+            const metricLabel = t(`metricLabels.${row.metric}` as 'metricLabels.attendance_rate');
+            return (
+              <li
+                key={row.id}
+                className="rounded-xl border border-border bg-surface p-4 shadow-sm"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-amber-100">
+                      <Bell className="h-4 w-4 text-amber-700" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-text-primary">{row.name}</p>
+                      <p className="mt-0.5 font-mono text-xs text-text-tertiary">
+                        {metricLabel}{' '}
+                        <span className="font-mono">{opSymbol}</span> {row.threshold}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <Badge variant="secondary">
+                          {t(`frequencyLabels.${row.check_frequency}` as 'frequencyLabels.daily')}
+                        </Badge>
+                        <Badge variant="secondary">
+                          {t('recipientsCount', { n: recipientCount })}
+                        </Badge>
+                        {row.last_triggered_at && (
+                          <Badge variant="secondary">
+                            {t('lastTriggered')} {formatRelative(row.last_triggered_at)}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        row.active
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-surface-secondary text-text-tertiary'
+                      }`}
+                    >
+                      {row.active ? t('active') : t('inactive')}
+                    </span>
+                    <Switch
+                      aria-label={t('toggleActive', { name: row.name })}
+                      checked={row.active}
+                      onCheckedChange={(next) => void toggleActive(row.id, next)}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openHistory(row)}
+                    >
+                      <History className="me-2 h-4 w-4" />
+                      {t('viewHistory')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={pendingDeleteId === row.id}
+                      onClick={() => void handleDelete(row.id)}
+                      aria-label={t('deleteAria', { name: row.name })}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-text-primary">{alert.name}</p>
-                  <p className="font-mono text-xs text-text-tertiary">
-                    {alert.metric} {operatorLabel(alert.operator)} {alert.threshold}
-                    {' · '}
-                    {alert.check_frequency}
-                    {alert.last_triggered_at &&
-                      ` · ${t('alerts.lastTriggered')} ${new Date(alert.last_triggered_at).toLocaleDateString()}`}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${alert.active ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-secondary text-text-tertiary'}`}
-                >
-                  {alert.active ? t('alerts.active') : t('alerts.inactive')}
-                </span>
-                <Switch
-                  checked={alert.active}
-                  onCheckedChange={(checked) => void toggleAlert(alert.id, checked)}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
+
+      <AlertForm open={createOpen} onClose={() => setCreateOpen(false)} onSaved={onSaved} />
+
+      <EvaluationHistoryDrawer
+        open={drawerOpen}
+        onClose={() => {
+          setDrawerOpen(false);
+          setDrawerAlert(null);
+        }}
+        alertId={drawerAlert?.id ?? null}
+        alertName={drawerAlert?.name ?? ''}
+      />
     </div>
   );
+}
+
+function formatRelative(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString();
+  } catch {
+    return iso;
+  }
 }

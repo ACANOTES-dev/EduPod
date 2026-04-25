@@ -260,14 +260,31 @@ export class ReportAlertsService {
     }
   }
 
+  /**
+   * Evaluate a threshold check. The legacy worker (`checkThresholds()`)
+   * supported only `lt | gt | eq`; impl 17 widens the persisted operator
+   * set to also cover `lte | gte | ne` so the new alert form can express
+   * `≤`, `≥`, and `≠` thresholds without an epsilon hack. Impl 09's
+   * dedicated worker (`apps/worker/src/processors/reports/report-alerts/
+   * alert-evaluator.ts`) runs the same operator set; this method must
+   * stay in sync with that implementation. Any operator not recognised
+   * by the union returns `false` — preserves the legacy "no fire" safety
+   * behaviour for unknown values.
+   */
   private evaluate(value: number, operator: string, threshold: number): boolean {
     switch (operator) {
       case 'lt':
         return value < threshold;
+      case 'lte':
+        return value <= threshold;
       case 'gt':
         return value > threshold;
+      case 'gte':
+        return value >= threshold;
       case 'eq':
         return Math.abs(value - threshold) < 0.001;
+      case 'ne':
+        return Math.abs(value - threshold) >= 0.001;
       default:
         return false;
     }

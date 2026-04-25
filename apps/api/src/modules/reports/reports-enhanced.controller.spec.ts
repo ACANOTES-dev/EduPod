@@ -123,6 +123,9 @@ const mockScheduledReports = {
   create: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
+  // impl 17 — `GET /v1/reports/scheduled/:reportId/runs` for the
+  // history drawer in the scheduled-reports UI.
+  getRunHistory: jest.fn(),
 };
 const mockReportAlerts = {
   list: jest.fn(),
@@ -130,6 +133,8 @@ const mockReportAlerts = {
   create: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
+  // impl 09 — alert evaluation history for the impl 17 UI drawer.
+  getHistory: jest.fn(),
 };
 const mockAiNarrator = {
   // impl 10: legacy `generateNarrative` is gone — three named entry points
@@ -1169,6 +1174,51 @@ describe('ReportsEnhancedController', () => {
 
     expect(mockScheduledReports.list).toHaveBeenCalledWith(TENANT_ID, 1, 20);
     expect(result).toEqual({ data: [], meta: { page: 1, pageSize: 20, total: 0 } });
+  });
+
+  // ─── impl 17 — Scheduled report run history ───────────────────────────
+
+  it('should call scheduledReports.getRunHistory with default pagination', async () => {
+    mockScheduledReports.getRunHistory.mockResolvedValue({
+      data: [],
+      meta: { page: 1, pageSize: 50, total: 0 },
+    });
+
+    const result = await controller.getScheduledReportRuns(tenantContext, 'sr-1', {
+      page: 1,
+      pageSize: 50,
+    });
+
+    expect(mockScheduledReports.getRunHistory).toHaveBeenCalledWith(TENANT_ID, 'sr-1', 1, 50);
+    expect(result).toEqual({ data: [], meta: { page: 1, pageSize: 50, total: 0 } });
+  });
+
+  it('should propagate the run rows returned by getRunHistory', async () => {
+    const runs = [
+      {
+        id: 'run-1',
+        scheduled_report_id: 'sr-1',
+        started_at: '2026-04-25T08:00:00.000Z',
+        finished_at: '2026-04-25T08:00:21.000Z',
+        status: 'succeeded',
+        row_count: 214,
+        error_message: null,
+        artifact_object_key: 'tenant/x/reports/scheduled/sr-1/run-1.pdf',
+        delivered_via: ['email'],
+      },
+    ];
+    mockScheduledReports.getRunHistory.mockResolvedValue({
+      data: runs,
+      meta: { page: 1, pageSize: 50, total: 1 },
+    });
+
+    const result = await controller.getScheduledReportRuns(tenantContext, 'sr-1', {
+      page: 1,
+      pageSize: 50,
+    });
+
+    expect(result.data).toEqual(runs);
+    expect(result.meta.total).toBe(1);
   });
 
   // ─── Report Alerts (remaining endpoints) ──────────────────────────────

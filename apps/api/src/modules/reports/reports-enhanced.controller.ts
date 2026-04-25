@@ -32,6 +32,7 @@ import {
   reportAlertsQuerySchema,
   reportExportQuerySchema,
   savedReportsQuerySchema,
+  scheduledReportRunsQuerySchema,
   scheduledReportsQuerySchema,
   studentProgressQuerySchema,
   subjectDifficultyQuerySchema,
@@ -892,6 +893,29 @@ export class ReportsEnhancedController {
     @Param('reportId', ParseUUIDPipe) reportId: string,
   ) {
     return this.scheduledReports.delete(tenant.tenant_id, reportId);
+  }
+
+  // GET /v1/reports/scheduled/:reportId/runs (impl 17)
+  // Lists the last N `scheduled_report_runs` rows for a schedule. Consumed
+  // by the per-schedule "View history" drawer in the impl 17 UI. Mirrors
+  // the alerts/:id/history endpoint: permission scoped to view (not
+  // manage_reports) so admins can read history without owning the
+  // schedule. The schedule is verified to exist + belong to the tenant
+  // inside the service before the run query runs (404 on unknown id).
+  @Get('scheduled/:reportId/runs')
+  @RequiresPermission('analytics.view')
+  async getScheduledReportRuns(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('reportId', ParseUUIDPipe) reportId: string,
+    @Query(new ZodValidationPipe(scheduledReportRunsQuerySchema))
+    query: z.infer<typeof scheduledReportRunsQuerySchema>,
+  ) {
+    return this.scheduledReports.getRunHistory(
+      tenant.tenant_id,
+      reportId,
+      query.page,
+      query.pageSize,
+    );
   }
 
   // ─── Report Alerts ────────────────────────────────────────────────────────

@@ -24,6 +24,19 @@ const MOCK_SCHEDULED_REPORT = {
   updated_at: new Date('2026-03-01'),
 };
 
+const MOCK_SCHEDULED_REPORT_RUN = {
+  id: 'run-1',
+  tenant_id: TENANT_ID,
+  scheduled_report_id: 'report-1',
+  started_at: new Date('2026-04-25T08:00:00.000Z'),
+  finished_at: new Date('2026-04-25T08:00:21.000Z'),
+  status: 'succeeded',
+  row_count: 214,
+  error_message: null,
+  artifact_object_key: 'tenant/aaa/reports/scheduled/report-1/run-1.pdf',
+  delivered_via: ['email'],
+};
+
 const mockTx = {
   scheduledReport: {
     findMany: jest.fn().mockResolvedValue([MOCK_SCHEDULED_REPORT]),
@@ -32,6 +45,10 @@ const mockTx = {
     create: jest.fn().mockResolvedValue(MOCK_SCHEDULED_REPORT),
     update: jest.fn().mockResolvedValue({ ...MOCK_SCHEDULED_REPORT, name: 'Updated' }),
     delete: jest.fn().mockResolvedValue(MOCK_SCHEDULED_REPORT),
+  },
+  scheduledReportRun: {
+    findMany: jest.fn().mockResolvedValue([MOCK_SCHEDULED_REPORT_RUN]),
+    count: jest.fn().mockResolvedValue(1),
   },
 };
 
@@ -65,6 +82,8 @@ describe('ScheduledReportsService', () => {
     mockTx.scheduledReport.create.mockResolvedValue(MOCK_SCHEDULED_REPORT);
     mockTx.scheduledReport.update.mockResolvedValue({ ...MOCK_SCHEDULED_REPORT, name: 'Updated' });
     mockTx.scheduledReport.delete.mockResolvedValue(MOCK_SCHEDULED_REPORT);
+    mockTx.scheduledReportRun.findMany.mockResolvedValue([MOCK_SCHEDULED_REPORT_RUN]);
+    mockTx.scheduledReportRun.count.mockResolvedValue(1);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -164,6 +183,81 @@ describe('ScheduledReportsService', () => {
       expect(mockPrisma.scheduledReport.update).toHaveBeenCalledWith({
         where: { id: 'report-1' },
         data: expect.objectContaining({ last_sent_at: expect.any(Date) }),
+      });
+    });
+  });
+
+  // ─── impl 17 — getRunHistory ───────────────────────────────────────────
+
+  describe('getRunHistory', () => {
+    it('should return paginated run rows with ISO timestamps', async () => {
+      const result = await service.getRunHistory(TENANT_ID, 'report-1', 1, 50);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.id).toBe('run-1');
+      expect(result.data[0]?.status).toBe('succeeded');
+      expect(result.data[0]?.row_count).toBe(214);
+      expect(result.data[0]?.delivered_via).toEqual(['email']);
+      expect(result.data[0]?.started_at).toBe('2026-04-25T08:00:00.000Z');
+      expect(result.data[0]?.finished_at).toBe('2026-04-25T08:00:21.000Z');
+      expect(result.meta).toEqual({ page: 1, pageSize: 50, total: 1 });
+    });
+
+    it('should throw NotFoundException when the schedule does not exist', async () => {
+      mockTx.scheduledReport.findFirst.mockResolvedValue(null);
+
+      await expect(service.getRunHistory(TENANT_ID, 'missing-id', 1, 50)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should default to page 1 and pageSize 50 when arguments omitted', async () => {
+      const result = await service.getRunHistory(TENANT_ID, 'report-1');
+
+      expect(result.meta.page).toBe(1);
+      expect(result.meta.pageSize).toBe(50);
+      expect(mockTx.scheduledReportRun.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 50 }),
+      );
+    });
+
+    it('should compute skip from page and pageSize', async () => {
+      await service.getRunHistory(TENANT_ID, 'report-1', 3, 25);
+
+      expect(mockTx.scheduledReportRun.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 50, take: 25 }),
+      );
+    });
+
+    it('should serialise null finished_at as null in the response', async () => {
+      mockTx.scheduledReportRun.findMany.mockResolvedValue([
+        {
+          ...MOCK_SCHEDULED_REPORT_RUN,
+          finished_at: null,
+          status: 'running',
+          row_count: null,
+          artifact_object_key: null,
+        },
+      ]);
+
+      const result = await service.getRunHistory(TENANT_ID, 'report-1', 1, 50);
+
+      expect(result.data[0]?.finished_at).toBeNull();
+      expect(result.data[0]?.status).toBe('running');
+      expect(result.data[0]?.row_count).toBeNull();
+      expect(result.data[0]?.artifact_object_key).toBeNull();
+    });
+
+    it('should query runs scoped to both tenant and schedule', async () => {
+      await service.getRunHistory(TENANT_ID, 'report-1', 1, 50);
+
+      expect(mockTx.scheduledReportRun.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { scheduled_report_id: 'report-1', tenant_id: TENANT_ID },
+        }),
+      );
+      expect(mockTx.scheduledReportRun.count).toHaveBeenCalledWith({
+        where: { scheduled_report_id: 'report-1', tenant_id: TENANT_ID },
       });
     });
   });

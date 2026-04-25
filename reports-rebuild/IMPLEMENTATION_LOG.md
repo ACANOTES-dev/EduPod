@@ -248,8 +248,8 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 12  | AI Predictions service                                | 3    | 01             | `completed`   | 2026-04-25T00:35 Europe/Dublin | `7c08a0ad` |
 | 13  | Report Sharing service                                | 3    | 01, 04         | `completed`   | 2026-04-25T01:18 Europe/Dublin | `e791efce` |
 | 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `deploying`   |                                |            |
-| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`     |                                |            |
-| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`     |                                |            |
+| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `deploying`   |                                |            |
+| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `deploying`   |                                |            |
 | 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`     |                                |            |
 | 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`     |                                |            |
 | 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`     |                                |            |

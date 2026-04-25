@@ -1,529 +1,463 @@
 'use client';
 
-import { BarChart3, FileText, Loader2, Save } from 'lucide-react';
+import {
+  Calendar, ChevronLeft, Download, FileBarChart, FileSpreadsheet, FileText,
+  Loader2, Save, Share2, Trash2,
+} from 'lucide-react';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+  Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, toast,
+} from '@school/ui';
+import type {
+  QueryExecutionResult, SavedReportDraftDto, SavedReportQuery, SubjectDescriptor, UpsertSavedReportDraftDto,
+} from '@school/shared/reports';
 
-import { Button, Checkbox, Label, Switch } from '@school/ui';
+import { apiClient, getAccessToken } from '@/lib/api-client';
+import { useAuth } from '@/providers/auth-provider';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { BuilderEditor } from './_components/builder-editor';
+import {
+  DEFAULT_BUILDER_STATE, toSavedQuery, type BuilderState, type ReportSubjectKey, type SavedReportChartType,
+} from './_components/builder-types';
+import { PreviewPane } from './_components/preview-pane';
+import { SaveDialog, type SaveDialogValues } from './_components/save-dialog';
+import { SavedReportsSidebar, type SavedReportListItem } from './_components/saved-reports-sidebar';
+import { VisualizationToggle } from './_components/visualization-toggle';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type DataSource = 'students' | 'attendance' | 'grades' | 'finance' | 'staff' | 'admissions';
-type ChartType = 'table' | 'bar' | 'line' | 'pie';
-
-interface DimensionDef {
-  key: string;
-  label: string;
-}
-interface MeasureDef {
-  key: string;
-  label: string;
-  aggregation: 'count' | 'sum' | 'average' | 'min' | 'max' | 'percentage' | 'rate';
+interface SubjectRegistryResponse {
+  data?: { subjects: SubjectDescriptor[] };
+  subjects?: SubjectDescriptor[];
 }
 
-const SOURCES: { value: DataSource; label: string }[] = [
-  { value: 'students', label: 'Students' },
-  { value: 'attendance', label: 'Attendance' },
-  { value: 'grades', label: 'Grades' },
-  { value: 'finance', label: 'Finance' },
-  { value: 'staff', label: 'Staff' },
-  { value: 'admissions', label: 'Admissions' },
-];
-
-const DIMENSIONS: DimensionDef[] = [
-  { key: 'year_group', label: 'Year Group' },
-  { key: 'class', label: 'Class' },
-  { key: 'subject', label: 'Subject' },
-  { key: 'academic_period', label: 'Academic Period' },
-  { key: 'gender', label: 'Gender' },
-  { key: 'nationality', label: 'Nationality' },
-  { key: 'status', label: 'Status' },
-  { key: 'department', label: 'Department' },
-  { key: 'month', label: 'Month' },
-  { key: 'week', label: 'Week' },
-  { key: 'day_of_week', label: 'Day of Week' },
-  { key: 'teacher', label: 'Teacher' },
-];
-
-const MEASURES: MeasureDef[] = [
-  { key: 'count', label: 'Count', aggregation: 'count' },
-  { key: 'sum', label: 'Sum', aggregation: 'sum' },
-  { key: 'average', label: 'Average', aggregation: 'average' },
-  { key: 'percentage', label: 'Percentage', aggregation: 'percentage' },
-  { key: 'rate', label: 'Rate', aggregation: 'rate' },
-];
-
-const CHART_TYPES: { value: ChartType; label: string }[] = [
-  { value: 'table', label: 'Table' },
-  { value: 'bar', label: 'Bar Chart' },
-  { value: 'line', label: 'Line Chart' },
-  { value: 'pie', label: 'Pie Chart' },
-];
-
-// ─── Mock preview data ────────────────────────────────────────────────────────
-
-const MOCK_DATA = [
-  { label: 'Year 7', value: 33 },
-  { label: 'Year 8', value: 37 },
-  { label: 'Year 9', value: 35 },
-  { label: 'Year 10', value: 40 },
-  { label: 'Year 12', value: 30 },
-];
-
-type Step = 1 | 2 | 3 | 4 | 5;
-
-interface SavedReport {
+interface SavedReportRow {
   id: string;
   name: string;
-  data_source: DataSource;
-  chart_type: ChartType | null;
-  created_at: string;
+  data_source: string;
   is_shared: boolean;
+  created_by_user_id: string;
+  created_at: string;
+  updated_at: string;
+  dimensions_json: unknown;
+  measures_json: unknown;
+  filters_json: unknown;
+  chart_type: SavedReportChartType | null;
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+interface SavedReportsListResponse {
+  data: SavedReportRow[];
+  meta: { page: number; pageSize: number; total: number };
+}
+
+interface AiFlagRow { module_key: string; enabled: boolean; }
+
+function toCreateBody(
+  state: BuilderState,
+  meta: { name: string; description: string; visibility: 'private' | 'shared' },
+): Record<string, unknown> | null {
+  const query = toSavedQuery(state);
+  if (!query) return null;
+  const legacyChartType = state.chartType === 'kpi' ? null : state.chartType;
+  return {
+    name: meta.name,
+    data_source: state.subjectKey,
+    dimensions_json: query.columns,
+    measures_json: { sort: [], group_by: query.group_by ?? [] },
+    filters_json: query.filters ?? { combinator: 'and', filters: [] },
+    chart_type: legacyChartType,
+    is_shared: meta.visibility === 'shared',
+    description: meta.description || undefined,
+  };
+}
 
 export default function ReportBuilderPage() {
-  const t = useTranslations('reports');
-  const [step, setStep] = React.useState<Step>(1);
-  const [source, setSource] = React.useState<DataSource | ''>('');
-  const [selectedDimensions, setSelectedDimensions] = React.useState<Set<string>>(new Set());
-  const [selectedMeasures, setSelectedMeasures] = React.useState<Set<string>>(new Set(['count']));
-  const [chartType, setChartType] = React.useState<ChartType>('bar');
-  const [reportName, setReportName] = React.useState('');
-  const [isShared, setIsShared] = React.useState(false);
-  const [saving, setSaving] = React.useState(false);
-  const [savedReports, setSavedReports] = React.useState<SavedReport[]>([]);
+  const t = useTranslations('reports.builder.page');
+  const tActions = useTranslations('reports.builder.actions');
+  const router = useRouter();
+  const params = useParams<{ id?: string }>();
+  const reportId = params?.id ?? null;
+  const { user } = useAuth();
+
+  const [subjects, setSubjects] = React.useState<SubjectDescriptor[]>([]);
+  const [savedReports, setSavedReports] = React.useState<SavedReportListItem[]>([]);
+  const [reportsLoading, setReportsLoading] = React.useState(true);
+  const [askAiEnabled, setAskAiEnabled] = React.useState(false);
+  const [activeReport, setActiveReport] = React.useState<SavedReportRow | null>(null);
+  const [state, setState] = React.useState<BuilderState>(DEFAULT_BUILDER_STATE);
+  const [previewResult, setPreviewResult] = React.useState<QueryExecutionResult | null>(null);
+  const [previewLoading, setPreviewLoading] = React.useState(false);
+  const [previewError, setPreviewError] = React.useState<string | null>(null);
+  const [draftRestoredOnce, setDraftRestoredOnce] = React.useState(false);
+  const [askAiRationale, setAskAiRationale] = React.useState<string | null>(null);
+  const [saveDialogOpen, setSaveDialogOpen] = React.useState(false);
+  const [exporting, setExporting] = React.useState<null | 'pdf' | 'excel' | 'word'>(null);
+  const [deleting, setDeleting] = React.useState(false);
+
+  const activeSubject = React.useMemo(
+    () => subjects.find((s) => s.key === state.subjectKey) ?? null,
+    [subjects, state.subjectKey],
+  );
 
   React.useEffect(() => {
-    apiClient<{ data: SavedReport[] }>('/api/v1/reports/saved?pageSize=10')
-      .then((res) => setSavedReports(res.data))
-      .catch((err) => { console.error('[ReportsBuilderPage]', err); });
+    void loadSubjects();
+    void loadSavedReports();
+    void loadAiFlags();
   }, []);
 
-  const toggleDimension = (key: string) => {
-    setSelectedDimensions((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
+  React.useEffect(() => {
+    if (reportId) void loadSavedReport(reportId);
+    else if (!draftRestoredOnce) void loadDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportId]);
 
-  const toggleMeasure = (key: string) => {
-    setSelectedMeasures((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  const handleSave = async () => {
-    if (!reportName.trim() || !source) return;
-    setSaving(true);
+  async function loadSubjects() {
     try {
-      const res = await apiClient<{ data: SavedReport }>('/api/v1/reports/saved', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: reportName,
-          data_source: source,
-          dimensions_json: Array.from(selectedDimensions),
-          measures_json: Array.from(selectedMeasures),
-          filters_json: [],
-          chart_type: chartType,
-          is_shared: isShared,
-        }),
-      });
-      setSavedReports((prev) => [res.data, ...prev]);
+      const res = await apiClient<SubjectRegistryResponse>('/api/v1/reports/subject-registry');
+      setSubjects(res.data?.subjects ?? res.subjects ?? []);
+    } catch (err) { console.error('[ReportBuilder] loadSubjects', err); }
+  }
+
+  async function loadSavedReports() {
+    setReportsLoading(true);
+    try {
+      const res = await apiClient<SavedReportsListResponse>('/api/v1/reports/builder?page=1&pageSize=100');
+      const items = (res.data ?? []).map<SavedReportListItem>((r) => ({
+        id: r.id, name: r.name, data_source: r.data_source,
+        is_shared: r.is_shared, created_by_user_id: r.created_by_user_id,
+        created_at: r.created_at, updated_at: r.updated_at,
+      }));
+      setSavedReports(items);
+    } catch (err) { console.error('[ReportBuilder] loadSavedReports', err); }
+    finally { setReportsLoading(false); }
+  }
+
+  async function loadAiFlags() {
+    try {
+      const res = await apiClient<{ data?: AiFlagRow[] } | AiFlagRow[]>('/api/v1/ai-flags', { silent: true });
+      const rows = Array.isArray(res) ? res : (res.data ?? []);
+      const flag = rows.find((r) => r.module_key === 'reports_ask_ai');
+      setAskAiEnabled(flag?.enabled === true);
     } catch (err) {
-      console.error('[ReportsBuilderPage]', err);
-      const mock: SavedReport = {
-        id: crypto.randomUUID(),
-        name: reportName,
-        data_source: source as DataSource,
-        chart_type: chartType,
-        created_at: new Date().toISOString(),
-        is_shared: isShared,
-      };
-      setSavedReports((prev) => [mock, ...prev]);
-    } finally {
-      setSaving(false);
-      setReportName('');
+      console.error('[ReportBuilder] loadAiFlags', err);
+      setAskAiEnabled(false);
     }
-  };
+  }
 
-  const canProceed = (s: Step): boolean => {
-    if (s === 1) return source !== '';
-    if (s === 2) return selectedDimensions.size > 0;
-    if (s === 3) return selectedMeasures.size > 0;
-    return true;
-  };
+  async function loadDraft() {
+    try {
+      const draft = await apiClient<SavedReportDraftDto | undefined>('/api/v1/reports/builder/draft', { silent: true });
+      setDraftRestoredOnce(true);
+      if (!draft) return;
+      const next: BuilderState = {
+        subjectKey: draft.subject_key,
+        selectedFieldIds: draft.columns_json.field_ids,
+        columnAggregations: Object.fromEntries(
+          (draft.group_by_json?.measures ?? []).map((m) => [m.field_id, m.aggregation]),
+        ),
+        filters: draft.filters_json as BuilderState['filters'],
+        groupByFieldId: draft.group_by_json?.field_id ?? null,
+        chartType: draft.chart_type ?? 'table',
+        chartConfig: (draft.chart_config_json ?? {}) as BuilderState['chartConfig'],
+      };
+      setState(next);
+      toast.success(t('draftRestored'));
+    } catch (err) { console.error('[ReportBuilder] loadDraft', err); }
+  }
 
-  const STEPS = [
-    t('builder.step1'),
-    t('builder.step2'),
-    t('builder.step3'),
-    t('builder.step4'),
-    t('builder.step5'),
-  ];
+  async function loadSavedReport(id: string) {
+    try {
+      const row = await apiClient<SavedReportRow>(`/api/v1/reports/builder/${id}`);
+      setActiveReport(row);
+      setState(restoreSavedReport(row));
+    } catch (err) {
+      console.error('[ReportBuilder] loadSavedReport', err);
+      toast.error('Could not load that report.');
+      router.push('/reports/builder');
+    }
+  }
+
+  React.useEffect(() => {
+    if (!draftRestoredOnce && !reportId) return;
+    if (state.subjectKey === null) return;
+    const handle = setTimeout(() => { void saveDraft(state); }, 500);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, draftRestoredOnce, reportId]);
+
+  async function saveDraft(s: BuilderState) {
+    if (!s.subjectKey || s.selectedFieldIds.length === 0) return;
+    const body: UpsertSavedReportDraftDto = {
+      subject_key: s.subjectKey,
+      columns_json: { field_ids: s.selectedFieldIds },
+      filters_json: s.filters,
+      group_by_json: s.groupByFieldId
+        ? {
+            field_id: s.groupByFieldId,
+            measures: Object.entries(s.columnAggregations).map(([field_id, aggregation]) => ({ field_id, aggregation })),
+          }
+        : null,
+      chart_type: s.chartType,
+      chart_config_json: s.chartConfig,
+    };
+    try {
+      await apiClient('/api/v1/reports/builder/draft', { method: 'PUT', body: JSON.stringify(body), silent: true });
+    } catch (err) { console.error('[ReportBuilder] saveDraft', err); }
+  }
+
+  async function clearDraft() {
+    try { await apiClient('/api/v1/reports/builder/draft', { method: 'DELETE', silent: true }); }
+    catch (err) { console.error('[ReportBuilder] clearDraft', err); }
+  }
+
+  React.useEffect(() => {
+    const query = toSavedQuery(state);
+    if (!query) { setPreviewResult(null); setPreviewError(null); return; }
+    setPreviewLoading(true);
+    const handle = setTimeout(() => { void runPreview(query); }, 500);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.subjectKey, state.selectedFieldIds.join(','), JSON.stringify(state.filters), state.groupByFieldId]);
+
+  async function runPreview(query: SavedReportQuery) {
+    setPreviewError(null);
+    try {
+      const res = await apiClient<{ data: QueryExecutionResult } | QueryExecutionResult>(
+        '/api/v1/reports/builder/preview',
+        { method: 'POST', body: JSON.stringify({ query }), silent: true },
+      );
+      const result = (res as { data?: QueryExecutionResult }).data ?? (res as QueryExecutionResult);
+      setPreviewResult(result);
+    } catch (err: unknown) {
+      const apiErr = err as { code?: string; message?: string };
+      setPreviewResult(null);
+      if (apiErr?.code === 'REPORT_QUERY_TIMEOUT') setPreviewError('Query timed out. Narrow your filters and try again.');
+      else if (apiErr?.code === 'REPORT_ROW_CAP_EXCEEDED') setPreviewError('This query returns too many rows. Narrow your filters or save and export.');
+      else setPreviewError(apiErr?.message ?? 'Preview failed.');
+      console.error('[ReportBuilder] runPreview', err);
+    } finally { setPreviewLoading(false); }
+  }
+
+  async function onSave(values: SaveDialogValues): Promise<null | 'NAME_TAKEN' | 'GENERIC'> {
+    const body = toCreateBody(state, { name: values.name, description: values.description ?? '', visibility: values.visibility });
+    if (!body) return 'GENERIC';
+    body.is_favorite = values.is_favorite;
+    try {
+      const url = reportId ? `/api/v1/reports/builder/${reportId}` : '/api/v1/reports/builder';
+      const method = reportId ? 'PUT' : 'POST';
+      const res = await apiClient<{ data?: SavedReportRow } | SavedReportRow>(url, { method, body: JSON.stringify(body), silent: true });
+      const saved = (res as { data?: SavedReportRow }).data ?? (res as SavedReportRow);
+      toast.success(`${values.name} saved`);
+      await clearDraft();
+      await loadSavedReports();
+      if (!reportId) router.push(`/reports/builder/${saved.id}`);
+      else setActiveReport(saved);
+      return null;
+    } catch (err: unknown) {
+      const apiErr = err as { code?: string; message?: string };
+      if (apiErr?.code === 'SAVED_REPORT_NAME_TAKEN') return 'NAME_TAKEN';
+      console.error('[ReportBuilder] onSave', err);
+      return 'GENERIC';
+    }
+  }
+
+  async function onDeleteCurrent() {
+    if (!reportId) return;
+    if (!confirm(tActions('confirmDelete'))) return;
+    setDeleting(true);
+    try {
+      await apiClient(`/api/v1/reports/builder/${reportId}`, { method: 'DELETE' });
+      toast.success(`Report deleted`);
+      await loadSavedReports();
+      router.push('/reports/builder');
+    } catch (err) {
+      console.error('[ReportBuilder] onDeleteCurrent', err);
+      toast.error('Could not delete the report.');
+    } finally { setDeleting(false); }
+  }
+
+  async function onDeleteFromSidebar(report: SavedReportListItem) {
+    if (!confirm(tActions('confirmDelete'))) return;
+    try {
+      await apiClient(`/api/v1/reports/builder/${report.id}`, { method: 'DELETE' });
+      await loadSavedReports();
+      if (reportId === report.id) router.push('/reports/builder');
+    } catch (err) {
+      console.error('[ReportBuilder] onDeleteFromSidebar', err);
+      toast.error('Could not delete the report.');
+    }
+  }
+
+  async function onExport(format: 'pdf' | 'excel' | 'word') {
+    if (!reportId) { toast.error('Save the report first.'); return; }
+    setExporting(format);
+    try {
+      const token = getAccessToken();
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
+      const res = await fetch(`${apiUrl}/api/v1/reports/builder/${reportId}/export`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ format }),
+      });
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+      const blob = await res.blob();
+      const filenameMatch = res.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/);
+      const filename = filenameMatch?.[1] ?? `report.${format === 'word' ? 'docx' : format === 'excel' ? 'xlsx' : 'pdf'}`;
+      downloadBlob(blob, filename);
+      toast.success(tActions('exportComplete'));
+    } catch (err) {
+      console.error('[ReportBuilder] onExport', err);
+      toast.error(tActions('exportFailed'));
+    } finally { setExporting(null); }
+  }
+
+  function newReport() {
+    setState(DEFAULT_BUILDER_STATE);
+    setPreviewResult(null);
+    setActiveReport(null);
+    setAskAiRationale(null);
+    if (reportId) router.push('/reports/builder');
+  }
+
+  const reportTitle = activeReport?.name ?? t('untitled');
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={t('builder.title')} description={t('builder.description')} />
-
-      {/* Step indicator */}
-      <nav className="flex items-center gap-1 overflow-x-auto">
-        {STEPS.map((label, i) => {
-          const s = (i + 1) as Step;
-          return (
-            <React.Fragment key={s}>
-              <button
-                type="button"
-                onClick={() => {
-                  if (s < step || canProceed((s - 1) as Step)) setStep(s);
-                }}
-                className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                  step === s
-                    ? 'bg-primary text-white'
-                    : 'bg-surface-secondary text-text-secondary hover:bg-surface'
-                }`}
-              >
-                <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${step === s ? 'bg-white/20' : 'bg-surface text-text-tertiary'}`}
-                >
-                  {s}
-                </span>
-                {label}
-              </button>
-              {i < STEPS.length - 1 && <span className="shrink-0 text-text-tertiary">›</span>}
-            </React.Fragment>
-          );
-        })}
-      </nav>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-        {/* Wizard Panel */}
-        <section className="rounded-xl border border-border bg-surface p-4 sm:p-6 space-y-6">
-          {/* Step 1: Source */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <h2 className="text-base font-semibold text-text-primary">
-                {t('builder.selectSource')}
-              </h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {SOURCES.map((s) => (
-                  <button
-                    key={s.value}
-                    type="button"
-                    onClick={() => setSource(s.value)}
-                    className={`rounded-xl border-2 p-4 text-sm font-medium transition-colors ${
-                      source === s.value
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-surface text-text-secondary hover:bg-surface-secondary'
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+    <div className="flex h-[calc(100vh-9rem)] flex-col">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Link href="/reports" className="rounded-md p-1.5 text-text-tertiary hover:bg-surface-secondary" aria-label="Back to reports">
+            <ChevronLeft className="h-4 w-4" />
+          </Link>
+          <div className="min-w-0">
+            <p className="text-xs text-text-tertiary">{t('title')}</p>
+            <h1 className="truncate text-lg font-semibold text-text-primary">{reportTitle}</h1>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <VisualizationToggle value={state.chartType} onChange={(chartType) => setState((s) => ({ ...s, chartType }))} />
+          {reportId && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={exporting !== null}>
+                  {exporting ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <Download className="me-2 h-4 w-4" />}
+                  {tActions('export')}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onExport('pdf')}><FileText className="me-2 h-4 w-4" /> {tActions('exportPdf')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onExport('excel')}><FileSpreadsheet className="me-2 h-4 w-4" /> {tActions('exportExcel')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onExport('word')}><FileBarChart className="me-2 h-4 w-4" /> {tActions('exportWord')}</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
-
-          {/* Step 2: Dimensions */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <h2 className="text-base font-semibold text-text-primary">
-                {t('builder.selectDimensions')}
-              </h2>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {DIMENSIONS.map((d) => (
-                  <label
-                    key={d.key}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-border p-3 hover:bg-surface-secondary"
-                  >
-                    <Checkbox
-                      checked={selectedDimensions.has(d.key)}
-                      onCheckedChange={() => toggleDimension(d.key)}
-                    />
-                    <span className="text-sm text-text-secondary">{d.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Measures */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <h2 className="text-base font-semibold text-text-primary">
-                {t('builder.selectMeasures')}
-              </h2>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {MEASURES.map((m) => (
-                  <label
-                    key={m.key}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-border p-3 hover:bg-surface-secondary"
-                  >
-                    <Checkbox
-                      checked={selectedMeasures.has(m.key)}
-                      onCheckedChange={() => toggleMeasure(m.key)}
-                    />
-                    <span className="text-sm text-text-secondary">{m.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Step 4: Chart Type */}
-          {step === 4 && (
-            <div className="space-y-4">
-              <h2 className="text-base font-semibold text-text-primary">
-                {t('builder.selectChart')}
-              </h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {CHART_TYPES.map((ct) => (
-                  <button
-                    key={ct.value}
-                    type="button"
-                    onClick={() => setChartType(ct.value)}
-                    className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-sm font-medium transition-colors ${
-                      chartType === ct.value
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-surface text-text-secondary hover:bg-surface-secondary'
-                    }`}
-                  >
-                    <BarChart3 className="h-6 w-6" />
-                    {ct.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Step 5: Save */}
-          {step === 5 && (
-            <div className="space-y-4">
-              <h2 className="text-base font-semibold text-text-primary">
-                {t('builder.saveReport')}
-              </h2>
-              <div>
-                <Label htmlFor="builder-name">{t('builder.reportName')}</Label>
-                <input
-                  id="builder-name"
-                  type="text"
-                  value={reportName}
-                  onChange={(e) => setReportName(e.target.value)}
-                  placeholder={t('builder.reportNamePlaceholder')}
-                  className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-              <label className="flex cursor-pointer items-center gap-3">
-                <Switch checked={isShared} onCheckedChange={setIsShared} />
-                <span className="text-sm text-text-secondary">{t('builder.shareWithAdmins')}</span>
-              </label>
-              <Button
-                onClick={() => void handleSave()}
-                disabled={saving || !reportName.trim()}
-                className="w-full"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="me-2 h-4 w-4 animate-spin" />
-                    {t('builder.saving')}
-                  </>
-                ) : (
-                  <>
-                    <Save className="me-2 h-4 w-4" />
-                    {t('builder.save')}
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
-
-          {/* Navigation */}
-          <div className="flex items-center justify-between border-t border-border pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setStep((prev) => Math.max(1, prev - 1) as Step)}
-              disabled={step === 1}
-            >
-              {t('builder.back')}
+          {reportId && (<Button variant="outline" size="sm" disabled title="Wired in impl 19"><Share2 className="me-2 h-4 w-4" />{tActions('share')}</Button>)}
+          {reportId && (<Button variant="outline" size="sm" disabled title="Wired in impl 17"><Calendar className="me-2 h-4 w-4" />{tActions('schedule')}</Button>)}
+          {reportId && (
+            <Button variant="outline" size="sm" onClick={onDeleteCurrent} disabled={deleting} data-testid="delete-button">
+              {deleting ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <Trash2 className="me-2 h-4 w-4" />}{tActions('delete')}
             </Button>
-            {step < 5 && (
-              <Button
-                onClick={() => setStep((prev) => Math.min(5, prev + 1) as Step)}
-                disabled={!canProceed(step)}
-              >
-                {t('builder.next')}
-              </Button>
-            )}
-          </div>
-        </section>
-
-        {/* Live Preview Panel */}
-        <section className="space-y-4">
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('builder.preview')}</h3>
-            {source === '' ? (
-              <div className="flex flex-col items-center gap-2 py-8 text-center">
-                <BarChart3 className="h-8 w-8 text-text-tertiary" />
-                <p className="text-sm text-text-tertiary">{t('builder.previewHint')}</p>
-              </div>
-            ) : chartType === 'table' ? (
-              <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-secondary">
-                      <th className="px-3 py-2 text-start font-semibold text-text-tertiary">
-                        {t('builder.label')}
-                      </th>
-                      <th className="px-3 py-2 text-start font-semibold text-text-tertiary">
-                        {t('builder.value')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {MOCK_DATA.map((row) => (
-                      <tr key={row.label} className="border-b border-border last:border-b-0">
-                        <td className="px-3 py-2 text-text-primary">{row.label}</td>
-                        <td className="px-3 py-2 text-text-secondary">{row.value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : chartType === 'bar' ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={MOCK_DATA} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="label" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : chartType === 'line' ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={MOCK_DATA} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="label" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#6366f1"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={MOCK_DATA}
-                    dataKey="value"
-                    nameKey="label"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    label={({ name, percent }: { name?: string; percent?: number }) =>
-                      `${String(name ?? '')} ${Math.round((percent ?? 0) * 100)}%`
-                    }
-                  >
-                    {MOCK_DATA.map((_, i) => (
-                      <Cell
-                        key={i}
-                        fill={['#6366f1', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'][i % 5]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          {/* Summary */}
-          {source && (
-            <div className="rounded-xl border border-border bg-surface p-4 space-y-2 text-xs text-text-secondary">
-              <p>
-                <span className="font-medium text-text-primary">{t('builder.source')}:</span>{' '}
-                {source}
-              </p>
-              {selectedDimensions.size > 0 && (
-                <p>
-                  <span className="font-medium text-text-primary">{t('builder.dimensions')}:</span>{' '}
-                  {Array.from(selectedDimensions).join(', ')}
-                </p>
-              )}
-              {selectedMeasures.size > 0 && (
-                <p>
-                  <span className="font-medium text-text-primary">{t('builder.measures')}:</span>{' '}
-                  {Array.from(selectedMeasures).join(', ')}
-                </p>
-              )}
-              <p>
-                <span className="font-medium text-text-primary">{t('builder.chart')}:</span>{' '}
-                {chartType}
-              </p>
-            </div>
           )}
-        </section>
+          <Button size="sm" onClick={() => setSaveDialogOpen(true)} disabled={!toSavedQuery(state)} data-testid="save-button">
+            <Save className="me-2 h-4 w-4" />{tActions('save')}
+          </Button>
+        </div>
+      </header>
+
+      <div className="grid flex-1 grid-cols-1 gap-3 overflow-hidden pt-3 lg:grid-cols-[260px_minmax(0,1fr)_minmax(0,1.2fr)]">
+        <div className="rounded-xl border border-border bg-surface p-3 lg:overflow-hidden">
+          <div className="mb-2">
+            <Button type="button" size="sm" variant="outline" onClick={newReport} className="w-full" data-testid="new-report-button">
+              {t('newReport')}
+            </Button>
+          </div>
+          <SavedReportsSidebar
+            currentUserId={user?.id ?? null}
+            reports={savedReports}
+            loading={reportsLoading}
+            currentReportId={reportId}
+            onSelect={(id) => router.push(`/reports/builder/${id}`)}
+            onDelete={onDeleteFromSidebar}
+          />
+        </div>
+
+        <div className="overflow-y-auto rounded-xl border border-border bg-surface p-4">
+          <BuilderEditor
+            subjects={subjects}
+            activeSubject={activeSubject}
+            state={state}
+            onChange={setState}
+            askAiEnabled={askAiEnabled}
+            rationale={askAiRationale}
+            onAskAiTranslated={(_q, rationale) => setAskAiRationale(rationale)}
+            onAskAiDiscard={() => setAskAiRationale(null)}
+          />
+        </div>
+
+        <div className="overflow-y-auto rounded-xl border border-border bg-surface p-4">
+          <PreviewPane
+            loading={previewLoading}
+            error={previewError}
+            result={previewResult}
+            chartType={state.chartType}
+            chartConfig={state.chartConfig}
+            onChartConfigChange={(chartConfig) => setState((s) => ({ ...s, chartConfig }))}
+            subject={activeSubject}
+          />
+        </div>
       </div>
 
-      {/* My Reports */}
-      <section>
-        <h2 className="mb-4 text-base font-semibold text-text-primary">{t('builder.myReports')}</h2>
-        {savedReports.length === 0 ? (
-          <p className="text-sm text-text-tertiary">{t('builder.noSavedReports')}</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {savedReports.map((r) => (
-              <div
-                key={r.id}
-                className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4"
-              >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-secondary">
-                  <FileText className="h-4 w-4 text-text-tertiary" />
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-text-primary">{r.name}</p>
-                  <p className="text-xs text-text-tertiary">
-                    {r.data_source} · {r.chart_type ?? 'table'}
-                  </p>
-                </div>
-                {r.is_shared && (
-                  <span className="ms-auto shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                    {t('builder.shared')}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      <SaveDialog
+        open={saveDialogOpen}
+        onOpenChange={setSaveDialogOpen}
+        initial={{
+          name: activeReport?.name ?? '',
+          description: '',
+          visibility: activeReport?.is_shared ? 'shared' : 'private',
+          is_favorite: false,
+        }}
+        onSave={onSave}
+      />
     </div>
   );
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function restoreSavedReport(row: SavedReportRow): BuilderState {
+  const subjectKey = (row.data_source && typeof row.data_source === 'string' ? row.data_source : 'student') as ReportSubjectKey;
+  const fieldIds: string[] = Array.isArray(row.dimensions_json)
+    ? (row.dimensions_json as Array<string | { field_id: string }>).map((c) => (typeof c === 'string' ? c : c.field_id))
+    : [];
+  const measures = row.measures_json as { group_by?: Array<{ field_id: string }> } | unknown;
+  const groupByFieldId = measures && typeof measures === 'object' && 'group_by' in measures
+    ? (measures as { group_by?: Array<{ field_id: string }> }).group_by?.[0]?.field_id ?? null
+    : null;
+  const filters = row.filters_json as BuilderState['filters'];
+  const safeFilters: BuilderState['filters'] = filters && typeof filters === 'object' && 'combinator' in filters
+    ? filters
+    : { combinator: 'and', filters: [] };
+  return {
+    subjectKey,
+    selectedFieldIds: fieldIds,
+    columnAggregations: {},
+    filters: safeFilters,
+    groupByFieldId,
+    chartType: (row.chart_type ?? 'table') as SavedReportChartType,
+    chartConfig: {},
+  };
 }

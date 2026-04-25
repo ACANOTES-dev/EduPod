@@ -487,4 +487,74 @@ describe('ReportAlertsService', () => {
       }),
     );
   });
+
+  // ─── impl 17 — extended operators (lte / gte / ne) ────────────────────
+
+  it('impl-17: should evaluate lte operator (75 <= 75 → triggered)', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'attendance_rate', threshold: 75, operator: 'lte' },
+    ]);
+
+    const results = await service.checkThresholds();
+
+    expect(results[0]!.triggered).toBe(true);
+  });
+
+  it('impl-17: should evaluate lte operator (75 <= 70 → not triggered)', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'attendance_rate', threshold: 70, operator: 'lte' },
+    ]);
+
+    const results = await service.checkThresholds();
+
+    expect(results[0]!.triggered).toBe(false);
+  });
+
+  it('impl-17: should evaluate gte operator (overdue=5 >= 5 → triggered)', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'overdue_invoice_count', threshold: 5, operator: 'gte' },
+    ]);
+
+    const results = await service.checkThresholds();
+
+    expect(results[0]!.triggered).toBe(true);
+  });
+
+  it('impl-17: should evaluate gte operator (overdue=5 >= 10 → not triggered)', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'overdue_invoice_count', threshold: 10, operator: 'gte' },
+    ]);
+
+    const results = await service.checkThresholds();
+
+    expect(results[0]!.triggered).toBe(false);
+  });
+
+  it('impl-17: should evaluate ne operator (at_risk=3 ≠ 5 → triggered)', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'at_risk_student_count', threshold: 5, operator: 'ne' },
+    ]);
+
+    const results = await service.checkThresholds();
+
+    expect(results[0]!.triggered).toBe(true);
+  });
+
+  it('impl-17: should evaluate ne operator (at_risk=3 ≠ 3 → not triggered)', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'at_risk_student_count', threshold: 3, operator: 'ne' },
+    ]);
+
+    const results = await service.checkThresholds();
+
+    expect(results[0]!.triggered).toBe(false);
+  });
+
+  it('impl-17: getHistory throws NotFoundException for unknown alert id', async () => {
+    mockTx.reportAlert.findFirst.mockResolvedValue(null);
+
+    await expect(service.getHistory(TENANT_ID, 'missing-id', 1, 50)).rejects.toThrow(
+      NotFoundException,
+    );
+  });
 });

@@ -21,6 +21,24 @@ export interface ScheduledReportRow {
   updated_at: string;
 }
 
+/**
+ * One row of the `GET /v1/reports/scheduled/:id/runs` response (impl 17).
+ * Mirrors the `scheduled_report_runs` table 1-to-1 with date columns
+ * normalised to ISO strings for JSON transport. Read-only: the row is
+ * materialised by the worker, the API only reads it.
+ */
+export interface ScheduledReportRunRow {
+  id: string;
+  scheduled_report_id: string;
+  started_at: string;
+  finished_at: string | null;
+  status: string;
+  row_count: number | null;
+  error_message: string | null;
+  artifact_object_key: string | null;
+  delivered_via: string[];
+}
+
 @Injectable()
 export class ScheduledReportsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -189,6 +207,88 @@ export class ScheduledReportsService {
       where: { id: reportId },
       data: { last_sent_at: new Date() },
     });
+  }
+
+  /**
+   * GET /v1/reports/scheduled/:reportId/runs (impl 17).
+   *
+   * Returns the most recent `scheduled_report_runs` rows for the schedule,
+   * ordered newest first. RLS-scoped via `createRlsClient`. The schedule
+   * itself is verified to exist + belong to the tenant before the run
+   * query so unknown ids return 404, matching `getHistory` on the alerts
+   * service. The worker (impl 08) is the writer; this service is read-only.
+   */
+  async getRunHistory(
+    tenantId: string,
+    reportId: string,
+    page: number = 1,
+    pageSize: number = 50,
+  ): Promise<{
+    data: ScheduledReportRunRow[];
+    meta: { page: number; pageSize: number; total: number };
+  }> {
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const txClient = tx as unknown as PrismaService;
+      const skip = (page - 1) * pageSize;
+
+      const schedule = await txClient.scheduledReport.findFirst({
+        where: { id: reportId, tenant_id: tenantId },
+        select: { id: true },
+      });
+
+      if (!schedule) {
+        throw new NotFoundException({
+          code: 'SCHEDULED_REPORT_NOT_FOUND',
+          message: `Scheduled report with id "${reportId}" not found`,
+        });
+      }
+
+      const [runs, total] = await Promise.all([
+        txClient.scheduledReportRun.findMany({
+          where: { scheduled_report_id: reportId, tenant_id: tenantId },
+          orderBy: { started_at: 'desc' },
+          skip,
+          take: pageSize,
+        }),
+        txClient.scheduledReportRun.count({
+          where: { scheduled_report_id: reportId, tenant_id: tenantId },
+        }),
+      ]);
+
+      return {
+        data: runs.map((r) => this.toRunRow(r)),
+        meta: { page, pageSize, total },
+      };
+    }) as unknown as {
+      data: ScheduledReportRunRow[];
+      meta: { page: number; pageSize: number; total: number };
+    };
+  }
+
+  private toRunRow(r: {
+    id: string;
+    scheduled_report_id: string;
+    started_at: Date;
+    finished_at: Date | null;
+    status: string;
+    row_count: number | null;
+    error_message: string | null;
+    artifact_object_key: string | null;
+    delivered_via: string[];
+  }): ScheduledReportRunRow {
+    return {
+      id: r.id,
+      scheduled_report_id: r.scheduled_report_id,
+      started_at: r.started_at.toISOString(),
+      finished_at: r.finished_at?.toISOString() ?? null,
+      status: r.status,
+      row_count: r.row_count,
+      error_message: r.error_message,
+      artifact_object_key: r.artifact_object_key,
+      delivered_via: r.delivered_via,
+    };
   }
 
   private toRow(r: {
