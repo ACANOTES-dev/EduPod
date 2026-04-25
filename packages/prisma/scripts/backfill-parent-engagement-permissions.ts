@@ -35,37 +35,38 @@ async function main() {
 
     for (const role of parentRoles) {
       // Find the permission IDs for the engagement permissions.
-      const permissionIds = await prisma.permission.findMany({
+      const engagementPerms = await prisma.permission.findMany({
         where: {
           permission_key: { in: [...PERMISSIONS_TO_ADD] },
         },
         select: { id: true, permission_key: true },
       });
 
-      const permissionMap = new Map(permissionIds.map((p) => [p.permission_key, p.id]));
+      const permissionMap = new Map(engagementPerms.map((p) => [p.permission_key, p.id]));
 
       // Read the existing rolePermission entries for this role.
       const existing = await prisma.rolePermission.findMany({
-        where: {
-          role_id: role.id,
-          permission: { in: [...PERMISSIONS_TO_ADD] },
-        },
-        select: { permission: true },
+        where: { role_id: role.id },
+        select: { permission_id: true },
       });
 
-      const existingSet = new Set(existing.map((rp) => rp.permission));
-      const missing = PERMISSIONS_TO_ADD.filter((p) => !existingSet.has(p));
+      const existingPermissionIds = new Set(existing.map((rp) => rp.permission_id));
 
-      if (missing.length === 0) {
+      // Determine which permissions are missing.
+      const missingPerms = PERMISSIONS_TO_ADD.filter(
+        (permKey) => !existingPermissionIds.has(permissionMap.get(permKey) as string),
+      );
+
+      if (missingPerms.length === 0) {
         skipped += 1;
         continue;
       }
 
       // Add the missing permissions.
-      const dataToCreate = missing.map((permission) => ({
+      const dataToCreate = missingPerms.map((permKey) => ({
         tenant_id: role.tenant_id,
         role_id: role.id,
-        permission_id: permissionMap.get(permission) as string,
+        permission_id: permissionMap.get(permKey) as string,
       }));
 
       await prisma.rolePermission.createMany({
@@ -74,7 +75,7 @@ async function main() {
       });
 
       console.log(
-        `[tenant=${role.tenant_id}] added ${missing.length} permission(s) to parent role: ${missing.join(', ')}`,
+        `[tenant=${role.tenant_id}] added ${missingPerms.length} permission(s) to parent role: ${missingPerms.join(', ')}`,
       );
       added += 1;
     }

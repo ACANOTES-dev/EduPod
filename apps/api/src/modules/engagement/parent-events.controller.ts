@@ -97,6 +97,7 @@ export class ParentEventsController {
               status: true,
               consent_status: true,
               payment_status: true,
+              invoice_id: true,
             },
           },
         },

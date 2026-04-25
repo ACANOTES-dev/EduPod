@@ -20,8 +20,6 @@ import {
 } from '../../../_components/engagement-types';
 import { EventStatusBadge } from '../../../_components/event-status-badge';
 
-
-
 export default function ParentEngagementEventDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? '';
@@ -181,8 +179,23 @@ export default function ParentEngagementEventDetailPage() {
                       </Button>
                     ) : null}
                     {participant.payment_status === 'pending' && event.fee_amount ? (
-                      <Button asChild variant="outline">
-                        <Link href={`/${locale}/dashboard`}>
+                      <Button
+                        asChild
+                        variant="outline"
+                        disabled={!participant.invoice_id}
+                        title={
+                          !participant.invoice_id
+                            ? t('engagement.parent.events.payNotOpen')
+                            : undefined
+                        }
+                      >
+                        <Link
+                          href={
+                            participant.invoice_id
+                              ? `/${locale}/dashboard?tab=finances&invoice=${participant.invoice_id}`
+                              : '#'
+                          }
+                        >
                           <CreditCard className="me-2 h-4 w-4" />
                           {t('parent.pay')}
                         </Link>

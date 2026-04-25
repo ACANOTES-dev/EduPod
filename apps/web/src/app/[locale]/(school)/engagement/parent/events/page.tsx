@@ -20,8 +20,6 @@ import {
 } from '../../_components/engagement-types';
 import { EventStatusBadge } from '../../_components/event-status-badge';
 
-
-
 // ─── Mini-calendar helpers ─────────────────────────────────────────────────────
 
 function getDaysInMonth(year: number, month: number): number {
@@ -300,9 +298,10 @@ export default function ParentEngagementEventsPage() {
       <div className="grid gap-4 md:grid-cols-2">
         {filteredEvents.map((event) => {
           const eventForms = pendingForms.filter((form) => form.event_id === event.id);
-          const needsPayment = event.participants.some(
+          const pendingParticipant = event.participants.find(
             (participant) => participant.payment_status === 'pending',
           );
+          const needsPayment = !!pendingParticipant;
           const canRegister = event.participants.some((participant) =>
             ['invited', 'withdrawn'].includes(participant.status),
           );
@@ -370,8 +369,25 @@ export default function ParentEngagementEventsPage() {
                   </Button>
                 ) : null}
                 {needsPayment ? (
-                  <Button asChild variant="outline">
-                    <Link href={`/${locale}/dashboard`}>{t('parent.pay')}</Link>
+                  <Button
+                    asChild
+                    variant="outline"
+                    disabled={!pendingParticipant?.invoice_id}
+                    title={
+                      !pendingParticipant?.invoice_id
+                        ? t('engagement.parent.events.payNotOpen')
+                        : undefined
+                    }
+                  >
+                    <Link
+                      href={
+                        pendingParticipant?.invoice_id
+                          ? `/${locale}/dashboard?tab=finances&invoice=${pendingParticipant.invoice_id}`
+                          : '#'
+                      }
+                    >
+                      {t('parent.pay')}
+                    </Link>
                   </Button>
                 ) : null}
               </div>

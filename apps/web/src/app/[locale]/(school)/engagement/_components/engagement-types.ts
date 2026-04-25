@@ -535,6 +535,7 @@ export interface ParentEventRow {
     status: EngagementParticipantStatus;
     consent_status: EngagementConsentDecision;
     payment_status: EngagementPaymentStatus;
+    invoice_id: string | null;
   }>;
 }
 
@@ -545,6 +546,7 @@ export interface ParentEventDetail extends EventRecord {
     status: EngagementParticipantStatus;
     consent_status: EngagementConsentDecision;
     payment_status: EngagementPaymentStatus;
+    invoice_id: string | null;
     student: {
       id: string;
       first_name: string;
