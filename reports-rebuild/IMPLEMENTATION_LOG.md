@@ -253,8 +253,8 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `completed`   | 2026-04-25T06:25 Europe/Dublin | `07323817` |
 | 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `completed`   | 2026-04-25T13:54 Europe/Dublin | `bc36bbb5` |
 | 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `completed`   | 2026-04-25T13:58 Europe/Dublin | `a39be0fc` |
-| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`     |                                |            |
-| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`     |                                |            |
+| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `in-progress` | —                              | —          |
+| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `in-progress` | —                              | —          |
 | 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`     |                                |            |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
@@ -3367,3 +3367,37 @@ retry, invalidRequest, disabledTitle, disabledBody}`,
   share-history tab is wired but only renders when the active report is
   owned by the current user; the smoke share above seeded `total: 2`
   entries to make that path visible.
+
+### [WAVE 4 SHARED-FILE CLAIM] — impl 21
+
+- Claims (surgical, region-scoped):
+  - `apps/api/src/modules/reports/reports.module.ts` — ADD a
+    `ReportsSettingsService` provider + `ReportsSettingsController`
+    entry. Append-only edits in the imports/providers/controllers blocks.
+    Sibling impl 20 may also touch this file — my edits are isolated to
+    the new settings surface and won't collide with board/compliance
+    additions.
+  - `packages/prisma/schema.prisma` — ADD a `ReportsTenantSettings`
+    model + back-relation on `Tenant`. The model and a brand-new
+    forward migration (`20260425_add_reports_tenant_settings`).
+  - `packages/prisma/rls/policies.sql` — ADD the
+    `reports_tenant_settings_tenant_isolation` policy. Append-only.
+  - `packages/shared/src/reports/index.ts` — ADD a new
+    `export * from './settings'` line; new file
+    `packages/shared/src/reports/settings.ts`.
+  - `apps/web/src/messages/en.json` + `ar.json` — ADD a
+    `reports.settings.*` namespace. Append-only at top-level reports
+    block. Sibling impl 20 may add `reports.board.*` / `reports.compliance.*`
+    keys — different namespaces, no overlap.
+  - NEW files only under `apps/web/src/app/[locale]/(school)/settings/reports/`
+    and `apps/api/src/modules/reports/reports-settings/`. No edits to
+    other Wave 4 frontend files.
+- Found pre-existing partial impl-21 work in the working tree
+  (`reports-settings.service.ts` with raw SQL outside the RLS middleware,
+  schema + RLS + shared-schema entries un-migrated). Rewriting the service
+  to use `createRlsClient(...).$transaction` and AiAuditService for usage
+  rollups; folding the schema/RLS/shared-schema entries into a proper
+  forward migration. The pre-existing pre-`schemas/reports-enhanced.schema.ts`
+  additions will be moved into `@school/shared/reports/settings` for
+  consistency with impls 02/10/11/12.
+- Until: committed OR flipped to `🛑 blocked`.
