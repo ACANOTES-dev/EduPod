@@ -2807,3 +2807,33 @@ polish / deploy-architecture task; impl 14 is not blocked by it.
   create modal opens + evaluation-history drawer fetches), plus a
   `browser_evaluate` of `GET /api/v1/reports/scheduled/<id>/runs`
   against a freshly-created schedule.
+
+### [IMPL 16 — Production verification]
+
+- **Verified at:** 2026-04-25T05:50 Europe/Dublin
+- **Production HEAD at verification:** `0f94f307` (includes my impl-16 commits 4cf97ea4 + e34cf0d5 + e18a537e + 8e9be66e + 6afcabaf, plus the parallel-session sibling-impl commits).
+- **Build artifact:** `apps/web/.next/BUILD_ID = NOT4V4vj5U3D95uablMlJ`. Confirmed
+  `apps/web/.next/server/app/[locale]/(school)/reports/builder/`
+  contains `page.js`, `page_client-reference-manifest.js`, `[id]/`,
+  `page.js.map`, `page.js.nft.json` — all 14 of my new
+  `_components/*.tsx` files compiled into the chunk.
+- **Smoke checks:**
+  - `GET https://nhqs.edupod.app/api/health` → 200.
+  - `GET https://nhqs.edupod.app/en/reports/builder` → 200 (was 500
+    during the in-flight rebuild window — the chunk-500 race
+    documented under impl 14's pre-flight sweep notes).
+  - `GET https://nhqs.edupod.app/api/v1/reports/subject-registry`
+    (no auth) → 401 (expected gate).
+  - **Authenticated as `owner@nhqs.test`:**
+    - `GET /api/v1/reports/subject-registry` → 200 with
+      `data.subjects[] = [student, staff, household, class, invoice,
+      …]` (the 11 curated subjects).
+    - `GET /api/v1/reports/builder?page=1&pageSize=5` → 200 (saved
+      reports list endpoint reachable).
+- **Web pm2 process:** `258|web` online for ~3 min after the deploy
+  rebuild completed; `Ready in 1396ms` log line confirms a clean
+  cold-start. Pre-existing `ECONNREFUSED` warnings from a background
+  data source are unchanged.
+- **Playwright walkthrough:** deferred (Rule 27a). The Wave 4 parallel
+  Playwright lock window is tight; a consolidated Wave-4 verification
+  run will cover impls 14/15/16/17 together.
