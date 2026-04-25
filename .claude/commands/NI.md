@@ -1,124 +1,73 @@
 ---
-description: 'Execute a specific implementation from the Reports rebuild in an isolated git worktree, following the strict merge queue (Rules 28-33). Reads the implementation log, validates prerequisites, codes in isolation, self-tests via CI on the impl branch, waits in the queue, merges to main with exclusive lock, watches CI + fix-forwards, runs production verification (curl + Playwright), and only then releases the lock. Server access is granted for diagnostics only — all deploys go through GitHub CI. Usage: /NI 03'
+description: 'Execute a specific implementation from the Reports rebuild. Reads the implementation log, validates prerequisites, executes the work, commits, pushes to GitHub, watches CI, and logs completion. Server access is granted for diagnostics only — all deploys go through GitHub CI. Usage: /NI 03'
 ---
 
 # Reports Rebuild — Execute Implementation $ARGUMENTS
 
 You are executing **Implementation $ARGUMENTS** of the Reports module rebuild. This is a 22-phase, 5-wave rebuild that replaces the mock-data-backed reports module with a real KPI dashboard, a curated custom report builder, three flag-gated AI features (narration, ask-AI, predictions), scheduled reports + alerts workers, finished board + compliance aggregation, and a PDF/Excel/Word export pipeline. The rebuild is documented in `reports-rebuild/PLAN.md` and orchestrated via `reports-rebuild/IMPLEMENTATION_LOG.md`.
 
-**This command implements Rules 28–33** (worktree isolation + strict merge queue) of `IMPLEMENTATION_LOG.md` §2b. Read those before deviating from the steps below.
-
----
-
-## Step 0 · Reap stale worktrees
-
-The first thing every session does — before reading anything — is reap any worktrees left behind by sessions that crashed, got killed, or otherwise failed to reach Step 14:
-
-```bash
-./scripts/reap-worktrees.sh
-```
-
-The reaper checks each `.worktrees/impl-<n>/` against `origin/main`'s log. Worktrees whose impl row is `completed` are removed (worktree directory + local branch + remote branch). Worktrees whose impl is still in-flight (`in-progress`, `ready-to-merge`, `merging`, `verifying`, `pending`, or `🛑 blocked`) are left alone — they belong to other live sessions.
-
-If the reaper warns about an impl-`$ARGUMENTS` worktree from a prior session of yours, **do not** create a new worktree at the same path until you've inspected it. Run `./scripts/reap-worktrees.sh --list` to see what's there. If the prior worktree's branch was actually merged but the reaper missed it (e.g. the log row was never flipped), force-remove it: `./scripts/reap-worktrees.sh --force $ARGUMENTS`. If the prior session has uncommitted work you might want to recover, `cd .worktrees/impl-$ARGUMENTS && git status` and decide manually.
-
-## Step 0.5 · Read the context
+## Step 0 · Read the context
 
 Before doing anything else, read these three files in order:
 
-1. **`reports-rebuild/IMPLEMENTATION_LOG.md`** — operating rules, wave structure, deployment matrix, completion status. Pay special attention to §2a (Rules 17–27, parallel-execution hygiene) and §2b (Rules 28–33, worktree + queue).
-2. **`reports-rebuild/PLAN.md`** — master plan: scope, KPI set, 11 report subjects, custom builder UX, AI flagship scope, sharing flow, component map.
-3. **`reports-rebuild/implementations/$ARGUMENTS-*.md`** — your primary work instructions. Find the file by matching the `$ARGUMENTS` prefix.
+1. **`reports-rebuild/IMPLEMENTATION_LOG.md`** — the operating rules, wave structure, deployment matrix, and completion status for every implementation. Read the whole thing.
+2. **`reports-rebuild/PLAN.md`** — the master plan explaining the scope, KPI set, 11 report subjects + field trees, custom builder UX, AI flagship scope, sharing flow, and component map. Essential for understanding what you're building and why.
+3. **`reports-rebuild/implementations/$ARGUMENTS-*.md`** — the specific implementation file for the task you're about to execute. Your primary work instructions. Find the file by matching the `$ARGUMENTS` prefix (e.g. `$ARGUMENTS=03` matches `03-kpi-dashboard-service.md`).
 
-Do not skim. The log is the source of truth for what has and has not been done.
+Do not skim these. Read them carefully. The log is the source of truth for what has and has not been done; the plan is the source of truth for what is being built; the implementation file is the source of truth for how to build this specific piece.
 
 ## Step 1 · Validate prerequisites
 
-From the implementation file, identify the `Depends on:` line in the frontmatter. Every prerequisite implementation number listed MUST show `status: completed` in the §4 Wave Status table.
+From the implementation file, identify the `Depends on:` line in the frontmatter. For each prerequisite implementation number listed, check the **Wave Status table** in section 4 of `IMPLEMENTATION_LOG.md`. Every prerequisite MUST show `status: completed`.
 
 If **any** prerequisite is not completed:
 
-- STOP. Do not touch code.
-- Tell the user: "Cannot execute implementation $ARGUMENTS — prerequisites not met: [list]. Run those first."
-- Do not partial-execute or work around missing prerequisites.
+- STOP immediately. Do not touch code.
+- Tell the user exactly which prerequisites are missing, in the form: "Cannot execute implementation $ARGUMENTS — prerequisites not met: [list]. Run those first."
+- Do not attempt to work around missing prerequisites. Do not partial-execute.
 
 If all prerequisites are satisfied, continue.
 
+Also check that no other implementation in the same wave is currently `in-progress` or `deploying`. If there is one AND it shares your service-restart target per §3's deployment matrix, wait or pick a different sibling. Two concurrent CI runs against `main` serialise at the workflow level anyway, but contention here wastes CI minutes and produces noisy failures.
+
 ## Step 2 · Read completed prerequisite summaries
 
-For each prerequisite, read its completion record in §5. Look for: what was actually built (may differ from the plan), any deviations with rationale, follow-up notes that affect your work, file paths / endpoint names / service signatures you'll integrate with. The record is authoritative for what exists in the codebase right now.
+For each prerequisite implementation that is `completed`, read its completion record in section 5 of `IMPLEMENTATION_LOG.md`. Look for:
 
-## Step 3 · Create your isolated worktree (Rule 28)
+- What was actually built (may differ from the original plan).
+- Any deviations from the plan with rationale.
+- Follow-up notes that might affect your current work.
+- File paths, endpoint names, and service signatures you'll be integrating with.
 
-Every parallel impl runs in its own filesystem copy. Even if you are the only active session right now, create the worktree — by the time you finish coding, a sibling session may have started.
+If a prerequisite's record mentions something that changes how you should execute the current implementation, respect it. The record is authoritative for what actually exists in the codebase right now.
 
-```bash
-WAVE_ROOT="$(git rev-parse --show-toplevel)"
-WORKTREE="${WAVE_ROOT}/.worktrees/impl-$ARGUMENTS"
-BRANCH="impl/$ARGUMENTS-$(date +%s)"   # the timestamp suffix prevents stale-branch collisions
+## Step 3 · Update the log — mark yourself as in-progress
 
-git fetch origin main
-git worktree add "$WORKTREE" -b "$BRANCH" origin/main
-cd "$WORKTREE"
+Before writing any code, flip your implementation's row in the Wave Status table from `pending` to `in-progress`. This signals to any other session that you've claimed the task.
 
-# Verify isolation
-git status     # must be clean
-git branch     # must show only $BRANCH
-```
+## Step 4 · Execute the implementation
 
-All subsequent work happens in `$WORKTREE`. The original checkout is never touched. If `$WORKTREE` already exists from a prior session of yours, remove it first: `git worktree remove --force "$WORKTREE"` then re-create.
+Follow the steps in `reports-rebuild/implementations/$ARGUMENTS-*.md` exactly. The file is your recipe. It tells you:
 
-## Step 4 · Mark `in-progress` in the log
+- Which files to create, modify, or delete.
+- What data model changes to make (and the RLS policies that must accompany them).
+- What tests to write and what coverage to maintain.
+- What to watch out for (constraints, permission-scoping, flag-gating).
 
-Inside the worktree, flip your row in §4 from `pending` to `in-progress`:
-
-```bash
-sed -i.bak 's/| '$ARGUMENTS'  | \(.*\) | `pending`/| '$ARGUMENTS'  | \1 | `in-progress`/' \
-  reports-rebuild/IMPLEMENTATION_LOG.md
-rm -f reports-rebuild/IMPLEMENTATION_LOG.md.bak
-git add reports-rebuild/IMPLEMENTATION_LOG.md
-git commit -m "docs(reports): impl $ARGUMENTS — start coding (in-progress)"
-git push -u origin "$BRANCH"
-```
-
-(The push to your impl branch — NOT to `main` — gives other sessions reading `origin/main`'s log a clear signal you've claimed the slot, without yet altering main itself. The status flip will land on main when you eventually merge.)
-
-## Step 5 · Execute the implementation
-
-Follow `reports-rebuild/implementations/$ARGUMENTS-*.md` exactly. The file is your recipe.
-
-Follow `CLAUDE.md` and `.claude/rules/*` at all times. Highest-priority rules:
+Follow `CLAUDE.md` and `.claude/rules/*` at all times. Highest-priority rules for this rebuild:
 
 - RLS on every new tenant-scoped table: `FORCE ROW LEVEL SECURITY` + `<table>_tenant_isolation` policy. Mirror into `packages/prisma/rls/policies.sql`.
-- No raw SQL outside the RLS middleware. No `$executeRawUnsafe` / `$queryRawUnsafe` anywhere else.
-- Interactive `$transaction(async (tx) => ...)` for every tenant-scoped write. Sequential `$transaction([...])` is prohibited.
+- No raw SQL outside the RLS middleware. No `$executeRawUnsafe`, no `$queryRawUnsafe` anywhere else.
+- Interactive `$transaction(async (tx) => ...)` for every tenant-scoped write. The sequential `$transaction([...])` API is prohibited.
 - Strict TypeScript — no `any`, no `@ts-ignore`, no `as unknown as X` except the documented RLS-transaction exception.
 - Zod schemas live in `@school/shared`; DTOs inferred from them.
 - Logical CSS properties on frontend (`ps-`, `pe-`, `start-`, `end-`) — never `pl-`, `pr-`, `left-`, `right-`.
 - `react-hook-form` + `zodResolver` for every new form.
 - Co-located `.spec.ts` files next to source. Every tenant-scoped table needs an RLS leakage test.
-- AI features default off and respect `tenant_ai_flags`. Guard every AI endpoint with `@UseGuards(AiFlagGuard) @RequiresAiFlag('reports_...')`.
-- Custom builder queries MUST go through the subject registry + query engine.
+- AI features MUST default off and respect `tenant_ai_flags`. Guard every AI endpoint with `@UseGuards(AiFlagGuard) @RequiresAiFlag('reports_...')`.
+- Custom builder queries MUST go through the subject registry + query engine — no ad-hoc Prisma or SQL for builder execution.
 
-### Continuous rebasing (Rule 32)
-
-Whenever an upstream sibling in your wave merges to `main`, rebase within 5 minutes:
-
-```bash
-git fetch origin main
-# Did main move?
-if [ "$(git rev-parse origin/main)" != "$(git merge-base HEAD origin/main)" ]; then
-  git rebase origin/main
-  # Resolve any conflicts here, while the diff is still small.
-  pnpm turbo run type-check --filter=@school/<affected>
-fi
-```
-
-For known append-only files (`reports-rebuild/IMPLEMENTATION_LOG.md`, `apps/web/messages/{en,ar}.json`), `git rebase -X theirs <branch>` auto-resolves cleanly.
-
-### Local gauntlet
-
-Before pushing for self-CI:
+Run the local gauntlet before committing:
 
 ```bash
 pnpm turbo run type-check --filter=@school/<affected>
@@ -126,7 +75,7 @@ pnpm turbo run lint --filter=@school/<affected>
 pnpm turbo run test --filter=@school/<affected>
 ```
 
-If `CLAUDE.md`'s "Module Registration — Verify DI Before Pushing" applies (you added a service constructor dep or changed module `imports`/`exports`/`providers`), run the AppModule DI smoke:
+If `CLAUDE.md`'s "Module Registration — Verify DI Before Pushing" section applies to your phase (you added a new service constructor dep or changed module `imports`/`exports`/`providers`), run the AppModule DI smoke:
 
 ```bash
 cd apps/api && DATABASE_URL=postgresql://x:x@localhost:5432/x \
@@ -144,11 +93,11 @@ Test.createTestingModule({ imports: [AppModule] }).compile()
 "
 ```
 
-Fix any failures before pushing.
+Fix any failures before committing. A broken DI test in CI will block the deploy and waste 10+ minutes.
 
-## Step 6 · Commit on your impl branch
+## Step 5 · Commit locally
 
-Commit your work to the impl branch (NOT to main yet):
+When the implementation is complete and the local gauntlet passes:
 
 ```bash
 git add <specific files>
@@ -159,369 +108,122 @@ git commit -m "feat(reports): <implementation title>
 Implementation $ARGUMENTS of the reports rebuild.
 See reports-rebuild/PLAN.md for context.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+Co-Authored-By: Claude <noreply@anthropic.com>
+"
 ```
 
-Conventional-commit prefix: `feat(reports):`, `fix(reports):`, `refactor(reports):`, `docs(reports):` — match the phase. Schema-only phases use `feat(prisma):`.
+Conventional-commit prefix: `feat(reports):`, `fix(reports):`, `refactor(reports):`, `docs(reports):` — pick the one that matches the phase. Schema-only phases use `feat(prisma):`.
 
-Multiple commits on the impl branch are fine — they all merge together at queue time.
+## Step 6 · Push and watch CI
 
-## Step 7 · Self-CI on the impl branch
+**All deployments and pushes go through GitHub CI for this rebuild.** Do not rsync, do not `git am` on the server, do not `pm2 restart` by hand.
 
-Push the impl branch (NOT main) and watch CI run against the branch in isolation:
+Flip your log row from `in-progress` to `deploying` and push:
 
 ```bash
-git push --no-verify -u origin "$BRANCH"
-gh run list --branch "$BRANCH" --limit 1
-gh run watch --exit-status
+git push origin main
 ```
 
-CI runs the same gates against your branch as it would against main. Fix any failures with new commits on the same branch and re-push:
-
-```bash
-git push --no-verify origin "$BRANCH"
-gh run watch --exit-status
-```
-
-Do this until self-CI is green. **Do not enter the queue with red self-CI.** The whole point of self-CI is to catch impl-specific failures in isolation, before they collide with main.
-
-## Step 8 · Mark `ready-to-merge` and enter the queue (Rule 29)
-
-Once self-CI is green, flip your row in §4 from `in-progress` to `ready-to-merge` and push the log update to your branch:
-
-```bash
-sed -i.bak 's/| '$ARGUMENTS'  | \(.*\) | `in-progress`/| '$ARGUMENTS'  | \1 | `ready-to-merge`/' \
-  reports-rebuild/IMPLEMENTATION_LOG.md
-rm -f reports-rebuild/IMPLEMENTATION_LOG.md.bak
-git add reports-rebuild/IMPLEMENTATION_LOG.md
-git commit -m "docs(reports): impl $ARGUMENTS — ready to merge"
-git push --no-verify origin "$BRANCH"
-```
-
-Now poll the queue. The session may proceed to merge ONLY when:
-
-1. All lower-numbered impls in the same wave are `completed`.
-2. No impl currently holds the lock (no impl in `merging` or `verifying`).
-
-```bash
-WAVE_ROOT="$(git rev-parse --show-toplevel)"
-LOG_TMP=$(mktemp)
-while true; do
-  git -C "$WAVE_ROOT" fetch origin main --quiet
-  git -C "$WAVE_ROOT" show origin/main:reports-rebuild/IMPLEMENTATION_LOG.md > "$LOG_TMP"
-
-  if "$WAVE_ROOT/scripts/wave-merge-queue.sh" check-clear "$LOG_TMP" "$ARGUMENTS"; then
-    break
-  fi
-  sleep 180   # 3-minute poll
-done
-rm -f "$LOG_TMP"
-```
-
-The poll continues silently every 3 minutes. The user's screen will be quiet during this window — that's expected. If a poll iteration takes long enough that the user starts asking "what's happening?", check `gh run list` to see who currently holds the lock.
-
-## Step 9 · Merge to main with exclusive lock (Rule 30)
-
-Once the queue is clear, claim the lock by flipping to `merging`, then merge:
-
-```bash
-# 9a · Rebase one final time to incorporate everything that landed while waiting
-git fetch origin main
-git rebase origin/main
-# Resolve any conflicts. For append-only files use:
-#   git rebase --strategy=recursive -X theirs origin/main
-# For real conflicts in service files, resolve by hand and re-run the gauntlet.
-pnpm turbo run type-check --filter=@school/<affected>
-pnpm turbo run lint --filter=@school/<affected>
-pnpm turbo run test --filter=@school/<affected>
-
-# 9b · Flip your row to `merging` and commit on this branch
-sed -i.bak 's/| '$ARGUMENTS'  | \(.*\) | `ready-to-merge`/| '$ARGUMENTS'  | \1 | `merging`/' \
-  reports-rebuild/IMPLEMENTATION_LOG.md
-rm -f reports-rebuild/IMPLEMENTATION_LOG.md.bak
-git add reports-rebuild/IMPLEMENTATION_LOG.md
-git commit -m "docs(reports): impl $ARGUMENTS — entering merge queue"
-
-# 9c · Push the impl branch with the merging-state log update first (this is your lock claim)
-git push --no-verify origin "$BRANCH"
-
-# 9d · Atomic fast-forward push to main
-git push --no-verify origin "$BRANCH":main
-```
-
-If `9d` is rejected with `non-fast-forward`, someone else's merge raced in. Repeat from 9a.
-
-If `9d` succeeds, you have written your changes — and your `merging` lock claim — to main atomically. Other sessions will see the lock on their next queue check.
-
-## Step 10 · Watch CI and fix-forward freely (still in `merging`)
-
-You hold exclusive write access to main until you flip to `completed`. Use it.
+Watch the workflow:
 
 ```bash
 gh run watch --exit-status
 ```
 
-If CI fails:
+CI runs type-check, lint, test, regression, and (on green) the deploy job. Expected runtime: ~6 minutes warm, ~11 minutes cold. If `gh run watch` exits non-zero:
 
 1. Read the failure: `gh run view <id> --log-failed`.
-2. Fix in a new commit ON YOUR IMPL BRANCH (you're still in the worktree, still on `$BRANCH`).
-3. Push to main directly (NOT through self-CI again — you hold the lock):
+2. **Fix in a NEW commit** (never amend a pushed commit). Re-run the local gauntlet. Push again.
+3. Repeat until CI is green. Each failure is a natural checkpoint — update the log with a brief note if a fix took more than one follow-up commit, so future sessions know the diff landed across multiple SHAs.
 
-```bash
-git fetch origin main
-git rebase origin/main   # should be a no-op; you're the only writer
-# fix the issue
-git add <files>
-git commit -m "fix(reports): impl $ARGUMENTS — <what>"
-git push --no-verify origin "$BRANCH":main
-gh run watch --exit-status
-```
+If CI is flaky (infra-level, not a real regression), use `gh run rerun <id>`. Only treat a second green run as success — do not assume a flake until you see it pass without changes.
 
-Repeat until CI is green AND the deploy job has run successfully.
+**Server access is granted, but for diagnostics only.** You may `ssh root@46.62.244.139` to:
 
-If CI is flaky (infra-level, not a real regression), use `gh run rerun <id>`. Only treat a second green run as success.
+- Read PM2 logs: `pm2 logs api --lines 200`.
+- Inspect DB state: `sudo -u edupod bash -lc 'psql $DATABASE_URL'`.
+- Check object-storage buckets via S3 CLI.
+- Inspect file permissions or env var presence.
 
-**Server access is for diagnostics only.** SSH `root@46.62.244.139` may:
+You may **NOT** from SSH:
 
-- Read PM2 logs: `sudo -u edupod pm2 logs api --lines 200`
-- Inspect DB state: `sudo -u edupod bash -lc 'psql $DATABASE_URL'`
-- Check object-storage buckets, file permissions, env-var presence
+- `git pull` / `git fetch` / `git am` — the deploy is CI's job.
+- `pnpm db:migrate` / `db:post-migrate` — CI runs migrations.
+- `pm2 restart` / `pm2 reload` — CI restarts services.
+- Edit `.env`, rotate secrets, or write to `/opt/edupod/app`.
 
-May NOT: `git pull`/`fetch`/`am`, run migrations, restart PM2, edit `.env`, write to `/opt/edupod/app`. All changes flow through pushed commits.
+If you see something on the server that CI can't fix (e.g., a stuck PM2 process from a prior rebuild, a corrupted build directory), tell the user before touching it. Emergency-only SSH mutations must be documented in the completion record.
 
-## Step 11 · Flip to `verifying` (Rule 31)
+## Step 7 · Verify the deploy landed
 
-CI is green and the deploy job ran. Now flip your row from `merging` to `verifying`:
+Once CI is green and the deploy job has run:
 
-```bash
-git fetch origin main
-git rebase origin/main
-sed -i.bak 's/| '$ARGUMENTS'  | \(.*\) | `merging`/| '$ARGUMENTS'  | \1 | `verifying`/' \
-  reports-rebuild/IMPLEMENTATION_LOG.md
-rm -f reports-rebuild/IMPLEMENTATION_LOG.md.bak
-git add reports-rebuild/IMPLEMENTATION_LOG.md
-git commit -m "docs(reports): impl $ARGUMENTS — entering verification"
-git push --no-verify origin "$BRANCH":main
-```
+1. Hit `https://<tenant-domain>/api/health` — expect 200.
+2. Smoke the specific surface your phase touched:
+   - **Schema phase (01):** connect with `psql`, confirm new tables exist with RLS (`\dt` + `SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = '<new_table>';`).
+   - **Backend service phase:** curl the primary endpoint as `owner@nhqs.test`; confirm real data (not 404, not stubbed shape).
+   - **Worker phase:** `pm2 logs worker --lines 200` — confirm the new processor registered and (if it's a cron) fired at its scheduled interval.
+   - **Frontend phase:** load the page in a browser, verify the new UI renders and no silent mock fallback triggers.
+3. If the deploy landed but runtime is broken: fix forward with a new commit + push. Do not roll back mid-phase unless the issue is catastrophic (data loss, security leak) — document the decision.
 
-You still hold the lock. From here through `completed`, no other impl can begin its merge.
+## Step 8 · Update the log — completion record
 
-## Step 12 · Production verification (Rule 31)
+After verification succeeds:
 
-Verification is non-negotiable. Run, in order:
-
-### 12a · Health check
-
-```bash
-curl -s https://nhqs.edupod.app/api/health | jq .status   # expect "ok" or "degraded"
-```
-
-### 12b · Endpoint smoke (every backend impl)
-
-For each new endpoint your impl shipped, hit it with `curl` AS `owner@nhqs.test` and confirm the response is real (not 404, not stub). Use the auth-refresh trick to grab a token:
-
-```bash
-TOKEN=$(curl -s -X POST https://nhqs.edupod.app/api/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"owner@nhqs.test","password":"Password123!"}' \
-  | jq -r '.data.access_token')
-
-curl -s -H "Authorization: Bearer $TOKEN" \
-  https://nhqs.edupod.app/api/v1/reports/<your-new-endpoint> | jq .
-```
-
-### 12c · SSH dist verification (every backend impl)
-
-Confirm the new code is actually in the production dist (catches stale-cache deploys):
-
-```bash
-ssh root@46.62.244.139 \
-  "sudo -u edupod grep -l '<a unique string from your impl>' \
-     /opt/edupod/app/apps/api/dist/api/src/modules/reports/*.js"
-```
-
-### 12d · Worker verification (worker impls only)
-
-```bash
-ssh root@46.62.244.139 "sudo -u edupod pm2 logs worker --lines 200 --nostream" \
-  | grep -E '<your-job-name>|Registered repeatable cron'
-```
-
-For cron jobs, wait one full tick to confirm it fires. The message you want is `[<HandlerName>] Tick complete` or similar.
-
-### 12e · Schema verification (schema impls only)
-
-```bash
-ssh root@46.62.244.139 "sudo -u edupod bash -lc 'psql \$DATABASE_URL -c \"
-  SELECT relname, relrowsecurity, relforcerowsecurity
-  FROM pg_class WHERE relname IN ('your_new_table_1','your_new_table_2');\"'"
-```
-
-Both `relrowsecurity` AND `relforcerowsecurity` must be `t`.
-
-### 12f · Playwright walkthrough (mandatory when any UI surface exists)
-
-Per Rule 27b, claim the Playwright lock by appending a one-line claim to §5:
+1. Flip your row in the Wave Status table to `completed`.
+2. Fill in `Completed at` and `Commit SHA` columns.
+3. Append a completion record in §5 of the log using the exact template:
 
 ```
-### [PLAYWRIGHT LOCK] — impl $ARGUMENTS (post-deploy)
-- Holder: impl $ARGUMENTS verification — post-deploy smoke
-- Started: <ISO timestamp> Europe/Dublin
-- Until: released by closing the browser AND appending a follow-up release line
-```
-
-Commit + push the lock-claim log update to main (you still hold the merge lock from Rule 30, so this is safe).
-
-Then drive the new pages end-to-end via the `mcp__plugin_playwright_playwright__*` tools:
-
-1. `browser_navigate` to `https://nhqs.edupod.app/en/login`, log in as `owner@nhqs.test` / `Password123!`.
-2. `browser_navigate` to each new page your impl shipped.
-3. `browser_console_messages('error')` — must return 0 errors.
-4. Exercise the primary flow: open modals, submit forms, navigate deep links.
-5. For backend-only impls (no new UI): `browser_evaluate(async () => { /* fetch the new endpoint with bearer token */ })` — confirms the route works through the same auth chain the eventual UI will use.
-
-After verification, `browser_close` and append the release line:
-
-```
-### [PLAYWRIGHT RELEASED] — impl $ARGUMENTS (post-deploy)
-- Holder: impl $ARGUMENTS verification — post-deploy smoke
-- Released: <ISO timestamp> Europe/Dublin
-- Browser closed: yes
-```
-
-### 12g · Verification block in §5
-
-Append a verification block to §5 alongside your completion record:
-
-```markdown
-### [IMPL $ARGUMENTS] — Post-deploy verification
-- **Run:** <ISO start> → <ISO end> Europe/Dublin
-- **Production deploy verified:** PM2 restart at <time>; dist file `<file>` contains `<unique string>`.
-- **Endpoint smoke:**
-
-  | Endpoint | Result | Evidence |
-  | -------- | ------ | -------- |
-  | `GET /v1/reports/...` | ✅ 200 | `{...real shape...}` |
-
-- **Playwright smoke:**
-
-  | Surface | Result | Evidence |
-  | ------- | ------ | -------- |
-  | `/en/reports/...` page load | ✅ | 0 console errors. Renders <key elements>. |
-  | Create modal opens | ✅ | Dialog text confirms <expected fields>. |
-```
-
-If any verification step fails: do NOT flip to `completed`. Fix-forward in another commit (you still hold the lock), redeploy, re-verify. Only flip to `completed` when every step passes.
-
-## Step 13 · Flip to `completed` and release the lock
-
-```bash
-git fetch origin main
-git rebase origin/main
-# Update wave-status row + append completion record + verification block in one commit
-sed -i.bak "s/| $ARGUMENTS  | \\(.*\\) | \`verifying\`  | *|/| $ARGUMENTS  | \\1 | \`completed\`   | $(date -u +%Y-%m-%dT%H:%M)Z | \`$(git rev-parse --short HEAD)\` |/" \
-  reports-rebuild/IMPLEMENTATION_LOG.md
-rm -f reports-rebuild/IMPLEMENTATION_LOG.md.bak
-
-# Append the completion record in §5 (use your editor or here-doc — don't use sed)
-cat >> reports-rebuild/IMPLEMENTATION_LOG.md <<EOF
-
 ### [IMPL $ARGUMENTS] — <title>
-
-- **Completed:** $(date -u +%Y-%m-%dT%H:%M) Europe/Dublin
-- **Final SHA:** \`$(git rev-parse --short HEAD)\`
+- **Completed:** <ISO timestamp> Europe/Dublin
+- **Commit:** <sha>
 - **CI run:** <gh run URL>
 - **Deployed to production:** yes
 - **Summary (≤ 200 words):**
-  <what was actually built — files, endpoints, services, key design
-   decisions made during implementation that subsequent waves need
-   to know about, any trade-offs or deviations from the plan>
-- **Follow-ups:** <anything for later, with owner>
-- **Rollback:** <exact \`git revert <sha>\` command + any manual DB rollback>
+  <what was actually built, names of new files, endpoints, services,
+   key design decisions made during implementation that subsequent waves
+   need to know about, any trade-offs or deviations from the plan>
+- **Follow-ups:** <anything that needs later attention, with owner>
+- **Rollback:** <exact `git revert <sha>` command + any manual DB rollback if reverting>
 - **Session notes:** <optional — anything surprising>
-EOF
+```
 
+Commit this log update as a separate commit and push:
+
+```bash
 git add reports-rebuild/IMPLEMENTATION_LOG.md
 git commit -m "docs(reports): log completion of implementation $ARGUMENTS"
-git push --no-verify origin "$BRANCH":main
+git push origin main
 ```
 
-The lock is released the moment this push lands. The next impl in the queue (lowest-numbered `ready-to-merge` row) is now clear to enter step 9.
+(The log-update commit also runs CI but is trivial — it only touches markdown, so CI is fast.)
 
-## Step 14 · Cleanup (mandatory — do not skip)
-
-Tear down the worktree and delete the impl branch. This is non-negotiable: every session that reaches `completed` MUST clean up its own worktree, in its own session, before reporting to the user. Stale worktrees create disk waste and confuse later sessions.
-
-```bash
-WAVE_ROOT="$(git rev-parse --show-toplevel)"
-cd "$WAVE_ROOT"   # MUST leave the worktree directory before removing it
-git worktree remove --force "$WAVE_ROOT/.worktrees/impl-$ARGUMENTS"
-git branch -D "$BRANCH"
-git push origin --delete "$BRANCH" 2>/dev/null || true   # remote branch (ignore if already gone)
-git worktree prune                                       # tidy registry entries
-```
-
-### Verify the cleanup actually happened
-
-After running the commands above, **verify** that the worktree is gone:
-
-```bash
-if [[ -d "$WAVE_ROOT/.worktrees/impl-$ARGUMENTS" ]]; then
-  echo "ERROR: worktree directory still exists after cleanup attempt" >&2
-  exit 1
-fi
-
-# Confirm via the reaper's list command
-./scripts/reap-worktrees.sh --list | grep -q "impl-$ARGUMENTS" && {
-  echo "ERROR: reaper still sees impl-$ARGUMENTS — manual intervention needed" >&2
-  exit 1
-}
-
-echo "Cleanup verified — impl-$ARGUMENTS worktree removed."
-```
-
-If verification fails, force-remove and retry:
-
-```bash
-./scripts/reap-worktrees.sh --force "$ARGUMENTS"
-```
-
-If even the force-remove fails (rare — usually means the directory has open file handles from another process), report it to the user before proceeding to Step 15. Do NOT silently leave a stale worktree.
-
-### Safety net
-
-Even if Step 14 is somehow skipped (session crashes between Step 13 and Step 14), the next `/NI` invocation runs `./scripts/reap-worktrees.sh` at Step 0 and will clean up the orphan automatically. Step 14 is the primary cleanup; the reaper is the safety net.
-
-## Step 15 · Report to the user
+## Step 9 · Report to the user
 
 Final message to the user:
 
 - ✅ Implementation $ARGUMENTS completed.
-- Final SHA: `<sha>`.
+- Commit: `<sha>`.
 - CI run: `<url>`.
-- Deployed + verified in production.
-- Verification: <one line — "Playwright on /reports/X confirmed N pages render with 0 console errors; new endpoint returns 200 with the expected shape">.
-- Next suggested impl: `<next number>` (or, if multiple parallel siblings remain, list which are clear to start).
-- Anything the user should know before running the next one (new env var, permission grant, admin action).
+- Deployed to production.
+- Summary: one sentence.
+- Next suggested implementation: `<next number>` (unless the wave has parallel siblings still to run — then list which are available).
+- Anything the user should know before running the next one (e.g., new env var, new permission to assign, new admin action required).
 
-Keep it tight. The user can read the full record + verification block in the log.
+Keep it tight. The user can read the full record in the log.
 
 ---
 
 ## Rules you must never break
 
-1. **All merges and deploys go through GitHub CI.** No direct rsync, no `git am` on the server, no manual `pm2 restart`. SSH is diagnostic-only.
+1. **All pushes and deploys go through GitHub CI.** No direct rsync, no `git am` on the server, no manual `pm2 restart`. SSH is diagnostic-only.
 2. **Never skip prerequisite checks.** If something says `pending`, it's pending.
 3. **Never amend a pushed commit.** If CI fails, fix in a new commit and push again.
-4. **Never skip the local gauntlet OR self-CI.** Type-check + lint + test + (if DI-relevant) AppModule smoke locally. Then self-CI on your impl branch. Only THEN enter the queue. A red push to main wastes everyone's time.
-5. **Never skip the queue check.** `scripts/wave-merge-queue.sh check-clear` is the only path to entering `merging`. The check is atomic; trust it.
-6. **Never push to main without holding the lock.** If your row is not `merging` or `verifying`, you do not push to main. Period.
-7. **Never flip to `completed` without verification.** Rule 31 is non-negotiable. curl + (when possible) Playwright. The verification block is part of the completion record.
-8. **Never skip the log update.** Every state transition (`pending → in-progress → ready-to-merge → merging → verifying → completed`) gets a commit. The log is the only coordination mechanism for the queue.
-9. **Never work around missing context.** If the implementation file is unclear or contradicts the plan, STOP and ask the user.
-10. **Never mark `completed` if it didn't actually ship.** Failed verification → flip to `🛑 blocked` with what you tried and what you need.
-11. **Never flip an AI feature on by default.** Every `tenant_ai_flags` entry for reports seeds `enabled = false`. Tenants opt in.
-12. **Never bypass the query engine for builder execution.** Every saved/preview/scheduled report query goes through `QueryEngineService`.
-13. **Never delete or recreate someone else's worktree.** `.worktrees/impl-<n>/` belongs to the impl that created it. Use your own subdirectory.
-14. **Never make an executive decision (Rule 33) that loses the user's prior explicit choice or expands scope.** Those escalate to the user. Everything else is yours to call, document, and verify.
-15. **Never skip Step 14 cleanup.** Every session that reaches `completed` cleans up its own worktree before reporting. The Step 0 reaper is a safety net, not a substitute. Disk-space buildup from abandoned worktrees is a regression — treat it as one.
+4. **Never skip the local gauntlet.** Type-check + lint + test + (if DI-relevant) AppModule smoke before pushing. A broken push wastes 10+ minutes of CI and blocks siblings in the same wave.
+5. **Never skip the log update.** The log is the only coordination mechanism; if you don't update it, the next session is flying blind.
+6. **Never work around missing context.** If the implementation file is unclear or contradicts the plan, STOP and ask the user.
+7. **Never mark an implementation completed if it didn't actually ship.** If the deploy failed, CI is stuck, or verification failed, mark it `🛑 blocked` with a description of what you tried and what you need.
+8. **Never flip an AI feature on by default.** Every `tenant_ai_flags` entry for reports seeds `enabled = false`. Tenants opt in.
+9. **Never bypass the query engine for builder execution.** Every saved/preview/scheduled report query goes through `QueryEngineService`. RLS, permission-scoping, row caps, and timeout are enforced there.
+10. **Never mix deploy routes.** Once a commit has been pushed via CI, do not rsync it. This rebuild is GitHub-CI exclusive.
