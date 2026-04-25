@@ -2321,6 +2321,24 @@ polish / deploy-architecture task; impl 14 is not blocked by it.
 - Released: 2026-04-25T02:10 Europe/Dublin
 - Browser closed: yes
 
+### [PLAYWRIGHT LOCK] — impl 14
+
+- Holder: impl 14 verification (Reports Hub + KPI Dashboard UI)
+- Started: 2026-04-25T05:40 Europe/Dublin
+- Until: released by closing the browser AND appending a follow-up release line
+
+### [PLAYWRIGHT RELEASED] — impl 14 (interim)
+
+- Holder: impl 14 verification (Reports Hub + KPI Dashboard UI)
+- Released: 2026-04-25T05:42 Europe/Dublin
+- Browser closed: yes
+- Notes: Production `/en/reports` still serves the pre-impl-14 legacy
+  roster-style dashboard (Total Students, Attendance Rate, …). No console
+  errors. Wave 4 deploy step has not yet succeeded — every Wave 4 commit
+  since `fd258bf9` (mine) has been blocked at CI by sibling-impl-15 / 16
+  / 17 type-checks. Re-claim and re-verify when CI is green and the
+  deploy job has run.
+
 ### [WAVE 4 SHARED-FILE CLAIM] — impl 14
 
 - Claims (surgical, page-scoped):
