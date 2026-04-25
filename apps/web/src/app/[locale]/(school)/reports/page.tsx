@@ -74,94 +74,97 @@ interface QuickLink {
   color: string;
 }
 
+// Keys are RELATIVE to the `reports` namespace declared via
+// `useTranslations('reports')` below. Do NOT prefix them with `reports.`
+// — that would resolve to `reports.reports.*` and miss every key.
 const quickLinks: QuickLink[] = [
   {
     icon: GraduationCap,
-    labelKey: 'reports.analytics.attendanceAnalytics',
+    labelKey: 'analytics.attendanceAnalytics',
     href: '/reports/attendance',
     color: 'text-blue-600',
   },
   {
     icon: BookOpen,
-    labelKey: 'reports.analytics.gradeAnalytics',
+    labelKey: 'analytics.gradeAnalytics',
     href: '/reports/grades',
     color: 'text-emerald-600',
   },
   {
     icon: Users,
-    labelKey: 'reports.analytics.demographics',
+    labelKey: 'analytics.demographics',
     href: '/reports/demographics',
     color: 'text-purple-600',
   },
   {
     icon: TrendingUp,
-    labelKey: 'reports.analytics.studentProgress',
+    labelKey: 'analytics.studentProgress',
     href: '/reports/student-progress',
     color: 'text-indigo-600',
   },
   {
     icon: UserCheck,
-    labelKey: 'reports.analytics.admissions',
+    labelKey: 'analytics.admissions',
     href: '/reports/admissions',
     color: 'text-pink-600',
   },
   {
     icon: BarChart3,
-    labelKey: 'reports.analytics.staff',
+    labelKey: 'analytics.staff',
     href: '/reports/staff',
     color: 'text-orange-600',
   },
   {
     icon: Brain,
-    labelKey: 'reports.analytics.insights',
+    labelKey: 'analytics.insights',
     href: '/reports/insights',
     color: 'text-violet-600',
   },
   {
     icon: FileText,
-    labelKey: 'reports.analytics.boardReport',
+    labelKey: 'analytics.boardReport',
     href: '/reports/board',
     color: 'text-sky-600',
   },
   {
     icon: Calendar,
-    labelKey: 'reports.analytics.scheduled',
+    labelKey: 'analytics.scheduled',
     href: '/reports/scheduled',
     color: 'text-teal-600',
   },
   {
     icon: AlertTriangle,
-    labelKey: 'reports.analytics.alerts',
+    labelKey: 'analytics.alerts',
     href: '/reports/alerts',
     color: 'text-amber-600',
   },
   {
     icon: Bot,
-    labelKey: 'reports.analytics.askAi',
+    labelKey: 'analytics.askAi',
     href: '/reports/ask-ai',
     color: 'text-rose-600',
   },
   {
     icon: LayoutDashboard,
-    labelKey: 'reports.analytics.builder',
+    labelKey: 'analytics.builder',
     href: '/reports/builder',
     color: 'text-cyan-600',
   },
   {
     icon: Download,
-    labelKey: 'reports.studentExport',
+    labelKey: 'studentExport',
     href: '/reports/student-export',
     color: 'text-gray-600',
   },
   {
     icon: DollarSign,
-    labelKey: 'reports.writeOffs',
+    labelKey: 'writeOffs',
     href: '/reports/write-offs',
     color: 'text-yellow-600',
   },
   {
     icon: Clock,
-    labelKey: 'reports.notificationDelivery',
+    labelKey: 'notificationDelivery',
     href: '/reports/notification-delivery',
     color: 'text-slate-600',
   },
@@ -273,6 +276,81 @@ const MOCK_TRENDS: TrendPoint[] = [
   { month: 'Mar', attendance: 93, grades: 75, collection: 88 },
 ];
 
+// ─── Adapter: new dashboard API → legacy page shape ──────────────────────────
+//
+// Wave 3 (impl 03) replaced the old roster-style KPI shape with a 10-card
+// `KpiCard[]` array + columnar trends. This page is rewritten by impl 14;
+// until then this adapter projects the new shape down to the old one so
+// recharts (which expects an array of `{month, attendance, grades, collection}`
+// rows) doesn't choke on `trends.slice()` and the KPI cards render real data.
+
+interface NewKpiCard {
+  key: string;
+  value_raw?: number;
+  value?: string | number;
+}
+
+interface NewTrendsShape {
+  weeks?: string[];
+  attendance?: number[];
+  grades?: number[];
+  collection?: number[];
+}
+
+function adaptDashboardResponse(payload: {
+  kpis?: NewKpiCard[];
+  trends?: NewTrendsShape;
+}): DashboardData {
+  const kpiByKey = new Map<string, NewKpiCard>();
+  for (const card of payload.kpis ?? []) {
+    if (card?.key) kpiByKey.set(card.key, card);
+  }
+  const valueOf = (key: string): number => {
+    const raw = kpiByKey.get(key)?.value_raw;
+    return typeof raw === 'number' ? raw : 0;
+  };
+
+  // The new shape doesn't have a 1:1 mapping for the legacy roster KPIs.
+  // For each legacy slot we pick the best available proxy from the new
+  // 10-KPI set; missing slots render as 0 until impl 14's rewrite.
+  const kpis: KpiData = {
+    total_students: 0,
+    attendance_rate: valueOf('attendance_today'),
+    average_grade: 0,
+    collection_rate: 0,
+    outstanding_balance: valueOf('overdue_invoices'),
+    active_staff: 0,
+    open_admissions: valueOf('new_applications_this_week'),
+    at_risk_students: valueOf('at_risk_students'),
+    overdue_invoices: valueOf('overdue_invoices'),
+    schedule_coverage: 100 - valueOf('cover_gaps_this_week'),
+  };
+
+  const t = payload.trends;
+  const weeks = Array.isArray(t?.weeks) ? t.weeks : [];
+  const attendance = Array.isArray(t?.attendance) ? t.attendance : [];
+  const grades = Array.isArray(t?.grades) ? t.grades : [];
+  const collection = Array.isArray(t?.collection) ? t.collection : [];
+  const trends: TrendPoint[] = weeks.length
+    ? weeks.map((w, i) => ({
+        month: formatWeekLabel(w),
+        attendance: attendance[i] ?? 0,
+        grades: grades[i] ?? 0,
+        collection: collection[i] ?? 0,
+      }))
+    : MOCK_TRENDS;
+
+  return { kpis, trends };
+}
+
+function formatWeekLabel(iso: string): string {
+  // ISO date like '2026-04-19' → 'Apr 19'. Falls back to the raw string
+  // if parsing fails — better to display the ISO date than crash.
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 // ─── AI Summary callout ────────────────────────────────────────────────────────
 
 interface AiSummaryProps {
@@ -320,14 +398,24 @@ export default function ReportsDashboardPage() {
 
   const fetchData = React.useCallback(() => {
     setLoading(true);
-    apiClient<{ data: DashboardData }>('/api/v1/reports/analytics/dashboard')
+    apiClient<{
+      data: {
+        kpis?: NewKpiCard[];
+        trends?: NewTrendsShape;
+      };
+    }>('/api/v1/reports/analytics/dashboard')
       .then((res) => {
-        setData(res.data);
+        // Wave 3 (impl 03) shipped the new 10-KPI dashboard shape. This
+        // page is a Wave-4 rewrite target (impl 14); until then we adapt
+        // the new response into the legacy shape this page renders so
+        // nothing crashes recharts. Throwaway adapter — delete with impl 14.
+        const adapted = adaptDashboardResponse(res.data);
+        setData(adapted);
         setLastRefresh(new Date());
       })
       .catch((err) => {
         console.error('[ReportsPage]', err);
-        // Use mock data for now — backend not yet connected
+        // Final-resort mock so the shell remains usable on a backend error.
         setData({
           kpis: {
             total_students: 195,

@@ -128,7 +128,12 @@ export type AiPredictDto = z.infer<typeof aiPredictSchema>;
 
 // ─── Custom Report Builder ────────────────────────────────────────────────────
 
-export const reportDataSourceSchema = z.enum([
+/**
+ * Legacy enum (Wave 0) — used by reports already on production. Kept so
+ * existing rows still validate on update. New reports MUST use the
+ * `REPORT_SUBJECT_KEYS` (Wave 2 / impl 02) — see `data_source` below.
+ */
+export const reportDataSourceLegacySchema = z.enum([
   'students',
   'attendance',
   'grades',
@@ -137,20 +142,93 @@ export const reportDataSourceSchema = z.enum([
   'admissions',
 ]);
 
+/**
+ * The 11 new curated subject keys introduced by impl 02. Inlined here
+ * (rather than imported from `@school/shared/reports/subjects`) to keep
+ * this legacy schemas file self-contained — both copies must stay in
+ * sync; the test in `apps/api/test/reports-rebuild-foundation.rls.spec.ts`
+ * indirectly enforces the union via fixture round-tripping.
+ */
+export const reportSubjectKeyLegacyMirrorSchema = z.enum([
+  'student',
+  'staff',
+  'household',
+  'class',
+  'invoice',
+  'application',
+  'behaviour_incident',
+  'safeguarding_concern',
+  'attendance_record',
+  'grade',
+  'payroll_entry',
+]);
+
+/**
+ * `data_source` accepts either a legacy enum value (existing reports) or
+ * one of the new subject keys. Existing rows continue to read; new rows
+ * authored under a new subject key go through the impl-02 query engine.
+ */
+export const reportDataSourceSchema = z.union([
+  reportDataSourceLegacySchema,
+  reportSubjectKeyLegacyMirrorSchema,
+]);
+
 export type ReportDataSource = z.infer<typeof reportDataSourceSchema>;
 
 export const reportChartTypeSchema = z.enum(['table', 'bar', 'line', 'pie']).nullable();
 
+/**
+ * Column spec — accepted in both legacy (string field id) and new
+ * (`{field_id, aggregation?}`) shapes. The new shape mirrors
+ * `ColumnSpec` from `@school/shared/reports/query-engine`. Mirrored
+ * here to keep this schema file dependency-free.
+ */
+const columnSpecLegacyMirrorSchema = z.union([
+  z.string().min(1),
+  z.object({
+    field_id: z.string().min(1),
+    aggregation: z
+      .enum(['count', 'sum', 'avg', 'min', 'max', 'percent'])
+      .optional(),
+  }),
+]);
+
+/**
+ * Measures spec — accepts the legacy [{field, aggregation}] array OR the
+ * new `{sort?: SortSpec[], group_by?: GroupBySpec[]}` object. The
+ * deserialiser in `custom-report-builder.service.ts:deserialiseQuery`
+ * already handles both shapes.
+ */
+const measuresLegacySchema = z.array(
+  z.object({
+    field: z.string(),
+    aggregation: z.enum(['count', 'sum', 'average', 'min', 'max', 'percentage', 'rate']),
+  }),
+);
+const measuresNewSchema = z
+  .object({
+    sort: z
+      .array(
+        z.object({
+          field_id: z.string().min(1),
+          direction: z.enum(['asc', 'desc']),
+        }),
+      )
+      .optional(),
+    group_by: z
+      .array(z.object({ field_id: z.string().min(1) }))
+      .optional(),
+  })
+  .strict();
+
 export const createSavedReportSchema = z.object({
   name: z.string().min(1).max(255),
   data_source: reportDataSourceSchema,
-  dimensions_json: z.array(z.string()),
-  measures_json: z.array(
-    z.object({
-      field: z.string(),
-      aggregation: z.enum(['count', 'sum', 'average', 'min', 'max', 'percentage', 'rate']),
-    }),
-  ),
+  dimensions_json: z.array(columnSpecLegacyMirrorSchema),
+  measures_json: z.union([measuresLegacySchema, measuresNewSchema]),
+  // Either legacy free-form record (which the new query engine ignores)
+  // OR a structured FilterGroup with `combinator: 'and' | 'or'`. The
+  // deserialiser keeps the structured shape and discards the legacy one.
   filters_json: z.record(z.unknown()),
   chart_type: reportChartTypeSchema.optional(),
   is_shared: z.boolean().default(false),

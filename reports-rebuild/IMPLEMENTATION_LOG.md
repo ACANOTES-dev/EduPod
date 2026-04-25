@@ -2185,3 +2185,12 @@ FROM pg_class WHERE relname = 'report_share_log';` returns
 - Holder: post-impl-13 verification walkthrough across all landed impls
 - Released: 2026-04-25T01:35 Europe/Dublin
 - Browser closed: yes
+
+### [PLAYWRIGHT LOCK] — pre-impl-14 fix sweep
+
+- Holder: post-walkthrough fix sweep — resolving the three findings raised
+  above (reports page break, smoke ceiling for impl 04/13, deploy race)
+  before impl 14 can start.
+- Started: 2026-04-25T01:36 Europe/Dublin
+- Until: released by closing the browser AND appending a follow-up
+  release line.
