@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -8,13 +9,17 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 import {
   createReportShareSchema,
+  reportShareArtifactFormatSchema,
   type CreateReportShareDto,
+  type ReportShareArtifactFormat,
   type ReportShareHistoryResponse,
   type ShareReportResponse,
   type SharedSnapshotView,
@@ -60,6 +65,54 @@ export class ReportSharingController {
     private readonly sharing: ReportSharingService,
     private readonly permissionCache: PermissionCacheService,
   ) {}
+
+  // ─── POST /v1/reports/builder/:reportId/export ───────────────────────────
+  //
+  // Impl 04 endpoint, finally wired in the impl-13 fix sweep. Streams the
+  // exported buffer directly to the client with `Content-Type` and
+  // `Content-Disposition: attachment` so browsers save under the human-
+  // friendly filename. Bypasses the `ResponseTransformInterceptor` via
+  // `@Res()` — the interceptor is for JSON envelopes, not binary streams.
+
+  @Post('builder/:reportId/export')
+  @RequiresPermission('reports.builder', 'analytics.manage_reports')
+  async exportSavedReport(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('reportId', ParseUUIDPipe) reportId: string,
+    @Body() body: { format?: string } | null,
+    @Query('format') queryFormat: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const rawFormat = body?.format ?? queryFormat ?? 'pdf';
+    const parsedFormat = reportShareArtifactFormatSchema.safeParse(rawFormat);
+    if (!parsedFormat.success) {
+      throw new BadRequestException({
+        code: 'EXPORT_FORMAT_INVALID',
+        message: `Unknown export format "${rawFormat}". Allowed: pdf, excel, word.`,
+      });
+    }
+    const format: ReportShareArtifactFormat = parsedFormat.data;
+
+    const permissions = await this.resolveEffectivePermissions(user);
+    const result = await this.sharing.exportSavedReport({
+      tenantId: tenant.tenant_id,
+      userId: user.sub,
+      permissions,
+      savedReportId: reportId,
+      format,
+    });
+
+    res
+      .status(HttpStatus.OK)
+      .setHeader('Content-Type', result.mimeType)
+      .setHeader(
+        'Content-Disposition',
+        `attachment; filename="${result.filename.replace(/[^A-Za-z0-9 _.()-]+/g, '-')}"`,
+      )
+      .setHeader('X-Row-Count', String(result.rowCount))
+      .send(result.buffer);
+  }
 
   // ─── POST /v1/reports/builder/:reportId/share ────────────────────────────
 

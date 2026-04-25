@@ -86,6 +86,21 @@ export interface ListSharesRequest {
   pageSize: number;
 }
 
+export interface ExportSavedReportRequest {
+  tenantId: string;
+  userId: string;
+  permissions: string[];
+  savedReportId: string;
+  format: ReportShareArtifactFormat;
+}
+
+export interface ExportSavedReportResult {
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+  rowCount: number;
+}
+
 interface ArtifactRecord {
   format: ReportShareArtifactFormat;
   storageKey: string;
@@ -137,6 +152,73 @@ export class ReportSharingService {
     private readonly conversations: ConversationsService,
     private readonly authReadFacade: AuthReadFacade,
   ) {}
+
+  // ─── exportSavedReport ──────────────────────────────────────────────────
+  //
+  // Synchronous export entry point used by `POST /v1/reports/builder/:id/export`
+  // (impl 04 controller route). Loads the saved report, executes the query
+  // through the same RLS / row-cap / timeout-bound path used by sharing,
+  // and returns a buffer + Content-Disposition-friendly filename.
+  //
+  // Reuses every helper introduced for `share()` so there's a single place
+  // that knows how to translate a saved report into a renderable export.
+
+  async exportSavedReport(
+    request: ExportSavedReportRequest,
+  ): Promise<ExportSavedReportResult> {
+    const report = await this.builder.getSavedReport(request.tenantId, request.savedReportId);
+    const queryResult = await this.builder.executeReport(
+      request.tenantId,
+      request.userId,
+      request.permissions,
+      request.savedReportId,
+      1,
+      SYNC_SHARE_ROW_CAP,
+    );
+
+    if (queryResult.meta.row_count > SYNC_SHARE_ROW_CAP) {
+      throw new HttpException(
+        {
+          code: REPORT_SHARE_ERROR_CODES.SHARE_TOO_LARGE,
+          message: `Export would include ${queryResult.meta.row_count} rows (cap is ${SYNC_SHARE_ROW_CAP}). Narrow your filters or schedule the report.`,
+          row_count: queryResult.meta.row_count,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const branding = await this.exporter.getTenantBranding(request.tenantId);
+    const sharerName = await this.resolveUserDisplayName(
+      request.tenantId,
+      request.userId,
+    );
+    const filtersSummary = describeFilters(report);
+
+    const exportInput: ExportInput = {
+      tenantId: request.tenantId,
+      report: {
+        name: report.name,
+        filters_summary: filtersSummary,
+        generated_by: sharerName,
+        generated_at: new Date(),
+      },
+      data: {
+        columns: queryResult.columns.map(mapToExportColumn),
+        rows: queryResult.rows,
+      },
+      branding,
+    };
+
+    const buffer = await this.exporter.exportByFormat(request.format, exportInput);
+    const filename = safeExportFilename(report.name, request.format);
+
+    return {
+      buffer,
+      filename,
+      mimeType: FORMAT_MIME_TYPES[request.format],
+      rowCount: queryResult.meta.row_count,
+    };
+  }
 
   // ─── share ───────────────────────────────────────────────────────────────
 

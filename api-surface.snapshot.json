@@ -9617,6 +9617,16 @@
   },
   {
     "method": "POST",
+    "path": "/v1/reports/builder/:reportId/export",
+    "controller": "ReportSharingController",
+    "module": "reports",
+    "permission": [
+      "reports.builder",
+      "analytics.manage_reports"
+    ]
+  },
+  {
+    "method": "POST",
     "path": "/v1/reports/builder/:reportId/share",
     "controller": "ReportSharingController",
     "module": "reports",
