@@ -147,7 +147,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | --- | ------------------------------------------------------ | ---- | -------------- | -------------------- | -------------- | ------------- | ------------------------------ | ---------- |
 | 01  | Foundation: envelope unwrap + pagination + my-schedule | 1    | foundation     | serial               | —              | `completed`   | 2026-04-26T00:04 Europe/Dublin | `39c30036` |
 | 02  | Hub landing + retire in-page strip                     | 2    | frontend       | parallel-risky       | 01             | `completed`   | 2026-04-26T00:23 Europe/Dublin | `16484131` |
-| 03  | Form templates editor polish                           | 2    | frontend       | parallel-risky       | 01             | `in-progress` |                                |            |
+| 03  | Form templates editor polish                           | 2    | frontend       | parallel-risky       | 01             | `deploying`   |                                |            |
 | 04  | Event sub-pages + parent flow polish                   | 3    | full-stack     | parallel-safe        | 01, 02, 03     | `pending`     |                                |            |
 | 05  | Parent permission backfill                             | 3    | data           | parallel-safe        | 01             | `pending`     |                                |            |
 | 06  | Regression sweep + i18n + mobile + docs                | 4    | polish         | serial               | 02, 03, 04, 05 | `pending`     |                                |            |
