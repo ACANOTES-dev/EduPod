@@ -2,8 +2,8 @@
 
 import {
   AlertOctagon,
-  AlertTriangle,
   BarChart3,
+  Bell,
   BookOpen,
   Bot,
   Brain,
@@ -11,14 +11,15 @@ import {
   Clock,
   DollarSign,
   Download,
+  FileBadge,
   FileText,
   GraduationCap,
   LayoutDashboard,
   RefreshCw,
+  Sparkles,
   TrendingUp,
   UserCheck,
   Users,
-  type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -40,6 +41,12 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { AiSummaryPanel } from './_components/ai-summary-panel';
+import {
+  BuilderHeroTile,
+  ReportGroup,
+  type QuickLink,
+  type ReportGroupConfig,
+} from './_components/hub-layout';
 import { KpiCard } from './_components/kpi-card';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -51,28 +58,9 @@ interface DashboardError {
   message: string;
 }
 
-interface QuickLink {
-  icon: LucideIcon;
-  labelKey: string;
-  /** Optional short description key. If unresolved, the description row is hidden. */
-  descKey?: string;
-  href: string;
-  color: string;
-}
+// ─── Group: Analytics dashboards ──────────────────────────────────────────────
 
-// ─── Quick-link grid ──────────────────────────────────────────────────────────
-//
-// Order is intentional: the primary analytics dashboards come first, then
-// operational reports (scheduled, alerts, builder, ask-ai), then the audit
-// / data-pack pages. All keys are relative to `useTranslations('reports')`.
-//
-// Per impl 14 §5: the legacy `reports.studentExport`, `reports.writeOffs`
-// and `reports.notificationDelivery` keys are normalised under
-// `reports.analytics.*` so the dashboard speaks one namespace. The legacy
-// top-level keys remain in `messages/{en,ar}.json` until impl 22 retires
-// them, but the dashboard quick-link grid no longer references them.
-
-const QUICK_LINKS: QuickLink[] = [
+const ANALYTICS_LINKS: ReadonlyArray<QuickLink> = [
   {
     icon: GraduationCap,
     labelKey: 'analytics.attendanceAnalytics',
@@ -88,18 +76,18 @@ const QUICK_LINKS: QuickLink[] = [
     color: 'text-emerald-600',
   },
   {
-    icon: Users,
-    labelKey: 'analytics.demographics',
-    descKey: 'demographicsDesc',
-    href: '/reports/demographics',
-    color: 'text-purple-600',
-  },
-  {
     icon: TrendingUp,
     labelKey: 'analytics.studentProgress',
     descKey: 'studentProgressDesc',
     href: '/reports/student-progress',
     color: 'text-indigo-600',
+  },
+  {
+    icon: Users,
+    labelKey: 'analytics.demographics',
+    descKey: 'demographicsDesc',
+    href: '/reports/demographics',
+    color: 'text-purple-600',
   },
   {
     icon: UserCheck,
@@ -122,6 +110,11 @@ const QUICK_LINKS: QuickLink[] = [
     href: '/reports/insights',
     color: 'text-violet-600',
   },
+];
+
+// ─── Group: Governance & compliance ──────────────────────────────────────────
+
+const GOVERNANCE_LINKS: ReadonlyArray<QuickLink> = [
   {
     icon: FileText,
     labelKey: 'analytics.boardReport',
@@ -130,32 +123,11 @@ const QUICK_LINKS: QuickLink[] = [
     color: 'text-sky-600',
   },
   {
-    icon: LayoutDashboard,
-    labelKey: 'analytics.builder',
-    descKey: 'builderDesc',
-    href: '/reports/builder',
-    color: 'text-cyan-600',
-  },
-  {
-    icon: Bot,
-    labelKey: 'analytics.askAi',
-    descKey: 'askAiDesc',
-    href: '/reports/ask-ai',
-    color: 'text-rose-600',
-  },
-  {
-    icon: Calendar,
-    labelKey: 'analytics.scheduled',
-    descKey: 'scheduledDesc',
-    href: '/reports/scheduled',
+    icon: FileBadge,
+    labelKey: 'analytics.compliance',
+    descKey: 'complianceDesc',
+    href: '/reports/compliance',
     color: 'text-teal-600',
-  },
-  {
-    icon: AlertTriangle,
-    labelKey: 'analytics.alerts',
-    descKey: 'alertsDesc',
-    href: '/reports/alerts',
-    color: 'text-amber-600',
   },
   {
     icon: Download,
@@ -171,12 +143,49 @@ const QUICK_LINKS: QuickLink[] = [
     href: '/reports/write-offs',
     color: 'text-yellow-600',
   },
+];
+
+// ─── Group: Automation & delivery ────────────────────────────────────────────
+
+const AUTOMATION_LINKS: ReadonlyArray<QuickLink> = [
+  {
+    icon: Calendar,
+    labelKey: 'analytics.scheduled',
+    descKey: 'scheduledDesc',
+    href: '/reports/scheduled',
+    color: 'text-emerald-700',
+  },
+  {
+    icon: Bell,
+    labelKey: 'analytics.alerts',
+    descKey: 'alertsDesc',
+    href: '/reports/alerts',
+    color: 'text-amber-600',
+  },
   {
     icon: Clock,
     labelKey: 'analytics.notificationDelivery',
     descKey: 'notificationDeliveryDesc',
     href: '/reports/notification-delivery',
     color: 'text-slate-600',
+  },
+];
+
+const REPORT_GROUPS: ReadonlyArray<ReportGroupConfig> = [
+  {
+    headingKey: 'analytics.groupAnalyticsTitle',
+    hintKey: 'analytics.groupAnalyticsHint',
+    links: ANALYTICS_LINKS,
+  },
+  {
+    headingKey: 'analytics.groupGovernanceTitle',
+    hintKey: 'analytics.groupGovernanceHint',
+    links: GOVERNANCE_LINKS,
+  },
+  {
+    headingKey: 'analytics.groupAutomationTitle',
+    hintKey: 'analytics.groupAutomationHint',
+    links: AUTOMATION_LINKS,
   },
 ];
 
@@ -240,45 +249,62 @@ export default function ReportsHubPage() {
   }, [fetchData]);
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title={t('analytics.dashboardTitle')}
-        description={t('analytics.dashboardDescription')}
-        actions={
-          <DashboardHeaderActions
-            loading={loading}
-            lastRefresh={lastRefresh}
-            cacheHit={cacheHit}
-            onRefresh={handleRefresh}
-          />
-        }
-      />
+    // `mx-auto max-w-content` keeps the page centred on wide displays so the
+    // last row of report tiles doesn't visually press into the browser edge.
+    // Same wrapper convention `attendance` and other report pages already use.
+    <div className="mx-auto max-w-content">
+      <div className="space-y-8">
+        <PageHeader
+          title={t('analytics.dashboardTitle')}
+          description={t('analytics.dashboardDescription')}
+          actions={
+            <DashboardHeaderActions
+              loading={loading}
+              lastRefresh={lastRefresh}
+              cacheHit={cacheHit}
+              onRefresh={handleRefresh}
+            />
+          }
+        />
 
-      {/* AI summary — hides itself when the tenant flag is off. */}
-      <AiSummaryPanel mode={{ kind: 'dashboard' }} />
+        {/* AI summary — hides itself when the tenant flag is off. */}
+        <AiSummaryPanel mode={{ kind: 'dashboard' }} />
 
-      {error && !data ? (
-        <DashboardErrorCard error={error} onRetry={handleRefresh} loading={loading} />
-      ) : null}
-
-      <section>
-        <h2 className="mb-4 text-base font-semibold text-text-primary">
-          {t('analytics.kpiTitle')}
-        </h2>
-        {loading && !data ? <KpiSkeletonGrid /> : data ? <KpiGrid kpis={data.kpis} /> : null}
-        {error && data ? (
-          // We had data once but the latest refresh failed — show a small
-          // banner above the still-rendered cards so the user knows the
-          // numbers are stale. No silent mock fallback.
-          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
-            {t('analytics.staleData')}
-          </div>
+        {error && !data ? (
+          <DashboardErrorCard error={error} onRetry={handleRefresh} loading={loading} />
         ) : null}
-      </section>
 
-      {data ? <TrendsChart trends={data.trends} /> : null}
+        <section>
+          <h2 className="mb-4 text-base font-semibold text-text-primary">
+            {t('analytics.kpiTitle')}
+          </h2>
+          {loading && !data ? <KpiSkeletonGrid /> : data ? <KpiGrid kpis={data.kpis} /> : null}
+          {error && data ? (
+            // We had data once but the latest refresh failed — show a small
+            // banner above the still-rendered cards so the user knows the
+            // numbers are stale. No silent mock fallback.
+            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+              {t('analytics.staleData')}
+            </div>
+          ) : null}
+        </section>
 
-      <QuickLinksGrid />
+        {/* Hero: Build your own — Report Builder + Ask AI featured prominently */}
+        <BuilderHero />
+
+        {data ? <TrendsChart trends={data.trends} /> : null}
+
+        <div className="space-y-8">
+          {REPORT_GROUPS.map((group) => (
+            <ReportGroup
+              key={group.headingKey}
+              headingKey={group.headingKey}
+              hintKey={group.hintKey}
+              links={group.links}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -400,6 +426,47 @@ function DashboardErrorCard({ error, onRetry, loading }: DashboardErrorCardProps
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Builder hero ─────────────────────────────────────────────────────────────
+
+function BuilderHero() {
+  const t = useTranslations('reports');
+  return (
+    <section aria-labelledby="reports-build-heading" className="space-y-3">
+      <header className="flex items-baseline justify-between gap-3">
+        <h2
+          id="reports-build-heading"
+          className="text-xs font-semibold uppercase tracking-[0.12em] text-text-secondary"
+        >
+          {t('analytics.buildYourOwn')}
+        </h2>
+        <p className="hidden text-xs text-text-tertiary sm:block">
+          {t('analytics.buildYourOwnHint')}
+        </p>
+      </header>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <BuilderHeroTile
+          href="/reports/builder"
+          icon={LayoutDashboard}
+          title={t('analytics.builder')}
+          description={t('builderDesc')}
+          ctaLabel={t('analytics.openBuilder')}
+          accent="cyan"
+        />
+        <BuilderHeroTile
+          href="/reports/ask-ai"
+          icon={Bot}
+          title={t('analytics.askAi')}
+          description={t('askAiDesc')}
+          ctaLabel={t('analytics.tryAskAi')}
+          accent="rose"
+          decoration={Sparkles}
+        />
+      </div>
+    </section>
   );
 }
 
@@ -528,51 +595,6 @@ function formatWeekLabel(iso: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-// ─── Quick links ──────────────────────────────────────────────────────────────
-
-function QuickLinksGrid() {
-  const t = useTranslations('reports');
-  return (
-    <section>
-      <h2 className="mb-4 text-base font-semibold text-text-primary">
-        {t('analytics.allReports')}
-      </h2>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {QUICK_LINKS.map((link) => (
-          <QuickLinkTile key={link.href} link={link} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function QuickLinkTile({ link }: { link: QuickLink }) {
-  const t = useTranslations('reports');
-  const label = t(link.labelKey);
-  const description = link.descKey ? safeTranslate(t, link.descKey) : null;
-  return (
-    <Link
-      href={link.href}
-      className="group flex items-start gap-3 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-    >
-      <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-secondary ${link.color}`}
-        aria-hidden="true"
-      >
-        <link.icon className="h-4 w-4" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-text-primary group-hover:text-primary-700">
-          {label}
-        </p>
-        {description && (
-          <p className="mt-0.5 text-xs text-text-tertiary line-clamp-2">{description}</p>
-        )}
-      </div>
-    </Link>
-  );
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function extractErrorCode(err: unknown): string {
@@ -591,20 +613,4 @@ function extractErrorMessage(err: unknown): string {
   }
   if (err instanceof Error) return err.message;
   return '';
-}
-
-/**
- * `useTranslations` returns the key when missing. Treat that as "no copy
- * available" so we can suppress the description row instead of showing
- * the raw translation key to users.
- */
-function safeTranslate(t: ReturnType<typeof useTranslations>, key: string): string | null {
-  if (!key) return null;
-  try {
-    const value = t(key);
-    if (value === key) return null;
-    return value;
-  } catch {
-    return null;
-  }
 }
