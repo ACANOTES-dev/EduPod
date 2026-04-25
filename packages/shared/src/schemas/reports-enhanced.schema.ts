@@ -221,6 +221,14 @@ const measuresNewSchema = z
   })
   .strict();
 
+/**
+ * Visibility values mirror the `SavedReportVisibility` Prisma enum from impl
+ * 01. The legacy boolean `is_shared` is kept for backwards compatibility —
+ * `visibility: 'shared'` and `is_shared: true` round-trip the same row.
+ */
+export const savedReportVisibilitySchema = z.enum(['private', 'shared']);
+export type SavedReportVisibility = z.infer<typeof savedReportVisibilitySchema>;
+
 export const createSavedReportSchema = z.object({
   name: z.string().min(1).max(255),
   data_source: reportDataSourceSchema,
@@ -232,6 +240,11 @@ export const createSavedReportSchema = z.object({
   filters_json: z.record(z.unknown()),
   chart_type: reportChartTypeSchema.optional(),
   is_shared: z.boolean().default(false),
+  // Impl 19 — accept the new metadata fields backed by impl 01's columns.
+  // All three are optional so existing call sites continue to validate.
+  description: z.string().trim().max(2000).nullable().optional(),
+  is_favorite: z.boolean().optional(),
+  visibility: savedReportVisibilitySchema.optional(),
 });
 
 export type CreateSavedReportDto = z.infer<typeof createSavedReportSchema>;

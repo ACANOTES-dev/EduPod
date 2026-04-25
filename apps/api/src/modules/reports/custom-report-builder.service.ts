@@ -20,12 +20,15 @@ import { ReportsDataAccessService } from './reports-data-access.service';
 export interface SavedReportRow {
   id: string;
   name: string;
+  description: string | null;
   data_source: string;
   dimensions_json: unknown;
   measures_json: unknown;
   filters_json: unknown;
   chart_type: string | null;
   is_shared: boolean;
+  visibility: 'private' | 'shared';
+  is_favorite: boolean;
   created_by_user_id: string;
   created_at: string;
   updated_at: string;
@@ -75,19 +78,7 @@ export class CustomReportBuilderService {
       ]);
 
       return {
-        data: reports.map((r) => ({
-          id: r.id,
-          name: r.name,
-          data_source: r.data_source,
-          dimensions_json: r.dimensions_json,
-          measures_json: r.measures_json,
-          filters_json: r.filters_json,
-          chart_type: r.chart_type,
-          is_shared: r.is_shared,
-          created_by_user_id: r.created_by_user_id,
-          created_at: r.created_at.toISOString(),
-          updated_at: r.updated_at.toISOString(),
-        })),
+        data: reports.map(toSavedReportRow),
         meta: { page, pageSize, total },
       };
     }) as unknown as {
@@ -113,19 +104,7 @@ export class CustomReportBuilderService {
         });
       }
 
-      return {
-        id: report.id,
-        name: report.name,
-        data_source: report.data_source,
-        dimensions_json: report.dimensions_json,
-        measures_json: report.measures_json,
-        filters_json: report.filters_json,
-        chart_type: report.chart_type,
-        is_shared: report.is_shared,
-        created_by_user_id: report.created_by_user_id,
-        created_at: report.created_at.toISOString(),
-        updated_at: report.updated_at.toISOString(),
-      };
+      return toSavedReportRow(report);
     }) as unknown as SavedReportRow;
   }
 
@@ -151,33 +130,31 @@ export class CustomReportBuilderService {
         });
       }
 
+      // visibility wins over the legacy is_shared flag when both are
+      // provided; otherwise the boolean drives both. This keeps existing
+      // (Wave 0) callers — which only know `is_shared` — round-tripping
+      // correctly while letting impl 19's UI use `visibility`.
+      const visibility = dto.visibility ?? (dto.is_shared ? 'shared' : 'private');
+      const isShared = dto.is_shared ?? visibility === 'shared';
+
       const report = await txClient.savedReport.create({
         data: {
           tenant_id: tenantId,
           name: dto.name,
+          description: dto.description ?? null,
           data_source: dto.data_source,
           dimensions_json: dto.dimensions_json as Prisma.InputJsonValue,
           measures_json: dto.measures_json as Prisma.InputJsonValue,
           filters_json: (dto.filters_json ?? {}) as Prisma.InputJsonValue,
           chart_type: dto.chart_type ?? null,
-          is_shared: dto.is_shared ?? false,
+          is_shared: isShared,
+          visibility,
+          is_favorite: dto.is_favorite ?? false,
           created_by_user_id: userId,
         },
       });
 
-      return {
-        id: report.id,
-        name: report.name,
-        data_source: report.data_source,
-        dimensions_json: report.dimensions_json,
-        measures_json: report.measures_json,
-        filters_json: report.filters_json,
-        chart_type: report.chart_type,
-        is_shared: report.is_shared,
-        created_by_user_id: report.created_by_user_id,
-        created_at: report.created_at.toISOString(),
-        updated_at: report.updated_at.toISOString(),
-      };
+      return toSavedReportRow(report);
     }) as unknown as SavedReportRow;
   }
 
@@ -215,10 +192,27 @@ export class CustomReportBuilderService {
         }
       }
 
+      // Keep `visibility` and `is_shared` in lockstep so older API consumers
+      // (which only filter on `is_shared`) continue to see the right rows
+      // even when the impl-19 UI flips the new `visibility` enum.
+      let nextVisibility: 'private' | 'shared' | undefined;
+      let nextIsShared: boolean | undefined;
+      if (dto.visibility !== undefined && dto.is_shared !== undefined) {
+        nextVisibility = dto.visibility;
+        nextIsShared = dto.is_shared;
+      } else if (dto.visibility !== undefined) {
+        nextVisibility = dto.visibility;
+        nextIsShared = dto.visibility === 'shared';
+      } else if (dto.is_shared !== undefined) {
+        nextIsShared = dto.is_shared;
+        nextVisibility = dto.is_shared ? 'shared' : 'private';
+      }
+
       const updated = await txClient.savedReport.update({
         where: { id: reportId },
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.description !== undefined && { description: dto.description }),
           ...(dto.data_source !== undefined && { data_source: dto.data_source }),
           ...(dto.dimensions_json !== undefined && {
             dimensions_json: dto.dimensions_json as Prisma.InputJsonValue,
@@ -230,23 +224,71 @@ export class CustomReportBuilderService {
             filters_json: dto.filters_json as Prisma.InputJsonValue,
           }),
           ...(dto.chart_type !== undefined && { chart_type: dto.chart_type }),
-          ...(dto.is_shared !== undefined && { is_shared: dto.is_shared }),
+          ...(nextIsShared !== undefined && { is_shared: nextIsShared }),
+          ...(nextVisibility !== undefined && { visibility: nextVisibility }),
+          ...(dto.is_favorite !== undefined && { is_favorite: dto.is_favorite }),
         },
       });
 
-      return {
-        id: updated.id,
-        name: updated.name,
-        data_source: updated.data_source,
-        dimensions_json: updated.dimensions_json,
-        measures_json: updated.measures_json,
-        filters_json: updated.filters_json,
-        chart_type: updated.chart_type,
-        is_shared: updated.is_shared,
-        created_by_user_id: updated.created_by_user_id,
-        created_at: updated.created_at.toISOString(),
-        updated_at: updated.updated_at.toISOString(),
-      };
+      return toSavedReportRow(updated);
+    }) as unknown as SavedReportRow;
+  }
+
+  async duplicateSavedReport(
+    tenantId: string,
+    userId: string,
+    reportId: string,
+  ): Promise<SavedReportRow> {
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const txClient = tx as unknown as PrismaService;
+
+      const source = await txClient.savedReport.findFirst({
+        where: { id: reportId, tenant_id: tenantId },
+      });
+
+      if (!source) {
+        throw new NotFoundException({
+          code: 'SAVED_REPORT_NOT_FOUND',
+          message: `Saved report with id "${reportId}" not found`,
+        });
+      }
+
+      // Pick a unique copy name. We try "{name} (copy)" first, then "{name}
+      // (copy 2)", "{name} (copy 3)", … until one is free. The unique
+      // constraint on `(tenant_id, name)` enforces correctness; this loop
+      // just gives a friendly default.
+      const baseName = source.name.length > 240 ? source.name.slice(0, 240) : source.name;
+      let candidate = `${baseName} (copy)`;
+      for (let attempt = 2; attempt <= 50; attempt += 1) {
+        const conflict = await txClient.savedReport.findFirst({
+          where: { tenant_id: tenantId, name: candidate },
+        });
+        if (!conflict) break;
+        candidate = `${baseName} (copy ${attempt})`;
+      }
+
+      const duplicated = await txClient.savedReport.create({
+        data: {
+          tenant_id: tenantId,
+          name: candidate,
+          description: source.description,
+          data_source: source.data_source,
+          dimensions_json: source.dimensions_json as Prisma.InputJsonValue,
+          measures_json: source.measures_json as Prisma.InputJsonValue,
+          filters_json: source.filters_json as Prisma.InputJsonValue,
+          chart_type: source.chart_type,
+          // The duplicate starts private + un-favourited regardless of the
+          // source — the user can re-share / re-favourite explicitly.
+          is_shared: false,
+          visibility: 'private',
+          is_favorite: false,
+          created_by_user_id: userId,
+        },
+      });
+
+      return toSavedReportRow(duplicated);
     }) as unknown as SavedReportRow;
   }
 
@@ -377,5 +419,47 @@ export function deserialiseQuery(report: SavedReportRow): SavedReportQuery {
     filters,
     group_by,
     sort: sort.length > 0 ? sort : undefined,
+  };
+}
+
+// ─── Row mapper ────────────────────────────────────────────────────────────
+
+/**
+ * Map a Prisma `SavedReport` row to the API `SavedReportRow` shape. Centralises
+ * field aliasing (the legacy boolean `is_shared` plus the impl 01 enum
+ * `visibility`) so every list / get / create / update / duplicate site emits
+ * the same envelope — the frontend reads either flag interchangeably.
+ */
+function toSavedReportRow(report: {
+  id: string;
+  name: string;
+  description: string | null;
+  data_source: string;
+  dimensions_json: unknown;
+  measures_json: unknown;
+  filters_json: unknown;
+  chart_type: string | null;
+  is_shared: boolean;
+  visibility: 'private' | 'shared';
+  is_favorite: boolean;
+  created_by_user_id: string;
+  created_at: Date;
+  updated_at: Date;
+}): SavedReportRow {
+  return {
+    id: report.id,
+    name: report.name,
+    description: report.description,
+    data_source: report.data_source,
+    dimensions_json: report.dimensions_json,
+    measures_json: report.measures_json,
+    filters_json: report.filters_json,
+    chart_type: report.chart_type,
+    is_shared: report.is_shared,
+    visibility: report.visibility,
+    is_favorite: report.is_favorite,
+    created_by_user_id: report.created_by_user_id,
+    created_at: report.created_at.toISOString(),
+    updated_at: report.updated_at.toISOString(),
   };
 }

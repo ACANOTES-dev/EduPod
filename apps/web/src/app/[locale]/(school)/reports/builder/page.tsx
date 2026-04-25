@@ -19,6 +19,8 @@ import {
 import { apiClient, getAccessToken } from '@/lib/api-client';
 import { useAuth } from '@/providers/auth-provider';
 
+import { ShareDialog, type ShareDialogReport } from '../_components/share-dialog';
+
 import { BuilderEditor } from './_components/builder-editor';
 import {
   DEFAULT_BUILDER_STATE, toSavedQuery, type BuilderState, type ReportSubjectKey, type SavedReportChartType,
@@ -26,6 +28,7 @@ import {
 import { PreviewPane } from './_components/preview-pane';
 import { SaveDialog, type SaveDialogValues } from './_components/save-dialog';
 import { SavedReportsSidebar, type SavedReportListItem } from './_components/saved-reports-sidebar';
+import { ShareHistoryTab } from './_components/share-history-tab';
 import { VisualizationToggle } from './_components/visualization-toggle';
 
 interface SubjectRegistryResponse {
@@ -36,8 +39,11 @@ interface SubjectRegistryResponse {
 interface SavedReportRow {
   id: string;
   name: string;
+  description: string | null;
   data_source: string;
   is_shared: boolean;
+  visibility: 'private' | 'shared';
+  is_favorite: boolean;
   created_by_user_id: string;
   created_at: string;
   updated_at: string;
@@ -95,6 +101,10 @@ export default function ReportBuilderPage() {
   const [saveDialogOpen, setSaveDialogOpen] = React.useState(false);
   const [exporting, setExporting] = React.useState<null | 'pdf' | 'excel' | 'word'>(null);
   const [deleting, setDeleting] = React.useState(false);
+  // Impl 19 — share dialog + share history tab.
+  const [shareDialogReport, setShareDialogReport] = React.useState<ShareDialogReport | null>(null);
+  const [activeTab, setActiveTab] = React.useState<'editor' | 'shareHistory'>('editor');
+  const [shareHistoryRefreshKey, setShareHistoryRefreshKey] = React.useState(0);
 
   const activeSubject = React.useMemo(
     () => subjects.find((s) => s.key === state.subjectKey) ?? null,
@@ -125,9 +135,16 @@ export default function ReportBuilderPage() {
     try {
       const res = await apiClient<SavedReportsListResponse>('/api/v1/reports/builder?page=1&pageSize=100');
       const items = (res.data ?? []).map<SavedReportListItem>((r) => ({
-        id: r.id, name: r.name, data_source: r.data_source,
-        is_shared: r.is_shared, created_by_user_id: r.created_by_user_id,
-        created_at: r.created_at, updated_at: r.updated_at,
+        id: r.id,
+        name: r.name,
+        description: r.description ?? null,
+        data_source: r.data_source,
+        is_shared: r.is_shared,
+        visibility: r.visibility ?? (r.is_shared ? 'shared' : 'private'),
+        is_favorite: r.is_favorite ?? false,
+        created_by_user_id: r.created_by_user_id,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
       }));
       setSavedReports(items);
     } catch (err) { console.error('[ReportBuilder] loadSavedReports', err); }
@@ -297,6 +314,85 @@ export default function ReportBuilderPage() {
     }
   }
 
+  // ─── Impl 19 — sidebar action handlers ───────────────────────────────────
+
+  async function onDuplicateFromSidebar(report: SavedReportListItem) {
+    try {
+      const res = await apiClient<SavedReportRow | { data: SavedReportRow }>(
+        `/api/v1/reports/builder/${report.id}/duplicate`,
+        { method: 'POST', silent: true },
+      );
+      const created = (res as { data?: SavedReportRow }).data ?? (res as SavedReportRow);
+      toast.success(tActions('duplicateSuccess', { name: created.name }));
+      await loadSavedReports();
+      router.push(`/reports/builder/${created.id}`);
+    } catch (err) {
+      console.error('[ReportBuilder] onDuplicateFromSidebar', err);
+      const apiErr = err as { code?: string; message?: string };
+      toast.error(apiErr?.message ?? tActions('duplicateFailed'));
+    }
+  }
+
+  async function onShareFromSidebar(report: SavedReportListItem) {
+    setShareDialogReport({ id: report.id, name: report.name });
+  }
+
+  function onShareCurrent() {
+    if (!reportId) return;
+    setShareDialogReport({ id: reportId, name: activeReport?.name ?? t('untitled') });
+  }
+
+  async function onRenameFromSidebar(
+    report: SavedReportListItem,
+    newName: string,
+  ): Promise<boolean> {
+    try {
+      await apiClient(`/api/v1/reports/builder/${report.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: newName }),
+        silent: true,
+      });
+      toast.success(tActions('renameSuccess'));
+      await loadSavedReports();
+      if (reportId === report.id) {
+        // Update the current header title without a router refetch.
+        setActiveReport((cur) => (cur ? { ...cur, name: newName } : cur));
+      }
+      return true;
+    } catch (err) {
+      const apiErr = err as { code?: string; message?: string };
+      console.error('[ReportBuilder] onRenameFromSidebar', err);
+      if (apiErr?.code === 'SAVED_REPORT_NAME_TAKEN') {
+        toast.error(tActions('renameNameTaken'));
+      } else {
+        toast.error(apiErr?.message ?? tActions('renameFailed'));
+      }
+      return false;
+    }
+  }
+
+  async function onToggleFavoriteFromSidebar(report: SavedReportListItem): Promise<void> {
+    const next = !report.is_favorite;
+    // Optimistic — flip locally before the network round-trip so the UI feels
+    // instant. On failure we revert and surface the error.
+    setSavedReports((prev) =>
+      prev.map((r) => (r.id === report.id ? { ...r, is_favorite: next } : r)),
+    );
+    try {
+      await apiClient(`/api/v1/reports/builder/${report.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_favorite: next }),
+        silent: true,
+      });
+    } catch (err) {
+      console.error('[ReportBuilder] onToggleFavorite', err);
+      setSavedReports((prev) =>
+        prev.map((r) => (r.id === report.id ? { ...r, is_favorite: report.is_favorite } : r)),
+      );
+      toast.error(tActions('favoriteFailed'));
+    }
+  }
+
   async function onExport(format: 'pdf' | 'excel' | 'word') {
     if (!reportId) { toast.error('Save the report first.'); return; }
     setExporting(format);
@@ -363,7 +459,17 @@ export default function ReportBuilderPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {reportId && (<Button variant="outline" size="sm" disabled title="Wired in impl 19"><Share2 className="me-2 h-4 w-4" />{tActions('share')}</Button>)}
+          {reportId && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onShareCurrent}
+              data-testid="share-current"
+            >
+              <Share2 className="me-2 h-4 w-4" />
+              {tActions('share')}
+            </Button>
+          )}
           {reportId && (<Button variant="outline" size="sm" disabled title="Wired in impl 17"><Calendar className="me-2 h-4 w-4" />{tActions('schedule')}</Button>)}
           {reportId && (
             <Button variant="outline" size="sm" onClick={onDeleteCurrent} disabled={deleting} data-testid="delete-button">
@@ -390,20 +496,57 @@ export default function ReportBuilderPage() {
             currentReportId={reportId}
             onSelect={(id) => router.push(`/reports/builder/${id}`)}
             onDelete={onDeleteFromSidebar}
+            onDuplicate={onDuplicateFromSidebar}
+            onShare={onShareFromSidebar}
+            onRename={onRenameFromSidebar}
+            onToggleFavorite={onToggleFavoriteFromSidebar}
           />
         </div>
 
         <div className="overflow-y-auto rounded-xl border border-border bg-surface p-4">
-          <BuilderEditor
-            subjects={subjects}
-            activeSubject={activeSubject}
-            state={state}
-            onChange={setState}
-            askAiEnabled={askAiEnabled}
-            rationale={askAiRationale}
-            onAskAiTranslated={(_q, rationale) => setAskAiRationale(rationale)}
-            onAskAiDiscard={() => setAskAiRationale(null)}
-          />
+          {reportId && activeReport && activeReport.created_by_user_id === user?.id ? (
+            <div className="mb-3 flex gap-2 border-b border-border pb-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab('editor')}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                  activeTab === 'editor'
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-text-secondary hover:bg-surface-secondary'
+                }`}
+                data-testid="tab-editor"
+              >
+                {t('tabs.editor')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('shareHistory')}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                  activeTab === 'shareHistory'
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-text-secondary hover:bg-surface-secondary'
+                }`}
+                data-testid="tab-share-history"
+              >
+                {t('tabs.shareHistory')}
+              </button>
+            </div>
+          ) : null}
+
+          {activeTab === 'editor' || !reportId ? (
+            <BuilderEditor
+              subjects={subjects}
+              activeSubject={activeSubject}
+              state={state}
+              onChange={setState}
+              askAiEnabled={askAiEnabled}
+              rationale={askAiRationale}
+              onAskAiTranslated={(_q, rationale) => setAskAiRationale(rationale)}
+              onAskAiDiscard={() => setAskAiRationale(null)}
+            />
+          ) : (
+            <ShareHistoryTab reportId={reportId ?? ''} refreshKey={shareHistoryRefreshKey} />
+          )}
         </div>
 
         <div className="overflow-y-auto rounded-xl border border-border bg-surface p-4">
@@ -429,6 +572,16 @@ export default function ReportBuilderPage() {
           is_favorite: false,
         }}
         onSave={onSave}
+      />
+
+      <ShareDialog
+        open={shareDialogReport !== null}
+        onOpenChange={(open) => !open && setShareDialogReport(null)}
+        report={shareDialogReport}
+        onSuccess={() => {
+          setShareHistoryRefreshKey((k) => k + 1);
+          if (reportId === shareDialogReport?.id) setActiveTab('shareHistory');
+        }}
       />
     </div>
   );

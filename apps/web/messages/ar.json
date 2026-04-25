@@ -3143,7 +3143,11 @@
         "subjectFirst": "[AR] Pick a subject to get started.",
         "savingDraft": "[AR] Saving draft…",
         "draftSaved": "[AR] Draft saved",
-        "untitled": "[AR] Untitled report"
+        "untitled": "[AR] Untitled report",
+        "tabs": {
+          "editor": "[AR] Editor",
+          "shareHistory": "[AR] Share history"
+        }
       },
       "subjects": {
         "title": "[AR] Pick a subject",
@@ -3329,11 +3333,73 @@
         "mine": "[AR] Mine",
         "sharedWithMe": "[AR] Shared with me",
         "noReports": "[AR] No saved reports yet.",
+        "actions": "[AR] Report actions",
+        "open": "[AR] Open",
         "duplicate": "[AR] Duplicate",
         "delete": "[AR] Delete",
         "share": "[AR] Share",
         "rename": "[AR] Rename",
-        "confirmDelete": "[AR] Delete \"{name}\"?"
+        "favorite": "[AR] Mark as favourite",
+        "unfavorite": "[AR] Remove favourite",
+        "confirmDelete": "[AR] Delete \"{name}\"?",
+        "renameDialog": {
+          "title": "[AR] Rename report",
+          "name": "[AR] New name",
+          "nameRequired": "[AR] Please enter a name.",
+          "save": "[AR] Rename",
+          "cancel": "[AR] Cancel"
+        }
+      },
+      "shareDialog": {
+        "title": "[AR] Share \"{name}\"",
+        "format": "[AR] Format",
+        "format_pdf": "[AR] PDF",
+        "format_excel": "[AR] Excel",
+        "format_word": "[AR] Word",
+        "format_all": "[AR] All three",
+        "allFormats": "[AR] All three",
+        "roleGroups": "[AR] Role groups",
+        "roles": {
+          "school_owner": "[AR] School owner",
+          "school_principal": "[AR] Principal",
+          "school_vice_principal": "[AR] Vice principal",
+          "admin": "[AR] Administrator",
+          "teacher": "[AR] Teacher",
+          "attendance_officer": "[AR] Attendance officer",
+          "accounting": "[AR] Accounting",
+          "front_office": "[AR] Front office"
+        },
+        "directRecipients": "[AR] Direct recipients",
+        "searchPeoplePlaceholder": "[AR] Search staff by name or email…",
+        "searching": "[AR] Searching…",
+        "searchEmpty": "[AR] No staff found.",
+        "removeRecipient": "[AR] Remove {name}",
+        "removeRole": "[AR] Remove role group",
+        "message": "[AR] Message (optional)",
+        "messagePlaceholder": "[AR] Default share message for {reportName}.",
+        "recipientSummary": "[AR] Sharing with {count} recipient(s)",
+        "share": "[AR] Share",
+        "cancel": "[AR] Cancel",
+        "success": "[AR] Shared with {count} recipient(s).",
+        "errorTooLarge": "[AR] This report is too large to share synchronously.",
+        "errorForbidden": "[AR] You don't have permission to share reports.",
+        "errorGeneric": "[AR] Could not share. Try again."
+      },
+      "shareHistory": {
+        "title": "[AR] Share history",
+        "description": "[AR] Every time this report has been shared into the inbox.",
+        "loading": "[AR] Loading share history…",
+        "errorGeneric": "[AR] Could not load share history.",
+        "emptyTitle": "[AR] No shares yet",
+        "emptyDescription": "[AR] Use the Share button to send this report into the inbox.",
+        "openConversation": "[AR] Open in inbox",
+        "columns": {
+          "date": "[AR] Date",
+          "sharedBy": "[AR] Shared by",
+          "format": "[AR] Format",
+          "recipients": "[AR] Recipients",
+          "conversation": "[AR] Conversation"
+        }
       },
       "askAi": {
         "placeholder": "[AR] Describe the report you want.",
@@ -3361,10 +3427,42 @@
         "save": "[AR] Save",
         "saved": "[AR] Saved",
         "delete": "[AR] Delete",
-        "confirmDelete": "[AR] Delete this report?"
+        "confirmDelete": "[AR] Delete this report?",
+        "duplicateSuccess": "[AR] Created \"{name}\"",
+        "duplicateFailed": "[AR] Could not duplicate the report.",
+        "renameSuccess": "[AR] Report renamed",
+        "renameNameTaken": "[AR] A report with that name already exists.",
+        "renameFailed": "[AR] Could not rename the report.",
+        "favoriteFailed": "[AR] Could not update favourite."
       },
       "newReport": "[AR] New report",
       "openInBuilder": "[AR] Open"
+    },
+    "shared": {
+      "backToReports": "[AR] Back to reports",
+      "loading": "[AR] Loading shared report…",
+      "snapshotPill": "[AR] Shared snapshot",
+      "sharedByOn": "[AR] Shared by {name} on {date}",
+      "messageHeading": "[AR] Message from sender",
+      "filterSummaryHeading": "[AR] Filters applied",
+      "filterSummaryEmpty": "[AR] No filters applied.",
+      "downloads": "[AR] Download",
+      "noArtifacts": "[AR] No downloadable artifacts on this share.",
+      "downloadFormat_pdf": "[AR] Download PDF",
+      "downloadFormat_excel": "[AR] Download Excel",
+      "downloadFormat_word": "[AR] Download Word",
+      "downloadFailed": "[AR] Download failed. Try again.",
+      "openInBuilder": "[AR] Open in builder",
+      "errorTitle": "[AR] Could not load shared report",
+      "errorGeneric": "[AR] Something went wrong. Please try again.",
+      "expired": {
+        "title": "[AR] This shared snapshot has expired",
+        "description": "[AR] Ask the sender to reshare this report."
+      },
+      "forbidden": {
+        "title": "[AR] You don't have access to this share",
+        "description": "[AR] Only the sender or a participant in the broadcast conversation can open this snapshot."
+      }
     },
     "conversion": "[AR] % conversion",
     "eG80": "[AR] e.g. 80",

@@ -17,12 +17,15 @@ const MOCK_REPORT_DB = {
   id: REPORT_ID,
   tenant_id: TENANT_ID,
   name: 'My Students Report',
+  description: null,
   data_source: 'students',
   dimensions_json: ['first_name', 'last_name'],
   measures_json: ['count'],
   filters_json: {},
   chart_type: 'bar',
   is_shared: false,
+  visibility: 'private' as const,
+  is_favorite: false,
   created_by_user_id: USER_ID,
   created_at: new Date('2026-03-01'),
   updated_at: new Date('2026-03-01'),
@@ -358,5 +361,114 @@ describe('CustomReportBuilderService', () => {
     const callArg = mockTx.savedReport.findMany.mock.calls[0]?.[0];
     expect(callArg?.skip).toBe(10);
     expect(callArg?.take).toBe(10);
+  });
+
+  // ─── duplicateSavedReport (impl 19) ────────────────────────────────────
+
+  it('should duplicate an existing saved report with a "(copy)" suffix', async () => {
+    mockTx.savedReport.findFirst
+      .mockResolvedValueOnce(MOCK_REPORT_DB) // source lookup
+      .mockResolvedValueOnce(null); // copy name not taken
+    mockTx.savedReport.create.mockResolvedValue({
+      ...MOCK_REPORT_DB,
+      id: 'duplicate-id',
+      name: 'My Students Report (copy)',
+    });
+
+    const result = await service.duplicateSavedReport(TENANT_ID, USER_ID, REPORT_ID);
+
+    expect(result.name).toBe('My Students Report (copy)');
+    const created = mockTx.savedReport.create.mock.calls[0]?.[0]?.data;
+    expect(created?.name).toBe('My Students Report (copy)');
+    expect(created?.is_shared).toBe(false);
+    expect(created?.visibility).toBe('private');
+    expect(created?.is_favorite).toBe(false);
+    expect(created?.data_source).toBe(MOCK_REPORT_DB.data_source);
+    expect(created?.created_by_user_id).toBe(USER_ID);
+  });
+
+  it('should pick a numbered "(copy N)" suffix when "(copy)" is taken', async () => {
+    // First call → source exists. Second call → "(copy)" taken. Third → free.
+    mockTx.savedReport.findFirst
+      .mockResolvedValueOnce(MOCK_REPORT_DB)
+      .mockResolvedValueOnce({ ...MOCK_REPORT_DB, name: 'My Students Report (copy)' })
+      .mockResolvedValueOnce(null);
+    mockTx.savedReport.create.mockResolvedValue({
+      ...MOCK_REPORT_DB,
+      id: 'duplicate-id-2',
+      name: 'My Students Report (copy 2)',
+    });
+
+    const result = await service.duplicateSavedReport(TENANT_ID, USER_ID, REPORT_ID);
+
+    expect(result.name).toBe('My Students Report (copy 2)');
+    const created = mockTx.savedReport.create.mock.calls[0]?.[0]?.data;
+    expect(created?.name).toBe('My Students Report (copy 2)');
+  });
+
+  it('should throw NotFoundException when duplicating a non-existent report', async () => {
+    mockTx.savedReport.findFirst.mockResolvedValue(null);
+
+    await expect(service.duplicateSavedReport(TENANT_ID, USER_ID, REPORT_ID)).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('should persist new visibility/is_favorite/description on create', async () => {
+    mockTx.savedReport.findFirst.mockResolvedValue(null);
+    mockTx.savedReport.create.mockResolvedValue({
+      ...MOCK_REPORT_DB,
+      visibility: 'shared' as const,
+      is_favorite: true,
+      description: 'A handy report',
+      is_shared: true,
+    });
+
+    const dto = {
+      name: 'New Report',
+      data_source: 'student' as const,
+      dimensions_json: ['student.identity.first_name'],
+      measures_json: {},
+      filters_json: { combinator: 'and', filters: [] },
+      is_shared: true,
+      visibility: 'shared' as const,
+      is_favorite: true,
+      description: 'A handy report',
+    };
+
+    await service.createSavedReport(TENANT_ID, USER_ID, dto);
+
+    const created = mockTx.savedReport.create.mock.calls[0]?.[0]?.data;
+    expect(created?.visibility).toBe('shared');
+    expect(created?.is_shared).toBe(true);
+    expect(created?.is_favorite).toBe(true);
+    expect(created?.description).toBe('A handy report');
+  });
+
+  it('should toggle is_favorite via update without affecting other fields', async () => {
+    mockTx.savedReport.findFirst.mockResolvedValue(MOCK_REPORT_DB);
+    mockTx.savedReport.update.mockResolvedValue({ ...MOCK_REPORT_DB, is_favorite: true });
+
+    await service.updateSavedReport(TENANT_ID, REPORT_ID, { is_favorite: true });
+
+    const updateData = mockTx.savedReport.update.mock.calls[0]?.[0]?.data;
+    expect(updateData?.is_favorite).toBe(true);
+    expect(updateData?.name).toBeUndefined();
+    expect(updateData?.data_source).toBeUndefined();
+  });
+
+  it('should mirror visibility=shared into is_shared on update', async () => {
+    mockTx.savedReport.findFirst.mockResolvedValue(MOCK_REPORT_DB);
+    mockTx.savedReport.update.mockResolvedValue({
+      ...MOCK_REPORT_DB,
+      visibility: 'shared' as const,
+      is_shared: true,
+    });
+
+    await service.updateSavedReport(TENANT_ID, REPORT_ID, { visibility: 'shared' });
+
+    const updateData = mockTx.savedReport.update.mock.calls[0]?.[0]?.data;
+    expect(updateData?.visibility).toBe('shared');
+    expect(updateData?.is_shared).toBe(true);
   });
 });

@@ -640,6 +640,20 @@ export class ReportsEnhancedController {
     return this.customReportBuilder.deleteSavedReport(tenant.tenant_id, reportId);
   }
 
+  // POST /v1/reports/builder/:reportId/duplicate (impl 19) — clone an
+  // existing saved report. The duplicate inherits subject + columns +
+  // filters + group_by + chart_type from the source but always lands as
+  // private and un-favourited so the user has to consciously re-share.
+  @Post('builder/:reportId/duplicate')
+  @RequiresPermission('analytics.manage_reports', 'reports.builder')
+  async duplicateSavedReport(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('reportId', ParseUUIDPipe) reportId: string,
+  ) {
+    return this.customReportBuilder.duplicateSavedReport(tenant.tenant_id, user.sub, reportId);
+  }
+
   @Get('builder/:reportId/execute')
   @RequiresPermission('analytics.manage_reports', 'reports.builder')
   async executeReport(

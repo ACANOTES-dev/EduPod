@@ -9606,6 +9606,16 @@
     "permission": "analytics.manage_reports"
   },
   {
+    "method": "POST",
+    "path": "/v1/reports/builder/:reportId/duplicate",
+    "controller": "ReportsEnhancedController",
+    "module": "reports",
+    "permission": [
+      "analytics.manage_reports",
+      "reports.builder"
+    ]
+  },
+  {
     "method": "GET",
     "path": "/v1/reports/builder/:reportId/execute",
     "controller": "ReportsEnhancedController",

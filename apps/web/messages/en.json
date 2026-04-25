@@ -3151,7 +3151,11 @@
         "subjectFirst": "Pick a subject to get started.",
         "savingDraft": "Saving draft…",
         "draftSaved": "Draft saved",
-        "untitled": "Untitled report"
+        "untitled": "Untitled report",
+        "tabs": {
+          "editor": "Editor",
+          "shareHistory": "Share history"
+        }
       },
       "subjects": {
         "title": "Pick a subject",
@@ -3355,11 +3359,73 @@
         "mine": "Mine",
         "sharedWithMe": "Shared with me",
         "noReports": "No saved reports yet.",
+        "actions": "Report actions",
+        "open": "Open",
         "duplicate": "Duplicate",
         "delete": "Delete",
         "share": "Share",
         "rename": "Rename",
-        "confirmDelete": "Delete \"{name}\"? This cannot be undone."
+        "favorite": "Mark as favourite",
+        "unfavorite": "Remove favourite",
+        "confirmDelete": "Delete \"{name}\"? This cannot be undone.",
+        "renameDialog": {
+          "title": "Rename report",
+          "name": "New name",
+          "nameRequired": "Please enter a name.",
+          "save": "Rename",
+          "cancel": "Cancel"
+        }
+      },
+      "shareDialog": {
+        "title": "Share \"{name}\"",
+        "format": "Format",
+        "format_pdf": "PDF",
+        "format_excel": "Excel",
+        "format_word": "Word",
+        "format_all": "All three",
+        "allFormats": "All three",
+        "roleGroups": "Role groups",
+        "roles": {
+          "school_owner": "School owner",
+          "school_principal": "Principal",
+          "school_vice_principal": "Vice principal",
+          "admin": "Administrator",
+          "teacher": "Teacher",
+          "attendance_officer": "Attendance officer",
+          "accounting": "Accounting",
+          "front_office": "Front office"
+        },
+        "directRecipients": "Direct recipients",
+        "searchPeoplePlaceholder": "Search staff by name or email…",
+        "searching": "Searching…",
+        "searchEmpty": "No staff found.",
+        "removeRecipient": "Remove {name}",
+        "removeRole": "Remove role group",
+        "message": "Message (optional)",
+        "messagePlaceholder": "I've shared the latest {reportName}. Let me know if you have any questions.",
+        "recipientSummary": "Sharing with {count} recipient(s)",
+        "share": "Share",
+        "cancel": "Cancel",
+        "success": "Shared with {count} recipient(s). They'll see it in their inbox.",
+        "errorTooLarge": "This report is too large to share synchronously. Trim filters and try again.",
+        "errorForbidden": "You don't have permission to share reports.",
+        "errorGeneric": "Could not share. Try again."
+      },
+      "shareHistory": {
+        "title": "Share history",
+        "description": "Every time this report has been shared into the inbox.",
+        "loading": "Loading share history…",
+        "errorGeneric": "Could not load share history.",
+        "emptyTitle": "No shares yet",
+        "emptyDescription": "Use the Share button to send this report into the inbox.",
+        "openConversation": "Open in inbox",
+        "columns": {
+          "date": "Date",
+          "sharedBy": "Shared by",
+          "format": "Format",
+          "recipients": "Recipients",
+          "conversation": "Conversation"
+        }
       },
       "askAi": {
         "placeholder": "Describe the report you want in plain English. e.g. \"Year 10 students with attendance below 85%\"",
@@ -3387,10 +3453,42 @@
         "save": "Save",
         "saved": "Saved",
         "delete": "Delete",
-        "confirmDelete": "Delete this report? This cannot be undone."
+        "confirmDelete": "Delete this report? This cannot be undone.",
+        "duplicateSuccess": "Created \"{name}\"",
+        "duplicateFailed": "Could not duplicate the report.",
+        "renameSuccess": "Report renamed",
+        "renameNameTaken": "A report with that name already exists.",
+        "renameFailed": "Could not rename the report.",
+        "favoriteFailed": "Could not update favourite."
       },
       "newReport": "New report",
       "openInBuilder": "Open"
+    },
+    "shared": {
+      "backToReports": "Back to reports",
+      "loading": "Loading shared report…",
+      "snapshotPill": "Shared snapshot",
+      "sharedByOn": "Shared by {name} on {date}",
+      "messageHeading": "Message from sender",
+      "filterSummaryHeading": "Filters applied",
+      "filterSummaryEmpty": "No filters applied.",
+      "downloads": "Download",
+      "noArtifacts": "No downloadable artifacts on this share.",
+      "downloadFormat_pdf": "Download PDF",
+      "downloadFormat_excel": "Download Excel",
+      "downloadFormat_word": "Download Word",
+      "downloadFailed": "Download failed. Try again.",
+      "openInBuilder": "Open in builder",
+      "errorTitle": "Could not load shared report",
+      "errorGeneric": "Something went wrong. Please try again.",
+      "expired": {
+        "title": "This shared snapshot has expired",
+        "description": "Ask the sender to reshare this report."
+      },
+      "forbidden": {
+        "title": "You don't have access to this share",
+        "description": "Only the sender or a participant in the broadcast conversation can open this snapshot."
+      }
     },
     "conversion": "% conversion",
     "eG80": "e.g. 80",
