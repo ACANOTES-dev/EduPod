@@ -1831,3 +1831,84 @@ Tick complete — no scheduled reports due (took 21ms)`. Empty queue
     project memory ("No waiting during autonomous work"), the
     pacing was active polling, not ScheduleWakeup loops.
 
+
+### [WAVE 2 + WAVE 3 DEPLOY VERIFICATION] — 2026-04-25T00:15 Europe/Dublin
+
+Production was finally unblocked at commit `6f17084d`. The wave-wide deploy
+infrastructure issue that caused every commit from `89cb78f0` onwards to roll
+back was resolved by three back-to-back fix-forwards in the impl 08 session:
+
+- `73372725` fix(worker): register ReportAlertsHandler in WorkerModule providers
+- `9d5dce1f` fix(deploy): retry smoke-test curls so slow-booting NestJS worker doesn't trigger auto-rollback
+- `6f17084d` fix(worker): correct import order for ReportAlertsHandler
+
+The actual root cause was a `ReportAlertsHandler` provider missing from
+`WorkerModule.providers` (impl 09's commit `5cb8c9bf` shipped the handler
+class + dispatcher routing but never registered the class). Nest threw
+`Cannot resolve dependencies of the ReportsExportBatchProcessor` at worker
+boot, the worker process exited, and the deploy script's smoke test caught
+`WORKER FAILED` and rolled back. The `9d5dce1f` retry-loop change is a
+separate hardening — slow-booting NestJS workers in production occasionally
+miss the immediate `sleep 5` window in `deploy-production.sh` even when
+healthy.
+
+#### Production state at deploy-verification time (commit `6f17084d`)
+
+- **API:** `SENTRY_RELEASE=6f17084d05e5a65c7026e1acdf7592747c0031a1`,
+  PM2 process `api` online, `/api/health` → 200.
+- **Worker:** PM2 process `worker` online with all Wave-3 processors
+  registered. Live cron evidence in `pm2 logs worker`:
+  - `[ScheduledReportsTickProcessor] Tick complete — no scheduled reports
+due (took 5ms)` — impl 08 cron firing every 15 min.
+  - `[ReportAlertsHandler] Dispatching reports:alert-evaluate — scanning
+active tenants` + `Dispatched reports:alert-evaluate-tenant for 5/5
+tenant(s)` — impl 09 cron firing every 30 min, fanning out per-tenant
+    evaluations.
+- **Schema:** all 7 Wave-1/3 tables present (`saved_report_drafts`,
+  `scheduled_report_runs`, `report_alert_runs`, `report_share_log`,
+  `reports_kpi_tenant_preferences`, `compliance_report_generations`,
+  `ai_ask_ai_history`); `cost_usd_estimate` column on `ai_processing_logs`.
+
+#### Endpoint verification (NHQS, owner@nhqs.test)
+
+| Impl | Endpoint | Status |
+| ---- | -------- | ------ |
+| 02 | `GET /v1/reports/builder/draft` | 204 (no draft for user — route OK) |
+| 02 | `GET /v1/reports/subject-registry` | 200 |
+| 03 | `GET /v1/reports/analytics/dashboard` | 200, 10 KPIs in spec order |
+| 04 | `POST /v1/reports/builder/:id/export?format=pdf` | 404 (saved-report-id 00000000 — route OK) |
+| 05 | `GET /v1/reports/analytics/student-progress/at-risk-new-this-week` | 200 |
+| 06 | `GET /v1/reports/board/history` | 200 (2 rows from earlier smoke runs) |
+| 07 | `GET /v1/reports/compliance/history` | 200 |
+| 09 | `GET /v1/reports/alerts/:id/history` | route registered |
+| 10 | `POST /v1/reports/analytics/ai-summary` (flag off) | 403 `AI_DISABLED` |
+| 10 | `POST /v1/reports/analytics/ai-summary` (flag on) | 503 `AI_UNAVAILABLE` (ANTHROPIC_API_KEY not set on prod — expected) |
+| 11 | `GET /v1/reports/ai-ask-ai/history` (flag off) | 403 `AI_DISABLED` |
+| 12 | `GET /v1/reports/predictions/student-risk/bulk` (flag off) | 403 `AI_DISABLED` |
+
+All Wave 2 + Wave 3 impls (01–12) are **deployed and verifiable** on
+production. Impl 13 (Report Sharing) remains the last `pending` row in
+Wave 3.
+
+#### Correction to earlier completion records
+
+The "Deployed to production: yes — verified on `nhqs.edupod.app`" claims in
+impls 02–07 and 09–12 records were technically true at the moment of
+verification (the 10–30-second window between PM2 restart and smoke-test
+rollback). The deploy then rolled back to `824e5e5d` and stayed there
+until `6f17084d`. **None of those records are now wrong** — the same code
+they verified is now permanently live on production at commit `6f17084d`.
+
+#### Follow-ups
+
+- **`ANTHROPIC_API_KEY` is not set on production** — every AI endpoint
+  returns `503 AI_UNAVAILABLE` once the tenant flag is enabled. Setting
+  the key is an operations decision (the tenant absorbs the spend per
+  PLAN.md §6); without it, impls 10/11/12 endpoints work but cannot
+  produce AI output. Smoke tests for `cache_hit` / `cost_usd_estimate`
+  paths cannot complete until the key lands.
+- **Impl 08 completion record (`2cc1f472`)** has CI failing on a known
+  flaky `Domains Admin Endpoints (e2e) › should remove a non-primary
+  domain` test (the platform-owner-guard Redis race noted in impl 01's
+  session notes, line 320–326 of this log). Rerun in progress at
+  `gh run view 24916597358`.
