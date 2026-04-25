@@ -18,7 +18,6 @@ import type {
   AskAiHistoryEntry,
   AskAiHistoryResponse,
   AskAiTranslationResult,
-  SavedReportQuery,
 } from '@school/shared/reports';
 import { Button, Textarea } from '@school/ui';
 
@@ -26,6 +25,8 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { useAiFlag } from '../_components/use-ai-flag';
+
+import { ASK_AI_HANDOFF_KEY } from './handoff';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,10 +60,6 @@ const SUGGESTED_KEYS = [
   'askAiSuggestion9',
   'askAiSuggestion10',
 ] as const;
-
-// ─── Local-storage handoff key (pickup on /reports/builder mount) ─────────────
-
-const ASK_AI_HANDOFF_KEY = 'reports-ask-ai-handoff';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -613,7 +610,3 @@ async function markHistorySaved(historyId: string | null): Promise<void> {
     console.error('[ReportsAskAiPage.markSaved.opaque]', err);
   }
 }
-
-// Re-export the stable storage key so the builder can consume the handoff.
-export { ASK_AI_HANDOFF_KEY };
-export type { SavedReportQuery };
