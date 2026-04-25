@@ -1289,7 +1289,9 @@
       "publishSuccess": "تم نشر القالب.",
       "saveError": "تعذر حفظ هذا القالب.",
       "publishError": "تعذر نشر هذا القالب.",
-      "atLeastOneField": "أضف حقلًا واحدًا على الأقل قبل الحفظ."
+      "atLeastOneField": "أضف حقلًا واحدًا على الأقل قبل الحفظ.",
+      "validationError": "الرجاء تصحيح الحقول المُظللة والمحاولة من جديد.",
+      "fieldRequired": "هذا الحقل مطلوب."
     },
     "wizard": {
       "fixValidation": "يرجى إكمال الحقول المطلوبة قبل الانتقال للخطوة التالية.",
@@ -1626,7 +1628,9 @@
       "registrationDescriptionWithCapacity": "تقدم التسجيل مقابل {capacity} مقعداً متاحاً.",
       "registrationDescription": "التسجيلات المؤكدة مقارنةً بالمشاركين المدعوين.",
       "progressComplete": "{current} مكتمل",
-      "progressTotal": "{total} إجمالي"
+      "progressTotal": "{total} إجمالي",
+      "standaloneTitle": "اكتمال التقديم",
+      "standaloneDescription": "تم استلام {received} من {expected} تقديم."
     },
     "tripPack": {
       "description": "راجع حزمة قائد الرحلة ثم نزّل نسخة PDF الجاهزة ليوم الرحلة.",
@@ -3318,11 +3322,26 @@
       "subjects": {
         "title": "اختر موضوعًا",
         "subtitle": "ماذا سيمثّل كل صف في تقريرك؟",
-        "student": { "name": "طالب", "description": "صف واحد لكل طالب." },
-        "staff": { "name": "موظف", "description": "صف واحد لكل موظف." },
-        "household": { "name": "أسرة", "description": "صف واحد لكل أسرة." },
-        "class": { "name": "فصل", "description": "صف واحد لكل فصل." },
-        "invoice": { "name": "فاتورة", "description": "صف واحد لكل فاتورة." },
+        "student": {
+          "name": "طالب",
+          "description": "صف واحد لكل طالب."
+        },
+        "staff": {
+          "name": "موظف",
+          "description": "صف واحد لكل موظف."
+        },
+        "household": {
+          "name": "أسرة",
+          "description": "صف واحد لكل أسرة."
+        },
+        "class": {
+          "name": "فصل",
+          "description": "صف واحد لكل فصل."
+        },
+        "invoice": {
+          "name": "فاتورة",
+          "description": "صف واحد لكل فاتورة."
+        },
         "application": {
           "name": "طلب قبول",
           "description": "صف واحد لكل طلب قبول."
@@ -3339,7 +3358,10 @@
           "name": "سجل حضور",
           "description": "صف واحد لكل حضور حصة."
         },
-        "grade": { "name": "درجة", "description": "صف واحد لكل إدخال درجة." },
+        "grade": {
+          "name": "درجة",
+          "description": "صف واحد لكل إدخال درجة."
+        },
         "payroll_entry": {
           "name": "قيد رواتب",
           "description": "صف واحد لكل قيد رواتب."
@@ -3412,7 +3434,10 @@
         "valuePlaceholder": "أدخل القيمة",
         "true": "نعم",
         "false": "لا",
-        "combinator": { "and": "و", "or": "أو" },
+        "combinator": {
+          "and": "و",
+          "or": "أو"
+        },
         "operators": {
           "equals": "يساوي",
           "not_equals": "لا يساوي",

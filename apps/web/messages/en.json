@@ -1289,7 +1289,9 @@
       "publishSuccess": "Template published.",
       "saveError": "We could not save this template.",
       "publishError": "We could not publish this template.",
-      "atLeastOneField": "Add at least one field before saving."
+      "atLeastOneField": "Add at least one field before saving.",
+      "validationError": "Please fix the highlighted fields and try again.",
+      "fieldRequired": "This field is required."
     },
     "wizard": {
       "fixValidation": "Please finish the required fields before moving on.",
@@ -1626,7 +1628,9 @@
       "registrationDescriptionWithCapacity": "Registration progress against {capacity} available places.",
       "registrationDescription": "Confirmed registrations compared with invited participants.",
       "progressComplete": "{current} complete",
-      "progressTotal": "{total} total"
+      "progressTotal": "{total} total",
+      "standaloneTitle": "Submission completion",
+      "standaloneDescription": "{received} of {expected} submissions received."
     },
     "tripPack": {
       "description": "Preview the trip leader pack and download the PDF version for the day of travel.",
@@ -2511,17 +2515,17 @@
       "aiSummaryTitle": "AI Summary",
       "aiSummaryHint": "Click Summarise to generate an AI narrative of this report.",
       "aiSummaryFallback": "School-wide attendance is strong at 93%. Collection rate improved 5 points this term. At-risk student count has decreased month-over-month.",
-      "aiUnavailable": "AI service is currently unavailable. Try again in a moment.",
-      "aiDisabledByTenant": "AI summaries are disabled for this tenant.",
+      "aiUnavailable": "AI service is currently unavailable. Try again later.",
+      "aiDisabledByTenant": "AI summary is disabled for this school. Enable it in Settings → Reports.",
       "aiRateLimited": "You have hit the rate limit (20 AI requests per hour). Please try again later.",
-      "aiManageInSettings": "Manage AI features in Settings",
+      "aiManageInSettings": "Manage AI features in Settings → Reports",
       "confidence": {
         "high": "High",
         "medium": "Medium",
         "low": "Low"
       },
       "regenerate": "Regenerate",
-      "copy": "Copy narrative",
+      "copy": "Copy",
       "copied": "Copied",
       "cached": "Cached",
       "fresh": "Fresh",
@@ -2571,15 +2575,7 @@
       "retry": "Retry",
       "staleData": "These figures may be stale — the latest refresh failed.",
       "allKpisHidden": "All KPIs are hidden in your settings.",
-      "manageKpis": "Manage KPI visibility",
-      "cached": "Cached",
-      "fresh": "Fresh",
-      "regenerate": "Regenerate",
-      "copy": "Copy",
-      "copied": "Copied",
-      "aiManageInSettings": "Manage AI features in Settings → Reports",
-      "aiUnavailable": "AI service is currently unavailable. Try again later.",
-      "aiDisabledByTenant": "AI summary is disabled for this school. Enable it in Settings → Reports."
+      "manageKpis": "Manage KPI visibility"
     },
     "kpis": {
       "attendance_today": {
@@ -3438,7 +3434,10 @@
         "valuePlaceholder": "Enter value",
         "true": "Yes",
         "false": "No",
-        "combinator": { "and": "AND", "or": "OR" },
+        "combinator": {
+          "and": "AND",
+          "or": "OR"
+        },
         "operators": {
           "equals": "equals",
           "not_equals": "does not equal",
