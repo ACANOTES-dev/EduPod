@@ -3404,3 +3404,9 @@ loadDraft` TypeError pre-dates impl 19 (originates in impl 16's
   additions will be moved into `@school/shared/reports/settings` for
   consistency with impls 02/10/11/12.
 - Until: committed OR flipped to `🛑 blocked`.
+
+### [PLAYWRIGHT LOCK] — impl 20 (post-deploy)
+
+- Holder: impl 20 verification — board report + compliance report UI
+- Started: 2026-04-25T14:00 Europe/Dublin
+- Until: released by closing the browser AND appending a follow-up release line
