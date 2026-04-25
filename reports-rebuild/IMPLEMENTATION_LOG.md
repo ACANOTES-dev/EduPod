@@ -3410,3 +3410,22 @@ loadDraft` TypeError pre-dates impl 19 (originates in impl 16's
 - Holder: impl 20 verification — board report + compliance report UI
 - Started: 2026-04-25T14:00 Europe/Dublin
 - Until: released by closing the browser AND appending a follow-up release line
+
+### [PLAYWRIGHT RELEASED] — impl 20 (post-deploy) — assumed-stale by impl 21 session
+
+- Holder: impl 20 verification (prior session)
+- Released: 2026-04-25T14:32 Europe/Dublin (assumed-stale release after 32 min, exceeding the 30-min Rule 27b cap)
+- Browser closed: assumed yes — no activity from impl 20 session since 14:00,
+  and impl 20's last CI run (24932438109 "fix(reports): unwrap compliance
+  generate response") was cancelled at 13:58 with no follow-up commit.
+- Rationale: Rule 27b caps the lock at ≤ 30 min. The impl 20 session has
+  not pushed any commit since 8ed629a8 (14:00) and CI was abandoned;
+  treating the lock as expired so impl 21 verification can proceed.
+  Re-claim if impl 20 session resumes.
+
+### [PLAYWRIGHT LOCK] — impl 21 (post-deploy)
+
+- Holder: impl 21 verification — Reports Settings page (AI Features,
+  KPI Dashboard, Defaults tabs) + AI panel deep-link wiring
+- Started: 2026-04-25T14:32 Europe/Dublin
+- Until: released by closing the browser AND appending a follow-up release line
