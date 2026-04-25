@@ -7,7 +7,6 @@ import * as React from 'react';
 
 import { Button, toast } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient, getAccessToken } from '@/lib/api-client';
 
@@ -21,7 +20,6 @@ import {
   type StaffOption,
   type TripPackPreview,
 } from '../../../_components/engagement-types';
-
 
 export default function EngagementTripPackPage() {
   const params = useParams<{ id: string }>();
@@ -42,7 +40,8 @@ export default function EngagementTripPackPage() {
       try {
         const [previewResponse, staffResponse] = await Promise.all([
           apiClient<TripPackPreview>(`/api/v1/engagement/events/${eventId}/trip-pack`),
-          apiClient<PaginatedResponse<StaffOption>>('/api/v1/staff-profiles?page=1&pageSize=500'),
+          // TODO(engagement-fix-06): paginate properly if > 100 staff or slots
+          apiClient<PaginatedResponse<StaffOption>>('/api/v1/staff-profiles?page=1&pageSize=100'),
         ]);
 
         if (!isMounted) {

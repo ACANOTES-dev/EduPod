@@ -83,7 +83,8 @@ export default function ConferenceSetupPage() {
       try {
         const [eventResponse, staffResponse] = await Promise.all([
           apiClient<EventRecord>(`/api/v1/engagement/events/${eventId}`),
-          apiClient<PaginatedResponse<StaffOption>>('/api/v1/staff-profiles?page=1&pageSize=500'),
+          // TODO(engagement-fix-06): paginate properly if > 100 staff or slots
+          apiClient<PaginatedResponse<StaffOption>>('/api/v1/staff-profiles?page=1&pageSize=100'),
         ]);
 
         if (!isMounted) {

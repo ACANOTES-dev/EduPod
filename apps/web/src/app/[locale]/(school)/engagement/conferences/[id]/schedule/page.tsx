@@ -35,8 +35,6 @@ import {
 } from '../../../_components/engagement-types';
 import { ScheduleGrid } from '../../../_components/schedule-grid';
 
-
-
 export default function ConferenceSchedulePage() {
   const params = useParams<{ id: string }>();
   const eventId = params?.id ?? '';
@@ -60,11 +58,13 @@ export default function ConferenceSchedulePage() {
     try {
       const [eventResponse, slotResponse, statsResponse, staffResponse] = await Promise.all([
         apiClient<EventRecord>(`/api/v1/engagement/events/${eventId}`),
+        // TODO(engagement-fix-06): paginate properly if > 100 staff or slots
         apiClient<PaginatedResponse<ConferenceTimeSlotRecord>>(
-          `/api/v1/engagement/conferences/${eventId}/time-slots?page=1&pageSize=500`,
+          `/api/v1/engagement/conferences/${eventId}/time-slots?page=1&pageSize=100`,
         ),
         apiClient<ConferenceBookingStats>(`/api/v1/engagement/conferences/${eventId}/stats`),
-        apiClient<PaginatedResponse<StaffOption>>('/api/v1/staff-profiles?page=1&pageSize=500'),
+        // TODO(engagement-fix-06): paginate properly if > 100 staff or slots
+        apiClient<PaginatedResponse<StaffOption>>('/api/v1/staff-profiles?page=1&pageSize=100'),
       ]);
 
       setEvent(eventResponse);
