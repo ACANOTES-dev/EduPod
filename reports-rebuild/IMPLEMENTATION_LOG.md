@@ -254,7 +254,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `completed`   | 2026-04-25T13:54 Europe/Dublin | `bc36bbb5` |
 | 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `completed`   | 2026-04-25T13:58 Europe/Dublin | `a39be0fc` |
 | 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `deploying`   | —                              | `654a61e6` |
-| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `in-progress` | —                              | —          |
+| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `deploying`   | —                              | `9f14ab9d` |
 | 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`     |                                |            |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
