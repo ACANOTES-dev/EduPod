@@ -166,6 +166,7 @@ and verify every file you authored is ≥ the global target. If your work genuin
 ```
 
 Before you write that claim, scan §5 for the most recent `[PLAYWRIGHT LOCK]` entry. If it has no matching `[PLAYWRIGHT RELEASED]` line below it, the lock is held by another session — STOP, do not invoke Playwright tools, and either:
+
 1. Wait (poll §5 every 3 minutes until the release line appears), or
 2. Defer the verification step and flip your row to `🛑 blocked — waiting on Playwright lock` with the holder's claim line referenced.
 
@@ -231,30 +232,30 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                 | Wave | Depends on     | Status      | Completed at                   | Commit SHA |
-| --- | ----------------------------------------------------- | ---- | -------------- | ----------- | ------------------------------ | ---------- |
-| 01  | Schema foundation                                     | 1    | —              | `completed` | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
-| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed` | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
-| 03  | KPI Dashboard Service                                 | 2    | 01             | `completed` | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
-| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed` | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
-| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `completed` | 2026-04-24T20:35 Europe/Dublin | `03cd4297` |
-| 06  | Board Report aggregation                              | 2    | 01             | `completed` | 2026-04-24T22:28 Europe/Dublin | `d1876454` |
-| 07  | Compliance Report aggregation                         | 2    | 01             | `completed` | 2026-04-24T21:46 Europe/Dublin | `89cb78f0` |
-| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `completed` | 2026-04-25T00:30 Europe/Dublin | `5cb8c9bf` |
+| #   | Title                                                 | Wave | Depends on     | Status        | Completed at                   | Commit SHA |
+| --- | ----------------------------------------------------- | ---- | -------------- | ------------- | ------------------------------ | ---------- |
+| 01  | Schema foundation                                     | 1    | —              | `completed`   | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
+| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed`   | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
+| 03  | KPI Dashboard Service                                 | 2    | 01             | `completed`   | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
+| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed`   | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
+| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `completed`   | 2026-04-24T20:35 Europe/Dublin | `03cd4297` |
+| 06  | Board Report aggregation                              | 2    | 01             | `completed`   | 2026-04-24T22:28 Europe/Dublin | `d1876454` |
+| 07  | Compliance Report aggregation                         | 2    | 01             | `completed`   | 2026-04-24T21:46 Europe/Dublin | `89cb78f0` |
+| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `completed`   | 2026-04-25T00:30 Europe/Dublin | `5cb8c9bf` |
 | 09  | Report Alerts Worker                                  | 3    | 01, 03         | `completed`   | 2026-04-24T23:50 Europe/Dublin | `c6309507` |
 | 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `completed`   | 2026-04-24T22:40 Europe/Dublin | `6629dc14` |
-| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `completed` | 2026-04-24T22:35 Europe/Dublin | `20b6899c` |
-| 12  | AI Predictions service                                | 3    | 01             | `completed` | 2026-04-25T00:35 Europe/Dublin | `7c08a0ad` |
-| 13  | Report Sharing service                                | 3    | 01, 04         | `completed` | 2026-04-25T01:18 Europe/Dublin | `e791efce` |
-| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`   |                                |            |
-| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`   |                                |            |
-| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`   |                                |            |
-| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`   |                                |            |
-| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`   |                                |            |
-| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`   |                                |            |
-| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`   |                                |            |
-| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`   |                                |            |
-| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`   |                                |            |
+| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `completed`   | 2026-04-24T22:35 Europe/Dublin | `20b6899c` |
+| 12  | AI Predictions service                                | 3    | 01             | `completed`   | 2026-04-25T00:35 Europe/Dublin | `7c08a0ad` |
+| 13  | Report Sharing service                                | 3    | 01, 04         | `completed`   | 2026-04-25T01:18 Europe/Dublin | `e791efce` |
+| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `in-progress` |                                |            |
+| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`     |                                |            |
+| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`     |                                |            |
+| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `pending`     |                                |            |
+| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`     |                                |            |
+| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`     |                                |            |
+| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`     |                                |            |
+| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`     |                                |            |
+| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`     |                                |            |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
 
@@ -1273,9 +1274,11 @@ history` — last 20 attempts per user, grouped by date. Tapping
 
 - **Rollback:** `git revert 20b6899c bf1565b6`. Manual DB rollback
   to drop the new table:
+
   ```
   DROP TABLE ai_ask_ai_history CASCADE;
   ```
+
   The Prisma client and shared package will need a regenerate /
   rebuild (CI handles automatically). The Redis keys
   (`ai_ask_ai:*`, `ai_ask_ai_rl:*`) expire on their own.
@@ -1327,8 +1330,8 @@ history` — last 20 attempts per user, grouped by date. Tapping
   (Wave 3's deploy-step is failing wave-wide on `0efa73de` and prior
   impl 09 / impl 11 commits — see Session notes. The build / type-check /
   lint / unit-tests / api-surface gates passed cleanly for `6629dc14`
-  + `f1d3ee62` before being superseded by impl 11's push; deploy step has
-  not yet succeeded for any Wave 3 commit at log-write time.)
+  - `f1d3ee62` before being superseded by impl 11's push; deploy step has
+    not yet succeeded for any Wave 3 commit at log-write time.)
 - **Deployed to production:** PARTIALLY — code is on `origin/main` and
   built cleanly, but the GitHub Actions `deploy` step has failed for the
   last 5+ Wave 3 commits in a row (impl 08, 09, 10, 11 all blocked at
@@ -1397,9 +1400,11 @@ tenant_id = $1 AND created_at >= date_trunc('month', now())`. No
     UI in this phase but the column is ready.
 - **Rollback:** `git revert f1d3ee62 6629dc14`. Manual DB rollback if
   reverting:
+
   ```sql
   ALTER TABLE ai_processing_logs DROP COLUMN cost_usd_estimate;
   ```
+
   Cache keys `ai_narration:*` are orphaned and expire automatically
   after 10 minutes. The `AiFlagsService.list()` will return 7 rows
   (4 wellbeing + 3 reports) post-revert because impl 01 already
@@ -1431,15 +1436,15 @@ index.ts`, `packages/prisma/schema.prisma`,
     GH rate-limit reset (~01:14 Europe/Dublin), pull the deploy job
     logs, fix the deploy script.
   - **Pre-push `--no-verify` per Rule 27** for both pushes (`6629dc14`
-    + `f1d3ee62`). The reports module remains oversized (impls 02–11
-    each added a subfolder); module-cohesion check at the husky
-    pre-push hook fires `--max-errors 0`, while CI accepts
-    `--max-errors 1`. The actual breakdowns:
-    - Push 1: failed pre-push on `@school/worker#lint:ci` because of
+    - `f1d3ee62`). The reports module remains oversized (impls 02–11
+      each added a subfolder); module-cohesion check at the husky
+      pre-push hook fires `--max-errors 0`, while CI accepts
+      `--max-errors 1`. The actual breakdowns:
+    * Push 1: failed pre-push on `@school/worker#lint:ci` because of
       impl 09's `apps/worker/src/processors/reports/report-alerts.processor.ts`
       empty interface declarations (lines 29 / 30). Not my code;
       impl 09 fixed it in `ad67267f`.
-    - Push 2: same shape, plus `cohesion --max-errors 0` blew on the
+    * Push 2: same shape, plus `cohesion --max-errors 0` blew on the
       reports module. Bypassed.
   - **Schema snapshot was stale on first push** because I added
     `cost_usd_estimate` to `AiProcessingLog` without running
@@ -1576,18 +1581,18 @@ view`) is impl 21's settings-page concern. Tenant scope via RLS is
 
 - **Completed:** 2026-04-24T23:50 Europe/Dublin
 - **Commits:** `5cb8c9bf` (feat — handler + evaluator + metric registry
-  + dispatcher routing + API history endpoint + schema column + tests),
-  `ed7f7d5f` (fix — re-add `alerts` barrel export + null-coerce
-  `getMetricCalculator` for `noUncheckedIndexedAccess`),
-  `cbe27db1` (fix — drop orphan `./narration` import from the shared
-  barrel that an earlier sibling session swept in without committing
-  the file), `ad67267f` (fix — convert two empty payload interfaces
-  to `type` aliases to clear `no-empty-interface` lint),
-  `c6309507` (fix — register the 30-minute `reports:alert-evaluate`
-  cron in `CronSchedulerService`; the cron addition was lost in a
-  parallel-session edit race during the impl 09 commit window and had
-  to be re-applied as a follow-up). Log row carries `c6309507` because
-  that is the SHA where the cron actually fires.
+  - dispatcher routing + API history endpoint + schema column + tests),
+    `ed7f7d5f` (fix — re-add `alerts` barrel export + null-coerce
+    `getMetricCalculator` for `noUncheckedIndexedAccess`),
+    `cbe27db1` (fix — drop orphan `./narration` import from the shared
+    barrel that an earlier sibling session swept in without committing
+    the file), `ad67267f` (fix — convert two empty payload interfaces
+    to `type` aliases to clear `no-empty-interface` lint),
+    `c6309507` (fix — register the 30-minute `reports:alert-evaluate`
+    cron in `CronSchedulerService`; the cron addition was lost in a
+    parallel-session edit race during the impl 09 commit window and had
+    to be re-applied as a follow-up). Log row carries `c6309507` because
+    that is the SHA where the cron actually fires.
 - **CI runs:** `24913943334` (feat, failed — shared barrel drift),
   `24914075874` (first fix-forward, failed — orphan `./narration`
   import), `24914163350` (second fix-forward, cancelled by sibling
@@ -1861,7 +1866,6 @@ Tick complete — no scheduled reports due (took 21ms)`. Empty queue
     project memory ("No waiting during autonomous work"), the
     pacing was active polling, not ScheduleWakeup loops.
 
-
 ### [WAVE 2 + WAVE 3 DEPLOY VERIFICATION] — 2026-04-25T00:15 Europe/Dublin
 
 Production was finally unblocked at commit `6f17084d`. The wave-wide deploy
@@ -1901,20 +1905,20 @@ tenant(s)` — impl 09 cron firing every 30 min, fanning out per-tenant
 
 #### Endpoint verification (NHQS, owner@nhqs.test)
 
-| Impl | Endpoint | Status |
-| ---- | -------- | ------ |
-| 02 | `GET /v1/reports/builder/draft` | 204 (no draft for user — route OK) |
-| 02 | `GET /v1/reports/subject-registry` | 200 |
-| 03 | `GET /v1/reports/analytics/dashboard` | 200, 10 KPIs in spec order |
-| 04 | `POST /v1/reports/builder/:id/export?format=pdf` | 404 (saved-report-id 00000000 — route OK) |
-| 05 | `GET /v1/reports/analytics/student-progress/at-risk-new-this-week` | 200 |
-| 06 | `GET /v1/reports/board/history` | 200 (2 rows from earlier smoke runs) |
-| 07 | `GET /v1/reports/compliance/history` | 200 |
-| 09 | `GET /v1/reports/alerts/:id/history` | route registered |
-| 10 | `POST /v1/reports/analytics/ai-summary` (flag off) | 403 `AI_DISABLED` |
-| 10 | `POST /v1/reports/analytics/ai-summary` (flag on) | 503 `AI_UNAVAILABLE` (ANTHROPIC_API_KEY not set on prod — expected) |
-| 11 | `GET /v1/reports/ai-ask-ai/history` (flag off) | 403 `AI_DISABLED` |
-| 12 | `GET /v1/reports/predictions/student-risk/bulk` (flag off) | 403 `AI_DISABLED` |
+| Impl | Endpoint                                                           | Status                                                              |
+| ---- | ------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| 02   | `GET /v1/reports/builder/draft`                                    | 204 (no draft for user — route OK)                                  |
+| 02   | `GET /v1/reports/subject-registry`                                 | 200                                                                 |
+| 03   | `GET /v1/reports/analytics/dashboard`                              | 200, 10 KPIs in spec order                                          |
+| 04   | `POST /v1/reports/builder/:id/export?format=pdf`                   | 404 (saved-report-id 00000000 — route OK)                           |
+| 05   | `GET /v1/reports/analytics/student-progress/at-risk-new-this-week` | 200                                                                 |
+| 06   | `GET /v1/reports/board/history`                                    | 200 (2 rows from earlier smoke runs)                                |
+| 07   | `GET /v1/reports/compliance/history`                               | 200                                                                 |
+| 09   | `GET /v1/reports/alerts/:id/history`                               | route registered                                                    |
+| 10   | `POST /v1/reports/analytics/ai-summary` (flag off)                 | 403 `AI_DISABLED`                                                   |
+| 10   | `POST /v1/reports/analytics/ai-summary` (flag on)                  | 503 `AI_UNAVAILABLE` (ANTHROPIC_API_KEY not set on prod — expected) |
+| 11   | `GET /v1/reports/ai-ask-ai/history` (flag off)                     | 403 `AI_DISABLED`                                                   |
+| 12   | `GET /v1/reports/predictions/student-risk/bulk` (flag off)         | 403 `AI_DISABLED`                                                   |
 
 All Wave 2 + Wave 3 impls (01–12) are **deployed and verifiable** on
 production. Impl 13 (Report Sharing) remains the last `pending` row in
@@ -1966,7 +1970,7 @@ they verified is now permanently live on production at commit `6f17084d`.
   paths cannot complete until the key lands.
 - **Impl 08 completion record (`2cc1f472`)** has CI failing on a known
   flaky `Domains Admin Endpoints (e2e) › should remove a non-primary
-  domain` test (the platform-owner-guard Redis race noted in impl 01's
+domain` test (the platform-owner-guard Redis race noted in impl 01's
   session notes, line 320–326 of this log). Rerun in progress at
   `gh run view 24916597358`.
 
@@ -2044,7 +2048,7 @@ FROM pg_class WHERE relname = 'report_share_log';` returns
   - **Impl 19 (Wave 4 — Share dialog + Saved Reports management UI)**
     consumes all three endpoints. Response shapes are stable per
     `@school/shared/reports/share` (`shareReportResponseSchema`,
-    `sharedSnapshotViewSchema`,  `reportShareHistoryResponseSchema`).
+    `sharedSnapshotViewSchema`, `reportShareHistoryResponseSchema`).
   - **Large-report batch path is deferred.** Impl 13 spec §8 calls
     for delegation to `reports:export-batch` (impl 04) when the
     result set exceeds 5 000 rows; current behaviour is a hard 400.
@@ -2102,12 +2106,12 @@ FROM pg_class WHERE relname = 'report_share_log';` returns
     (mirrors the rename in its mock)
   - `apps/api/src/modules/reports/reports.module.ts` (adds module
     imports + new providers; revert removes them)
-  Reverting does NOT remove the `report_share_log` table — it lives
-  with impl 01. Any rows written between the deploy and rollback
-  remain valid history (no FK cascade to consumers). The S3
-  artifacts under `tenant/{id}/reports/shares/{share_id}/` orphan
-  on rollback; they'll need manual cleanup or the deferred lifecycle
-  job.
+    Reverting does NOT remove the `report_share_log` table — it lives
+    with impl 01. Any rows written between the deploy and rollback
+    remain valid history (no FK cascade to consumers). The S3
+    artifacts under `tenant/{id}/reports/shares/{share_id}/` orphan
+    on rollback; they'll need manual cleanup or the deferred lifecycle
+    job.
 - **Session notes:**
   - Pre-push `--no-verify` per Rule 27 — the reports module now sits
     at ~1 000 LOC over the cohesion threshold (impl 13 adds 7 files,
@@ -2146,21 +2150,21 @@ FROM pg_class WHERE relname = 'report_share_log';` returns
 
 #### Per-impl results
 
-| # | Impl | Result | Evidence |
-| - | ---- | ------ | -------- |
-| 01 | Schema foundation | ✅ PASS | `pg_class.relrowsecurity=t, relforcerowsecurity=t` for all 5 new tables (`saved_report_drafts`, `scheduled_report_runs`, `report_alert_runs`, `report_share_log`, `reports_kpi_tenant_preferences`). |
-| 02 | Subject registry + query engine | ✅ PASS | `GET /v1/reports/subject-registry` → 200 with `subjects` payload. `GET /v1/reports/builder/draft` → 204 (no draft for owner). `POST /v1/reports/builder/preview` with `subject: 'student'` + 2 columns → 201 with `{rows, columns, meta}` populated. |
-| 03 | KPI dashboard | ✅ PASS | `GET /v1/reports/analytics/dashboard` → 200, 10 KPIs in spec order with all expected fields (key, label_key, tooltip_key, value, value_raw, delta, sparkline, drill_down_href, severity). `trends.weeks.length === 12`. Cache toggle confirmed: `?refresh=true` → `meta.cache_hit=false`, second call → `true`, third → `true`. |
-| 04 | Export pipeline | ⚠️ NOT END-TO-END VERIFIABLE TODAY | NHQS has 0 saved reports (`/v1/reports/builder` returns `data:[]`); the legacy `createSavedReportSchema` only accepts pre-rebuild enum values (`'students'`, `'staff'`, …) and any saved report under those is rejected by the share/execute path with `REPORT_LEGACY_FORMAT`. The renderers (`PdfRenderer`, `ExcelRenderer`, `WordRenderer`) and `ReportExportService` are correctly wired in DI (verified via AppModule smoke + impl 13 module wiring). Full smoke is queued for Wave 4 once impl 16 (builder UI) creates a saved report under a new subject key. |
-| 05 | Domain report services | ✅ PASS (4/4 endpoints) | `GET /at-risk-new-this-week` → 200. `GET /grades/subject-difficulty?subject_id=<id>&by=term` → 200 (empty for that subject — endpoint works, no data). `GET /demographics/year-group-enrolment/:id?months=3` → 200 with 3 monthly buckets. `GET /student-progress/trends-by-cohort/:id` → 400 (correctly requires the `period_id` query param documented in the impl 05 spec). |
-| 06 | Board report aggregation | ✅ PASS | `POST /v1/reports/board` with `{term:{academic_year_id, term_number:2}, sections:['executive','enrolment','attendance'], anonymise:true}` → 201 returning `data: {tenant, generated_at, generated_by_user_id, anonymise, sections_included, sections}`; `sections.executive` carries `{type, headline_metrics, narrative}`. `GET /v1/reports/board/history` → 200 with 5 prior generations. |
-| 07 | Compliance report aggregation | ✅ PASS | `POST /v1/reports/compliance/generate` with 3 fields → 201 returning `data: {tenant, fields, meta}`; `fields[0]` = `{key:'student_headcount', value:207, source:'Active students enrolled…', last_verified_at, has_gap:false}`. `GET /v1/reports/compliance/history` → 200 with 2 prior generations. |
-| 08 | Scheduled-reports worker | ✅ PASS | `pm2 logs worker`: `[CronSchedulerService] Registered repeatable cron: reports:scheduled-run (every 15 minutes)` at boot. Tick observed at 01:30:00: `[ScheduledReportsTickProcessor] Tick complete — no scheduled reports due (took 7ms)`. |
-| 09 | Report-alerts worker | ✅ PASS | `pm2 logs worker`: `[CronSchedulerService] Registered repeatable cron: reports:alert-evaluate (every 30 minutes)`. Tick observed at 01:30:00: `[ReportAlertsHandler] Dispatched reports:alert-evaluate-tenant for 5/5 tenant(s)`; per-tenant evaluations logged: `Tenant evaluation complete: tenant=<id> evaluated=0 fired=0 errored=0`. |
-| 10 | AI narration | ✅ FLAG-GATE PASS | `POST /v1/reports/analytics/ai-summary` with flag off → 403 `AI_DISABLED` (correct gate). Full-AI smoke blocked by `ANTHROPIC_API_KEY` not being set on prod (already documented in Wave 3 follow-ups). Routes registered: confirmed via API access logs. |
-| 11 | AI ask-AI | ✅ FLAG-GATE PASS | `GET /v1/reports/ai-ask-ai/history` → 403 `AI_DISABLED` (correct gate). Same `ANTHROPIC_API_KEY` blocker as impl 10 for full-path smoke. |
-| 12 | AI predictions | ✅ FLAG-GATE PASS | `GET /v1/reports/predictions/student-risk/bulk?year_group_id=<fake>` → 403 `AI_DISABLED` (correct gate). Same `ANTHROPIC_API_KEY` blocker for full-path smoke. |
-| 13 | Report sharing | ✅ ROUTE + ERROR PATH PASS | `POST /v1/reports/builder/<fake>/share` → 404 `SAVED_REPORT_NOT_FOUND` (route reached, service rejects fake report id). `GET /v1/reports/builder/<fake>/shares?page=1&pageSize=10` → 200 `{data:[], meta:{page:1,pageSize:10,total:0}}` (paginated empty). `GET /v1/reports/shared/<fake>` → 404 `REPORT_SHARE_NOT_FOUND`. Happy path blocked by the same impl 02 / impl 04 gap (no saved reports to share). |
+| #   | Impl                            | Result                             | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --- | ------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01  | Schema foundation               | ✅ PASS                            | `pg_class.relrowsecurity=t, relforcerowsecurity=t` for all 5 new tables (`saved_report_drafts`, `scheduled_report_runs`, `report_alert_runs`, `report_share_log`, `reports_kpi_tenant_preferences`).                                                                                                                                                                                                                                                                                                                                                                |
+| 02  | Subject registry + query engine | ✅ PASS                            | `GET /v1/reports/subject-registry` → 200 with `subjects` payload. `GET /v1/reports/builder/draft` → 204 (no draft for owner). `POST /v1/reports/builder/preview` with `subject: 'student'` + 2 columns → 201 with `{rows, columns, meta}` populated.                                                                                                                                                                                                                                                                                                                |
+| 03  | KPI dashboard                   | ✅ PASS                            | `GET /v1/reports/analytics/dashboard` → 200, 10 KPIs in spec order with all expected fields (key, label_key, tooltip_key, value, value_raw, delta, sparkline, drill_down_href, severity). `trends.weeks.length === 12`. Cache toggle confirmed: `?refresh=true` → `meta.cache_hit=false`, second call → `true`, third → `true`.                                                                                                                                                                                                                                     |
+| 04  | Export pipeline                 | ⚠️ NOT END-TO-END VERIFIABLE TODAY | NHQS has 0 saved reports (`/v1/reports/builder` returns `data:[]`); the legacy `createSavedReportSchema` only accepts pre-rebuild enum values (`'students'`, `'staff'`, …) and any saved report under those is rejected by the share/execute path with `REPORT_LEGACY_FORMAT`. The renderers (`PdfRenderer`, `ExcelRenderer`, `WordRenderer`) and `ReportExportService` are correctly wired in DI (verified via AppModule smoke + impl 13 module wiring). Full smoke is queued for Wave 4 once impl 16 (builder UI) creates a saved report under a new subject key. |
+| 05  | Domain report services          | ✅ PASS (4/4 endpoints)            | `GET /at-risk-new-this-week` → 200. `GET /grades/subject-difficulty?subject_id=<id>&by=term` → 200 (empty for that subject — endpoint works, no data). `GET /demographics/year-group-enrolment/:id?months=3` → 200 with 3 monthly buckets. `GET /student-progress/trends-by-cohort/:id` → 400 (correctly requires the `period_id` query param documented in the impl 05 spec).                                                                                                                                                                                      |
+| 06  | Board report aggregation        | ✅ PASS                            | `POST /v1/reports/board` with `{term:{academic_year_id, term_number:2}, sections:['executive','enrolment','attendance'], anonymise:true}` → 201 returning `data: {tenant, generated_at, generated_by_user_id, anonymise, sections_included, sections}`; `sections.executive` carries `{type, headline_metrics, narrative}`. `GET /v1/reports/board/history` → 200 with 5 prior generations.                                                                                                                                                                         |
+| 07  | Compliance report aggregation   | ✅ PASS                            | `POST /v1/reports/compliance/generate` with 3 fields → 201 returning `data: {tenant, fields, meta}`; `fields[0]` = `{key:'student_headcount', value:207, source:'Active students enrolled…', last_verified_at, has_gap:false}`. `GET /v1/reports/compliance/history` → 200 with 2 prior generations.                                                                                                                                                                                                                                                                |
+| 08  | Scheduled-reports worker        | ✅ PASS                            | `pm2 logs worker`: `[CronSchedulerService] Registered repeatable cron: reports:scheduled-run (every 15 minutes)` at boot. Tick observed at 01:30:00: `[ScheduledReportsTickProcessor] Tick complete — no scheduled reports due (took 7ms)`.                                                                                                                                                                                                                                                                                                                         |
+| 09  | Report-alerts worker            | ✅ PASS                            | `pm2 logs worker`: `[CronSchedulerService] Registered repeatable cron: reports:alert-evaluate (every 30 minutes)`. Tick observed at 01:30:00: `[ReportAlertsHandler] Dispatched reports:alert-evaluate-tenant for 5/5 tenant(s)`; per-tenant evaluations logged: `Tenant evaluation complete: tenant=<id> evaluated=0 fired=0 errored=0`.                                                                                                                                                                                                                           |
+| 10  | AI narration                    | ✅ FLAG-GATE PASS                  | `POST /v1/reports/analytics/ai-summary` with flag off → 403 `AI_DISABLED` (correct gate). Full-AI smoke blocked by `ANTHROPIC_API_KEY` not being set on prod (already documented in Wave 3 follow-ups). Routes registered: confirmed via API access logs.                                                                                                                                                                                                                                                                                                           |
+| 11  | AI ask-AI                       | ✅ FLAG-GATE PASS                  | `GET /v1/reports/ai-ask-ai/history` → 403 `AI_DISABLED` (correct gate). Same `ANTHROPIC_API_KEY` blocker as impl 10 for full-path smoke.                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 12  | AI predictions                  | ✅ FLAG-GATE PASS                  | `GET /v1/reports/predictions/student-risk/bulk?year_group_id=<fake>` → 403 `AI_DISABLED` (correct gate). Same `ANTHROPIC_API_KEY` blocker for full-path smoke.                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 13  | Report sharing                  | ✅ ROUTE + ERROR PATH PASS         | `POST /v1/reports/builder/<fake>/share` → 404 `SAVED_REPORT_NOT_FOUND` (route reached, service rejects fake report id). `GET /v1/reports/builder/<fake>/shares?page=1&pageSize=10` → 200 `{data:[], meta:{page:1,pageSize:10,total:0}}` (paginated empty). `GET /v1/reports/shared/<fake>` → 404 `REPORT_SHARE_NOT_FOUND`. Happy path blocked by the same impl 02 / impl 04 gap (no saved reports to share).                                                                                                                                                        |
 
 #### Issues raised by the walkthrough
 
@@ -2217,7 +2221,7 @@ FROM pg_class WHERE relname = 'report_share_log';` returns
    - Recharts `r.slice is not a function` crash: added an
      `adaptDashboardResponse()` helper that projects the new
      impl-03 KPI shape (`{kpis: KpiCard[], trends: {weeks, attendance,
-     grades, collection}}`) down to the legacy page shape
+grades, collection}}`) down to the legacy page shape
      (`{kpis: KpiData, trends: TrendPoint[]}`). The adapter is
      throwaway — impl 14 will rewrite the page to consume the new
      shape natively, but until then the dashboard renders without
@@ -2228,7 +2232,7 @@ FROM pg_class WHERE relname = 'report_share_log';` returns
      renders the 12-week trend without error.
 
 2. **Saved-report create schema rejected the new subject keys → now accepts
-     both shapes.** Widened
+   both shapes.** Widened
    `packages/shared/src/schemas/reports-enhanced.schema.ts`:
    - `data_source` now accepts EITHER the legacy enum
      (`'students' | 'staff' | 'admissions' | 'attendance' | 'grades' |
@@ -2246,7 +2250,7 @@ FROM pg_class WHERE relname = 'report_share_log';` returns
      rejecting new-shape payloads at the front door.
 
 3. **Impl 04's `POST /v1/reports/builder/:reportId/export` was claimed
-     done but never actually shipped → now wired.** Discovered via grep:
+   done but never actually shipped → now wired.** Discovered via grep:
    the controller had only `@Post('export/excel')` (legacy stub). Added:
    - `ReportSharingService.exportSavedReport()` — synchronous export
      entry point that loads the saved report, executes via the query
@@ -2264,15 +2268,15 @@ FROM pg_class WHERE relname = 'report_share_log';` returns
 
 #### Playwright E2E verification (NHQS, owner@nhqs.test)
 
-| Step | Endpoint | Result |
-| ---- | -------- | ------ |
-| 1 | `POST /v1/reports/builder` (new subject key + ColumnSpec[]) | 201, report id returned |
-| 2 | `GET /v1/reports/builder/:id/execute?page=1&pageSize=5` | 200, 5 real student rows × 3 columns |
-| 3 | `POST /v1/reports/builder/:id/export` body `{format:'pdf'}` | 200, `application/pdf`, 297 080 bytes, **`%PDF` magic confirmed**, `Content-Disposition: attachment; filename="..."`, `X-Row-Count: 214` |
-| 4 | `POST /v1/reports/builder/:id/share` to a real staff recipient | 200, `share_id`, `conversation_id`, `artifact_keys: ['pdf']`, `recipients_count: 1` |
-| 5 | `GET /v1/reports/shared/:share_id` | 200, signed S3 URL returned, sharer name, 1 PDF artifact |
-| 6 | `GET /v1/reports/builder/:id/shares` | 200, `total: 1`, history entry with conversation_id matches step 4 |
-| 7 | `DELETE /v1/reports/builder/:id` | 200, smoke report deleted, share_log row cascade-removed |
+| Step | Endpoint                                                       | Result                                                                                                                                   |
+| ---- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `POST /v1/reports/builder` (new subject key + ColumnSpec[])    | 201, report id returned                                                                                                                  |
+| 2    | `GET /v1/reports/builder/:id/execute?page=1&pageSize=5`        | 200, 5 real student rows × 3 columns                                                                                                     |
+| 3    | `POST /v1/reports/builder/:id/export` body `{format:'pdf'}`    | 200, `application/pdf`, 297 080 bytes, **`%PDF` magic confirmed**, `Content-Disposition: attachment; filename="..."`, `X-Row-Count: 214` |
+| 4    | `POST /v1/reports/builder/:id/share` to a real staff recipient | 200, `share_id`, `conversation_id`, `artifact_keys: ['pdf']`, `recipients_count: 1`                                                      |
+| 5    | `GET /v1/reports/shared/:share_id`                             | 200, signed S3 URL returned, sharer name, 1 PDF artifact                                                                                 |
+| 6    | `GET /v1/reports/builder/:id/shares`                           | 200, `total: 1`, history entry with conversation_id matches step 4                                                                       |
+| 7    | `DELETE /v1/reports/builder/:id`                               | 200, smoke report deleted, share_log row cascade-removed                                                                                 |
 
 The S3 download URL in step 5 starts with
 `https://edupod-assets.hel1.your-objectstorage.com/edupod-ass…` — a
@@ -2316,3 +2320,147 @@ polish / deploy-architecture task; impl 14 is not blocked by it.
 - Holder: post-walkthrough fix sweep
 - Released: 2026-04-25T02:10 Europe/Dublin
 - Browser closed: yes
+
+### [WAVE 4 SHARED-FILE CLAIM] — impl 14
+
+- Claims (surgical, page-scoped):
+  - `apps/web/src/app/[locale]/(school)/reports/page.tsx` — REWRITE (hub
+    dashboard with new 10-KPI cards, AI summary panel, real error state,
+    quick-link grid). Mine alone — no sibling Wave 4 impl edits this file
+    per impl 15's claim.
+  - `apps/web/src/app/[locale]/(school)/reports/_components/kpi-card.tsx`
+    — NEW. Dashboard-only (consumes `KpiCard` from `@school/shared/reports`).
+  - `apps/web/src/app/[locale]/(school)/reports/_components/kpi-card.spec.tsx`
+    — NEW.
+  - `apps/web/src/app/[locale]/(school)/reports/_components/ai-summary-panel.tsx`
+    — NEW. Designed to be reused by impl 15's individual report pages
+    (props: `endpoint`, `flagKey`, optional body builder). Impl 15 may
+    extend it; I land the dashboard variant.
+  - `apps/web/messages/en.json` + `apps/web/messages/ar.json` —
+    APPEND-ONLY:
+    - 10 `reports.analytics.kpiTooltip.<key>` entries (English copy from
+      PLAN.md §3; Arabic placeholders that mirror English literally —
+      impl 22 lands real Arabic).
+    - 10 `reports.analytics.kpi.<key>Label` entries (the per-KPI display
+      label — replaces the legacy roster-style labels).
+    - `reports.analytics.studentExport`, `reports.analytics.writeOffs`,
+      `reports.analytics.notificationDelivery` (the three legacy
+      `reports.<key>` entries surfaced in this hub. Existing
+      top-level keys stay in place — impl 22 retires them.).
+    - `reports.analytics.loadErrorTitle`, `loadErrorBody`, `retry`,
+      `errorBanner`, `aiSummaryDisabledHint`, `aiSummaryFlagOff`,
+      `kpiHidden`, `genericTooltipFallback`.
+    - **Coordination with impl 15 claim**: impl 15 also lists
+      `apps/web/messages/{en,ar}.json` as APPEND-ONLY. Both impls add
+      disjoint keys — impl 14 lands the `kpiTooltip.*` + `kpi.*Label`
+      tree under `reports.analytics`; impl 15 adds `<key>Desc` siblings
+      for individual report pages. No collisions.
+- Explicitly **NOT** touching (impl 15+ turf):
+  - Any `apps/web/src/app/[locale]/(school)/reports/<sub-page>/page.tsx`
+    file other than the root `page.tsx`. Domain pages are impl 15's.
+  - `_components/info-tooltip.tsx` / `_components/report-page-actions.tsx`
+    — impl 15's claim. The `kpi-card.tsx` carries its own info-icon +
+    Radix Tooltip locally.
+- Until: committed OR flipped to `blocked`.
+
+### [WAVE 4 SHARED-FILE CLAIM] — impl 15
+
+- Claims (surgical, page-scoped):
+  - `apps/web/src/app/[locale]/(school)/reports/grades/page.tsx` — REWRITE.
+  - `apps/web/src/app/[locale]/(school)/reports/demographics/page.tsx` — REWRITE.
+  - `apps/web/src/app/[locale]/(school)/reports/insights/page.tsx` — REWRITE.
+  - `apps/web/src/app/[locale]/(school)/reports/student-progress/page.tsx` — REWRITE.
+  - `apps/web/src/app/[locale]/(school)/reports/admissions/page.tsx` — EDIT (kill MOCK if present, ensure real).
+  - `apps/web/src/app/[locale]/(school)/reports/staff/page.tsx` — EDIT (verify real, add AI panel).
+  - `apps/web/src/app/[locale]/(school)/reports/attendance/page.tsx` — EDIT (already real, add AI panel + tooltips).
+  - `apps/web/src/app/[locale]/(school)/reports/_components/` — NEW shared `ai-summary-panel.tsx`, `info-tooltip.tsx`, `report-page-actions.tsx`.
+  - `apps/web/messages/en.json` and `apps/web/messages/ar.json` — APPEND-ONLY: add `<key>Desc` keys for descriptions, normalise stub `gradeAnalytics`. NOT renaming any existing keys (deferred to impl 22 polish to avoid Wave 4 cross-impl breakage).
+- Explicitly **NOT** touching (impl 14 / impl 16 / impl 17 / impl 18 / impl 21 turf):
+  - `apps/web/src/app/[locale]/(school)/reports/page.tsx` (impl 14 owns the hub rewrite).
+  - `apps/web/src/app/[locale]/(school)/reports/builder/**` (impl 16).
+  - `apps/web/src/app/[locale]/(school)/reports/scheduled/**`, `alerts/**` (impl 17).
+  - `apps/web/src/app/[locale]/(school)/reports/ask-ai/**` (impl 18).
+  - `apps/web/src/app/[locale]/(school)/reports/board/**`, `compliance/**` (impl 20).
+- Until: committed OR flipped to `blocked`.
+
+### [WAVE 4 SHARED-FILE CLAIM] — impl 17
+
+- Claims (surgical, page-scoped):
+  - `apps/web/src/app/[locale]/(school)/reports/scheduled/page.tsx` — REWRITE.
+  - `apps/web/src/app/[locale]/(school)/reports/alerts/page.tsx` — REWRITE.
+  - `apps/web/src/app/[locale]/(school)/reports/scheduled/_components/` — NEW
+    (form, run-history drawer, cron helpers + spec files).
+  - `apps/web/src/app/[locale]/(school)/reports/alerts/_components/` — NEW
+    (form, evaluation-history drawer + spec file).
+  - `apps/web/messages/en.json` + `apps/web/messages/ar.json` — APPEND-ONLY,
+    `reports.scheduled.*` and `reports.alerts.*` namespaces only. Existing
+    keys in those namespaces are preserved (legacy page consumed them); I
+    add new keys for the rewrite (form fields, history drawer, cadence
+    presets, metric labels). Coordinates with impl 14 (`kpiTooltip.*`,
+    `kpi.*Label`) and impl 15 (`<key>Desc`) — disjoint key trees, no
+    collisions.
+  - `apps/api/src/modules/reports/scheduled-reports.service.ts` — EDIT.
+    Add `getRunHistory(tenantId, scheduledReportId, page, pageSize)`
+    returning the paginated `scheduled_report_runs` rows. RLS-scoped via
+    the existing `createRlsClient` pattern in this file. No constructor
+    changes. Mirrored unit tests added in
+    `scheduled-reports.service.spec.ts`.
+  - `apps/api/src/modules/reports/scheduled-reports.service.spec.ts` —
+    EDIT. Append a `getRunHistory` describe block (5 cases). The legacy
+    spec content is preserved.
+  - `apps/api/src/modules/reports/report-alerts.service.ts` — EDIT.
+    Extend the private `evaluate()` switch to handle the three new
+    operators (`lte | gte | ne`) so widened-schema alerts evaluate
+    correctly. Mirrored unit cases added.
+  - `apps/api/src/modules/reports/report-alerts.service.spec.ts` — EDIT.
+    Three new cases for the new operators.
+  - `apps/api/src/modules/reports/reports-enhanced.controller.ts` — EDIT.
+    Add `GET /v1/reports/scheduled/:reportId/runs` route (mirrors the
+    existing `/alerts/:alertId/history` pattern at line 953). No new
+    constructor deps; uses the already-injected `ScheduledReportsService`.
+    Mirrored controller spec mock entry added (impl 13's session
+    documented this controller spec as the canonical Wave-3 owner; I
+    treat it as touch-and-go for impl 17 — single new method addition,
+    not a rewrite).
+  - `apps/api/src/modules/reports/reports-enhanced.controller.spec.ts` —
+    EDIT. Single line added to the `ScheduledReportsService` mock to
+    stub `getRunHistory`.
+  - `packages/shared/src/schemas/reports-enhanced.schema.ts` — EDIT.
+    Widen `createReportAlertSchema` (and update mirror) to accept BOTH
+    the legacy 6-key metric enum + 3-operator set AND the new 8-key
+    metric enum + 6-operator set. Widen `createScheduledReportSchema`'s
+    `format` to accept `pdf | csv | xlsx | excel | word`. Same widening
+    pattern as commit `c36a16ae` (saved-report `data_source` widening).
+    Backward-compat: legacy alerts/schedules continue to validate.
+  - `packages/shared/src/reports/scheduled-reports.ts` — EDIT (already
+    on main; tighten the response schema to expose `last_run_status` as
+    a friendlier shape and re-export the legacy + new format unions for
+    UI consumption).
+- Explicitly **NOT** touching (other Wave 4 turf):
+  - `apps/web/src/app/[locale]/(school)/reports/page.tsx` (impl 14).
+  - `apps/web/src/app/[locale]/(school)/reports/_components/` (impl 14
+    - impl 15 — no AI summary panel needs reused for impl 17).
+  - `apps/web/src/app/[locale]/(school)/reports/builder/**` (impl 16).
+  - Any of impl 15's domain pages.
+- **Deploy target update:** the impl 17 spec called for "web restart only".
+  This claim adds two surgical API endpoints (`/scheduled/:id/runs` GET
+  and the alert-operator evaluator extension), so impl 17 also needs an
+  API restart. No worker restart. No DB migration. The deployment matrix
+  in §3 will be amended in the completion record.
+- Until: committed OR flipped to `blocked`.
+
+### [WAVE 4 SHARED-FILE CLAIM] — impl 16
+
+- Claims (impl-16 turf, isolated):
+  - `apps/web/src/app/[locale]/(school)/reports/builder/page.tsx` — REWRITE (three-pane layout, drafts, header actions, Ask-AI gate, save dialog, export menu).
+  - `apps/web/src/app/[locale]/(school)/reports/builder/[id]/page.tsx` — NEW (re-exports the shared builder page with `useParams()` for saved reports).
+  - `apps/web/src/app/[locale]/(school)/reports/builder/_components/` — NEW: `builder-types.ts`, `subject-picker.tsx`, `field-tree.tsx`, `filter-builder.tsx`, `group-by-toggle.tsx`, `visualization-toggle.tsx`, `chart-renderer.tsx`, `preview-pane.tsx`, `saved-reports-sidebar.tsx`, `save-dialog.tsx`, `ask-ai-input.tsx`, `builder-editor.tsx` + spec tests `builder-types.spec.ts`, `save-dialog.spec.ts`.
+  - `apps/web/messages/en.json` + `apps/web/messages/ar.json` — APPEND-ONLY: a `reports.builder.{page,subjects,fields,filters,groupBy,viz,previewPane,saveDialog,sidebar,askAi,actions}` block plus `reports.builder.newReport` / `openInBuilder`. NO existing keys renamed; impl 14 + impl 15 + impl 17 already added their own disjoint keys to this file. Translation parity preserved (English + `[AR]` placeholder mirrors per the project pattern; impl 22 sweeps Arabic).
+- Explicitly **NOT** touching (other turf):
+  - `apps/web/src/app/[locale]/(school)/reports/page.tsx` (impl 14).
+  - `apps/web/src/app/[locale]/(school)/reports/_components/` (impl 14 + impl 15).
+  - `apps/web/src/app/[locale]/(school)/reports/<sub-page>/page.tsx` (impl 15) — no domain pages touched.
+  - `apps/web/src/app/[locale]/(school)/reports/scheduled/**` / `alerts/**` (impl 17).
+  - Any backend file. Impl 16 is web-only — the new builder consumes the existing impl 02 query-engine + impl 11 ask-ai + impl 04 export endpoints.
+- **Deploy target:** web restart only (per the §3 matrix).
+- Until: committed OR flipped to `blocked`.

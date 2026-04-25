@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  AlertOctagon,
   AlertTriangle,
   BarChart3,
   BookOpen,
@@ -14,7 +15,6 @@ import {
   GraduationCap,
   LayoutDashboard,
   RefreshCw,
-  Sparkles,
   TrendingUp,
   UserCheck,
   Users,
@@ -33,537 +33,211 @@ import {
   YAxis,
 } from 'recharts';
 
+import type { KpiDashboardResponse } from '@school/shared/reports';
 import { Button } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { AiSummaryPanel } from './_components/ai-summary-panel';
+import { KpiCard } from './_components/kpi-card';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface KpiData {
-  total_students: number;
-  attendance_rate: number;
-  average_grade: number;
-  collection_rate: number;
-  outstanding_balance: number;
-  active_staff: number;
-  open_admissions: number;
-  at_risk_students: number;
-  overdue_invoices: number;
-  schedule_coverage: number;
-}
+type DashboardData = KpiDashboardResponse['data'];
 
-interface TrendPoint {
-  month: string;
-  attendance: number;
-  grades: number;
-  collection: number;
+interface DashboardError {
+  code: string;
+  message: string;
 }
-
-interface DashboardData {
-  kpis: KpiData;
-  trends: TrendPoint[];
-}
-
-// ─── Quick-link report cards ──────────────────────────────────────────────────
 
 interface QuickLink {
   icon: LucideIcon;
   labelKey: string;
+  /** Optional short description key. If unresolved, the description row is hidden. */
+  descKey?: string;
   href: string;
   color: string;
 }
 
-// Keys are RELATIVE to the `reports` namespace declared via
-// `useTranslations('reports')` below. Do NOT prefix them with `reports.`
-// — that would resolve to `reports.reports.*` and miss every key.
-const quickLinks: QuickLink[] = [
+// ─── Quick-link grid ──────────────────────────────────────────────────────────
+//
+// Order is intentional: the primary analytics dashboards come first, then
+// operational reports (scheduled, alerts, builder, ask-ai), then the audit
+// / data-pack pages. All keys are relative to `useTranslations('reports')`.
+//
+// Per impl 14 §5: the legacy `reports.studentExport`, `reports.writeOffs`
+// and `reports.notificationDelivery` keys are normalised under
+// `reports.analytics.*` so the dashboard speaks one namespace. The legacy
+// top-level keys remain in `messages/{en,ar}.json` until impl 22 retires
+// them, but the dashboard quick-link grid no longer references them.
+
+const QUICK_LINKS: QuickLink[] = [
   {
     icon: GraduationCap,
     labelKey: 'analytics.attendanceAnalytics',
+    descKey: 'attendanceAnalyticsDesc',
     href: '/reports/attendance',
     color: 'text-blue-600',
   },
   {
     icon: BookOpen,
     labelKey: 'analytics.gradeAnalytics',
+    descKey: 'gradeAnalyticsDesc',
     href: '/reports/grades',
     color: 'text-emerald-600',
   },
   {
     icon: Users,
     labelKey: 'analytics.demographics',
+    descKey: 'demographicsDesc',
     href: '/reports/demographics',
     color: 'text-purple-600',
   },
   {
     icon: TrendingUp,
     labelKey: 'analytics.studentProgress',
+    descKey: 'studentProgressDesc',
     href: '/reports/student-progress',
     color: 'text-indigo-600',
   },
   {
     icon: UserCheck,
     labelKey: 'analytics.admissions',
+    descKey: 'admissionsDesc',
     href: '/reports/admissions',
     color: 'text-pink-600',
   },
   {
     icon: BarChart3,
     labelKey: 'analytics.staff',
+    descKey: 'staffDesc',
     href: '/reports/staff',
     color: 'text-orange-600',
   },
   {
     icon: Brain,
     labelKey: 'analytics.insights',
+    descKey: 'insightsDesc',
     href: '/reports/insights',
     color: 'text-violet-600',
   },
   {
     icon: FileText,
     labelKey: 'analytics.boardReport',
+    descKey: 'boardReportDesc',
     href: '/reports/board',
     color: 'text-sky-600',
   },
   {
+    icon: LayoutDashboard,
+    labelKey: 'analytics.builder',
+    descKey: 'builderDesc',
+    href: '/reports/builder',
+    color: 'text-cyan-600',
+  },
+  {
+    icon: Bot,
+    labelKey: 'analytics.askAi',
+    descKey: 'askAiDesc',
+    href: '/reports/ask-ai',
+    color: 'text-rose-600',
+  },
+  {
     icon: Calendar,
     labelKey: 'analytics.scheduled',
+    descKey: 'scheduledDesc',
     href: '/reports/scheduled',
     color: 'text-teal-600',
   },
   {
     icon: AlertTriangle,
     labelKey: 'analytics.alerts',
+    descKey: 'alertsDesc',
     href: '/reports/alerts',
     color: 'text-amber-600',
   },
   {
-    icon: Bot,
-    labelKey: 'analytics.askAi',
-    href: '/reports/ask-ai',
-    color: 'text-rose-600',
-  },
-  {
-    icon: LayoutDashboard,
-    labelKey: 'analytics.builder',
-    href: '/reports/builder',
-    color: 'text-cyan-600',
-  },
-  {
     icon: Download,
-    labelKey: 'studentExport',
+    labelKey: 'analytics.studentExport',
+    descKey: 'studentExportDesc',
     href: '/reports/student-export',
     color: 'text-gray-600',
   },
   {
     icon: DollarSign,
-    labelKey: 'writeOffs',
+    labelKey: 'analytics.writeOffs',
+    descKey: 'writeOffsDesc',
     href: '/reports/write-offs',
     color: 'text-yellow-600',
   },
   {
     icon: Clock,
-    labelKey: 'notificationDelivery',
+    labelKey: 'analytics.notificationDelivery',
+    descKey: 'notificationDeliveryDesc',
     href: '/reports/notification-delivery',
     color: 'text-slate-600',
   },
 ];
 
-// ─── Sparkline component ──────────────────────────────────────────────────────
-
-function MiniSparkline({ data, color }: { data: number[]; color: string }) {
-  if (data.length < 2) return null;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const h = 28;
-  const w = 60;
-  const points = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w;
-    const y = h - ((v - min) / range) * h;
-    return `${x},${y}`;
-  });
-  return (
-    <svg width={w} height={h} className="shrink-0">
-      <polyline
-        points={points.join(' ')}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-// ─── Trend arrow ──────────────────────────────────────────────────────────────
-
-function TrendArrow({ value }: { value: number }) {
-  if (value > 0) return <span className="text-xs font-medium text-emerald-600">↑ {value}%</span>;
-  if (value < 0)
-    return <span className="text-xs font-medium text-red-500">↓ {Math.abs(value)}%</span>;
-  return <span className="text-xs font-medium text-text-tertiary">→ 0%</span>;
-}
-
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-
-interface KpiCardProps {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  trend: number;
-  sparkData: number[];
-  sparkColor: string;
-  href: string;
-  iconColor: string;
-}
-
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  trend,
-  sparkData,
-  sparkColor,
-  href,
-  iconColor,
-}: KpiCardProps) {
-  return (
-    <Link
-      href={href}
-      className="group flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-secondary"
-    >
-      <div className="flex items-start justify-between">
-        <div
-          className={`flex h-9 w-9 items-center justify-center rounded-lg bg-surface-secondary ${iconColor}`}
-        >
-          <Icon className="h-4 w-4" />
-        </div>
-        <MiniSparkline data={sparkData} color={sparkColor} />
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-text-primary">{value}</p>
-        <p className="mt-0.5 text-xs text-text-tertiary">{label}</p>
-      </div>
-      <TrendArrow value={trend} />
-    </Link>
-  );
-}
-
-// ─── Placeholder sparkline data ────────────────────────────────────────────────
-
-const MOCK_SPARK: Record<string, number[]> = {
-  students: [182, 185, 188, 190, 192, 195],
-  attendance: [91, 93, 92, 94, 95, 93],
-  grades: [72, 74, 73, 75, 76, 75],
-  collection: [80, 82, 85, 83, 87, 88],
-  balance: [120, 115, 110, 108, 105, 100],
-  staff: [42, 42, 44, 44, 45, 45],
-  admissions: [8, 10, 12, 9, 11, 14],
-  atRisk: [7, 6, 8, 7, 6, 5],
-  overdue: [15, 13, 12, 11, 10, 9],
-  coverage: [88, 90, 91, 93, 92, 95],
-};
-
-const MOCK_TRENDS: TrendPoint[] = [
-  { month: 'Oct', attendance: 91, grades: 72, collection: 80 },
-  { month: 'Nov', attendance: 93, grades: 74, collection: 82 },
-  { month: 'Dec', attendance: 89, grades: 71, collection: 84 },
-  { month: 'Jan', attendance: 94, grades: 75, collection: 83 },
-  { month: 'Feb', attendance: 95, grades: 77, collection: 87 },
-  { month: 'Mar', attendance: 93, grades: 75, collection: 88 },
-];
-
-// ─── Adapter: new dashboard API → legacy page shape ──────────────────────────
-//
-// Wave 3 (impl 03) replaced the old roster-style KPI shape with a 10-card
-// `KpiCard[]` array + columnar trends. This page is rewritten by impl 14;
-// until then this adapter projects the new shape down to the old one so
-// recharts (which expects an array of `{month, attendance, grades, collection}`
-// rows) doesn't choke on `trends.slice()` and the KPI cards render real data.
-
-interface NewKpiCard {
-  key: string;
-  value_raw?: number;
-  value?: string | number;
-}
-
-interface NewTrendsShape {
-  weeks?: string[];
-  attendance?: number[];
-  grades?: number[];
-  collection?: number[];
-}
-
-function adaptDashboardResponse(payload: {
-  kpis?: NewKpiCard[];
-  trends?: NewTrendsShape;
-}): DashboardData {
-  const kpiByKey = new Map<string, NewKpiCard>();
-  for (const card of payload.kpis ?? []) {
-    if (card?.key) kpiByKey.set(card.key, card);
-  }
-  const valueOf = (key: string): number => {
-    const raw = kpiByKey.get(key)?.value_raw;
-    return typeof raw === 'number' ? raw : 0;
-  };
-
-  // The new shape doesn't have a 1:1 mapping for the legacy roster KPIs.
-  // For each legacy slot we pick the best available proxy from the new
-  // 10-KPI set; missing slots render as 0 until impl 14's rewrite.
-  const kpis: KpiData = {
-    total_students: 0,
-    attendance_rate: valueOf('attendance_today'),
-    average_grade: 0,
-    collection_rate: 0,
-    outstanding_balance: valueOf('overdue_invoices'),
-    active_staff: 0,
-    open_admissions: valueOf('new_applications_this_week'),
-    at_risk_students: valueOf('at_risk_students'),
-    overdue_invoices: valueOf('overdue_invoices'),
-    schedule_coverage: 100 - valueOf('cover_gaps_this_week'),
-  };
-
-  const t = payload.trends;
-  const weeks = Array.isArray(t?.weeks) ? t.weeks : [];
-  const attendance = Array.isArray(t?.attendance) ? t.attendance : [];
-  const grades = Array.isArray(t?.grades) ? t.grades : [];
-  const collection = Array.isArray(t?.collection) ? t.collection : [];
-  const trends: TrendPoint[] = weeks.length
-    ? weeks.map((w, i) => ({
-        month: formatWeekLabel(w),
-        attendance: attendance[i] ?? 0,
-        grades: grades[i] ?? 0,
-        collection: collection[i] ?? 0,
-      }))
-    : MOCK_TRENDS;
-
-  return { kpis, trends };
-}
-
-function formatWeekLabel(iso: string): string {
-  // ISO date like '2026-04-19' → 'Apr 19'. Falls back to the raw string
-  // if parsing fails — better to display the ISO date than crash.
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-// ─── AI Summary callout ────────────────────────────────────────────────────────
-
-interface AiSummaryProps {
-  summary: string | null;
-  loading: boolean;
-  onRequest: () => void;
-}
-
-function AiSummaryCallout({ summary, loading, onRequest }: AiSummaryProps) {
-  const t = useTranslations('reports');
-
-  return (
-    <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-violet-600" />
-          <span className="text-sm font-semibold text-violet-900">
-            {t('analytics.aiSummaryTitle')}
-          </span>
-        </div>
-        {!summary && (
-          <Button size="sm" variant="outline" onClick={onRequest} disabled={loading}>
-            {loading ? t('analytics.generating') : t('analytics.summarise')}
-          </Button>
-        )}
-      </div>
-      {summary && <p className="text-sm text-violet-800 leading-relaxed">{summary}</p>}
-      {!summary && !loading && (
-        <p className="text-xs text-violet-600">{t('analytics.aiSummaryHint')}</p>
-      )}
-    </div>
-  );
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function ReportsDashboardPage() {
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+
+export default function ReportsHubPage() {
   const t = useTranslations('reports');
 
   const [data, setData] = React.useState<DashboardData | null>(null);
+  const [error, setError] = React.useState<DashboardError | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [lastRefresh, setLastRefresh] = React.useState(new Date());
-  const [aiSummary, setAiSummary] = React.useState<string | null>(null);
-  const [aiLoading, setAiLoading] = React.useState(false);
+  const [lastRefresh, setLastRefresh] = React.useState<Date | null>(null);
+  const [cacheHit, setCacheHit] = React.useState<boolean>(false);
 
-  const fetchData = React.useCallback(() => {
-    setLoading(true);
-    apiClient<{
-      data: {
-        kpis?: NewKpiCard[];
-        trends?: NewTrendsShape;
-      };
-    }>('/api/v1/reports/analytics/dashboard')
-      .then((res) => {
-        // Wave 3 (impl 03) shipped the new 10-KPI dashboard shape. This
-        // page is a Wave-4 rewrite target (impl 14); until then we adapt
-        // the new response into the legacy shape this page renders so
-        // nothing crashes recharts. Throwaway adapter — delete with impl 14.
-        const adapted = adaptDashboardResponse(res.data);
-        setData(adapted);
-        setLastRefresh(new Date());
+  const fetchData = React.useCallback(
+    (opts: { silentRefresh?: boolean } = {}) => {
+      if (!opts.silentRefresh) setLoading(true);
+      setError(null);
+      apiClient<KpiDashboardResponse>('/api/v1/reports/analytics/dashboard', {
+        // Suppress the global error toast — we render an inline error card
+        // instead so the dashboard stays explanatory rather than alarming.
+        silent: true,
       })
-      .catch((err) => {
-        console.error('[ReportsPage]', err);
-        // Final-resort mock so the shell remains usable on a backend error.
-        setData({
-          kpis: {
-            total_students: 195,
-            attendance_rate: 93,
-            average_grade: 75,
-            collection_rate: 88,
-            outstanding_balance: 14200,
-            active_staff: 45,
-            open_admissions: 14,
-            at_risk_students: 5,
-            overdue_invoices: 9,
-            schedule_coverage: 95,
-          },
-          trends: MOCK_TRENDS,
-        });
-        setLastRefresh(new Date());
-      })
-      .finally(() => setLoading(false));
-  }, []);
+        .then((res) => {
+          setData(res.data);
+          setCacheHit(Boolean(res.meta?.cache_hit));
+          setLastRefresh(new Date());
+        })
+        .catch((err: unknown) => {
+          console.error('[ReportsHubPage]', err);
+          const code = extractErrorCode(err);
+          const message = extractErrorMessage(err);
+          setError({
+            code: code || 'UNKNOWN',
+            message: message || t('analytics.loadErrorBody'),
+          });
+          // Important: per impl 14 spec, NO mock fallback. We leave the
+          // previous `data` snapshot in place if there was one so the
+          // user can still see numbers if a refresh fails — but on first
+          // load the dashboard shows the error card with retry, never
+          // fake numbers like 195 / 93 / 75.
+        })
+        .finally(() => setLoading(false));
+    },
+    [t],
+  );
 
   React.useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    const interval = window.setInterval(
+      () => fetchData({ silentRefresh: true }),
+      REFRESH_INTERVAL_MS,
+    );
+    return () => window.clearInterval(interval);
   }, [fetchData]);
 
-  const handleAiSummarise = async () => {
-    setAiLoading(true);
-    try {
-      const res = await apiClient<{ summary: string }>('/api/v1/reports/analytics/ai-summary', {
-        method: 'POST',
-      });
-      setAiSummary(res.summary);
-    } catch (err) {
-      console.error('[ReportsPage]', err);
-      setAiSummary(t('analytics.aiSummaryFallback'));
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  const kpis = data?.kpis;
-  const trends = data?.trends ?? MOCK_TRENDS;
-
-  const kpiCards: KpiCardProps[] = kpis
-    ? [
-        {
-          icon: GraduationCap,
-          label: t('analytics.kpi.totalStudents'),
-          value: String(kpis.total_students),
-          trend: 3,
-          sparkData: MOCK_SPARK.students ?? [],
-          sparkColor: '#6366f1',
-          href: '/students',
-          iconColor: 'text-indigo-600',
-        },
-        {
-          icon: UserCheck,
-          label: t('analytics.kpi.attendanceRate'),
-          value: `${kpis.attendance_rate}%`,
-          trend: 1,
-          sparkData: MOCK_SPARK.attendance ?? [],
-          sparkColor: '#10b981',
-          href: '/reports/attendance',
-          iconColor: 'text-emerald-600',
-        },
-        {
-          icon: BookOpen,
-          label: t('analytics.kpi.averageGrade'),
-          value: `${kpis.average_grade}%`,
-          trend: 2,
-          sparkData: MOCK_SPARK.grades ?? [],
-          sparkColor: '#8b5cf6',
-          href: '/reports/grades',
-          iconColor: 'text-violet-600',
-        },
-        {
-          icon: DollarSign,
-          label: t('analytics.kpi.collectionRate'),
-          value: `${kpis.collection_rate}%`,
-          trend: 5,
-          sparkData: MOCK_SPARK.collection ?? [],
-          sparkColor: '#f59e0b',
-          href: '/finance',
-          iconColor: 'text-amber-600',
-        },
-        {
-          icon: AlertTriangle,
-          label: t('analytics.kpi.outstandingBalance'),
-          value: `${(kpis.outstanding_balance / 1000).toFixed(1)}k`,
-          trend: -2,
-          sparkData: MOCK_SPARK.balance ?? [],
-          sparkColor: '#ef4444',
-          href: '/finance',
-          iconColor: 'text-red-600',
-        },
-        {
-          icon: Users,
-          label: t('analytics.kpi.activeStaff'),
-          value: String(kpis.active_staff),
-          trend: 0,
-          sparkData: MOCK_SPARK.staff ?? [],
-          sparkColor: '#06b6d4',
-          href: '/staff',
-          iconColor: 'text-cyan-600',
-        },
-        {
-          icon: TrendingUp,
-          label: t('analytics.kpi.openAdmissions'),
-          value: String(kpis.open_admissions),
-          trend: 4,
-          sparkData: MOCK_SPARK.admissions ?? [],
-          sparkColor: '#ec4899',
-          href: '/admissions',
-          iconColor: 'text-pink-600',
-        },
-        {
-          icon: AlertTriangle,
-          label: t('analytics.kpi.atRiskStudents'),
-          value: String(kpis.at_risk_students),
-          trend: -2,
-          sparkData: MOCK_SPARK.atRisk ?? [],
-          sparkColor: '#f97316',
-          href: '/reports/student-progress',
-          iconColor: 'text-orange-600',
-        },
-        {
-          icon: FileText,
-          label: t('analytics.kpi.overdueInvoices'),
-          value: String(kpis.overdue_invoices),
-          trend: -3,
-          sparkData: MOCK_SPARK.overdue ?? [],
-          sparkColor: '#dc2626',
-          href: '/finance',
-          iconColor: 'text-red-500',
-        },
-        {
-          icon: Calendar,
-          label: t('analytics.kpi.scheduleCoverage'),
-          value: `${kpis.schedule_coverage}%`,
-          trend: 2,
-          sparkData: MOCK_SPARK.coverage ?? [],
-          sparkColor: '#0ea5e9',
-          href: '/schedules',
-          iconColor: 'text-sky-600',
-        },
-      ]
-    : [];
+  const handleRefresh = React.useCallback(() => {
+    fetchData();
+  }, [fetchData]);
 
   return (
     <div className="space-y-8">
@@ -571,83 +245,204 @@ export default function ReportsDashboardPage() {
         title={t('analytics.dashboardTitle')}
         description={t('analytics.dashboardDescription')}
         actions={
-          <div className="flex items-center gap-2">
-            <span className="hidden text-xs text-text-tertiary sm:inline">
-              {t('analytics.lastRefresh')} {lastRefresh.toLocaleTimeString()}
-            </span>
-            <Button size="sm" variant="outline" onClick={fetchData} disabled={loading}>
-              <RefreshCw className={`me-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              {t('analytics.refresh')}
-            </Button>
-          </div>
+          <DashboardHeaderActions
+            loading={loading}
+            lastRefresh={lastRefresh}
+            cacheHit={cacheHit}
+            onRefresh={handleRefresh}
+          />
         }
       />
 
-      {/* AI Summary */}
-      <AiSummaryCallout
-        summary={aiSummary}
-        loading={aiLoading}
-        onRequest={() => void handleAiSummarise()}
-      />
+      {/* AI summary — hides itself when the tenant flag is off. */}
+      <AiSummaryPanel mode={{ kind: 'dashboard' }} />
 
-      {/* KPI Cards */}
+      {error && !data ? (
+        <DashboardErrorCard error={error} onRetry={handleRefresh} loading={loading} />
+      ) : null}
+
       <section>
         <h2 className="mb-4 text-base font-semibold text-text-primary">
           {t('analytics.kpiTitle')}
         </h2>
-        {loading ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="h-32 animate-pulse rounded-xl bg-surface-secondary" />
-            ))}
+        {loading && !data ? <KpiSkeletonGrid /> : data ? <KpiGrid kpis={data.kpis} /> : null}
+        {error && data ? (
+          // We had data once but the latest refresh failed — show a small
+          // banner above the still-rendered cards so the user knows the
+          // numbers are stale. No silent mock fallback.
+          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+            {t('analytics.staleData')}
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {kpiCards.map((card) => (
-              <KpiCard key={card.label} {...card} />
-            ))}
-          </div>
-        )}
+        ) : null}
       </section>
 
-      {/* 6-Month Trend Chart */}
-      <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-text-primary">{t('analytics.trendTitle')}</h2>
-          <div className="flex items-center gap-4 text-xs text-text-tertiary">
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2 w-4 rounded bg-blue-500" />
-              {t('analytics.kpi.attendanceRate')}
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2 w-4 rounded bg-violet-500" />
-              {t('analytics.kpi.averageGrade')}
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2 w-4 rounded bg-amber-500" />
-              {t('analytics.kpi.collectionRate')}
-            </span>
-          </div>
+      {data ? <TrendsChart trends={data.trends} /> : null}
+
+      <QuickLinksGrid />
+    </div>
+  );
+}
+
+// ─── Header actions ───────────────────────────────────────────────────────────
+
+interface DashboardHeaderActionsProps {
+  loading: boolean;
+  lastRefresh: Date | null;
+  cacheHit: boolean;
+  onRefresh: () => void;
+}
+
+function DashboardHeaderActions({
+  loading,
+  lastRefresh,
+  cacheHit,
+  onRefresh,
+}: DashboardHeaderActionsProps) {
+  const t = useTranslations('reports');
+  return (
+    <div className="flex items-center gap-2">
+      {lastRefresh && (
+        <span className="hidden text-xs text-text-tertiary sm:inline">
+          {t('analytics.lastRefresh')} {lastRefresh.toLocaleTimeString()}
+          {cacheHit ? ` · ${t('analytics.cached')}` : ''}
+        </span>
+      )}
+      <Button size="sm" variant="outline" onClick={onRefresh} disabled={loading}>
+        <RefreshCw className={`me-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
+        {t('analytics.refresh')}
+      </Button>
+    </div>
+  );
+}
+
+// ─── KPI grid ─────────────────────────────────────────────────────────────────
+
+function KpiGrid({ kpis }: { kpis: DashboardData['kpis'] }) {
+  if (kpis.length === 0) {
+    return <KpiEmptyState />;
+  }
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+      {kpis.map((kpi) => (
+        <KpiCard key={kpi.key} kpi={kpi} />
+      ))}
+    </div>
+  );
+}
+
+function KpiSkeletonGrid() {
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+      {Array.from({ length: 10 }).map((_, i) => (
+        <div
+          key={i}
+          className="h-36 animate-pulse rounded-xl border border-border bg-surface-secondary"
+          aria-hidden="true"
+        />
+      ))}
+    </div>
+  );
+}
+
+function KpiEmptyState() {
+  const t = useTranslations('reports');
+  return (
+    <div className="rounded-xl border border-border bg-surface p-6 text-center">
+      <p className="text-sm text-text-secondary">{t('analytics.allKpisHidden')}</p>
+      <Link
+        href="/settings/reports"
+        className="mt-2 inline-block text-xs font-medium text-primary hover:underline"
+      >
+        {t('analytics.manageKpis')}
+      </Link>
+    </div>
+  );
+}
+
+// ─── Error card ───────────────────────────────────────────────────────────────
+
+interface DashboardErrorCardProps {
+  error: DashboardError;
+  onRetry: () => void;
+  loading: boolean;
+}
+
+function DashboardErrorCard({ error, onRetry, loading }: DashboardErrorCardProps) {
+  const t = useTranslations('reports');
+  return (
+    <div className="rounded-xl border border-red-200 bg-red-50 p-5 dark:border-red-900/40 dark:bg-red-950/20">
+      <div className="flex items-start gap-3">
+        <AlertOctagon
+          className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400"
+          aria-hidden="true"
+        />
+        <div className="flex-1 space-y-2">
+          <h3 className="text-sm font-semibold text-red-900 dark:text-red-100">
+            {t('analytics.loadErrorTitle')}
+          </h3>
+          <p className="text-sm text-red-800 dark:text-red-200">{t('analytics.loadErrorBody')}</p>
+          <p className="text-xs text-red-700/80 dark:text-red-300/80">
+            {t('analytics.loadErrorCode')}: <code className="font-mono">{error.code}</code>
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onRetry}
+            disabled={loading}
+            className="border-red-200 bg-white text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950 dark:text-red-200 dark:hover:bg-red-900"
+          >
+            <RefreshCw
+              className={`me-2 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
+              aria-hidden="true"
+            />
+            {t('analytics.retry')}
+          </Button>
         </div>
-        <ResponsiveContainer width="100%" height={260}>
-          <AreaChart data={trends} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+      </div>
+    </div>
+  );
+}
+
+// ─── Trends chart ─────────────────────────────────────────────────────────────
+
+function TrendsChart({ trends }: { trends: DashboardData['trends'] }) {
+  const t = useTranslations('reports');
+  const series = React.useMemo(() => buildTrendSeries(trends), [trends]);
+
+  if (series.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-semibold text-text-primary">{t('analytics.trendTitle')}</h2>
+        <div className="flex items-center gap-4 text-xs text-text-tertiary">
+          <LegendDot color="bg-blue-500" label={t('analytics.kpi.attendanceRate')} />
+          <LegendDot color="bg-violet-500" label={t('analytics.kpi.averageGrade')} />
+          <LegendDot color="bg-amber-500" label={t('analytics.kpi.collectionRate')} />
+        </div>
+      </div>
+      <div className="h-[260px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={[...series]} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
             <defs>
-              <linearGradient id="ga" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="reportsHubAttendance" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
                 <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
               </linearGradient>
-              <linearGradient id="gg" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="reportsHubGrades" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
                 <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
               </linearGradient>
-              <linearGradient id="gc" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="reportsHubCollection" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2} />
                 <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-            <XAxis dataKey="month" className="text-xs fill-text-tertiary" />
-            <YAxis domain={[60, 100]} className="text-xs fill-text-tertiary" />
+            <XAxis dataKey="label" className="text-xs fill-text-tertiary" />
+            <YAxis domain={[0, 100]} className="text-xs fill-text-tertiary" />
             <Tooltip
               contentStyle={{
                 fontSize: '12px',
@@ -658,55 +453,158 @@ export default function ReportsDashboardPage() {
             <Area
               type="monotone"
               dataKey="attendance"
-              name="Attendance %"
+              name={t('analytics.kpi.attendanceRate')}
               stroke="#3b82f6"
-              fill="url(#ga)"
+              fill="url(#reportsHubAttendance)"
               strokeWidth={2}
             />
             <Area
               type="monotone"
               dataKey="grades"
-              name="Avg Grade %"
+              name={t('analytics.kpi.averageGrade')}
               stroke="#8b5cf6"
-              fill="url(#gg)"
+              fill="url(#reportsHubGrades)"
               strokeWidth={2}
             />
             <Area
               type="monotone"
               dataKey="collection"
-              name="Collection %"
+              name={t('analytics.kpi.collectionRate')}
               stroke="#f59e0b"
-              fill="url(#gc)"
+              fill="url(#reportsHubCollection)"
               strokeWidth={2}
             />
           </AreaChart>
         </ResponsiveContainer>
-      </section>
-
-      {/* Quick Links */}
-      <section>
-        <h2 className="mb-4 text-base font-semibold text-text-primary">
-          {t('analytics.allReports')}
-        </h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {quickLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="group flex items-center gap-3 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-secondary"
-            >
-              <div
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-secondary ${link.color}`}
-              >
-                <link.icon className="h-4 w-4" />
-              </div>
-              <span className="text-sm font-medium text-text-primary group-hover:text-primary-700">
-                {t(link.labelKey)}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </section>
-    </div>
+      </div>
+    </section>
   );
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span className={`inline-block h-2 w-4 rounded ${color}`} aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
+
+interface TrendPoint {
+  label: string;
+  attendance: number;
+  grades: number;
+  collection: number;
+}
+
+/**
+ * Pivot the columnar trends payload (`weeks[]`, `attendance[]`,
+ * `grades[]`, `collection[]`) into per-row points Recharts expects.
+ * Treats short / missing arrays defensively — better to drop a column
+ * than crash the chart.
+ */
+function buildTrendSeries(trends: DashboardData['trends']): ReadonlyArray<TrendPoint> {
+  const weeks = Array.isArray(trends.weeks) ? trends.weeks : [];
+  const attendance = Array.isArray(trends.attendance) ? trends.attendance : [];
+  const grades = Array.isArray(trends.grades) ? trends.grades : [];
+  const collection = Array.isArray(trends.collection) ? trends.collection : [];
+
+  return weeks.map((iso, index) => ({
+    label: formatWeekLabel(iso),
+    attendance: attendance[index] ?? 0,
+    grades: grades[index] ?? 0,
+    collection: collection[index] ?? 0,
+  }));
+}
+
+/**
+ * Convert an ISO date (week-start) into a short axis label like "Apr 19".
+ * Falls back to the raw string on parse failure — better to display the
+ * ISO date than crash.
+ */
+function formatWeekLabel(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// ─── Quick links ──────────────────────────────────────────────────────────────
+
+function QuickLinksGrid() {
+  const t = useTranslations('reports');
+  return (
+    <section>
+      <h2 className="mb-4 text-base font-semibold text-text-primary">
+        {t('analytics.allReports')}
+      </h2>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {QUICK_LINKS.map((link) => (
+          <QuickLinkTile key={link.href} link={link} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function QuickLinkTile({ link }: { link: QuickLink }) {
+  const t = useTranslations('reports');
+  const label = t(link.labelKey);
+  const description = link.descKey ? safeTranslate(t, link.descKey) : null;
+  return (
+    <Link
+      href={link.href}
+      className="group flex items-start gap-3 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+    >
+      <div
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-secondary ${link.color}`}
+        aria-hidden="true"
+      >
+        <link.icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-text-primary group-hover:text-primary-700">
+          {label}
+        </p>
+        {description && (
+          <p className="mt-0.5 text-xs text-text-tertiary line-clamp-2">{description}</p>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function extractErrorCode(err: unknown): string {
+  if (err && typeof err === 'object' && 'error' in err) {
+    return (err as { error?: { code?: string } }).error?.code ?? '';
+  }
+  if (err && typeof err === 'object' && 'code' in err) {
+    return (err as { code?: string }).code ?? '';
+  }
+  return '';
+}
+
+function extractErrorMessage(err: unknown): string {
+  if (err && typeof err === 'object' && 'error' in err) {
+    return (err as { error?: { message?: string } }).error?.message ?? '';
+  }
+  if (err instanceof Error) return err.message;
+  return '';
+}
+
+/**
+ * `useTranslations` returns the key when missing. Treat that as "no copy
+ * available" so we can suppress the description row instead of showing
+ * the raw translation key to users.
+ */
+function safeTranslate(t: ReturnType<typeof useTranslations>, key: string): string | null {
+  if (!key) return null;
+  try {
+    const value = t(key);
+    if (value === key) return null;
+    return value;
+  } catch {
+    return null;
+  }
 }
