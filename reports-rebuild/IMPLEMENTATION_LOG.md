@@ -3429,3 +3429,157 @@ loadDraft` TypeError pre-dates impl 19 (originates in impl 16's
   KPI Dashboard, Defaults tabs) + AI panel deep-link wiring
 - Started: 2026-04-25T14:32 Europe/Dublin
 - Until: released by closing the browser AND appending a follow-up release line
+
+### [PLAYWRIGHT RELEASED] — impl 20 (post-deploy)
+
+- Holder: impl 20 verification — board report + compliance report UI
+- Released: 2026-04-25T14:25 Europe/Dublin
+- Browser closed: yes
+
+### [IMPL 20] — Board Report + Compliance Report UI
+
+- **Completed:** 2026-04-25T14:25 Europe/Dublin
+- **Commits (Wave 4 — three SHAs land impl 20 across mixed CI runs):**
+  - `654a61e6` (feat — page rewrites, 7 board section components,
+    4 compliance components, helpers, tests, en/ar translations)
+  - `f0f1cb29` (fix-forward — unwrap `{ data }` on compliance generate
+    response; caught during production Playwright verification)
+  - `0648f33b`, `8ed629a8` (docs flips — entering deploy queue,
+    Playwright lock claim)
+- **CI runs:**
+  - https://github.com/ACANOTES-dev/EduPod/actions/runs/24932172801
+    (initial deploy on `0648f33b` — green; the prior commit
+    `654a61e6` shipped the broken compliance unwrap)
+  - https://github.com/ACANOTES-dev/EduPod/actions/runs/24932803844
+    (deploy on `2a73544c` — green; carries impl 20's
+    `f0f1cb29` fix + impl 21's snapshot fixes)
+  - Earlier red runs on `f0f1cb29` (24932438109 — pre-existing
+    `regulatory-safeguarding` flake) and `5dfdaa11`
+    (24932695728 — impl 21's stale `schema-snapshot.prisma`).
+    Both unblocked by the impl-21-owned snapshot refreshes.
+- **Deployed to production:** yes — verified on `nhqs.edupod.app` by
+  authenticated Playwright walkthrough as `Yusuf Rahman` (School
+  Principal):
+  - `/en/reports/board` renders the page header, 8-section checklist
+    (default all ticked), academic-year + term pickers, anonymise
+    toggle (default on), Generate button, and history sidebar
+    (7 prior generations from impl 06 verification runs).
+  - Generating term 2 with all 8 sections + anonymise on returned
+    real data: all 8 section cards rendered, top performers showed
+    initials only ("I.E.", "R.D.", "A.M." — same names that
+    impl 06 verified appear in full when anonymise is off). 0
+    console errors.
+  - `/en/reports/compliance` renders the field checklist sidebar
+    (4 categories — Student / Staff / Finance / Operations — with
+    19 fields ticked) and the generation controls.
+  - Generating with all 19 fields + the current academic year
+    returned real data: 14 fields complete + 5 honest gaps
+    (matching impl 07's verification:
+    `qualified_teachers_percent`, `instruction_hours_held`,
+    `teacher_headcount`, `pupil_teacher_ratio`,
+    `staff_absence_rate_annual`). `student_headcount = 207` —
+    matches impl 07's number. 0 console errors after the unwrap
+    fix landed.
+
+- **Summary (≤ 200 words):**
+  Wave 4 frontend for the Board (`/reports/board`) and Compliance
+  (`/reports/compliance`) reports. Consumes impl 06's
+  `POST /v1/reports/board` + `GET /v1/reports/board/history` and
+  impl 07's `POST /v1/reports/compliance/generate` +
+  `GET /v1/reports/compliance/history`.
+
+  Board: 8 typed section components under
+  `apps/web/src/app/[locale]/(school)/reports/board/_components/sections/`
+  (executive, enrolment, attendance, academic, behaviour,
+  safeguarding, finance, staffing) consuming the discriminated-
+  union `BoardReport` envelope. Display orchestrator passes a
+  per-section `print:break-before-page` wrapper so PDF-via-browser-
+  print produces a multi-page packet. Generation controls support
+  academic-year picker, term picker, per-section checkboxes (default
+  all 8), anonymise toggle (default on with the safeguarding hint).
+  History sidebar with reload button.
+
+  Compliance: 4 components under
+  `compliance/_components/` (checklist with 4 categories /
+  19 fields, generation controls, preview pane with gap warnings,
+  history list). Honest gap rendering — every gap row shows an
+  amber `Gap` badge plus the `gap_reason` text so regulators
+  always see why a field is missing.
+
+  Export bar wires browser-print PDF; Excel/Word toast a "coming
+  in a follow-up" message rather than silently no-op-ing. Share
+  button toasts an informational message — board/compliance
+  sharing through the inbox needs a small extension to the
+  `report-sharing` service (today only saved-builder reports
+  share). Tests: `compliance-format.spec.ts` + `compliance-field-
+  categories.spec.ts` (21 cases). Translations under
+  `reports.board.*` + `reports.compliance.*` for both en + ar.
+
+- **Follow-ups:**
+  - **Impl 22 (polish)** owns the mobile pass + the
+    `reports.compliance.col.*` translation cleanup (the legacy
+    table column keys are still in en/ar.json but the new preview
+    pane uses a card layout instead).
+  - **Excel + Word export wiring** for board / compliance.
+    Today only PDF is wired (via browser print). The toast
+    surfaces this honestly. The export pipeline exists in
+    impl 04 — needs a `BoardReport` flattener (impl 06's
+    follow-up note covers this) and a `ComplianceReport`
+    flattener.
+  - **Share button** — extend `report-sharing` service to
+    accept board/compliance generation IDs (today it only
+    knows about saved-builder reports). The Wave 4 share dialog
+    component is ready to wire in once the backend lands.
+  - **History reload** — both board and compliance history rows
+    surface a "re-generate the report from {date}" toast on
+    click. A `GET /v1/reports/board/:reportId` and
+    `GET /v1/reports/compliance/:generationId` would let us
+    rehydrate the prior payload — neither endpoint exists yet.
+    Tracked for a later cycle.
+  - **Print CSS** — the `print:break-before-page` strategy uses
+    the standard CSS page-break properties; the underlying
+    Recharts components inside section cards are already
+    print-friendly. Mobile review still owed in impl 22.
+  - **CI snapshot drift** — impl 21's first push didn't refresh
+    `api-surface.snapshot.json` or `packages/prisma/schema-
+    snapshot.prisma`, blocking impl 20's fix-forward deploy. The
+    follow-up snapshot commits from impl 21 (`5dfdaa11`,
+    `2a73544c`) unblocked. Future Wave 4/5 sessions adding API
+    routes or schema models should run
+    `pnpm run snapshot:api && pnpm run snapshot:schema` before
+    pushing — the snapshots are deterministic and cheap to refresh.
+- **Rollback:** `git revert f0f1cb29 654a61e6`. No schema /
+  migration / DB changes — pure frontend code. The page reverts
+  to its prior partial-mock state (still partially scaffolded
+  from earlier work; not the legacy mock UI from before impl 06
+  / 07). The board export buttons fall back to the original
+  inert layout; the compliance preview pane unmounts entirely.
+  Translation keys added under `reports.board.*` and
+  `reports.compliance.*` are harmless to leave behind — no other
+  code references the new keys.
+
+- **Session notes:**
+  - Pre-push `--no-verify` per Rule 27 (module cohesion still
+    above the husky hook's `--max-errors 0` cap; CI runs at
+    `--max-errors 1`).
+  - The Playwright run found a real bug — the compliance
+    generate response was being passed to `setReport` without
+    unwrapping the `{ data }` envelope from the
+    `ResponseTransformInterceptor`. The board page already
+    used `apiClient<{ data: BoardReport }>('...').then(r =>
+    setReport(r.data))`. Fix-forward on `f0f1cb29` aligned
+    compliance with the board pattern. This is the kind of bug
+    a unit test wouldn't catch — the apiClient generic type
+    can be anything, so type-check is happy with the wrong
+    shape until runtime.
+  - Pre-existing scaffolding in
+    `apps/web/src/app/[locale]/(school)/reports/board/_components/`
+    (uncommitted before this session — likely from an aborted
+    earlier impl 20 attempt) was kept and polished rather than
+    rewritten. The 7 missing section components were added
+    on top of the existing executive-summary scaffold.
+  - The compliance preview uses a card-row layout instead of
+    the table the legacy mock page used. The `reports.compliance.col.*`
+    keys (for table column headers) are now unused — left in
+    place rather than deleted because impl 22 (polish) will
+    handle the translation sweep.
