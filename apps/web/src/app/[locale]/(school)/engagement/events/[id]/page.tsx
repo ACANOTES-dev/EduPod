@@ -369,11 +369,10 @@ export default function EngagementEventDetailPage() {
                     <p className="font-medium text-text-primary">
                       {staffLookup.get(assignment.staff.id) ?? assignment.staff.id}
                     </p>
-                    <p className="text-xs text-text-tertiary">{assignment.staff.user_id ?? '—'}</p>
+                    <p className="text-xs text-text-tertiary">
+                      {humanizeStatus(assignment.role)}
+                    </p>
                   </div>
-                  <span className="text-sm text-text-secondary">
-                    {humanizeStatus(assignment.role)}
-                  </span>
                 </div>
               ))
             ) : (

@@ -375,7 +375,7 @@ export default function ParentEngagementEventsPage() {
                     disabled={!pendingParticipant?.invoice_id}
                     title={
                       !pendingParticipant?.invoice_id
-                        ? t('engagement.parent.events.payNotOpen')
+                        ? t('parent.events.payNotOpen')
                         : undefined
                     }
                   >

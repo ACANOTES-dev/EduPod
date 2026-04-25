@@ -184,9 +184,7 @@ export default function ParentEngagementEventDetailPage() {
                         variant="outline"
                         disabled={!participant.invoice_id}
                         title={
-                          !participant.invoice_id
-                            ? t('engagement.parent.events.payNotOpen')
-                            : undefined
+                          !participant.invoice_id ? t('parent.events.payNotOpen') : undefined
                         }
                       >
                         <Link

@@ -1617,7 +1617,10 @@
       "submitForm": "إرسال النموذج",
       "consentRecord": "سجل الموافقة",
       "consentStatus": "حالة الموافقة",
-      "consentType": "نوع الموافقة"
+      "consentType": "نوع الموافقة",
+      "events": {
+        "payNotOpen": "الدفع غير مفتوح بعد لهذه الفعالية."
+      }
     },
     "completionDashboard": {
       "consent": "الموافقة",

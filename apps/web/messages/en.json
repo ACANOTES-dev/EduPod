@@ -1617,7 +1617,10 @@
       "submitForm": "Submit form",
       "consentRecord": "Consent record",
       "consentStatus": "Consent status",
-      "consentType": "Consent type"
+      "consentType": "Consent type",
+      "events": {
+        "payNotOpen": "Payment is not open yet for this event."
+      }
     },
     "completionDashboard": {
       "consent": "Consent",

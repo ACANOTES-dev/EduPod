@@ -92,40 +92,20 @@ export default function TeacherConferenceSchedulePage() {
   }
 
   return (
-    <div className="space-y-6 print:space-y-4">
-      <style jsx global>{`
-        @media print {
-          nav,
-          header,
-          aside,
-          .print-hidden {
-            display: none !important;
-          }
-
-          body {
-            background: white !important;
-          }
-
-          .print-surface {
-            border: 0 !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-          }
-        }
-      `}</style>
+    <div className="space-y-6 print:space-y-4 print:bg-white print:text-black">
 
       <PageHeader
         title={pickLocalizedValue(locale, event.title, event.title_ar)}
         description={t('teacherConferenceSchedule.description')}
         actions={
-          <Button className="print-hidden" onClick={() => window.print()}>
+          <Button className="print:hidden" onClick={() => window.print()}>
             <Printer className="me-2 h-4 w-4" />
             {t('teacherConferenceSchedule.print')}
           </Button>
         }
       />
 
-      <section className="print-surface rounded-3xl border border-border bg-surface p-6">
+      <section className="rounded-3xl border border-border bg-surface p-6 print:border-0 print:p-0 print:shadow-none">
         <div className="grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl bg-surface-secondary/60 p-4">
             <p className="text-sm text-text-secondary">{t('teacherConferenceSchedule.date')}</p>
@@ -148,7 +128,7 @@ export default function TeacherConferenceSchedulePage() {
         </div>
       </section>
 
-      <section className="print-surface rounded-3xl border border-border bg-surface p-6">
+      <section className="rounded-3xl border border-border bg-surface p-6 print:border-0 print:p-0 print:shadow-none">
         <div className="space-y-4">
           {schedule.slots.map((slot) => {
             const bookedByName =
