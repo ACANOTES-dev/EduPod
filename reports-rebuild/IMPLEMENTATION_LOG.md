@@ -3309,3 +3309,8 @@ retry, invalidRequest, disabledTitle, disabledBody}`,
 | `POST /v1/reports/ai-ask-ai` (flag on)              | ✅ 503 `AI_UNAVAILABLE` | "AI is not configured for this environment." — the `ANTHROPIC_API_KEY`-missing path. My page maps this to `t('analytics.aiUnavailable')` — same handling as impl 10/11/12. |
 | `PATCH /v1/ai-flags/reports_ask_ai {enabled:true}`  | ✅ 200                  | Toggle flipped, `enabled: true` returned.                                                                                                                                  |
 | `PATCH /v1/ai-flags/reports_ask_ai {enabled:false}` | ✅ 200                  | Reverted to `enabled: false` (default).                                                                                                                                    |
+
+### [PLAYWRIGHT LOCK] — impl 19 (post-deploy)
+- Holder: impl 19 verification — share dialog + saved-reports management + shared snapshot view
+- Started: 2026-04-25T13:55 Europe/Dublin
+- Until: released by closing the browser AND appending a follow-up release line
