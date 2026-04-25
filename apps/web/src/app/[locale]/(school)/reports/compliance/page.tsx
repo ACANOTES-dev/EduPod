@@ -102,12 +102,15 @@ export default function ComplianceReportPage() {
         fields: [firstField, ...restFields],
       };
 
-      const res = await apiClient<ComplianceReportResponse>('/api/v1/reports/compliance/generate', {
-        method: 'POST',
-        body: JSON.stringify(req),
-      });
+      const res = await apiClient<{ data: ComplianceReportResponse }>(
+        '/api/v1/reports/compliance/generate',
+        {
+          method: 'POST',
+          body: JSON.stringify(req),
+        },
+      );
 
-      setReport(res);
+      setReport(res.data);
       refreshHistory();
       toast.success(t('compliance.generateSuccess'));
     } catch (err) {
