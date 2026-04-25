@@ -189,10 +189,17 @@ export default function ReportBuilderPage() {
 
   async function saveDraft(s: BuilderState) {
     if (!s.subjectKey || s.selectedFieldIds.length === 0) return;
+    // The SavedReportDraftFilterGroup schema's operator enum overlaps with
+    // but is not identical to the QueryEngine's FilterGroup operator enum
+    // (e.g. `greater_or_equal` vs `greater_than_or_equal`). The backend's
+    // draft service accepts the QueryEngine shape via the lenient lazy
+    // schema, so we cast through the JSON-compatible
+    // `UpsertSavedReportDraftDto['filters_json']` shape rather than
+    // hand-translating every operator.
     const body: UpsertSavedReportDraftDto = {
       subject_key: s.subjectKey,
       columns_json: { field_ids: s.selectedFieldIds },
-      filters_json: s.filters,
+      filters_json: s.filters as unknown as UpsertSavedReportDraftDto['filters_json'],
       group_by_json: s.groupByFieldId
         ? {
             field_id: s.groupByFieldId,
