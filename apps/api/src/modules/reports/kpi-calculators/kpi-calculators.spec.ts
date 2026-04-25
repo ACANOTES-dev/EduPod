@@ -64,6 +64,27 @@ describe('kpi calculators', () => {
       expect(result.severity).toBeNull();
     });
 
+    it('returns null delta when no attendance today even if rolling-7-days has data', async () => {
+      // Regression: with rolling data but zero today, the prior implementation
+      // computed delta = 0 - rollingRate = -99.9% which rendered as "−99.9%"
+      // against the em-dash value. Delta must be null when today has no data.
+      const groupBy = jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { status: 'present', _count: 800 },
+          { status: 'absent_unexcused', _count: 200 },
+        ]);
+
+      const result = await calculateAttendanceToday(
+        asTx({ attendanceRecord: { groupBy } }),
+        TENANT_ID,
+      );
+
+      expect(result.value).toBe('—');
+      expect(result.delta).toBeNull();
+    });
+
     it('marks severity=warning when rate falls below 80%', async () => {
       const groupBy = jest
         .fn()

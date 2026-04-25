@@ -61,8 +61,12 @@ export async function calculateAttendanceToday(
   const rollingTotal = rollingStats.reduce((sum, g) => sum + g._count, 0);
   const rollingRate = rollingTotal > 0 ? (rollingPresent / rollingTotal) * 100 : 0;
 
+  // Delta is only meaningful when BOTH today AND the rolling window have data.
+  // Without today's records (e.g. a school holiday or before any registers go in),
+  // any "delta vs rolling" reduces to -rollingRate% which renders as "−99.9%" on
+  // the dashboard against a blank value — confusing more than it informs.
   const delta =
-    rollingTotal > 0
+    rollingTotal > 0 && totalCount > 0
       ? {
           value: Number((todayRate - rollingRate).toFixed(1)),
           unit: 'percent' as const,

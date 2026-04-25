@@ -183,12 +183,15 @@ function formatKpiValue(value: string | number): string {
 
 /**
  * Mirrors `formatKpiValue`'s "renderable as a real number?" check: strings
- * pass through verbatim (assumed pre-formatted), numbers must be finite.
- * Used to decide whether to render a delta row on the card — a delta against
- * an unknown / missing current value is meaningless.
+ * pass through verbatim, numbers must be finite. Used to decide whether to
+ * render a delta row on the card — a delta against an unknown / missing
+ * current value is meaningless. Backend calculators emit the literal "—"
+ * string as their "no data" sentinel (see `kpi-attendance-today.ts`); we
+ * recognise it here so the delta hides regardless of where the value came from.
  */
+const NO_DATA_SENTINEL = '—';
 function hasFiniteValue(value: string | number): boolean {
-  if (typeof value === 'string') return value.length > 0;
+  if (typeof value === 'string') return value.length > 0 && value !== NO_DATA_SENTINEL;
   return Number.isFinite(value);
 }
 
