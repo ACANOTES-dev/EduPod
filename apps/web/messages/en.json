@@ -19004,5 +19004,28 @@
       "escalateFailed": "Could not escalate the check-in. Retry.",
       "dismissFailed": "Could not dismiss the check-in. Retry."
     }
+  },
+  "engagementHub": {
+    "title": "Engagement",
+    "description": "Plan events, build forms, track participation, and review consent history.",
+    "cardsAria": "Engagement modules",
+    "cards": {
+      "events": {
+        "title": "Events",
+        "description": "Plan trips, conferences, and activities. Track participation, consent, and payments."
+      },
+      "form_templates": {
+        "title": "Form Templates",
+        "description": "Build bilingual consent forms, surveys, and risk assessments to send to families."
+      },
+      "analytics": {
+        "title": "Analytics",
+        "description": "Completion rates, response time trends, and outstanding actions in one place."
+      },
+      "consent_archive": {
+        "title": "Consent Archive",
+        "description": "Search, filter, and audit consent history by student, form, or status."
+      }
+    }
   }
 }
