@@ -253,7 +253,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `completed`   | 2026-04-25T06:25 Europe/Dublin | `07323817` |
 | 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `completed`   | 2026-04-25T13:54 Europe/Dublin | `bc36bbb5` |
 | 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `completed`   | 2026-04-25T13:58 Europe/Dublin | `a39be0fc` |
-| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `in-progress` | —                              | —          |
+| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `deploying`   | —                              | `654a61e6` |
 | 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `in-progress` | —                              | —          |
 | 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`     |                                |            |
 
@@ -3198,11 +3198,13 @@ retry, invalidRequest, disabledTitle, disabledBody}`,
 | `PATCH /v1/ai-flags/reports_ask_ai {enabled:false}` | ✅ 200                  | Reverted to `enabled: false` (default).                                                                                                                                    |
 
 ### [PLAYWRIGHT LOCK] — impl 19 (post-deploy)
+
 - Holder: impl 19 verification — share dialog + saved-reports management + shared snapshot view
 - Started: 2026-04-25T13:55 Europe/Dublin
 - Until: released by closing the browser AND appending a follow-up release line
 
 ### [PLAYWRIGHT RELEASED] — impl 19 (post-deploy)
+
 - Holder: impl 19 verification — share dialog + saved-reports management + shared snapshot view
 - Released: 2026-04-25T13:58 Europe/Dublin
 - Browser closed: yes
@@ -3213,7 +3215,7 @@ retry, invalidRequest, disabledTitle, disabledBody}`,
 - **Final SHA:** `a39be0fc` (merge); deploy ran on `1ead0d79` and the
   follow-up doc commits (`44815be3`, `a39be0fc`) sit in front. The impl
   19 feature code is at `ecd96972` (`feat(reports): share-to-inbox dialog
-  + saved-reports management — impl 19`).
+  - saved-reports management — impl 19`).
 - **CI run:** https://github.com/ACANOTES-dev/EduPod/actions/runs/24931072010
   (deploy succeeded; backend-parallel re-ran green via `--failed`
   rerun — the original failures were pre-existing flakes in `p8-rls`
@@ -3228,7 +3230,7 @@ retry, invalidRequest, disabledTitle, disabledBody}`,
   `_components/share-dialog.tsx` (format radio + canonical
   `system_roles.role_key` chips + people-search picker via
   `/v1/inbox/people-search` + optional message), `builder/_components/
-  share-history-tab.tsx`, `reports/shared/[share_id]/page.tsx`. Updated
+share-history-tab.tsx`, `reports/shared/[share_id]/page.tsx`. Updated
   `builder/_components/saved-reports-sidebar.tsx` (favourite toggle
   pinned to top, rename dialog, open/duplicate/share dropdown actions,
   description/visibility/is_favorite on `SavedReportListItem`).
@@ -3238,7 +3240,7 @@ retry, invalidRequest, disabledTitle, disabledBody}`,
   Backend: `custom-report-builder.service.ts` now persists + returns
   `description`, `visibility`, `is_favorite` (impl 01 columns); new
   `duplicateSavedReport()` method; new `POST /v1/reports/builder/
-  :reportId/duplicate` route on `ReportsEnhancedController`.
+:reportId/duplicate` route on `ReportsEnhancedController`.
   `createSavedReportSchema` / `updateSavedReportSchema` widened in
   `@school/shared` with optional `description` / `is_favorite` /
   `visibility`. Five new unit tests (98 → 103 in the spec file).
@@ -3274,10 +3276,10 @@ retry, invalidRequest, disabledTitle, disabledBody}`,
   - **Impl 22 (translations / a11y / Arabic parity):** sweep the
     `reports.builder.shareDialog.*`, `reports.builder.shareHistory.*`,
     `reports.builder.sidebar.{rename,renameDialog,actions,open,
-    favorite,unfavorite}`, `reports.builder.page.tabs.*`, and
+favorite,unfavorite}`, `reports.builder.page.tabs.*`, and
     `reports.shared.*` keys in `ar.json` — all currently `[AR]`-prefixed
     placeholders. EN copy is final. Also: the `[ReportBuilder]
-    loadDraft` TypeError pre-dates impl 19 (originates in impl 16's
+loadDraft` TypeError pre-dates impl 19 (originates in impl 16's
     draft restore path) and surfaces on every builder load; impl 22
     polish should narrow `draft.columns_json?.field_ids` defensively.
     The `MISSING_MESSAGE: reports.builder.fields.domains.medical` and
@@ -3296,9 +3298,11 @@ retry, invalidRequest, disabledTitle, disabledBody}`,
   - **Mobile pass on share dialog** queued for impl 22.
 
 - **Rollback:**
+
   ```bash
   git revert a39be0fc 44815be3 1ead0d79 fb0742d3 ecd96972 c8ac6384
   ```
+
   Reverting drops the share-dialog UI, snapshot view, share-history
   tab, sidebar favourite/rename/duplicate/share actions, the
   `description`/`is_favorite`/`visibility` schema fields' service
@@ -3323,39 +3327,38 @@ retry, invalidRequest, disabledTitle, disabledBody}`,
     final merge; `git rebase -X theirs` cleanly auto-merged the
     append-only files.
 
-
 ### [IMPL 19] — Post-deploy verification
 
 - **Run:** 2026-04-25T13:53 → 13:58 Europe/Dublin
 - **Production deploy verified:** PM2 restart ~13:51 UTC (api uptime
   83 s at first health check); SSH `grep -l 'duplicateSavedReport'
-  /opt/edupod/app/apps/api/dist/api/src/modules/reports/*.js` matched
+/opt/edupod/app/apps/api/dist/api/src/modules/reports/*.js` matched
   `custom-report-builder.service.js` and `reports-enhanced.controller.js`,
   confirming the new method + route shipped.
 
 - **Endpoint smoke:**
 
-  | Endpoint                                                                  | Result | Evidence                                                                                                                                                                       |
-  | ------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-  | `GET /api/health`                                                         | ✅ 200 | `{"status":"degraded",…}` — pre-existing `notifications` / `behaviour` failed-job thresholds; Postgres / Redis / Meilisearch / BullMQ all `up`.                                |
-  | `GET /v1/reports/builder?page=1&pageSize=3` (owner@nhqs.test)             | ✅ 200 | Each row now carries `description`, `visibility` (`private`/`shared`), `is_favorite` alongside the legacy `is_shared`.                                                          |
-  | `POST /v1/reports/builder/:id/duplicate`                                  | ✅ 200 | Returned `{data: {id: "51040919-…", name: "E2E share smoke 1777082902144 (copy)", visibility: "private", is_favorite: false}}` — duplicate created, kept private + un-favourite.|
-  | `DELETE /v1/reports/builder/51040919-…` (cleanup)                         | ✅ 200 | Duplicate removed.                                                                                                                                                              |
-  | `PUT /v1/reports/builder/:id { is_favorite: true }`                       | ✅ 200 | `{data:{id, name, is_favorite: true, visibility: "private"}}` — favourite persisted.                                                                                             |
-  | `PUT /v1/reports/builder/:id { is_favorite: false }`                      | ✅ 200 | Reverted; report state restored.                                                                                                                                                |
-  | `POST /v1/reports/builder/:id/share` (audience: `role_keys: ['admin']`)   | ✅ 200 | `{share_id: "43597781-c9b7-4eab-a7e3-9fe91dc1d7b5", conversation_id: "cc3ce146-…", artifact_keys: {pdf: "tenant/3ba9b02c-…/reports/shares/…/.pdf"}, recipients_count: 1}`         |
-  | `GET /v1/reports/shared/43597781-…`                                       | ✅ 200 | `{data: {saved_report_name: "E2E share smoke 1777082902144", shared_by_name: "Yusuf Rahman", format: "pdf", artifact_count: 1, artifacts[0].download_url starts "https://edupod-assets.hel1.your-objectstorage.com/", can_open_in_builder: false}}`. |
-  | `GET /v1/reports/builder/:id/shares?page=1&pageSize=5`                    | ✅ 200 | `meta.total: 2`, latest entry `{shared_by_name:"Yusuf Rahman", format:"pdf", recipients_count:1}`.                                                                              |
+  | Endpoint                                                                | Result | Evidence                                                                                                                                                                                                                                             |
+  | ----------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `GET /api/health`                                                       | ✅ 200 | `{"status":"degraded",…}` — pre-existing `notifications` / `behaviour` failed-job thresholds; Postgres / Redis / Meilisearch / BullMQ all `up`.                                                                                                      |
+  | `GET /v1/reports/builder?page=1&pageSize=3` (owner@nhqs.test)           | ✅ 200 | Each row now carries `description`, `visibility` (`private`/`shared`), `is_favorite` alongside the legacy `is_shared`.                                                                                                                               |
+  | `POST /v1/reports/builder/:id/duplicate`                                | ✅ 200 | Returned `{data: {id: "51040919-…", name: "E2E share smoke 1777082902144 (copy)", visibility: "private", is_favorite: false}}` — duplicate created, kept private + un-favourite.                                                                     |
+  | `DELETE /v1/reports/builder/51040919-…` (cleanup)                       | ✅ 200 | Duplicate removed.                                                                                                                                                                                                                                   |
+  | `PUT /v1/reports/builder/:id { is_favorite: true }`                     | ✅ 200 | `{data:{id, name, is_favorite: true, visibility: "private"}}` — favourite persisted.                                                                                                                                                                 |
+  | `PUT /v1/reports/builder/:id { is_favorite: false }`                    | ✅ 200 | Reverted; report state restored.                                                                                                                                                                                                                     |
+  | `POST /v1/reports/builder/:id/share` (audience: `role_keys: ['admin']`) | ✅ 200 | `{share_id: "43597781-c9b7-4eab-a7e3-9fe91dc1d7b5", conversation_id: "cc3ce146-…", artifact_keys: {pdf: "tenant/3ba9b02c-…/reports/shares/…/.pdf"}, recipients_count: 1}`                                                                            |
+  | `GET /v1/reports/shared/43597781-…`                                     | ✅ 200 | `{data: {saved_report_name: "E2E share smoke 1777082902144", shared_by_name: "Yusuf Rahman", format: "pdf", artifact_count: 1, artifacts[0].download_url starts "https://edupod-assets.hel1.your-objectstorage.com/", can_open_in_builder: false}}`. |
+  | `GET /v1/reports/builder/:id/shares?page=1&pageSize=5`                  | ✅ 200 | `meta.total: 2`, latest entry `{shared_by_name:"Yusuf Rahman", format:"pdf", recipients_count:1}`.                                                                                                                                                   |
 
 - **Playwright smoke:**
 
-  | Surface                                                              | Result | Evidence                                                                                                                                                                                                              |
-  | -------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | `/en/reports/builder` page load                                      | ✅     | Saved-reports sidebar now renders favourite-star buttons + 3-dot Report-actions menu next to each saved report. 1 console error (pre-existing `[ReportBuilder] loadDraft` from impl 16) — not introduced by impl 19. |
-  | `/en/reports/builder/:id` (saved report header)                      | ✅     | Toolbar shows `Export`, `Share` (now ENABLED — was `disabled "Wired in impl 19"` before), `Schedule` (still disabled), `Delete`, `Save`. 5 pre-existing console errors (loadDraft + missing translation keys).        |
-  | Share button → ShareDialog opens                                     | ✅     | `data-testid="share-dialog"` mounted; title `Share "Untitled report"`; format chips `PDF / Excel / Word / All three`; 8 role chips `School owner / Principal / Vice principal / Administrator / Teacher / Attendance officer / Accounting / Front office`. |
-  | Sidebar favourite toggle                                             | ✅     | `aria-pressed` flipped `false → true` after click; reverted cleanly on second click. Optimistic UI confirmed.                                                                                                          |
-  | `/en/reports/shared/43597781-…` snapshot view                        | ✅     | **0 console errors.** Heading `E2E share smoke 1777082902144`; subtitle `Shared by Yusuf Rahman on 25/04/2026, 13:57:08`; download button `Download PDF` rendered with `data-testid="download-pdf"`; message body `Impl 19 Playwright verification share — admin role` displayed; "Open in builder" correctly absent (`can_open_in_builder=false` because the source report is `visibility:private`). |
+  | Surface                                         | Result | Evidence                                                                                                                                                                                                                                                                                                                                                                                              |
+  | ----------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `/en/reports/builder` page load                 | ✅     | Saved-reports sidebar now renders favourite-star buttons + 3-dot Report-actions menu next to each saved report. 1 console error (pre-existing `[ReportBuilder] loadDraft` from impl 16) — not introduced by impl 19.                                                                                                                                                                                  |
+  | `/en/reports/builder/:id` (saved report header) | ✅     | Toolbar shows `Export`, `Share` (now ENABLED — was `disabled "Wired in impl 19"` before), `Schedule` (still disabled), `Delete`, `Save`. 5 pre-existing console errors (loadDraft + missing translation keys).                                                                                                                                                                                        |
+  | Share button → ShareDialog opens                | ✅     | `data-testid="share-dialog"` mounted; title `Share "Untitled report"`; format chips `PDF / Excel / Word / All three`; 8 role chips `School owner / Principal / Vice principal / Administrator / Teacher / Attendance officer / Accounting / Front office`.                                                                                                                                            |
+  | Sidebar favourite toggle                        | ✅     | `aria-pressed` flipped `false → true` after click; reverted cleanly on second click. Optimistic UI confirmed.                                                                                                                                                                                                                                                                                         |
+  | `/en/reports/shared/43597781-…` snapshot view   | ✅     | **0 console errors.** Heading `E2E share smoke 1777082902144`; subtitle `Shared by Yusuf Rahman on 25/04/2026, 13:57:08`; download button `Download PDF` rendered with `data-testid="download-pdf"`; message body `Impl 19 Playwright verification share — admin role` displayed; "Open in builder" correctly absent (`can_open_in_builder=false` because the source report is `visibility:private`). |
 
 - **Net status:** Impl 19 is **live and verified on production**. Share
   dialog opens, role-group + people-picker shape data flows to the
