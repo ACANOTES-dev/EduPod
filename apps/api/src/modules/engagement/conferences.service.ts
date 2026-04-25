@@ -399,10 +399,13 @@ export class ConferencesService {
     const staff = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
 
     if (!staff) {
-      throw new NotFoundException({
-        code: 'STAFF_NOT_FOUND',
-        message: 'No staff profile found for the current user',
-      });
+      // Caller is not a staff member (e.g. school_owner without a staff profile).
+      // Return an empty schedule so the frontend renders the empty-state UI
+      // instead of an error boundary. This is intentional — the route is
+      // permission-gated by `engagement.conferences.view_schedule`, which the
+      // caller already passed; not having a staff profile is a user-class
+      // distinction, not an authorization failure.
+      return { teacher_id: null, event_id: eventId, slots: [] };
     }
 
     const slots = await this.prisma.conferenceTimeSlot.findMany({

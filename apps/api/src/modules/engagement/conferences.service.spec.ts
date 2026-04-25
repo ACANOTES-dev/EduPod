@@ -518,13 +518,15 @@ describe('ConferencesService', () => {
       );
     });
 
-    it('should throw STAFF_NOT_FOUND for non-staff user', async () => {
+    it('should return empty schedule for non-staff user', async () => {
       mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
       mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
 
-      await expect(service.getTeacherSchedule(TENANT_ID, EVENT_ID, USER_ID)).rejects.toThrow(
-        NotFoundException,
-      );
+      const result = await service.getTeacherSchedule(TENANT_ID, EVENT_ID, USER_ID);
+
+      expect(result.teacher_id).toBeNull();
+      expect(result.event_id).toBe(EVENT_ID);
+      expect(result.slots).toEqual([]);
     });
   });
 
