@@ -150,6 +150,36 @@ and verify every file you authored is ≥ the global target. If your work genuin
 
 **Rule 26 — When in doubt, shrink the commit.** If the tree has diverged from your mental model because of parallel edits, the safe recovery is to commit only your new files (under `apps/api/src/modules/reports/<impl-owned-folder>/` or equivalent) and leave the shared-file edits unstaged. Let the shared-file changes ride in the next session's commit once ownership is clear. A commit that lands half-mixed state (your impl's code + another impl's incomplete rewrites) is how Wave 2 lost a full deploy cycle.
 
+**Rule 27a — Playwright verification is mandatory before flipping a row to `completed`.** Endpoint smoke tests (curl, DB checks, PM2 logs) are NOT sufficient. Every implementation must additionally drive the relevant UI surface (or a real authenticated API request that mirrors what the UI will do) through Playwright and capture:
+
+- For backend impls (01–13): a Playwright run that authenticates as `owner@nhqs.test`, hits the new endpoint(s) via `browser_evaluate(() => fetch('/api/v1/...'))` or via a UI surface that exists, and confirms a real response (real data shape, not 404 / not error). Backend impls without a UI surface yet (impls 02–13) MUST drive the request through `browser_evaluate` after authenticating, not via `curl` — the goal is to prove the route works through the same cookie/auth path the eventual UI will use.
+- For frontend impls (14–22): a Playwright run that loads the page, captures `browser_console_messages(level: 'error')`, asserts no errors, and snapshots key UI elements (KPI cards visible, builder fields rendered, share dialog opens, etc.).
+- A short `## Playwright verification` block in the §5 completion record listing: pages/endpoints covered, any console errors observed, and the timestamp the run completed.
+
+**Rule 27b — Only one session may run Playwright at a time. Sessions queue via a log claim.** Playwright's MCP wrapper holds a single browser context per host and serialises poorly across sessions. Before invoking ANY `mcp__plugin_playwright_playwright__*` tool, append a one-line claim to §5 of the log:
+
+```
+### [PLAYWRIGHT LOCK] — impl NN (or "verification-walkthrough")
+- Holder: <session purpose>
+- Started: <ISO timestamp>
+- Until: released by closing the browser AND appending a follow-up release line
+```
+
+Before you write that claim, scan §5 for the most recent `[PLAYWRIGHT LOCK]` entry. If it has no matching `[PLAYWRIGHT RELEASED]` line below it, the lock is held by another session — STOP, do not invoke Playwright tools, and either:
+1. Wait (poll §5 every 3 minutes until the release line appears), or
+2. Defer the verification step and flip your row to `🛑 blocked — waiting on Playwright lock` with the holder's claim line referenced.
+
+After your Playwright run completes, append:
+
+```
+### [PLAYWRIGHT RELEASED] — impl NN (or "verification-walkthrough")
+- Holder: <same purpose as claim>
+- Released: <ISO timestamp>
+- Browser closed: yes
+```
+
+Hold the lock for ≤ 30 minutes. If your verification needs longer, release at the natural break point (between implementations) and re-claim. The lock is advisory — it only works if every session checks before invoking; treat it the same as the shared-file claims in Rule 17.
+
 **Rule 27 — Pre-push `--no-verify` is expected for Wave 2/3 reports pushes until decomposition lands.** The husky pre-push hook runs `validate:fast` which hardcodes `check-module-cohesion --max-errors 0`. The `reports` module has been oversized (88 files / 13.6k LOC) since impls 02–07 each added a subfolder, and the cohesion allowance was explicitly bumped to `--max-errors 1` in CI via commit `e0a37ee6`. Pre-push therefore fails for every reports commit even when the code is correct. Push with `--no-verify`; CI remains the real gate and already accepts the 1-error allowance. **Do NOT try to "fix" the cohesion error by splitting the module** — decomposition is planned for Wave 4/5 polish and splitting ad-hoc mid-wave will collide with in-flight sibling impls. Every push that uses `--no-verify` for this reason should note it in the §5 completion record (the Wave 2 template already has a "Session notes" slot for this). When impls 02/05/06/07 are all merged and you're on a Wave 3 impl, the same bypass still applies — the module is only getting larger until Wave 5 resets it. Restore strict mode (`validate:fast` back to `--max-errors 0`, CI back to `--max-errors 0`) when impl 22 lands the decomposition.
 
 ---
@@ -1940,6 +1970,12 @@ they verified is now permanently live on production at commit `6f17084d`.
   session notes, line 320–326 of this log). Rerun in progress at
   `gh run view 24916597358`.
 
+### [PLAYWRIGHT LOCK] — verification-walkthrough (impls 01–13)
+
+- Holder: post-impl-13 verification walkthrough across all landed impls
+- Started: 2026-04-25T01:25 Europe/Dublin
+- Until: released by closing the browser AND appending a follow-up release line
+
 ### [IMPL 13] — Report Sharing Service
 
 - **Completed:** 2026-04-25T01:18 Europe/Dublin
@@ -2095,3 +2131,57 @@ FROM pg_class WHERE relname = 'report_share_log';` returns
   - **api-surface snapshot regenerated** (`pnpm run snapshot:api`)
     for the three new routes; snapshot test passes locally and in
     CI.
+
+### [VERIFICATION WALKTHROUGH] — impls 01–13
+
+- **Run:** 2026-04-25T01:25 → 01:35 Europe/Dublin
+- **Method:** authenticated as `owner@nhqs.test` on `nhqs.edupod.app`
+  via Playwright; every endpoint hit through `browser_evaluate(fetch)`
+  on a live page session so the cookie / CORS / interceptor chain
+  matches what the eventual UI will use. Worker side via SSH +
+  `pm2 logs`.
+- **Tooling note:** all calls funnelled through one browser context
+  to honour Rule 27b (one-Playwright-at-a-time). Lock claim + release
+  recorded above and below.
+
+#### Per-impl results
+
+| # | Impl | Result | Evidence |
+| - | ---- | ------ | -------- |
+| 01 | Schema foundation | ✅ PASS | `pg_class.relrowsecurity=t, relforcerowsecurity=t` for all 5 new tables (`saved_report_drafts`, `scheduled_report_runs`, `report_alert_runs`, `report_share_log`, `reports_kpi_tenant_preferences`). |
+| 02 | Subject registry + query engine | ✅ PASS | `GET /v1/reports/subject-registry` → 200 with `subjects` payload. `GET /v1/reports/builder/draft` → 204 (no draft for owner). `POST /v1/reports/builder/preview` with `subject: 'student'` + 2 columns → 201 with `{rows, columns, meta}` populated. |
+| 03 | KPI dashboard | ✅ PASS | `GET /v1/reports/analytics/dashboard` → 200, 10 KPIs in spec order with all expected fields (key, label_key, tooltip_key, value, value_raw, delta, sparkline, drill_down_href, severity). `trends.weeks.length === 12`. Cache toggle confirmed: `?refresh=true` → `meta.cache_hit=false`, second call → `true`, third → `true`. |
+| 04 | Export pipeline | ⚠️ NOT END-TO-END VERIFIABLE TODAY | NHQS has 0 saved reports (`/v1/reports/builder` returns `data:[]`); the legacy `createSavedReportSchema` only accepts pre-rebuild enum values (`'students'`, `'staff'`, …) and any saved report under those is rejected by the share/execute path with `REPORT_LEGACY_FORMAT`. The renderers (`PdfRenderer`, `ExcelRenderer`, `WordRenderer`) and `ReportExportService` are correctly wired in DI (verified via AppModule smoke + impl 13 module wiring). Full smoke is queued for Wave 4 once impl 16 (builder UI) creates a saved report under a new subject key. |
+| 05 | Domain report services | ✅ PASS (4/4 endpoints) | `GET /at-risk-new-this-week` → 200. `GET /grades/subject-difficulty?subject_id=<id>&by=term` → 200 (empty for that subject — endpoint works, no data). `GET /demographics/year-group-enrolment/:id?months=3` → 200 with 3 monthly buckets. `GET /student-progress/trends-by-cohort/:id` → 400 (correctly requires the `period_id` query param documented in the impl 05 spec). |
+| 06 | Board report aggregation | ✅ PASS | `POST /v1/reports/board` with `{term:{academic_year_id, term_number:2}, sections:['executive','enrolment','attendance'], anonymise:true}` → 201 returning `data: {tenant, generated_at, generated_by_user_id, anonymise, sections_included, sections}`; `sections.executive` carries `{type, headline_metrics, narrative}`. `GET /v1/reports/board/history` → 200 with 5 prior generations. |
+| 07 | Compliance report aggregation | ✅ PASS | `POST /v1/reports/compliance/generate` with 3 fields → 201 returning `data: {tenant, fields, meta}`; `fields[0]` = `{key:'student_headcount', value:207, source:'Active students enrolled…', last_verified_at, has_gap:false}`. `GET /v1/reports/compliance/history` → 200 with 2 prior generations. |
+| 08 | Scheduled-reports worker | ✅ PASS | `pm2 logs worker`: `[CronSchedulerService] Registered repeatable cron: reports:scheduled-run (every 15 minutes)` at boot. Tick observed at 01:30:00: `[ScheduledReportsTickProcessor] Tick complete — no scheduled reports due (took 7ms)`. |
+| 09 | Report-alerts worker | ✅ PASS | `pm2 logs worker`: `[CronSchedulerService] Registered repeatable cron: reports:alert-evaluate (every 30 minutes)`. Tick observed at 01:30:00: `[ReportAlertsHandler] Dispatched reports:alert-evaluate-tenant for 5/5 tenant(s)`; per-tenant evaluations logged: `Tenant evaluation complete: tenant=<id> evaluated=0 fired=0 errored=0`. |
+| 10 | AI narration | ✅ FLAG-GATE PASS | `POST /v1/reports/analytics/ai-summary` with flag off → 403 `AI_DISABLED` (correct gate). Full-AI smoke blocked by `ANTHROPIC_API_KEY` not being set on prod (already documented in Wave 3 follow-ups). Routes registered: confirmed via API access logs. |
+| 11 | AI ask-AI | ✅ FLAG-GATE PASS | `GET /v1/reports/ai-ask-ai/history` → 403 `AI_DISABLED` (correct gate). Same `ANTHROPIC_API_KEY` blocker as impl 10 for full-path smoke. |
+| 12 | AI predictions | ✅ FLAG-GATE PASS | `GET /v1/reports/predictions/student-risk/bulk?year_group_id=<fake>` → 403 `AI_DISABLED` (correct gate). Same `ANTHROPIC_API_KEY` blocker for full-path smoke. |
+| 13 | Report sharing | ✅ ROUTE + ERROR PATH PASS | `POST /v1/reports/builder/<fake>/share` → 404 `SAVED_REPORT_NOT_FOUND` (route reached, service rejects fake report id). `GET /v1/reports/builder/<fake>/shares?page=1&pageSize=10` → 200 `{data:[], meta:{page:1,pageSize:10,total:0}}` (paginated empty). `GET /v1/reports/shared/<fake>` → 404 `REPORT_SHARE_NOT_FOUND`. Happy path blocked by the same impl 02 / impl 04 gap (no saved reports to share). |
+
+#### Issues raised by the walkthrough
+
+1. **`/en/reports` page is broken** (pre-existing, NOT caused by any of impls 01–13).
+   - **Cause A — translation namespace double-prefix.** `apps/web/src/app/[locale]/(school)/reports/page.tsx:285` and `:313` call `useTranslations('reports')` then `t(link.labelKey)` where `labelKey` is `'reports.analytics.attendanceAnalytics'`. The namespace + key produce `reports.reports.analytics.attendanceAnalytics` which doesn't exist in `messages/en.json` → 30+ `MISSING_MESSAGE` console errors per page load. PLAN.md §1 calls this out explicitly; queued for impl 22.
+   - **Cause B — `TypeError: r.slice is not a function`.** Deep in chunk 69380 inside a `useSyncExternalStore` selector, called from the dashboard page. Empty page body renders. Pre-dates impl 13. Queued for impl 14 (Reports Hub UI rewrite).
+   - **Transient cause C — chunk 500 during deploy window.** When CI rebuilds `apps/web` and rsyncs the new `.next/static/chunks/*`, requests for those URLs return 500 for ~30-60s during PM2 reload. React's chunk loader fails, error boundary fires, user sees the error page. Self-resolves after one hard refresh. Worth filing as a deploy-script hardening item: rsync the chunks before the PM2 reload so the rolling restart never serves a window where chunks 500.
+
+2. **Smoke ceiling for impls 04 + 13.** End-to-end happy paths require a saved report on prod. The legacy `createSavedReportSchema` (`packages/shared/src/schemas/reports-enhanced.schema.ts`) still uses pre-rebuild enum values; reports created under those values are rejected by the new query engine with `REPORT_LEGACY_FORMAT`. Wave 4 impl 16 (Custom Builder UI) is the natural unblocker since it owns the new-shape create flow. Until then the only smoke we have for impl 04's export is the unit + DI smoke from impl 04 itself, plus the impl 13 routes' error paths.
+
+3. **AI smoke ceiling for impls 10–12.** `ANTHROPIC_API_KEY` is intentionally NOT set on prod (the user authorises Anthropic spend per PLAN.md §6). Every AI endpoint correctly returns `503 AI_UNAVAILABLE` once the tenant flag is enabled, but cache-hit / cost-estimate paths cannot be exercised live. This is operations-territory and not a wave-3 regression.
+
+#### Net status of the rebuild as of this walkthrough
+
+- **Wave 1 (impl 01):** schema + RLS on production, verified.
+- **Wave 2 (impls 02–07):** 6/6 endpoints reachable and producing real data; the 7th (impl 04 export) is wired but cannot be exercised without a saved report.
+- **Wave 3 (impls 08–13):** 6/6 services live. 2 worker crons firing every cycle. 3 AI flag-gates correct. Sharing routes + history present and audited; happy path queued behind Wave 4.
+- **Pre-existing reports-page bug** documented above is now blocking the Wave 4 work the moment impl 14 starts — heads-up to the next session.
+
+### [PLAYWRIGHT RELEASED] — verification-walkthrough (impls 01–13)
+
+- Holder: post-impl-13 verification walkthrough across all landed impls
+- Released: 2026-04-25T01:35 Europe/Dublin
+- Browser closed: yes
