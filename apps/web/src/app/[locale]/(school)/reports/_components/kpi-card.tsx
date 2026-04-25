@@ -106,14 +106,17 @@ export function KpiCard({ kpi }: KpiCardProps) {
         <footer className="pointer-events-none relative z-10 mt-auto flex items-end justify-between gap-2">
           {/*
             Hide the delta whenever the KPI itself has no value (e.g. attendance
-            today before the first registers go in). A delta computed against
-            a null current value is meaningless ("−99.9%" vs missing data) and
+            today before the first registers go in). The "no value" signal is
+            `formatKpiValue(...) === '—'` which happens when `kpi.value` is a
+            non-finite number (NaN/Infinity) — schemas type `value` as
+            `string | number`, so explicit `null` never reaches us. A delta
+            computed against a missing baseline is meaningless ("−99.9%") and
             confuses readers more than it informs them.
           */}
           <DeltaRow
             tone={tone}
             text={deltaText}
-            hasDelta={kpi.delta !== null && kpi.value !== null}
+            hasDelta={kpi.delta !== null && hasFiniteValue(kpi.value)}
           />
           {sparklineSeries ? (
             <div
@@ -176,6 +179,17 @@ function formatKpiValue(value: string | number): string {
   if (typeof value === 'string') return value;
   if (!Number.isFinite(value)) return '—';
   return new Intl.NumberFormat().format(value);
+}
+
+/**
+ * Mirrors `formatKpiValue`'s "renderable as a real number?" check: strings
+ * pass through verbatim (assumed pre-formatted), numbers must be finite.
+ * Used to decide whether to render a delta row on the card — a delta against
+ * an unknown / missing current value is meaningless.
+ */
+function hasFiniteValue(value: string | number): boolean {
+  if (typeof value === 'string') return value.length > 0;
+  return Number.isFinite(value);
 }
 
 /**
