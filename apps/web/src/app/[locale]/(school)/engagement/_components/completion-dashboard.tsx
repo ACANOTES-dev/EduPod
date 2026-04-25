@@ -60,27 +60,53 @@ function MetricCard({
 }
 
 interface CompletionDashboardProps {
-  consentGranted: number;
-  consentTotal: number;
-  paymentPaid: number;
-  paymentTotal: number;
-  registered: number;
-  invited: number;
+  variant?: 'event' | 'standalone_form';
+  consentGranted?: number;
+  consentTotal?: number;
+  paymentPaid?: number;
+  paymentTotal?: number;
+  registered?: number;
+  invited?: number;
   capacity?: number | null;
   capacityUsed?: number;
+  submissionsReceived?: number;
+  submissionsExpected?: number;
 }
 
 export function CompletionDashboard({
-  consentGranted,
-  consentTotal,
-  paymentPaid,
-  paymentTotal,
-  registered,
-  invited,
+  variant = 'event',
+  consentGranted = 0,
+  consentTotal = 0,
+  paymentPaid = 0,
+  paymentTotal = 0,
+  registered = 0,
+  invited = 0,
   capacity,
   capacityUsed,
+  submissionsReceived = 0,
+  submissionsExpected = 0,
 }: CompletionDashboardProps) {
   const t = useTranslations('engagement.completionDashboard');
+
+  if (variant === 'standalone_form') {
+    return (
+      <section className="grid gap-4">
+        <MetricCard
+          title={t('standaloneTitle')}
+          description={t('standaloneDescription', {
+            received: submissionsReceived,
+            expected: submissionsExpected,
+          })}
+          current={submissionsReceived}
+          total={submissionsExpected}
+          progressComplete={t('progressComplete', { current: submissionsReceived })}
+          progressTotal={t('progressTotal', { total: submissionsExpected })}
+          accentClassName="bg-emerald-100 text-emerald-700"
+          icon={CheckCircle2}
+        />
+      </section>
+    );
+  }
 
   const registrationDescription = capacity
     ? t('registrationDescriptionWithCapacity', { capacity })

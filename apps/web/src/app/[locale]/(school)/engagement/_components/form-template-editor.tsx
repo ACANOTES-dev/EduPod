@@ -122,8 +122,9 @@ export function FormTemplateEditor({ mode, template = null }: FormTemplateEditor
   }, []);
 
   const handleAddField = React.useCallback(() => {
-    fieldArray.append(createEmptyField(fieldArray.fields.length));
-  }, [fieldArray]);
+    const existingKeys = (form.getValues('fields_json') ?? []).map((f) => f.field_key);
+    fieldArray.append(createEmptyField(fieldArray.fields.length, existingKeys));
+  }, [fieldArray, form]);
 
   const updateFieldOptions = React.useCallback(
     (index: number, nextOptions: Array<{ value: string; label: string }>) => {
@@ -154,56 +155,63 @@ export function FormTemplateEditor({ mode, template = null }: FormTemplateEditor
     [form],
   );
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    if (values.fields_json.length === 0) {
-      toast.error(t('builder.atLeastOneField'));
-      return;
-    }
-
-    setSubmitting(true);
-
-    try {
-      const payload: CreateEngagementFormTemplateDto = {
-        ...values,
-        consent_type: values.form_type === 'consent_form' ? values.consent_type : undefined,
-        academic_year_id: values.academic_year_id || undefined,
-        fields_json: values.fields_json.map((field, index) => normaliseField(field, index)),
-      };
-
-      const savedTemplate =
-        mode === 'create'
-          ? await apiClient<FormTemplateRecord>('/api/v1/engagement/form-templates', {
-              method: 'POST',
-              body: JSON.stringify(payload),
-            })
-          : await apiClient<FormTemplateRecord>(
-              `/api/v1/engagement/form-templates/${template?.id ?? ''}`,
-              {
-                method: 'PATCH',
-                body: JSON.stringify(payload),
-              },
-            );
-
-      if (submitIntent === 'publish') {
-        await apiClient<FormTemplateRecord>(
-          `/api/v1/engagement/form-templates/${savedTemplate.id}/publish`,
-          {
-            method: 'POST',
-          },
-        );
+  const onSubmit = form.handleSubmit(
+    async (values) => {
+      if (values.fields_json.length === 0) {
+        toast.error(t('builder.atLeastOneField'));
+        return;
       }
 
-      toast.success(
-        submitIntent === 'publish' ? t('builder.publishSuccess') : t('builder.saveSuccess'),
-      );
-      router.push(`/${locale}/engagement/form-templates/${savedTemplate.id}`);
-    } catch (error) {
-      console.error('[FormTemplateEditor.onSubmit]', error);
-      toast.error(submitIntent === 'publish' ? t('builder.publishError') : t('builder.saveError'));
-    } finally {
-      setSubmitting(false);
-    }
-  });
+      setSubmitting(true);
+
+      try {
+        const payload: CreateEngagementFormTemplateDto = {
+          ...values,
+          consent_type: values.form_type === 'consent_form' ? values.consent_type : undefined,
+          academic_year_id: values.academic_year_id || undefined,
+          fields_json: values.fields_json.map((field, index) => normaliseField(field, index)),
+        };
+
+        const savedTemplate =
+          mode === 'create'
+            ? await apiClient<FormTemplateRecord>('/api/v1/engagement/form-templates', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+              })
+            : await apiClient<FormTemplateRecord>(
+                `/api/v1/engagement/form-templates/${template?.id ?? ''}`,
+                {
+                  method: 'PATCH',
+                  body: JSON.stringify(payload),
+                },
+              );
+
+        if (submitIntent === 'publish') {
+          await apiClient<FormTemplateRecord>(
+            `/api/v1/engagement/form-templates/${savedTemplate.id}/publish`,
+            {
+              method: 'POST',
+            },
+          );
+        }
+
+        toast.success(
+          submitIntent === 'publish' ? t('builder.publishSuccess') : t('builder.saveSuccess'),
+        );
+        router.push(`/${locale}/engagement/form-templates/${savedTemplate.id}`);
+      } catch (error) {
+        console.error('[FormTemplateEditor.onSubmit]', error);
+        toast.error(
+          submitIntent === 'publish' ? t('builder.publishError') : t('builder.saveError'),
+        );
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    () => {
+      toast.error(t('builder.validationError'));
+    },
+  );
 
   return (
     <form className="space-y-6" onSubmit={onSubmit}>
@@ -214,6 +222,11 @@ export function FormTemplateEditor({ mode, template = null }: FormTemplateEditor
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="template-name">{t('builder.name')}</Label>
                 <Input id="template-name" {...form.register('name')} />
+                {form.formState.errors.name ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {form.formState.errors.name.message ?? t('builder.fieldRequired')}
+                  </p>
+                ) : null}
               </div>
 
               <div className="space-y-2 md:col-span-2">
@@ -223,6 +236,11 @@ export function FormTemplateEditor({ mode, template = null }: FormTemplateEditor
                   className="min-h-24"
                   {...form.register('description')}
                 />
+                {form.formState.errors.description ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {form.formState.errors.description.message}
+                  </p>
+                ) : null}
               </div>
 
               <div className="space-y-2">
@@ -245,6 +263,11 @@ export function FormTemplateEditor({ mode, template = null }: FormTemplateEditor
                     </Select>
                   )}
                 />
+                {form.formState.errors.form_type ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {form.formState.errors.form_type.message ?? t('builder.fieldRequired')}
+                  </p>
+                ) : null}
               </div>
 
               <div className="space-y-2">
@@ -273,6 +296,11 @@ export function FormTemplateEditor({ mode, template = null }: FormTemplateEditor
                     </Select>
                   )}
                 />
+                {form.formState.errors.academic_year_id ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {form.formState.errors.academic_year_id.message}
+                  </p>
+                ) : null}
               </div>
 
               {watchedFormType === 'consent_form' ? (
@@ -296,6 +324,11 @@ export function FormTemplateEditor({ mode, template = null }: FormTemplateEditor
                       </Select>
                     )}
                   />
+                  {form.formState.errors.consent_type ? (
+                    <p className="text-sm text-destructive" role="alert">
+                      {form.formState.errors.consent_type.message ?? t('builder.fieldRequired')}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -399,10 +432,22 @@ export function FormTemplateEditor({ mode, template = null }: FormTemplateEditor
                     <div className="space-y-2">
                       <Label>{t('builder.fieldLabelEn')}</Label>
                       <Input {...form.register(`fields_json.${index}.label.en`)} />
+                      {form.formState.errors.fields_json?.[index]?.label?.en ? (
+                        <p className="text-sm text-destructive" role="alert">
+                          {form.formState.errors.fields_json[index]?.label?.en?.message ??
+                            t('builder.fieldRequired')}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="space-y-2">
                       <Label>{t('builder.fieldLabelAr')}</Label>
                       <Input dir="rtl" {...form.register(`fields_json.${index}.label.ar`)} />
+                      {form.formState.errors.fields_json?.[index]?.label?.ar ? (
+                        <p className="text-sm text-destructive" role="alert">
+                          {form.formState.errors.fields_json[index]?.label?.ar?.message ??
+                            t('builder.fieldRequired')}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="space-y-2">
                       <Label>{t('builder.fieldHelpEn')}</Label>
@@ -410,6 +455,11 @@ export function FormTemplateEditor({ mode, template = null }: FormTemplateEditor
                         className="min-h-20"
                         {...form.register(`fields_json.${index}.help_text.en`)}
                       />
+                      {form.formState.errors.fields_json?.[index]?.help_text?.en ? (
+                        <p className="text-sm text-destructive" role="alert">
+                          {form.formState.errors.fields_json[index]?.help_text?.en?.message}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="space-y-2">
                       <Label>{t('builder.fieldHelpAr')}</Label>
@@ -418,10 +468,21 @@ export function FormTemplateEditor({ mode, template = null }: FormTemplateEditor
                         className="min-h-20"
                         {...form.register(`fields_json.${index}.help_text.ar`)}
                       />
+                      {form.formState.errors.fields_json?.[index]?.help_text?.ar ? (
+                        <p className="text-sm text-destructive" role="alert">
+                          {form.formState.errors.fields_json[index]?.help_text?.ar?.message}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="space-y-2">
                       <Label>{t('builder.fieldKey')}</Label>
                       <Input {...form.register(`fields_json.${index}.field_key`)} />
+                      {form.formState.errors.fields_json?.[index]?.field_key ? (
+                        <p className="text-sm text-destructive" role="alert">
+                          {form.formState.errors.fields_json[index]?.field_key?.message ??
+                            t('builder.fieldRequired')}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="space-y-2">
                       <Label>{t('builder.fieldType')}</Label>
@@ -458,6 +519,12 @@ export function FormTemplateEditor({ mode, template = null }: FormTemplateEditor
                           </Select>
                         )}
                       />
+                      {form.formState.errors.fields_json?.[index]?.field_type ? (
+                        <p className="text-sm text-destructive" role="alert">
+                          {form.formState.errors.fields_json[index]?.field_type?.message ??
+                            t('builder.fieldRequired')}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 

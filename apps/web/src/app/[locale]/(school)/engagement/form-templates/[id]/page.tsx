@@ -33,8 +33,6 @@ import {
 } from '../../_components/engagement-types';
 import { FormTemplateEditor } from '../../_components/form-template-editor';
 
-
-
 export default function EngagementFormTemplateDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? '';
@@ -186,12 +184,9 @@ export default function EngagementFormTemplateDetailPage() {
 
       {stats ? (
         <CompletionDashboard
-          consentGranted={stats.submitted}
-          consentTotal={stats.total}
-          paymentPaid={stats.total - stats.pending}
-          paymentTotal={stats.total}
-          registered={stats.submitted}
-          invited={stats.total}
+          variant="standalone_form"
+          submissionsReceived={stats.submitted}
+          submissionsExpected={stats.total}
         />
       ) : null}
 

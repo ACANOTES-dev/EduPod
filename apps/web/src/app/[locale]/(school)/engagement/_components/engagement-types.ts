@@ -774,10 +774,20 @@ export function shouldRenderField(
   return String(dependencyValue ?? '') === showWhenValue;
 }
 
-export function createEmptyField(displayOrder: number): EngagementFormField {
+export function createEmptyField(
+  displayOrder: number,
+  existingKeys: string[] = [],
+): EngagementFormField {
+  let candidateIndex = displayOrder + 1;
+  let candidate = `field_${candidateIndex}`;
+  while (existingKeys.includes(candidate)) {
+    candidateIndex += 1;
+    candidate = `field_${candidateIndex}`;
+  }
+
   return {
     id: crypto.randomUUID(),
-    field_key: `engagement_field_${displayOrder + 1}_${Math.random().toString(36).slice(2, 8)}`,
+    field_key: candidate,
     label: {
       en: '',
       ar: '',
