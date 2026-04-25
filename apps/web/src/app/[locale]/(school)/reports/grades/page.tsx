@@ -1,5 +1,6 @@
 'use client';
 
+import { Sparkles } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import {
@@ -14,79 +15,73 @@ import {
   YAxis,
 } from 'recharts';
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
-import { AiSummaryPanel } from '../_components/ai-summary-panel';
-import { ReportPageActions } from '../_components/report-page-actions';
+// ─── Mock data ────────────────────────────────────────────────────────────────
 
-// ─── Response shapes (match grade-analytics.service.ts) ──────────────────────
+const PASS_FAIL = [
+  { subject: 'Math', pass: 78, fail: 22 },
+  { subject: 'Science', pass: 82, fail: 18 },
+  { subject: 'English', pass: 88, fail: 12 },
+  { subject: 'Arabic', pass: 91, fail: 9 },
+  { subject: 'History', pass: 74, fail: 26 },
+  { subject: 'Physics', pass: 69, fail: 31 },
+];
 
-interface PassFailEntry {
-  subject_id: string;
-  subject_name: string;
-  year_group_name: string | null;
-  class_name: string | null;
-  pass_count: number;
-  fail_count: number;
-  total_count: number;
-  pass_rate: number;
-}
+const DISTRIBUTION = [
+  { range: '0–49', count: 8 },
+  { range: '50–59', count: 14 },
+  { range: '60–69', count: 28 },
+  { range: '70–79', count: 45 },
+  { range: '80–89', count: 52 },
+  { range: '90–100', count: 23 },
+];
 
-interface GradeDistributionBucket {
-  bucket_label: string;
-  min_score: number;
-  max_score: number;
-  count: number;
-  percentage: number;
-}
+const TOP_PERFORMERS = [
+  { name: 'Layla Mustafa', score: 96, year_group: 'Year 12' },
+  { name: 'Ahmed Al-Rashid', score: 94, year_group: 'Year 10' },
+  { name: 'Fatima Ali', score: 91, year_group: 'Year 11' },
+  { name: 'Sara Mohamed', score: 89, year_group: 'Year 12' },
+  { name: 'Adam Yusuf', score: 88, year_group: 'Year 10' },
+];
 
-interface StudentPerformanceEntry {
-  student_id: string;
-  student_name: string;
-  year_group_name: string | null;
-  average_score: number;
-  grade_count: number;
-}
+const BOTTOM_PERFORMERS = [
+  { name: 'Youssef Nasser', score: 48, year_group: 'Year 8' },
+  { name: 'Hana Saleh', score: 52, year_group: 'Year 7' },
+  { name: 'Omar Hassan', score: 55, year_group: 'Year 9' },
+  { name: 'Reem Aziz', score: 58, year_group: 'Year 8' },
+  { name: 'Khalid Ibrahim', score: 61, year_group: 'Year 10' },
+];
 
-interface TopBottomPerformersResult {
-  top_performers: StudentPerformanceEntry[];
-  bottom_performers: StudentPerformanceEntry[];
-}
+const GRADE_TRENDS = [
+  { term: 'T1 2024', avg: 72 },
+  { term: 'T2 2024', avg: 74 },
+  { term: 'T3 2024', avg: 73 },
+  { term: 'T1 2025', avg: 75 },
+  { term: 'T2 2025', avg: 77 },
+  { term: 'T3 2025', avg: 75 },
+];
 
-interface GradeTrendDataPoint {
-  period_label: string;
-  average_score: number;
-  student_count: number;
-}
+const SUBJECT_DIFFICULTY = [
+  { subject: 'Physics', avg: 64 },
+  { subject: 'Math', avg: 68 },
+  { subject: 'Chemistry', avg: 70 },
+  { subject: 'History', avg: 74 },
+  { subject: 'Science', avg: 79 },
+  { subject: 'English', avg: 83 },
+  { subject: 'Arabic', avg: 86 },
+];
 
-interface SubjectDifficultyEntry {
-  subject_id: string;
-  subject_name: string;
-  average_score: number;
-  student_count: number;
-  difficulty_rank: number;
-}
-
-interface GpaDistributionBucket {
-  bucket_label: string;
-  min_gpa: number;
-  max_gpa: number;
-  count: number;
-  percentage: number;
-}
-
-interface YearGroupOption {
-  id: string;
-  name: string;
-}
-
-interface SubjectOption {
-  id: string;
-  name: string;
-}
+const GPA_DIST = [
+  { range: '0.0–1.0', count: 4 },
+  { range: '1.0–2.0', count: 12 },
+  { range: '2.0–2.5', count: 18 },
+  { range: '2.5–3.0', count: 32 },
+  { range: '3.0–3.5', count: 45 },
+  { range: '3.5–4.0', count: 39 },
+];
 
 type Tab = 'pass-fail' | 'distribution' | 'performers' | 'trends' | 'difficulty' | 'gpa';
 
@@ -94,101 +89,12 @@ type Tab = 'pass-fail' | 'distribution' | 'performers' | 'trends' | 'difficulty'
 
 export default function GradeAnalyticsPage() {
   const t = useTranslations('reports');
-
   const [activeTab, setActiveTab] = React.useState<Tab>('pass-fail');
-  const [yearGroup, setYearGroup] = React.useState<string>('all');
-  const [subject, setSubject] = React.useState<string>('all');
-
-  const [yearGroupOptions, setYearGroupOptions] = React.useState<YearGroupOption[]>([]);
-  const [subjectOptions, setSubjectOptions] = React.useState<SubjectOption[]>([]);
-
-  const [passFail, setPassFail] = React.useState<PassFailEntry[]>([]);
-  const [distribution, setDistribution] = React.useState<GradeDistributionBucket[]>([]);
-  const [performers, setPerformers] = React.useState<TopBottomPerformersResult | null>(null);
-  const [trends, setTrends] = React.useState<GradeTrendDataPoint[]>([]);
-  const [difficulty, setDifficulty] = React.useState<SubjectDifficultyEntry[]>([]);
-  const [gpa, setGpa] = React.useState<GpaDistributionBucket[]>([]);
-
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    apiClient<{ data: YearGroupOption[] }>('/api/v1/year-groups')
-      .then((res) => setYearGroupOptions(res.data))
-      .catch((err: unknown) => console.error('[reports/grades] year-groups', err));
-    apiClient<{ data: SubjectOption[] } | SubjectOption[]>('/api/v1/subjects')
-      .then((res) => {
-        const list = Array.isArray(res) ? res : res.data;
-        setSubjectOptions(list);
-      })
-      .catch((err: unknown) => console.error('[reports/grades] subjects', err));
-  }, []);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const qs = new URLSearchParams();
-        if (yearGroup !== 'all') qs.set('year_group_id', yearGroup);
-        if (subject !== 'all') qs.set('subject_id', subject);
-        const suffix = qs.toString() ? `?${qs.toString()}` : '';
-
-        const [passFailRes, distRes, perfRes, trendsRes, diffRes, gpaRes] = await Promise.all([
-          apiClient<{ data: PassFailEntry[] } | PassFailEntry[]>(
-            `/api/v1/reports/analytics/grades/pass-fail-rates${suffix}`,
-          ),
-          apiClient<{ data: GradeDistributionBucket[] } | GradeDistributionBucket[]>(
-            `/api/v1/reports/analytics/grades/distribution${suffix}`,
-          ),
-          apiClient<{ data: TopBottomPerformersResult } | TopBottomPerformersResult>(
-            `/api/v1/reports/analytics/grades/top-bottom-performers${suffix}`,
-          ),
-          apiClient<{ data: GradeTrendDataPoint[] } | GradeTrendDataPoint[]>(
-            `/api/v1/reports/analytics/grades/trends${suffix}`,
-          ),
-          apiClient<{ data: SubjectDifficultyEntry[] } | SubjectDifficultyEntry[]>(
-            `/api/v1/reports/analytics/grades/subject-difficulty${
-              yearGroup !== 'all' ? `?year_group_id=${yearGroup}` : ''
-            }`,
-          ),
-          apiClient<{ data: GpaDistributionBucket[] } | GpaDistributionBucket[]>(
-            `/api/v1/reports/analytics/grades/gpa-distribution${
-              yearGroup !== 'all' ? `?year_group_id=${yearGroup}` : ''
-            }`,
-          ),
-        ]);
-
-        if (cancelled) return;
-        const pf = Array.isArray(passFailRes) ? passFailRes : passFailRes.data;
-        const dist = Array.isArray(distRes) ? distRes : distRes.data;
-        const perfRaw =
-          (perfRes as { data?: TopBottomPerformersResult }).data ??
-          (perfRes as TopBottomPerformersResult);
-        const tr = Array.isArray(trendsRes) ? trendsRes : trendsRes.data;
-        const diff = Array.isArray(diffRes) ? diffRes : diffRes.data;
-        const gp = Array.isArray(gpaRes) ? gpaRes : gpaRes.data;
-
-        setPassFail(pf);
-        setDistribution(dist);
-        setPerformers(perfRaw);
-        setTrends(tr);
-        setDifficulty(diff);
-        setGpa(gp);
-      } catch (err: unknown) {
-        if (cancelled) return;
-        console.error('[reports/grades] analytics', err);
-        setError(err instanceof Error ? err.message : t('analytics.loadError'));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [yearGroup, subject, t]);
+  const [yearGroup, setYearGroup] = React.useState('all');
+  const [subject, setSubject] = React.useState('all');
+  const [aiSummary, setAiSummary] = React.useState<string | null>(null);
+  const [aiLoading, setAiLoading] = React.useState(false);
+  const [predictMode, setPredictMode] = React.useState(false);
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'pass-fail', label: t('grades.tabPassFail') },
@@ -199,48 +105,39 @@ export default function GradeAnalyticsPage() {
     { key: 'gpa', label: t('grades.tabGPA') },
   ];
 
-  const aiData = React.useMemo(
-    () => ({
-      year_group_id: yearGroup === 'all' ? null : yearGroup,
-      subject_id: subject === 'all' ? null : subject,
-      tab: activeTab,
-      pass_fail_count: passFail.length,
-      avg_pass_rate:
-        passFail.length === 0
-          ? null
-          : Math.round(passFail.reduce((a, b) => a + b.pass_rate, 0) / passFail.length),
-      bucket_count: distribution.length,
-      hardest_subject: difficulty[0]?.subject_name ?? null,
-    }),
-    [yearGroup, subject, activeTab, passFail, distribution, difficulty],
-  );
+  const handleAiSummarise = async () => {
+    setAiLoading(true);
+    try {
+      await new Promise((r) => setTimeout(r, 800));
+      setAiSummary(t('grades.aiSummaryFallback'));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const PREDICT_TRENDS = [
+    ...GRADE_TRENDS,
+    { term: 'T1 2026 (P)', avg: null, predicted: 77 },
+    { term: 'T2 2026 (P)', avg: null, predicted: 79 },
+  ];
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('grades.title')}
-        description={t('grades.description')}
-        actions={<ReportPageActions disabled />}
-      />
-
-      <AiSummaryPanel
-        mode={{ kind: 'report', reportKey: 'grades', data: aiData }}
-        fallback={t('grades.aiSummaryFallback')}
-      />
+      <PageHeader title={t('grades.title')} description={t('grades.description')} />
 
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-4">
         <div>
           <p className="mb-1 text-sm font-medium text-text-primary">{t('yearGroup')}</p>
           <Select value={yearGroup} onValueChange={setYearGroup}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('attendance.allYearGroups')}</SelectItem>
-              {yearGroupOptions.map((yg) => (
-                <SelectItem key={yg.id} value={yg.id}>
-                  {yg.name}
+              {['Year 7', 'Year 8', 'Year 9', 'Year 10', 'Year 12'].map((yg) => (
+                <SelectItem key={yg} value={yg}>
+                  {yg}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -249,14 +146,14 @@ export default function GradeAnalyticsPage() {
         <div>
           <p className="mb-1 text-sm font-medium text-text-primary">{t('grades.subject')}</p>
           <Select value={subject} onValueChange={setSubject}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('grades.allSubjects')}</SelectItem>
-              {subjectOptions.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
+              {['Math', 'Science', 'English', 'Arabic', 'History', 'Physics'].map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -282,333 +179,280 @@ export default function GradeAnalyticsPage() {
         ))}
       </nav>
 
-      {loading && <p className="text-sm text-text-tertiary">{t('attendance.loading')}</p>}
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-          <p className="text-sm text-red-900">{error}</p>
+      {/* AI controls */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => void handleAiSummarise()}
+          disabled={aiLoading}
+        >
+          <Sparkles className="me-2 h-4 w-4 text-violet-500" />
+          {aiLoading ? t('analytics.generating') : t('analytics.summarise')}
+        </Button>
+        {activeTab === 'trends' && (
+          <Button size="sm" variant="outline" onClick={() => setPredictMode(!predictMode)}>
+            {predictMode ? t('analytics.hidePrediction') : t('analytics.predict')}
+          </Button>
+        )}
+      </div>
+
+      {aiSummary && (
+        <div className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4">
+          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
+          <p className="text-sm text-violet-900">{aiSummary}</p>
         </div>
       )}
 
-      {!loading && !error && (
-        <>
-          {/* Pass / Fail */}
-          {activeTab === 'pass-fail' && (
-            <div className="space-y-4">
-              <div className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-                {passFail.length === 0 ? (
-                  <p className="text-sm text-text-tertiary">{t('noData')}</p>
-                ) : (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={passFail} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="subject_name" className="text-xs" />
-                      <YAxis domain={[0, 100]} className="text-xs" />
-                      <Tooltip
-                        formatter={(value: number, name: string) =>
-                          name === 'pass_rate'
-                            ? [`${Math.round(value)}%`, t('grades.pass')]
-                            : [value, name]
-                        }
-                      />
-                      <Bar
-                        dataKey="pass_rate"
-                        name={t('grades.pass')}
-                        fill="#10b981"
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-              <div className="overflow-x-auto rounded-xl border border-border bg-surface">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-secondary">
-                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                        {t('grades.subject')}
-                      </th>
-                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                        {t('grades.pass')}
-                      </th>
-                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                        {t('grades.fail')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {passFail.length === 0 ? (
-                      <tr>
-                        <td colSpan={3} className="px-4 py-8 text-center text-sm text-text-tertiary">
-                          {t('noData')}
-                        </td>
-                      </tr>
-                    ) : (
-                      passFail.map((row) => (
-                        <tr
-                          key={row.subject_id}
-                          className="border-b border-border last:border-b-0 hover:bg-surface-secondary"
-                        >
-                          <td className="px-4 py-3 text-sm font-medium text-text-primary">
-                            {row.subject_name}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-emerald-600">
-                            {Math.round(row.pass_rate)}%
-                          </td>
-                          <td className="px-4 py-3 text-sm text-red-500">
-                            {Math.round(100 - row.pass_rate)}%
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Distribution */}
-          {activeTab === 'distribution' && (
-            <div className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-              <h3 className="mb-4 text-sm font-semibold text-text-primary">
-                {t('grades.distributionTitle')}
-              </h3>
-              {distribution.length === 0 ? (
-                <p className="text-sm text-text-tertiary">{t('noData')}</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={distribution} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis dataKey="bucket_label" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <Tooltip />
-                    <Bar
-                      dataKey="count"
-                      name={t('grades.studentCount')}
-                      fill="#6366f1"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          )}
-
-          {/* Performers */}
-          {activeTab === 'performers' && (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <PerformerTable
-                title={t('grades.topPerformers')}
-                tone="emerald"
-                rows={performers?.top_performers ?? []}
-                emptyLabel={t('noData')}
-              />
-              <PerformerTable
-                title={t('grades.bottomPerformers')}
-                tone="red"
-                rows={performers?.bottom_performers ?? []}
-                emptyLabel={t('noData')}
-              />
-            </div>
-          )}
-
-          {/* Trends */}
-          {activeTab === 'trends' && (
-            <div className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-              <h3 className="mb-4 text-sm font-semibold text-text-primary">
-                {t('grades.trendsTitle')}
-              </h3>
-              {trends.length === 0 ? (
-                <p className="text-sm text-text-tertiary">{t('noData')}</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={280}>
-                  <LineChart data={trends} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis dataKey="period_label" className="text-xs" />
-                    <YAxis domain={[40, 100]} className="text-xs" />
-                    <Tooltip
-                      formatter={(v: number) => [`${Math.round(v)}%`, t('grades.averageGrade')]}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="average_score"
-                      name={t('grades.averageGrade')}
-                      stroke="#6366f1"
-                      strokeWidth={2}
-                      dot={{ r: 4 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          )}
-
-          {/* Subject Difficulty */}
-          {activeTab === 'difficulty' && (
-            <div className="overflow-x-auto rounded-xl border border-border bg-surface">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border bg-surface-secondary">
-                    <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                      #
+      {/* Pass/Fail */}
+      {activeTab === 'pass-fail' && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-border bg-surface p-4 sm:p-6">
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={PASS_FAIL} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="subject" className="text-xs" />
+                <YAxis domain={[0, 100]} className="text-xs" />
+                <Tooltip />
+                <Bar dataKey="pass" name={t('grades.pass')} fill="#10b981" stackId="a" />
+                <Bar
+                  dataKey="fail"
+                  name={t('grades.fail')}
+                  fill="#ef4444"
+                  stackId="a"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-border bg-surface">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-surface-secondary">
+                  {['subject', 'pass', 'fail'].map((col) => (
+                    <th
+                      key={col}
+                      className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary"
+                    >
+                      {t(`grades.${col}`)}
                     </th>
-                    <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                      {t('grades.subject')}
-                    </th>
-                    <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                      {t('grades.averageScore')}
-                    </th>
-                    <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                      {t('grades.difficultyBar')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {difficulty.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-sm text-text-tertiary">
-                        {t('noData')}
-                      </td>
-                    </tr>
-                  ) : (
-                    difficulty.map((row) => (
-                      <tr
-                        key={row.subject_id}
-                        className="border-b border-border last:border-b-0 hover:bg-surface-secondary"
-                      >
-                        <td className="px-4 py-3 text-sm text-text-tertiary">
-                          {row.difficulty_rank}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-medium text-text-primary">
-                          {row.subject_name}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                              row.average_score >= 80
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : row.average_score >= 70
-                                  ? 'bg-amber-100 text-amber-700'
-                                  : 'bg-red-100 text-red-700'
-                            }`}
-                          >
-                            {Math.round(row.average_score)}%
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="h-2 w-32 overflow-hidden rounded-full bg-surface-secondary">
-                            <div
-                              className={`h-2 rounded-full ${
-                                row.average_score >= 80
-                                  ? 'bg-emerald-500'
-                                  : row.average_score >= 70
-                                    ? 'bg-amber-400'
-                                    : 'bg-red-400'
-                              }`}
-                              style={{ width: `${Math.min(row.average_score, 100)}%` }}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* GPA */}
-          {activeTab === 'gpa' && (
-            <div className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-              <h3 className="mb-4 text-sm font-semibold text-text-primary">
-                {t('grades.gpaDistributionTitle')}
-              </h3>
-              {gpa.length === 0 ? (
-                <p className="text-sm text-text-tertiary">{t('noData')}</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={gpa} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis dataKey="bucket_label" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <Tooltip />
-                    <Bar
-                      dataKey="count"
-                      name={t('grades.studentCount')}
-                      fill="#8b5cf6"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// ─── Sub-component: performer table ─────────────────────────────────────────
-
-function PerformerTable({
-  title,
-  rows,
-  tone,
-  emptyLabel,
-}: {
-  title: string;
-  rows: StudentPerformanceEntry[];
-  tone: 'emerald' | 'red';
-  emptyLabel: string;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-surface overflow-hidden">
-      <div
-        className={`border-b border-border px-4 py-3 ${
-          tone === 'emerald' ? 'bg-emerald-50' : 'bg-red-50'
-        }`}
-      >
-        <h3
-          className={`text-sm font-semibold ${
-            tone === 'emerald' ? 'text-emerald-800' : 'text-red-800'
-          }`}
-        >
-          {title}
-        </h3>
-      </div>
-      <table className="w-full">
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td className="px-4 py-8 text-center text-sm text-text-tertiary">{emptyLabel}</td>
-            </tr>
-          ) : (
-            rows.map((s, i) => (
-              <tr
-                key={s.student_id}
-                className="border-b border-border last:border-b-0 hover:bg-surface-secondary"
-              >
-                <td className="px-4 py-3 text-sm text-text-tertiary font-mono">{i + 1}</td>
-                <td className="px-4 py-3">
-                  <p className="text-sm font-medium text-text-primary">{s.student_name}</p>
-                  <p className="text-xs text-text-tertiary">{s.year_group_name ?? '—'}</p>
-                </td>
-                <td className="px-4 py-3 text-end">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                      tone === 'emerald'
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {PASS_FAIL.map((row) => (
+                  <tr
+                    key={row.subject}
+                    className="border-b border-border last:border-b-0 hover:bg-surface-secondary"
                   >
-                    {Math.round(s.average_score)}%
-                  </span>
-                </td>
+                    <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                      {row.subject}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-emerald-600">{row.pass}%</td>
+                    <td className="px-4 py-3 text-sm text-red-500">{row.fail}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Distribution histogram */}
+      {activeTab === 'distribution' && (
+        <div className="rounded-xl border border-border bg-surface p-4 sm:p-6">
+          <h3 className="mb-4 text-sm font-semibold text-text-primary">
+            {t('grades.distributionTitle')}
+          </h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={DISTRIBUTION} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <XAxis dataKey="range" className="text-xs" />
+              <YAxis className="text-xs" />
+              <Tooltip />
+              <Bar
+                dataKey="count"
+                name={t('grades.studentCount')}
+                fill="#6366f1"
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Top/Bottom Performers */}
+      {activeTab === 'performers' && (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div className="rounded-xl border border-border bg-surface overflow-hidden">
+            <div className="border-b border-border bg-emerald-50 px-4 py-3">
+              <h3 className="text-sm font-semibold text-emerald-800">
+                {t('grades.topPerformers')}
+              </h3>
+            </div>
+            <table className="w-full">
+              <tbody>
+                {TOP_PERFORMERS.map((s, i) => (
+                  <tr
+                    key={s.name}
+                    className="border-b border-border last:border-b-0 hover:bg-surface-secondary"
+                  >
+                    <td className="px-4 py-3 text-sm text-text-tertiary font-mono">{i + 1}</td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-text-primary">{s.name}</p>
+                      <p className="text-xs text-text-tertiary">{s.year_group}</p>
+                    </td>
+                    <td className="px-4 py-3 text-end">
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                        {s.score}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="rounded-xl border border-border bg-surface overflow-hidden">
+            <div className="border-b border-border bg-red-50 px-4 py-3">
+              <h3 className="text-sm font-semibold text-red-800">{t('grades.bottomPerformers')}</h3>
+            </div>
+            <table className="w-full">
+              <tbody>
+                {BOTTOM_PERFORMERS.map((s, i) => (
+                  <tr
+                    key={s.name}
+                    className="border-b border-border last:border-b-0 hover:bg-surface-secondary"
+                  >
+                    <td className="px-4 py-3 text-sm text-text-tertiary font-mono">{i + 1}</td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-text-primary">{s.name}</p>
+                      <p className="text-xs text-text-tertiary">{s.year_group}</p>
+                    </td>
+                    <td className="px-4 py-3 text-end">
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
+                        {s.score}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Trends */}
+      {activeTab === 'trends' && (
+        <div className="rounded-xl border border-border bg-surface p-4 sm:p-6">
+          <h3 className="mb-4 text-sm font-semibold text-text-primary">
+            {t('grades.trendsTitle')}
+          </h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart
+              data={predictMode ? PREDICT_TRENDS : GRADE_TRENDS}
+              margin={{ top: 4, right: 16, bottom: 0, left: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <XAxis dataKey="term" className="text-xs" />
+              <YAxis domain={[60, 90]} className="text-xs" />
+              <Tooltip />
+              <Line
+                type="monotone"
+                dataKey="avg"
+                name={t('grades.averageGrade')}
+                stroke="#6366f1"
+                strokeWidth={2}
+                dot={{ r: 4 }}
+                connectNulls={false}
+              />
+              {predictMode && (
+                <Line
+                  type="monotone"
+                  dataKey="predicted"
+                  name={t('analytics.predicted')}
+                  stroke="#6366f1"
+                  strokeWidth={2}
+                  strokeDasharray="6 3"
+                  dot={{ r: 4 }}
+                />
+              )}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Subject Difficulty */}
+      {activeTab === 'difficulty' && (
+        <div className="overflow-x-auto rounded-xl border border-border bg-surface">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-surface-secondary">
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  #
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('grades.subject')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('grades.averageScore')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('grades.difficultyBar')}
+                </th>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {SUBJECT_DIFFICULTY.map((row, i) => (
+                <tr
+                  key={row.subject}
+                  className="border-b border-border last:border-b-0 hover:bg-surface-secondary"
+                >
+                  <td className="px-4 py-3 text-sm text-text-tertiary">{i + 1}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-text-primary">{row.subject}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${row.avg >= 80 ? 'bg-emerald-100 text-emerald-700' : row.avg >= 70 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {row.avg}%
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-2 w-32 overflow-hidden rounded-full bg-surface-secondary">
+                      <div
+                        className={`h-2 rounded-full ${row.avg >= 80 ? 'bg-emerald-500' : row.avg >= 70 ? 'bg-amber-400' : 'bg-red-400'}`}
+                        style={{ width: `${row.avg}%` }}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* GPA Distribution */}
+      {activeTab === 'gpa' && (
+        <div className="rounded-xl border border-border bg-surface p-4 sm:p-6">
+          <h3 className="mb-4 text-sm font-semibold text-text-primary">
+            {t('grades.gpaDistributionTitle')}
+          </h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={GPA_DIST} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <XAxis dataKey="range" className="text-xs" />
+              <YAxis className="text-xs" />
+              <Tooltip />
+              <Bar
+                dataKey="count"
+                name={t('grades.studentCount')}
+                fill="#8b5cf6"
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }
