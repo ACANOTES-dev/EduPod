@@ -165,16 +165,29 @@ export default function ReportBuilderPage() {
 
   async function loadDraft() {
     try {
-      const draft = await apiClient<SavedReportDraftDto | undefined>('/api/v1/reports/builder/draft', { silent: true });
+      // Backend returns `undefined` (204 No Content) when there's no draft, and the
+      // draft object otherwise. The ResponseTransformInterceptor may wrap a 200 body
+      // in `{ data }`, so accept either shape — and treat any missing-field draft
+      // as "no draft" rather than crashing the builder on initial mount.
+      const raw = await apiClient<SavedReportDraftDto | { data?: SavedReportDraftDto } | undefined>(
+        '/api/v1/reports/builder/draft',
+        { silent: true },
+      );
       setDraftRestoredOnce(true);
-      if (!draft) return;
+      const draft: SavedReportDraftDto | undefined =
+        raw && typeof raw === 'object' && 'data' in raw
+          ? (raw as { data?: SavedReportDraftDto }).data
+          : (raw as SavedReportDraftDto | undefined);
+      // Guard every field — older drafts (or partial / corrupted persistence) may
+      // omit `columns_json`, causing `Cannot read properties of undefined`.
+      if (!draft || !draft.subject_key || !draft.columns_json?.field_ids) return;
       const next: BuilderState = {
         subjectKey: draft.subject_key,
         selectedFieldIds: draft.columns_json.field_ids,
         columnAggregations: Object.fromEntries(
           (draft.group_by_json?.measures ?? []).map((m) => [m.field_id, m.aggregation]),
         ),
-        filters: draft.filters_json as BuilderState['filters'],
+        filters: (draft.filters_json ?? []) as BuilderState['filters'],
         groupByFieldId: draft.group_by_json?.field_id ?? null,
         chartType: draft.chart_type ?? 'table',
         chartConfig: (draft.chart_config_json ?? {}) as BuilderState['chartConfig'],

@@ -2,7 +2,7 @@
 
 > **Purpose**: Complete inventory of every implemented feature, mapped to its code location. This document answers "what does the product do and where does it live?"
 > **Maintenance**: Update only when a feature change is confirmed final. This file is intended to be the architecture-level source of truth for product scope.
-> **Last verified**: 2026-04-24 (Regulatory module redesign Phases 1-12 shipped — BUGS-INVENTORY signed off)
+> **Last verified**: 2026-04-25 (Reports module rebuild Waves 1–5 shipped — KPI dashboard, custom builder, scheduled reports, alerts, AI features, board + compliance, share-to-inbox)
 
 ---
 
@@ -28,7 +28,7 @@
 | [Engagement](#16-engagement)                                                                       | `modules/engagement/`                                                                                                                                                                                                                     | 64            | 22             | 8           |
 | [Admissions](#17-admissions)                                                                       | `modules/admissions/`, `modules/public-households/`                                                                                                                                                                                       | 29            | 9              | 1           |
 | [Approvals](#18-approvals)                                                                         | `modules/approvals/`                                                                                                                                                                                                                      | 12            | 2              | 1           |
-| [Reports & Analytics](#19-reports--analytics)                                                      | `modules/reports/`                                                                                                                                                                                                                        | 66            | 20             | —           |
+| [Reports & Analytics](#19-reports--analytics)                                                      | `modules/reports/`                                                                                                                                                                                                                        | 95            | 22             | 4           |
 | [Website CMS & Public Web](#20-website-cms--public-web)                                            | `modules/website/`                                                                                                                                                                                                                        | 13            | 7              | —           |
 | [Search](#21-search)                                                                               | `modules/search/`                                                                                                                                                                                                                         | 1             | —              | 2           |
 | [Dashboards](#22-dashboards)                                                                       | `modules/dashboard/`                                                                                                                                                                                                                      | 3             | 3              | —           |
@@ -573,29 +573,47 @@
 
 ## 19. Reports & Analytics
 
-**What it does**: Cross-module reporting and BI layer spanning attendance, grades, demographics, admissions, staff, finance-related reports, board reports, scheduled reports, alerts, workload, and AI-assisted analysis.
+**What it does**: Multi-tenant analytics + BI layer. The hub renders 10 movable weekly KPIs with info-icon tooltips, severity colour-coding and click-through drill-downs (impl 14). Eleven domain reports — attendance, grades, demographics, admissions, staff, student progress, cross-module insights, plus legacy promotion/rollover, fee-generation, write-offs, notification-delivery, student-export, workload — render real data through impl 05's domain analytics services. The custom report builder (impl 02 + 16) is a first-class feature backed by a curated subject registry: each of the eleven primary subjects (Student, Staff, Household, Class, Invoice, Application, Behaviour Incident, Safeguarding Concern, Attendance Record, Grade, Payroll Entry) exposes a permission-scoped field tree, the engine compiles `subject + columns + filters + group-by` into a single Prisma query, and enforces RLS, permission scoping, a 10k row cap, and a 30s timeout. AI is the rebuild's flagship: three flag-gated features (`reports_narration` / `reports_ask_ai` / `reports_predictions`) — narrate dashboards, translate plain English to a builder report, predict student risk + attendance + cash-flow. All AI flags default off; tenants opt in via `Settings → Reports` and absorb Anthropic cost. Saved reports can be scheduled (cron worker, impl 08) or alert-bound (threshold worker, impl 09), and shared into the inbox as PDF/Excel/Word attachments (impl 13). Board (impl 06) and Compliance (impl 07) reports aggregate across modules with honest gap surfacing for regulators.
 
-**Backend**: `apps/api/src/modules/reports/`
+**Backend**: `apps/api/src/modules/reports/` (95 endpoints)
 
-- KPI dashboard and module reports
-- Custom report builder support
-- Scheduled reports and alert thresholds
-- AI narrative and predictions
-- Board and compliance report templates
+- **KPI dashboard** — `GET /v1/reports/analytics/dashboard`, `PUT /v1/reports/settings/kpi-visibility` (impl 03 + impl 21).
+- **Domain analytics** — attendance / grades / demographics / admissions / staff / student-progress / cross-module-insights endpoints (impl 05).
+- **Custom report builder** — `GET /v1/reports/builder/subjects`, `GET /v1/reports/builder/subjects/:key/fields`, `POST /v1/reports/builder/preview`, `POST /v1/reports/builder` (save), `POST /v1/reports/builder/:id/duplicate`, `PATCH/DELETE /v1/reports/builder/:id`, `POST /v1/reports/builder/:id/export` (impls 02 + 16 + 19).
+- **Saved-report draft autosave** — `GET / PUT / DELETE /v1/reports/builder/draft` (impl 16).
+- **AI features** — `POST /v1/reports/ai-narrator/dashboard`, `POST /v1/reports/ai-narrator/report/:reportKey`, `POST /v1/reports/ai-narrator/saved/:id` (impl 10), `POST /v1/reports/ai-ask-ai`, `GET /v1/reports/ai-ask-ai/history` (impl 11), `GET /v1/reports/predictions/student-risk/:studentId`, `GET /v1/reports/predictions/attendance-forecast/:yearGroupId`, `GET /v1/reports/predictions/cash-flow` (impl 12). All three gated by `@RequiresAiFlag`.
+- **Scheduled reports** — `POST /v1/reports/scheduled`, `GET /v1/reports/scheduled`, `PATCH /v1/reports/scheduled/:id`, `DELETE /v1/reports/scheduled/:id`, `GET /v1/reports/scheduled/:id/runs` (impl 08).
+- **Report alerts** — `POST /v1/reports/alerts`, `GET /v1/reports/alerts`, `PATCH /v1/reports/alerts/:id`, `DELETE /v1/reports/alerts/:id`, `GET /v1/reports/alerts/:id/runs` (impl 09).
+- **Sharing** — `POST /v1/reports/builder/:id/share` (writes a `report_share_log` row + posts to inbox), `GET /v1/reports/shared/:share_id` (impl 13).
+- **Board / Compliance** — `POST /v1/reports/board`, `GET /v1/reports/board/history`, `POST /v1/reports/compliance/generate`, `GET /v1/reports/compliance/history` (impls 06 + 07).
+- **Settings** — `GET /v1/reports/settings`, `PUT /v1/reports/settings/defaults`, `PUT /v1/reports/settings/kpi-visibility` (impl 21).
 
-**Frontend**: `apps/web/src/app/[locale]/(school)/reports/`
+**Frontend**: `apps/web/src/app/[locale]/(school)/reports/` (22 pages) + `settings/reports/` (1 page)
 
-- Reports hub
-- Attendance, grades, demographics, admissions, staff, and insights reports
-- Student progress
-- Builder
-- Board reports
-- Compliance templates
-- Scheduled reports and alerts
-- Ask AI
-- Promotion rollover, fee generation, write-offs, notification delivery, student export, workload
+- `/reports` — Hub + KPI dashboard with 10 cards, 6-month trends chart, AI summary panel (flag-gated), 15-tile quick-link grid.
+- `/reports/{attendance,grades,demographics,admissions,staff,student-progress,insights}` — Domain reports with real data, AI summary panel, info-tooltips, drill-down click-through.
+- `/reports/builder` and `/reports/builder/[id]` — Three-pane custom builder: Saved-Reports sidebar (favourite/rename/duplicate/share/delete) · Subject + Field-tree picker · Filters + Group-by + Chart-type · Preview pane. Editor / Share-history tabs on owned reports.
+- `/reports/ask-ai` — Plain-English query → builder pre-fill (flag-gated).
+- `/reports/scheduled` and `/reports/alerts` — Cron + threshold management with run history.
+- `/reports/board` and `/reports/compliance` — Aggregate reports for board packets and regulator submissions, with print:break-before-page CSS for browser-print PDF.
+- `/reports/shared/[share_id]` — Read-only snapshot view for share recipients.
+- `/reports/{promotion-rollover,fee-generation,write-offs,notification-delivery,student-export,workload}` — Legacy report pages (live data; some are pending replacement by builder reports).
+- `/settings/reports` — AI Features / KPI Dashboard / Defaults tabs with deep-link query/hash routing (impl 21).
 
-**Depends on**: Nearly every data domain in the platform.
+**Worker jobs** (4 BullMQ jobs across `apps/worker/`)
+
+- `reports:scheduled-run` — every 15 min, scans `scheduled_reports` due, fans out per saved report.
+- `reports:scheduled-deliver` — per saved report, runs the query through `QueryEngineService`, exports PDF/Excel/Word, emails recipients + writes `scheduled_report_runs` row.
+- `reports:alert-evaluate` — every 30 min, fans out per active tenant.
+- `reports:alert-evaluate-tenant` — per tenant, evaluates each alert's threshold and writes `report_alert_runs` (+ inbox notification on breach).
+
+**Tables**: `saved_reports`, `saved_report_drafts`, `scheduled_report_runs`, `report_alert_runs`, `report_share_log`, `reports_kpi_tenant_preferences`, `reports_tenant_settings`. All tenant-scoped, all `FORCE ROW LEVEL SECURITY` with `<table>_tenant_isolation` policies.
+
+**Permissions**: `analytics.view`, `analytics.manage_reports`, `analytics.export`, `reports.builder`, `reports.scheduled.*`, `reports.alerts.*`, `reports.share`, `reports.board.generate`, `reports.compliance.generate`, `reports.settings`. Plus per-subject permissions for builder field-tree visibility (e.g. `students.medical.view` controls medical fields).
+
+**Cross-module dependencies**: AdmissionsModule (funnel data), SchedulesModule (cover gaps KPI), AiFlagsModule (flag gating + audit), InboxModule (share-to-inbox), MailerModule (scheduled email delivery). See `module-blast-radius.md` for the full graph.
+
+**Depends on**: Nearly every tenant-scoped data domain — students, staff, classes, attendance, grades, behaviour, safeguarding, finance, payroll, admissions, audit-log.
 
 ---
 

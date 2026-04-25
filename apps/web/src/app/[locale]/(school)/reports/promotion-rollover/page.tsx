@@ -17,34 +17,30 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-// ---- Types ----
+// ─── Types — mirror reports.service.ts `promotionRollover` return shape ─────
 
 interface AcademicYear {
   id: string;
   name: string;
 }
 
-interface PromotionSummary {
+interface PromotionDetail {
+  year_group_id: string;
+  year_group_name: string;
+  promoted: number;
+  held_back: number;
+  graduated: number;
+}
+
+interface PromotionReport {
   promoted: number;
   held_back: number;
   graduated: number;
   withdrawn: number;
-}
-
-interface PromotionDetail {
-  student_id: string;
-  student_name: string;
-  from_grade: string;
-  to_grade: string;
-  status: 'promoted' | 'held_back' | 'graduated' | 'withdrawn';
-}
-
-interface PromotionReport {
-  summary: PromotionSummary;
   details: PromotionDetail[];
 }
 
-// ---- Page ----
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function PromotionRolloverPage() {
   const t = useTranslations('reports');
@@ -64,7 +60,9 @@ export default function PromotionRolloverPage() {
           setYearFilter(first.id);
         }
       })
-      .catch((err) => { console.error('[ReportsPromotionRolloverPage]', err); });
+      .catch((err: unknown) => {
+        console.error('[ReportsPromotionRolloverPage] years', err);
+      });
   }, []);
 
   React.useEffect(() => {
@@ -74,16 +72,15 @@ export default function PromotionRolloverPage() {
       `/api/v1/reports/promotion-rollover?academic_year_id=${yearFilter}`,
     )
       .then((res) => setReport(res.data))
-      .catch((err) => { console.error('[ReportsPromotionRolloverPage]', err); return setReport(null); })
+      .catch((err: unknown) => {
+        console.error('[ReportsPromotionRolloverPage] report', err);
+        setReport(null);
+      })
       .finally(() => setIsLoading(false));
   }, [yearFilter]);
 
-  const statusColor: Record<string, string> = {
-    promoted: 'text-emerald-700 bg-emerald-50',
-    held_back: 'text-amber-700 bg-amber-50',
-    graduated: 'text-blue-700 bg-blue-50',
-    withdrawn: 'text-red-700 bg-red-50',
-  };
+  const details = report?.details ?? [];
+  const hasDetails = details.length > 0;
 
   return (
     <div className="space-y-6">
@@ -118,10 +115,10 @@ export default function PromotionRolloverPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard label={t('promoted')} value={report.summary?.promoted ?? 0} />
-            <StatCard label={t('heldBack')} value={report.summary?.held_back ?? 0} />
-            <StatCard label={t('graduated')} value={report.summary?.graduated ?? 0} />
-            <StatCard label={t('withdrawn')} value={report.summary?.withdrawn ?? 0} />
+            <StatCard label={t('promoted')} value={report.promoted ?? 0} />
+            <StatCard label={t('heldBack')} value={report.held_back ?? 0} />
+            <StatCard label={t('graduated')} value={report.graduated ?? 0} />
+            <StatCard label={t('withdrawn')} value={report.withdrawn ?? 0} />
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-border bg-surface">
@@ -129,43 +126,43 @@ export default function PromotionRolloverPage() {
               <thead>
                 <tr className="border-b border-border">
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                    {t('studentName')}
+                    {t('yearGroup')}
                   </th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                    {t('fromGrade')}
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('promoted')}
                   </th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                    {t('toGrade')}
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('heldBack')}
                   </th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                    {t('status')}
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('graduated')}
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {(report.details ?? []).length === 0 ? (
+                {!hasDetails ? (
                   <tr>
                     <td colSpan={4} className="px-4 py-12 text-center text-sm text-text-tertiary">
                       {t('noData')}
                     </td>
                   </tr>
                 ) : (
-                  (report.details ?? []).map((row) => (
+                  details.map((row) => (
                     <tr
-                      key={row.student_id}
+                      key={row.year_group_id}
                       className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary"
                     >
                       <td className="px-4 py-3 text-sm font-medium text-text-primary">
-                        {row.student_name}
+                        {row.year_group_name}
                       </td>
-                      <td className="px-4 py-3 text-sm text-text-secondary">{row.from_grade}</td>
-                      <td className="px-4 py-3 text-sm text-text-secondary">{row.to_grade}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[row.status] ?? ''}`}
-                        >
-                          {t(row.status)}
-                        </span>
+                      <td className="px-4 py-3 text-end text-sm tabular-nums text-text-primary">
+                        {row.promoted}
+                      </td>
+                      <td className="px-4 py-3 text-end text-sm tabular-nums text-text-primary">
+                        {row.held_back}
+                      </td>
+                      <td className="px-4 py-3 text-end text-sm tabular-nums text-text-primary">
+                        {row.graduated}
                       </td>
                     </tr>
                   ))

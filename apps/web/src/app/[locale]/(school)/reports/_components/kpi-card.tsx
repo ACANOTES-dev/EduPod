@@ -104,7 +104,17 @@ export function KpiCard({ kpi }: KpiCardProps) {
         </div>
 
         <footer className="pointer-events-none relative z-10 mt-auto flex items-end justify-between gap-2">
-          <DeltaRow tone={tone} text={deltaText} hasDelta={kpi.delta !== null} />
+          {/*
+            Hide the delta whenever the KPI itself has no value (e.g. attendance
+            today before the first registers go in). A delta computed against
+            a null current value is meaningless ("−99.9%" vs missing data) and
+            confuses readers more than it informs them.
+          */}
+          <DeltaRow
+            tone={tone}
+            text={deltaText}
+            hasDelta={kpi.delta !== null && kpi.value !== null}
+          />
           {sparklineSeries ? (
             <div
               className="pointer-events-none h-7 w-16 shrink-0"

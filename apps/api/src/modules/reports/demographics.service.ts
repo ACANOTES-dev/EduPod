@@ -128,9 +128,11 @@ export class DemographicsService {
   }
 
   async ageDistribution(tenantId: string, yearGroupId?: string): Promise<AgeDistributionBucket[]> {
+    // `date_of_birth` is non-nullable in the Student schema (DateTime @db.Date), so
+    // a `{ not: null }` filter is invalid in Prisma 6 ("Argument `not` must not be null").
+    // Filter at the application layer instead — defensive against bad data only.
     const where: Record<string, unknown> = {
       status: 'active',
-      date_of_birth: { not: null },
     };
     if (yearGroupId) where.year_group_id = yearGroupId;
 

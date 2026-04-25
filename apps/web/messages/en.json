@@ -2449,6 +2449,7 @@
     "totalDiscounts": "Total Discounts",
     "startDate": "Start Date",
     "endDate": "End Date",
+    "clear": "Clear",
     "applyFilter": "Apply",
     "totalSent": "Total Sent",
     "totalDelivered": "Total Delivered",
@@ -2762,6 +2763,11 @@
       "conversionLabel": "conversion",
       "acceptedVsRejectedTitle": "Accepted vs Rejected by Month",
       "rejected": "Rejected",
+      "noFunnelData": "No applications submitted in the selected window.",
+      "noProcessingData": "No application decisions on record yet.",
+      "noMonthlyData": "No monthly application volume yet.",
+      "noRejectionData": "No rejected applications in the selected window.",
+      "noYearDemandData": "No year-group demand data in the selected window.",
       "aiSummaryFallback": "84 applications received this cycle. Overall enrolment conversion is 29%. Processing time has improved from 14 to 7 days. Year 7 receives the most applications."
     },
     "staff": {
@@ -3395,7 +3401,19 @@
           "allowances": "Allowances",
           "deductions": "Deductions",
           "communication": "Communication",
-          "address": "Address"
+          "address": "Address",
+          "academic": "Academic",
+          "amounts": "Amounts",
+          "audit": "Audit",
+          "context": "Context",
+          "dates": "Dates",
+          "days": "Days",
+          "medical": "Medical",
+          "referrals": "Referrals",
+          "staff": "Staff",
+          "student": "Student",
+          "target": "Target",
+          "timing": "Timing"
         }
       },
       "filters": {

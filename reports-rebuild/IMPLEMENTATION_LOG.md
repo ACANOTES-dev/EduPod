@@ -255,7 +255,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `completed`   | 2026-04-25T13:58 Europe/Dublin | `a39be0fc` |
 | 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `completed`   | 2026-04-25T14:25 Europe/Dublin | `f0f1cb29` |
 | 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `completed`   | 2026-04-25T14:33 Europe/Dublin | `2a73544c` |
-| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`     |                                |            |
+| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `deploying`   |                                |            |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
 
@@ -3734,3 +3734,11 @@ loadDraft` TypeError pre-dates impl 19 (originates in impl 16's
     cross-module DI consumers. Same pattern would apply if Wave 5
     cleanup wraps `AiFlagsService` in a thin facade exported from
     `@school/api/ai-flags`.
+
+### [PLAYWRIGHT LOCK] — impl 22 (polish + full walkthrough)
+
+- Holder: impl 22 verification — comprehensive walkthrough of every reports page/button/view per user request, plus translation/mobile/a11y polish
+- Started: 2026-04-25T14:45 Europe/Dublin
+- Until: released by closing the browser AND appending a follow-up release line. May span multiple ≤30-min sessions per Rule 27b — will release between phases and re-claim.
+- Scope note: AI features will be tested in disabled state only (no `ANTHROPIC_API_KEY` on prod per impl 18 record).
+

@@ -1189,3 +1189,62 @@ See `wellbeing_new/IMPLEMENTATION_LOG.md §2b` for the full rules + rationale.
 **How to detect**: grep for `apiClient<` calls in `apps/web/src/app/[locale]/(school)/regulatory/**` that do NOT destructure `.data` — each is a potential crash site.
 
 **Reference**: `regulatory-new/01-foundation.md` (Phase 1 of the regulatory redesign) and commit `633b4f08 fix(leave): unwrap /v1/leave/balance response envelope` for the precedent.
+
+## DZ-Reports-1: AI cost spiral — flag default-off + per-call audit
+
+**Risk**: The Reports module exposes three AI-powered features — `reports_narration` (executive summaries), `reports_ask_ai` (natural-language report builder), `reports_predictions` (student risk / attendance forecast / cash-flow forecast). Every call hits Anthropic and is billed per-token; a single tenant accidentally calling AI in a tight loop (or AI calls that don't cache) can spike daily Anthropic spend dramatically. Tenants — not the platform — pay for AI usage, but the platform owes tenants a cost ceiling and visibility.
+
+**Convention for the reports rebuild**:
+
+- **Every AI flag seeds `enabled: false`.** New tenants see no AI surfaces until an admin explicitly opts in via `Settings → Reports`. This is enforced in `packages/prisma/seed/ai-flags.ts` and verified by a migration check in impl 01.
+- **Every AI endpoint is gated** by `@UseGuards(AiFlagGuard) @RequiresAiFlag('<flag_key>')`. A 403 is returned when the flag is off — the frontend renders a "disabled" state with a link to settings, never an error toast.
+- **Per-call audit log.** `AiAuditService.log({ tenant_id, module_key, prompt_hash, response_hash, cost_usd_estimate, cached })` records every call in `ai_logs`. The Settings page's "{N} generations this month (≈ ${cost})" line reads directly from this table.
+- **10-minute / 24-hour cache.** Narration is cached 10 min per `(tenant, scope, locale, hash(payload))`. Ask-AI is cached 24h. Predictions are cached 24h per subject. Caching is the primary cost control — without it a single dashboard reload loop could rack up 60+ identical calls per hour.
+- **Rate limit per tenant.** 20 AI requests / hour per tenant per feature; the 21st returns `AI_RATE_LIMITED` and the panel renders a friendly "you've hit the cap, try later" message.
+- **`ANTHROPIC_API_KEY` missing → 503 `AI_UNAVAILABLE`.** This is the production fallback today (April 2026); no key is configured, so tenants who flip a flag on still see a graceful "AI is not configured for this environment" message rather than a crash.
+
+**How to detect**:
+
+- Look for any new AI-touching service — does it `@RequiresAiFlag`? Does it write to `ai_logs`? Does it consult the cache before calling Anthropic?
+- A new endpoint that bypasses `AiFlagGuard` is a regression — every flagged feature must round-trip through it.
+- Check `Settings → Reports` rendered "$0.00" for a flag that was clearly used: `cost_usd_estimate` is missing on that flag's calls (impl 12 known follow-up for predictions).
+
+**Reference**: `reports-rebuild/PLAN.md` §4 (AI features), impl 10/11/12/21 completion records in `reports-rebuild/IMPLEMENTATION_LOG.md`.
+
+## DZ-Reports-2: Custom builder bypass — query-engine is the only execution path
+
+**Risk**: The custom report builder exposes a Subject Registry (Student, Staff, Household, Class, Invoice, Application, Behaviour Incident, Safeguarding Concern, Attendance Record, Grade, Payroll Entry) with permission-scoped field trees. The query engine compiles the user's column / filter / group-by selections into a single Prisma query that runs through the RLS middleware, enforces a row cap (10k default), enforces a query timeout (30s), and elides fields the calling user lacks permission for. **Bypassing the engine — calling `prisma.<model>.findMany` directly with builder inputs, or writing raw SQL against builder fields — defeats RLS, permission scoping, AND the row cap.** A single ad-hoc query for "all students" in a multi-tenant prod DB is a privacy breach and a memory hazard.
+
+**Convention for the reports rebuild**:
+
+- **Every saved / preview / scheduled report query goes through `QueryEngineService.run()`** in `apps/api/src/modules/reports/query-engine/`. No exceptions.
+- **The engine is the only place that translates `subject_key` + `field_ids` + `filters_json` to Prisma.** Anything else is "ad-hoc" and prohibited.
+- **Permission-scoping happens inside the engine.** When a user lacks `students.medical.view`, the engine drops every field tagged `permission: 'students.medical.view'` from the SELECT — silently. The caller does not need to check; the engine does.
+- **Row cap and timeout** are non-negotiable. The engine enforces a 10,000-row cap (configurable per subject) and a 30-second per-query timeout. Increasing these requires a code review that justifies the new ceiling.
+- **No raw SQL in builder execution.** `$queryRawUnsafe` / `$executeRawUnsafe` are prohibited everywhere except the RLS middleware; the builder uses the typed Prisma builder API exclusively.
+- **Scheduled-report executor reuses the engine.** The cron worker calls `QueryEngineService.run()` with `tenant_id` set explicitly; do not write a parallel "scheduled" execution path.
+
+**How to detect**:
+
+- A new endpoint that accepts `subject_key + field_ids` and calls Prisma directly without going through `QueryEngineService` is the violation pattern.
+- Look for `prisma.student.findMany` / `prisma.application.findMany` etc. with selects that mirror the field-tree column names — those should route through the engine instead.
+- Look for `$queryRawUnsafe` calls in `apps/api/src/modules/reports/**` that are not in `rls.middleware.ts`.
+
+**Reference**: `reports-rebuild/PLAN.md` §3 (Subject registry + query engine), impl 02 completion record in `reports-rebuild/IMPLEMENTATION_LOG.md`.
+
+## DZ-Reports-3: Prisma `not: null` on non-nullable fields
+
+**Risk**: In Prisma 6, `WHERE field IS NOT NULL` syntax (`field: { not: null }`) is **only valid for nullable schema fields**. When applied to a non-nullable field (e.g. `Student.date_of_birth: DateTime @db.Date`), Prisma 6 raises `PrismaClientValidationError: Argument 'not' must not be null`, which surfaces to the user as an HTTP 500. The error is silent in test environments because the assertion only fires when the query reaches the DB driver. Demographics page hit this in production (impl 22 found-and-fixed precedent).
+
+**Convention for the reports rebuild**:
+
+- **Audit every `{ not: null }` filter.** Cross-reference the schema: if the field is non-nullable, drop the filter (the column is never null) and check at the application level for defence in depth, not at the DB level.
+- **For nullable fields**, `{ not: null }` is correct and idiomatic — keep it. Examples that are correct: `raw_score: { not: null }` on `Grade.raw_score: Float?`, `submitted_at: { not: null }` on `Application.submitted_at: DateTime?`.
+- **Add a defensive runtime check** in the loop: `if (!row.field) continue;` lets old / corrupt data slip through without crashing.
+
+**How to detect**:
+
+- `grep -rn "not: null" apps/api/src/modules/reports/`. For each match, look up the corresponding model field in `packages/prisma/schema.prisma` — `?` after the type means nullable (filter is fine), no `?` means required (filter will throw).
+- Watch for a new 500 on a previously-working endpoint after a Prisma upgrade — Prisma 5 → 6 was the trigger for this class of bug.
+
+**Reference**: `reports-rebuild/IMPLEMENTATION_LOG.md` impl 22 completion record (`fix(reports): demographics ageDistribution Prisma not-null on non-nullable field`).

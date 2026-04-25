@@ -123,11 +123,15 @@ If a module is not listed individually, it is either:
 
 ### ReportsModule / ReportsDataAccessService
 
-- **Contract**: cross-domain analytics aggregation
+- **Contract**: cross-domain analytics aggregation, KPI dashboard, custom report builder, scheduled reports + alerts, AI features (narration, ask-AI, predictions), board + compliance aggregation, share-to-inbox.
 - **Primary consumers**: dashboard, board reporting, workload/leadership reporting, compliance-style exports
-- **Imports**: AdmissionsModule, SchedulesModule, AiFlagsModule (impl 10 — gates the three reports AI features `reports_narration`, `reports_ask_ai`, `reports_predictions` via `@RequiresAiFlag(...)`)
-- **Blast radius**: MEDIUM-HIGH
-- **Notes**: this module is where table-shape changes surface after features seem to work elsewhere
+- **Imports**: AdmissionsModule, SchedulesModule, AiFlagsModule (impl 10 — gates the three reports AI features `reports_narration`, `reports_ask_ai`, `reports_predictions` via `@RequiresAiFlag(...)`), InboxModule (impl 13 — builder share dialog uses `/v1/inbox/people-search` and posts an inbox message with the snapshot attachment), MailerModule (impl 08/09 — scheduled-reports + alerts deliver via email).
+- **Exports**: `ReportsDataAccessService` (used by `regulatory` aggregations), `QueryEngineService` (impl 02 — used by the scheduled-reports worker in `apps/worker/src/processors/reports-scheduled.processor.ts`).
+- **Blast radius**: HIGH — table-shape changes surface here after features seem to work elsewhere; AI flag changes here propagate to billing visibility on `Settings → Reports`; saved-report shape changes break the scheduled-report cron and the share dialog simultaneously.
+- **Notes**:
+  - Five new tenant-scoped tables added by the rebuild: `saved_report_drafts`, `scheduled_report_runs`, `report_alert_runs`, `report_share_log`, `reports_kpi_tenant_preferences`, `reports_tenant_settings`. `saved_reports` extended with `description` / `visibility` / `is_favorite` / `last_executed_*`. Every new table has `FORCE ROW LEVEL SECURITY` + `<table>_tenant_isolation` policy.
+  - The custom builder query path goes through `QueryEngineService` only — see DZ-Reports-2 in `danger-zones.md`. Bypassing the engine defeats RLS, permission scoping, and the row cap.
+  - AI features default `enabled = false` — see DZ-Reports-1 for the cost-control contract.
 
 ### PolicyEngineModule
 
