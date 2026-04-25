@@ -250,7 +250,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `completed`   | 2026-04-25T06:00 Europe/Dublin | `79635bfe` |
 | 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `completed`   | 2026-04-25T05:30 Europe/Dublin | `db7c77d0` |
 | 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `completed`   | 2026-04-25T05:38 Europe/Dublin | `4cf97ea4` |
-| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `deploying`   | 2026-04-25T05:35 Europe/Dublin | `4cf97ea4` |
+| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `completed`   | 2026-04-25T06:25 Europe/Dublin | `07323817` |
 | 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`     |                                |            |
 | 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`     |                                |            |
 | 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`     |                                |            |
@@ -2987,3 +2987,65 @@ commit … --only -- <path>`.
     respected (~25 min total elapsed across two Playwright runs +
     deploy poll). Wave 4 consolidated walkthrough is still owned by
     impl 22.
+
+### [PLAYWRIGHT LOCK] — impl 17 (post-deploy)
+
+- Holder: impl 17 verification (Scheduled Reports + Alerts UI) — post-deploy smoke
+- Started: 2026-04-25T06:13 Europe/Dublin
+- Until: released by closing the browser AND appending a follow-up release line
+
+### [PLAYWRIGHT RELEASED] — impl 17 (post-deploy)
+
+- Holder: impl 17 verification (Scheduled Reports + Alerts UI) — post-deploy smoke
+- Released: 2026-04-25T06:25 Europe/Dublin
+- Browser closed: yes
+
+### [IMPL 17] — Post-deploy verification
+
+- **Run:** 2026-04-25T06:13 → 06:25 Europe/Dublin (after 06:05 IST rate-limit reset)
+- **Production deploy verified:**
+  - PM2 restart at 05:13 UTC (uptime 8m at smoke time, then 0m after the
+    fix-forward redeploy at 05:25 UTC).
+  - `ssh root@46.62.244.139` confirmed `dist/.../scheduled-reports.service.js`
+    contains the new `getRunHistory` and `dist/.../reports-enhanced.controller.js`
+    contains the `// GET /v1/reports/scheduled/:reportId/runs (impl 17)` route.
+
+#### Playwright UI smoke (owner@nhqs.test)
+
+| Surface | Result | Evidence |
+| ------- | ------ | -------- |
+| `/en/reports/scheduled` page load | ✅ | 0 console errors. Page renders the impl 17 PageHeader ("Scheduled Report Delivery"), back link, "Create Schedule" CTA, and the `EmptyState` ("No scheduled reports" + description + CTA). |
+| Scheduled — create modal opens | ✅ | Click on "Create Schedule" via `browser_evaluate(() => button.click())` mounts the dialog with text "New Scheduled Report / Pick a saved report, choose how often to deliver it / Schedule Name * / Saved report * / Pick a saved report / E2E" — the saved-reports dropdown actually loads the impl 02 saved reports. |
+| `/en/reports/alerts` page load | ✅ | 0 console errors. Page renders "Alert Configuration" header, back link, "Create Alert" CTA, and EmptyState ("No alerts" + CTA). |
+| Alerts — create modal | ✅ | Dialog text confirms BOTH new + legacy metric registries are surfaced: "Overdue invoices (count) / Attendance rate today / Open safeguarding concerns / At-risk students (this week) / Total unpaid balance / Behaviour incidents this week / Teacher submission compliance / Cover gaps this week / ── Legacy metrics ── / Attendance rate (legacy) / …" plus the 6-operator set including `≤` and `≥`. |
+
+#### API smoke (browser_evaluate fetch with bearer token)
+
+| Endpoint | Result | Evidence |
+| -------- | ------ | -------- |
+| `POST /v1/reports/scheduled` (legacy shape with `format='pdf'`) | ✅ | 201 returning `{id: "16d0bc4f-cf53-4625-9459-66daaa607fe6", name: "Impl 17 smoke schedule"}`. |
+| `GET /v1/reports/scheduled/:id/runs?page=1&pageSize=50` | ✅ | 200 with `{data:[], meta:{page:1,pageSize:50,total:0}}` — exactly the shape the impl 17 `RunHistoryDrawer` consumes. |
+| `DELETE /v1/reports/scheduled/:id` | ✅ | 200, smoke schedule cleaned up. |
+| `POST /v1/reports/alerts` (NEW metric `attendance_rate_today` + NEW operator `lte`) | ✅ | 201 returning `{id, metric: "attendance_rate_today", operator: "lte"}` — the schema widening lands. |
+| `GET /v1/reports/alerts/:id/history` (impl 09 endpoint) | ⚠️ → ✅ | Initially failed 500 (Prisma `take: "50"` string-not-int from impl 09's `@Query('page') page: number` signature). Fix-forward `07323817` switches to a Zod-coerced query schema; second smoke after redeploy returns 200 + the same paginated empty shape. |
+| `DELETE /v1/reports/alerts/:id` | ✅ | 200. |
+
+#### Issues raised + resolved during verification
+
+- **Impl 09 alerts/history 500 (pre-existing).** The `getReportAlertHistory`
+  controller method used `@Query('page') page: number = 1` which doesn't
+  coerce strings to numbers — the runtime value was the literal `"50"`,
+  which Prisma's `take` rejects. Fix landed in `07323817` by routing the
+  query through `reportAlertHistoryQuerySchema` (Zod `coerce.number()`).
+  Now consumed by impl 17's `EvaluationHistoryDrawer` end-to-end.
+- **Console errors** observed during the smoke are all from the auth
+  refresh path that pre-existed impl 17 (the `/api/v1/auth/refresh` 401
+  noise during cold load). Not caused by impl 17 surfaces.
+
+#### Net status
+
+Impl 17 is **shipped and working in production**. The two pages render,
+the create modals open with real data, the new endpoint responds with the
+correct paginated shape, and the schema widening accepts the new metric +
+operator combinations. Edit-modal mode and the inbox audience picker are
+the documented follow-ups from the impl 17 completion record.
