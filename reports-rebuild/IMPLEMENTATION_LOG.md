@@ -215,7 +215,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `completed`   | 2026-04-24T22:40 Europe/Dublin | `6629dc14` |
 | 11  | AI Ask-AI service                                     | 3    | 01, 02         | `completed` | 2026-04-24T22:35 Europe/Dublin | `20b6899c` |
 | 12  | AI Predictions service                                | 3    | 01             | `completed` | 2026-04-25T00:35 Europe/Dublin | `7c08a0ad` |
-| 13  | Report Sharing service                                | 3    | 01, 04         | `pending`   |                                |            |
+| 13  | Report Sharing service                                | 3    | 01, 04         | `deploying` |                                |            |
 | 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `pending`   |                                |            |
 | 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `pending`   |                                |            |
 | 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `pending`   |                                |            |
@@ -1889,6 +1889,33 @@ tenant(s)` — impl 09 cron firing every 30 min, fanning out per-tenant
 All Wave 2 + Wave 3 impls (01–12) are **deployed and verifiable** on
 production. Impl 13 (Report Sharing) remains the last `pending` row in
 Wave 3.
+
+### [WAVE 3 SHARED-FILE CLAIM] — impl 13
+
+- Claims (surgical, region-scoped):
+  - `apps/api/src/modules/reports/reports.module.ts` — APPEND-ONLY: add
+    `InboxModule` + `S3Module` to `imports`; add
+    `ReportSharingController` to `controllers`; add
+    `ReportSharingService` + `SnapshotStorageService` to `providers`. No
+    re-ordering of existing entries. All other Wave 3 impls (08–12) are
+    `completed`, so no live siblings to coordinate with.
+  - `packages/shared/src/reports/share.ts` — APPEND-ONLY: add
+    `shareReportResponseSchema`, `sharedSnapshotViewSchema`, and
+    `reportShareHistoryEntrySchema`. The existing
+    `createReportShareSchema` + `reportShareAudienceSchema` from impl 01
+    are preserved unchanged.
+  - All other files are NEW under
+    `apps/api/src/modules/reports/report-sharing/` — no shared-file edits.
+- Explicitly **NOT** touching:
+  - `apps/api/src/modules/reports/reports-enhanced.controller.ts` — the
+    new share endpoints live on a dedicated
+    `ReportSharingController`. Rule 21 conflict avoided.
+  - `apps/api/src/modules/reports/custom-report-builder.service.ts` —
+    the share service consumes its public `getSavedReport` /
+    `executeReport` interface only.
+  - `packages/prisma/schema.prisma` — `ReportShareLog` model and RLS
+    policy already landed in impl 01.
+- Until: committed OR flipped to `🛑 blocked`.
 
 #### Correction to earlier completion records
 

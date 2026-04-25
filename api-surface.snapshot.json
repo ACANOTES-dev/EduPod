@@ -9616,6 +9616,20 @@
     ]
   },
   {
+    "method": "POST",
+    "path": "/v1/reports/builder/:reportId/share",
+    "controller": "ReportSharingController",
+    "module": "reports",
+    "permission": "reports.share"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/reports/builder/:reportId/shares",
+    "controller": "ReportSharingController",
+    "module": "reports",
+    "permission": "reports.share"
+  },
+  {
     "method": "DELETE",
     "path": "/v1/reports/builder/draft",
     "controller": "SavedReportDraftController",
@@ -9834,6 +9848,13 @@
     "controller": "ReportsEnhancedController",
     "module": "reports",
     "permission": "analytics.manage_reports"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/reports/shared/:shareId",
+    "controller": "ReportSharingController",
+    "module": "reports",
+    "permission": "reports.view"
   },
   {
     "method": "GET",

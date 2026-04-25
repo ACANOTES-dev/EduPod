@@ -14,7 +14,9 @@ import { FinanceModule } from '../finance/finance.module';
 import { GdprModule } from '../gdpr/gdpr.module';
 import { GradebookModule } from '../gradebook/gradebook.module';
 import { HouseholdsModule } from '../households/households.module';
+import { InboxModule } from '../inbox/inbox.module';
 import { PayrollModule } from '../payroll/payroll.module';
+import { S3Module } from '../s3/s3.module';
 import { SchedulesModule } from '../schedules/schedules.module';
 import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { StudentsModule } from '../students/students.module';
@@ -43,10 +45,24 @@ import { ComplianceReportService } from './compliance-report.service';
 import { CrossModuleInsightsService } from './cross-module-insights.service';
 import { CustomReportBuilderService } from './custom-report-builder.service';
 import { DemographicsService } from './demographics.service';
+// New export pipeline (impl 04) — fronts three format-specific renderers
+// (PDF / Excel / Word) and is consumed by impl 13 (sharing) plus impl 08
+// (scheduled-reports worker, via reuse of the same buffer contract).
+import { ExcelRenderer } from './exports/renderers/excel-renderer';
+import { PdfRenderer } from './exports/renderers/pdf-renderer';
+import { WordRenderer } from './exports/renderers/word-renderer';
+import { ReportExportService } from './exports/report-export.service';
 import { GradeAnalyticsService } from './grade-analytics.service';
 import { QueryEngineService } from './query-engine/query-engine.service';
 import { ReportAlertsService } from './report-alerts.service';
-import { ReportExportService } from './report-export.service';
+// Legacy export service — only consumed by the legacy
+// `POST /v1/reports/export/excel` endpoint on `ReportsEnhancedController`.
+// Renamed in impl 13 so the new pipeline (`exports/report-export.service`)
+// can land alongside it without DI-token collision.
+import { LegacyReportExportService } from './report-export.service';
+import { ReportSharingController } from './report-sharing/report-sharing.controller';
+import { ReportSharingService } from './report-sharing/report-sharing.service';
+import { SnapshotStorageService } from './report-sharing/snapshot-storage.service';
 import { ReportsDataAccessService } from './reports-data-access.service';
 import { ReportsEnhancedController } from './reports-enhanced.controller';
 import { ReportsController } from './reports.controller';
@@ -72,6 +88,13 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     AiFlagsModule,
     ConfigurationModule,
     GdprModule,
+    // Impl 13 (Report Sharing) — exposes ConversationsService for the
+    // share → inbox broadcast pipeline, plus S3Service for snapshot
+    // artifact uploads. InboxModule re-exports ConversationsService;
+    // S3Module exports S3Service. Neither needs `forwardRef` —
+    // there's no circular dependency between reports and inbox/s3.
+    InboxModule,
+    S3Module,
     forwardRef(() => AcademicsModule),
     forwardRef(() => AdmissionsModule),
     forwardRef(() => ApprovalsModule),
@@ -109,6 +132,14 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     // before ReportsEnhancedController so its specific path prefix is
     // matched ahead of any dynamic segment on the enhanced controller.
     AiAskAiController,
+    // ReportSharingController (impl 13) owns
+    // `/v1/reports/builder/:reportId/share`,
+    // `/v1/reports/builder/:reportId/shares`, and
+    // `/v1/reports/shared/:shareId`. Registered before
+    // `ReportsEnhancedController` so the more-specific suffix routes
+    // (`/share`, `/shares`) resolve ahead of the enhanced controller's
+    // generic `builder/:reportId` route which uses `ParseUUIDPipe`.
+    ReportSharingController,
     ReportsEnhancedController,
   ],
   providers: [
@@ -147,11 +178,23 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     // Ask-AI service (impl 11) — translates natural-language questions
     // into builder query proposals via the curated subject registry.
     AiAskAiService,
+    LegacyReportExportService,
+    // New export pipeline (impl 04). The renderer trio is wired here so
+    // every consumer (sharing, scheduled-reports, on-demand HTTP export)
+    // resolves the same instance.
     ReportExportService,
+    PdfRenderer,
+    ExcelRenderer,
+    WordRenderer,
     // Subject registry + query engine + builder drafts (impl 02)
     ReportsSubjectRegistryService,
     QueryEngineService,
     SavedReportDraftService,
+    // Report sharing (impl 13) — orchestrator for the
+    // export → S3 → inbox broadcast → audit pipeline plus the
+    // read-only snapshot view.
+    ReportSharingService,
+    SnapshotStorageService,
   ],
   exports: [
     ReportsDataAccessService,

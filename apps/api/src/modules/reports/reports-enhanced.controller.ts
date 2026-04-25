@@ -78,7 +78,7 @@ import { DemographicsService } from './demographics.service';
 import { GradeAnalyticsService } from './grade-analytics.service';
 import { QueryEngineService } from './query-engine/query-engine.service';
 import { ReportAlertsService } from './report-alerts.service';
-import { ReportExportService } from './report-export.service';
+import { LegacyReportExportService } from './report-export.service';
 import { ScheduledReportsService } from './scheduled-reports.service';
 import { StaffAnalyticsService } from './staff-analytics.service';
 import { StudentProgressService } from './student-progress.service';
@@ -115,7 +115,7 @@ export class ReportsEnhancedController {
     private readonly reportAlerts: ReportAlertsService,
     private readonly aiNarrator: AiReportNarratorService,
     private readonly aiPredictions: AiPredictionsService,
-    private readonly reportExport: ReportExportService,
+    private readonly reportExport: LegacyReportExportService,
     private readonly queryEngine: QueryEngineService,
     private readonly permissionCache: PermissionCacheService,
   ) {}

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ReportExportService } from './report-export.service';
+import { LegacyReportExportService } from './report-export.service';
 
 // Mock xlsx so the Excel path works without the real library
 const mockBookNew = jest.fn().mockReturnValue({});
@@ -28,15 +28,15 @@ jest.mock('puppeteer', () => ({
   }),
 }), { virtual: true });
 
-describe('ReportExportService', () => {
-  let service: ReportExportService;
+describe('LegacyReportExportService', () => {
+  let service: LegacyReportExportService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ReportExportService],
+      providers: [LegacyReportExportService],
     }).compile();
 
-    service = module.get<ReportExportService>(ReportExportService);
+    service = module.get<LegacyReportExportService>(LegacyReportExportService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -107,7 +107,7 @@ describe('ReportExportService', () => {
     // Override puppeteer mock to throw
     jest.resetModules();
     // Re-instantiate service with a version that won't load puppeteer
-    const serviceWithNoPuppeteer = new ReportExportService();
+    const serviceWithNoPuppeteer = new LegacyReportExportService();
 
     // Force puppeteer require to fail by patching the internal call
     const originalGenerateBrandedPdf = serviceWithNoPuppeteer.generateBrandedPdf.bind(serviceWithNoPuppeteer);
@@ -128,7 +128,7 @@ describe('ReportExportService', () => {
   it('should include school name and date in generated HTML', async () => {
     // Access private method indirectly via the service — we can test the HTML via fallback
     // Create a service where puppeteer fails
-    const svc = new ReportExportService();
+    const svc = new LegacyReportExportService();
 
     // We test that the service does not throw with empty data
     const result = await svc.generateBrandedPdf([], { title: 'Empty Report', school_name: 'My School' });

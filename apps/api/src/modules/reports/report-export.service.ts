@@ -18,8 +18,8 @@ export interface ExportResult {
  * Uses existing xlsx library for Excel and Puppeteer PDF pipeline where available.
  */
 @Injectable()
-export class ReportExportService {
-  private readonly logger = new Logger(ReportExportService.name);
+export class LegacyReportExportService {
+  private readonly logger = new Logger(LegacyReportExportService.name);
 
   async generateFormattedExcel(
     data: unknown[],

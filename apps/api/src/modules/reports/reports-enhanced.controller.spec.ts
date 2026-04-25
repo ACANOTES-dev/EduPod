@@ -15,7 +15,7 @@ import { DemographicsService } from './demographics.service';
 import { GradeAnalyticsService } from './grade-analytics.service';
 import { QueryEngineService } from './query-engine/query-engine.service';
 import { ReportAlertsService } from './report-alerts.service';
-import { ReportExportService } from './report-export.service';
+import { LegacyReportExportService } from './report-export.service';
 import { ReportsEnhancedController } from './reports-enhanced.controller';
 import { ScheduledReportsService } from './scheduled-reports.service';
 import { StaffAnalyticsService } from './staff-analytics.service';
@@ -169,7 +169,7 @@ describe('ReportsEnhancedController', () => {
         { provide: ReportAlertsService, useValue: mockReportAlerts },
         { provide: AiReportNarratorService, useValue: mockAiNarrator },
         { provide: AiPredictionsService, useValue: mockAiPredictions },
-        { provide: ReportExportService, useValue: mockReportExport },
+        { provide: LegacyReportExportService, useValue: mockReportExport },
         { provide: QueryEngineService, useValue: mockQueryEngine },
         { provide: PermissionCacheService, useValue: mockPermissionCache },
       ],
