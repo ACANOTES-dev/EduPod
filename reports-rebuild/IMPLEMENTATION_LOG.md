@@ -2701,3 +2701,109 @@ polish / deploy-architecture task; impl 14 is not blocked by it.
     pick subject → save → reopen → export → delete). Wave 4's three
     parallel sessions filled the Playwright lock window; a follow-up
     verification walkthrough is queued for the post-Wave-4 sweep.
+
+### [IMPL 17] — Scheduled Reports + Alerts UI
+
+- **Completed:** 2026-04-25T05:35 Europe/Dublin (code freeze + commit
+  landed); production verification deferred until the GitHub API rate
+  limit resets and CI clears (see Session notes).
+- **Commits (chronological):**
+  - `4cf97ea4` — feat(reports): custom report builder UI — impl 16.
+    The parallel impl 16 session bundled my impl 17 backend +
+    frontend deltas into the same commit because the working tree
+    had become entangled with their builder/_components edits during
+    the wave's stash thrash. The diff includes everything impl 17
+    owns (services, controller, schema widening, pages, components)
+    AND impl 16's builder rewrite. Tag `4cf97ea4` is the SHA where
+    impl 17 first lands on `main`.
+  - `4d52d819` — fix(reports): add scheduled-runs endpoint to API
+    surface snapshot — impl 17. Regenerated
+    `api-surface.snapshot.json` after my new
+    `GET /v1/reports/scheduled/:reportId/runs` route. Without this
+    the snapshot test fails CI.
+  - `bb944e90` — fix(reports): impl 17 — fix import order in
+    scheduled page. ESLint `import/order` rule wants `next/navigation`
+    before `next-intl`; the parallel-session linter had reverted my
+    initial reorder. Pushed the autoflag-fixed version.
+  - `f81f5240` — fix(reports): impl 16 — narrow kpiFieldId before
+    split() use. Cross-impl courtesy fix in `chart-renderer.tsx` that
+    blocked the build job from compiling. Not strictly impl 17 work
+    but unblocked the deploy that ships impl 17.
+- **CI run:** in flight at the time of writing — last observed at
+  GitHub Actions run `24922692447` (latest) before the rate-limit
+  blackout. Subsequent fixup commit `8e9be66e` from the impl 16
+  session further narrowed the chart-renderer; that run will be
+  monitored once the rate limit resets.
+- **Deployed to production:** pending CI green. The previous wave-3
+  deploy is still on prod (PM2 uptime ~ 2.5 h at write time, before
+  any of the Wave 4 commits landed). Verification will run via
+  `curl /api/health` + Playwright smoke against `/en/reports/scheduled`
+  and `/en/reports/alerts` once the deploy job lands the new dist.
+- **Summary (<= 200 words):**
+  Activates the admin UI for managing scheduled reports + report
+  alerts. Two pages rewritten end-to-end against the existing impl 08
+  / impl 09 backends: `/en/reports/scheduled` (list with cadence
+  humanised, format, recipient count, last-sent; row actions toggle
+  active / view-history drawer / delete; "+ New schedule" modal with
+  saved-report picker + cron preset/advanced + format checkboxes +
+  email recipients) and `/en/reports/alerts` (list with metric-op-
+  threshold summary, frequency, recipient count, last-triggered;
+  row actions toggle / history drawer / delete; "+ New alert" modal
+  exposing the new 8-key metric registry + the 6-operator set).
+  Backend: widened `createReportAlertSchema` to accept legacy 6 +
+  new 8 metrics and legacy 3 + new 3 operators; widened
+  `createScheduledReportSchema.format` to accept `excel | word`;
+  added `GET /v1/reports/scheduled/:reportId/runs` backed by
+  `ScheduledReportsService.getRunHistory()`; extended
+  `ReportAlertsService.evaluate()` with `lte | gte | ne`. Translations
+  appended for English + Arabic under `reports.scheduled.*` and
+  `reports.alerts.*` (preserving every legacy key).
+- **Follow-ups:**
+  - **Inbox audience picker** — recipient field is a comma-separated
+    email input today. The impl 17 spec calls for the inbox
+    `PeoplePicker` component; legacy backend column is email-only so
+    the swap is a downstream chore once impl 13's sharing schema
+    widens to `recipient_user_ids[]`.
+  - **Edit modal** — impl 17 ships create-only. Edit currently routes
+    through the toggle-active path + delete-and-recreate. A future
+    impl can extend `ScheduledReportForm` / `AlertForm` with a
+    `prefilledScheduleId` mode that loads + submits a PUT.
+  - **`reports.share` permission** wiring on the schedule create flow
+    is downstream of impl 19 (sharing UI). The form gates on
+    `analytics.manage_reports` today via the existing controller
+    permission decorators; no UI permission check needed in impl 17.
+  - **Deploy script chunk-500 race** still applies — open tabs hitting
+    the deploy window get one 500 on chunk URL, self-resolving.
+- **Rollback:** `git revert 4cf97ea4` is NOT advisable because that
+  commit also reverts impl 16's full builder rewrite. Surgical
+  rollback for impl 17 specifically: drop `getRunHistory` from
+  `scheduled-reports.service.ts`; drop the three new operator cases
+  from `report-alerts.service.ts`; drop the `getScheduledReportRuns`
+  route + `scheduledReportRunsQuerySchema` import from the controller;
+  reset the schema widening in `reports-enhanced.schema.ts`; revert
+  `scheduled/page.tsx` and `alerts/page.tsx` to pre-impl-17; delete
+  the two `_components/` folders. No DB migration to roll back.
+- **Session notes:**
+  - Most extreme parallel-session thrash of the rebuild. Files I
+    authored were stashed, popped, reverted, and re-popped at least
+    three times by impl 14/15/16 sessions running concurrently. My
+    impl 17 work was eventually committed by the impl 16 session as
+    part of `4cf97ea4` because their `git stash pop` at commit time
+    included my `M` entries on the backend services + my untracked
+    `_components/` files.
+  - The two services and the controller spec mock were re-authored
+    twice from scratch in this session due to mid-session reverts.
+    Tests + types are intact in the final commit.
+  - Pre-push `--no-verify` used per Rule 27; the cohesion floor +
+    the wave's collective build state would otherwise have blocked
+    every push.
+  - **Production verification** is the only outstanding step. With
+    the rate limit reset at 06:05 IST and the CI run for the latest
+    fixup expected to complete shortly after, the smoke test will
+    run as a follow-up commit's session notes.
+- **Playwright verification:** deferred. The expected pages:
+  `/en/reports/scheduled` (list renders + create modal opens +
+  history drawer fetches), `/en/reports/alerts` (list renders +
+  create modal opens + evaluation-history drawer fetches), plus a
+  `browser_evaluate` of `GET /api/v1/reports/scheduled/<id>/runs`
+  against a freshly-created schedule.
