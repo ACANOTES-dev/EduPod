@@ -20,6 +20,10 @@
 #       Print space-separated impl numbers in the same wave that are NOT
 #       `completed` AND have a lower number than this impl. Exit 0.
 #
+#   status-of    <log_path> <impl>
+#       Print the current status string for an impl (e.g. `completed`,
+#       `merging`, `pending`). Exit 0 if found, 1 if not.
+#
 # This script reads the wave-status table in §4 of an IMPLEMENTATION_LOG.md
 # file and parses one row per implementation. The expected row format is:
 #
@@ -46,6 +50,7 @@ Usage:
   wave-merge-queue.sh check-clear     <log> <impl>
   wave-merge-queue.sh active-merger   <log>
   wave-merge-queue.sh wave-of         <log> <impl>
+  wave-merge-queue.sh status-of       <log> <impl>
   wave-merge-queue.sh lower-incomplete <log> <impl> <wave>
   wave-merge-queue.sh self-test
 USAGE
@@ -95,6 +100,17 @@ cmd_wave_of() {
     return 1
   fi
   echo "$wave"
+}
+
+cmd_status_of() {
+  local log="$1" impl="$2"
+  local status
+  status=$(parse_table "$log" | awk -F, -v i="$impl" '$1 == i { print $3; exit }')
+  if [[ -z "$status" ]]; then
+    echo "not found" >&2
+    return 1
+  fi
+  echo "$status"
 }
 
 cmd_lower_incomplete() {
@@ -207,6 +223,17 @@ EOF
     pass "check-clear 18 BLOCKS on lower-numbered blocked impl (as expected)"
   fi
 
+  # status-of: 18 should be in-progress (set by initial fixture)
+  out=$(cmd_status_of "$log" 18)
+  [[ "$out" == "in-progress" ]] && pass "status-of 18 == 'in-progress'" || fail "status-of 18 (got '$out')"
+
+  # status-of for unknown impl returns non-zero
+  if cmd_status_of "$log" 99 >/dev/null 2>&1; then
+    fail "status-of 99 should fail (not found)"
+  else
+    pass "status-of 99 fails (as expected)"
+  fi
+
   if [[ $fail -eq 0 ]]; then
     echo "ALL TESTS PASSED"
     return 0
@@ -226,6 +253,7 @@ case "$cmd" in
   check-clear)      [[ $# -eq 2 ]] || usage; cmd_check_clear "$@" ;;
   active-merger)    [[ $# -eq 1 ]] || usage; cmd_active_merger "$@" ;;
   wave-of)          [[ $# -eq 2 ]] || usage; cmd_wave_of "$@" ;;
+  status-of)        [[ $# -eq 2 ]] || usage; cmd_status_of "$@" ;;
   lower-incomplete) [[ $# -eq 3 ]] || usage; cmd_lower_incomplete "$@" ;;
   self-test)        self_test ;;
   *)                usage ;;

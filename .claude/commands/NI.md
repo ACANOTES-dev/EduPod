@@ -10,7 +10,19 @@ You are executing **Implementation $ARGUMENTS** of the Reports module rebuild. T
 
 ---
 
-## Step 0 · Read the context
+## Step 0 · Reap stale worktrees
+
+The first thing every session does — before reading anything — is reap any worktrees left behind by sessions that crashed, got killed, or otherwise failed to reach Step 14:
+
+```bash
+./scripts/reap-worktrees.sh
+```
+
+The reaper checks each `.worktrees/impl-<n>/` against `origin/main`'s log. Worktrees whose impl row is `completed` are removed (worktree directory + local branch + remote branch). Worktrees whose impl is still in-flight (`in-progress`, `ready-to-merge`, `merging`, `verifying`, `pending`, or `🛑 blocked`) are left alone — they belong to other live sessions.
+
+If the reaper warns about an impl-`$ARGUMENTS` worktree from a prior session of yours, **do not** create a new worktree at the same path until you've inspected it. Run `./scripts/reap-worktrees.sh --list` to see what's there. If the prior worktree's branch was actually merged but the reaper missed it (e.g. the log row was never flipped), force-remove it: `./scripts/reap-worktrees.sh --force $ARGUMENTS`. If the prior session has uncommitted work you might want to recover, `cd .worktrees/impl-$ARGUMENTS && git status` and decide manually.
+
+## Step 0.5 · Read the context
 
 Before doing anything else, read these three files in order:
 
@@ -436,17 +448,49 @@ git push --no-verify origin "$BRANCH":main
 
 The lock is released the moment this push lands. The next impl in the queue (lowest-numbered `ready-to-merge` row) is now clear to enter step 9.
 
-## Step 14 · Cleanup
+## Step 14 · Cleanup (mandatory — do not skip)
 
-Tear down the worktree and delete the impl branch:
+Tear down the worktree and delete the impl branch. This is non-negotiable: every session that reaches `completed` MUST clean up its own worktree, in its own session, before reporting to the user. Stale worktrees create disk waste and confuse later sessions.
 
 ```bash
 WAVE_ROOT="$(git rev-parse --show-toplevel)"
-cd "$WAVE_ROOT"   # leave the worktree directory
+cd "$WAVE_ROOT"   # MUST leave the worktree directory before removing it
 git worktree remove --force "$WAVE_ROOT/.worktrees/impl-$ARGUMENTS"
 git branch -D "$BRANCH"
 git push origin --delete "$BRANCH" 2>/dev/null || true   # remote branch (ignore if already gone)
+git worktree prune                                       # tidy registry entries
 ```
+
+### Verify the cleanup actually happened
+
+After running the commands above, **verify** that the worktree is gone:
+
+```bash
+if [[ -d "$WAVE_ROOT/.worktrees/impl-$ARGUMENTS" ]]; then
+  echo "ERROR: worktree directory still exists after cleanup attempt" >&2
+  exit 1
+fi
+
+# Confirm via the reaper's list command
+./scripts/reap-worktrees.sh --list | grep -q "impl-$ARGUMENTS" && {
+  echo "ERROR: reaper still sees impl-$ARGUMENTS — manual intervention needed" >&2
+  exit 1
+}
+
+echo "Cleanup verified — impl-$ARGUMENTS worktree removed."
+```
+
+If verification fails, force-remove and retry:
+
+```bash
+./scripts/reap-worktrees.sh --force "$ARGUMENTS"
+```
+
+If even the force-remove fails (rare — usually means the directory has open file handles from another process), report it to the user before proceeding to Step 15. Do NOT silently leave a stale worktree.
+
+### Safety net
+
+Even if Step 14 is somehow skipped (session crashes between Step 13 and Step 14), the next `/NI` invocation runs `./scripts/reap-worktrees.sh` at Step 0 and will clean up the orphan automatically. Step 14 is the primary cleanup; the reaper is the safety net.
 
 ## Step 15 · Report to the user
 
@@ -480,3 +524,4 @@ Keep it tight. The user can read the full record + verification block in the log
 12. **Never bypass the query engine for builder execution.** Every saved/preview/scheduled report query goes through `QueryEngineService`.
 13. **Never delete or recreate someone else's worktree.** `.worktrees/impl-<n>/` belongs to the impl that created it. Use your own subdirectory.
 14. **Never make an executive decision (Rule 33) that loses the user's prior explicit choice or expands scope.** Those escalate to the user. Everything else is yours to call, document, and verify.
+15. **Never skip Step 14 cleanup.** Every session that reaches `completed` cleans up its own worktree before reporting. The Step 0 reaper is a safety net, not a substitute. Disk-space buildup from abandoned worktrees is a regression — treat it as one.

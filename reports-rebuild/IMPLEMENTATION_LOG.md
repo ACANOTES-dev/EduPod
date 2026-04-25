@@ -200,7 +200,28 @@ cd "$(git rev-parse --show-toplevel)/.worktrees/impl-<n>"
 
 This gives the session its own filesystem copy at `.worktrees/impl-<n>/`, its own working tree, its own index, its own branch. No other session can see its uncommitted edits, untracked files, or modifications. Stash thrash, lint races, and accidental cross-impl captures all become impossible by construction.
 
-The `.worktrees/` directory is gitignored at the project root. Worktrees are removed at session end (`git worktree remove --force <path>`) — abandoned worktrees are reaped by `git worktree prune` and cause no harm.
+The `.worktrees/` directory is gitignored at the project root. Worktrees are removed at session end as part of the slash command's mandatory Step 14:
+
+```bash
+cd "$(git rev-parse --show-toplevel)"   # leave the worktree dir first
+git worktree remove --force ".worktrees/impl-<n>"
+git branch -D "impl/<n>-..."
+git push origin --delete "impl/<n>-..." 2>/dev/null || true
+git worktree prune
+```
+
+**Safety net — automatic reaping at session start.** Every `/NI` invocation runs `./scripts/reap-worktrees.sh` as Step 0, BEFORE reading any context or creating the new worktree. The reaper walks `.worktrees/impl-<n>/` and removes any worktree whose impl row in `origin/main`'s log is `completed` (the work has been merged + verified, so the worktree is safe to drop). In-flight worktrees (`in-progress`, `ready-to-merge`, `merging`, `verifying`, `pending`, `🛑 blocked`) are left alone — they belong to live sibling sessions.
+
+This means: even if a session crashes between Step 13 (flip to `completed`) and Step 14 (cleanup), its orphan worktree is reaped the next time ANY `/NI` session starts. Disk-space buildup is impossible by construction.
+
+Manual reaper commands (run at the project root):
+
+```bash
+./scripts/reap-worktrees.sh              # reap all completed worktrees
+./scripts/reap-worktrees.sh --list       # list current worktrees + their impl status
+./scripts/reap-worktrees.sh --dry-run    # preview without removing
+./scripts/reap-worktrees.sh --force <n>  # forcibly remove impl-<n> regardless of status (escape hatch)
+```
 
 Solo impls (no parallel siblings in the wave) MAY run in the main checkout for convenience; the moment a second session starts in the same wave, both sessions must move to worktrees.
 
