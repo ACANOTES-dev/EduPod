@@ -304,11 +304,12 @@ export default function GradeAnalyticsPage() {
                       <XAxis dataKey="subject_name" className="text-xs" />
                       <YAxis domain={[0, 100]} className="text-xs" />
                       <Tooltip
-                        formatter={(value: number, name: string) =>
-                          name === 'pass_rate'
-                            ? [`${Math.round(value)}%`, t('grades.pass')]
-                            : [value, name]
-                        }
+                        formatter={(value, name) => {
+                          const v = Number(value);
+                          return name === 'pass_rate'
+                            ? [`${Math.round(v)}%`, t('grades.pass')]
+                            : [String(value), String(name)];
+                        }}
                       />
                       <Bar
                         dataKey="pass_rate"
@@ -426,7 +427,10 @@ export default function GradeAnalyticsPage() {
                     <XAxis dataKey="period_label" className="text-xs" />
                     <YAxis domain={[40, 100]} className="text-xs" />
                     <Tooltip
-                      formatter={(v: number) => [`${Math.round(v)}%`, t('grades.averageGrade')]}
+                      formatter={(value) => [
+                        `${Math.round(Number(value))}%`,
+                        t('grades.averageGrade'),
+                      ]}
                     />
                     <Line
                       type="monotone"

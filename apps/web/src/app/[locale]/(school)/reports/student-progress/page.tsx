@@ -316,8 +316,8 @@ export default function StudentProgressPage() {
                         <XAxis dataKey="period_label" className="text-xs" />
                         <YAxis domain={[0, 100]} className="text-xs" />
                         <Tooltip
-                          formatter={(v: number) => [
-                            `${Math.round(v)}%`,
+                          formatter={(v) => [
+                            `${Math.round(typeof v === 'number' ? v : Number(v))}%`,
                             t('attendance.attendanceRate'),
                           ]}
                         />
@@ -374,7 +374,11 @@ export default function StudentProgressPage() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis type="number" domain={[0, 100]} className="text-xs" />
                       <YAxis dataKey="subject" type="category" className="text-xs" width={100} />
-                      <Tooltip formatter={(v: number) => [`${Math.round(v)}%`]} />
+                      <Tooltip
+                        formatter={(v) => [
+                          `${Math.round(typeof v === 'number' ? v : Number(v))}%`,
+                        ]}
+                      />
                       <Bar dataKey="pct" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
