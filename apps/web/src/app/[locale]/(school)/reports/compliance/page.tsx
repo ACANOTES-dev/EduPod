@@ -1,187 +1,190 @@
 'use client';
 
-import { Download, Plus, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, Input, Label } from '@school/ui';
+import type {
+  ComplianceFieldKey,
+  ComplianceHistoryEntry,
+  ComplianceReportResponse,
+  GenerateComplianceReportDto,
+} from '@school/shared/reports';
+import { COMPLIANCE_FIELD_KEYS } from '@school/shared/reports';
+import { toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { ComplianceFieldChecklist } from './_components/compliance-field-checklist';
+import { ComplianceGenerationControls } from './_components/compliance-generation-controls';
+import { ComplianceHistory } from './_components/compliance-history';
+import { CompliancePreviewPane } from './_components/compliance-preview-pane';
 
-interface FieldDefinition {
+interface AcademicYear {
   id: string;
-  label: string;
-  category: string;
-  value: string | null;
-  hasGap: boolean;
+  name: string;
 }
 
-// ─── Mock template + auto-filled data ────────────────────────────────────────
-
-const INITIAL_FIELDS: FieldDefinition[] = [
-  { id: '1', label: 'Total Active Students', category: 'Enrolment', value: '195', hasGap: false },
-  { id: '2', label: 'Total Teaching Staff', category: 'Staffing', value: '34', hasGap: false },
-  {
-    id: '3',
-    label: 'School-Wide Attendance Rate',
-    category: 'Attendance',
-    value: '93.2%',
-    hasGap: false,
-  },
-  { id: '4', label: 'Qualified Teachers (%)', category: 'Staffing', value: null, hasGap: true },
-  {
-    id: '5',
-    label: 'Special Education Students',
-    category: 'Enrolment',
-    value: null,
-    hasGap: true,
-  },
-  { id: '6', label: 'Average Class Size', category: 'Enrolment', value: '27', hasGap: false },
-  { id: '7', label: 'Total Annual Revenue', category: 'Finance', value: null, hasGap: true },
-  { id: '8', label: 'Fee Collection Rate', category: 'Finance', value: '88.4%', hasGap: false },
-];
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-export default function CompliancePage() {
+export default function ComplianceReportPage() {
   const t = useTranslations('reports');
-  const [fields, setFields] = React.useState<FieldDefinition[]>(INITIAL_FIELDS);
-  const [newLabel, setNewLabel] = React.useState('');
-  const [newCategory, setNewCategory] = React.useState('');
 
-  const addField = () => {
-    if (!newLabel.trim()) return;
-    const field: FieldDefinition = {
-      id: crypto.randomUUID(),
-      label: newLabel.trim(),
-      category: newCategory.trim() || 'Other',
-      value: null,
-      hasGap: true,
-    };
-    setFields((prev) => [...prev, field]);
-    setNewLabel('');
-    setNewCategory('');
+  const [academicYears, setAcademicYears] = React.useState<AcademicYear[]>([]);
+  const [loadingYears, setLoadingYears] = React.useState(true);
+
+  const [selectedYearId, setSelectedYearId] = React.useState('');
+  const [selectedFields, setSelectedFields] = React.useState<Set<ComplianceFieldKey>>(
+    () => new Set(COMPLIANCE_FIELD_KEYS),
+  );
+
+  const [generating, setGenerating] = React.useState(false);
+  const [report, setReport] = React.useState<ComplianceReportResponse | null>(null);
+
+  const [history, setHistory] = React.useState<ComplianceHistoryEntry[]>([]);
+  const [loadingHistory, setLoadingHistory] = React.useState(true);
+
+  React.useEffect(() => {
+    apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=100')
+      .then((res) => {
+        setAcademicYears(res.data);
+        if (res.data.length > 0 && res.data[0]) {
+          setSelectedYearId(res.data[0].id);
+        }
+      })
+      .catch((err) => {
+        console.error('[ComplianceReportPage] Failed to load academic years', err);
+      })
+      .finally(() => setLoadingYears(false));
+  }, []);
+
+  const refreshHistory = React.useCallback(() => {
+    setLoadingHistory(true);
+    apiClient<{ data: ComplianceHistoryEntry[] }>('/api/v1/reports/compliance/history')
+      .then((res) => setHistory(res.data))
+      .catch((err) => {
+        console.error('[ComplianceReportPage] Failed to load history', err);
+      })
+      .finally(() => setLoadingHistory(false));
+  }, []);
+
+  React.useEffect(() => {
+    refreshHistory();
+  }, [refreshHistory]);
+
+  const toggleField = (field: ComplianceFieldKey) => {
+    setSelectedFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(field)) next.delete(field);
+      else next.add(field);
+      return next;
+    });
   };
 
-  const removeField = (id: string) => {
-    setFields((prev) => prev.filter((f) => f.id !== id));
+  const toggleAllFields = (checked: boolean) => {
+    setSelectedFields(checked ? new Set(COMPLIANCE_FIELD_KEYS) : new Set());
   };
 
-  const gapCount = fields.filter((f) => f.hasGap).length;
+  const handleGenerate = async () => {
+    if (!selectedYearId) return;
+
+    const fieldsArray = Array.from(selectedFields);
+    if (fieldsArray.length === 0) return;
+
+    // The shared schema requires a non-empty `fields` tuple. Cast to a
+    // [head, ...rest] tuple after the empty check to satisfy Zod's
+    // `.nonempty()` constraint without weakening the type.
+    const [firstField, ...restFields] = fieldsArray;
+    if (!firstField) return;
+
+    setGenerating(true);
+    try {
+      const req: GenerateComplianceReportDto = {
+        academic_year_id: selectedYearId,
+        fields: [firstField, ...restFields],
+      };
+
+      const res = await apiClient<ComplianceReportResponse>('/api/v1/reports/compliance/generate', {
+        method: 'POST',
+        body: JSON.stringify(req),
+      });
+
+      setReport(res);
+      refreshHistory();
+      toast.success(t('compliance.generateSuccess'));
+    } catch (err) {
+      const apiErr = err as { code?: string; message?: string };
+      console.error('[ComplianceReportPage] Generate failed:', err);
+      toast.error(apiErr?.message ?? t('compliance.generateError'));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleLoadHistory = React.useCallback(
+    (historyEntry: ComplianceHistoryEntry) => {
+      // The compliance API doesn't expose a "fetch full report by id"
+      // endpoint yet — re-generation is the path forward. Surface this
+      // so the user understands. Tracked as a follow-up in impl 20's
+      // completion record.
+      toast.message(
+        t('compliance.history.reloadComingSoon', {
+          date: new Date(historyEntry.generated_at).toLocaleDateString(),
+        }),
+      );
+    },
+    [t],
+  );
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title={t('compliance.reportTitle')}
-        description={t('compliance.reportDescription')}
-      />
+    <div className="space-y-8 print:space-y-4" data-testid="compliance-report-page">
+      <div className="print:hidden">
+        <PageHeader
+          title={t('compliance.reportTitle')}
+          description={t('compliance.reportDescription')}
+        />
+      </div>
 
-      {/* Summary badges */}
-      <div className="flex flex-wrap gap-3">
-        <div className="flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-700">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          {fields.filter((f) => !f.hasGap).length} {t('compliance.filled')}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
+        {/* Left sidebar - Field checklist */}
+        <div className="lg:col-span-1">
+          <ComplianceFieldChecklist
+            selectedFields={selectedFields}
+            onToggleField={toggleField}
+            onToggleAllFields={toggleAllFields}
+          />
         </div>
-        <div className="flex items-center gap-2 rounded-full bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700">
-          <span className="h-2 w-2 rounded-full bg-red-500" />
-          {gapCount} {t('compliance.gaps')}
+
+        {/* Center - Generation controls + Preview */}
+        <div className="space-y-8 lg:col-span-3 print:col-span-4">
+          <ComplianceGenerationControls
+            academicYears={academicYears}
+            selectedYearId={selectedYearId}
+            onYearChange={setSelectedYearId}
+            generating={generating}
+            onGenerate={handleGenerate}
+            loadingYears={loadingYears}
+            selectedFieldCount={selectedFields.size}
+          />
+
+          {report && <CompliancePreviewPane report={report} />}
+
+          {!report && !generating && (
+            <div className="rounded-xl border border-dashed border-border bg-surface p-8 text-center print:hidden">
+              <p className="text-sm text-text-tertiary">{t('compliance.noReportGenerated')}</p>
+            </div>
+          )}
+
+          {generating && (
+            <div className="space-y-3 print:hidden">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-16 animate-pulse rounded-lg bg-surface-secondary" />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Template editor */}
-      <section className="rounded-xl border border-border bg-surface overflow-hidden">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h2 className="text-base font-semibold text-text-primary">
-            {t('compliance.templateTitle')}
-          </h2>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => alert('Export functionality — backend not yet connected')}
-          >
-            <Download className="me-2 h-4 w-4" />
-            {t('compliance.export')}
-          </Button>
-        </div>
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border bg-surface-secondary">
-              {['category', 'dataPoint', 'value', 'status', ''].map((col, i) => (
-                <th
-                  key={i}
-                  className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary"
-                >
-                  {col ? t(`compliance.col.${col}`) : ''}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {fields.map((field) => (
-              <tr
-                key={field.id}
-                className="border-b border-border last:border-b-0 hover:bg-surface-secondary"
-              >
-                <td className="px-4 py-3 text-xs text-text-tertiary">{field.category}</td>
-                <td className="px-4 py-3 text-sm font-medium text-text-primary">{field.label}</td>
-                <td className="px-4 py-3 text-sm text-text-secondary">{field.value ?? '—'}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${field.hasGap ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}
-                  >
-                    {field.hasGap ? t('compliance.gap') : t('compliance.complete')}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => removeField(field.id)}
-                    className="text-text-tertiary hover:text-red-500 transition-colors"
-                    aria-label={t('compliance.removeField')}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      {/* Add field */}
-      <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-        <h3 className="mb-4 text-sm font-semibold text-text-primary">
-          {t('compliance.addFieldTitle')}
-        </h3>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-40">
-            <Label htmlFor="comp-label">{t('compliance.dataPointLabel')}</Label>
-            <Input
-              id="comp-label"
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-              placeholder={t('compliance.dataPointPlaceholder')}
-              className="mt-1"
-            />
-          </div>
-          <div className="w-40">
-            <Label htmlFor="comp-cat">{t('compliance.categoryLabel')}</Label>
-            <Input
-              id="comp-cat"
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              placeholder={t('compliance.categoryPlaceholder')}
-              className="mt-1"
-            />
-          </div>
-          <Button onClick={addField} disabled={!newLabel.trim()}>
-            <Plus className="me-2 h-4 w-4" />
-            {t('compliance.addField')}
-          </Button>
-        </div>
-      </section>
+      {/* History */}
+      <ComplianceHistory history={history} loading={loadingHistory} onLoad={handleLoadHistory} />
     </div>
   );
 }
