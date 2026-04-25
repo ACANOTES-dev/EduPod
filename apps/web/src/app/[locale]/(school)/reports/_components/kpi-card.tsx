@@ -67,7 +67,7 @@ export function KpiCard({ kpi }: KpiCardProps) {
           <span className="sr-only">{label}</span>
         </Link>
 
-        <header className="relative z-10 flex items-start justify-between gap-2">
+        <header className="pointer-events-none relative z-10 flex items-start justify-between gap-2">
           <div
             className={`flex h-9 w-9 items-center justify-center rounded-lg ${identity.iconBg} ${identity.iconColor}`}
             aria-hidden="true"
@@ -75,12 +75,15 @@ export function KpiCard({ kpi }: KpiCardProps) {
             <Icon className="h-4 w-4" />
           </div>
           {tooltipText ? (
+            // The header is pointer-events-none so the absolute Link below
+            // captures whole-card clicks; the info button re-enables pointer
+            // events on itself so its tooltip + click still work.
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
                   aria-label={`${label} — info`}
-                  className="relative z-20 -me-1 -mt-1 inline-flex h-7 w-7 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="pointer-events-auto relative z-20 -me-1 -mt-1 inline-flex h-7 w-7 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   onClick={(event) => event.stopPropagation()}
                 >
                   <Info className="h-4 w-4" />
@@ -93,14 +96,14 @@ export function KpiCard({ kpi }: KpiCardProps) {
           ) : null}
         </header>
 
-        <div className="relative z-10 flex flex-col gap-1">
+        <div className="pointer-events-none relative z-10 flex flex-col gap-1">
           <p className="text-2xl font-bold text-text-primary tabular-nums">
             {formatKpiValue(kpi.value)}
           </p>
           <p className="text-xs text-text-tertiary">{label}</p>
         </div>
 
-        <footer className="relative z-10 mt-auto flex items-end justify-between gap-2">
+        <footer className="pointer-events-none relative z-10 mt-auto flex items-end justify-between gap-2">
           <DeltaRow tone={tone} text={deltaText} hasDelta={kpi.delta !== null} />
           {sparklineSeries ? (
             <div
