@@ -132,11 +132,13 @@ export function NotificationPanel() {
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const result = await apiClient<{ data: { count: number } }>(
-        '/api/v1/notifications/unread-count',
-        { silent: true },
-      );
-      setUnreadCount(result.data.count);
+      // The endpoint returns `{ data: number }` (the controller returns the
+      // count directly and ResponseTransformInterceptor wraps it). After
+      // apiClient's autoUnwrap, `result` is the number itself.
+      const result = await apiClient<number>('/api/v1/notifications/unread-count', {
+        silent: true,
+      });
+      setUnreadCount(typeof result === 'number' ? result : 0);
     } catch (err) {
       console.error('[NotificationPanel.fetchUnreadCount]', err);
     }

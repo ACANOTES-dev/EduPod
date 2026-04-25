@@ -148,7 +148,13 @@ function autoUnwrap<T>(body: unknown): T {
       if (inner === undefined || inner === null) {
         return body as T;
       }
-      if (typeof inner === 'object' && !Array.isArray(inner)) {
+      if (typeof inner === 'object') {
+        // Both plain objects and arrays get the back-compat shim. Arrays are
+        // covered because endpoints like `/api/v1/year-groups` return a bare
+        // array which the interceptor wraps into `{ data: [...] }`. Legacy
+        // callers typed as `apiClient<{ data: YearGroup[] }>` expect to read
+        // `res.data.map(...)` and we keep that working without touching the
+        // call site.
         const innerObj = inner as Record<string, unknown>;
         // If the inner already carries its own `data` field (e.g. nested
         // `{ data: { data: ... } }`), do NOT shim — the inner's own field
@@ -164,9 +170,11 @@ function autoUnwrap<T>(body: unknown): T {
         }
         return innerObj as T;
       }
-      // Inner is an array or primitive — strip the wrapper without a shim.
-      // Legacy callers reading `.data` on an array/primitive response are
-      // vanishingly rare and not worth the surface area to support.
+      // Inner is a primitive (number / string / boolean) — primitives can't
+      // carry a `.data` getter, so strip without a shim. The very small set
+      // of call sites that hit primitive-returning endpoints (e.g.
+      // notifications/unread-count) need to drop the `{ data: ... }` from
+      // their type and read the value directly.
       return inner as T;
     }
   }

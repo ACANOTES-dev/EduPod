@@ -177,6 +177,42 @@ describe('apiClient — autoUnwrap behaviour', () => {
     expect(JSON.parse(JSON.stringify(result))).toEqual(inner);
   });
 
+  it('exposes a non-enumerable .data getter on stripped array responses', async () => {
+    // Endpoints like /api/v1/year-groups that return a bare array are wrapped
+    // by the interceptor into `{ data: [...] }`. After autoUnwrap the caller
+    // gets the array directly, BUT legacy code typed as `apiClient<{ data:
+    // T[] }>` and reading `res.data.map(...)` continues to work via the shim.
+    const items = [
+      { id: 'y1', name: 'Year 1' },
+      { id: 'y2', name: 'Year 2' },
+    ];
+    global.fetch = jest.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ data: items }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
+    );
+
+    const result = await apiClient<Array<{ id: string; name: string }>>('/test');
+
+    // New access pattern — array methods work directly.
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(2);
+    expect(result.map((x) => x.id)).toEqual(['y1', 'y2']);
+
+    // Legacy access pattern — res.data points back to result.
+    const legacy = result as unknown as { data: Array<{ id: string; name: string }> };
+    expect(legacy.data).toBe(result);
+    expect(legacy.data.map((x) => x.id)).toEqual(['y1', 'y2']);
+    expect(legacy.data.length).toBe(2);
+
+    // Spread / serialization of the array doesn't include a `data` key.
+    expect([...result]).toEqual(items);
+    expect(JSON.parse(JSON.stringify(result))).toEqual(items);
+  });
+
   it('does not shim when inner already has its own data field', async () => {
     // Nested { data: { data: ... } } — the inner's own data field wins,
     // matching historical wrapped-envelope behaviour.
