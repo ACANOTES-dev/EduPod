@@ -695,6 +695,7 @@ model Tenant {
   report_alerts               ReportAlert[]
   report_share_logs           ReportShareLog[]
   reports_kpi_tenant_prefs    ReportsKpiTenantPreferences?
+  reports_tenant_settings     ReportsTenantSettings?
 
   // Wellbeing Foundation Relations (Impl 01)
   tenant_ai_flags                 TenantAiFlag[]
@@ -6587,6 +6588,25 @@ model ReportsKpiTenantPreferences {
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@map("reports_kpi_tenant_preferences")
+}
+
+/// Tenant-level reports settings (impl 21): export defaults, scheduled-report
+/// timezone, share visibility rules. One row per tenant; created lazily on
+/// first GET /v1/reports/settings if absent. AI flags live in
+/// `tenant_ai_flags`; KPI visibility lives in `reports_kpi_tenant_preferences`.
+model ReportsTenantSettings {
+  id                        String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String                @unique @db.Uuid
+  default_export_format     String                @default("pdf")
+  default_schedule_timezone String                @default("Europe/Dublin")
+  default_share_visibility  SavedReportVisibility @default(private)
+  updated_at                DateTime              @default(now()) @updatedAt @db.Timestamptz()
+  updated_by                String?               @db.Uuid
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("reports_tenant_settings")
 }
 
 /// History of Ask-AI translation attempts. One row per successful translation
