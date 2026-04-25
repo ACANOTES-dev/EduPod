@@ -9,9 +9,16 @@ import { Button } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
+import {
+  extractAiSummaryErrorCode,
+  resolveAiSummaryEndpoint,
+  unwrapAiSummaryResponse,
+  type AiSummaryMode,
+  type AiSummaryResponse,
+} from './ai-summary-panel.helpers';
 import { useAiFlag } from './use-ai-flag';
 
-// ─── Response shape ───────────────────────────────────────────────────────────
+// ─── Props ────────────────────────────────────────────────────────────────────
 //
 // Impl 10 (`reports_narration`) returns
 // `{ narrative, generated_at, cache_hit, cost_usd_estimate? }` from each of
@@ -20,19 +27,6 @@ import { useAiFlag } from './use-ai-flag';
 // `POST /v1/reports/ai-narrator/saved/:savedReportId`. We keep `summary` as
 // a fallback field name in case any older route still returns the legacy
 // shape during the deprecation window.
-
-interface AiSummaryResponse {
-  narrative?: string;
-  summary?: string;
-  generated_at?: string;
-  cache_hit?: boolean;
-}
-
-// ─── Props ────────────────────────────────────────────────────────────────────
-
-type AiSummaryMode =
-  | { kind: 'dashboard' }
-  | { kind: 'report'; reportKey: string; data?: Record<string, unknown> };
 
 interface AiSummaryPanelProps {
   /**
@@ -82,13 +76,13 @@ export function AiSummaryPanel({ mode, fallback }: AiSummaryPanelProps) {
     setError(null);
     setCopied(false);
     try {
-      const { path, body } = resolveEndpoint(mode);
+      const { path, body } = resolveAiSummaryEndpoint(mode);
       const raw = await apiClient<AiSummaryResponse | { data: AiSummaryResponse }>(path, {
         method: 'POST',
         body,
         silent: true,
       });
-      const inner = unwrapResponse(raw);
+      const inner = unwrapAiSummaryResponse(raw);
       const text = inner.narrative ?? inner.summary ?? null;
       if (!text) {
         setError(t('analytics.aiUnavailable'));
@@ -100,9 +94,11 @@ export function AiSummaryPanel({ mode, fallback }: AiSummaryPanelProps) {
       setCacheHit(Boolean(inner.cache_hit));
     } catch (err: unknown) {
       console.error('[AiSummaryPanel]', mode.kind, err);
-      const code = extractErrorCode(err);
+      const code = extractAiSummaryErrorCode(err);
       if (code === 'AI_DISABLED') {
         setError(t('analytics.aiDisabledByTenant'));
+      } else if (code === 'AI_RATE_LIMITED') {
+        setError(t('analytics.aiRateLimited'));
       } else if (code === 'AI_UNAVAILABLE') {
         setError(t('analytics.aiUnavailable'));
         setNarrative(fallback ?? null);
@@ -207,55 +203,4 @@ export function AiSummaryPanel({ mode, fallback }: AiSummaryPanelProps) {
       </div>
     </section>
   );
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-interface ResolvedEndpoint {
-  path: string;
-  body: string;
-}
-
-/**
- * Translate the panel mode into the impl-10 narration endpoint + body.
- * Dashboard mode posts an empty body to `/v1/reports/analytics/ai-summary`;
- * report mode encodes the report key into the path and the structured
- * `data` payload into the body.
- */
-function resolveEndpoint(mode: AiSummaryMode): ResolvedEndpoint {
-  if (mode.kind === 'dashboard') {
-    return {
-      path: '/api/v1/reports/analytics/ai-summary',
-      body: JSON.stringify({}),
-    };
-  }
-  return {
-    path: `/api/v1/reports/ai-narrator/report/${encodeURIComponent(mode.reportKey)}`,
-    body: JSON.stringify({ data: mode.data ?? {} }),
-  };
-}
-
-/**
- * The API's response transform interceptor wraps successful responses in
- * `{ data: T }`. Some endpoints (older narrator alias) still return the
- * inner shape directly. Tolerate both.
- */
-function unwrapResponse(raw: AiSummaryResponse | { data: AiSummaryResponse }): AiSummaryResponse {
-  if (raw && typeof raw === 'object' && 'data' in raw && raw.data) {
-    return (raw as { data: AiSummaryResponse }).data;
-  }
-  return raw as AiSummaryResponse;
-}
-
-/**
- * Extract the structured error code (`AI_DISABLED`, `AI_UNAVAILABLE`, …)
- * from the API's `{ error: { code, message } }` envelope, falling back
- * to an empty string when the shape doesn't match.
- */
-function extractErrorCode(err: unknown): string {
-  if (err && typeof err === 'object' && 'error' in err) {
-    const error = (err as { error?: { code?: string } }).error;
-    return error?.code ?? '';
-  }
-  return '';
 }

@@ -2509,7 +2509,13 @@
       "aiSummaryFallback": "School-wide attendance is strong at 93%. Collection rate improved 5 points this term. At-risk student count has decreased month-over-month.",
       "aiUnavailable": "AI service is currently unavailable. Try again in a moment.",
       "aiDisabledByTenant": "AI summaries are disabled for this tenant.",
+      "aiRateLimited": "You have hit the rate limit (20 AI requests per hour). Please try again later.",
       "aiManageInSettings": "Manage AI features in Settings",
+      "confidence": {
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
       "regenerate": "Regenerate",
       "copy": "Copy narrative",
       "copied": "Copied",
@@ -3029,27 +3035,83 @@
         "staff_absence_rate": "Staff Absence Rate"
       }
     },
+    "predictions": {
+      "creditNotice": "AI prediction. Cached 24h per subject. Uses your tenant's AI credits.",
+      "subjectMissing": "No subject selected — pick a student or year group to generate this prediction.",
+      "confidenceLabel": "Confidence",
+      "generatedAt": "Generated",
+      "student_risk": {
+        "title": "Student risk prediction",
+        "scoreLabel": "Risk score",
+        "band": {
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High",
+          "critical": "Critical"
+        },
+        "factorWeight": {
+          "high": "Strong",
+          "medium": "Moderate",
+          "low": "Mild"
+        }
+      },
+      "attendance_forecast": {
+        "title": "Attendance forecast",
+        "predictedRate": "Predicted",
+        "confidenceLow": "Low band",
+        "confidenceHigh": "High band"
+      },
+      "cash_flow": {
+        "title": "Cash-flow forecast",
+        "expectedReceipts": "Expected receipts"
+      }
+    },
     "askAi": {
       "title": "Ask AI — Cross-Module Queries",
       "description": "Query all school data in plain language. Results are filtered by your permissions.",
+      "descriptionV2": "Describe the report you want in plain English, and AI will build it for you.",
       "ask": "Ask a question about your school data",
       "placeholder": "e.g. How many Year 10 students have attendance below 85% AND failing Math?",
+      "placeholderV2": "e.g. List students with attendance below 80% this term, with their year group and emergency contact.",
       "search": "Search",
       "searching": "Searching…",
+      "translating": "Translating…",
       "analyzing": "Analysing your question…",
-      "suggestedTitle": "Suggested queries",
-      "noResults": "No results found for this query.",
-      "noHistory": "No previous queries.",
+      "suggestedTitle": "Try one of these",
+      "noResults": "No rows match this query.",
+      "noHistory": "No previous queries yet.",
       "recentTitle": "Recent Queries",
       "resultCount": "{count} results",
+      "previewCount": "Showing {count} of {total} rows",
       "exportCsv": "Export CSV",
-      "rows": "rows"
+      "rows": "rows",
+      "creditNotice": "Each AI query uses your tenant's AI credits.",
+      "shortcutHint": "⌘ + Enter to submit",
+      "builtForYou": "I built this for you",
+      "warningsTitle": "Heads up",
+      "openInBuilder": "Open in builder",
+      "runNow": "Run now",
+      "running": "Running…",
+      "couldNotTranslate": "AI could not translate this question into a structured query. Try rephrasing.",
+      "confidenceLabel": "Confidence",
+      "saveThis": "Save this query",
+      "savedBadge": "Saved",
+      "runAgain": "Run again",
+      "retry": "Retry",
+      "invalidRequest": "Question is too short or contains invalid characters.",
+      "disabledTitle": "Ask-AI is disabled",
+      "disabledBody": "An admin can enable AI-powered report building from Reports settings."
     },
     "askAiSuggestion1": "How many Year 10 students have attendance below 85%?",
     "askAiSuggestion2": "What is total outstanding fees from households with 2+ children?",
     "askAiSuggestion3": "Which teachers have not submitted grades for Term 2?",
     "askAiSuggestion4": "List students at risk with attendance below 80% AND grade below 60%",
     "askAiSuggestion5": "Show me monthly fee collection rate for the last 6 months",
+    "askAiSuggestion6": "Active students whose primary parent email is missing",
+    "askAiSuggestion7": "Households with overdue invoices, including the head of household and last payment date",
+    "askAiSuggestion8": "Behaviour incidents this month grouped by year group, with sanction count",
+    "askAiSuggestion9": "Open safeguarding concerns older than 14 days, with assigned staff",
+    "askAiSuggestion10": "Staff with leave approved this term, by department and total days off",
     "builder": {
       "title": "Custom Report Builder",
       "description": "Build your own reports by selecting data sources, dimensions and measures.",
@@ -3094,17 +3156,50 @@
       "subjects": {
         "title": "Pick a subject",
         "subtitle": "What will each row of your report be?",
-        "student": { "name": "Student", "description": "One row per student. Joins identity, enrolment, household, attendance, behaviour, grades, finance." },
-        "staff": { "name": "Staff", "description": "One row per staff member. Joins employment, payroll, attendance, qualifications." },
-        "household": { "name": "Household", "description": "One row per household. Joins parents, children, finance summary, communication preferences." },
-        "class": { "name": "Class", "description": "One row per class. Joins subject, teacher, year group, enrolled students, attendance, grades." },
-        "invoice": { "name": "Invoice", "description": "One row per invoice. Joins household, student, fee structure, payments, status." },
-        "application": { "name": "Application", "description": "One row per admissions application. Joins candidate, year group, status, processing steps." },
-        "behaviour_incident": { "name": "Behaviour Incident", "description": "One row per incident. Joins students involved, reporter, sanctions, appeals." },
-        "safeguarding_concern": { "name": "Safeguarding Concern", "description": "One row per concern. Joins subject student, reporter, assigned staff, actions." },
-        "attendance_record": { "name": "Attendance Record", "description": "One row per session attendance. Joins student, class, session, teacher, status." },
-        "grade": { "name": "Grade", "description": "One row per grade entry. Joins student, assessment, subject, class, teacher." },
-        "payroll_entry": { "name": "Payroll Entry", "description": "One row per payroll entry. Joins staff, payroll run, allowances, deductions." }
+        "student": {
+          "name": "Student",
+          "description": "One row per student. Joins identity, enrolment, household, attendance, behaviour, grades, finance."
+        },
+        "staff": {
+          "name": "Staff",
+          "description": "One row per staff member. Joins employment, payroll, attendance, qualifications."
+        },
+        "household": {
+          "name": "Household",
+          "description": "One row per household. Joins parents, children, finance summary, communication preferences."
+        },
+        "class": {
+          "name": "Class",
+          "description": "One row per class. Joins subject, teacher, year group, enrolled students, attendance, grades."
+        },
+        "invoice": {
+          "name": "Invoice",
+          "description": "One row per invoice. Joins household, student, fee structure, payments, status."
+        },
+        "application": {
+          "name": "Application",
+          "description": "One row per admissions application. Joins candidate, year group, status, processing steps."
+        },
+        "behaviour_incident": {
+          "name": "Behaviour Incident",
+          "description": "One row per incident. Joins students involved, reporter, sanctions, appeals."
+        },
+        "safeguarding_concern": {
+          "name": "Safeguarding Concern",
+          "description": "One row per concern. Joins subject student, reporter, assigned staff, actions."
+        },
+        "attendance_record": {
+          "name": "Attendance Record",
+          "description": "One row per session attendance. Joins student, class, session, teacher, status."
+        },
+        "grade": {
+          "name": "Grade",
+          "description": "One row per grade entry. Joins student, assessment, subject, class, teacher."
+        },
+        "payroll_entry": {
+          "name": "Payroll Entry",
+          "description": "One row per payroll entry. Joins staff, payroll run, allowances, deductions."
+        }
       },
       "fields": {
         "search": "Search fields…",

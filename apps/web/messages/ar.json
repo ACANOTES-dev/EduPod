@@ -2549,8 +2549,14 @@
       "aiManageInSettings": "إدارة ميزات الذكاء الاصطناعي في الإعدادات ← التقارير",
       "aiUnavailable": "خدمة الذكاء الاصطناعي غير متاحة حاليًا. حاول مرة أخرى لاحقًا.",
       "aiDisabledByTenant": "ملخص الذكاء الاصطناعي معطل لهذه المدرسة. فعّله في الإعدادات ← التقارير.",
+      "aiRateLimited": "[AR] You have hit the rate limit (20 AI requests per hour). Please try again later.",
       "loadError": "تعذّر تحميل هذا التقرير. حاول مرة أخرى بعد قليل.",
-      "predictionUnparseable": "أعاد الذكاء الاصطناعي استجابة غير متوقعة. حاول إعادة التوليد."
+      "predictionUnparseable": "أعاد الذكاء الاصطناعي استجابة غير متوقعة. حاول إعادة التوليد.",
+      "confidence": {
+        "high": "[AR] High",
+        "medium": "[AR] Medium",
+        "low": "[AR] Low"
+      }
     },
     "kpis": {
       "attendance_today": {
@@ -3021,27 +3027,83 @@
         "staff_absence_rate": "معدل غياب الموظفين"
       }
     },
+    "predictions": {
+      "creditNotice": "[AR] AI prediction. Cached 24h per subject. Uses your tenant's AI credits.",
+      "subjectMissing": "[AR] No subject selected — pick a student or year group to generate this prediction.",
+      "confidenceLabel": "[AR] Confidence",
+      "generatedAt": "[AR] Generated",
+      "student_risk": {
+        "title": "[AR] Student risk prediction",
+        "scoreLabel": "[AR] Risk score",
+        "band": {
+          "low": "[AR] Low",
+          "medium": "[AR] Medium",
+          "high": "[AR] High",
+          "critical": "[AR] Critical"
+        },
+        "factorWeight": {
+          "high": "[AR] Strong",
+          "medium": "[AR] Moderate",
+          "low": "[AR] Mild"
+        }
+      },
+      "attendance_forecast": {
+        "title": "[AR] Attendance forecast",
+        "predictedRate": "[AR] Predicted",
+        "confidenceLow": "[AR] Low band",
+        "confidenceHigh": "[AR] High band"
+      },
+      "cash_flow": {
+        "title": "[AR] Cash-flow forecast",
+        "expectedReceipts": "[AR] Expected receipts"
+      }
+    },
     "askAi": {
       "title": "اسأل الذكاء الاصطناعي - استعلامات متعددة المجالات",
       "description": "استعلم عن جميع بيانات المدرسة بلغة طبيعية.",
+      "descriptionV2": "[AR] Describe the report you want in plain English, and AI will build it for you.",
       "ask": "اسأل سؤالاً عن بيانات مدرستك",
       "placeholder": "مثال: كم عدد طلاب السنة 10 الذين يقل حضورهم عن 85% ويرسبون في الرياضيات؟",
+      "placeholderV2": "[AR] e.g. List students with attendance below 80% this term, with their year group and emergency contact.",
       "search": "بحث",
       "searching": "جارٍ البحث…",
+      "translating": "[AR] Translating…",
       "analyzing": "جارٍ تحليل سؤالك…",
       "suggestedTitle": "استعلامات مقترحة",
       "noResults": "لم يتم العثور على نتائج لهذا الاستعلام.",
       "noHistory": "لا توجد استعلامات سابقة.",
       "recentTitle": "الاستعلامات الأخيرة",
       "resultCount": "{count} نتيجة",
+      "previewCount": "[AR] Showing {count} of {total} rows",
       "exportCsv": "تصدير CSV",
-      "rows": "صفوف"
+      "rows": "صفوف",
+      "creditNotice": "[AR] Each AI query uses your tenant's AI credits.",
+      "shortcutHint": "[AR] ⌘ + Enter to submit",
+      "builtForYou": "[AR] I built this for you",
+      "warningsTitle": "[AR] Heads up",
+      "openInBuilder": "[AR] Open in builder",
+      "runNow": "[AR] Run now",
+      "running": "[AR] Running…",
+      "couldNotTranslate": "[AR] AI could not translate this question into a structured query. Try rephrasing.",
+      "confidenceLabel": "[AR] Confidence",
+      "saveThis": "[AR] Save this query",
+      "savedBadge": "[AR] Saved",
+      "runAgain": "[AR] Run again",
+      "retry": "[AR] Retry",
+      "invalidRequest": "[AR] Question is too short or contains invalid characters.",
+      "disabledTitle": "[AR] Ask-AI is disabled",
+      "disabledBody": "[AR] An admin can enable AI-powered report building from Reports settings."
     },
     "askAiSuggestion1": "كم عدد طلاب السنة 10 الذين يقل حضورهم عن 85%؟",
     "askAiSuggestion2": "ما إجمالي الرسوم المستحقة من الأسر التي لديها طفلان أو أكثر؟",
     "askAiSuggestion3": "أي المعلمين لم يقدموا درجات الفصل الثاني؟",
     "askAiSuggestion4": "اعرض الطلاب المعرضين للخطر الذين يقل حضورهم عن 80% ودرجاتهم عن 60%",
     "askAiSuggestion5": "أظهر لي معدل تحصيل الرسوم الشهري للأشهر الـ 6 الأخيرة",
+    "askAiSuggestion6": "[AR] Active students whose primary parent email is missing",
+    "askAiSuggestion7": "[AR] Households with overdue invoices, including the head of household and last payment date",
+    "askAiSuggestion8": "[AR] Behaviour incidents this month grouped by year group, with sanction count",
+    "askAiSuggestion9": "[AR] Open safeguarding concerns older than 14 days, with assigned staff",
+    "askAiSuggestion10": "[AR] Staff with leave approved this term, by department and total days off",
     "builder": {
       "title": "منشئ التقارير المخصصة",
       "description": "أنشئ تقاريرك الخاصة باختيار مصادر البيانات والأبعاد والمقاييس.",
@@ -3091,12 +3153,27 @@
         "household": { "name": "[AR] Household", "description": "[AR] One row per household." },
         "class": { "name": "[AR] Class", "description": "[AR] One row per class." },
         "invoice": { "name": "[AR] Invoice", "description": "[AR] One row per invoice." },
-        "application": { "name": "[AR] Application", "description": "[AR] One row per admissions application." },
-        "behaviour_incident": { "name": "[AR] Behaviour Incident", "description": "[AR] One row per incident." },
-        "safeguarding_concern": { "name": "[AR] Safeguarding Concern", "description": "[AR] One row per concern." },
-        "attendance_record": { "name": "[AR] Attendance Record", "description": "[AR] One row per session attendance." },
+        "application": {
+          "name": "[AR] Application",
+          "description": "[AR] One row per admissions application."
+        },
+        "behaviour_incident": {
+          "name": "[AR] Behaviour Incident",
+          "description": "[AR] One row per incident."
+        },
+        "safeguarding_concern": {
+          "name": "[AR] Safeguarding Concern",
+          "description": "[AR] One row per concern."
+        },
+        "attendance_record": {
+          "name": "[AR] Attendance Record",
+          "description": "[AR] One row per session attendance."
+        },
         "grade": { "name": "[AR] Grade", "description": "[AR] One row per grade entry." },
-        "payroll_entry": { "name": "[AR] Payroll Entry", "description": "[AR] One row per payroll entry." }
+        "payroll_entry": {
+          "name": "[AR] Payroll Entry",
+          "description": "[AR] One row per payroll entry."
+        }
       },
       "fields": {
         "search": "[AR] Search fields…",
