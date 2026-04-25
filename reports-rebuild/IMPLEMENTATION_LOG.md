@@ -253,7 +253,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `completed`   | 2026-04-25T06:25 Europe/Dublin | `07323817` |
 | 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `completed`   | 2026-04-25T13:54 Europe/Dublin | `bc36bbb5` |
 | 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `completed`   | 2026-04-25T13:58 Europe/Dublin | `a39be0fc` |
-| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `deploying`   | —                              | `654a61e6` |
+| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `completed`   | 2026-04-25T14:25 Europe/Dublin | `f0f1cb29` |
 | 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `deploying`   | —                              | `9f14ab9d` |
 | 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`     |                                |            |
 
