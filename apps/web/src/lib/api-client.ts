@@ -107,7 +107,36 @@ async function parseResponse<T>(response: Response): Promise<T> {
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  const body = (await response.json()) as unknown;
+  return autoUnwrap<T>(body);
+}
+
+/**
+ * Strip the API's `{ data: T }` response envelope when the body is a plain
+ * single-key object whose only key is literally `data`. Pass-through for:
+ *   - paginated responses ({ data, meta })
+ *   - error envelopes ({ error: { code, message } })
+ *   - raw arrays
+ *   - already-unwrapped scalars or objects without a `data` key
+ *
+ * The pass-through behaviour is critical because the existing `unwrap()` helper
+ * (exported above) is idempotent on already-unwrapped values, so any callsite
+ * that defensively chained `unwrap(await apiClient(...))` continues to behave
+ * correctly after this change.
+ */
+function autoUnwrap<T>(body: unknown): T {
+  if (body !== null && typeof body === 'object' && !Array.isArray(body)) {
+    const keys = Object.keys(body as object);
+    if (keys.length === 1 && keys[0] === 'data') {
+      const inner = (body as { data: unknown }).data;
+      // null/undefined `data` envelopes are returned as-is (some endpoints
+      // legitimately return { data: null } to signal "found no record").
+      if (inner !== undefined) {
+        return inner as T;
+      }
+    }
+  }
+  return body as T;
 }
 
 async function refreshAccessToken(): Promise<boolean> {
