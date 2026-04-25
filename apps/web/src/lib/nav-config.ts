@@ -420,6 +420,10 @@ export const hubGroupedSubStripConfigs: Record<string, SubStripGroupConfig[]> = 
 };
 
 export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
+  // Engagement intentionally has no sub-strip — the /engagement dashboard
+  // is the navigation surface for this hub (four tiles for events, form
+  // templates, analytics, and consent archive).
+  engagement: [],
   // People intentionally has no sub-strip — the /people dashboard
   // is the navigation surface for this hub (KPI tiles, class enrollment
   // breakdown, and categorised module navigation).
@@ -431,6 +435,7 @@ export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
   wellbeing: [],
   // Operations intentionally has no sub-strip — the /operations dashboard
   // page is the navigation surface for this hub (six cards → six sub-pages).
+  operations: [],
   // Finance intentionally has no sub-strip — the /finance dashboard
   // is the navigation surface for this hub (KPI cards, quick actions,
   // and categorised module tiles all live on the dashboard itself).
