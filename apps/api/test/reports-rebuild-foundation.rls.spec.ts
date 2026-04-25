@@ -31,6 +31,7 @@ describe('reports rebuild foundation — RLS leakage (database layer)', () => {
   let reportAlertRunAId: string;
   let reportShareLogAId: string;
   let kpiPrefsAId: string;
+  let reportsTenantSettingsAId: string;
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -57,6 +58,9 @@ describe('reports rebuild foundation — RLS leakage (database layer)', () => {
   async function cleanupTestData(): Promise<void> {
     // report_share_log references saved_reports by FK cascade, so this
     // order is fine — cascades take care of the detail rows.
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM reports_tenant_settings WHERE tenant_id IN ('${TENANT_A_ID}'::uuid, '${TENANT_B_ID}'::uuid)`,
+    );
     await prisma.$executeRawUnsafe(
       `DELETE FROM reports_kpi_tenant_preferences WHERE tenant_id IN ('${TENANT_A_ID}'::uuid, '${TENANT_B_ID}'::uuid)`,
     );
@@ -254,6 +258,17 @@ describe('reports rebuild foundation — RLS leakage (database layer)', () => {
     });
     kpiPrefsAId = prefsA.id;
 
+    const settingsA = await prisma.reportsTenantSettings.create({
+      data: {
+        tenant_id: TENANT_A_ID,
+        default_export_format: 'xlsx',
+        default_schedule_timezone: 'Asia/Riyadh',
+        default_share_visibility: 'shared',
+        updated_by: USER_A_ID,
+      },
+    });
+    reportsTenantSettingsAId = settingsA.id;
+
     // ── Create non-BYPASSRLS role ──────────────────────────────────────────
 
     await prisma.$executeRawUnsafe(
@@ -403,11 +418,44 @@ describe('reports rebuild foundation — RLS leakage (database layer)', () => {
     });
   });
 
+  describe('reports_tenant_settings (impl 21)', () => {
+    it('SELECT as Tenant B with Tenant A settings id returns 0 rows', async () => {
+      const rows = await queryAsTenant<{ id: string }>(
+        TENANT_B_ID,
+        `SELECT id::text FROM reports_tenant_settings WHERE id = '${reportsTenantSettingsAId}'::uuid`,
+      );
+      expect(rows).toHaveLength(0);
+    });
+
+    it('UPDATE as Tenant B targeting Tenant A settings leaves defaults unchanged', async () => {
+      await mutateAsTenant(
+        TENANT_B_ID,
+        `UPDATE reports_tenant_settings SET default_export_format = 'docx' WHERE id = '${reportsTenantSettingsAId}'::uuid`,
+      );
+      const rows = await prisma.$queryRawUnsafe<Array<{ default_export_format: string }>>(
+        `SELECT default_export_format FROM reports_tenant_settings WHERE id = '${reportsTenantSettingsAId}'::uuid`,
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.default_export_format).toBe('xlsx');
+    });
+
+    it('INSERT as Tenant B with Tenant A tenant_id is rejected by WITH CHECK', async () => {
+      const tenantBSettingsId = '99999999-0099-4099-8099-000000000099';
+      await expect(
+        mutateAsTenant(
+          TENANT_B_ID,
+          `INSERT INTO reports_tenant_settings (id, tenant_id, default_export_format, default_schedule_timezone, default_share_visibility) VALUES ('${tenantBSettingsId}'::uuid, '${TENANT_A_ID}'::uuid, 'pdf', 'Europe/Dublin', 'private')`,
+        ),
+      ).rejects.toThrow();
+    });
+  });
+
   // Hush the unused-binding check — the IDs are referenced implicitly via
   // cleanupTestData's cascades and the test's setup verification.
   it('fixtures were seeded as expected (sanity)', () => {
     expect(savedReportAId).toMatch(/^[0-9a-f-]{36}$/);
     expect(scheduledReportAId).toMatch(/^[0-9a-f-]{36}$/);
     expect(reportAlertAId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(reportsTenantSettingsAId).toMatch(/^[0-9a-f-]{36}$/);
   });
 });

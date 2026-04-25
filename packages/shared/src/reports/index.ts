@@ -23,3 +23,4 @@ export * from './predictions';
 export * from './ask-ai';
 export * from './alerts';
 export * from './narration';
+export * from './settings';

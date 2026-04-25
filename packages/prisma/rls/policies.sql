@@ -2843,6 +2843,14 @@ CREATE POLICY reports_kpi_tenant_preferences_tenant_isolation ON reports_kpi_ten
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
 
+-- reports_tenant_settings (impl 21) — default export format, timezone, share visibility.
+ALTER TABLE reports_tenant_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reports_tenant_settings FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS reports_tenant_settings_tenant_isolation ON reports_tenant_settings;
+CREATE POLICY reports_tenant_settings_tenant_isolation ON reports_tenant_settings
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
 -- ai_ask_ai_history (impl 11) — audit trail of natural-language → query translations.
 -- Tenant-isolated; only visible inside the originating tenant. The user_id column
 -- is a separate guarantee above RLS that a user only ever reads their own history

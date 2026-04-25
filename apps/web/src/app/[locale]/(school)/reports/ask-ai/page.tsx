@@ -536,7 +536,7 @@ function DisabledState({ locale }: { locale: string }) {
       <p className="text-sm font-semibold text-text-primary">{t('askAi.disabledTitle')}</p>
       <p className="mt-2 text-sm text-text-secondary">{t('askAi.disabledBody')}</p>
       <Link
-        href={`/${locale}/settings/reports`}
+        href={`/${locale}/settings/reports?tab=ai-features#reports_ask_ai`}
         className="mt-4 inline-flex items-center gap-1.5 text-sm text-primary-600 underline-offset-2 hover:underline"
       >
         <Settings className="h-3.5 w-3.5" aria-hidden="true" />

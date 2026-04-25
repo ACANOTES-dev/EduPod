@@ -65,6 +65,8 @@ import { ReportSharingService } from './report-sharing/report-sharing.service';
 import { SnapshotStorageService } from './report-sharing/snapshot-storage.service';
 import { ReportsDataAccessService } from './reports-data-access.service';
 import { ReportsEnhancedController } from './reports-enhanced.controller';
+import { ReportsSettingsController } from './reports-settings/reports-settings.controller';
+import { ReportsSettingsService } from './reports-settings/reports-settings.service';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 import { SavedReportDraftController } from './saved-report-draft/saved-report-draft.controller';
@@ -140,6 +142,10 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     // (`/share`, `/shares`) resolve ahead of the enhanced controller's
     // generic `builder/:reportId` route which uses `ParseUUIDPipe`.
     ReportSharingController,
+    // ReportsSettingsController (impl 21) owns `/v1/reports/settings*`.
+    // Registered before `ReportsEnhancedController` so the static prefix
+    // matches before the enhanced controller's dynamic builder routes.
+    ReportsSettingsController,
     ReportsEnhancedController,
   ],
   providers: [
@@ -195,6 +201,12 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     // read-only snapshot view.
     ReportSharingService,
     SnapshotStorageService,
+    // Reports settings (impl 21) — backs `Settings → Reports` admin page.
+    // Glues `reports_tenant_settings`, `reports_kpi_tenant_preferences`,
+    // and the three reports `tenant_ai_flags` rows behind one read +
+    // write surface. Mutations to AI flags themselves still go through
+    // `PATCH /v1/ai-flags/:moduleKey`.
+    ReportsSettingsService,
   ],
   exports: [
     ReportsDataAccessService,

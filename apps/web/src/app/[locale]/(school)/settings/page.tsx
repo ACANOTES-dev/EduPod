@@ -2,6 +2,7 @@
 
 import {
   ArrowRight,
+  BarChart3,
   Bell,
   BookOpen,
   BrainCircuit,
@@ -284,6 +285,12 @@ const CATEGORIES: SettingsCategoryConfig[] = [
         descKey: 'hub.aiFlagsDesc',
         href: '/settings/ai-flags',
         icon: BrainCircuit,
+      },
+      {
+        labelKey: 'hub.reportsSettings',
+        descKey: 'hub.reportsSettingsDesc',
+        href: '/settings/reports',
+        icon: BarChart3,
       },
       {
         labelKey: 'hub.wellbeingNotifications',

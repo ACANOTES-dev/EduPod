@@ -2039,6 +2039,8 @@
       "senDesc": "تهيئة فئات الاحتياجات التعليمية الخاصة والأحكام.",
       "aiFlags": "ميزات الذكاء الاصطناعي",
       "aiFlagsDesc": "تفعيل أو تعطيل الذكاء الاصطناعي في السلوك والرعاية ورفاهية الموظفين والإنذارات المبكرة.",
+      "reportsSettings": "[AR] Reports Settings",
+      "reportsSettingsDesc": "[AR] Manage AI features, KPI dashboard visibility, and export defaults for the Reports module.",
       "wellbeingNotifications": "إشعارات الرفاهية",
       "wellbeingNotificationsDesc": "اختر أي أحداث رفاهية تُرسل عبر البريد الإلكتروني والرسائل القصيرة وواتساب. الإشعارات داخل التطبيق تعمل دائمًا.",
       "staffOperations": "عمليات الموظفين",
@@ -18385,6 +18387,118 @@
         "name": "الإنذارات المبكرة",
         "description": "شروحات درجات المخاطر، واقتراحات التدخل، وتفسيرات مبسّطة لإشارات الإنذار المبكر."
       }
+    }
+  },
+  "reportsSettings": {
+    "title": "[AR] Reports Settings",
+    "description": "[AR] Manage AI features, KPI dashboard visibility, and export defaults for your school's reports module.",
+    "cancel": "[AR] Cancel",
+    "retry": "[AR] Retry",
+    "permissionDeniedTitle": "[AR] You don't have access to Reports Settings",
+    "permissionDeniedDesc": "[AR] Only school owners, principals, vice principals, and admins can change reports settings. Ask an admin for access.",
+    "loadFailedTitle": "[AR] Couldn't load reports settings. Please try again.",
+    "tabs": {
+      "aiFeatures": "[AR] AI Features",
+      "kpiDashboard": "[AR] KPI Dashboard",
+      "defaults": "[AR] Defaults"
+    },
+    "aiFeatures": {
+      "enabled": "[AR] Enabled",
+      "disabled": "[AR] Disabled",
+      "toggleAria": "[AR] Toggle {module}",
+      "toastEnabled": "[AR] AI feature enabled.",
+      "toastDisabled": "[AR] AI feature disabled.",
+      "toastFailed": "[AR] Couldn't change the AI flag. Reverted.",
+      "usageLine": "[AR] {count} generations this month (≈ {cost} estimated)",
+      "disableConfirmTitle": "[AR] Disable AI feature?",
+      "disableConfirmDesc": "[AR] Disabling this hides AI narratives across all reports. Existing saved reports are unaffected. Continue?",
+      "disableConfirmConfirm": "[AR] Disable",
+      "reports_narration": {
+        "label": "[AR] AI Narration",
+        "description": "[AR] AI-written executive summaries on the dashboard, each report page, and saved reports. Powered by Claude. Cost: approximately $0.01 per generation; cached 10 minutes."
+      },
+      "reports_ask_ai": {
+        "label": "[AR] AI Ask-AI",
+        "description": "[AR] Staff can ask natural-language questions to build reports. Powered by Claude. Cost: approximately $0.02 per query; cached 24 hours."
+      },
+      "reports_predictions": {
+        "label": "[AR] AI Predictions",
+        "description": "[AR] AI-powered predictions — student risk, attendance forecast, cash-flow forecast. Cost: approximately $0.04 per generation; cached 24 hours."
+      }
+    },
+    "kpiDashboard": {
+      "title": "[AR] KPI Dashboard visibility",
+      "description": "[AR] Choose which KPIs appear on the reports dashboard. Hidden KPIs stay hidden for everyone in your school.",
+      "toggleAria": "[AR] Show {kpi} on dashboard",
+      "toastFailed": "[AR] Couldn't update KPI visibility. Reverted.",
+      "kpis": {
+        "attendance_today": {
+          "label": "[AR] Attendance today",
+          "tooltip": "[AR] Today's session-marked attendance rate. Updates as teachers mark rolls."
+        },
+        "teacher_submission_compliance": {
+          "label": "[AR] Teacher submission compliance",
+          "tooltip": "[AR] Percentage of this week's expected attendance sessions that have been marked."
+        },
+        "at_risk_students": {
+          "label": "[AR] At-risk students",
+          "tooltip": "[AR] New entries in the academic risk alert table this week. Combines attendance + grades + behaviour + safeguarding signals."
+        },
+        "behaviour_incidents_this_week": {
+          "label": "[AR] Behaviour incidents this week",
+          "tooltip": "[AR] New behaviour incident records created this week, excluding reversed/appealed."
+        },
+        "open_safeguarding_concerns": {
+          "label": "[AR] Open safeguarding concerns",
+          "tooltip": "[AR] Safeguarding concerns with status not resolved. Card turns red if the oldest concern is more than 14 days old."
+        },
+        "overdue_invoices": {
+          "label": "[AR] Overdue invoices",
+          "tooltip": "[AR] Invoices past their due date with outstanding amount greater than zero."
+        },
+        "grades_submission_lag": {
+          "label": "[AR] Grades submission lag",
+          "tooltip": "[AR] Assessments past their grades-due date with unsubmitted grades."
+        },
+        "new_applications_this_week": {
+          "label": "[AR] New applications this week",
+          "tooltip": "[AR] Admission applications created this week."
+        },
+        "parent_escalations": {
+          "label": "[AR] Parent escalations",
+          "tooltip": "[AR] Inbox threads where a parent sent the last message, it's unread by any staff, and it's older than 48 hours."
+        },
+        "cover_gaps_this_week": {
+          "label": "[AR] Cover gaps this week",
+          "tooltip": "[AR] Teacher absence rows this week where no cover assignment exists."
+        }
+      }
+    },
+    "defaults": {
+      "exportFormatLabel": "[AR] Default export format",
+      "exportFormatPlaceholder": "[AR] Choose a format",
+      "exportFormatHelp": "[AR] The format pre-selected when staff open the Export menu on a report.",
+      "exportFormatOption": {
+        "pdf": "PDF",
+        "xlsx": "[AR] Excel (XLSX)",
+        "docx": "[AR] Word (DOCX)"
+      },
+      "scheduleTimezoneLabel": "[AR] Default scheduled-report timezone",
+      "scheduleTimezonePlaceholder": "[AR] Choose a timezone",
+      "scheduleTimezoneHelp": "[AR] Used to interpret cron schedules for scheduled reports created from now on.",
+      "shareVisibilityLabel": "[AR] Default share visibility",
+      "shareVisibilityPlaceholder": "[AR] Choose a visibility",
+      "shareVisibilityHelp": "[AR] The visibility newly-saved custom reports default to. You can override per report.",
+      "shareVisibilityOption": {
+        "private": "[AR] Private — only you can open it",
+        "shared": "[AR] Shared with role groups — admins can open it"
+      },
+      "snapshotRetentionLabel": "[AR] Snapshot retention",
+      "snapshotRetentionDesc": "[AR] Shared snapshots are retained for {days} days before they expire.",
+      "save": "[AR] Save defaults",
+      "saving": "[AR] Saving…",
+      "toastSaved": "[AR] Defaults saved.",
+      "toastFailed": "[AR] Couldn't save defaults. Try again."
     }
   },
   "aiFeatures": {

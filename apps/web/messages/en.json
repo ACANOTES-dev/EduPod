@@ -2039,6 +2039,8 @@
       "senDesc": "Configure special educational needs categories and provisions.",
       "aiFlags": "AI Features",
       "aiFlagsDesc": "Enable or disable AI across behaviour, pastoral, staff wellbeing, and early warnings.",
+      "reportsSettings": "Reports Settings",
+      "reportsSettingsDesc": "Manage AI features, KPI dashboard visibility, and export defaults for the Reports module.",
       "wellbeingNotifications": "Wellbeing Notifications",
       "wellbeingNotificationsDesc": "Choose which wellbeing events are sent via email, SMS, and WhatsApp. In-app notifications are always on.",
       "staffOperations": "Staff Operations",
@@ -18411,6 +18413,118 @@
         "name": "Early Warnings",
         "description": "Risk score narratives, intervention suggestions, and plain-English explanations for the early-warning signals."
       }
+    }
+  },
+  "reportsSettings": {
+    "title": "Reports Settings",
+    "description": "Manage AI features, KPI dashboard visibility, and export defaults for your school's reports module.",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "permissionDeniedTitle": "You don't have access to Reports Settings",
+    "permissionDeniedDesc": "Only school owners, principals, vice principals, and admins can change reports settings. Ask an admin for access.",
+    "loadFailedTitle": "Couldn't load reports settings. Please try again.",
+    "tabs": {
+      "aiFeatures": "AI Features",
+      "kpiDashboard": "KPI Dashboard",
+      "defaults": "Defaults"
+    },
+    "aiFeatures": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "toggleAria": "Toggle {module}",
+      "toastEnabled": "AI feature enabled.",
+      "toastDisabled": "AI feature disabled.",
+      "toastFailed": "Couldn't change the AI flag. Reverted.",
+      "usageLine": "{count} generations this month (≈ {cost} estimated)",
+      "disableConfirmTitle": "Disable AI feature?",
+      "disableConfirmDesc": "Disabling this hides AI narratives across all reports. Existing saved reports are unaffected. Continue?",
+      "disableConfirmConfirm": "Disable",
+      "reports_narration": {
+        "label": "AI Narration",
+        "description": "AI-written executive summaries on the dashboard, each report page, and saved reports. Powered by Claude. Cost: approximately $0.01 per generation; cached 10 minutes."
+      },
+      "reports_ask_ai": {
+        "label": "AI Ask-AI",
+        "description": "Staff can ask natural-language questions to build reports. Powered by Claude. Cost: approximately $0.02 per query; cached 24 hours."
+      },
+      "reports_predictions": {
+        "label": "AI Predictions",
+        "description": "AI-powered predictions — student risk, attendance forecast, cash-flow forecast. Cost: approximately $0.04 per generation; cached 24 hours."
+      }
+    },
+    "kpiDashboard": {
+      "title": "KPI Dashboard visibility",
+      "description": "Choose which KPIs appear on the reports dashboard. Hidden KPIs stay hidden for everyone in your school.",
+      "toggleAria": "Show {kpi} on dashboard",
+      "toastFailed": "Couldn't update KPI visibility. Reverted.",
+      "kpis": {
+        "attendance_today": {
+          "label": "Attendance today",
+          "tooltip": "Today's session-marked attendance rate. Updates as teachers mark rolls."
+        },
+        "teacher_submission_compliance": {
+          "label": "Teacher submission compliance",
+          "tooltip": "Percentage of this week's expected attendance sessions that have been marked."
+        },
+        "at_risk_students": {
+          "label": "At-risk students",
+          "tooltip": "New entries in the academic risk alert table this week. Combines attendance + grades + behaviour + safeguarding signals."
+        },
+        "behaviour_incidents_this_week": {
+          "label": "Behaviour incidents this week",
+          "tooltip": "New behaviour incident records created this week, excluding reversed/appealed."
+        },
+        "open_safeguarding_concerns": {
+          "label": "Open safeguarding concerns",
+          "tooltip": "Safeguarding concerns with status not resolved. Card turns red if the oldest concern is more than 14 days old."
+        },
+        "overdue_invoices": {
+          "label": "Overdue invoices",
+          "tooltip": "Invoices past their due date with outstanding amount greater than zero."
+        },
+        "grades_submission_lag": {
+          "label": "Grades submission lag",
+          "tooltip": "Assessments past their grades-due date with unsubmitted grades."
+        },
+        "new_applications_this_week": {
+          "label": "New applications this week",
+          "tooltip": "Admission applications created this week."
+        },
+        "parent_escalations": {
+          "label": "Parent escalations",
+          "tooltip": "Inbox threads where a parent sent the last message, it's unread by any staff, and it's older than 48 hours."
+        },
+        "cover_gaps_this_week": {
+          "label": "Cover gaps this week",
+          "tooltip": "Teacher absence rows this week where no cover assignment exists."
+        }
+      }
+    },
+    "defaults": {
+      "exportFormatLabel": "Default export format",
+      "exportFormatPlaceholder": "Choose a format",
+      "exportFormatHelp": "The format pre-selected when staff open the Export menu on a report.",
+      "exportFormatOption": {
+        "pdf": "PDF",
+        "xlsx": "Excel (XLSX)",
+        "docx": "Word (DOCX)"
+      },
+      "scheduleTimezoneLabel": "Default scheduled-report timezone",
+      "scheduleTimezonePlaceholder": "Choose a timezone",
+      "scheduleTimezoneHelp": "Used to interpret cron schedules for scheduled reports created from now on.",
+      "shareVisibilityLabel": "Default share visibility",
+      "shareVisibilityPlaceholder": "Choose a visibility",
+      "shareVisibilityHelp": "The visibility newly-saved custom reports default to. You can override per report.",
+      "shareVisibilityOption": {
+        "private": "Private — only you can open it",
+        "shared": "Shared with role groups — admins can open it"
+      },
+      "snapshotRetentionLabel": "Snapshot retention",
+      "snapshotRetentionDesc": "Shared snapshots are retained for {days} days before they expire.",
+      "save": "Save defaults",
+      "saving": "Saving…",
+      "toastSaved": "Defaults saved.",
+      "toastFailed": "Couldn't save defaults. Try again."
     }
   },
   "aiFeatures": {

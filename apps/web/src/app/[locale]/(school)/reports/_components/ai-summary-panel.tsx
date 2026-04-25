@@ -192,7 +192,7 @@ export function AiSummaryPanel({ mode, fallback }: AiSummaryPanelProps) {
           {error && <p className="text-xs text-violet-700 dark:text-violet-300">{error}</p>}
           <div className="pt-1">
             <Link
-              href={`/${locale}/settings/reports`}
+              href={`/${locale}/settings/reports?tab=ai-features#reports_narration`}
               className="inline-flex items-center gap-1 text-xs text-violet-700 underline-offset-2 hover:underline dark:text-violet-300"
             >
               <Settings className="h-3 w-3" aria-hidden="true" />
