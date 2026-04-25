@@ -656,6 +656,16 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     description: 'View behaviour data for linked students',
     permission_tier: 'parent',
   },
+  {
+    permission_key: 'parent.view_engagement',
+    description: 'View engagement module (events, forms, analytics, consent archive)',
+    permission_tier: 'parent',
+  },
+  {
+    permission_key: 'parent.manage_engagement',
+    description: 'Manage engagement actions (register for events, complete forms)',
+    permission_tier: 'parent',
+  },
 
   // ─── Behaviour Management ──────────────────────────────────────────────────
   {

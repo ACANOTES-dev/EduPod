@@ -477,6 +477,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'parent.submit_inquiry',
       'parent.view_announcements',
       'parent.view_transcripts',
+      'parent.view_engagement',
+      'parent.manage_engagement',
       'behaviour.appeal',
       'schedule.view_class',
       'legal.view',
