@@ -345,30 +345,30 @@ Legend (post-Rule-29 state machine):
 `pending` → `in-progress` → `ready-to-merge` → `merging` → `verifying` → `completed`
 Exit on stuck: `🛑 blocked`. Legacy state `deploying` (used for impls 01–16 before the worktree-queue model) is equivalent to `merging` ∪ `verifying`.
 
-| #   | Title                                                 | Wave | Depends on     | Status           | Completed at                   | Commit SHA |
-| --- | ----------------------------------------------------- | ---- | -------------- | ---------------- | ------------------------------ | ---------- |
-| 01  | Schema foundation                                     | 1    | —              | `completed`      | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
-| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed`      | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
-| 03  | KPI Dashboard Service                                 | 2    | 01             | `completed`      | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
-| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed`      | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
-| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `completed`      | 2026-04-24T20:35 Europe/Dublin | `03cd4297` |
-| 06  | Board Report aggregation                              | 2    | 01             | `completed`      | 2026-04-24T22:28 Europe/Dublin | `d1876454` |
-| 07  | Compliance Report aggregation                         | 2    | 01             | `completed`      | 2026-04-24T21:46 Europe/Dublin | `89cb78f0` |
-| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `completed`      | 2026-04-25T00:30 Europe/Dublin | `5cb8c9bf` |
-| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `completed`      | 2026-04-24T23:50 Europe/Dublin | `c6309507` |
-| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `completed`      | 2026-04-24T22:40 Europe/Dublin | `6629dc14` |
-| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `completed`      | 2026-04-24T22:35 Europe/Dublin | `20b6899c` |
-| 12  | AI Predictions service                                | 3    | 01             | `completed`      | 2026-04-25T00:35 Europe/Dublin | `7c08a0ad` |
-| 13  | Report Sharing service                                | 3    | 01, 04         | `completed`      | 2026-04-25T01:18 Europe/Dublin | `e791efce` |
-| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `completed`      | 2026-04-25T06:00 Europe/Dublin | `79635bfe` |
-| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `completed`      | 2026-04-25T05:30 Europe/Dublin | `db7c77d0` |
-| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `completed`      | 2026-04-25T05:38 Europe/Dublin | `4cf97ea4` |
-| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `completed`      | 2026-04-25T06:25 Europe/Dublin | `07323817` |
-| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `ready-to-merge` |                                |            |
-| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`        |                                |            |
-| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`        |                                |            |
-| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`        |                                |            |
-| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`        |                                |            |
+| #   | Title                                                 | Wave | Depends on     | Status      | Completed at                   | Commit SHA |
+| --- | ----------------------------------------------------- | ---- | -------------- | ----------- | ------------------------------ | ---------- |
+| 01  | Schema foundation                                     | 1    | —              | `completed` | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
+| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed` | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
+| 03  | KPI Dashboard Service                                 | 2    | 01             | `completed` | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
+| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed` | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
+| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `completed` | 2026-04-24T20:35 Europe/Dublin | `03cd4297` |
+| 06  | Board Report aggregation                              | 2    | 01             | `completed` | 2026-04-24T22:28 Europe/Dublin | `d1876454` |
+| 07  | Compliance Report aggregation                         | 2    | 01             | `completed` | 2026-04-24T21:46 Europe/Dublin | `89cb78f0` |
+| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `completed` | 2026-04-25T00:30 Europe/Dublin | `5cb8c9bf` |
+| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `completed` | 2026-04-24T23:50 Europe/Dublin | `c6309507` |
+| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `completed` | 2026-04-24T22:40 Europe/Dublin | `6629dc14` |
+| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `completed` | 2026-04-24T22:35 Europe/Dublin | `20b6899c` |
+| 12  | AI Predictions service                                | 3    | 01             | `completed` | 2026-04-25T00:35 Europe/Dublin | `7c08a0ad` |
+| 13  | Report Sharing service                                | 3    | 01, 04         | `completed` | 2026-04-25T01:18 Europe/Dublin | `e791efce` |
+| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `completed` | 2026-04-25T06:00 Europe/Dublin | `79635bfe` |
+| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `completed` | 2026-04-25T05:30 Europe/Dublin | `db7c77d0` |
+| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `completed` | 2026-04-25T05:38 Europe/Dublin | `4cf97ea4` |
+| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `completed` | 2026-04-25T06:25 Europe/Dublin | `07323817` |
+| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `merging`   |                                |            |
+| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`   |                                |            |
+| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`   |                                |            |
+| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`   |                                |            |
+| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`   |                                |            |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
 
@@ -2943,12 +2943,10 @@ builder/'` plus default unstaged-add behaviour pulled them in.
     documented under impl 14's pre-flight sweep notes).
   - `GET https://nhqs.edupod.app/api/v1/reports/subject-registry`
     (no auth) → 401 (expected gate).
-  - **Authenticated as `owner@nhqs.test`:**
-    - `GET /api/v1/reports/subject-registry` → 200 with
-      `data.subjects[] = [student, staff, household, class, invoice,
-…]` (the 11 curated subjects).
-    - `GET /api/v1/reports/builder?page=1&pageSize=5` → 200 (saved
-      reports list endpoint reachable).
+  - **Authenticated as `owner@nhqs.test`:** - `GET /api/v1/reports/subject-registry` → 200 with
+    `data.subjects[] = [student, staff, household, class, invoice,
+…]` (the 11 curated subjects). - `GET /api/v1/reports/builder?page=1&pageSize=5` → 200 (saved
+    reports list endpoint reachable).
 - **Web pm2 process:** `258|web` online for ~3 min after the deploy
   rebuild completed; `Ready in 1396ms` log line confirms a clean
   cold-start. Pre-existing `ECONNREFUSED` warnings from a background
