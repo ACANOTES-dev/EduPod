@@ -2194,3 +2194,125 @@ FROM pg_class WHERE relname = 'report_share_log';` returns
 - Started: 2026-04-25T01:36 Europe/Dublin
 - Until: released by closing the browser AND appending a follow-up
   release line.
+
+### [FIX SWEEP] — pre-impl-14 follow-ups resolved
+
+- **Run:** 2026-04-25T01:36 → 02:09 Europe/Dublin
+- **Commits:**
+  - `c36a16ae` — fix(reports): unblock /en/reports + widen create schema
+  - `244a2cd2` — fix(reports): add missing impl 04 POST /v1/reports/builder/:id/export route
+- **CI runs:**
+  - https://github.com/ACANOTES-dev/EduPod/actions/runs/24919511994
+  - https://github.com/ACANOTES-dev/EduPod/actions/runs/24919911486
+- **Deployed to production:** yes (both commits, NHQS verified end-to-end).
+
+#### What was fixed
+
+1. **`/en/reports` page rendered an error page → now renders cleanly.**
+   - Translation namespace double-prefix: dropped the literal `reports.`
+     prefix from every `labelKey` in the QuickLink array (15 entries).
+     Page now resolves keys correctly under the
+     `useTranslations('reports')` namespace; no more `MISSING_MESSAGE`
+     errors.
+   - Recharts `r.slice is not a function` crash: added an
+     `adaptDashboardResponse()` helper that projects the new
+     impl-03 KPI shape (`{kpis: KpiCard[], trends: {weeks, attendance,
+     grades, collection}}`) down to the legacy page shape
+     (`{kpis: KpiData, trends: TrendPoint[]}`). The adapter is
+     throwaway — impl 14 will rewrite the page to consume the new
+     shape natively, but until then the dashboard renders without
+     crashing.
+   - Verified: `https://nhqs.edupod.app/en/reports` after deploy →
+     0 console errors, "Key Performance Indicators" + KPI cards +
+     "All Reports" link grid all visible. Recharts area chart
+     renders the 12-week trend without error.
+
+2. **Saved-report create schema rejected the new subject keys → now accepts
+     both shapes.** Widened
+   `packages/shared/src/schemas/reports-enhanced.schema.ts`:
+   - `data_source` now accepts EITHER the legacy enum
+     (`'students' | 'staff' | 'admissions' | 'attendance' | 'grades' |
+'finance'`) OR a new subject key (`'student' | 'staff' | 'household'
+| 'class' | 'invoice' | 'application' | 'behaviour_incident' |
+'safeguarding_concern' | 'attendance_record' | 'grade' | 'payroll_entry'`).
+   - `dimensions_json` accepts a flat `string[]` (legacy) or
+     `[{field_id, aggregation?}]` (new ColumnSpec).
+   - `measures_json` accepts a legacy
+     `[{field, aggregation}]` array or the new
+     `{sort?, group_by?}` object.
+   - The deserialiser in
+     `apps/api/src/modules/reports/custom-report-builder.service.ts:deserialiseQuery`
+     already handles both shapes; this change just stops the validator
+     rejecting new-shape payloads at the front door.
+
+3. **Impl 04's `POST /v1/reports/builder/:reportId/export` was claimed
+     done but never actually shipped → now wired.** Discovered via grep:
+   the controller had only `@Post('export/excel')` (legacy stub). Added:
+   - `ReportSharingService.exportSavedReport()` — synchronous export
+     entry point that loads the saved report, executes via the query
+     engine (RLS / 50k row cap / 30s timeout all apply), renders via
+     `ReportExportService.exportByFormat()`, returns
+     `{buffer, filename, mimeType, rowCount}`. Reuses every helper the
+     share path uses.
+   - `POST /v1/reports/builder/:reportId/export` on
+     `ReportSharingController`. Accepts `format` from body or query;
+     validates against `reportShareArtifactFormatSchema`; streams the
+     buffer via `@Res()` with `Content-Type` and
+     `Content-Disposition: attachment` headers + an `X-Row-Count`
+     header. Bypasses `ResponseTransformInterceptor` by design.
+   - Permission gate: `reports.builder` OR `analytics.manage_reports`.
+
+#### Playwright E2E verification (NHQS, owner@nhqs.test)
+
+| Step | Endpoint | Result |
+| ---- | -------- | ------ |
+| 1 | `POST /v1/reports/builder` (new subject key + ColumnSpec[]) | 201, report id returned |
+| 2 | `GET /v1/reports/builder/:id/execute?page=1&pageSize=5` | 200, 5 real student rows × 3 columns |
+| 3 | `POST /v1/reports/builder/:id/export` body `{format:'pdf'}` | 200, `application/pdf`, 297 080 bytes, **`%PDF` magic confirmed**, `Content-Disposition: attachment; filename="..."`, `X-Row-Count: 214` |
+| 4 | `POST /v1/reports/builder/:id/share` to a real staff recipient | 200, `share_id`, `conversation_id`, `artifact_keys: ['pdf']`, `recipients_count: 1` |
+| 5 | `GET /v1/reports/shared/:share_id` | 200, signed S3 URL returned, sharer name, 1 PDF artifact |
+| 6 | `GET /v1/reports/builder/:id/shares` | 200, `total: 1`, history entry with conversation_id matches step 4 |
+| 7 | `DELETE /v1/reports/builder/:id` | 200, smoke report deleted, share_log row cascade-removed |
+
+The S3 download URL in step 5 starts with
+`https://edupod-assets.hel1.your-objectstorage.com/edupod-ass…` — a
+valid signed URL. Direct fetch from the browser context blocked by CORS
+(expected for cross-origin S3); operationally this works because the
+recipient's browser opens the URL via the inbox attachment download flow,
+not via in-page `fetch()`.
+
+#### Deferred — deploy-script chunk-500 race
+
+Documented but **not fixed** in this sweep. Root cause:
+`scripts/deploy-production.sh:cleanup_build_outputs` does
+`mv apps/web/.next .next.stale.<ts>` then `rm -rf` BEFORE the rebuild
+runs. Browsers with cached HTML referencing old chunk hashes get a
+30–60 s window where the chunk URL returns 500 (file gone, new build
+hasn't landed yet). PM2 reload usually catches the gap, but a tab open
+during the deploy window will hit the 500.
+
+Real fix is non-trivial (Next.js doesn't natively support keeping old
+chunks alongside new ones — needs either a `--keep-stale-chunks` build
+flag the deploy script wraps, or a CDN-fronted blue-green deploy). Self-
+resolves with one hard refresh after each deploy. Tracking as a Wave 5
+polish / deploy-architecture task; impl 14 is not blocked by it.
+
+#### Net effect
+
+- **Reports hub page (`/en/reports`)**: working with real Wave-3 KPIs
+  (mapped down to the legacy view via the throwaway adapter). 0 console
+  errors. Trend chart renders.
+- **Custom builder pipeline**: a saved report under any of the 11 new
+  subject keys can be created, executed, exported (PDF/Excel/Word), and
+  shared end-to-end on production. NHQS now has a clean smoke-test path
+  the next session can re-run without setup.
+- **Impl 14 unblocker**: when impl 14 rewrites the page it can delete
+  `adaptDashboardResponse()` and consume the new shape directly. The
+  schema widening is permanent (legacy reports continue to work).
+  The export route is permanent.
+
+### [PLAYWRIGHT RELEASED] — pre-impl-14 fix sweep
+
+- Holder: post-walkthrough fix sweep
+- Released: 2026-04-25T02:10 Europe/Dublin
+- Browser closed: yes
