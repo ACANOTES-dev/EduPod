@@ -146,7 +146,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | #   | Title                                                  | Wave | Classification | Parallelisation mode | Depends on     | Status      | Completed at                   | Commit SHA |
 | --- | ------------------------------------------------------ | ---- | -------------- | -------------------- | -------------- | ----------- | ------------------------------ | ---------- |
 | 01  | Foundation: envelope unwrap + pagination + my-schedule | 1    | foundation     | serial               | —              | `completed` | 2026-04-26T00:04 Europe/Dublin | `39c30036` |
-| 02  | Hub landing + retire in-page strip                     | 2    | frontend       | parallel-risky       | 01             | `deploying` |                                |            |
+| 02  | Hub landing + retire in-page strip                     | 2    | frontend       | parallel-risky       | 01             | `completed` | 2026-04-26T00:23 Europe/Dublin | `16484131` |
 | 03  | Form templates editor polish                           | 2    | frontend       | parallel-risky       | 01             | `pending`   |                                |            |
 | 04  | Event sub-pages + parent flow polish                   | 3    | full-stack     | parallel-safe        | 01, 02, 03     | `pending`   |                                |            |
 | 05  | Parent permission backfill                             | 3    | data           | parallel-safe        | 01             | `pending`   |                                |            |
@@ -242,3 +242,71 @@ Append new records below in chronological order. Format:
     the post-smoke-test shim extension (arrays + notification-panel).
   - The orchestration files (`PLAN.md`, `implementations/`) were
     untracked at session start and were committed in `cf1b8330`.
+
+### [IMPL 02] — Hub landing + retire in-page strip
+
+- **Completed:** 2026-04-26T00:23 Europe/Dublin
+- **Commit:** `16484131` (latest); spans `214cd883` → `16484131`
+- **Deployed to production:** yes (rsync + web rebuild + `pm2 restart web`)
+- **Summary (≤ 200 words):**
+  Replaced the engagement redirect with a four-tile hub dashboard at
+  `/engagement` and retired the hand-rolled sticky `<nav>` strip in
+  `engagement/layout.tsx`. Three commits cover the impl:
+  - `214cd883` — `engagement/page.tsx` rewritten as a client component that
+    renders four tiles (Events, Form Templates, Analytics, Consent Archive)
+    using the same card-config shape as `/operations`. `engagement/layout.tsx`
+    became a pure pass-through (`<>{children}</>`), removing 67 lines of
+    sticky-nav scaffolding. ShieldCheck for the Consent Archive tile per spec.
+  - `c11d030b` — `nav-config.ts` adds explicit `engagement: []` and
+    `operations: []` entries to `hubSubStripConfigs` so the morph-shell
+    sub-strip renderer knows these hubs intentionally have no sub-strip
+    (matches the existing `finance: []` / `wellbeing: []` pattern).
+  - `16484131` — `messages/en.json` + `messages/ar.json` add the
+    `engagementHub` namespace (title, description, cardsAria + four card
+    title/description pairs) in both EN and AR.
+
+  **Deviation from plan:** the plan envisioned a permission-aware
+  filter (`hasPermission`) per tile. The actual `useRoleCheck` hook only
+  exposes `hasRole/hasAnyRole/isOwner` — no `hasPermission`. Tiles are
+  role-gated via `STAFF_ROLES` only (which matches every other hub
+  dashboard in the app). See follow-up below.
+
+  Production verified at https://nhqs.edupod.app: EN hub renders 4 tiles,
+  EN sub-pages (`/events`, `/analytics`, `/consent-archive`) have NO
+  legacy sticky strip, AR hub renders with RTL + Arabic strings,
+  `/operations` still renders its 7 tiles cleanly (no regression),
+  mobile (375px) stacks tiles single-column with no horizontal overflow,
+  zero console errors.
+
+- **Follow-ups:**
+  - **Add `hasPermission` to `useRoleCheck` if/when the permission
+    catalogue is exposed to the frontend.** Currently the four engagement
+    tiles are visible to anyone with a STAFF_ROLES role; if a tenant
+    later disables (e.g.) the Consent Archive feature for a sub-role,
+    the tile will still appear and the sub-page will 403 on click. Not
+    blocking for current tenants. Owner: future engagement / RBAC pass.
+  - **Operations hub `cards.engagement.description` is now slightly
+    redundant** with the engagement hub landing's own description.
+    Cosmetic — leave as-is for now.
+
+- **Session notes:**
+  - The page.tsx + layout.tsx work was committed by a prior attempt at
+    this session as `214cd883` while my session was still reading
+    context. I verified the content matched the spec (apart from
+    `ClipboardCheck` vs `ShieldCheck` — fixed via Edit before that
+    commit, so the committed file is correct), then continued with the
+    remaining sub-steps (nav-config, translations).
+  - Pre-existing uncommitted edits to `messages/en.json`,
+    `messages/ar.json` from an unrelated context (reports.\* AI summary
+    translations + JSON formatting changes) were detected via Rule H4
+    (`git status` review) and reset with `git checkout HEAD --` before
+    re-applying ONLY the `engagementHub` namespace per Rule H9. No
+    sibling work was overwritten by this commit.
+  - Pre-existing untracked files (`.claude/commands/EN.md`,
+    `docs/architecture/communication-architecture.md`) were left
+    untouched throughout the impl per Rule H6.
+  - Local `pnpm turbo run test --filter=@school/web` passed all 650
+    tests across 46 suites, including the `translation-parity.spec.ts`
+    that verifies EN/AR keys mirror.
+  - Wave 2 sibling Impl 03 was `pending` throughout this impl —
+    no deploy contention on the `web` target.
