@@ -921,6 +921,67 @@ describe('EventsService', () => {
         }),
       );
     });
+
+    it('should apply start_date_from filter as gte on start_date', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValue([]);
+      mockPrisma.engagementEvent.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        start_date_from: '2026-01-01',
+      });
+
+      expect(mockPrisma.engagementEvent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            start_date: { gte: new Date('2026-01-01') },
+          }),
+        }),
+      );
+    });
+
+    it('should apply start_date_to filter as lte on start_date', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValue([]);
+      mockPrisma.engagementEvent.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        start_date_to: '2026-12-31',
+      });
+
+      expect(mockPrisma.engagementEvent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            start_date: { lte: new Date('2026-12-31') },
+          }),
+        }),
+      );
+    });
+
+    it('should bracket start_date with both gte and lte when both date params provided', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValue([]);
+      mockPrisma.engagementEvent.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        start_date_from: '2026-06-01',
+        start_date_to: '2026-06-30',
+      });
+
+      expect(mockPrisma.engagementEvent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            start_date: {
+              gte: new Date('2026-06-01'),
+              lte: new Date('2026-06-30'),
+            },
+          }),
+        }),
+      );
+    });
   });
 
   describe('findAll — fee_amount mapping', () => {

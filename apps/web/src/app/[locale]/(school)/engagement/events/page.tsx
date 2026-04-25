@@ -55,6 +55,8 @@ export default function EngagementEventsPage() {
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (typeFilter !== 'all') params.set('event_type', typeFilter);
       if (search.trim()) params.set('search', search.trim());
+      if (dateFrom) params.set('start_date_from', dateFrom);
+      if (dateTo) params.set('start_date_to', dateTo);
 
       const response = await apiClient<PaginatedResponse<EventRecord>>(
         `/api/v1/engagement/events?${params.toString()}`,
@@ -67,7 +69,7 @@ export default function EngagementEventsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter, typeFilter]);
+  }, [dateFrom, dateTo, page, search, statusFilter, typeFilter]);
 
   React.useEffect(() => {
     void fetchEvents();
@@ -76,22 +78,6 @@ export default function EngagementEventsPage() {
   React.useEffect(() => {
     setPage(1);
   }, [dateFrom, dateTo, search, statusFilter, typeFilter]);
-
-  const filteredEvents = React.useMemo(() => {
-    return events.filter((event) => {
-      const startDate = event.start_date ? new Date(event.start_date) : null;
-
-      if (dateFrom && startDate && startDate < new Date(dateFrom)) {
-        return false;
-      }
-
-      if (dateTo && startDate && startDate > new Date(dateTo)) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [dateFrom, dateTo, events]);
 
   return (
     <div className="space-y-6">
@@ -179,7 +165,7 @@ export default function EngagementEventsPage() {
 
       {view === 'cards' ? (
         <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {filteredEvents.map((event) => (
+          {events.map((event) => (
             <button
               key={event.id}
               type="button"
@@ -270,10 +256,10 @@ export default function EngagementEventsPage() {
               render: (row) => row.participant_count ?? 0,
             },
           ]}
-          data={filteredEvents}
+          data={events}
           page={page}
           pageSize={20}
-          total={filteredEvents.length}
+          total={events.length}
           onPageChange={setPage}
           keyExtractor={(row) => row.id}
           onRowClick={(row) => router.push(`/${locale}/engagement/events/${row.id}`)}
@@ -281,7 +267,7 @@ export default function EngagementEventsPage() {
         />
       )}
 
-      {!loading && filteredEvents.length === 0 ? (
+      {!loading && events.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-border bg-surface p-8 text-center text-sm text-text-secondary">
           {t('pages.events.empty')}
         </div>

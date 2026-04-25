@@ -114,3 +114,21 @@ export const eventDashboardQuerySchema = z.object({
 });
 
 export type EventDashboardQuery = z.infer<typeof eventDashboardQuerySchema>;
+
+// ─── List Events Query ────────────────────────────────────────────────────────
+
+// Match the controller's URL contract — pageSize/event_type stay snake_case
+// where the API receives them, page is a positive int, and the date params
+// accept ISO date strings (YYYY-MM-DD) coming straight off `<input type="date">`.
+export const listEventsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
+  status: z.string().optional(),
+  event_type: z.string().optional(),
+  academic_year_id: z.string().uuid().optional(),
+  search: z.string().optional(),
+  start_date_from: z.string().date().optional(),
+  start_date_to: z.string().date().optional(),
+});
+
+export type ListEventsQuery = z.infer<typeof listEventsQuerySchema>;

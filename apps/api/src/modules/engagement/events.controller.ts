@@ -89,6 +89,8 @@ export class EventsController {
     @Query('event_type') eventType?: string,
     @Query('academic_year_id') academicYearId?: string,
     @Query('search') search?: string,
+    @Query('start_date_from') startDateFrom?: string,
+    @Query('start_date_to') startDateTo?: string,
   ) {
     return this.eventsService.findAll(tenant.tenant_id, {
       page: page ? parseInt(page, 10) : 1,
@@ -97,6 +99,8 @@ export class EventsController {
       event_type: eventType,
       academic_year_id: academicYearId,
       search,
+      start_date_from: startDateFrom,
+      start_date_to: startDateTo,
     });
   }
 

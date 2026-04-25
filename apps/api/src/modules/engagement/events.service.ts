@@ -30,6 +30,8 @@ interface EventListFilters {
   event_type?: string;
   academic_year_id?: string;
   search?: string;
+  start_date_from?: string;
+  start_date_to?: string;
 }
 
 // ─── Service ────────────────────────────────────────────────────────────────
@@ -107,7 +109,16 @@ export class EventsService {
   }
 
   async findAll(tenantId: string, filters: EventListFilters) {
-    const { page, pageSize, status, event_type, academic_year_id, search } = filters;
+    const {
+      page,
+      pageSize,
+      status,
+      event_type,
+      academic_year_id,
+      search,
+      start_date_from,
+      start_date_to,
+    } = filters;
     const skip = (page - 1) * pageSize;
 
     const where: Record<string, unknown> = { tenant_id: tenantId };
@@ -119,6 +130,12 @@ export class EventsService {
         { title: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
       ];
+    }
+    if (start_date_from || start_date_to) {
+      const startDateFilter: Record<string, Date> = {};
+      if (start_date_from) startDateFilter.gte = new Date(start_date_from);
+      if (start_date_to) startDateFilter.lte = new Date(start_date_to);
+      where.start_date = startDateFilter;
     }
 
     const [data, total] = await Promise.all([
