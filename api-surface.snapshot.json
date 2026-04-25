@@ -9878,6 +9878,27 @@
   },
   {
     "method": "GET",
+    "path": "/v1/reports/settings",
+    "controller": "ReportsSettingsController",
+    "module": "reports",
+    "permission": null
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/reports/settings/defaults",
+    "controller": "ReportsSettingsController",
+    "module": "reports",
+    "permission": null
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/reports/settings/kpi-visibility",
+    "controller": "ReportsSettingsController",
+    "module": "reports",
+    "permission": null
+  },
+  {
+    "method": "GET",
     "path": "/v1/reports/shared/:shareId",
     "controller": "ReportSharingController",
     "module": "reports",
