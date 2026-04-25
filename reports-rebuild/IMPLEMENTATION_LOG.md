@@ -364,7 +364,7 @@ Exit on stuck: `🛑 blocked`. Legacy state `deploying` (used for impls 01–16 
 | 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `completed` | 2026-04-25T05:30 Europe/Dublin | `db7c77d0` |
 | 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `completed` | 2026-04-25T05:38 Europe/Dublin | `4cf97ea4` |
 | 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `completed` | 2026-04-25T06:25 Europe/Dublin | `07323817` |
-| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `verifying` |                                |            |
+| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `completed` | 2026-04-25T13:15 Europe/Dublin | `6ab3efeb` |
 | 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`   |                                |            |
 | 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`   |                                |            |
 | 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`   |                                |            |
@@ -3167,3 +3167,145 @@ the documented follow-ups from the impl 17 completion record.
 - Holder: impl 18 verification — post-deploy smoke (Ask-AI page + AI panels)
 - Started: 2026-04-25T13:09 Europe/Dublin
 - Until: released by closing the browser AND appending a follow-up release line
+
+### [PLAYWRIGHT RELEASED] — impl 18 (post-deploy)
+
+- Holder: impl 18 verification — post-deploy smoke (Ask-AI page + AI panels)
+- Released: 2026-04-25T13:14 Europe/Dublin
+- Browser closed: yes
+
+### [IMPL 18] — AI Panel UI (Ask-AI, Narration, Predictions)
+
+- **Completed:** 2026-04-25T13:15 Europe/Dublin
+- **Final SHA:** `6ab3efeb`
+- **CI run:** https://github.com/ACANOTES-dev/EduPod/actions/runs/24930382144
+- **Deployed to production:** yes — verified on `nhqs.edupod.app`
+- **Summary (≤ 200 words):**
+  Lands the three flagship AI surfaces as flag-gated UI components
+  consuming the impl 10 / 11 / 12 backends. New files under
+  `apps/web/src/app/[locale]/(school)/reports/`:
+  `_components/use-ai-flags.ts` (plural hook with module-level cache,
+  5-min TTL, window-focus revalidation),
+  `_components/prediction-panel.tsx` + `prediction-panel.helpers.ts` +
+  `prediction-panel.types.ts` (reusable AI prediction panel covering all
+  three impl 12 kinds — student_risk / attendance_forecast / cash_flow —
+  with Recharts line + area charts, banded risk score, structured error
+  mapping for `AI_RATE_LIMITED` / `AI_PREDICTION_UNPARSEABLE`),
+  `_components/ai-summary-panel.helpers.ts` (extracted pure helpers from
+  the existing panel + new `saved` mode posting to
+  `/v1/reports/ai-narrator/saved/:id`),
+  `ask-ai/handoff.ts` (the local-storage key the builder consumes), and
+  a full rewrite of `ask-ai/page.tsx` against impl 11's
+  `/v1/reports/ai-ask-ai` endpoint with auto-resizing textarea, 10
+  suggestion pills (5 existing + 5 new for impl 22 polish),
+  rationale + warnings + confidence badge, "Open in builder" handoff,
+  "Run now" inline preview, and history list with "Save this" + "Run
+  again" affordances. Translations: 5 new `askAiSuggestion6..10` keys,
+  `askAi.*` extensions, new `reports.predictions.*` block,
+  `analytics.confidence` + `analytics.aiRateLimited`. Arabic prefixed
+  `[AR]` per Wave 4 convention. 49 new unit-test cases across two new
+  helper specs.
+
+- **Follow-ups:**
+  - **Impl 21 (Reports Settings page)** owns the `/settings/reports`
+    route every AI panel deep-links to. Until impl 21 lands, the
+    "Manage AI features in Settings" link 404s — the Ask-AI disabled
+    state currently shows the link as a dangling pointer.
+  - **Impl 22 (translations + a11y polish)** sweeps the `[AR]`-prefixed
+    placeholders in `ar.json` for the new keys: `askAi.{descriptionV2,
+placeholderV2, translating, previewCount, creditNotice, shortcutHint,
+builtForYou, warningsTitle, openInBuilder, runNow, running,
+couldNotTranslate, confidenceLabel, saveThis, savedBadge, runAgain,
+retry, invalidRequest, disabledTitle, disabledBody}`,
+    `askAiSuggestion6..10`, `analytics.aiRateLimited`,
+    `analytics.confidence.{high,medium,low}`, and the entire
+    `reports.predictions.*` tree. English copy in `en.json` is final.
+  - **Cost-counter copy is static placeholder.** PLAN.md spec calls for
+    "{N} previous generations this month" pulled from `ai_logs` count.
+    There's no count endpoint exposed yet. Current copy: "Each AI
+    query uses your tenant's AI credits." Impl 22 polish or a later
+    cycle can add the live count once an endpoint is wired.
+  - **Existing `student-risk-panel.tsx` retained** for the
+    student-progress drill-down; the new `prediction-panel.tsx` is the
+    consolidated reusable variant covering all three kinds. Future
+    waves can migrate the student-progress page to use the unified
+    panel and retire the impl 15 component.
+  - **Builder handoff pickup is impl 18-side only.** The local-storage
+    key `reports-ask-ai-handoff` is written when the user clicks "Open
+    in builder", but the builder (impl 16) doesn't yet read it. Wiring
+    the pickup is a small follow-up — impl 19's saved-report
+    management session is a natural place to fold it in.
+  - **AI flag toggling for verification:** the production smoke
+    flipped `reports_ask_ai` to `enabled=true` for NHQS, verified the
+    enabled UI rendered with all 10 suggestion pills + textbox + new
+    copy, hit `GET /v1/reports/ai-ask-ai/history` (200 empty paginated
+    shape) + `POST /v1/reports/ai-ask-ai` (503 `AI_UNAVAILABLE`
+    because `ANTHROPIC_API_KEY` is not set on prod — expected per
+    Wave 3 follow-ups). Flag flipped back to `false` after smoke.
+
+- **Rollback:** `git revert 6ab3efeb a0d95146 dc3573c3 27087e02 d02ddf05 e82003c9 327d1702`
+  (reverse-chronological: playwright lock claim, verifying flip, merge
+  flip, ready-to-merge flip, page handoff fix, the bulk feat, and the
+  in-progress flip). Pure frontend revert — no DB / API / permission /
+  schema changes. The legacy `/reports/ask-ai` page (which posted to
+  the deprecated `/v1/reports/ai-query` endpoint) is restored. The new
+  `_components/prediction-panel.tsx` + `_components/use-ai-flags.ts` +
+  `_components/ai-summary-panel.helpers.ts` files are removed; the
+  `ai-summary-panel.tsx` reverts to inline helpers + 2-mode
+  (`dashboard`/`report`) shape; impl 14 + impl 15 consumers continue
+  to work because the public component prop signature is unchanged.
+
+- **Session notes:**
+  - **Solo wave-4 session — no parallel-edit thrash.** The earlier
+    Wave 4 worktree (impl/18-1777116325) from a prior crashed session
+    was reaped via `--force 18` at session start; my fresh worktree
+    branch impl/18-1777116472 was the only impl 18 in flight.
+  - **Pre-push `--no-verify` per Rule 27** for every push. The
+    reports module cohesion gate is over the limit until impl 22's
+    decomposition (115 files, 19 285 LOC). CI accepts `--max-errors 1`.
+  - **First CI run failed with a Next.js page-export validation
+    error.** The Ask-AI page tried to `export { ASK_AI_HANDOFF_KEY }`
+    so the builder could pick it up; Next disallows arbitrary named
+    exports from a `page.tsx`. Fixed forward in `d02ddf05` by moving
+    the constant into a sibling `handoff.ts` module. Local
+    type-check + lint + test had passed because `tsc --noEmit` doesn't
+    run Next's page-route type-rules — only `next build` catches
+    that. Adding a `next build` step to the local gauntlet would have
+    surfaced this earlier; documented for follow-up.
+  - **Recharts `Tooltip.formatter` typing** required a second fix: the
+    formatter's `value` parameter is `ValueType | undefined`, so
+    typing it as `number | string` failed strict assignability. Loosened
+    to `unknown` with a runtime `typeof value === 'number'` narrow.
+  - **Helper extraction for testability.** The web app's jest config
+    runs only `*.spec.ts` (not `.tsx`) under a `node` environment, so
+    React-rendering tests are infeasible. I extracted pure helpers
+    out of `prediction-panel.tsx` and `ai-summary-panel.tsx` into
+    `*.helpers.ts` modules so the helper specs run cleanly under the
+    `node` env. Same pattern impl 14 used for `kpi-card.helpers.ts`.
+
+### [IMPL 18] — Post-deploy verification
+
+- **Run:** 2026-04-25T13:08 → 13:14 Europe/Dublin
+- **Production deploy verified:** PM2 web restart at 11:58 UTC
+  (CI run 24930382144 deploy job green). Dist contains the new
+  ask-ai page chunk:
+  `apps/web/.next/static/chunks/app/[locale]/(school)/reports/ask-ai/page-f0f11849ead9f01a.js`
+  (grep'd for the unique `reports-ask-ai-handoff` storage key — 1 match).
+
+#### Smoke summary
+
+| Surface                                          | Result | Evidence                                                                                                                                                                                                                                                           |
+| ------------------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/en/reports/ask-ai` (flag off — disabled state) | ✅     | Page renders "Ask-AI is disabled" + "An admin can enable AI-powered report building from Reports settings." + Settings link. 1 console error (forward-looking link to `/en/settings/reports`, impl 21's future page; pre-existing pattern, not caused by impl 18). |
+| `/en/reports/ask-ai` (flag on — enabled state)   | ✅     | Page renders the new descriptionV2, auto-resizing textbox, credit notice, all 10 suggestion pills (5 existing + 5 new), "Recent Queries" empty-state. 0 console errors.                                                                                            |
+| `/en/reports` (impl 14 dashboard)                | ✅     | Renders 10-KPI dashboard cleanly. 0 console errors caused by impl 18 (1 pre-existing `/en/schedules/cover` 404 documented in impl 14 record). Confirms the AiSummaryPanel refactor didn't break impl 14's `mode: 'dashboard'` consumer.                            |
+| `/en/reports/attendance` (impl 15 report page)   | ✅     | Page renders cleanly. 0 console errors. Confirms the AiSummaryPanel refactor didn't break impl 15's `mode: 'report'` consumers across 6 domain pages.                                                                                                              |
+
+#### Endpoint smoke (owner@nhqs.test, bearer token)
+
+| Endpoint                                            | Result                  | Evidence                                                                                                                                                                   |
+| --------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /v1/reports/ai-ask-ai/history` (flag on)       | ✅ 200                  | `{ "data": [], "meta": { "count": 0 } }` — exactly the shape my history list consumes.                                                                                     |
+| `POST /v1/reports/ai-ask-ai` (flag on)              | ✅ 503 `AI_UNAVAILABLE` | "AI is not configured for this environment." — the `ANTHROPIC_API_KEY`-missing path. My page maps this to `t('analytics.aiUnavailable')` — same handling as impl 10/11/12. |
+| `PATCH /v1/ai-flags/reports_ask_ai {enabled:true}`  | ✅ 200                  | Toggle flipped, `enabled: true` returned.                                                                                                                                  |
+| `PATCH /v1/ai-flags/reports_ask_ai {enabled:false}` | ✅ 200                  | Reverted to `enabled: false` (default).                                                                                                                                    |
