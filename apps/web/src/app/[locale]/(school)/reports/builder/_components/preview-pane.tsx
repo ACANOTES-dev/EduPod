@@ -4,11 +4,11 @@ import { AlertCircle, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 import type { QueryExecutionResult } from '@school/shared/reports';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
-import { ChartRenderer } from './chart-renderer';
 import { humaniseFieldLabel, type SavedReportChartType, type SubjectDescriptor } from './builder-types';
+import { ChartRenderer } from './chart-renderer';
 
 interface PreviewPaneProps {
   loading: boolean;
