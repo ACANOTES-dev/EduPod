@@ -89,7 +89,7 @@ A session is **not 🟢** until: local tests pass + commit on main + CI green + 
   - `Tenant.default_locale = ANY(supported_locales)` CHECK constraint
   - `Household.secondary_locale TEXT NULL`
   - `Household.dual_language_opt_in BOOLEAN NOT NULL DEFAULT false`
-- Backfill `Tenant.supported_locales` from existing `default_locale` (and add `'ar'` for tenants with AR users)
+- Backfill `Tenant.supported_locales = ['en', 'ar']` for every existing tenant (simplified rule per STRATEGY.md §4.1 — preserves both currently-served languages; platform admin can trim a tenant's array later via the P1C admin UI)
 - New file: `apps/web/i18n/registry.ts` — single source of truth for locale metadata (code, English name, native name, direction, tier)
 - `apps/web/i18n/config.ts` — derive active `locales` array from registry; register all new locales as metadata-only (not yet in active set)
 - New file: `apps/web/i18n/tier-scopes.ts` — `tier_2_namespaces` allowlist
