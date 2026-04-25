@@ -1,6 +1,5 @@
 'use client';
 
-import { Sparkles } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import {
@@ -18,321 +17,435 @@ import {
   YAxis,
 } from 'recharts';
 
-import { Button } from '@school/ui';
-
 import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+import { AiSummaryPanel } from '../_components/ai-summary-panel';
+import { ReportPageActions } from '../_components/report-page-actions';
 
-const NATIONALITY_DATA = [
-  { name: 'Libyan', value: 102, fill: '#6366f1' },
-  { name: 'Egyptian', value: 34, fill: '#10b981' },
-  { name: 'Sudanese', value: 18, fill: '#f59e0b' },
-  { name: 'Tunisian', value: 12, fill: '#8b5cf6' },
-  { name: 'British', value: 8, fill: '#06b6d4' },
-  { name: 'Other', value: 21, fill: '#94a3b8' },
-];
+// ─── Response shapes (match demographics.service.ts) ──────────────────────────
 
-const GENDER_BY_YEAR = [
-  { year: 'Year 7', male: 18, female: 15 },
-  { year: 'Year 8', male: 20, female: 17 },
-  { year: 'Year 9', male: 16, female: 19 },
-  { year: 'Year 10', male: 22, female: 18 },
-  { year: 'Year 12', male: 14, female: 16 },
-];
+interface NationalityBreakdownEntry {
+  nationality: string;
+  count: number;
+  percentage: number;
+}
 
-const AGE_DIST = [
-  { age: '11', count: 12 },
-  { age: '12', count: 18 },
-  { age: '13', count: 22 },
-  { age: '14', count: 25 },
-  { age: '15', count: 28 },
-  { age: '16', count: 24 },
-  { age: '17', count: 20 },
-  { age: '18', count: 16 },
-];
+interface GenderBalanceEntry {
+  year_group_id: string;
+  year_group_name: string;
+  male_count: number;
+  female_count: number;
+  other_count: number;
+  total: number;
+}
 
-const YEAR_GROUP_SIZES = [
-  { year: 'Year 7', size: 33, capacity: 40 },
-  { year: 'Year 8', size: 37, capacity: 40 },
-  { year: 'Year 9', size: 35, capacity: 40 },
-  { year: 'Year 10', size: 40, capacity: 40 },
-  { year: 'Year 12', size: 30, capacity: 36 },
-];
+interface AgeDistributionBucket {
+  age: number;
+  count: number;
+  percentage: number;
+}
 
-const ENROLMENT_TREND = [
-  { month: 'Oct', new_enrolments: 4, withdrawals: 1 },
-  { month: 'Nov', new_enrolments: 2, withdrawals: 0 },
-  { month: 'Dec', new_enrolments: 1, withdrawals: 2 },
-  { month: 'Jan', new_enrolments: 8, withdrawals: 0 },
-  { month: 'Feb', new_enrolments: 5, withdrawals: 1 },
-  { month: 'Mar', new_enrolments: 3, withdrawals: 1 },
-];
+interface YearGroupSizeEntry {
+  year_group_id: string;
+  year_group_name: string;
+  student_count: number;
+  active_count: number;
+  capacity: number | null;
+  capacity_utilisation: number | null;
+}
 
-const STATUS_DATA = [
-  { name: 'Active', value: 195, fill: '#10b981' },
-  { name: 'Applicant', value: 14, fill: '#6366f1' },
-  { name: 'Withdrawn', value: 8, fill: '#ef4444' },
-  { name: 'Graduated', value: 22, fill: '#94a3b8' },
-];
+interface EnrolmentTrendDataPoint {
+  month: string;
+  new_enrolments: number;
+  withdrawals: number;
+  net_change: number;
+}
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+interface StatusDistributionEntry {
+  status: string;
+  count: number;
+  percentage: number;
+}
+
+const NATIONALITY_COLOURS = ['#6366f1', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#94a3b8'];
+const STATUS_COLOURS: Record<string, string> = {
+  active: '#10b981',
+  applicant: '#6366f1',
+  pending: '#6366f1',
+  withdrawn: '#ef4444',
+  graduated: '#94a3b8',
+  inactive: '#94a3b8',
+};
+
+function statusColour(status: string): string {
+  return STATUS_COLOURS[status.toLowerCase()] ?? '#94a3b8';
+}
 
 export default function DemographicsPage() {
   const t = useTranslations('reports');
-  const [aiSummary, setAiSummary] = React.useState<string | null>(null);
-  const [aiLoading, setAiLoading] = React.useState(false);
 
-  const handleAiSummarise = async () => {
-    setAiLoading(true);
-    try {
-      await new Promise((r) => setTimeout(r, 800));
-      setAiSummary(t('demographics.aiSummaryFallback'));
-    } finally {
-      setAiLoading(false);
+  const [nationality, setNationality] = React.useState<NationalityBreakdownEntry[]>([]);
+  const [gender, setGender] = React.useState<GenderBalanceEntry[]>([]);
+  const [age, setAge] = React.useState<AgeDistributionBucket[]>([]);
+  const [yearGroupSizes, setYearGroupSizes] = React.useState<YearGroupSizeEntry[]>([]);
+  const [enrolmentTrend, setEnrolmentTrend] = React.useState<EnrolmentTrendDataPoint[]>([]);
+  const [status, setStatus] = React.useState<StatusDistributionEntry[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const [natRes, gendRes, ageRes, ygRes, trendRes, statRes] = await Promise.all([
+          apiClient<{ data: NationalityBreakdownEntry[] } | NationalityBreakdownEntry[]>(
+            '/api/v1/reports/analytics/demographics/nationality',
+          ),
+          apiClient<{ data: GenderBalanceEntry[] } | GenderBalanceEntry[]>(
+            '/api/v1/reports/analytics/demographics/gender-balance',
+          ),
+          apiClient<{ data: AgeDistributionBucket[] } | AgeDistributionBucket[]>(
+            '/api/v1/reports/analytics/demographics/age-distribution',
+          ),
+          apiClient<{ data: YearGroupSizeEntry[] } | YearGroupSizeEntry[]>(
+            '/api/v1/reports/analytics/demographics/year-group-sizes',
+          ),
+          apiClient<{ data: EnrolmentTrendDataPoint[] } | EnrolmentTrendDataPoint[]>(
+            '/api/v1/reports/analytics/demographics/enrolment-trends',
+          ),
+          apiClient<{ data: StatusDistributionEntry[] } | StatusDistributionEntry[]>(
+            '/api/v1/reports/analytics/demographics/status-distribution',
+          ),
+        ]);
+        if (cancelled) return;
+        setNationality(Array.isArray(natRes) ? natRes : natRes.data);
+        setGender(Array.isArray(gendRes) ? gendRes : gendRes.data);
+        setAge(Array.isArray(ageRes) ? ageRes : ageRes.data);
+        setYearGroupSizes(Array.isArray(ygRes) ? ygRes : ygRes.data);
+        setEnrolmentTrend(Array.isArray(trendRes) ? trendRes : trendRes.data);
+        setStatus(Array.isArray(statRes) ? statRes : statRes.data);
+      } catch (err: unknown) {
+        if (cancelled) return;
+        console.error('[reports/demographics] load', err);
+        setError(err instanceof Error ? err.message : t('analytics.loadError'));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-  };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
+
+  const aiData = React.useMemo(
+    () => ({
+      total_students: status.find((s) => s.status.toLowerCase() === 'active')?.count ?? null,
+      nationalities_count: nationality.length,
+      year_groups_count: yearGroupSizes.length,
+      net_recent_enrolment_change: enrolmentTrend.reduce((a, b) => a + b.net_change, 0),
+    }),
+    [nationality, status, yearGroupSizes, enrolmentTrend],
+  );
+
+  const nationalityChart = React.useMemo(
+    () =>
+      nationality.map((row, i) => ({
+        ...row,
+        fill: NATIONALITY_COLOURS[i % NATIONALITY_COLOURS.length],
+      })),
+    [nationality],
+  );
 
   return (
     <div className="space-y-8">
-      <PageHeader title={t('demographics.title')} description={t('demographics.description')} />
+      <PageHeader
+        title={t('demographics.title')}
+        description={t('demographics.description')}
+        actions={<ReportPageActions disabled />}
+      />
 
-      {/* AI Summary */}
-      <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => void handleAiSummarise()}
-          disabled={aiLoading}
-        >
-          <Sparkles className="me-2 h-4 w-4 text-violet-500" />
-          {aiLoading ? t('analytics.generating') : t('analytics.summarise')}
-        </Button>
-      </div>
+      <AiSummaryPanel
+        mode={{ kind: 'report', reportKey: 'demographics', data: aiData }}
+        fallback={t('demographics.aiSummaryFallback')}
+      />
 
-      {aiSummary && (
-        <div className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4">
-          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
-          <p className="text-sm text-violet-900">{aiSummary}</p>
+      {loading && <p className="text-sm text-text-tertiary">{t('attendance.loading')}</p>}
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+          <p className="text-sm text-red-900">{error}</p>
         </div>
       )}
 
-      {/* Grid: Nationality + Gender */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Nationality Pie */}
-        <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-          <h2 className="mb-4 text-base font-semibold text-text-primary">
-            {t('demographics.nationalityTitle')}
-          </h2>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie
-                  data={NATIONALITY_DATA}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={85}
-                >
-                  {NATIONALITY_DATA.map((entry) => (
-                    <Cell key={entry.name} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-            <ul className="shrink-0 space-y-1.5">
-              {NATIONALITY_DATA.map((d) => (
-                <li key={d.name} className="flex items-center gap-2 text-xs">
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: d.fill }}
-                  />
-                  <span className="text-text-secondary">{d.name}</span>
-                  <span className="ms-auto font-medium text-text-primary">{d.value}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        {/* Gender by Year Group */}
-        <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-          <h2 className="mb-4 text-base font-semibold text-text-primary">
-            {t('demographics.genderTitle')}
-          </h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={GENDER_BY_YEAR} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="year" className="text-xs" />
-              <YAxis className="text-xs" />
-              <Tooltip />
-              <Bar
-                dataKey="male"
-                name={t('demographics.male')}
-                fill="#6366f1"
-                radius={[4, 4, 0, 0]}
-              />
-              <Bar
-                dataKey="female"
-                name={t('demographics.female')}
-                fill="#ec4899"
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </section>
-      </div>
-
-      {/* Age Distribution */}
-      <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-        <h2 className="mb-4 text-base font-semibold text-text-primary">
-          {t('demographics.ageTitle')}
-        </h2>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={AGE_DIST} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-            <XAxis
-              dataKey="age"
-              className="text-xs"
-              label={{ value: 'Age', position: 'insideBottom', offset: -2, fontSize: 11 }}
-            />
-            <YAxis className="text-xs" />
-            <Tooltip />
-            <Bar
-              dataKey="count"
-              name={t('grades.studentCount')}
-              fill="#10b981"
-              radius={[4, 4, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </section>
-
-      {/* Year Group Sizes */}
-      <section className="rounded-xl border border-border bg-surface overflow-hidden">
-        <div className="border-b border-border px-4 py-3">
-          <h2 className="text-base font-semibold text-text-primary">
-            {t('demographics.yearGroupSizesTitle')}
-          </h2>
-        </div>
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border bg-surface-secondary">
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                {t('yearGroup')}
-              </th>
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                {t('demographics.enrolled')}
-              </th>
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                {t('demographics.capacity')}
-              </th>
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                {t('demographics.fill')}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {YEAR_GROUP_SIZES.map((row) => {
-              const pct = Math.round((row.size / row.capacity) * 100);
-              return (
-                <tr
-                  key={row.year}
-                  className="border-b border-border last:border-b-0 hover:bg-surface-secondary"
-                >
-                  <td className="px-4 py-3 text-sm font-medium text-text-primary">{row.year}</td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">{row.size}</td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">{row.capacity}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-24 overflow-hidden rounded-full bg-surface-secondary">
-                        <div
-                          className={`h-2 rounded-full ${pct >= 95 ? 'bg-red-400' : pct >= 80 ? 'bg-amber-400' : 'bg-emerald-500'}`}
-                          style={{ width: `${pct}%` }}
+      {!loading && !error && (
+        <>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
+              <h2 className="mb-4 text-base font-semibold text-text-primary">
+                {t('demographics.nationalityTitle')}
+              </h2>
+              {nationalityChart.length === 0 ? (
+                <p className="text-sm text-text-tertiary">{t('noData')}</p>
+              ) : (
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie
+                        data={nationalityChart}
+                        dataKey="count"
+                        nameKey="nationality"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={85}
+                      >
+                        {nationalityChart.map((entry) => (
+                          <Cell key={entry.nationality} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <ul className="shrink-0 space-y-1.5">
+                    {nationalityChart.map((d) => (
+                      <li key={d.nationality} className="flex items-center gap-2 text-xs">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: d.fill }}
                         />
-                      </div>
-                      <span className="text-xs font-medium text-text-secondary">{pct}%</span>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </section>
+                        <span className="text-text-secondary">{d.nationality || '—'}</span>
+                        <span className="ms-auto font-medium text-text-primary">{d.count}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </section>
 
-      {/* Enrolment Trend */}
-      <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-        <h2 className="mb-4 text-base font-semibold text-text-primary">
-          {t('demographics.enrolmentTrendTitle')}
-        </h2>
-        <ResponsiveContainer width="100%" height={240}>
-          <LineChart data={ENROLMENT_TREND} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-            <XAxis dataKey="month" className="text-xs" />
-            <YAxis className="text-xs" />
-            <Tooltip />
-            <Line
-              type="monotone"
-              dataKey="new_enrolments"
-              name={t('demographics.newEnrolments')}
-              stroke="#10b981"
-              strokeWidth={2}
-              dot={{ r: 4 }}
-            />
-            <Line
-              type="monotone"
-              dataKey="withdrawals"
-              name={t('demographics.withdrawals')}
-              stroke="#ef4444"
-              strokeWidth={2}
-              dot={{ r: 4 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </section>
+            <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
+              <h2 className="mb-4 text-base font-semibold text-text-primary">
+                {t('demographics.genderTitle')}
+              </h2>
+              {gender.length === 0 ? (
+                <p className="text-sm text-text-tertiary">{t('noData')}</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={gender} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="year_group_name" className="text-xs" />
+                    <YAxis className="text-xs" />
+                    <Tooltip />
+                    <Bar
+                      dataKey="male_count"
+                      name={t('demographics.male')}
+                      fill="#6366f1"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="female_count"
+                      name={t('demographics.female')}
+                      fill="#ec4899"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </section>
+          </div>
 
-      {/* Status Distribution donut */}
-      <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-        <h2 className="mb-4 text-base font-semibold text-text-primary">
-          {t('demographics.statusTitle')}
-        </h2>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={STATUS_DATA}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={55}
-                outerRadius={90}
-                paddingAngle={3}
-              >
-                {STATUS_DATA.map((entry) => (
-                  <Cell key={entry.name} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-          <ul className="shrink-0 space-y-2">
-            {STATUS_DATA.map((d) => (
-              <li key={d.name} className="flex items-center gap-2 text-sm">
-                <span
-                  className="h-3 w-3 shrink-0 rounded-full"
-                  style={{ backgroundColor: d.fill }}
-                />
-                <span className="text-text-secondary">{d.name}</span>
-                <span className="ms-auto font-semibold text-text-primary">{d.value}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+          <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
+            <h2 className="mb-4 text-base font-semibold text-text-primary">
+              {t('demographics.ageTitle')}
+            </h2>
+            {age.length === 0 ? (
+              <p className="text-sm text-text-tertiary">{t('noData')}</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={age} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis
+                    dataKey="age"
+                    className="text-xs"
+                    label={{
+                      value: t('demographics.ageAxisLabel'),
+                      position: 'insideBottom',
+                      offset: -2,
+                      fontSize: 11,
+                    }}
+                  />
+                  <YAxis className="text-xs" />
+                  <Tooltip />
+                  <Bar
+                    dataKey="count"
+                    name={t('grades.studentCount')}
+                    fill="#10b981"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-border bg-surface overflow-hidden">
+            <div className="border-b border-border px-4 py-3">
+              <h2 className="text-base font-semibold text-text-primary">
+                {t('demographics.yearGroupSizesTitle')}
+              </h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-surface-secondary">
+                    <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                      {t('yearGroup')}
+                    </th>
+                    <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                      {t('demographics.enrolled')}
+                    </th>
+                    <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                      {t('demographics.capacity')}
+                    </th>
+                    <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                      {t('demographics.fill')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {yearGroupSizes.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-sm text-text-tertiary">
+                        {t('noData')}
+                      </td>
+                    </tr>
+                  ) : (
+                    yearGroupSizes.map((row) => {
+                      const cap = row.capacity ?? 0;
+                      const pct =
+                        row.capacity_utilisation != null
+                          ? Math.round(row.capacity_utilisation)
+                          : cap > 0
+                            ? Math.round((row.student_count / cap) * 100)
+                            : 0;
+                      return (
+                        <tr
+                          key={row.year_group_id}
+                          className="border-b border-border last:border-b-0 hover:bg-surface-secondary"
+                        >
+                          <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                            {row.year_group_name}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-text-secondary">
+                            {row.student_count}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-text-secondary">
+                            {row.capacity ?? '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            {cap > 0 ? (
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 w-24 overflow-hidden rounded-full bg-surface-secondary">
+                                  <div
+                                    className={`h-2 rounded-full ${pct >= 95 ? 'bg-red-400' : pct >= 80 ? 'bg-amber-400' : 'bg-emerald-500'}`}
+                                    style={{ width: `${Math.min(pct, 100)}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs font-medium text-text-secondary">
+                                  {pct}%
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-text-tertiary">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
+            <h2 className="mb-4 text-base font-semibold text-text-primary">
+              {t('demographics.enrolmentTrendTitle')}
+            </h2>
+            {enrolmentTrend.length === 0 ? (
+              <p className="text-sm text-text-tertiary">{t('noData')}</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={enrolmentTrend} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="month" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <Tooltip />
+                  <Line
+                    type="monotone"
+                    dataKey="new_enrolments"
+                    name={t('demographics.newEnrolments')}
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="withdrawals"
+                    name={t('demographics.withdrawals')}
+                    stroke="#ef4444"
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
+            <h2 className="mb-4 text-base font-semibold text-text-primary">
+              {t('demographics.statusTitle')}
+            </h2>
+            {status.length === 0 ? (
+              <p className="text-sm text-text-tertiary">{t('noData')}</p>
+            ) : (
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={status}
+                      dataKey="count"
+                      nameKey="status"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={90}
+                      paddingAngle={3}
+                    >
+                      {status.map((entry) => (
+                        <Cell key={entry.status} fill={statusColour(entry.status)} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <ul className="shrink-0 space-y-2">
+                  {status.map((d) => (
+                    <li key={d.status} className="flex items-center gap-2 text-sm">
+                      <span
+                        className="h-3 w-3 shrink-0 rounded-full"
+                        style={{ backgroundColor: statusColour(d.status) }}
+                      />
+                      <span className="text-text-secondary">{d.status}</span>
+                      <span className="ms-auto font-semibold text-text-primary">{d.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }
