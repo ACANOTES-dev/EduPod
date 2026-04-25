@@ -2039,8 +2039,8 @@
       "senDesc": "تهيئة فئات الاحتياجات التعليمية الخاصة والأحكام.",
       "aiFlags": "ميزات الذكاء الاصطناعي",
       "aiFlagsDesc": "تفعيل أو تعطيل الذكاء الاصطناعي في السلوك والرعاية ورفاهية الموظفين والإنذارات المبكرة.",
-      "reportsSettings": "[AR] Reports Settings",
-      "reportsSettingsDesc": "[AR] Manage AI features, KPI dashboard visibility, and export defaults for the Reports module.",
+      "reportsSettings": "إعدادات التقارير",
+      "reportsSettingsDesc": "إدارة ميزات الذكاء الاصطناعي، ورؤية لوحة مؤشرات الأداء، والقيم الافتراضية للتصدير لنموذج التقارير.",
       "wellbeingNotifications": "إشعارات الرفاهية",
       "wellbeingNotificationsDesc": "اختر أي أحداث رفاهية تُرسل عبر البريد الإلكتروني والرسائل القصيرة وواتساب. الإشعارات داخل التطبيق تعمل دائمًا.",
       "staffOperations": "عمليات الموظفين",
@@ -18408,115 +18408,115 @@
     }
   },
   "reportsSettings": {
-    "title": "[AR] Reports Settings",
-    "description": "[AR] Manage AI features, KPI dashboard visibility, and export defaults for your school's reports module.",
-    "cancel": "[AR] Cancel",
-    "retry": "[AR] Retry",
-    "permissionDeniedTitle": "[AR] You don't have access to Reports Settings",
-    "permissionDeniedDesc": "[AR] Only school owners, principals, vice principals, and admins can change reports settings. Ask an admin for access.",
-    "loadFailedTitle": "[AR] Couldn't load reports settings. Please try again.",
+    "title": "إعدادات التقارير",
+    "description": "إدارة ميزات الذكاء الاصطناعي، ورؤية لوحة مؤشرات الأداء، والقيم الافتراضية للتصدير لنموذج التقارير في مدرستك.",
+    "cancel": "إلغاء",
+    "retry": "إعادة المحاولة",
+    "permissionDeniedTitle": "ليس لديك صلاحية للوصول إلى إعدادات التقارير",
+    "permissionDeniedDesc": "يمكن فقط لمالكي المدرسة والمديرين ونوابهم والمشرفين تغيير إعدادات التقارير. اطلب الصلاحية من المشرف.",
+    "loadFailedTitle": "تعذّر تحميل إعدادات التقارير. حاول مجددًا.",
     "tabs": {
-      "aiFeatures": "[AR] AI Features",
-      "kpiDashboard": "[AR] KPI Dashboard",
-      "defaults": "[AR] Defaults"
+      "aiFeatures": "ميزات الذكاء الاصطناعي",
+      "kpiDashboard": "لوحة مؤشرات الأداء",
+      "defaults": "الإعدادات الافتراضية"
     },
     "aiFeatures": {
-      "enabled": "[AR] Enabled",
-      "disabled": "[AR] Disabled",
-      "toggleAria": "[AR] Toggle {module}",
-      "toastEnabled": "[AR] AI feature enabled.",
-      "toastDisabled": "[AR] AI feature disabled.",
-      "toastFailed": "[AR] Couldn't change the AI flag. Reverted.",
-      "usageLine": "[AR] {count} generations this month (≈ {cost} estimated)",
-      "disableConfirmTitle": "[AR] Disable AI feature?",
-      "disableConfirmDesc": "[AR] Disabling this hides AI narratives across all reports. Existing saved reports are unaffected. Continue?",
-      "disableConfirmConfirm": "[AR] Disable",
+      "enabled": "مفعّل",
+      "disabled": "معطّل",
+      "toggleAria": "تبديل {module}",
+      "toastEnabled": "تم تفعيل ميزة الذكاء الاصطناعي.",
+      "toastDisabled": "تم تعطيل ميزة الذكاء الاصطناعي.",
+      "toastFailed": "تعذّر تغيير إعداد الذكاء الاصطناعي. تم التراجع.",
+      "usageLine": "{count} عملية إنشاء هذا الشهر (≈ {cost} تقديريًا)",
+      "disableConfirmTitle": "تعطيل ميزة الذكاء الاصطناعي؟",
+      "disableConfirmDesc": "سيؤدي تعطيل هذه الميزة إلى إخفاء سرديات الذكاء الاصطناعي عبر جميع التقارير. التقارير المحفوظة الموجودة لن تتأثر. هل تريد المتابعة؟",
+      "disableConfirmConfirm": "تعطيل",
       "reports_narration": {
-        "label": "[AR] AI Narration",
-        "description": "[AR] AI-written executive summaries on the dashboard, each report page, and saved reports. Powered by Claude. Cost: approximately $0.01 per generation; cached 10 minutes."
+        "label": "السرد بالذكاء الاصطناعي",
+        "description": "ملخصات تنفيذية مكتوبة بالذكاء الاصطناعي على لوحة التحكم، وعلى كل صفحة تقرير، وعلى التقارير المحفوظة. مدعومة بـ Claude. التكلفة: حوالي 0.01 دولار لكل عملية إنشاء؛ مخزّنة لمدة 10 دقائق."
       },
       "reports_ask_ai": {
-        "label": "[AR] AI Ask-AI",
-        "description": "[AR] Staff can ask natural-language questions to build reports. Powered by Claude. Cost: approximately $0.02 per query; cached 24 hours."
+        "label": "اسأل الذكاء الاصطناعي",
+        "description": "يمكن للموظفين طرح أسئلة باللغة الطبيعية لبناء التقارير. مدعومة بـ Claude. التكلفة: حوالي 0.02 دولار لكل استعلام؛ مخزّنة لمدة 24 ساعة."
       },
       "reports_predictions": {
-        "label": "[AR] AI Predictions",
-        "description": "[AR] AI-powered predictions — student risk, attendance forecast, cash-flow forecast. Cost: approximately $0.04 per generation; cached 24 hours."
+        "label": "التنبؤات بالذكاء الاصطناعي",
+        "description": "تنبؤات مدعومة بالذكاء الاصطناعي — مخاطر الطالب، توقعات الحضور، توقعات التدفق النقدي. التكلفة: حوالي 0.04 دولار لكل عملية إنشاء؛ مخزّنة لمدة 24 ساعة."
       }
     },
     "kpiDashboard": {
-      "title": "[AR] KPI Dashboard visibility",
-      "description": "[AR] Choose which KPIs appear on the reports dashboard. Hidden KPIs stay hidden for everyone in your school.",
-      "toggleAria": "[AR] Show {kpi} on dashboard",
-      "toastFailed": "[AR] Couldn't update KPI visibility. Reverted.",
+      "title": "إظهار مؤشرات الأداء الرئيسية",
+      "description": "اختر المؤشرات التي تظهر على لوحة التقارير. تظل المؤشرات المخفية مخفية لكل المستخدمين في مدرستك.",
+      "toggleAria": "إظهار {kpi} على لوحة التحكم",
+      "toastFailed": "تعذّر تحديث رؤية المؤشر. تم التراجع.",
       "kpis": {
         "attendance_today": {
-          "label": "[AR] Attendance today",
-          "tooltip": "[AR] Today's session-marked attendance rate. Updates as teachers mark rolls."
+          "label": "حضور اليوم",
+          "tooltip": "معدل الحضور المسجّل في حصص اليوم. يتحدّث مع تسجيل المعلمين للحضور."
         },
         "teacher_submission_compliance": {
-          "label": "[AR] Teacher submission compliance",
-          "tooltip": "[AR] Percentage of this week's expected attendance sessions that have been marked."
+          "label": "امتثال تسجيل المعلمين",
+          "tooltip": "نسبة حصص الحضور المتوقعة هذا الأسبوع التي تم تسجيلها."
         },
         "at_risk_students": {
-          "label": "[AR] At-risk students",
-          "tooltip": "[AR] New entries in the academic risk alert table this week. Combines attendance + grades + behaviour + safeguarding signals."
+          "label": "الطلاب المعرّضون للخطر",
+          "tooltip": "الإدخالات الجديدة في جدول تنبيهات المخاطر الأكاديمية هذا الأسبوع. يجمع بين إشارات الحضور والدرجات والسلوك والحماية."
         },
         "behaviour_incidents_this_week": {
-          "label": "[AR] Behaviour incidents this week",
-          "tooltip": "[AR] New behaviour incident records created this week, excluding reversed/appealed."
+          "label": "الحوادث السلوكية هذا الأسبوع",
+          "tooltip": "سجلات الحوادث السلوكية الجديدة المُنشأة هذا الأسبوع، مع استبعاد المعكوسة/المُستأنفة."
         },
         "open_safeguarding_concerns": {
-          "label": "[AR] Open safeguarding concerns",
-          "tooltip": "[AR] Safeguarding concerns with status not resolved. Card turns red if the oldest concern is more than 14 days old."
+          "label": "مخاوف الحماية المفتوحة",
+          "tooltip": "مخاوف الحماية التي لم تُحَل بعد. تتحول البطاقة إلى اللون الأحمر إذا كان أقدم مخاوف يزيد على 14 يومًا."
         },
         "overdue_invoices": {
-          "label": "[AR] Overdue invoices",
-          "tooltip": "[AR] Invoices past their due date with outstanding amount greater than zero."
+          "label": "الفواتير المتأخرة",
+          "tooltip": "الفواتير التي تجاوزت تاريخ الاستحقاق وعليها مبلغ مستحق أكبر من صفر."
         },
         "grades_submission_lag": {
-          "label": "[AR] Grades submission lag",
-          "tooltip": "[AR] Assessments past their grades-due date with unsubmitted grades."
+          "label": "تأخر تسليم الدرجات",
+          "tooltip": "التقييمات التي تجاوزت تاريخ تسليم الدرجات ولم تُسلَّم بعد."
         },
         "new_applications_this_week": {
-          "label": "[AR] New applications this week",
-          "tooltip": "[AR] Admission applications created this week."
+          "label": "طلبات جديدة هذا الأسبوع",
+          "tooltip": "طلبات الالتحاق المُنشأة هذا الأسبوع."
         },
         "parent_escalations": {
-          "label": "[AR] Parent escalations",
-          "tooltip": "[AR] Inbox threads where a parent sent the last message, it's unread by any staff, and it's older than 48 hours."
+          "label": "تصعيدات أولياء الأمور",
+          "tooltip": "محادثات صندوق الوارد التي أرسل ولي الأمر آخر رسالة فيها، وغير مقروءة من أي موظف، وأقدم من 48 ساعة."
         },
         "cover_gaps_this_week": {
-          "label": "[AR] Cover gaps this week",
-          "tooltip": "[AR] Teacher absence rows this week where no cover assignment exists."
+          "label": "نقص التغطية هذا الأسبوع",
+          "tooltip": "صفوف غياب المعلمين هذا الأسبوع التي لا يوجد لها تكليف بديل."
         }
       }
     },
     "defaults": {
-      "exportFormatLabel": "[AR] Default export format",
-      "exportFormatPlaceholder": "[AR] Choose a format",
-      "exportFormatHelp": "[AR] The format pre-selected when staff open the Export menu on a report.",
+      "exportFormatLabel": "صيغة التصدير الافتراضية",
+      "exportFormatPlaceholder": "اختر صيغة",
+      "exportFormatHelp": "الصيغة المُختارة مسبقًا عندما يفتح الموظفون قائمة التصدير على تقرير.",
       "exportFormatOption": {
         "pdf": "PDF",
-        "xlsx": "[AR] Excel (XLSX)",
-        "docx": "[AR] Word (DOCX)"
+        "xlsx": "Excel (XLSX)",
+        "docx": "Word (DOCX)"
       },
-      "scheduleTimezoneLabel": "[AR] Default scheduled-report timezone",
-      "scheduleTimezonePlaceholder": "[AR] Choose a timezone",
-      "scheduleTimezoneHelp": "[AR] Used to interpret cron schedules for scheduled reports created from now on.",
-      "shareVisibilityLabel": "[AR] Default share visibility",
-      "shareVisibilityPlaceholder": "[AR] Choose a visibility",
-      "shareVisibilityHelp": "[AR] The visibility newly-saved custom reports default to. You can override per report.",
+      "scheduleTimezoneLabel": "المنطقة الزمنية الافتراضية للتقارير المجدولة",
+      "scheduleTimezonePlaceholder": "اختر منطقة زمنية",
+      "scheduleTimezoneHelp": "تُستخدم لتفسير جداول cron للتقارير المجدولة المُنشأة من الآن فصاعدًا.",
+      "shareVisibilityLabel": "مستوى رؤية المشاركة الافتراضي",
+      "shareVisibilityPlaceholder": "اختر مستوى رؤية",
+      "shareVisibilityHelp": "مستوى الرؤية الذي تُحفظ به التقارير المخصصة الجديدة افتراضيًا. يمكنك تجاوزه لكل تقرير.",
       "shareVisibilityOption": {
-        "private": "[AR] Private — only you can open it",
-        "shared": "[AR] Shared with role groups — admins can open it"
+        "private": "خاص — يمكنك أنت فقط فتحه",
+        "shared": "مشترك مع مجموعات الأدوار — يمكن للمشرفين فتحه"
       },
-      "snapshotRetentionLabel": "[AR] Snapshot retention",
-      "snapshotRetentionDesc": "[AR] Shared snapshots are retained for {days} days before they expire.",
-      "save": "[AR] Save defaults",
-      "saving": "[AR] Saving…",
-      "toastSaved": "[AR] Defaults saved.",
-      "toastFailed": "[AR] Couldn't save defaults. Try again."
+      "snapshotRetentionLabel": "مدة الاحتفاظ باللقطة",
+      "snapshotRetentionDesc": "يتم الاحتفاظ باللقطات المشتركة لمدة {days} يومًا قبل انتهاء صلاحيتها.",
+      "save": "حفظ القيم الافتراضية",
+      "saving": "جارٍ الحفظ…",
+      "toastSaved": "تم حفظ القيم الافتراضية.",
+      "toastFailed": "تعذّر حفظ القيم الافتراضية. حاول مجددًا."
     }
   },
   "aiFeatures": {
