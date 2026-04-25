@@ -81,7 +81,7 @@ function KpiChart({ result, kpiFieldId }: KpiChartProps) {
     const raw = firstRow[kpiFieldId];
     return raw === null || raw === undefined ? null : raw;
   }, [result, kpiFieldId]);
-  if (value === null) return null;
+  if (value === null || !kpiFieldId) return null;
   const display = typeof value === 'number' ? value.toLocaleString() : String(value);
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-surface p-12">
