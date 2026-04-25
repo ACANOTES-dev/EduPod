@@ -29,6 +29,7 @@ import {
   demographicsQuerySchema,
   executeSavedReportSchema,
   gradeAnalyticsQuerySchema,
+  reportAlertHistoryQuerySchema,
   reportAlertsQuerySchema,
   reportExportQuerySchema,
   savedReportsQuerySchema,
@@ -979,10 +980,14 @@ export class ReportsEnhancedController {
   async getReportAlertHistory(
     @CurrentTenant() tenant: TenantContext,
     @Param('alertId', ParseUUIDPipe) alertId: string,
-    @Query('page') page: number = 1,
-    @Query('pageSize') pageSize: number = 50,
+    @Query(new ZodValidationPipe(reportAlertHistoryQuerySchema))
+    query: z.infer<typeof reportAlertHistoryQuerySchema>,
   ) {
-    return this.reportAlerts.getHistory(tenant.tenant_id, alertId, page, pageSize);
+    // impl 17 fix-forward: the previous `@Query('page') page: number` lied —
+    // NestJS doesn't auto-coerce raw query strings to numbers, so Prisma
+    // received `take: "50"` and threw a validation error. The Zod pipe
+    // (using `z.coerce.number()`) coerces correctly.
+    return this.reportAlerts.getHistory(tenant.tenant_id, alertId, query.page, query.pageSize);
   }
 
   // ─── AI Narration Endpoints (impl 10) ─────────────────────────────────────
