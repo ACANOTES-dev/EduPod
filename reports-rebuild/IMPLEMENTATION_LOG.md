@@ -3161,3 +3161,9 @@ the create modals open with real data, the new endpoint responds with the
 correct paginated shape, and the schema widening accepts the new metric +
 operator combinations. Edit-modal mode and the inbox audience picker are
 the documented follow-ups from the impl 17 completion record.
+
+### [PLAYWRIGHT LOCK] — impl 18 (post-deploy)
+
+- Holder: impl 18 verification — post-deploy smoke (Ask-AI page + AI panels)
+- Started: 2026-04-25T13:09 Europe/Dublin
+- Until: released by closing the browser AND appending a follow-up release line
