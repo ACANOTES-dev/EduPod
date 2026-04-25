@@ -365,7 +365,7 @@ Exit on stuck: `🛑 blocked`. Legacy state `deploying` (used for impls 01–16 
 | 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `completed`   | 2026-04-25T05:38 Europe/Dublin | `4cf97ea4` |
 | 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `completed`   | 2026-04-25T06:25 Europe/Dublin | `07323817` |
 | 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `pending`     |                                |            |
-| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `merging`         |                                |            |
+| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `verifying`       |                                |            |
 | 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`     |                                |            |
 | 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`     |                                |            |
 | 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`     |                                |            |
