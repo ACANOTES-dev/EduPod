@@ -83,10 +83,11 @@ function KpiChart({ result, kpiFieldId }: KpiChartProps) {
   }, [result, kpiFieldId]);
   if (value === null || !kpiFieldId) return null;
   const display = typeof value === 'number' ? value.toLocaleString() : String(value);
+  const tail = kpiFieldId.split('.').slice(-1)[0] ?? kpiFieldId;
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-surface p-12">
       <p className="text-6xl font-bold text-primary">{display}</p>
-      <p className="text-xs text-text-tertiary">{kpiFieldId.split('.').slice(-1)[0]}</p>
+      <p className="text-xs text-text-tertiary">{tail}</p>
     </div>
   );
 }
