@@ -185,6 +185,95 @@ Hold the lock for ≤ 30 minutes. If your verification needs longer, release at 
 
 ---
 
+## 2b. Worktree-isolated parallel execution (Wave 4 post-mortem rules)
+
+The Wave 4 parallel run (impls 14 / 15 / 16 / 17 colliding in the same working tree) burned ≈ 4 hours of agent time on stash-pop thrash, file-revert races, and concurrent linter rewrites. Rules 17–27 prevented Wave 2's failures but did NOT prevent Wave 4's: stash captures cross-impl work, untracked-file collisions, no "release this file" mechanism, and an async log racing a real-time working tree. Rules 28–33 force every parallel impl into its own git worktree + a strict merge queue. Read these every time a wave has more than one in-flight session.
+
+**Rule 28 — Each parallel impl runs in its own git worktree.** Sessions that need to coexist with another in-flight impl in the same wave MUST create an isolated worktree at session start. The slash command (`/NI <n>`) handles this automatically; if you are running outside the slash command, the manual recipe is:
+
+```bash
+git fetch origin main
+git worktree add "$(git rev-parse --show-toplevel)/.worktrees/impl-<n>" \
+                 -b "impl/<n>-<short-slug>" origin/main
+cd "$(git rev-parse --show-toplevel)/.worktrees/impl-<n>"
+```
+
+This gives the session its own filesystem copy at `.worktrees/impl-<n>/`, its own working tree, its own index, its own branch. No other session can see its uncommitted edits, untracked files, or modifications. Stash thrash, lint races, and accidental cross-impl captures all become impossible by construction.
+
+The `.worktrees/` directory is gitignored at the project root. Worktrees are removed at session end (`git worktree remove --force <path>`) — abandoned worktrees are reaped by `git worktree prune` and cause no harm.
+
+Solo impls (no parallel siblings in the wave) MAY run in the main checkout for convenience; the moment a second session starts in the same wave, both sessions must move to worktrees.
+
+**Rule 29 — The wave-status table doubles as a merge queue with strict implementation-number order.** A new state machine governs every impl's row in §4:
+
+```
+pending → in-progress → ready-to-merge → merging → verifying → completed
+                         ↘                                   ↘
+                          🛑 blocked (manual exit)           🛑 blocked
+```
+
+- `pending` — not started
+- `in-progress` — coding in worktree; gauntlet not yet green
+- `ready-to-merge` — local gauntlet green AND self-CI on the impl branch is green; waiting in the queue
+- `merging` — actively pushing to `main`, watching CI, fix-forwarding any failures (HOLDS THE LOCK)
+- `verifying` — CI deploy succeeded; running production verification (curl + Playwright); main is read-only for this impl from this point (HOLDS THE LOCK)
+- `completed` — verification passed, lock released, next impl in queue may proceed
+
+A session may enter `merging` only when **both** of the following are true:
+
+1. **All lower-numbered impls in the same wave are `completed`.** Strict order. Even if impl 17 finishes coding before impl 16, it waits for 16 to clear all the way through `completed`.
+2. **No impl in any wave currently holds the lock** (no impl is in `merging` or `verifying`).
+
+Use `scripts/wave-merge-queue.sh check-clear <log-path> <impl>` to perform this check atomically. The script returns `OK` + exit 0 when clear, or `BLOCKED: <reason>` + exit 1 with the specific blocker. Sessions poll every 3 minutes until clear.
+
+**Rule 30 — The lock holder has exclusive write access to `main` until `completed`.** Once a session has flipped its row to `merging`, it is the only impl allowed to push to `main` until it has flipped to `completed`. This window covers the merge itself, every CI fix-forward commit, the deploy, and every verification step. If the impl needs five fix-forward commits to chase a CI failure, all five land before any other impl can begin its own merge.
+
+In practice this means: if impl 16 is `merging` and impl 17 is `ready-to-merge`, impl 17's session blocks on `wave-merge-queue.sh check-clear` until impl 16 flips to `completed`. There is no way for impl 17 to "race ahead" — the queue check refuses.
+
+**Rule 31 — Production verification is part of `completed`, and is non-negotiable.** No row may flip from `verifying` to `completed` without:
+
+- A successful `curl https://<tenant>.edupod.app/api/health` (200 OK).
+- For backend impls (services, controllers, schemas): an authenticated `curl` against the primary endpoint(s) the impl shipped, confirming a 2xx response with the expected shape (NOT 404, NOT a stubbed envelope).
+- For frontend impls: a Playwright walkthrough that loads the new page(s), captures `browser_console_messages('error')` (must be 0), and exercises the primary flow (open a modal, submit a form, navigate a deep link) end-to-end.
+- For worker impls: SSH `pm2 logs worker --lines 200` confirming the new processor registered AND (for crons) fired at least once at its scheduled tick.
+- For schema impls: `psql` against production DB confirming the new tables exist with `relrowsecurity = t AND relforcerowsecurity = t` and the `<table>_tenant_isolation` policy is present.
+
+When a Playwright walkthrough is technically possible (any UI surface), it is REQUIRED — not optional. The `[PLAYWRIGHT LOCK]` (Rule 27b) is naturally serialised by Rule 30's exclusive lock, so verifying impls never contend for Playwright with each other.
+
+The verification block is appended to §5 as part of the completion record using the format:
+
+```
+### [IMPL <n>] — Post-deploy verification
+- **Run:** <ISO start> → <ISO end> Europe/Dublin
+- **Production deploy verified:** <PM2 uptime + dist file checks>
+- **Endpoint smoke:** <table of endpoint, status, evidence>
+- **Playwright smoke:** <table of page, result, evidence>
+```
+
+**Rule 32 — Continuous rebasing minimises merge conflicts.** Every time `origin/main` advances (i.e. an upstream sibling merges), every in-flight worktree in the same wave MUST run within 5 minutes:
+
+```bash
+git fetch origin main
+git rebase origin/main
+# resolve any conflicts immediately (the diff is small while it's fresh)
+pnpm turbo run type-check --filter=@school/<affected>   # quick sanity
+```
+
+This caps each rebase at "what just landed" rather than "everything that ever landed across all preceding impls." A 5-line conflict resolved in 2 minutes is trivially manageable; a 500-line accumulated conflict at merge time is a nightmare. Sessions that fail to rebase frequently are responsible for any compound-conflict resolution at merge time — no exceptions.
+
+For files known to be append-only across impls (`reports-rebuild/IMPLEMENTATION_LOG.md`, `apps/web/messages/{en,ar}.json`), use `git rebase -X theirs` (or hand-merge via "take both") — these conflicts are mechanical and safe to auto-resolve.
+
+**Rule 33 — Worst-case executive decisions live with the session, but verification still gates `completed`.** When a rebase produces a genuinely hard conflict (e.g. a "deleted vs modified" or two diverging refactors of the same function), the session is empowered to make the call without asking the user mid-flight: pick the resolution that best preserves both impls' intent, document the decision in the §5 completion record, and proceed. The safety net is Rule 31 — even if the merge resolution is sub-optimal, the impl cannot reach `completed` without proving the affected surface still works end-to-end via curl + Playwright. If verification fails, the impl rolls back its own merge (revert + re-rebase + re-merge) before yielding the lock.
+
+The user is consulted only for:
+- Conflicts that would lose the user's prior explicit decision (e.g. dropping a feature flag the user toggled on).
+- Conflicts that would expand impl scope outside the implementation file (e.g. "to resolve, we need to refactor X").
+- Verification failures that cannot be fixed forward inside the impl's stated scope.
+
+Everything else is the session's call, made and documented in real time.
+
+---
+
 ## 3. Wave structure & dependencies
 
 Each wave must complete entirely before the next wave starts. Within a wave, all listed implementations code in parallel AND deploy on a first-come-first-served basis — **not** in implementation-number order. Deployment only serialises (polling every 3 minutes) when another sibling is already `deploying` **and** shares a service restart target (API / worker / web, per the matrix below).
@@ -230,7 +319,9 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 ## 4. Wave status (update as you execute)
 
-Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
+Legend (post-Rule-29 state machine):
+`pending` → `in-progress` → `ready-to-merge` → `merging` → `verifying` → `completed`
+Exit on stuck: `🛑 blocked`. Legacy state `deploying` (used for impls 01–16 before the worktree-queue model) is equivalent to `merging` ∪ `verifying`.
 
 | #   | Title                                                 | Wave | Depends on     | Status        | Completed at                   | Commit SHA |
 | --- | ----------------------------------------------------- | ---- | -------------- | ------------- | ------------------------------ | ---------- |
