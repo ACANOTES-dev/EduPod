@@ -148,7 +148,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 01  | Foundation: envelope unwrap + pagination + my-schedule | 1    | foundation     | serial               | —              | `completed`   | 2026-04-26T00:04 Europe/Dublin | `39c30036` |
 | 02  | Hub landing + retire in-page strip                     | 2    | frontend       | parallel-risky       | 01             | `completed`   | 2026-04-26T00:23 Europe/Dublin | `16484131` |
 | 03  | Form templates editor polish                           | 2    | frontend       | parallel-risky       | 01             | `completed`   | 2026-04-26T00:47 Europe/Dublin | `f2c8d257` |
-| 04  | Event sub-pages + parent flow polish                   | 3    | full-stack     | parallel-safe        | 01, 02, 03     | `pending`     |                                |            |
+| 04  | Event sub-pages + parent flow polish                   | 3    | full-stack     | parallel-safe        | 01, 02, 03     | `in-progress` |                                |            |
 | 05  | Parent permission backfill                             | 3    | data           | parallel-safe        | 01             | `pending`     |                                |            |
 | 06  | Regression sweep + i18n + mobile + docs                | 4    | polish         | serial               | 02, 03, 04, 05 | `pending`     |                                |            |
 
@@ -326,7 +326,7 @@ Append new records below in chronological order. Format:
     `field_key`, `field_type`); the second `form.handleSubmit` callback
     fires `toast.error(t('builder.validationError'))` when
     Zod validation fails so the click is never silent. `engagement-types.ts
-    → createEmptyField(displayOrder, existingKeys=[])` now emits
+→ createEmptyField(displayOrder, existingKeys=[])` now emits
     `field_<N>` (collision-skipping) instead of
     `engagement_field_<idx>_<random>`. `completion-dashboard.tsx` adds
     a `variant: 'event' | 'standalone_form'` prop — `standalone_form`
@@ -337,7 +337,7 @@ Append new records below in chronological order. Format:
     `submissionsReceived/Expected` from `stats.submitted` / `stats.total`.
   - `f2c8d257` — Adds `engagement.builder.{validationError,fieldRequired}`
     and `engagement.completionDashboard.{standaloneTitle,standaloneDescription,
-    progressComplete,progressTotal}` to messages/en.json + messages/ar.json
+progressComplete,progressTotal}` to messages/en.json + messages/ar.json
     (deep-merged into existing structure, no overwrite).
 
   Production verified at https://nhqs.edupod.app: empty draft submit
