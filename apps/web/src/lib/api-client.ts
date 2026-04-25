@@ -118,22 +118,56 @@ async function parseResponse<T>(response: Response): Promise<T> {
  *   - error envelopes ({ error: { code, message } })
  *   - raw arrays
  *   - already-unwrapped scalars or objects without a `data` key
+ *   - { data: null } / { data: undefined } envelopes (endpoints that signal
+ *     "found no record" by returning a null inner)
  *
  * The pass-through behaviour is critical because the existing `unwrap()` helper
  * (exported above) is idempotent on already-unwrapped values, so any callsite
  * that defensively chained `unwrap(await apiClient(...))` continues to behave
  * correctly after this change.
+ *
+ * Backward-compat shim: when the inner value is a plain object, we expose a
+ * non-enumerable `.data` getter on it that returns the object itself. This
+ * allows legacy callsites typed as `apiClient<{ data: T }>` and accessing
+ * `response.data.field` to keep working — `response.data` returns the inner
+ * object via the getter, and `.field` is then the real value. The getter is
+ * non-enumerable so JSON.stringify, Object.keys, for-in, and spread operators
+ * skip it, leaving the object's serialized shape unchanged. New callsites
+ * typed as `apiClient<T>` get direct field access (`response.field`) without
+ * any wrapper. The shim is intentionally a transitional behaviour that lets
+ * the legacy and new patterns coexist while individual callsites migrate.
  */
 function autoUnwrap<T>(body: unknown): T {
   if (body !== null && typeof body === 'object' && !Array.isArray(body)) {
     const keys = Object.keys(body as object);
     if (keys.length === 1 && keys[0] === 'data') {
       const inner = (body as { data: unknown }).data;
-      // null/undefined `data` envelopes are returned as-is (some endpoints
-      // legitimately return { data: null } to signal "found no record").
-      if (inner !== undefined) {
-        return inner as T;
+      // null / undefined `data` envelopes are returned as-is so legacy code
+      // that does `if (response.data)` keeps treating "no record" the same
+      // way it always has.
+      if (inner === undefined || inner === null) {
+        return body as T;
       }
+      if (typeof inner === 'object' && !Array.isArray(inner)) {
+        const innerObj = inner as Record<string, unknown>;
+        // If the inner already carries its own `data` field (e.g. nested
+        // `{ data: { data: ... } }`), do NOT shim — the inner's own field
+        // wins and behaviour matches the historical wrapped path.
+        if (!Object.prototype.hasOwnProperty.call(innerObj, 'data')) {
+          Object.defineProperty(innerObj, 'data', {
+            get() {
+              return innerObj;
+            },
+            configurable: true,
+            enumerable: false,
+          });
+        }
+        return innerObj as T;
+      }
+      // Inner is an array or primitive — strip the wrapper without a shim.
+      // Legacy callers reading `.data` on an array/primitive response are
+      // vanishingly rare and not worth the surface area to support.
+      return inner as T;
     }
   }
   return body as T;

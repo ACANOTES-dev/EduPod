@@ -101,7 +101,9 @@ describe('apiClient — autoUnwrap behaviour', () => {
   it('returns undefined for 204 No Content', async () => {
     global.fetch = jest.fn(() =>
       Promise.resolve(
-        new Response('', {
+        // 204/205 responses must have a null body per the Fetch spec; passing
+        // an empty string throws in Node's undici implementation.
+        new Response(null, {
           status: 204,
           headers: { 'content-type': 'application/json' },
         }),
@@ -115,7 +117,7 @@ describe('apiClient — autoUnwrap behaviour', () => {
   it('returns undefined for 205 Reset Content', async () => {
     global.fetch = jest.fn(() =>
       Promise.resolve(
-        new Response('', {
+        new Response(null, {
           status: 205,
           headers: { 'content-type': 'application/json' },
         }),
@@ -138,5 +140,57 @@ describe('apiClient — autoUnwrap behaviour', () => {
 
     const result = await apiClient('/test');
     expect(result).toBeUndefined();
+  });
+
+  // ─── Backward-compat .data getter shim ───────────────────────────────────
+  // The shim lets legacy callsites typed as apiClient<{ data: T }> keep
+  // accessing response.data.field while new callsites typed as apiClient<T>
+  // access response.field directly.
+
+  it('exposes a non-enumerable .data getter on stripped object responses', async () => {
+    const inner = { id: 'x', status: 'open', name: 'Foo' };
+    global.fetch = jest.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ data: inner }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
+    );
+
+    const result = await apiClient<{ id: string; status: string; name: string }>('/test');
+
+    // New access pattern works: result.field returns the value directly.
+    expect(result.id).toBe('x');
+    expect(result.status).toBe('open');
+    expect(result.name).toBe('Foo');
+
+    // Legacy access pattern works via the shim: result.data points back to result.
+    const legacy = result as unknown as { data: { id: string; status: string; name: string } };
+    expect(legacy.data).toBe(result);
+    expect(legacy.data.id).toBe('x');
+    expect(legacy.data.status).toBe('open');
+
+    // The shim is non-enumerable: JSON.stringify, Object.keys, and spread
+    // operators all see the original shape without a `data` key.
+    expect(Object.keys(result)).toEqual(['id', 'status', 'name']);
+    expect(JSON.parse(JSON.stringify(result))).toEqual(inner);
+  });
+
+  it('does not shim when inner already has its own data field', async () => {
+    // Nested { data: { data: ... } } — the inner's own data field wins,
+    // matching historical wrapped-envelope behaviour.
+    const nested = { data: 'inner-payload' };
+    global.fetch = jest.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ data: nested }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
+    );
+
+    const result = await apiClient<{ data: string }>('/test');
+    expect(result.data).toBe('inner-payload');
   });
 });
