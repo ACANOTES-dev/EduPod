@@ -287,6 +287,7 @@ For files known to be append-only across impls (`reports-rebuild/IMPLEMENTATION_
 **Rule 33 — Worst-case executive decisions live with the session, but verification still gates `completed`.** When a rebase produces a genuinely hard conflict (e.g. a "deleted vs modified" or two diverging refactors of the same function), the session is empowered to make the call without asking the user mid-flight: pick the resolution that best preserves both impls' intent, document the decision in the §5 completion record, and proceed. The safety net is Rule 31 — even if the merge resolution is sub-optimal, the impl cannot reach `completed` without proving the affected surface still works end-to-end via curl + Playwright. If verification fails, the impl rolls back its own merge (revert + re-rebase + re-merge) before yielding the lock.
 
 The user is consulted only for:
+
 - Conflicts that would lose the user's prior explicit decision (e.g. dropping a feature flag the user toggled on).
 - Conflicts that would expand impl scope outside the implementation file (e.g. "to resolve, we need to refactor X").
 - Verification failures that cannot be fixed forward inside the impl's stated scope.
@@ -344,30 +345,30 @@ Legend (post-Rule-29 state machine):
 `pending` → `in-progress` → `ready-to-merge` → `merging` → `verifying` → `completed`
 Exit on stuck: `🛑 blocked`. Legacy state `deploying` (used for impls 01–16 before the worktree-queue model) is equivalent to `merging` ∪ `verifying`.
 
-| #   | Title                                                 | Wave | Depends on     | Status        | Completed at                   | Commit SHA |
-| --- | ----------------------------------------------------- | ---- | -------------- | ------------- | ------------------------------ | ---------- |
-| 01  | Schema foundation                                     | 1    | —              | `completed`   | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
-| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed`   | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
-| 03  | KPI Dashboard Service                                 | 2    | 01             | `completed`   | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
-| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed`   | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
-| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `completed`   | 2026-04-24T20:35 Europe/Dublin | `03cd4297` |
-| 06  | Board Report aggregation                              | 2    | 01             | `completed`   | 2026-04-24T22:28 Europe/Dublin | `d1876454` |
-| 07  | Compliance Report aggregation                         | 2    | 01             | `completed`   | 2026-04-24T21:46 Europe/Dublin | `89cb78f0` |
-| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `completed`   | 2026-04-25T00:30 Europe/Dublin | `5cb8c9bf` |
-| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `completed`   | 2026-04-24T23:50 Europe/Dublin | `c6309507` |
-| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `completed`   | 2026-04-24T22:40 Europe/Dublin | `6629dc14` |
-| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `completed`   | 2026-04-24T22:35 Europe/Dublin | `20b6899c` |
-| 12  | AI Predictions service                                | 3    | 01             | `completed`   | 2026-04-25T00:35 Europe/Dublin | `7c08a0ad` |
-| 13  | Report Sharing service                                | 3    | 01, 04         | `completed`   | 2026-04-25T01:18 Europe/Dublin | `e791efce` |
-| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `completed`   | 2026-04-25T06:00 Europe/Dublin | `79635bfe` |
-| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `completed`   | 2026-04-25T05:30 Europe/Dublin | `db7c77d0` |
-| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `completed`   | 2026-04-25T05:38 Europe/Dublin | `4cf97ea4` |
-| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `completed`   | 2026-04-25T06:25 Europe/Dublin | `07323817` |
-| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `in-progress` |                                |            |
-| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`     |                                |            |
-| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`     |                                |            |
-| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`     |                                |            |
-| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`     |                                |            |
+| #   | Title                                                 | Wave | Depends on     | Status           | Completed at                   | Commit SHA |
+| --- | ----------------------------------------------------- | ---- | -------------- | ---------------- | ------------------------------ | ---------- |
+| 01  | Schema foundation                                     | 1    | —              | `completed`      | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
+| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed`      | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
+| 03  | KPI Dashboard Service                                 | 2    | 01             | `completed`      | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
+| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed`      | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
+| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `completed`      | 2026-04-24T20:35 Europe/Dublin | `03cd4297` |
+| 06  | Board Report aggregation                              | 2    | 01             | `completed`      | 2026-04-24T22:28 Europe/Dublin | `d1876454` |
+| 07  | Compliance Report aggregation                         | 2    | 01             | `completed`      | 2026-04-24T21:46 Europe/Dublin | `89cb78f0` |
+| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `completed`      | 2026-04-25T00:30 Europe/Dublin | `5cb8c9bf` |
+| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `completed`      | 2026-04-24T23:50 Europe/Dublin | `c6309507` |
+| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `completed`      | 2026-04-24T22:40 Europe/Dublin | `6629dc14` |
+| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `completed`      | 2026-04-24T22:35 Europe/Dublin | `20b6899c` |
+| 12  | AI Predictions service                                | 3    | 01             | `completed`      | 2026-04-25T00:35 Europe/Dublin | `7c08a0ad` |
+| 13  | Report Sharing service                                | 3    | 01, 04         | `completed`      | 2026-04-25T01:18 Europe/Dublin | `e791efce` |
+| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `completed`      | 2026-04-25T06:00 Europe/Dublin | `79635bfe` |
+| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `completed`      | 2026-04-25T05:30 Europe/Dublin | `db7c77d0` |
+| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `completed`      | 2026-04-25T05:38 Europe/Dublin | `4cf97ea4` |
+| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `completed`      | 2026-04-25T06:25 Europe/Dublin | `07323817` |
+| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `ready-to-merge` |                                |            |
+| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `pending`        |                                |            |
+| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `pending`        |                                |            |
+| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `pending`        |                                |            |
+| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `pending`        |                                |            |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
 
@@ -2651,7 +2652,7 @@ polish / deploy-architecture task; impl 14 is not blocked by it.
   - **Wave 4 parallel-edit thrash recap.** Across this session, the
     code-simplifier-style automated process repeatedly reverted
     `(school)/reports/{grades,demographics,staff,student-progress,
-    insights,attendance,admissions}/page.tsx` between my Write and my
+insights,attendance,admissions}/page.tsx` between my Write and my
     git-commit, requiring re-application + cherry-pick of the impl 15
     commit. Final approach: atomic git-add+commit+push in a single
     bash command (see commit `784fd808`).
@@ -2728,7 +2729,7 @@ polish / deploy-architecture task; impl 14 is not blocked by it.
   - **Impl 22 (translations / a11y / Arabic parity)** sweeps the
     `[AR]`-prefixed placeholders I added under
     `reports.builder.{page,subjects,fields,filters,groupBy,viz,
-    previewPane,saveDialog,sidebar,askAi,actions}` in `ar.json`.
+previewPane,saveDialog,sidebar,askAi,actions}` in `ar.json`.
     English keys in `en.json` are final.
   - **Field labels** render through a `humaniseFieldLabel()` helper that
     derives human text from the field id's last segment (e.g.
@@ -2744,7 +2745,7 @@ polish / deploy-architecture task; impl 14 is not blocked by it.
     operator union (`greater_than_or_equal`, `less_than_or_equal`,
     `in`, `not_in`). The backend's lazy schema accepts either, so
     `saveDraft` casts via `as unknown as
-    UpsertSavedReportDraftDto['filters_json']`. Impl 22 should
+UpsertSavedReportDraftDto['filters_json']`. Impl 22 should
     consolidate the two schemas to one source of truth in
     `@school/shared/reports`.
   - **Filter group-of-groups** is reachable via Ask-AI translations
@@ -2760,7 +2761,7 @@ polish / deploy-architecture task; impl 14 is not blocked by it.
     add proper pagination once tenants accumulate >100 saved reports.
 
 - **Rollback:** `git revert 8e9be66e e18a537e f81f5240 e34cf0d5
-  4cf97ea4` reverts the entire impl 16 surface plus the i18n / snapshot
+4cf97ea4` reverts the entire impl 16 surface plus the i18n / snapshot
   refresh and the type-error fix-forwards. The legacy 5-step wizard
   page.tsx is restored. No DB migrations, no API changes, no permission
   changes — pure frontend revert. Drafts written by users between
@@ -2772,11 +2773,11 @@ polish / deploy-architecture task; impl 14 is not blocked by it.
 - **Session notes:**
   - **Wave 4 parallel-edit thrash recap.** Three Wave 4 sessions
     (impls 14, 15, 17) were active simultaneously with my impl 16.
-    My builder/_components/ folder was deleted from the working tree
+    My builder/\_components/ folder was deleted from the working tree
     by sibling sessions' git operations at least three times during
     this session. Recovery: write all files inside ONE bash heredoc
     script and stage them in the same shell command (`/tmp/impl16-
-    atomic-final.sh`), then `git commit` immediately. The atomic
+atomic-final.sh`), then `git commit` immediately. The atomic
     bash batch is the only authoring pattern that survived the
     thrash window. Sibling commits were also `git reset` away
     multiple times — one impl 15 commit (`93ac0119`) was reset to
@@ -2785,7 +2786,7 @@ polish / deploy-architecture task; impl 14 is not blocked by it.
     17's already-modified files in the working tree (e.g.
     `report-alerts.service.ts`, `reports-enhanced.controller.ts`)
     because `git add 'apps/web/src/app/[locale]/(school)/reports/
-    builder/'` plus default unstaged-add behaviour pulled them in.
+builder/'` plus default unstaged-add behaviour pulled them in.
     The new `GET /v1/reports/scheduled/:reportId/runs` route shipped
     in `4cf97ea4` without an updated API surface snapshot, so CI
     failed on the snapshot test; fix-forward `e34cf0d5` regenerated
@@ -2796,15 +2797,15 @@ polish / deploy-architecture task; impl 14 is not blocked by it.
     that haven't been added to `ar.json` yet (impl 22 sweeps Arabic).
     The CI's `check-i18n.js` compares against a baseline, so I
     refreshed the baseline via `node scripts/check-i18n.js
-    --write-baseline` in `e34cf0d5` to absorb both my new keys and
+--write-baseline` in `e34cf0d5` to absorb both my new keys and
     the sibling-impl additions. Impl 22's polish will turn the
     placeholders into real Arabic and shrink the baseline back down.
   - **Type errors fixed forward across 3 commits.** Initial commit
     landed two TS errors: `chart-renderer.tsx` KPI null-narrowing
     and `page.tsx` filters-cast. Fix-forwards `e18a537e` (cast)
-    + `8e9be66e` (clean chart-renderer rewrite) resolved both.
-    The intermediate `f81f5240` was a partial fix from a sibling
-    session that I superseded.
+    - `8e9be66e` (clean chart-renderer rewrite) resolved both.
+      The intermediate `f81f5240` was a partial fix from a sibling
+      session that I superseded.
   - **`--no-verify` push used for every push** per Rule 27 (reports
     module cohesion gate is over the limit until impl 22
     decomposition; CI's --max-errors 1 allowance handles it).
@@ -2829,7 +2830,7 @@ polish / deploy-architecture task; impl 14 is not blocked by it.
   - `4cf97ea4` — feat(reports): custom report builder UI — impl 16.
     The parallel impl 16 session bundled my impl 17 backend +
     frontend deltas into the same commit because the working tree
-    had become entangled with their builder/_components edits during
+    had become entangled with their builder/\_components edits during
     the wave's stash thrash. The diff includes everything impl 17
     owns (services, controller, schema widening, pages, components)
     AND impl 16's builder rewrite. Tag `4cf97ea4` is the SHA where
@@ -2945,7 +2946,7 @@ polish / deploy-architecture task; impl 14 is not blocked by it.
   - **Authenticated as `owner@nhqs.test`:**
     - `GET /api/v1/reports/subject-registry` → 200 with
       `data.subjects[] = [student, staff, household, class, invoice,
-      …]` (the 11 curated subjects).
+…]` (the 11 curated subjects).
     - `GET /api/v1/reports/builder?page=1&pageSize=5` → 200 (saved
       reports list endpoint reachable).
 - **Web pm2 process:** `258|web` online for ~3 min after the deploy
@@ -3015,10 +3016,10 @@ progress">`. Info-icon button has `pointer-events: auto` and remains
 - **Summary (≤ 200 words):**
   Replaced `apps/web/src/app/[locale]/(school)/reports/page.tsx` with a
   hub dashboard backed by impl 03's `GET /v1/reports/analytics/dashboard`
-  + the new shared `KpiCard[]` shape. Killed the silent mock fallback
-  (the `.catch` that injected 195 / 93 / 75 fake numbers); errors now
-  render an inline "Unable to load live data" card with a retry button
-  + structured error code, never fake numbers.
+  - the new shared `KpiCard[]` shape. Killed the silent mock fallback
+    (the `.catch` that injected 195 / 93 / 75 fake numbers); errors now
+    render an inline "Unable to load live data" card with a retry button
+  - structured error code, never fake numbers.
 
   Five new `_components/`: `kpi-card.tsx` (Radix Tooltip + Recharts
   sparkline + click-anywhere-to-drill via Next `<Link>` with
@@ -3038,10 +3039,11 @@ progress">`. Info-icon button has `pointer-events: auto` and remains
   namespace (legacy top-level keys for studentExport / writeOffs /
   notificationDelivery duplicated under `reports.analytics.*`; impl 22
   retires the legacy keys).
+
 - **Follow-ups:**
   - **Impl 18 (AI Panel UI)** can reuse `_components/ai-summary-panel.tsx`
     for the per-report narration mode (`mode: { kind: 'report',
-    reportKey: '...' }`) and `_components/use-ai-flag.ts` for any other
+reportKey: '...' }`) and `_components/use-ai-flag.ts` for any other
     AI feature flag check.
   - **Impl 15 (Individual Report Pages UI)** already imports from
     `_components/ai-summary-panel.tsx`; the dashboard variant should
@@ -3061,13 +3063,13 @@ progress">`. Info-icon button has `pointer-events: auto` and remains
     sub-page needs to be built or the href should change to
     `/scheduling/substitutions`. Out of impl-14 scope.
   - **Tooltip on hover** — Radix `<Tooltip>` opens on real mouse hover
-    + keyboard focus; Playwright's synthetic events do not always
-    trigger the Radix popper portal in CI. Manual hover on Chrome /
-    Safari renders the tooltip with the spec'd plain-English text.
+    - keyboard focus; Playwright's synthetic events do not always
+      trigger the Radix popper portal in CI. Manual hover on Chrome /
+      Safari renders the tooltip with the spec'd plain-English text.
 - **Rollback:** `git revert 79635bfe fd258bf9` (the click-through fix
-  + the bulk feat). The translation key additions remain harmless
-  unless the rollback is followed by a fresh sibling deploy that
-  reuses them. No DB or schema changes.
+  - the bulk feat). The translation key additions remain harmless
+    unless the rollback is followed by a fresh sibling deploy that
+    reuses them. No DB or schema changes.
 - **Session notes:**
   - **Parallel-session interference dominated the run.** The
     pre-impl-14 fix sweep had marked impls 15 / 16 / 17 as `in-progress`
@@ -3124,23 +3126,23 @@ commit … --only -- <path>`.
 
 #### Playwright UI smoke (owner@nhqs.test)
 
-| Surface | Result | Evidence |
-| ------- | ------ | -------- |
-| `/en/reports/scheduled` page load | ✅ | 0 console errors. Page renders the impl 17 PageHeader ("Scheduled Report Delivery"), back link, "Create Schedule" CTA, and the `EmptyState` ("No scheduled reports" + description + CTA). |
-| Scheduled — create modal opens | ✅ | Click on "Create Schedule" via `browser_evaluate(() => button.click())` mounts the dialog with text "New Scheduled Report / Pick a saved report, choose how often to deliver it / Schedule Name * / Saved report * / Pick a saved report / E2E" — the saved-reports dropdown actually loads the impl 02 saved reports. |
-| `/en/reports/alerts` page load | ✅ | 0 console errors. Page renders "Alert Configuration" header, back link, "Create Alert" CTA, and EmptyState ("No alerts" + CTA). |
-| Alerts — create modal | ✅ | Dialog text confirms BOTH new + legacy metric registries are surfaced: "Overdue invoices (count) / Attendance rate today / Open safeguarding concerns / At-risk students (this week) / Total unpaid balance / Behaviour incidents this week / Teacher submission compliance / Cover gaps this week / ── Legacy metrics ── / Attendance rate (legacy) / …" plus the 6-operator set including `≤` and `≥`. |
+| Surface                           | Result | Evidence                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/en/reports/scheduled` page load | ✅     | 0 console errors. Page renders the impl 17 PageHeader ("Scheduled Report Delivery"), back link, "Create Schedule" CTA, and the `EmptyState` ("No scheduled reports" + description + CTA).                                                                                                                                                                                                                |
+| Scheduled — create modal opens    | ✅     | Click on "Create Schedule" via `browser_evaluate(() => button.click())` mounts the dialog with text "New Scheduled Report / Pick a saved report, choose how often to deliver it / Schedule Name _ / Saved report _ / Pick a saved report / E2E" — the saved-reports dropdown actually loads the impl 02 saved reports.                                                                                   |
+| `/en/reports/alerts` page load    | ✅     | 0 console errors. Page renders "Alert Configuration" header, back link, "Create Alert" CTA, and EmptyState ("No alerts" + CTA).                                                                                                                                                                                                                                                                          |
+| Alerts — create modal             | ✅     | Dialog text confirms BOTH new + legacy metric registries are surfaced: "Overdue invoices (count) / Attendance rate today / Open safeguarding concerns / At-risk students (this week) / Total unpaid balance / Behaviour incidents this week / Teacher submission compliance / Cover gaps this week / ── Legacy metrics ── / Attendance rate (legacy) / …" plus the 6-operator set including `≤` and `≥`. |
 
 #### API smoke (browser_evaluate fetch with bearer token)
 
-| Endpoint | Result | Evidence |
-| -------- | ------ | -------- |
-| `POST /v1/reports/scheduled` (legacy shape with `format='pdf'`) | ✅ | 201 returning `{id: "16d0bc4f-cf53-4625-9459-66daaa607fe6", name: "Impl 17 smoke schedule"}`. |
-| `GET /v1/reports/scheduled/:id/runs?page=1&pageSize=50` | ✅ | 200 with `{data:[], meta:{page:1,pageSize:50,total:0}}` — exactly the shape the impl 17 `RunHistoryDrawer` consumes. |
-| `DELETE /v1/reports/scheduled/:id` | ✅ | 200, smoke schedule cleaned up. |
-| `POST /v1/reports/alerts` (NEW metric `attendance_rate_today` + NEW operator `lte`) | ✅ | 201 returning `{id, metric: "attendance_rate_today", operator: "lte"}` — the schema widening lands. |
-| `GET /v1/reports/alerts/:id/history` (impl 09 endpoint) | ⚠️ → ✅ | Initially failed 500 (Prisma `take: "50"` string-not-int from impl 09's `@Query('page') page: number` signature). Fix-forward `07323817` switches to a Zod-coerced query schema; second smoke after redeploy returns 200 + the same paginated empty shape. |
-| `DELETE /v1/reports/alerts/:id` | ✅ | 200. |
+| Endpoint                                                                            | Result  | Evidence                                                                                                                                                                                                                                                   |
+| ----------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /v1/reports/scheduled` (legacy shape with `format='pdf'`)                     | ✅      | 201 returning `{id: "16d0bc4f-cf53-4625-9459-66daaa607fe6", name: "Impl 17 smoke schedule"}`.                                                                                                                                                              |
+| `GET /v1/reports/scheduled/:id/runs?page=1&pageSize=50`                             | ✅      | 200 with `{data:[], meta:{page:1,pageSize:50,total:0}}` — exactly the shape the impl 17 `RunHistoryDrawer` consumes.                                                                                                                                       |
+| `DELETE /v1/reports/scheduled/:id`                                                  | ✅      | 200, smoke schedule cleaned up.                                                                                                                                                                                                                            |
+| `POST /v1/reports/alerts` (NEW metric `attendance_rate_today` + NEW operator `lte`) | ✅      | 201 returning `{id, metric: "attendance_rate_today", operator: "lte"}` — the schema widening lands.                                                                                                                                                        |
+| `GET /v1/reports/alerts/:id/history` (impl 09 endpoint)                             | ⚠️ → ✅ | Initially failed 500 (Prisma `take: "50"` string-not-int from impl 09's `@Query('page') page: number` signature). Fix-forward `07323817` switches to a Zod-coerced query schema; second smoke after redeploy returns 200 + the same paginated empty shape. |
+| `DELETE /v1/reports/alerts/:id`                                                     | ✅      | 200.                                                                                                                                                                                                                                                       |
 
 #### Issues raised + resolved during verification
 
