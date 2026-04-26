@@ -1,4 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
+import Decimal from 'decimal.js';
 
 import type {
   CreateAllowanceTypeDto,
@@ -198,6 +200,36 @@ export class PayrollAllowancesService {
 
     await this.prisma.staffAllowance.delete({ where: { id: allowanceId } });
     return { id: allowanceId, deleted: true };
+  }
+
+  /**
+   * Period-bracketed allowances total as a `Decimal`. Sums every
+   * `staff_allowances` row whose effective range overlaps
+   * `[periodStart, periodEnd]`. Wave 2 of the payroll-overhaul rebuild —
+   * the input the resolver feeds into the calculation engine.
+   */
+  async calculateAllowancesTotalForPeriod(
+    tenantId: string,
+    staffProfileId: string,
+    periodStart: Date,
+    periodEnd: Date,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Decimal> {
+    const db = tx ?? this.prisma;
+    const allowances = await db.staffAllowance.findMany({
+      where: {
+        tenant_id: tenantId,
+        staff_profile_id: staffProfileId,
+        effective_from: { lte: periodEnd },
+        OR: [{ effective_to: null }, { effective_to: { gte: periodStart } }],
+      },
+    });
+
+    let total = new Decimal(0);
+    for (const a of allowances) {
+      total = total.plus(a.amount.toString());
+    }
+    return total;
   }
 
   /**

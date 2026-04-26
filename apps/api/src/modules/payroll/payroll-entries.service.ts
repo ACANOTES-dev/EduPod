@@ -10,7 +10,7 @@ import type { UpdatePayrollEntryDto } from '@school/shared';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { CalculationService } from './calculation.service';
-import type { CalcInput } from './calculation.service';
+import type { LegacyCalcInput as CalcInput } from './calculation.service';
 
 @Injectable()
 export class PayrollEntriesService {

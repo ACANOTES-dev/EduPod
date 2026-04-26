@@ -1,9 +1,16 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
+import Decimal from 'decimal.js';
 
 import type { CreateOneOffItemDto, UpdateOneOffItemDto } from '@school/shared';
 
 import { withRls } from '../../common/helpers/with-rls';
 import { PrismaService } from '../prisma/prisma.service';
+
+// item_type values that subtract from net_pay. Anything else (bonus,
+// award, correction-positive) adds. Mapping derived from the audit's
+// findings on the live schema.
+const NEGATIVE_ONE_OFF_TYPES = new Set<string>(['deduction', 'correction-negative']);
 
 @Injectable()
 export class PayrollOneOffsService {
@@ -147,6 +154,37 @@ export class PayrollOneOffsService {
 
     await this.prisma.payrollOneOffItem.delete({ where: { id: itemId } });
     return { id: itemId, deleted: true };
+  }
+
+  /**
+   * Wave-2 PayrollInputResolver — split one-offs by sign.
+   * Returns { positive, negative } magnitudes (both always >= 0). The
+   * calculation engine applies positives to gross and subtracts negatives
+   * from gross. Splits by `item_type` first; falls back to the sign of
+   * `amount` if the type is unrecognised.
+   */
+  async sumByEntry(
+    tenantId: string,
+    entryId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ positive: Decimal; negative: Decimal }> {
+    const db = tx ?? this.prisma;
+    const rows = await db.payrollOneOffItem.findMany({
+      where: { tenant_id: tenantId, payroll_entry_id: entryId },
+    });
+
+    let positive = new Decimal(0);
+    let negative = new Decimal(0);
+    for (const r of rows) {
+      const amount = new Decimal(r.amount.toString());
+      const isNegative = NEGATIVE_ONE_OFF_TYPES.has(r.item_type) || amount.isNegative();
+      if (isNegative) {
+        negative = negative.plus(amount.abs());
+      } else {
+        positive = positive.plus(amount);
+      }
+    }
+    return { positive, negative };
   }
 
   private serializeItem(item: Record<string, unknown>): Record<string, unknown> {

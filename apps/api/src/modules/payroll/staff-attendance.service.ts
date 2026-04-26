@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
+import Decimal from 'decimal.js';
 
 import type {
   BulkMarkAttendanceDto,
@@ -268,6 +270,53 @@ export class StaffAttendanceService {
 
     await this.prisma.staffAttendanceRecord.delete({ where: { id: recordId } });
     return { id: recordId, deleted: true };
+  }
+
+  /**
+   * Period-bracketed days-worked calculation as a `Decimal` — the input the
+   * Wave-2 `PayrollInputResolver` feeds into the calculation engine.
+   *
+   * `present` and `paid_leave` count as 1.0; `half_day` counts as 0.5;
+   * `sick_leave` is treated as paid (1.0) per existing tenant policy;
+   * `absent` and `unpaid_leave` count as 0. If no attendance records exist
+   * for the period at all, falls back to `fallbackTotalWorkingDays` so a
+   * tenant who never marks attendance still receives full pay (explicit
+   * fallback, not silent zero).
+   *
+   * Accepts an interactive-transaction client so resolver/finalisation
+   * reads stay inside the caller's RLS-scoped tx.
+   */
+  async calculateDaysWorkedForPeriod(
+    tenantId: string,
+    staffProfileId: string,
+    periodStart: Date,
+    periodEnd: Date,
+    fallbackTotalWorkingDays: number,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Decimal> {
+    const db = tx ?? this.prisma;
+    const records = await db.staffAttendanceRecord.findMany({
+      where: {
+        tenant_id: tenantId,
+        staff_profile_id: staffProfileId,
+        date: { gte: periodStart, lte: periodEnd },
+      },
+    });
+
+    if (records.length === 0) {
+      return new Decimal(fallbackTotalWorkingDays);
+    }
+
+    let days = new Decimal(0);
+    for (const r of records) {
+      if (r.status === 'present' || r.status === 'paid_leave' || r.status === 'sick_leave') {
+        days = days.plus(1);
+      } else if (r.status === 'half_day') {
+        days = days.plus('0.5');
+      }
+      // absent and unpaid_leave contribute 0
+    }
+    return days;
   }
 
   private serializeRecord(record: Record<string, unknown>): Record<string, unknown> {

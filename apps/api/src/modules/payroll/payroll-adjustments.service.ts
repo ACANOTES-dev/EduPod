@@ -1,9 +1,16 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
+import Decimal from 'decimal.js';
 
 import type { CreateAdjustmentDto, UpdateAdjustmentDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+
+// adjustment_type values that subtract from net_pay. Anything else (bonus,
+// correction-positive) adds. Mapping derived from the audit's findings on
+// the live schema; Wave 5 may extract this to a shared constant.
+const NEGATIVE_ADJUSTMENT_TYPES = new Set<string>(['deduction', 'correction-negative']);
 
 @Injectable()
 export class PayrollAdjustmentsService {
@@ -155,6 +162,37 @@ export class PayrollAdjustmentsService {
 
     await this.prisma.payrollAdjustment.delete({ where: { id: adjustmentId } });
     return { id: adjustmentId, deleted: true };
+  }
+
+  /**
+   * Wave-2 PayrollInputResolver — split adjustments by sign.
+   * Returns { positive, negative } magnitudes (both always >= 0). The
+   * calculation engine applies positives to gross and subtracts negatives
+   * from gross. Splits by `adjustment_type` first; falls back to the sign
+   * of `amount` if the type is unrecognised.
+   */
+  async sumByEntry(
+    tenantId: string,
+    entryId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ positive: Decimal; negative: Decimal }> {
+    const db = tx ?? this.prisma;
+    const rows = await db.payrollAdjustment.findMany({
+      where: { tenant_id: tenantId, payroll_entry_id: entryId },
+    });
+
+    let positive = new Decimal(0);
+    let negative = new Decimal(0);
+    for (const r of rows) {
+      const amount = new Decimal(r.amount.toString());
+      const isNegative = NEGATIVE_ADJUSTMENT_TYPES.has(r.adjustment_type) || amount.isNegative();
+      if (isNegative) {
+        negative = negative.plus(amount.abs());
+      } else {
+        positive = positive.plus(amount);
+      }
+    }
+    return { positive, negative };
   }
 
   private serializeAdjustment(adj: Record<string, unknown>): Record<string, unknown> {

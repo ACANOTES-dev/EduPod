@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 
 import type { CreateCompensationDto, UpdateCompensationDto } from '@school/shared';
 
@@ -407,6 +408,38 @@ export class CompensationService {
     });
 
     return comp ? this.serialize(comp) : null;
+  }
+
+  /**
+   * Period-bracketed compensation lookup. Returns the most-recent
+   * compensation row whose effective range overlaps `[periodStart, periodEnd]`.
+   * Wave 2 of the payroll-overhaul rebuild — the audit found the engine was
+   * fetching `effective_to: null` only, ignoring runs whose period sat
+   * BEFORE a still-active comp's `effective_from`. See payrollnew/PLAN.md.
+   *
+   * If a staff member has multiple historical comps overlapping the period,
+   * the highest `effective_from` wins. Documented as the convention; Wave 5
+   * adds an architectural-doc danger-zone entry on overlap behaviour.
+   */
+  async findActiveForPeriod(
+    tenantId: string,
+    staffProfileId: string,
+    periodStart: Date,
+    periodEnd: Date,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const db = tx ?? this.prisma;
+    const rows = await db.staffCompensation.findMany({
+      where: {
+        tenant_id: tenantId,
+        staff_profile_id: staffProfileId,
+        effective_from: { lte: periodEnd },
+        OR: [{ effective_to: null }, { effective_to: { gte: periodStart } }],
+      },
+      orderBy: { effective_from: 'desc' },
+      take: 1,
+    });
+    return rows[0] ?? null;
   }
 
   private serialize(record: Record<string, unknown>): Record<string, unknown> {

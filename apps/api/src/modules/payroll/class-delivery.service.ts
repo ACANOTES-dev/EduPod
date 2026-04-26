@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 
 import type {
   AutoPopulateDeliveryDto,
@@ -230,5 +231,32 @@ export class ClassDeliveryService {
         total_scheduled: records.length,
       },
     };
+  }
+
+  /**
+   * Period-bracketed delivered-class count for the Wave-2 `PayrollInputResolver`.
+   * Returns ONLY records with `status='delivered'` in the requested period
+   * (the legacy engine counted scheduled records — the audit's headline bug
+   * for per-class teachers). `bonusClasses` is currently always 0 because
+   * the schema does not yet carry a per-record bonus flag — Wave 5 may
+   * extend the schema if tenants need bonus per-class workflows.
+   */
+  async calculateClassesDeliveredForPeriod(
+    tenantId: string,
+    staffProfileId: string,
+    periodStart: Date,
+    periodEnd: Date,
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ delivered: number; bonusClasses: number }> {
+    const db = tx ?? this.prisma;
+    const records = await db.classDeliveryRecord.findMany({
+      where: {
+        tenant_id: tenantId,
+        staff_profile_id: staffProfileId,
+        delivery_date: { gte: periodStart, lte: periodEnd },
+        status: 'delivered',
+      },
+    });
+    return { delivered: records.length, bonusClasses: 0 };
   }
 }
