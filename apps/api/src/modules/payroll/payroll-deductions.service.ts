@@ -40,6 +40,38 @@ export class PayrollDeductionsService {
     });
   }
 
+  /**
+   * Tenant-wide listing of recurring deductions with flat staff_name.
+   * Used by the Wave-3 `GET /v1/payroll/staff-deductions` and
+   * `GET /v1/payroll/deductions?include=all` endpoints.
+   */
+  async listDeductionsForTenant(tenantId: string, activeOnly = true) {
+    const where: Record<string, unknown> = { tenant_id: tenantId };
+    if (activeOnly) where.active = true;
+
+    const deductions = await this.prisma.staffRecurringDeduction.findMany({
+      where,
+      include: {
+        staff_profile: {
+          select: {
+            id: true,
+            staff_number: true,
+            user: { select: { first_name: true, last_name: true } },
+          },
+        },
+      },
+      orderBy: { created_at: 'asc' },
+    });
+
+    return {
+      data: deductions.map((d) => ({
+        ...this.serializeDeduction(d),
+        staff_name: `${d.staff_profile.user.first_name} ${d.staff_profile.user.last_name}`.trim(),
+        staff_number: d.staff_profile.staff_number,
+      })),
+    };
+  }
+
   async listDeductions(tenantId: string, staffProfileId: string, activeOnly = true) {
     const where: Record<string, unknown> = {
       tenant_id: tenantId,

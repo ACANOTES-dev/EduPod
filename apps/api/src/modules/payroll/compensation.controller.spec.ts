@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { CompensationController } from './compensation.controller';
@@ -49,6 +50,8 @@ describe('CompensationController', () => {
       providers: [{ provide: CompensationService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionGuard)
       .useValue({ canActivate: () => true })

@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Put,
   Query,
@@ -69,12 +70,15 @@ import type {
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { ClassDeliveryService } from './class-delivery.service';
+import { CompensationService } from './compensation.service';
 import { PayrollAdjustmentsService } from './payroll-adjustments.service';
 import { PayrollAllowancesService } from './payroll-allowances.service';
 import { PayrollAnalyticsService } from './payroll-analytics.service';
@@ -86,7 +90,8 @@ import { PayrollOneOffsService } from './payroll-one-offs.service';
 import { StaffAttendanceService } from './staff-attendance.service';
 
 @Controller('v1/payroll')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
+@ModuleEnabled('payroll')
 export class PayrollEnhancedController {
   constructor(
     private readonly staffAttendanceService: StaffAttendanceService,
@@ -99,7 +104,51 @@ export class PayrollEnhancedController {
     private readonly analyticsService: PayrollAnalyticsService,
     private readonly anomalyService: PayrollAnomalyService,
     private readonly calendarService: PayrollCalendarService,
+    private readonly compensationService: CompensationService,
   ) {}
+
+  // ─── Staff picker (Wave 3) ──────────────────────────────────────────────
+  //
+  // GET /v1/payroll/staff?page=1&pageSize=200 — flat list of active staff
+  // with their currently-active compensation, used by the redesigned
+  // compensation page's filter dropdown and other staff-centric pickers.
+
+  @Get('staff')
+  @RequiresPermission('payroll.view')
+  async listStaffForPicker(
+    @CurrentTenant() tenant: TenantContext,
+    @Query('page') page: string | undefined,
+    @Query('pageSize') pageSize: string | undefined,
+  ) {
+    const pageNum = page ? Number(page) : 1;
+    const pageSizeNum = pageSize ? Math.min(Number(pageSize), 200) : 50;
+    return this.compensationService.listStaffForPicker(tenant.tenant_id, pageNum, pageSizeNum);
+  }
+
+  // ─── Tenant-wide export logs (Wave 3) ──────────────────────────────────
+
+  @Get('export-logs')
+  @RequiresPermission('payroll.view')
+  async listExportLogsForTenant(
+    @CurrentTenant() tenant: TenantContext,
+    @Query('page') page: string | undefined,
+    @Query('pageSize') pageSize: string | undefined,
+  ) {
+    const pageNum = page ? Number(page) : 1;
+    const pageSizeNum = pageSize ? Math.min(Number(pageSize), 100) : 20;
+    return this.exportsService.listExportLogsForTenant(tenant.tenant_id, pageNum, pageSizeNum);
+  }
+
+  @Post('export-logs/:logId/send')
+  @RequiresPermission('payroll.generate_payslips')
+  @HttpCode(HttpStatus.OK)
+  async resendExportLog(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('logId', ParseUUIDPipe) logId: string,
+  ) {
+    return this.exportsService.resendExportLog(tenant.tenant_id, logId, user.sub);
+  }
 
   // ─── Staff Attendance ────────────────────────────────────────────────────────
 
@@ -217,6 +266,19 @@ export class PayrollEnhancedController {
     return this.classDeliveryService.confirmDelivery(tenant.tenant_id, id, user.sub, dto);
   }
 
+  // PATCH alias for the redesigned frontend (Wave 3). Frontend sends
+  // a status-only payload — we route to the same confirm handler.
+  @Patch('class-delivery/:id')
+  @RequiresPermission('payroll.create_run')
+  async patchClassDelivery(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(confirmDeliverySchema)) dto: ConfirmDeliveryDto,
+  ) {
+    return this.classDeliveryService.confirmDelivery(tenant.tenant_id, id, user.sub, dto);
+  }
+
   @Post('class-delivery/calculate-classes-taught')
   @RequiresPermission('payroll.view')
   @HttpCode(HttpStatus.OK)
@@ -308,6 +370,17 @@ export class PayrollEnhancedController {
     return this.exportsService.updateTemplate(tenant.tenant_id, id, dto);
   }
 
+  // PATCH alias for the redesigned frontend (Wave 3). Same handler, same body shape.
+  @Patch('export-templates/:id')
+  @RequiresPermission('payroll.generate_payslips')
+  async patchExportTemplate(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateExportTemplateSchema)) dto: UpdateExportTemplateDto,
+  ) {
+    return this.exportsService.updateTemplate(tenant.tenant_id, id, dto);
+  }
+
   @Delete('export-templates/:id')
   @RequiresPermission('payroll.generate_payslips')
   @HttpCode(HttpStatus.OK)
@@ -343,6 +416,19 @@ export class PayrollEnhancedController {
   @RequiresPermission('payroll.generate_payslips')
   @HttpCode(HttpStatus.OK)
   async emailToAccountant(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('runId', ParseUUIDPipe) runId: string,
+    @Body(new ZodValidationPipe(emailToAccountantSchema)) dto: EmailToAccountantDto,
+  ) {
+    return this.exportsService.emailToAccountant(tenant.tenant_id, runId, user.sub, dto);
+  }
+
+  // Alias for the redesigned frontend (Wave 3). Same handler, same body.
+  @Post('runs/:runId/send-to-accountant')
+  @RequiresPermission('payroll.generate_payslips')
+  @HttpCode(HttpStatus.OK)
+  async sendToAccountant(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
     @Param('runId', ParseUUIDPipe) runId: string,
@@ -414,8 +500,15 @@ export class PayrollEnhancedController {
   @RequiresPermission('payroll.view')
   async listStaffAllowances(
     @CurrentTenant() tenant: TenantContext,
-    @Query('staff_profile_id', ParseUUIDPipe) staffProfileId: string,
+    @Query('staff_profile_id') staffProfileId: string | undefined,
+    @Query('include') include: string | undefined,
   ) {
+    // Wave 3: when called without staff_profile_id (or with include=all),
+    // return every allowance in the tenant. Used by the redesigned
+    // compensation page for the all-staff allowances tab.
+    if (!staffProfileId || include === 'all') {
+      return this.allowancesService.listStaffAllowancesForTenant(tenant.tenant_id);
+    }
     return this.allowancesService.listStaffAllowances(tenant.tenant_id, staffProfileId);
   }
 
@@ -499,9 +592,20 @@ export class PayrollEnhancedController {
   @RequiresPermission('payroll.view')
   async listDeductions(
     @CurrentTenant() tenant: TenantContext,
-    @Query('staff_profile_id', ParseUUIDPipe) staffProfileId: string,
+    @Query('staff_profile_id') staffProfileId: string | undefined,
+    @Query('include') include: string | undefined,
   ) {
+    if (!staffProfileId || include === 'all') {
+      return this.deductionsService.listDeductionsForTenant(tenant.tenant_id);
+    }
     return this.deductionsService.listDeductions(tenant.tenant_id, staffProfileId);
+  }
+
+  // Alias for the redesigned frontend (Wave 3). Tenant-wide listing.
+  @Get('staff-deductions')
+  @RequiresPermission('payroll.view')
+  async listStaffDeductions(@CurrentTenant() tenant: TenantContext) {
+    return this.deductionsService.listDeductionsForTenant(tenant.tenant_id);
   }
 
   @Get('deductions/:id')

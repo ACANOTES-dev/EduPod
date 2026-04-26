@@ -1,9 +1,11 @@
 import { Test } from '@nestjs/testing';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { ClassDeliveryService } from './class-delivery.service';
+import { CompensationService } from './compensation.service';
 import { PayrollAdjustmentsService } from './payroll-adjustments.service';
 import { PayrollAllowancesService } from './payroll-allowances.service';
 import { PayrollAnalyticsService } from './payroll-analytics.service';
@@ -73,6 +75,8 @@ const mockExportsService = {
   generateExport: jest.fn(),
   getExportHistory: jest.fn(),
   emailToAccountant: jest.fn(),
+  listExportLogsForTenant: jest.fn(),
+  resendExportLog: jest.fn(),
 };
 
 const mockAllowancesService = {
@@ -83,6 +87,7 @@ const mockAllowancesService = {
   deleteAllowanceType: jest.fn(),
   createStaffAllowance: jest.fn(),
   listStaffAllowances: jest.fn(),
+  listStaffAllowancesForTenant: jest.fn(),
   updateStaffAllowance: jest.fn(),
   deleteStaffAllowance: jest.fn(),
 };
@@ -97,9 +102,14 @@ const mockOneOffsService = {
 const mockDeductionsService = {
   createDeduction: jest.fn(),
   listDeductions: jest.fn(),
+  listDeductionsForTenant: jest.fn(),
   getDeduction: jest.fn(),
   updateDeduction: jest.fn(),
   deleteDeduction: jest.fn(),
+};
+
+const mockCompensationService = {
+  listStaffForPicker: jest.fn(),
 };
 
 const mockAnalyticsService = {
@@ -138,9 +148,12 @@ describe('PayrollEnhancedController', () => {
         { provide: PayrollAnalyticsService, useValue: mockAnalyticsService },
         { provide: PayrollAnomalyService, useValue: mockAnomalyService },
         { provide: PayrollCalendarService, useValue: mockCalendarService },
+        { provide: CompensationService, useValue: mockCompensationService },
       ],
     })
       .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionGuard)
       .useValue({ canActivate: () => true })
@@ -669,7 +682,7 @@ describe('PayrollEnhancedController', () => {
       const allowances = [{ id: 'sa-1' }];
       mockAllowancesService.listStaffAllowances.mockResolvedValue(allowances);
 
-      const result = await controller.listStaffAllowances(tenantContext, STAFF_ID);
+      const result = await controller.listStaffAllowances(tenantContext, STAFF_ID, undefined);
 
       expect(mockAllowancesService.listStaffAllowances).toHaveBeenCalledWith(TENANT_ID, STAFF_ID);
       expect(result).toEqual(allowances);
@@ -763,7 +776,7 @@ describe('PayrollEnhancedController', () => {
       const deductions = [{ id: 'ded-1' }];
       mockDeductionsService.listDeductions.mockResolvedValue(deductions);
 
-      const result = await controller.listDeductions(tenantContext, STAFF_ID);
+      const result = await controller.listDeductions(tenantContext, STAFF_ID, undefined);
 
       expect(mockDeductionsService.listDeductions).toHaveBeenCalledWith(TENANT_ID, STAFF_ID);
       expect(result).toEqual(deductions);

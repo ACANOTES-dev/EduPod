@@ -6,12 +6,15 @@ import { payrollReportQuerySchema } from '@school/shared';
 import type { TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { SensitiveDataAccess } from '../../common/decorators/sensitive-data-access.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
+import { PayrollAnalyticsService } from './payroll-analytics.service';
 import { PayrollReportsService } from './payroll-reports.service';
 
 const exportQuerySchema = z.object({
@@ -25,10 +28,52 @@ const paginationQuerySchema = z.object({
 });
 
 @Controller('v1/payroll/reports')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
+@ModuleEnabled('payroll')
 @SensitiveDataAccess('analytics')
 export class PayrollReportsController {
-  constructor(private readonly payrollReportsService: PayrollReportsService) {}
+  constructor(
+    private readonly payrollReportsService: PayrollReportsService,
+    private readonly analyticsService: PayrollAnalyticsService,
+  ) {}
+
+  // ─── Variance + forecast (Wave 3 — tenant-wide) ─────────────────────────
+  //
+  // GET /v1/payroll/reports/variance?runId=...   (runId optional — defaults to latest)
+  // GET /v1/payroll/reports/forecast?months=6    (alias for analytics/forecast)
+
+  @Get('variance')
+  @RequiresPermission('payroll.view_reports')
+  async getVariance(@CurrentTenant() tenant: TenantContext, @Query('runId') runId?: string) {
+    return this.payrollReportsService.getVariance(tenant.tenant_id, runId);
+  }
+
+  @Get('forecast')
+  @RequiresPermission('payroll.view_reports')
+  async getForecast(
+    @CurrentTenant() tenant: TenantContext,
+    @Query('months') months: string | undefined,
+  ) {
+    const monthsNum = months ? Math.min(Number(months), 12) : 6;
+    return this.analyticsService.getStaffCostForecast(tenant.tenant_id, monthsNum);
+  }
+
+  // Tenant-wide staff history alias for the redesigned frontend.
+  @Get('staff-history/:staffProfileId')
+  @RequiresPermission('payroll.view')
+  async getStaffHistoryAlias(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('staffProfileId', ParseUUIDPipe) staffProfileId: string,
+    @Query(new ZodValidationPipe(paginationQuerySchema))
+    query: z.infer<typeof paginationQuerySchema>,
+  ) {
+    return this.payrollReportsService.getStaffPaymentHistory(
+      tenant.tenant_id,
+      staffProfileId,
+      query.page,
+      query.pageSize,
+    );
+  }
 
   @Get('cost-trend')
   @RequiresPermission('payroll.view_reports')

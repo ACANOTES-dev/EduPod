@@ -193,6 +193,73 @@ export class PayrollExportsService {
     };
   }
 
+  /**
+   * Tenant-wide export-log listing for the redesigned exports page.
+   * Each row carries flat run + user metadata so the frontend can render
+   * the table without nested traversal.
+   */
+  async listExportLogsForTenant(tenantId: string, page = 1, pageSize = 20) {
+    const skip = (page - 1) * pageSize;
+
+    const [data, total] = await Promise.all([
+      this.prisma.payrollExportLog.findMany({
+        where: { tenant_id: tenantId },
+        skip,
+        take: pageSize,
+        include: {
+          export_template: { select: { id: true, name: true } },
+          exported_by: { select: { first_name: true, last_name: true } },
+          payroll_run: {
+            select: { id: true, period_label: true, period_year: true, period_month: true },
+          },
+        },
+        orderBy: { exported_at: 'desc' },
+      }),
+      this.prisma.payrollExportLog.count({ where: { tenant_id: tenantId } }),
+    ]);
+
+    return {
+      data: data.map((row) => ({
+        ...row,
+        run_period_label: row.payroll_run?.period_label ?? null,
+        run_period_year: row.payroll_run?.period_year ?? null,
+        run_period_month: row.payroll_run?.period_month ?? null,
+        exported_by_name: row.exported_by
+          ? `${row.exported_by.first_name} ${row.exported_by.last_name}`.trim()
+          : null,
+        template_name: row.export_template?.name ?? null,
+      })),
+      meta: { page, pageSize, total },
+    };
+  }
+
+  /**
+   * Re-send (re-deliver) an existing export log. Today this re-runs the
+   * email-to-accountant flow with the original log's template; if the
+   * template is missing, it falls back to a no-template generic export.
+   * Wave 5 may add destination history to the log row.
+   */
+  async resendExportLog(tenantId: string, logId: string, userId: string) {
+    const log = await this.prisma.payrollExportLog.findFirst({
+      where: { id: logId, tenant_id: tenantId },
+      select: {
+        payroll_run_id: true,
+        export_template_id: true,
+      },
+    });
+
+    if (!log) {
+      throw new NotFoundException({
+        code: 'EXPORT_LOG_NOT_FOUND',
+        message: `Export log "${logId}" not found`,
+      });
+    }
+
+    return this.emailToAccountant(tenantId, log.payroll_run_id, userId, {
+      template_id: log.export_template_id ?? '',
+    });
+  }
+
   async getExportHistory(tenantId: string, runId: string, page = 1, pageSize = 20) {
     const run = await this.prisma.payrollRun.findFirst({
       where: { id: runId, tenant_id: tenantId },

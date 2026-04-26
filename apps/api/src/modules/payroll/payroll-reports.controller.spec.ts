@@ -1,8 +1,10 @@
 import { Test } from '@nestjs/testing';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
+import { PayrollAnalyticsService } from './payroll-analytics.service';
 import { PayrollReportsController } from './payroll-reports.controller';
 import { PayrollReportsService } from './payroll-reports.service';
 
@@ -26,6 +28,11 @@ const mockService = {
   exportMonthlySummary: jest.fn(),
   exportYtdSummary: jest.fn(),
   getStaffPaymentHistory: jest.fn(),
+  getVariance: jest.fn(),
+};
+
+const mockAnalyticsService = {
+  getStaffCostForecast: jest.fn(),
 };
 
 describe('PayrollReportsController', () => {
@@ -36,9 +43,14 @@ describe('PayrollReportsController', () => {
 
     const module = await Test.createTestingModule({
       controllers: [PayrollReportsController],
-      providers: [{ provide: PayrollReportsService, useValue: mockService }],
+      providers: [
+        { provide: PayrollReportsService, useValue: mockService },
+        { provide: PayrollAnalyticsService, useValue: mockAnalyticsService },
+      ],
     })
       .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionGuard)
       .useValue({ canActivate: () => true })
@@ -163,6 +175,64 @@ describe('PayrollReportsController', () => {
 
       expect(mockRes.json).toHaveBeenCalledWith(pdfResult);
       expect(mockRes.send).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Wave 3 — variance + forecast aliases ────────────────────────────
+
+  describe('getVariance (Wave 3)', () => {
+    it('should delegate to reportsService.getVariance with optional runId', async () => {
+      const out = {
+        data: [],
+        summary: {
+          this_run_id: RUN_ID,
+          prior_run_id: null,
+          gross_delta: 0,
+          net_delta: 0,
+          headcount_delta: 0,
+        },
+      };
+      mockService.getVariance.mockResolvedValue(out);
+
+      const result = await controller.getVariance(tenantContext, RUN_ID);
+
+      expect(mockService.getVariance).toHaveBeenCalledWith(TENANT_ID, RUN_ID);
+      expect(result.summary.this_run_id).toBe(RUN_ID);
+    });
+
+    it('should accept undefined runId and delegate (latest finalised default)', async () => {
+      mockService.getVariance.mockResolvedValue({
+        data: [],
+        summary: {
+          this_run_id: null,
+          prior_run_id: null,
+          gross_delta: 0,
+          net_delta: 0,
+          headcount_delta: 0,
+        },
+      });
+
+      await controller.getVariance(tenantContext, undefined);
+
+      expect(mockService.getVariance).toHaveBeenCalledWith(TENANT_ID, undefined);
+    });
+  });
+
+  describe('getForecast (Wave 3 alias)', () => {
+    it('should delegate to analytics with default 6 months', async () => {
+      mockAnalyticsService.getStaffCostForecast.mockResolvedValue([]);
+
+      await controller.getForecast(tenantContext, undefined);
+
+      expect(mockAnalyticsService.getStaffCostForecast).toHaveBeenCalledWith(TENANT_ID, 6);
+    });
+
+    it('should clamp months to 12', async () => {
+      mockAnalyticsService.getStaffCostForecast.mockResolvedValue([]);
+
+      await controller.getForecast(tenantContext, '24');
+
+      expect(mockAnalyticsService.getStaffCostForecast).toHaveBeenCalledWith(TENANT_ID, 12);
     });
   });
 

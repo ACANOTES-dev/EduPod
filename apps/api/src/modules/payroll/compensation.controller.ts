@@ -30,9 +30,11 @@ import type {
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import {
   createFileInterceptor,
@@ -50,7 +52,8 @@ interface UploadedFileShape {
 }
 
 @Controller('v1/payroll/compensation')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
+@ModuleEnabled('payroll')
 export class CompensationController {
   constructor(private readonly compensationService: CompensationService) {}
 

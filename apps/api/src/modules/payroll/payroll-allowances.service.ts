@@ -133,6 +133,45 @@ export class PayrollAllowancesService {
     });
   }
 
+  /**
+   * Tenant-wide listing of staff allowances. Used by the Wave-3
+   * `GET /v1/payroll/staff-allowances` endpoint when no specific
+   * `staff_profile_id` is passed (or `?include=all`). Each row carries
+   * a flat staff_name for the frontend.
+   */
+  async listStaffAllowancesForTenant(tenantId: string, activeOnly = true) {
+    const where: Record<string, unknown> = { tenant_id: tenantId };
+    if (activeOnly) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      where.effective_from = { lte: today };
+      where.OR = [{ effective_to: null }, { effective_to: { gte: today } }];
+    }
+
+    const allowances = await this.prisma.staffAllowance.findMany({
+      where,
+      include: {
+        allowance_type: { select: { id: true, name: true, name_ar: true } },
+        staff_profile: {
+          select: {
+            id: true,
+            staff_number: true,
+            user: { select: { first_name: true, last_name: true } },
+          },
+        },
+      },
+      orderBy: { effective_from: 'desc' },
+    });
+
+    return {
+      data: allowances.map((a) => ({
+        ...this.serializeStaffAllowance(a),
+        staff_name: `${a.staff_profile.user.first_name} ${a.staff_profile.user.last_name}`.trim(),
+        staff_number: a.staff_profile.staff_number,
+      })),
+    };
+  }
+
   async listStaffAllowances(tenantId: string, staffProfileId: string, activeOnly = true) {
     const where: Record<string, unknown> = {
       tenant_id: tenantId,
