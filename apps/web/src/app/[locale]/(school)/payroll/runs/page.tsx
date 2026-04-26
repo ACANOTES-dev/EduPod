@@ -84,7 +84,7 @@ export default function PayrollRunsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, statusFilter, yearFilter]);
+  }, [page, statusFilter, yearFilter, t]);
 
   React.useEffect(() => {
     void fetchData();
