@@ -143,15 +143,15 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 
 (`in-progress` = coding. `verifying` = code committed, dev server running, Playwright/curl in flight. `completed` = local verification passed AND log record appended. `🛑 blocked` = stuck — explain in §5.)
 
-| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status        | Completed at      | Commit SHA |
-| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ------------- | ----------------- | ---------- |
-| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `completed`   | 2026-04-26T20:15Z | 408b53b5   |
-| 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `completed`   | 2026-04-26T20:55Z | 2a787686   |
-| 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `completed`   | 2026-04-26T22:35Z | 25d30d03   |
-| 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `completed`   | 2026-04-26T22:55Z | 7afa15ca   |
-| 05  | Frontend operational pages                    | 4    | frontend       | parallel-risky       | 01, 02, 03 | `in-progress` |                   |            |
-| 06  | Frontend analytical + self-service            | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending`     |                   |            |
-| 07  | Polish — tests, translations, mobile, docs    | 5    | polish         | serial               | 01–06      | `pending`     |                   |            |
+| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status      | Completed at      | Commit SHA |
+| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ----------- | ----------------- | ---------- |
+| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `completed` | 2026-04-26T20:15Z | 408b53b5   |
+| 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `completed` | 2026-04-26T20:55Z | 2a787686   |
+| 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `completed` | 2026-04-26T22:35Z | 25d30d03   |
+| 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `completed` | 2026-04-26T22:55Z | 7afa15ca   |
+| 05  | Frontend operational pages                    | 4    | frontend       | parallel-risky       | 01, 02, 03 | `completed` | 2026-04-26T23:35Z | bfb63e21   |
+| 06  | Frontend analytical + self-service            | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending`   |                   |            |
+| 07  | Polish — tests, translations, mobile, docs    | 5    | polish         | serial               | 01–06      | `pending`   |                   |            |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -712,3 +712,61 @@ staff_recurring_deduction_id)` unique key and three lookup indexes,
   `DATABASE_URL=postgresql://x:x@...` works for the API DI smoke
   because the API uses Prisma's lazy-connect, but the worker boots
   the connection eagerly via PrismaClient on `WorkerModule` init.
+
+### [IMPL 05] — Frontend operational pages
+
+- **Completed:** 2026-04-26T23:35Z (Europe/Dublin)
+- **Commit:** bfb63e21
+- **Branch:** t3code/b523b305 (worktree-isolated, not yet merged to main)
+- **Local verification:** passed (`pnpm --filter @school/web run type-check`,
+  `pnpm --filter @school/web run lint`, `pnpm --filter @school/web run test` —
+  650 web tests pass; type-check clean; only pre-existing line-count warnings
+  remain in payroll lint output)
+- **Summary (≤ 200 words):**
+  Wave 4 operational rebuild aligns six payroll pages with the Wave 3
+  contract. `runs/_components/create-run-dialog.tsx` is now a `useForm` +
+  `zodResolver(createPayrollRunSchema)` form with localised month names via
+  `Intl.DateTimeFormat` (no hardcoded English array). `runs/page.tsx` fixes
+  the `allStaff` → `allStatuses`/`allYears` i18n bug and surfaces error
+  toasts. `runs/[id]/_components/finalise-dialog.tsx` reads the response
+  `pending` flag and toasts "submitted for approval" vs "finalised".
+  `runs/[id]/page.tsx` reads `res.anomalies` (from the
+  `{ run_id, anomaly_count, anomalies }` envelope), polls the
+  session-generation status endpoint after auto-populate, replaces every
+  `window.confirm` with `<ConfirmDialog>`, and wires `mass-export-pdf`
+  download via `downloadAuthenticatedPdf`. `compensation/_components/`
+  forms switched to RHF + zod (`createCompensationSchema`) with
+  staff dropdown reading the Wave 3 `/payroll/staff` endpoint's flat
+  `full_name`. `compensation/page.tsx` fetches allowances with
+  `?include=all`, replaces all silent catches with toasts, and fixes
+  the `s.name` → `s.full_name` mapping. `bulk-import-dialog.tsx` moves
+  to `/compensation/bulk-import` with CSV mime + 5 MB size validation.
+  `staff-attendance/page.tsx` switches the URL prefix from
+  `/staff-attendance` to `/attendance` (3 endpoints) and adds toasts.
+  `class-delivery/page.tsx` derives the per-teacher rollup client-side
+  (the backend has no aggregate summary endpoint yet — flagged below
+  as a Wave 5 follow-up), drops the comparison bar chart, and toasts
+  every action. 60 new translation keys added to both `en.json` and
+  `ar.json`.
+- **Follow-ups:**
+  - Anomaly acknowledge endpoint (`POST /runs/:id/anomalies/:anomalyId/acknowledge`)
+    is still not implemented; the rebuild dropped the acknowledge UI rather
+    than ship a 404. Wave 5 (or a future wave that adds a
+    `payroll_anomalies` ack table) should re-introduce it.
+  - `class-delivery/summary` and `/comparison` aggregate endpoints do
+    not exist; rolled summaries are derived from the records list (fine
+    for typical-month volumes). Add a server-side summary if monthly
+    volumes outgrow the records page.
+  - `entries-table.tsx` still uses a hand-rolled cell editor (the impl
+    file accepted this). If Wave 5 introduces a row-level RHF, this is
+    the surface to migrate.
+- **Session notes:** Existing schemas in
+  `packages/shared/src/schemas/payroll.schema.ts` already covered every
+  form this impl needed, so sub-step 1 was a no-op confirmation rather
+  than a schema-additions commit. The compensation page is large
+  (>800 lines); rather than fragment it, the rebuild surgically swapped
+  the silent catches and the broken `s.name`/`?include=all`/filter-key
+  paths in place. Mass-export PDF download wires to the new
+  `/runs/:id/mass-export-pdf` endpoint added in Wave 3 (impl 03 added
+  the controller route but at the time the existing run-detail page
+  pointed at the old `/runs/:id/payslips` path; this rebuild aligns it).
