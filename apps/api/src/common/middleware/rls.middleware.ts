@@ -28,6 +28,17 @@ export type RlsContext = {
   user_id?: string;
   membership_id?: string;
   tenant_domain?: string;
+  /**
+   * Public open-route bootstrap setting. Used by the budgeting share
+   * resolver (`/api/v1/budgeting/share/:token`) which has no tenant
+   * context but needs to read a single shareable_links row by token
+   * before falling back to the application-level tenant validation.
+   *
+   * The shareable_links_public_token_bootstrap RLS policy makes the
+   * matching row visible only when this setting is set, so the public
+   * route cannot enumerate other tenants' links.
+   */
+  public_share_token?: string;
 };
 
 // The bootstrap RLS policies cast all three settings to UUID, so missing values
@@ -45,8 +56,15 @@ function validateRlsContext(context: RlsContext): void {
   validateUuid(context.tenant_id, 'tenant_id');
   validateUuid(context.user_id, 'user_id');
   validateUuid(context.membership_id, 'membership_id');
+  validateUuid(context.public_share_token, 'public_share_token');
 
-  if (!context.tenant_id && !context.user_id && !context.membership_id && !context.tenant_domain) {
+  if (
+    !context.tenant_id &&
+    !context.user_id &&
+    !context.membership_id &&
+    !context.tenant_domain &&
+    !context.public_share_token
+  ) {
     throw new Error('RLS context requires at least one setting');
   }
 }
@@ -68,6 +86,13 @@ async function applyRlsContext(tx: RlsPrismaTransaction, context: RlsContext): P
     await tx.$executeRawUnsafe(
       `SELECT set_config('app.current_tenant_domain', $1, true)`,
       context.tenant_domain,
+    );
+  }
+
+  if (context.public_share_token) {
+    await tx.$executeRawUnsafe(
+      `SELECT set_config('app.public_share_token', $1, true)`,
+      context.public_share_token,
     );
   }
 }

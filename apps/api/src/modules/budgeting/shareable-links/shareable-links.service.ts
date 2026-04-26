@@ -5,7 +5,7 @@ import * as bcrypt from 'bcryptjs';
 
 import { SHAREABLE_LINK_EXPIRY_DAYS, type CreateShareableLinkDto } from '@school/shared/budgeting';
 
-import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { createRlsClient, runWithRlsContext } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import type {
@@ -232,24 +232,33 @@ export class ShareableLinksService {
       throw new NotFoundException(PUBLIC_NOT_FOUND);
     }
 
-    const link = await this.prisma.shareableLink.findUnique({
-      where: { token },
-      include: {
-        parent_snapshot: {
-          include: {
-            tenant: { select: { name: true, currency_code: true } },
-            parent_model: {
-              select: {
-                id: true,
-                name: true,
-                fiscal_year_start: true,
-                fiscal_year_end: true,
+    // Public open-route lookup: the request has no tenant context, so the
+    // standard tenant_isolation RLS policy can't match any row. We use
+    // `runWithRlsContext({ public_share_token })` which sets a bootstrap
+    // setting that the `shareable_links_public_token_bootstrap` policy
+    // reads — making ONLY the row whose token matches visible for SELECT.
+    // The service then runs the application-level validations (expiry,
+    // revoke, password, tenant_id-vs-snapshot mismatch) below.
+    const link = await runWithRlsContext(this.prisma, { public_share_token: token }, (tx) =>
+      tx.shareableLink.findUnique({
+        where: { token },
+        include: {
+          parent_snapshot: {
+            include: {
+              tenant: { select: { name: true, currency_code: true } },
+              parent_model: {
+                select: {
+                  id: true,
+                  name: true,
+                  fiscal_year_start: true,
+                  fiscal_year_end: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
+    );
     if (!link) throw new NotFoundException(PUBLIC_NOT_FOUND);
 
     // Defense-in-depth: the RLS layer should already prevent cross-tenant

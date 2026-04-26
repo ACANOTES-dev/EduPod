@@ -2927,9 +2927,25 @@ CREATE POLICY variance_cache_tenant_isolation ON variance_cache
 ALTER TABLE shareable_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shareable_links FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS shareable_links_tenant_isolation ON shareable_links;
+DROP POLICY IF EXISTS shareable_links_public_token_bootstrap ON shareable_links;
+-- The `, true` flag on current_setting returns NULL when the setting
+-- is unset, so the public open-route (which has no tenant context) gets
+-- "no rows" instead of a 22P02 cast error from `''::uuid`.
 CREATE POLICY shareable_links_tenant_isolation ON shareable_links
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
-  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+-- Public open-route bootstrap: when the resolver sets
+-- `app.public_share_token` (via runWithRlsContext) the row whose token
+-- matches becomes visible for SELECT only. The service then validates
+-- expiry / revoked / password / tenant_id-vs-snapshot in code before
+-- returning the public payload. Constrained to SELECT so writes still
+-- need authenticated tenant context.
+CREATE POLICY shareable_links_public_token_bootstrap ON shareable_links
+  FOR SELECT
+  USING (
+    current_setting('app.public_share_token', true) IS NOT NULL
+    AND token::text = current_setting('app.public_share_token', true)
+  );
 
 -- budgeting_tenant_preferences (per-tenant defaults — horizon, contingency %, etc.).
 ALTER TABLE budgeting_tenant_preferences ENABLE ROW LEVEL SECURITY;
