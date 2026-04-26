@@ -232,30 +232,30 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                 | Wave | Depends on     | Status        | Completed at                   | Commit SHA |
-| --- | ----------------------------------------------------- | ---- | -------------- | ------------- | ------------------------------ | ---------- |
-| 01  | Schema foundation                                     | 1    | —              | `completed`   | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
-| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed`   | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
-| 03  | KPI Dashboard Service                                 | 2    | 01             | `completed`   | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
-| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed`   | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
-| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `completed`   | 2026-04-24T20:35 Europe/Dublin | `03cd4297` |
-| 06  | Board Report aggregation                              | 2    | 01             | `completed`   | 2026-04-24T22:28 Europe/Dublin | `d1876454` |
-| 07  | Compliance Report aggregation                         | 2    | 01             | `completed`   | 2026-04-24T21:46 Europe/Dublin | `89cb78f0` |
-| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `completed`   | 2026-04-25T00:30 Europe/Dublin | `5cb8c9bf` |
-| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `completed`   | 2026-04-24T23:50 Europe/Dublin | `c6309507` |
-| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `completed`   | 2026-04-24T22:40 Europe/Dublin | `6629dc14` |
-| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `completed`   | 2026-04-24T22:35 Europe/Dublin | `20b6899c` |
-| 12  | AI Predictions service                                | 3    | 01             | `completed`   | 2026-04-25T00:35 Europe/Dublin | `7c08a0ad` |
-| 13  | Report Sharing service                                | 3    | 01, 04         | `completed`   | 2026-04-25T01:18 Europe/Dublin | `e791efce` |
-| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `completed`   | 2026-04-25T06:00 Europe/Dublin | `79635bfe` |
-| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `completed`   | 2026-04-25T05:30 Europe/Dublin | `db7c77d0` |
-| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `completed`   | 2026-04-25T05:38 Europe/Dublin | `4cf97ea4` |
-| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `completed`   | 2026-04-25T06:25 Europe/Dublin | `07323817` |
-| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `completed`   | 2026-04-25T13:54 Europe/Dublin | `bc36bbb5` |
-| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `completed`   | 2026-04-25T13:58 Europe/Dublin | `a39be0fc` |
-| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `completed`   | 2026-04-25T14:25 Europe/Dublin | `f0f1cb29` |
-| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `completed`   | 2026-04-25T14:33 Europe/Dublin | `2a73544c` |
-| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `completed`   | 2026-04-25T16:05 Europe/Dublin | `50fe0a9e` |
+| #   | Title                                                 | Wave | Depends on     | Status      | Completed at                   | Commit SHA |
+| --- | ----------------------------------------------------- | ---- | -------------- | ----------- | ------------------------------ | ---------- |
+| 01  | Schema foundation                                     | 1    | —              | `completed` | 2026-04-24T17:00 Europe/Dublin | `5e448ed0` |
+| 02  | Report Subject Registry + Query Engine                | 2    | 01             | `completed` | 2026-04-24T18:45 Europe/Dublin | `fcfeb4f3` |
+| 03  | KPI Dashboard Service                                 | 2    | 01             | `completed` | 2026-04-24T18:27 Europe/Dublin | `fcd72267` |
+| 04  | Export Service (PDF/Excel/Word)                       | 2    | 01             | `completed` | 2026-04-24T18:30 Europe/Dublin | `76033b5b` |
+| 05  | Domain Report Services (finish aggregation)           | 2    | 01             | `completed` | 2026-04-24T20:35 Europe/Dublin | `03cd4297` |
+| 06  | Board Report aggregation                              | 2    | 01             | `completed` | 2026-04-24T22:28 Europe/Dublin | `d1876454` |
+| 07  | Compliance Report aggregation                         | 2    | 01             | `completed` | 2026-04-24T21:46 Europe/Dublin | `89cb78f0` |
+| 08  | Scheduled Reports Worker                              | 3    | 01, 02, 04     | `completed` | 2026-04-25T00:30 Europe/Dublin | `5cb8c9bf` |
+| 09  | Report Alerts Worker                                  | 3    | 01, 03         | `completed` | 2026-04-24T23:50 Europe/Dublin | `c6309507` |
+| 10  | AI Flag registration + AI Narration service           | 3    | 01, 03         | `completed` | 2026-04-24T22:40 Europe/Dublin | `6629dc14` |
+| 11  | AI Ask-AI service                                     | 3    | 01, 02         | `completed` | 2026-04-24T22:35 Europe/Dublin | `20b6899c` |
+| 12  | AI Predictions service                                | 3    | 01             | `completed` | 2026-04-25T00:35 Europe/Dublin | `7c08a0ad` |
+| 13  | Report Sharing service                                | 3    | 01, 04         | `completed` | 2026-04-25T01:18 Europe/Dublin | `e791efce` |
+| 14  | Reports Hub + KPI Dashboard UI                        | 4    | 01, 03         | `completed` | 2026-04-25T06:00 Europe/Dublin | `79635bfe` |
+| 15  | Individual Report Pages UI (kill mocks + title fixes) | 4    | 01, 05         | `completed` | 2026-04-25T05:30 Europe/Dublin | `db7c77d0` |
+| 16  | Custom Report Builder UI                              | 4    | 01, 02, 11     | `completed` | 2026-04-25T05:38 Europe/Dublin | `4cf97ea4` |
+| 17  | Scheduled Reports + Alerts UI                         | 4    | 01, 08, 09     | `completed` | 2026-04-25T06:25 Europe/Dublin | `07323817` |
+| 18  | AI Panel UI (Ask-AI, Narration, Predictions)          | 4    | 01, 10, 11, 12 | `completed` | 2026-04-25T13:54 Europe/Dublin | `bc36bbb5` |
+| 19  | Share-to-Inbox Dialog + Saved Reports management      | 4    | 01, 13, 16     | `completed` | 2026-04-25T13:58 Europe/Dublin | `a39be0fc` |
+| 20  | Board Report + Compliance Report UI                   | 4    | 01, 06, 07     | `completed` | 2026-04-25T14:25 Europe/Dublin | `f0f1cb29` |
+| 21  | Reports Settings Page                                 | 4    | 01, 10, 11, 12 | `completed` | 2026-04-25T14:33 Europe/Dublin | `2a73544c` |
+| 22  | Translations, mobile, a11y, smoke tests, docs         | 5    | 14–21          | `completed` | 2026-04-25T16:05 Europe/Dublin | `50fe0a9e` |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
 
@@ -3512,7 +3512,7 @@ loadDraft` TypeError pre-dates impl 19 (originates in impl 16's
   sharing through the inbox needs a small extension to the
   `report-sharing` service (today only saved-builder reports
   share). Tests: `compliance-format.spec.ts` + `compliance-field-
-  categories.spec.ts` (21 cases). Translations under
+categories.spec.ts` (21 cases). Translations under
   `reports.board.*` + `reports.compliance.*` for both en + ar.
 
 - **Follow-ups:**
@@ -3542,7 +3542,7 @@ loadDraft` TypeError pre-dates impl 19 (originates in impl 16's
     print-friendly. Mobile review still owed in impl 22.
   - **CI snapshot drift** — impl 21's first push didn't refresh
     `api-surface.snapshot.json` or `packages/prisma/schema-
-    snapshot.prisma`, blocking impl 20's fix-forward deploy. The
+snapshot.prisma`, blocking impl 20's fix-forward deploy. The
     follow-up snapshot commits from impl 21 (`5dfdaa11`,
     `2a73544c`) unblocked. Future Wave 4/5 sessions adding API
     routes or schema models should run
@@ -3567,7 +3567,7 @@ loadDraft` TypeError pre-dates impl 19 (originates in impl 16's
     unwrapping the `{ data }` envelope from the
     `ResponseTransformInterceptor`. The board page already
     used `apiClient<{ data: BoardReport }>('...').then(r =>
-    setReport(r.data))`. Fix-forward on `f0f1cb29` aligned
+setReport(r.data))`. Fix-forward on `f0f1cb29` aligned
     compliance with the board pattern. This is the kind of bug
     a unit test wouldn't catch — the apiClient generic type
     can be anything, so type-check is happy with the wrong
@@ -3626,7 +3626,7 @@ loadDraft` TypeError pre-dates impl 19 (originates in impl 16's
   the existing `PATCH /v1/ai-flags/:moduleKey` endpoint (just the read
   path is denormalised into the settings GET so the UI renders in one
   round-trip). New tenant-scoped table `reports_tenant_settings` with
-  FORCE RLS + tenant_isolation policy (migration
+  FORCE RLS + tenant*isolation policy (migration
   20260425150000_add_reports_tenant_settings). Shared schemas in
   `@school/shared/reports/settings` (`reportsDefaultsSchema`,
   `reportsSettingsResponseSchema`,
@@ -3635,9 +3635,9 @@ loadDraft` TypeError pre-dates impl 19 (originates in impl 16's
   `/[locale]/(school)/settings/reports/` using react-hook-form +
   zodResolver for the defaults form, optimistic AI / KPI toggles with
   revert-on-error, and deep-link query/hash resolution
-  (`?tab=ai-features#reports_<feature>` smooth-scrolls to the matching
-  card). The AI summary panel + Ask-AI page now deep-link with the new
-  tab/hash. Settings hub gets a new `Reports Settings` tile.
+  (`?tab=ai-features#reports*<feature>`smooth-scrolls to the matching
+card). The AI summary panel + Ask-AI page now deep-link with the new
+tab/hash. Settings hub gets a new`Reports Settings` tile.
 
 - **Rule 33 / scope decisions made:**
   - The deployment matrix in §3 marks impl 21 as `web restart only`,
@@ -3687,18 +3687,22 @@ loadDraft` TypeError pre-dates impl 19 (originates in impl 16's
     still publishes invalidation. No follow-up needed.
 
 - **Rollback:**
+
   ```bash
   git revert 2a73544c 5dfdaa11 7a23ef08 9f14ab9d 255a0cd6
   ```
+
   Reverts the schema snapshot fix, API surface snapshot fix, the
   in-progress flip, the bulk feat, and the playwright lock claim.
   No DB migration to roll back — impl 01 already shipped
   `reports_kpi_tenant_preferences` and the AI flag rows; impl 21's
   new table `reports_tenant_settings` is empty for any tenant who
   hasn't visited the settings page. To drop the table:
+
   ```sql
   DROP TABLE reports_tenant_settings CASCADE;
   ```
+
   Cache keys / Redis state are unaffected. The RLS leakage tests in
   `apps/api/test/reports-rebuild-foundation.rls.spec.ts` revert
   cleanly.
@@ -3716,11 +3720,11 @@ loadDraft` TypeError pre-dates impl 19 (originates in impl 16's
     rls-policies / shared-schemas edits were impl-21-only because
     impl 20 didn't introduce new tables. Zero collisions.
   - First two CI runs failed on snapshot drift (api-surface snapshot
-    + schema snapshot). Both expected for any phase that adds new
-    endpoints / models; ran `pnpm run snapshot:api` and
-    `pnpm run snapshot:schema` and pushed the results in two
-    separate fix-forward commits. Adding both regenerations to the
-    pre-push hook would catch this earlier — flagged for impl 22 polish.
+    - schema snapshot). Both expected for any phase that adds new
+      endpoints / models; ran `pnpm run snapshot:api` and
+      `pnpm run snapshot:schema` and pushed the results in two
+      separate fix-forward commits. Adding both regenerations to the
+      pre-push hook would catch this earlier — flagged for impl 22 polish.
   - Impl 20's CI failed with an unrelated `regulatory-safeguarding.spec`
     flake (date-arithmetic test expected 40 days but got 39). Not impl
     20's bug nor mine; would've broken any concurrent push.
@@ -3825,4 +3829,3 @@ loadDraft` TypeError pre-dates impl 19 (originates in impl 16's
     3. Production showed `hasFiniteValue("—")` was returning `true` because the backend emits the literal `'—'` string as its no-data sentinel. Two-sided fix: backend `kpi-attendance-today.ts` now requires `totalCount > 0` for delta to be non-null, AND frontend `hasFiniteValue` treats the `'—'` sentinel as no-value. Both shipped in `50fe0a9e` with a regression test that locks the backend invariant.
   - Backend admissions controllers don't call `wrap()`, so the `ResponseTransformInterceptor` adds the `{ data }` envelope; the new admissions page accordingly types each fetch as `apiClient<{ data: T }>(...)` and unwraps in `.then`. Same pattern impl 19's `report-sharing` and impl 20's compliance fix-forward used.
   - Production tenants are test tenants until August 2026 (per project memory), so no feature flag / staged-rollout was required for the bug fixes.
-

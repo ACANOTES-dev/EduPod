@@ -145,7 +145,7 @@ Ratchet up as improvements land; never down.
 - The rebuild is done.
 - The `IMPLEMENTATION_LOG.md` status board shows all 8 stages `complete`.
 - Leave the scheduler/ folder intact in the repo for historical reference and for future scheduler iterations.
-- Any follow-up work (e.g. class_scheduling_requirements, room type constraints, teacher preferences, etc.) should be planned as new stages _appended_ to this package — don't start a new package unless the scope is unrelated to scheduling.
+- Any follow-up work (e.g. class*scheduling_requirements, room type constraints, teacher preferences, etc.) should be planned as new stages \_appended* to this package — don't start a new package unless the scope is unrelated to scheduling.
 
 ## If something goes wrong
 
