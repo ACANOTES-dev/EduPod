@@ -143,15 +143,15 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 
 (`in-progress` = coding. `verifying` = code committed, dev server running, Playwright/curl in flight. `completed` = local verification passed AND log record appended. `🛑 blocked` = stuck — explain in §5.)
 
-| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status        | Completed at      | Commit SHA |
-| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ------------- | ----------------- | ---------- |
-| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `completed`   | 2026-04-26T20:15Z | 408b53b5   |
-| 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `completed`   | 2026-04-26T20:55Z | 2a787686   |
-| 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `completed`   | 2026-04-26T22:35Z | 25d30d03   |
-| 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `in-progress` |                   |            |
-| 05  | Frontend operational pages                    | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending`     |                   |            |
-| 06  | Frontend analytical + self-service            | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending`     |                   |            |
-| 07  | Polish — tests, translations, mobile, docs    | 5    | polish         | serial               | 01–06      | `pending`     |                   |            |
+| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status      | Completed at      | Commit SHA |
+| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ----------- | ----------------- | ---------- |
+| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `completed` | 2026-04-26T20:15Z | 408b53b5   |
+| 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `completed` | 2026-04-26T20:55Z | 2a787686   |
+| 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `completed` | 2026-04-26T22:35Z | 25d30d03   |
+| 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `completed` | 2026-04-26T22:55Z | 7afa15ca   |
+| 05  | Frontend operational pages                    | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending`   |                   |            |
+| 06  | Frontend analytical + self-service            | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending`   |                   |            |
+| 07  | Polish — tests, translations, mobile, docs    | 5    | polish         | serial               | 01–06      | `pending`   |                   |            |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -559,3 +559,156 @@ staff_recurring_deduction_id)` unique key and three lookup indexes,
   pagination happens in the new `listStaffForPicker` to avoid adding
   a new facade variant for now (Wave 5 can add `findActiveStaffPaginated`
   if the picker becomes a hot path).
+
+### [IMPL 04] — Worker pipelines + payslip-number unification
+
+- **Completed:** 2026-04-26T22:55:00+01:00 (Europe/Dublin)
+- **Commit:** 7afa15ca (head of `t3code/b523b305` after the two-commit Wave 3
+  worker stack, on top of the four-commit IMPL 03 stack)
+- **Branch:** t3code/b523b305 (worktree-isolated, not yet merged to main)
+- **Local verification:** passed — `pnpm --filter @school/{shared,api,worker} run type-check`
+  clean; lint clean (worker payroll module + shared schemas); 908 shared +
+  604 API payroll + 24 worker payroll = 1536 tests green; `WorkerModule`
+  DI smoke compiles cleanly against the local Postgres (port 5553) and
+  Redis (port 5554); `AppModule` DI smoke also clean. The job-name +
+  Redis-key contract is now enforced by TypeScript imports — both sides
+  reference the same literal from `@school/shared/payroll` so a string
+  drift like the pre-rebuild `'payroll:mass-export-payslips'` (worker)
+  vs `'payroll:mass-export'` (API) cannot recur.
+- **Summary:**
+  Wave 3b fixes the two dead worker job paths and unifies the API/worker
+  contract under shared constants.
+
+  **mass-export.processor** — was `'payroll:mass-export-payslips'` on
+  the worker while the API enqueued `'payroll:mass-export'`, so every
+  mass-export click silently no-op'd. Both sides now import
+  `PAYROLL_MASS_EXPORT_JOB` from `@school/shared/payroll`. Status and
+  PDF Redis keys go through `buildMassExportStatusKey` and
+  `buildMassExportPdfKey` (tenant-scoped — pre-rebuild keys lacked
+  tenant_id, allowing cross-tenant accidental reads). PDF TTL extended
+  from 5 min (300s) to 20 min (`MASS_EXPORT_PDF_TTL_SECONDS = 1200`)
+  so the UI has a fair download window even on slow connections.
+
+  **session-generation.processor** — was `'payroll:generate-sessions'`
+  on the worker while the API enqueued `'payroll:session-generation'`,
+  AND the payload field was `run_id` while the worker read
+  `payroll_run_id`. Triple-broken. Both names now resolve to the same
+  literal via `PAYROLL_SESSION_GENERATION_JOB`. Payload field renamed
+  `run_id` → `payroll_run_id` in the shared
+  `payrollSessionGenerationJobPayloadSchema` AND the API enqueue site.
+  Redis status key uses `buildSessionGenStatusKey(tenantId, runId)`.
+  The processor now counts `class_delivery_records` (status=`'delivered'`)
+  bracketed to the run period, instead of the legacy `tx.schedule.count(...)`
+  which over-counted every scheduled slot whether it was actually
+  taught.
+
+  **payroll-queue.processor (dispatcher)** — switches all three job-name
+  switch arms to import directly from `@school/shared/payroll`. The
+  legacy `PAYROLL_GENERATE_SESSIONS_JOB` constant is preserved as a
+  re-export of `PAYROLL_SESSION_GENERATION_JOB` (same string) so any
+  external caller importing under the old name keeps working.
+
+  **approval-callback.processor** — verified: Wave 2 already imports
+  `PAYROLL_ON_APPROVAL_JOB` from shared and uses `formatPayslipNumber`
+  for the PSL-YYYYMM-NNNNNN canonical format. No changes needed.
+
+  **API enqueue sites** — three small surgical changes:
+  `payroll-runs.service.triggerSessionGeneration` — Redis key, job
+  name, payload field name, TTL all from shared. Adds
+  `jobId: 'session-gen:{runId}'` for BullMQ idempotency
+  (double-clicking enqueues only one job).
+  `payslips.service.triggerMassExport` — same pattern; adds
+  `jobId: 'mass-export:{runId}:{locale}'` + 3 retries with
+  exponential backoff. Payload fields renamed to
+  `payroll_run_id` + `requested_by_user_id` to match the worker.
+  `payslips.service.getMassExportPdf` (NEW) — reads the cached PDF
+  buffer from `buildMassExportPdfKey(tenantId, runId)`. Returns
+  null when expired so the controller can throw 404.
+  `payroll-runs.controller` — new
+  `GET /v1/payroll/runs/:id/mass-export-pdf` streams the cached
+  PDF; throws `MASS_EXPORT_NOT_READY` 404 when the cache has
+  expired (the user re-triggers).
+
+  **Redis client lifecycle** — moved from per-job-instance creation
+  (the inner `TenantAwareJob` constructor was creating a new ioredis
+  connection per job execution — wasteful under load) to a
+  constructor-level singleton on each `@Injectable` processor with
+  `onModuleDestroy` disconnecting cleanly on worker shutdown.
+
+  Test coverage: 24 worker payroll tests passing (mass-export 6,
+  session-generation 6, queue dispatcher 4, approval-callback 8). The
+  mass-export spec verifies the canonical Redis keys + 1200s PDF TTL
+  - new constructor-level Redis singleton (`.quit()` only fires on
+    module destroy). The session-generation spec verifies counting
+    `classDeliveryRecord` with `status: 'delivered'` bracketed to the
+    period, matching the new contract. The dispatcher spec uses the
+    shared constants directly. API specs updated for the new payload
+    shape + jobId.
+
+- **Deviations from plan:**
+  1. **Worker `RedisService` injection deferred.** The impl file
+     suggested a `RedisService.getClient()` injection pattern. The
+     worker app does not have a `RedisService` module — it uses raw
+     `ioredis`. Rather than introduce a new module just for Wave 3,
+     the existing `new Redis(...)` pattern was preserved BUT lifted
+     from per-job creation to constructor-level singleton with
+     `onModuleDestroy` cleanup. This delivers the wastefulness fix
+     the audit flagged without expanding scope. A Wave 5 follow-up
+     can publish a proper RedisModule in the worker app if desired.
+  2. **Mass-export error handling stays best-effort failure-status
+     write + rethrow.** The impl file mentioned "cleaner failure
+     handling" as optional; BullMQ's built-in 3-retry + exponential
+     backoff (now configured at the enqueue site) handles transient
+     failures, and the Redis status key reflects the final state.
+     No additional dead-letter/notification logic added — that's a
+     Wave 5 polish item.
+  3. **Tenant-isolation Redis-key prefix is now `tenant_id`-first.**
+     The pre-rebuild `payroll:mass-export:{runId}:pdf` key is
+     replaced by `payroll:mass-export:{tenantId}:{runId}:pdf`. Any
+     in-flight job at deploy time (extremely unlikely in this
+     worktree-isolated rebuild but worth noting) writing to the old
+     key won't be readable from the new key. Wave 5 may add a
+     migration sweeper if production deploy uncovers stragglers.
+  4. **`payroll-queue.processor` legacy `PAYROLL_GENERATE_SESSIONS_JOB`
+     constant kept as a re-export of `PAYROLL_SESSION_GENERATION_JOB`**
+     so nothing breaks if a stale build still imports the old name.
+     Both resolve to literally the same string. Wave 5 can drop the
+     re-export once the codebase has been audited.
+  5. **No changes to the inline payslip HTML template renderer in
+     `mass-export.processor.ts`.** It already exists and works; only
+     the surrounding plumbing (job name, Redis keys, TTLs, client
+     lifecycle) changed. The template still uses the snapshot
+     payload from the persisted `payslips.snapshot_payload_json`
+     column populated by the unified `FinalisationService` in Wave 2.
+
+- **Follow-ups:**
+  1. (Wave 5) Drop the `PAYROLL_GENERATE_SESSIONS_JOB` re-export from
+     `session-generation.processor.ts` once a codebase audit confirms
+     no remaining legacy import. Both names resolve to the same
+     literal string today.
+  2. (Wave 5) Add a true cross-component integration test that
+     enqueues a mass-export via the API HTTP route, polls the status
+     endpoint until `completed`, asserts the PDF base64 is non-empty
+     under `buildMassExportPdfKey`, and downloads via
+     `GET /runs/:id/mass-export-pdf`. End-to-end proof the contract
+     is closed.
+  3. (Wave 5) Publish a worker-side `RedisService` (proper Nest
+     module wrapping the connection pool) and migrate the payroll
+     processors + dlq-monitor to inject it instead of constructing
+     `new Redis(...)` at the constructor.
+  4. (Wave 5) Move the inline payslip HTML template in
+     `mass-export.processor.ts` into a shared template module so
+     the API single-payslip PDF and the worker mass-export PDF
+     produce identical output.
+
+- **Session notes:** The shared schema + worker enqueue + worker
+  reader change for the `run_id` → `payroll_run_id` rename is the
+  smallest possible change that still covers the contract: one shared
+  schema edit, one API enqueue line, no worker change (Wave 2's
+  rewrite already read `payroll_run_id`). The `addValidatedJob` util
+  takes a third optional `JobsOptions` argument which made adding
+  `jobId` clean. Worker DI smoke required correct local DB creds
+  (`postgres:localpassword@localhost:5553`); the placeholder
+  `DATABASE_URL=postgresql://x:x@...` works for the API DI smoke
+  because the API uses Prisma's lazy-connect, but the worker boots
+  the connection eagerly via PrismaClient on `WorkerModule` init.
