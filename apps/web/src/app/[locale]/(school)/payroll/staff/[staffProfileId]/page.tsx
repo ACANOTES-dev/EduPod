@@ -4,11 +4,12 @@ import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button } from '@school/ui';
+import { Button, toast } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { downloadAuthenticatedPdf } from '@/lib/download-pdf';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
@@ -18,14 +19,19 @@ function formatCurrency(value: number): string {
 }
 
 interface PaymentEntry {
-  id: string;
-  payroll_run_id: string;
+  payroll_entry_id: string;
   period_label: string;
   period_month: number;
   period_year: number;
   basic_pay: number;
   bonus_pay: number;
   total_pay: number;
+  payslip_id: string | null;
+}
+
+interface StaffProfileLite {
+  id: string;
+  user: { first_name: string; last_name: string };
 }
 
 export default function StaffPaymentHistoryPage() {
@@ -43,34 +49,62 @@ export default function StaffPaymentHistoryPage() {
 
   const pageSize = 20;
 
+  // Fetch the staff profile once (for the page title). Wave 3 did not add
+  // `staff_name` to the staff-history meta envelope, so we resolve the name
+  // separately from the staff-profiles endpoint.
+  React.useEffect(() => {
+    if (!staffProfileId) return;
+    void apiClient<{ data: StaffProfileLite }>(`/api/v1/staff-profiles/${staffProfileId}`, {
+      silent: true,
+    })
+      .then((res) => {
+        const u = res.data.user;
+        setStaffName(`${u.first_name} ${u.last_name}`.trim());
+      })
+      .catch((err) => {
+        // Title is non-essential — log only.
+        // eslint-disable-next-line no-console -- background fetch fallback per CLAUDE.md
+        console.error('[staff-history.profile-fetch]', err);
+      });
+  }, [staffProfileId]);
+
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+      // Wave 3 added `/payroll/staff/:id/history` as an alias of
+      // `/payroll/reports/staff/:id/history`. Either resolves.
       const res = await apiClient<{
         data: PaymentEntry[];
-        meta: { total: number; staff_name: string };
-      }>(`/api/v1/payroll/staff/${staffProfileId}/history?${params.toString()}`);
+        meta: { total: number };
+      }>(`/api/v1/payroll/staff/${staffProfileId}/history?${params.toString()}`, {
+        silent: true,
+      });
       setData(res.data);
       setTotal(res.meta.total);
-      setStaffName(res.meta.staff_name);
     } catch (err) {
-      // silent
-      console.error('[setStaffName]', err);
+      const message = err instanceof Error ? err.message : t('historyLoadFailed');
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
-  }, [page, staffProfileId]);
+  }, [page, staffProfileId, t]);
 
   React.useEffect(() => {
     void fetchData();
   }, [fetchData]);
 
-  const handlePrintPayslip = (runId: string) => {
-    window.open(
-      `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/payroll/runs/${runId}/entries/staff/${staffProfileId}/payslip`,
-      '_blank',
-    );
+  const handleDownloadPayslip = async (payslipId: string | null) => {
+    if (!payslipId) {
+      toast.error(t('noPayslipForEntry'));
+      return;
+    }
+    try {
+      await downloadAuthenticatedPdf(`/api/v1/payroll/payslips/${payslipId}/pdf`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('payslipDownloadFailed');
+      toast.error(message);
+    }
   };
 
   const columns = [
@@ -115,12 +149,13 @@ export default function StaffPaymentHistoryPage() {
         <Button
           variant="ghost"
           size="sm"
+          disabled={!row.payslip_id}
           onClick={(e: React.MouseEvent) => {
             e.stopPropagation();
-            handlePrintPayslip(row.payroll_run_id);
+            void handleDownloadPayslip(row.payslip_id);
           }}
         >
-          {t('printPayslip')}
+          {t('downloadPdf')}
         </Button>
       ),
     },
@@ -140,7 +175,7 @@ export default function StaffPaymentHistoryPage() {
         pageSize={pageSize}
         total={total}
         onPageChange={setPage}
-        keyExtractor={(row) => row.id}
+        keyExtractor={(row) => row.payroll_entry_id}
         isLoading={isLoading}
       />
     </div>

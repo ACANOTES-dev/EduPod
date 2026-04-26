@@ -5,7 +5,15 @@ import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, toast } from '@school/ui';
+import {
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  toast,
+} from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -58,10 +66,10 @@ export default function PayrollAbsencesPage() {
     try {
       const res = await apiClient<AbsencePeriodResponse>(
         `/api/v1/payroll/absence-periods?period=${period}`,
+        { silent: true },
       );
       setResponse(res);
     } catch (err) {
-      console.error('[PayrollAbsencesPage.fetchPeriod]', err);
       const msg = err instanceof Error ? err.message : t('loadError');
       toast.error(msg);
       setResponse(null);
@@ -187,17 +195,17 @@ export default function PayrollAbsencesPage() {
           <label htmlFor="filter" className="text-xs font-medium text-text-secondary">
             {t('filter')}
           </label>
-          <select
-            id="filter"
-            value={paidFilter}
-            onChange={(e) => setPaidFilter(e.target.value as typeof paidFilter)}
-            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="all">{t('filterAll')}</option>
-            <option value="paid">{t('filterPaid')}</option>
-            <option value="unpaid">{t('filterUnpaid')}</option>
-            <option value="none">{t('filterNone')}</option>
-          </select>
+          <Select value={paidFilter} onValueChange={(v) => setPaidFilter(v as typeof paidFilter)}>
+            <SelectTrigger id="filter" className="w-full sm:w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('filterAll')}</SelectItem>
+              <SelectItem value="paid">{t('filterPaid')}</SelectItem>
+              <SelectItem value="unpaid">{t('filterUnpaid')}</SelectItem>
+              <SelectItem value="none">{t('filterNone')}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
