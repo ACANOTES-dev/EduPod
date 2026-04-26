@@ -1,6 +1,8 @@
 # Payroll Overhaul — Implementation Log
 
-> **What this is:** The single source of truth for the payroll-overhaul rebuild. Every session that executes an implementation MUST read this file first, verify prerequisites, record completion, and deploy to production before signing off.
+> **What this is:** The single source of truth for the payroll-overhaul rebuild. Every session that executes an implementation MUST read this file first, verify prerequisites, record completion, and verify locally before signing off.
+>
+> **Worktree-isolated execution.** All work for this rebuild lives in the current git worktree on branch `t3code/b523b305`. Every commit stays local on that branch. Nothing is pushed, nothing is deployed to production. The user rebases onto `main` and merges manually once the entire module is complete and verified locally.
 
 ---
 
@@ -34,28 +36,26 @@ This rebuild does NOT replace the schema or the morph-shell pages. It rewrites t
 
 **Rule 3 — Read the summaries of completed prerequisites.** Look in §5 (Completion Records) for each prerequisite implementation. Read the summary. You need to know what exists before you build on top of it.
 
-**Rule 4 — Implementations within the same wave code in parallel; only deployments serialise, and only when they share a service restart target.** Deploy order is **first-come-first-served, not by implementation number**. If you're running task 04 and it finishes coding before task 03, task 04 deploys first. The only constraint: before entering the deploy phase, re-read the log; if another implementation in your wave is currently `deploying` AND shares a service restart target (API / worker / web — consult §3's deployment matrix), wait (poll every 3 minutes) until it flips to `completed`, then proceed. If it doesn't share a restart target, you can deploy concurrently without conflict.
+**Rule 4 — Implementations within the same wave code in parallel; verification serialises per worktree because the local dev server binds shared ports.** Coding never serialises. The only constraint: when you reach Step 6 of `/pay` (start the dev server) and a sibling session in this worktree is already running `pnpm turbo run dev` for their own verification, wait until they finish (their impl flips to `completed`) before starting yours. Verification order is first-come-first-served, not by implementation number.
 
-**Rule 5 — NEVER push to GitHub.** Commit locally only. The CI gate is slow; pushing during this rebuild blocks everything. The human owner pushes the entire stack of accumulated commits manually at the end of the rebuild. No `git push`. No `gh pr create`. No exceptions.
+**Rule 5 — No `git push`. All commits stay on `t3code/b523b305` in this worktree.** The user rebases onto `main` and merges manually once the entire module is complete and verified locally. Never `git push`, never `gh pr create`, never push to any other remote or branch. Production deployment happens later, through normal channels, after the user merges.
 
-**Rule 6 — Deploy directly to production after every implementation.** SSH access is granted for the duration of this rebuild. The deployment flow is:
+Before every commit, run `git branch --show-current` and confirm it returns `t3code/b523b305`. If it returns anything else, STOP — checkout the correct branch first. Committing into the wrong branch poisons the user's later merge.
 
-1. Commit locally.
-2. Generate a patch with `git format-patch -1 HEAD --stdout > /tmp/pay-NN.patch`.
-3. `scp` the patch to `root@46.62.244.139:/tmp/pay-NN.patch`.
-4. SSH and apply as the `edupod` user: `sudo -u edupod bash -lc 'cd /opt/edupod/app && git -c user.name=ACANOTES-dev -c user.email=info@acanotes.com am /tmp/pay-NN.patch'`.
-5. For schema changes: run `pnpm --filter @school/prisma migrate:deploy` on the server (as `edupod`). NOT `pnpm db:migrate` — that runs `migrate:dev` and offers to reset the database on drift. Then run `pnpm db:post-migrate`.
-6. For backend changes: `pnpm turbo run build --filter=@school/api` then `sudo -u edupod PM2_HOME=/home/edupod/.pm2 pm2 restart api --update-env`.
-7. For worker changes: `pnpm turbo run build --filter=@school/worker` then `pm2 restart worker --update-env`.
-8. For web changes: clear `.next`, `pnpm turbo run build --filter=@school/web`, then `pm2 restart web --update-env`.
-9. Smoke test against production URLs.
-10. Update this log.
+**Rule 6 — No production deploy. Verification happens against a local dev server.** SSH to production is forbidden during this rebuild — production stays frozen until the user merges and ships through normal channels post-rebuild. After your final code commit:
 
-The production repo at `/opt/edupod/app` lives on `main` but is already many commits ahead of `origin/main`. Your patch adds one more. Do not run `git pull` or `git fetch origin main` on the server — you will revert everything.
+1. Confirm Postgres (5432) and Redis (6379) are listening locally (`nc -z localhost 5432 && nc -z localhost 6379`).
+2. If your impl includes new SQL: `pnpm --filter @school/prisma migrate:deploy` then `pnpm --filter @school/prisma db:post-migrate`. Never `migrate:dev` against a local DB you care about — it offers to reset on drift.
+3. Start the dev server: `pnpm turbo run dev` (or scope with `--filter @school/{web,api,worker}`). Wait for ready signals.
+4. Verify against `http://localhost:<port>` only — Playwright (use the `mcp__plugin_playwright_playwright__*` tools) for frontend impls, curl for API impls, the local worker dev output for worker impls, `psql` for schema impls. **Never aim Playwright at a production tenant** (`nhqs.edupod.app`, `edupod.app`, etc. are off-limits for this entire rebuild).
+5. Stop the dev server when done so it doesn't dangle for the next session.
+6. Update this log per Rule 7.
 
-**Rule 7 — Update this log at the end of your implementation.** Append a new Completion Record in §5 with: implementation ID, completion timestamp, a paragraph summary of what actually shipped (not what the plan said — what you actually did), any deviations from the plan with rationale, any follow-up notes for subsequent waves, and the production commit SHA. Flip the row in the Wave Status table (§4) from `in-progress` to `completed`.
+If verification fails, fix in code, recommit on `t3code/b523b305` (no push), restart the dev server if needed, re-verify. There is no CI fallback — the local pass IS the pass.
 
-**Rule 8 — Regression tests are mandatory.** Before deploying, run `pnpm turbo run test --filter=<affected packages>`. If existing tests fail, fix the regression before deploying. Do NOT deploy a breaking change and come back to it later.
+**Rule 7 — Update this log at the end of your implementation.** Append a new Completion Record in §5 with: implementation ID, completion timestamp, a paragraph summary of what actually shipped (not what the plan said — what you actually did), any deviations from the plan with rationale, any follow-up notes for subsequent waves, and the feature-branch commit SHA (`git rev-parse HEAD`). Flip the row in the Wave Status table (§4) from `in-progress` to `completed`. The log update is its own commit, separate from any code commit (see Rule H7).
+
+**Rule 8 — Regression tests are mandatory.** Before marking your impl `completed`, run `pnpm turbo run test --filter=<affected packages>`. If existing tests fail, fix the regression before marking complete. Do NOT mark a breaking change `completed` and come back to it later.
 
 **Rule 9 — Follow the `.claude/rules/*` conventions.** RLS on new tables (`FORCE ROW LEVEL SECURITY` with a tenant isolation policy), no raw SQL outside the RLS middleware, interactive `$transaction(async (tx) => ...)` for all writes, strict TypeScript (no `any`, no `@ts-ignore`, no `as unknown as` except the RLS cast), logical CSS properties on frontend, `react-hook-form` + Zod for new forms, co-located `.spec.ts` next to source. The `CLAUDE.md` file in the repo root is the ground truth.
 
@@ -105,7 +105,7 @@ Multiple sessions writing to the log at the same time cause merge noise, but iso
 
 ## 3. Wave structure & dependencies
 
-Each wave must complete entirely before the next wave starts. Within a wave, all listed implementations code in parallel AND deploy on a first-come-first-served basis — **not** in implementation-number order. Whichever implementation reaches the deploy phase first takes the slot. Deployment only serialises (polling every 3 minutes) when another sibling is already `deploying` **and** shares a service restart target (API / worker / web, per the matrix below).
+Each wave must complete entirely before the next wave starts. Within a wave, all listed implementations code in parallel AND verify on a first-come-first-served basis — **not** in implementation-number order. Whichever implementation reaches the verification phase first runs the dev server first; sibling sessions in this worktree wait until the running session's dev server stops, then start their own.
 
 | Wave       | Implementations | Hard dependency | Parallelisation mode | Rationale                                                                                                                                                                                |
 | ---------- | --------------- | --------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -115,32 +115,33 @@ Each wave must complete entirely before the next wave starts. Within a wave, all
 | **Wave 4** | 05, 06          | Wave 3 complete | parallel-risky       | Frontend rebuild. Both impls touch `apps/web/messages/en.json` and `ar.json`. Hardened rules H1–H10 apply. Each impl owns its own page directories.                                      |
 | **Wave 5** | 07              | Wave 4 complete | serial (single impl) | Polish — regression tests, translation pass, mobile sweep, dead-code removal, architecture-doc updates, pre-launch smoke.                                                                |
 
-### Deployment targets per implementation
+### Local dev surface per implementation
 
-This matrix is what you consult before deploying. "Who restarts" determines the serialisation rule.
+This matrix is what you consult when starting the local dev server for verification. "Touched" means you'll exercise that surface during Step 7 of `/pay`. There is no production deploy in this rebuild — the matrix tells you which `pnpm turbo run dev` outputs to actually monitor and which surfaces to drive Playwright/curl/psql against.
 
-| Impl | Migration | API restart | Worker restart | Web restart |
-| ---- | --------- | ----------- | -------------- | ----------- |
-| 01   | ✅        | ✅          | ✅             | ✅          |
-| 02   | ❌        | ✅          | ✅             | ❌          |
-| 03   | ❌        | ✅          | ❌             | ❌          |
-| 04   | ❌        | ✅          | ✅             | ❌          |
-| 05   | ❌        | ❌          | ❌             | ✅          |
-| 06   | ❌        | ❌          | ❌             | ✅          |
-| 07   | ❌        | ❌          | ❌             | ✅          |
+| Impl | Local migration | API surface | Worker surface | Web surface |
+| ---- | --------------- | ----------- | -------------- | ----------- |
+| 01   | ✅              | ✅          | ✅             | ✅          |
+| 02   | ❌              | ✅          | ✅             | ❌          |
+| 03   | ❌              | ✅          | ❌             | ❌          |
+| 04   | ❌              | ✅          | ✅             | ❌          |
+| 05   | ❌              | ❌          | ❌             | ✅          |
+| 06   | ❌              | ❌          | ❌             | ✅          |
+| 07   | ❌              | ❌          | ❌             | ✅          |
 
 Notes:
 
-- 02 restarts the worker because `approval-callback.processor.ts` is rewritten to delegate to the new `FinalisationService`.
-- 04 restarts the API because the small enqueue-site changes (job-name imports) live in API services.
-- 03 and 04 share no source files but both restart the API; their deploys serialise via the 3-minute poll.
-- 05 and 06 share no source files but both restart web; their deploys serialise via the 3-minute poll.
+- 02 exercises the worker because `approval-callback.processor.ts` is rewritten to delegate to the new `FinalisationService`.
+- 04 exercises the API because the small enqueue-site changes (job-name imports) live in API services.
+- All impls share the same local Postgres (5432), Redis (6379), and dev-server ports — sibling sessions in this worktree must serialise verification (one dev server at a time).
 
 ---
 
 ## 4. Wave status (update as you execute)
 
-Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
+Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 blocked`
+
+(`in-progress` = coding. `verifying` = code committed, dev server running, Playwright/curl in flight. `completed` = local verification passed AND log record appended. `🛑 blocked` = stuck — explain in §5.)
 
 | #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status    | Completed at | Commit SHA |
 | --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | --------- | ------------ | ---------- |
@@ -164,7 +165,8 @@ Append new records below in chronological order. Format:
 ### [IMPL NN] — <title>
 - **Completed:** <ISO timestamp> (Europe/Dublin)
 - **Commit:** <sha>
-- **Deployed to production:** yes / no (if no, explain)
+- **Branch:** t3code/b523b305 (worktree-isolated, not yet merged to main)
+- **Local verification:** passed (name what you actually ran — Playwright / curl / worker dev logs / psql)
 - **Summary (≤ 200 words):**
   What was actually built. Names of new files, endpoints, services. Key design
   decisions made during implementation that subsequent waves need to know about.
