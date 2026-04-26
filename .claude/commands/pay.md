@@ -1,10 +1,12 @@
 ---
-description: 'Execute a specific implementation from the Payroll Overhaul rebuild. Reads the implementation log, validates prerequisites, executes the work, commits, pushes to GitHub, watches CI, and logs completion. Server access is granted for diagnostics only — all deploys go through GitHub CI. Usage: /pay 03'
+description: 'Execute a specific implementation from the Payroll Overhaul rebuild within this isolated worktree. Reads the implementation log, validates prerequisites, executes the work, commits to the current feature branch (t3code/b523b305), verifies via a local dev server + Playwright, and logs completion. No push, no production deploy — the user rebases and merges to main manually when the entire module is complete. Usage: /pay 03'
 ---
 
 # Payroll Overhaul — Execute Implementation $ARGUMENTS
 
 You are executing **Implementation $ARGUMENTS** of the Payroll Overhaul. This rebuild fixes the wiring of an existing payroll module that was visually redesigned but never functionally completed: the calculation engine ignores most inputs, two of three worker jobs are dead due to job-name mismatches, the frontend redesign references endpoints that don't exist, and the direct vs approval finalisation paths produce different totals. The rebuild is documented in `payrollnew/PLAN.md` and orchestrated via `payrollnew/IMPLEMENTATION_LOG.md`.
+
+**Worktree-isolated execution.** All work for this rebuild lives in the current git worktree on branch `t3code/b523b305`. Every commit stays local on that branch. Nothing is pushed, nothing is deployed to production. The user rebases onto `main` and merges manually once the entire module is complete and verified locally. Production-tenant Playwright runs are explicitly forbidden during this rebuild — verification happens against a local dev server only.
 
 ## Step 0 · Read the context
 
@@ -20,7 +22,7 @@ Do not skim these. Read them carefully. The log is the source of truth for what 
 
 From the implementation file, identify the `Depends on:` line in the frontmatter. For each prerequisite implementation number listed, check the **Wave Status table** in §4 of `IMPLEMENTATION_LOG.md`. Every prerequisite MUST show `status: completed` before you proceed.
 
-**Prerequisites are cross-wave dependencies only.** An in-wave sibling (another impl in the same wave number as yours) is NOT a prerequisite. You code in parallel with your wave siblings — only the deploy step serialises, and CI handles that automatically (see Step 6).
+**Prerequisites are cross-wave dependencies only.** An in-wave sibling (another impl in the same wave number as yours) is NOT a prerequisite. You code in parallel with your wave siblings.
 
 **If any cross-wave prerequisite is not yet `completed`, enter a polling wait loop:**
 
@@ -30,9 +32,9 @@ From the implementation file, identify the `Depends on:` line in the frontmatter
 4. As soon as **every** prerequisite shows `completed`, exit the wait loop and continue to Step 2.
 5. If a prerequisite flips to `🛑 blocked` at any point during the wait, STOP immediately and tell the user: "Implementation $ARGUMENTS aborted — prerequisite [N] is blocked. Resolve it before retrying."
 
-Each poll must re-read the log file fresh (the file may have been updated by another session in parallel).
+Each poll must re-read the log file fresh (sibling sessions in this worktree may have updated it).
 
-**In-wave siblings are NOT a reason to wait at Step 1.** If implementation 03 and 04 are both in Wave 3 and 04 is already `in-progress` when you start 03, proceed immediately to Step 2 and code 03 in parallel with 04. The wave model assumes parallel coding — serialisation only happens at the deploy step.
+**In-wave siblings are NOT a reason to wait at Step 1.** If implementation 03 and 04 are both in Wave 3 and 04 is already `in-progress` when you start 03, proceed immediately to Step 2 and code 03 in parallel with 04.
 
 If all cross-wave prerequisites are satisfied, continue immediately.
 
@@ -49,26 +51,28 @@ If a prerequisite's record mentions something that changes how you should execut
 
 ## Step 3 · Update the log — mark yourself as in-progress
 
-Before writing any code, flip your implementation's row in the Wave Status table from `pending` to `in-progress`. This signals to any other session that you've claimed the task. Commit the log update as a separate commit and push it immediately so other sessions and `origin/main` see the claim:
+Before writing any code, flip your implementation's row in the Wave Status table from `pending` to `in-progress`. This signals to any other session sharing this worktree that you've claimed the task. Commit the log update as a separate local commit:
 
 ```bash
+git status                                          # tree should be clean
+git branch --show-current                           # MUST output: t3code/b523b305
 git add payrollnew/IMPLEMENTATION_LOG.md
 git commit -m "docs(payroll): mark implementation $ARGUMENTS as in-progress"
-git push origin main
 ```
 
-A docs-only push is a fast CI run (mostly cache hits). If `git push` rejects because a sibling pushed first, run `git pull --rebase origin main` and try again — the log update is small and rebases cleanly.
+Do NOT push. All commits accumulate locally on `t3code/b523b305` until the user merges manually.
 
 ## Step 4 · Execute the implementation
 
 Before writing any code:
 
-1. Re-read your implementation file's "Shared files this impl touches" section. List them mentally — these are your conflict zones with sibling sessions.
+1. Re-read your implementation file's "Shared files this impl touches" section. List them mentally — these are your conflict zones with sibling sessions running in this worktree.
 
 2. Plan your commit cadence. The implementation file's sub-steps define natural commit boundaries. Aim for 3–5 commits per impl, not 1. Isolated sub-steps (your own directory, your own service) commit early. Shared-file sub-steps (translations, shell, seeds, module registration) commit LAST in one final commit.
 
 3. Follow these rules at every commit:
    - Run `git status` before staging. Inspect the output. If you see files you did not touch, STOP — a sibling session has written into your working tree. Investigate before proceeding.
+   - Run `git branch --show-current`. It MUST output `t3code/b523b305`. If it returns anything else, STOP — checkout the correct branch before continuing. Committing into the wrong branch poisons the user's later merge.
 
    - Stage ONLY your own files by explicit pathspec:
 
@@ -80,11 +84,11 @@ Before writing any code:
 
    - If the sub-step involves translations, re-read `apps/web/messages/en.json` and `apps/web/messages/ar.json` immediately before writing your additions — deep-merge your keys into the current content, do not overwrite the file with a stale version.
 
-   - Never bundle log updates with code commits. Log updates get their own commit in Step 7 after the deploy is verified.
+   - Never bundle log updates with code commits. Log updates get their own commit in Step 8 after local verification.
 
-4. Run the implementation file's recipe. Commit after each sub-step that produces a working state — but do NOT push intermediate commits. Push happens once at Step 6.
+4. Run the implementation file's recipe. Commit after each sub-step that produces a working state. All commits stay local on the feature branch — there is no push at any point during this rebuild.
 
-5. Before entering Step 5 (the final commit), do ALL shared-file edits that you deferred. This is the minimum-exposure window.
+5. Before entering Step 5 (the final code commit), do ALL shared-file edits that you deferred. This is the minimum-exposure window.
 
 Follow CLAUDE.md rules and `.claude/rules/*` at all times:
 
@@ -101,15 +105,16 @@ Follow CLAUDE.md rules and `.claude/rules/*` at all times:
 - **All worker job names and Redis keys come from `@school/shared/payroll`. Never hardcode the strings.**
 - **Both finalisation paths invoke `FinalisationService.finaliseAtomic` — never duplicate the calculation logic in the controller or worker.**
 
-Run `pnpm turbo run type-check` + `pnpm turbo run lint` + `pnpm turbo run test --filter=<affected>` locally and fix any failures before committing. CI runs the same checks; catching them locally saves the round-trip.
+Run `pnpm turbo run type-check` + `pnpm turbo run lint` + `pnpm turbo run test --filter=<affected>` locally and fix any failures before committing. There is no CI safety net during this rebuild — local checks ARE the checks.
 
-## Step 5 · Commit locally (no push yet)
+## Step 5 · Commit locally (final code commit)
 
 When the implementation is complete and tests pass, finalise the last code commit:
 
 ```bash
-git status                                     # verify clean staging set
-git add <list-of-your-files>                   # explicit pathspec only
+git status                                          # verify clean staging set
+git branch --show-current                           # MUST output: t3code/b523b305
+git add <list-of-your-files>                        # explicit pathspec only
 git commit -m "feat(payroll): <implementation title>
 
 <summary of what was built>
@@ -121,95 +126,69 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 "
 ```
 
-You may have several commits stacked locally from Step 4's sub-step cadence — that's fine. They all ship together at Step 6.
+You may have several commits stacked locally from Step 4's sub-step cadence — that's fine. They all stay on the feature branch together until the user merges manually.
 
-## Step 6 · Push to deploy (the only sanctioned deploy route)
+## Step 6 · Local verification — start the dev server
 
-**`git push origin main` is the only way to deploy.** GitHub Actions runs `.github/workflows/ci.yml` (parallel lint / type-check / unit + integration tests / build) → `scripts/deploy-production.sh` (pg_dump backup, Prisma migrations + post-migrate SQL, rebuild, PM2 restart, smoke tests, auto-rollback on failure). Direct rsync + SSH deploys are retired. SSH is for diagnostics only.
+There is no production deploy in this rebuild. Verification happens entirely against a local dev server.
 
-### 6a · Pre-push branch-state check
+### 6a · Confirm local infrastructure is up
 
-Before pushing, inspect what you're about to ship:
-
-```bash
-git fetch origin main
-git log --oneline origin/main..HEAD
-```
-
-For each commit in the output, identify whether it's yours. For each non-yours commit, run `git show --stat <sha>` and verify:
-
-- It looks like a complete, intentional sibling-session commit.
-- It is NOT a sweep-up of mixed working trees (e.g. files from your own area mixed with files you don't recognise).
-
-If anything looks suspicious — STOP and investigate before pushing.
-
-If `git log origin/main..HEAD` is empty, you're already even with origin (rebase ate your commits, or you forgot to commit). Investigate.
-
-### 6b · Sibling CI check (optional but recommended)
-
-If a sibling session pushed just before you, their CI run may already be in flight. Check:
+Before starting the dev server, verify Postgres (5432) and Redis (6379) are listening:
 
 ```bash
-gh run list --workflow=ci.yml --branch=main --limit 3
+nc -z localhost 5432 && echo "postgres OK" || echo "postgres DOWN"
+nc -z localhost 6379 && echo "redis OK" || echo "redis DOWN"
 ```
 
-If a sibling run is `in_progress` or `queued`, you have two choices:
+If either is down, start them (Docker Compose, brew services, etc.) before continuing. Without them, the API and worker will crash on boot.
 
-- **Push anyway.** GitHub's `concurrency: production-deploy` group serialises the deploy step automatically — your push queues behind theirs. The risk: if theirs fails and rolls back, your deploy lands on top of the rolled-back state. Usually harmless; occasionally needs a re-deploy.
-- **Wait for their run to finish green, then push.** Cleaner attribution. Recommended when your impl is a schema change (Wave 1) or has high blast radius — you want a clean before-state for verification.
-
-For routine in-wave coordination, push and let CI handle it.
-
-### 6c · Push and watch
+### 6b · Apply migrations and post-migrate locally (if your impl includes new SQL)
 
 ```bash
-git push origin main
-gh run watch
+pnpm --filter @school/prisma migrate:deploy
+pnpm --filter @school/prisma db:post-migrate
 ```
 
-`gh run watch` blocks until the run finishes. The deploy job is the last step; CI green means the deploy script ran and smoke tests passed. While it runs, do not start another impl in the same session — a clean reading of the result keeps the audit trail simple.
+This applies your new migration safely against the local DB so the dev server boots cleanly. Do NOT run `migrate:dev` if your local DB has data you care about — it offers to reset on drift.
 
-### 6d · On failure
-
-If any CI job fails:
+### 6c · Start the dev server
 
 ```bash
-gh run view --log-failed
+pnpm turbo run dev
 ```
 
-Read the failed log. Fix forward — never bypass CI by rsync. Common failures and fixes:
+This starts the full Turborepo stack — web (Next.js), api (NestJS), worker (BullMQ). Wait for all three to log "ready" / equivalent before running checks. Note the actual ports the dev server prints (web is typically 3000, api typically 3001 — but read the actual output, do not assume).
 
-- Lint / type-check / unit test red → fix locally, commit with explicit pathspec, push again.
-- Integration test red → check whether it's yours or a flake. Re-run only after ruling out a real regression.
-- `deploy-production.sh` red → it auto-rolls back; read the smoke-test output and the deploy-script log. Common causes: missed env var, schema migration drift, BullMQ queue name typo, module registration forgotten. Fix forward.
-- Schema migration failed → DO NOT touch `migrate:dev` to "fix" drift; that resets the database. Fix the migration SQL or the post-migrate SQL, commit, push.
+If the impl only touches one app, you can scope: `pnpm --filter @school/web dev`, `pnpm --filter @school/api dev`, or `pnpm --filter @school/worker dev`.
 
-Each fix is a new commit on top, then another `git push origin main` and `gh run watch`.
+Run the dev server in the background (`run_in_background: true`) and monitor its output as you verify. Stop it with `KillShell` when you're done so it doesn't dangle for the next session.
 
-## Step 7 · Verify in production
+## Step 7 · Functional verification with Playwright (against localhost only)
 
-After CI green, the smoke tests in `deploy-production.sh` already passed — but those are health-endpoint level. Do a functional smoke yourself per the implementation file's "Deployment notes" / verification section. Common smokes:
+Run the verification appropriate to your impl. **Everything must point at `http://localhost:<port>`.** Production tenants (`nhqs.edupod.app`, `edupod.app`, etc.) are off-limits for this entire rebuild.
 
-- For an API impl, hit the new endpoints with `curl` against a known tenant (e.g. `nhqs.edupod.app`). Remember the API prefix is `/api/v1/...`, not `/v1/...`.
-- For a worker impl, trigger a job via the API and poll the status endpoint until completed. SSH into prod and `pm2 logs worker --lines 200` to confirm the processor registered and ran.
-- For a frontend impl, navigate to the affected page and verify no 404s in network and no errors in console.
-- For a schema impl, SSH into prod and `psql` to check `\d <table>` and `SELECT relforcerowsecurity FROM pg_class WHERE relname = '<table>'` to confirm RLS policies. Confirm `payroll_deduction_applications` (or whichever new table) has the `<table>_tenant_isolation` policy.
+- **Frontend impl** — drive Playwright against `http://localhost:<web-port>`. Use the playwright MCP tools (`mcp__plugin_playwright_playwright__browser_navigate`, `…browser_snapshot`, `…browser_console_messages`, `…browser_network_requests`, `…browser_click`, etc.). Navigate to the affected pages, assert no console errors, no 4xx/5xx network responses, and that the key user flows complete. Take a screenshot only if visually useful — delete it after.
+- **API impl** — hit endpoints with `curl` against `http://localhost:<api-port>/api/v1/...`. Use a known local tenant. Authenticate via the local login flow and reuse the bearer token in subsequent requests.
+- **Worker impl** — trigger a job through the local API, poll the local status endpoint, tail the worker dev output to confirm the processor registered and the job ran. The job name MUST come from `@school/shared/payroll` constants — verify it didn't drift.
+- **Schema impl** — `psql $DATABASE_URL` to inspect `\d <table>`, run `SELECT relforcerowsecurity FROM pg_class WHERE relname = '<table>'`, and confirm the `<table>_tenant_isolation` policy exists. For Wave 1 retrofits, confirm each of the 10 tables has both `rowsecurity` and `relforcerowsecurity` set, plus the `<table>_tenant_isolation` policy.
 
-If the functional smoke fails despite CI green: there's a gap between CI's smoke and real prod behaviour. Fix forward with a follow-up commit, push, watch CI, re-verify.
+If verification fails: fix in code, recommit on the feature branch (no push), restart the dev server if your change requires it, re-verify. There is no CI fallback — the local pass IS the pass.
 
-## Step 8 · Update the log — completion record (SEPARATE commit)
+## Step 8 · Update the log — completion record (SEPARATE local commit, no push)
 
-After the deployment succeeds AND functional verification passes:
+After local verification passes:
 
 1. Flip your row in the Wave Status table to `completed`.
-2. Fill in the `Completed at` and `Commit SHA` columns. The deployed SHA is the head of `origin/main` after your push — `git rev-parse origin/main`.
-3. Append a completion record in §5 of the log using the exact template:
+2. Fill in the `Completed at` and `Commit SHA` columns. The SHA is the head of the feature branch — `git rev-parse HEAD`.
+3. Append a completion record in §5 of the log using this template:
 
 ```
 ### [IMPL $ARGUMENTS] — <title>
 - **Completed:** <ISO timestamp> Europe/Dublin
 - **Commit:** <sha>
-- **Deployed to production:** yes (via GitHub CI)
+- **Branch:** t3code/b523b305 (worktree-isolated, not yet merged to main)
+- **Local verification:** passed (dev server + Playwright / curl / worker logs — name what you actually ran)
 - **Summary (≤ 200 words):**
   <what was actually built, names of new files, endpoints, services,
    key design decisions made during implementation that subsequent waves
@@ -218,27 +197,26 @@ After the deployment succeeds AND functional verification passes:
 - **Session notes:** <optional — anything surprising>
 ```
 
-Commit this log update as a SEPARATE commit and push it:
+Commit this log update as a SEPARATE commit:
 
 ```bash
 git add payrollnew/IMPLEMENTATION_LOG.md
 git commit -m "docs(payroll): log completion of implementation $ARGUMENTS"
-git push origin main
 ```
 
-The log push triggers another CI run — that's expected, it's tiny and mostly cache hits. No need to `gh run watch` it; it's docs-only.
+Do NOT push. The log + code commits accumulate on `t3code/b523b305` until the user merges manually.
 
 ## Step 9 · Report to the user
 
 Final message to the user:
 
 - ✅ Implementation $ARGUMENTS completed.
-- Code commit: `<sha>`. Log commit: `<sha>`.
-- Deployed to production via GitHub CI.
+- Code commit: `<sha>`. Log commit: `<sha>`. Branch: `t3code/b523b305` (local only, not pushed).
+- Verified locally via dev server + Playwright (or curl / worker logs as appropriate — name what you ran).
 - Summary: one sentence.
 - Any remaining siblings in your wave that are still `pending` or `in-progress` (list them — the user can run whichever is convenient; there's no required order).
 - If your wave is now fully `completed`, name the next wave and its first available implementation.
-- Anything the user should know before running the next one (e.g. new env var, new permission to grant, new admin action required).
+- Anything the user should know before running the next one (e.g. new env var, new permission to grant, new admin action required, new local migration to apply).
 
 Keep it tight. The user can read the full record in the log.
 
@@ -246,17 +224,17 @@ Keep it tight. The user can read the full record in the log.
 
 ## Rules you must never break
 
-1. **`git push origin main` is the only deploy route.** Direct rsync to the production server is retired. SSH is diagnostics only — never for shipping code.
-2. **Never skip prerequisite checks.** If something says `pending`, it's pending.
-3. **Never overwrite the production `.env` file.** It's `.gitignore`d so CI can't ship it. If you need to add or rotate an env var on the server, ask the user.
-4. **Never use `git add .` or `git add -A`.** Stage by explicit pathspec only. The Wave 4 incident on the inbox rebuild taught us why.
-5. **Never push without the pre-push branch-state check.** `git fetch origin main` → `git log origin/main..HEAD` → `git show --stat <sha>` for each non-yours commit.
+1. **No `git push`. All work stays on `t3code/b523b305` in this worktree.** The user rebases onto `main` and merges manually when the entire module is complete. Never `git push`, never `gh pr create`, never push to any other remote or branch.
+2. **Verify the branch before every commit.** `git branch --show-current` MUST return `t3code/b523b305`. If it returns anything else, STOP — checkout the correct branch before continuing. Committing into the wrong branch poisons the user's later merge.
+3. **Never skip prerequisite checks.** If something says `pending`, it's pending.
+4. **Never touch the production server.** Production is untouched during this rebuild — no SSH for diagnostics, no rsync, no migrations applied to prod, no `.env` edits. Production stays frozen until the user merges and ships through normal channels post-rebuild.
+5. **Never use `git add .` or `git add -A`.** Stage by explicit pathspec only. The Wave 4 incident on the inbox rebuild taught us why — sibling sessions in the same worktree can still write into your tree.
 6. **Never bundle log updates with code commits.** Separate commits, every time.
-7. **Never bypass CI by rsyncing.** Fix forward with another commit + push.
-8. **Never run `migrate:dev` on the server.** It offers to reset the database on drift. CI's deploy script uses `migrate:deploy`, which is the only correct command for production.
-9. **Never skip the log update.** The log is the only coordination mechanism; if you don't update it, the next session is flying blind.
-10. **Never deploy without verifying.** CI smoke is health-level; do a functional check before flipping to `completed`.
-11. **Never mark an implementation completed if it didn't actually ship.** If CI failed and you couldn't recover, mark it `🛑 blocked` with a description.
+7. **Never run Playwright against a production tenant.** Localhost only — `http://localhost:<port>`. No `nhqs.edupod.app`, no `edupod.app`, no production hostnames anywhere in this rebuild.
+8. **Never run `migrate:dev` against your local DB if it has data you care about.** It offers to reset the database on drift. Use `migrate:deploy` for safe forward application.
+9. **Never skip the log update.** The log is the persistent record of what's been built; the user reads it before deciding when to merge to main.
+10. **Never mark an implementation `completed` without local verification.** Dev server up, Playwright (or curl / worker tail) green, no console errors, no smoke regressions.
+11. **Never mark an implementation `completed` if verification failed.** Mark it `🛑 blocked` with a description of the failure.
 12. **Never coerce `Decimal` to `Number` for money arithmetic.** Use `Decimal.js` end-to-end.
 13. **Never hardcode worker job names or Redis keys.** Import from `@school/shared/payroll`.
 14. **Never duplicate finalisation logic.** Call `FinalisationService.finaliseAtomic` from any path that finalises a run.
