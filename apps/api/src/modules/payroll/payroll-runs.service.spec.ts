@@ -1111,28 +1111,30 @@ describe('PayrollRunsService', () => {
       status: 'draft',
     };
 
-    it('should queue a job and set Redis status', async () => {
+    it('should queue a job with shared constants + jobId for idempotency', async () => {
       mockPrisma.payrollRun.findFirst.mockResolvedValue(draftRun);
       mockRedisClient.set.mockResolvedValue('OK');
       mockPayrollQueue.add.mockResolvedValue({ id: 'job-1' });
 
       const result = await service.triggerSessionGeneration(TENANT_ID, RUN_ID);
 
-      // Should set Redis status
+      // Wave 3 — Redis key + TTL come from `@school/shared/payroll`.
       expect(mockRedisClient.set).toHaveBeenCalledWith(
         `payroll:session-gen:${TENANT_ID}:${RUN_ID}`,
         expect.stringContaining('"status":"queued"'),
         'EX',
-        3600,
+        600, // SESSION_GEN_STATUS_TTL_SECONDS
       );
 
-      // Should queue the job via the payroll queue
+      // Wave 3 — payload field renamed `run_id` → `payroll_run_id` to
+      // match the worker handler. Idempotent via jobId.
       expect(mockPayrollQueue.add).toHaveBeenCalledWith(
         'payroll:session-generation',
         expect.objectContaining({
           tenant_id: TENANT_ID,
-          run_id: RUN_ID,
+          payroll_run_id: RUN_ID,
         }),
+        expect.objectContaining({ jobId: `session-gen:${RUN_ID}` }),
       );
 
       expect(result).toEqual({ status: 'queued', run_id: RUN_ID });

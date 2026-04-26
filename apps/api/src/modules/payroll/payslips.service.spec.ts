@@ -882,25 +882,33 @@ describe('PayslipsService', () => {
   });
 
   describe('triggerMassExport', () => {
-    it('should queue mass export job and set Redis status', async () => {
+    it('should queue mass export job with shared constants + jobId for idempotency', async () => {
       mockRedisClient.set.mockResolvedValue('OK');
       mockPayrollQueue.add.mockResolvedValue({ id: 'job-1' });
 
       const result = await service.triggerMassExport(TENANT_ID, RUN_ID, 'en', USER_ID);
 
+      // Status key now built via shared `buildMassExportStatusKey(tenantId, runId)`.
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        `payroll:mass-export:${TENANT_ID}:${RUN_ID}`,
+        `payroll:mass-export:${TENANT_ID}:${RUN_ID}:status`,
         expect.stringContaining('"status":"queued"'),
         'EX',
-        3600,
+        600, // MASS_EXPORT_STATUS_TTL_SECONDS
       );
 
-      expect(mockPayrollQueue.add).toHaveBeenCalledWith('payroll:mass-export', {
-        tenant_id: TENANT_ID,
-        run_id: RUN_ID,
-        locale: 'en',
-        user_id: USER_ID,
-      });
+      expect(mockPayrollQueue.add).toHaveBeenCalledWith(
+        'payroll:mass-export',
+        {
+          tenant_id: TENANT_ID,
+          payroll_run_id: RUN_ID, // canonical field name (was run_id)
+          locale: 'en',
+          requested_by_user_id: USER_ID, // canonical field name (was user_id)
+        },
+        expect.objectContaining({
+          jobId: `mass-export:${RUN_ID}:en`,
+          attempts: 3,
+        }),
+      );
 
       expect(result).toEqual({ status: 'queued', run_id: RUN_ID });
     });
@@ -914,7 +922,7 @@ describe('PayslipsService', () => {
       const result = await service.getMassExportStatus(TENANT_ID, RUN_ID);
 
       expect(mockRedisClient.get).toHaveBeenCalledWith(
-        `payroll:mass-export:${TENANT_ID}:${RUN_ID}`,
+        `payroll:mass-export:${TENANT_ID}:${RUN_ID}:status`,
       );
       expect(result).toEqual(statusData);
     });
@@ -925,6 +933,26 @@ describe('PayslipsService', () => {
       const result = await service.getMassExportStatus(TENANT_ID, RUN_ID);
 
       expect(result).toEqual({ status: 'not_found' });
+    });
+  });
+
+  describe('getMassExportPdf', () => {
+    it('should return Buffer when PDF is in Redis', async () => {
+      const pdf = Buffer.from('fake-pdf');
+      mockRedisClient.get.mockResolvedValue(pdf.toString('base64'));
+
+      const out = await service.getMassExportPdf(TENANT_ID, RUN_ID);
+
+      expect(mockRedisClient.get).toHaveBeenCalledWith(
+        `payroll:mass-export:${TENANT_ID}:${RUN_ID}:pdf`,
+      );
+      expect(out?.toString()).toBe('fake-pdf');
+    });
+
+    it('should return null when PDF is not cached', async () => {
+      mockRedisClient.get.mockResolvedValue(null);
+      const out = await service.getMassExportPdf(TENANT_ID, RUN_ID);
+      expect(out).toBeNull();
     });
   });
 

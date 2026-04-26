@@ -4,6 +4,12 @@ import { Prisma } from '@prisma/client';
 import type { Queue } from 'bullmq';
 
 import type { PayslipSnapshotPayload } from '@school/shared';
+import {
+  buildMassExportPdfKey,
+  buildMassExportStatusKey,
+  MASS_EXPORT_STATUS_TTL_SECONDS,
+  PAYROLL_MASS_EXPORT_JOB,
+} from '@school/shared/payroll';
 
 import { EncryptionService } from '../configuration/encryption.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
@@ -525,36 +531,61 @@ export class PayslipsService {
   }
 
   async triggerMassExport(tenantId: string, runId: string, locale: string, userId: string) {
-    const redisKey = `payroll:mass-export:${tenantId}:${runId}`;
+    // Wave 3 — Redis key + job name + payload field names all come from
+    // `@school/shared/payroll` so the worker reader cannot drift from
+    // the API writer. Idempotent via `jobId` — double-clicking the
+    // export button enqueues only one job per (run, locale).
+    const statusKey = buildMassExportStatusKey(tenantId, runId);
     const redis = this.redisService.getClient();
 
     await redis.set(
-      redisKey,
+      statusKey,
       JSON.stringify({ status: 'queued', started_at: new Date().toISOString() }),
       'EX',
-      3600,
+      MASS_EXPORT_STATUS_TTL_SECONDS,
     );
 
-    await this.payrollQueue.add('payroll:mass-export', {
-      tenant_id: tenantId,
-      run_id: runId,
-      locale,
-      user_id: userId,
-    });
+    await this.payrollQueue.add(
+      PAYROLL_MASS_EXPORT_JOB,
+      {
+        tenant_id: tenantId,
+        payroll_run_id: runId,
+        locale,
+        requested_by_user_id: userId,
+      },
+      {
+        jobId: `mass-export:${runId}:${locale}`,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+      },
+    );
 
     return { status: 'queued', run_id: runId };
   }
 
   async getMassExportStatus(tenantId: string, runId: string) {
-    const redisKey = `payroll:mass-export:${tenantId}:${runId}`;
+    const statusKey = buildMassExportStatusKey(tenantId, runId);
     const redis = this.redisService.getClient();
-    const data = await redis.get(redisKey);
+    const data = await redis.get(statusKey);
 
     if (!data) {
       return { status: 'not_found' };
     }
 
     return JSON.parse(data) as Record<string, unknown>;
+  }
+
+  /**
+   * Read the rendered mass-export PDF from Redis. Returns null if the
+   * export hasn't been generated or the cached PDF has expired.
+   * Used by the controller's PDF download route.
+   */
+  async getMassExportPdf(tenantId: string, runId: string): Promise<Buffer | null> {
+    const pdfKey = buildMassExportPdfKey(tenantId, runId);
+    const redis = this.redisService.getClient();
+    const base64 = await redis.get(pdfKey);
+    if (!base64) return null;
+    return Buffer.from(base64, 'base64');
   }
 
   private serializePayslip(payslip: Record<string, unknown>): Record<string, unknown> {

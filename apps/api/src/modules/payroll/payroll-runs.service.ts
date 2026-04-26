@@ -20,6 +20,11 @@ import type {
   TenantSettingsDto,
   UpdatePayrollRunDto,
 } from '@school/shared';
+import {
+  buildSessionGenStatusKey,
+  PAYROLL_SESSION_GENERATION_JOB,
+  SESSION_GEN_STATUS_TTL_SECONDS,
+} from '@school/shared/payroll';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { addValidatedJob } from '../../common/utils/validated-job.util';
@@ -606,30 +611,35 @@ export class PayrollRunsService {
       });
     }
 
-    const redisKey = `payroll:session-gen:${tenantId}:${runId}`;
+    // Wave 3 — Redis key + job name + TTL all come from `@school/shared/payroll`
+    // so the API writer and the worker reader/writer cannot drift again.
+    // Idempotent: BullMQ deduplicates jobs sharing the same `jobId`, so
+    // double-clicking "Auto-populate sessions" enqueues only one job.
+    const redisKey = buildSessionGenStatusKey(tenantId, runId);
     const redis = this.redisService.getClient();
     await redis.set(
       redisKey,
       JSON.stringify({ status: 'queued', started_at: new Date().toISOString() }),
       'EX',
-      3600,
+      SESSION_GEN_STATUS_TTL_SECONDS,
     );
 
     await addValidatedJob(
       this.payrollQueue,
-      'payroll:session-generation',
+      PAYROLL_SESSION_GENERATION_JOB,
       payrollSessionGenerationJobPayloadSchema,
       {
         tenant_id: tenantId,
-        run_id: runId,
+        payroll_run_id: runId,
       },
+      { jobId: `session-gen:${runId}` },
     );
 
     return { status: 'queued', run_id: runId };
   }
 
   async getSessionGenerationStatus(tenantId: string, runId: string) {
-    const redisKey = `payroll:session-gen:${tenantId}:${runId}`;
+    const redisKey = buildSessionGenStatusKey(tenantId, runId);
     const redis = this.redisService.getClient();
     const data = await redis.get(redisKey);
 

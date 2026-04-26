@@ -19,8 +19,14 @@ export const engagementEventJobPayloadSchema = tenantJobPayloadSchema.extend({
   event_id: z.string().min(1),
 });
 
+// Wave 3 of the payroll-overhaul rebuild — field renamed from `run_id` to
+// `payroll_run_id` to match what the worker actually reads. The API enqueue
+// site (PayrollRunsService.triggerSessionGeneration) and the worker handler
+// (apps/worker/src/processors/payroll/session-generation.processor.ts) both
+// use `payroll_run_id`; the legacy `run_id` field broke the worker because
+// `data.run_id` was undefined where `data.payroll_run_id` was expected.
 export const payrollSessionGenerationJobPayloadSchema = tenantJobPayloadSchema.extend({
-  run_id: z.string().min(1),
+  payroll_run_id: z.string().min(1),
 });
 
 export const notifyConcernJobPayloadSchema = tenantJobPayloadSchema.extend({

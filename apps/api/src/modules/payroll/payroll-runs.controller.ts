@@ -4,13 +4,16 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { z } from 'zod';
 
 import {
@@ -176,6 +179,28 @@ export class PayrollRunsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.payslipsService.getMassExportStatus(tenant.tenant_id, id);
+  }
+
+  @Get(':id/mass-export-pdf')
+  @RequiresPermission('payroll.generate_payslips')
+  async getMassExportPdf(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
+    const buf = await this.payslipsService.getMassExportPdf(tenant.tenant_id, id);
+    if (!buf) {
+      throw new NotFoundException({
+        code: 'MASS_EXPORT_NOT_READY',
+        message: 'Mass export PDF is not ready or has expired. Re-trigger to regenerate.',
+      });
+    }
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="payroll-export-${id}.pdf"`,
+      'Content-Length': buf.length,
+    });
+    res.end(buf);
   }
 
   // ─── Run sub-resources (Wave 3) ─────────────────────────────────────────
