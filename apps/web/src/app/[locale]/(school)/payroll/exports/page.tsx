@@ -5,8 +5,9 @@ import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, Input, Label } from '@school/ui';
+import { Button, Input, Label, toast } from '@school/ui';
 
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
@@ -82,20 +83,25 @@ function TemplateForm({
     try {
       const payload = { name, file_format: format, columns_json: columns.filter((c) => c.enabled) };
       if (initial) {
+        // Wave 3 added the @Patch alias on top of @Put for export templates.
         await apiClient(`/api/v1/payroll/export-templates/${initial.id}`, {
           method: 'PATCH',
           body: JSON.stringify(payload),
+          silent: true,
         });
+        toast.success(t('templateUpdated'));
       } else {
         await apiClient('/api/v1/payroll/export-templates', {
           method: 'POST',
           body: JSON.stringify(payload),
+          silent: true,
         });
+        toast.success(t('templateCreated'));
       }
       onSave();
     } catch (err) {
-      // silent
-      console.error('[onSave]', err);
+      const message = err instanceof Error ? err.message : t('saveFailed');
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -187,45 +193,64 @@ export default function ExportsPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [showForm, setShowForm] = React.useState(false);
   const [editTemplate, setEditTemplate] = React.useState<ExportTemplate | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
     try {
+      // Wave 3 added the tenant-wide /export-logs endpoint (paginated, with
+      // run + user metadata flattened). Templates are unpaginated.
       const [tmplRes, histRes] = await Promise.all([
-        apiClient<{ data: ExportTemplate[] }>('/api/v1/payroll/export-templates'),
-        apiClient<{ data: ExportLogEntry[] }>('/api/v1/payroll/export-logs'),
+        apiClient<{ data: ExportTemplate[] }>('/api/v1/payroll/export-templates', {
+          silent: true,
+        }),
+        apiClient<{ data: ExportLogEntry[] }>('/api/v1/payroll/export-logs', { silent: true }),
       ]);
       setTemplates(tmplRes.data);
       setHistory(histRes.data);
     } catch (err) {
-      // silent
-      console.error('[setHistory]', err);
+      const message = err instanceof Error ? err.message : t('exportsLoadFailed');
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     void fetchData();
   }, [fetchData]);
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm(t('deleteTemplateConfirm'))) return;
+  const handleDelete = async () => {
+    if (!pendingDeleteId) return;
+    setIsDeleting(true);
     try {
-      await apiClient(`/api/v1/payroll/export-templates/${id}`, { method: 'DELETE' });
-      setTemplates((prev) => prev.filter((t) => t.id !== id));
+      await apiClient(`/api/v1/payroll/export-templates/${pendingDeleteId}`, {
+        method: 'DELETE',
+        silent: true,
+      });
+      toast.success(t('templateDeleted'));
+      setTemplates((prev) => prev.filter((tmpl) => tmpl.id !== pendingDeleteId));
+      setPendingDeleteId(null);
     } catch (err) {
-      // silent
-      console.error('[setTemplates]', err);
+      const message = err instanceof Error ? err.message : t('deleteFailed');
+      toast.error(message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleSendToAccountant = async (logId: string) => {
     try {
-      await apiClient(`/api/v1/payroll/export-logs/${logId}/send`, { method: 'POST' });
+      // Wave 3 added the per-log re-send endpoint.
+      await apiClient(`/api/v1/payroll/export-logs/${logId}/send`, {
+        method: 'POST',
+        silent: true,
+      });
+      toast.success(t('sendToAccountantQueued'));
     } catch (err) {
-      // silent
-      console.error('[apiClient]', err);
+      const message = err instanceof Error ? err.message : t('sendToAccountantFailed');
+      toast.error(message);
     }
   };
 
@@ -327,7 +352,7 @@ export default function ExportsPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDelete(tmpl.id)}
+                    onClick={() => setPendingDeleteId(tmpl.id)}
                     className="text-danger-600 hover:text-danger-700"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -338,7 +363,7 @@ export default function ExportsPage() {
           )}
         </div>
       ) : (
-        /* History table */
+        /* History table — Wave 3 endpoint surfaces a "re-send" action per row. */
         <div className="rounded-2xl border border-border bg-surface">
           <div className="overflow-x-auto">
             {history.length === 0 ? (
@@ -400,6 +425,20 @@ export default function ExportsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(null);
+        }}
+        title={t('deleteTemplate')}
+        description={t('deleteTemplateConfirm')}
+        confirmLabel={t('delete')}
+        cancelLabel={t('keep')}
+        variant="destructive"
+        busy={isDeleting}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }
