@@ -5,16 +5,16 @@ import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button } from '@school/ui';
+import { Button, toast } from '@school/ui';
 
-
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { downloadAuthenticatedPdf } from '@/lib/download-pdf';
 
 import { EntriesTable } from './_components/entries-table';
 import { FinaliseDialog } from './_components/finalise-dialog';
 import { RunMetadataCard } from './_components/run-metadata-card';
-
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
@@ -77,12 +77,20 @@ interface AdjustmentEntry {
   created_at: string;
 }
 
+/** Wave 3 contract: scanForAnomalies returns `{ run_id, anomaly_count, anomalies }`. */
+interface AnomaliesResponse {
+  run_id: string;
+  anomaly_count: number;
+  anomalies: AnomalyEntry[];
+}
+
 interface AnomalyEntry {
-  id: string;
+  entry_id: string;
+  staff_profile_id: string;
   staff_name: string;
+  anomaly_type: string;
   description: string;
-  severity: 'low' | 'medium' | 'high';
-  acknowledged: boolean;
+  severity: 'error' | 'warning';
 }
 
 interface ComparisonEntry {
@@ -97,6 +105,12 @@ interface ComparisonEntry {
 }
 
 type TabKey = 'entries' | 'allowances' | 'adjustments' | 'anomalies' | 'comparison';
+
+interface SessionGenStatus {
+  state: 'idle' | 'pending' | 'processing' | 'completed' | 'failed';
+  progress?: number;
+  message?: string;
+}
 
 export default function RunDetailPage() {
   const t = useTranslations('payroll');
@@ -114,26 +128,31 @@ export default function RunDetailPage() {
   const [comparison, setComparison] = React.useState<ComparisonEntry[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [finaliseOpen, setFinaliseOpen] = React.useState(false);
+  const [cancelOpen, setCancelOpen] = React.useState(false);
+  const [isCancelling, setIsCancelling] = React.useState(false);
   const [isPopulating, setIsPopulating] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<TabKey>('entries');
   const [exportMenuOpen, setExportMenuOpen] = React.useState(false);
+  const [sessionGenStatus, setSessionGenStatus] = React.useState<SessionGenStatus | null>(null);
 
   const fetchRun = React.useCallback(async () => {
     setIsLoading(true);
     try {
       const [runRes, entriesRes] = await Promise.all([
-        apiClient<{ data: PayrollRun }>(`/api/v1/payroll/runs/${runId}`),
-        apiClient<{ data: PayrollEntry[] }>(`/api/v1/payroll/runs/${runId}/entries`),
+        apiClient<PayrollRun>(`/api/v1/payroll/runs/${runId}`, { silent: true }),
+        apiClient<{ data: PayrollEntry[] }>(`/api/v1/payroll/runs/${runId}/entries`, {
+          silent: true,
+        }),
       ]);
-      setRun(runRes.data);
+      setRun(runRes);
       setEntries(entriesRes.data);
     } catch (err) {
-      // silent
-      console.error('[setEntries]', err);
+      const message = err instanceof Error ? err.message : t('runLoadFailed');
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
-  }, [runId]);
+  }, [runId, t]);
 
   React.useEffect(() => {
     void fetchRun();
@@ -146,6 +165,7 @@ export default function RunDetailPage() {
           case 'allowances': {
             const res = await apiClient<{ data: AllowanceEntry[] }>(
               `/api/v1/payroll/runs/${runId}/allowances`,
+              { silent: true },
             );
             setAllowances(res.data);
             break;
@@ -153,20 +173,23 @@ export default function RunDetailPage() {
           case 'adjustments': {
             const res = await apiClient<{ data: AdjustmentEntry[] }>(
               `/api/v1/payroll/runs/${runId}/adjustments`,
+              { silent: true },
             );
             setAdjustments(res.data);
             break;
           }
           case 'anomalies': {
-            const res = await apiClient<{ data: AnomalyEntry[] }>(
+            const res = await apiClient<AnomaliesResponse>(
               `/api/v1/payroll/runs/${runId}/anomalies`,
+              { silent: true },
             );
-            setAnomalies(res.data);
+            setAnomalies(res.anomalies);
             break;
           }
           case 'comparison': {
             const res = await apiClient<{ data: ComparisonEntry[] }>(
               `/api/v1/payroll/runs/${runId}/comparison`,
+              { silent: true },
             );
             setComparison(res.data);
             break;
@@ -175,11 +198,11 @@ export default function RunDetailPage() {
             break;
         }
       } catch (err) {
-        // silent
-        console.error('[setComparison]', err);
+        const message = err instanceof Error ? err.message : t('tabLoadFailed');
+        toast.error(message);
       }
     },
-    [runId],
+    [runId, t],
   );
 
   React.useEffect(() => {
@@ -190,50 +213,86 @@ export default function RunDetailPage() {
 
   const handleRefreshEntries = async () => {
     try {
-      await apiClient(`/api/v1/payroll/runs/${runId}/refresh-entries`, { method: 'POST' });
+      await apiClient(`/api/v1/payroll/runs/${runId}/refresh-entries`, {
+        method: 'POST',
+        silent: true,
+      });
+      toast.success(t('entriesRefreshed'));
       void fetchRun();
     } catch (err) {
-      // silent
-      console.error('[fetchRun]', err);
+      const message = err instanceof Error ? err.message : t('refreshFailed');
+      toast.error(message);
     }
   };
+
+  // ─── Auto-populate classes (poll session-generation status) ─────────────────
+  const pollSessionGen = React.useCallback(async () => {
+    try {
+      const status = await apiClient<SessionGenStatus>(
+        `/api/v1/payroll/runs/${runId}/session-generation-status`,
+        { silent: true },
+      );
+      setSessionGenStatus(status);
+      return status;
+    } catch (err) {
+      // Background poll — log only, no toast (the trigger handler shows the
+      // initial state and the per-CLAUDE.md rule allows console.error for
+      // background fetches).
+      // eslint-disable-next-line no-console -- background poll fallback per CLAUDE.md
+      console.error('[run-detail.session-gen.poll]', err);
+      return null;
+    }
+  }, [runId]);
 
   const handleAutoPopulate = async () => {
     setIsPopulating(true);
     try {
-      await apiClient(`/api/v1/payroll/runs/${runId}/auto-populate-classes`, { method: 'POST' });
-      void fetchRun();
+      await apiClient(`/api/v1/payroll/runs/${runId}/auto-populate-classes`, {
+        method: 'POST',
+        silent: true,
+      });
+      toast.success(t('autoPopulateStarted'));
+      // Begin polling status.
+      const interval = setInterval(async () => {
+        const status = await pollSessionGen();
+        if (status && (status.state === 'completed' || status.state === 'failed')) {
+          clearInterval(interval);
+          setIsPopulating(false);
+          if (status.state === 'completed') {
+            toast.success(t('autoPopulateCompleted'));
+            void fetchRun();
+          } else {
+            toast.error(status.message ?? t('autoPopulateFailed'));
+          }
+        }
+      }, 2000);
+      // Safety timeout: 5 minutes.
+      setTimeout(() => {
+        clearInterval(interval);
+        setIsPopulating(false);
+      }, 300_000);
     } catch (err) {
-      // silent
-      console.error('[fetchRun]', err);
-    } finally {
+      const message = err instanceof Error ? err.message : t('autoPopulateFailed');
+      toast.error(message);
       setIsPopulating(false);
     }
   };
 
-  const handleFinalise = async () => {
-    if (!run) return;
-    try {
-      await apiClient(`/api/v1/payroll/runs/${runId}/finalise`, {
-        method: 'POST',
-        body: JSON.stringify({ expected_updated_at: run.updated_at }),
-      });
-      setFinaliseOpen(false);
-      void fetchRun();
-    } catch (err) {
-      // silent
-      console.error('[fetchRun]', err);
-    }
-  };
-
   const handleCancelRun = async () => {
-    if (!window.confirm(t('cancelConfirm'))) return;
+    setIsCancelling(true);
     try {
-      await apiClient(`/api/v1/payroll/runs/${runId}/cancel`, { method: 'POST' });
+      await apiClient(`/api/v1/payroll/runs/${runId}/cancel`, {
+        method: 'POST',
+        silent: true,
+      });
+      toast.success(t('runCancelled'));
+      setCancelOpen(false);
       void fetchRun();
     } catch (err) {
-      // silent
-      console.error('[fetchRun]', err);
+      const message = err instanceof Error ? err.message : t('cancelFailed');
+      toast.error(message);
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -246,11 +305,13 @@ export default function RunDetailPage() {
           total_working_days: days,
           expected_updated_at: run.updated_at,
         }),
+        silent: true,
       });
+      toast.success(t('workingDaysUpdated'));
       void fetchRun();
     } catch (err) {
-      // silent
-      console.error('[fetchRun]', err);
+      const message = err instanceof Error ? err.message : t('updateFailed');
+      toast.error(message);
     }
   };
 
@@ -270,33 +331,38 @@ export default function RunDetailPage() {
 
   const handleSendToAccountant = async () => {
     try {
-      await apiClient(`/api/v1/payroll/runs/${runId}/send-to-accountant`, { method: 'POST' });
+      await apiClient(`/api/v1/payroll/runs/${runId}/send-to-accountant`, {
+        method: 'POST',
+        silent: true,
+      });
+      toast.success(t('sendToAccountantQueued'));
     } catch (err) {
-      // silent
-      console.error('[apiClient]', err);
+      const message = err instanceof Error ? err.message : t('sendToAccountantFailed');
+      toast.error(message);
     }
   };
 
   const handleSendPayslips = async () => {
     try {
-      await apiClient(`/api/v1/payroll/runs/${runId}/send-payslips`, { method: 'POST' });
+      await apiClient(`/api/v1/payroll/runs/${runId}/send-payslips`, {
+        method: 'POST',
+        body: JSON.stringify({ locale }),
+        silent: true,
+      });
+      toast.success(t('sendPayslipsQueued'));
     } catch (err) {
-      // silent
-      console.error('[apiClient]', err);
+      const message = err instanceof Error ? err.message : t('sendPayslipsFailed');
+      toast.error(message);
     }
   };
 
-  const handleAcknowledgeAnomaly = async (anomalyId: string) => {
+  const handleExportPayslipsPdf = async () => {
+    setExportMenuOpen(false);
     try {
-      await apiClient(`/api/v1/payroll/runs/${runId}/anomalies/${anomalyId}/acknowledge`, {
-        method: 'POST',
-      });
-      setAnomalies((prev) =>
-        prev.map((a) => (a.id === anomalyId ? { ...a, acknowledged: true } : a)),
-      );
+      await downloadAuthenticatedPdf(`/api/v1/payroll/runs/${runId}/mass-export-pdf`);
     } catch (err) {
-      // silent
-      console.error('[map]', err);
+      const message = err instanceof Error ? err.message : t('exportFailed');
+      toast.error(message);
     }
   };
 
@@ -316,6 +382,7 @@ export default function RunDetailPage() {
 
   const isDraft = run.status === 'draft';
   const isFinalised = run.status === 'finalised';
+  const isPendingApproval = run.status === 'pending_approval';
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'entries', label: t('entries') },
@@ -323,7 +390,8 @@ export default function RunDetailPage() {
     { key: 'adjustments', label: t('adjustmentsTab') },
     {
       key: 'anomalies',
-      label: `${t('anomaliesTab')}${anomalies.filter((a) => !a.acknowledged).length > 0 ? ` (${anomalies.filter((a) => !a.acknowledged).length})` : ''}`,
+      label:
+        anomalies.length > 0 ? `${t('anomaliesTab')} (${anomalies.length})` : t('anomaliesTab'),
     },
     { key: 'comparison', label: t('comparisonTab') },
   ];
@@ -344,13 +412,13 @@ export default function RunDetailPage() {
                   <Button variant="outline" onClick={handleAutoPopulate} disabled={isPopulating}>
                     {isPopulating ? t('generatingSessions') : t('autoPopulateClasses')}
                   </Button>
-                  <Button variant="outline" onClick={handleCancelRun}>
+                  <Button variant="outline" onClick={() => setCancelOpen(true)}>
                     {t('cancelRun')}
                   </Button>
                   <Button onClick={() => setFinaliseOpen(true)}>{t('finalise')}</Button>
                 </>
               )}
-              {isFinalised && (
+              {(isFinalised || isPendingApproval) && (
                 <>
                   <Button variant="outline" onClick={handleSendPayslips}>
                     <Send className="me-1.5 h-4 w-4" />
@@ -372,13 +440,7 @@ export default function RunDetailPage() {
                       <div className="absolute end-0 top-full z-10 mt-1 w-44 rounded-xl border border-border bg-surface shadow-lg">
                         <button
                           className="block w-full px-4 py-2.5 text-start text-sm text-text-primary hover:bg-surface-secondary"
-                          onClick={async () => {
-                            setExportMenuOpen(false);
-                            const { downloadAuthenticatedPdf } = await import('@/lib/download-pdf');
-                            await downloadAuthenticatedPdf(
-                              `/api/v1/payroll/runs/${runId}/payslips`,
-                            );
-                          }}
+                          onClick={handleExportPayslipsPdf}
                         >
                           {t('exportPayslips')}
                         </button>
@@ -401,23 +463,41 @@ export default function RunDetailPage() {
         />
       </div>
 
+      {isPendingApproval && (
+        <div className="rounded-xl border border-info-border bg-info-50 px-4 py-3 text-sm text-info-text">
+          {t('runPendingApprovalNotice')}
+        </div>
+      )}
+
+      {sessionGenStatus &&
+        (sessionGenStatus.state === 'pending' || sessionGenStatus.state === 'processing') && (
+          <div className="rounded-xl border border-info-border bg-info-50 px-4 py-3 text-sm text-info-text">
+            {t('sessionGenerationInProgress')}
+            {typeof sessionGenStatus.progress === 'number'
+              ? ` — ${sessionGenStatus.progress}%`
+              : ''}
+          </div>
+        )}
+
       <RunMetadataCard run={run} isDraft={isDraft} onUpdateWorkingDays={handleUpdateWorkingDays} />
 
-      {/* Tab bar */}
-      <div className="flex flex-wrap gap-1 rounded-xl border border-border bg-surface-secondary p-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              activeTab === tab.key
-                ? 'bg-surface text-text-primary shadow-sm'
-                : 'text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Tab bar — horizontally scrollable on mobile */}
+      <div className="overflow-x-auto rounded-xl border border-border bg-surface-secondary p-1">
+        <div className="flex min-w-max gap-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === tab.key
+                  ? 'bg-surface text-text-primary shadow-sm'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tab content */}
@@ -526,25 +606,17 @@ export default function RunDetailPage() {
           ) : (
             anomalies.map((anomaly) => (
               <div
-                key={anomaly.id}
+                key={`${anomaly.entry_id}-${anomaly.anomaly_type}`}
                 className={`flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between ${
-                  anomaly.acknowledged
-                    ? 'border-border bg-surface opacity-60'
-                    : anomaly.severity === 'high'
-                      ? 'border-danger-200 bg-danger-50'
-                      : anomaly.severity === 'medium'
-                        ? 'border-warning-200 bg-warning-50'
-                        : 'border-border bg-surface'
+                  anomaly.severity === 'error'
+                    ? 'border-danger-200 bg-danger-50'
+                    : 'border-warning-200 bg-warning-50'
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <AlertTriangle
                     className={`mt-0.5 h-4 w-4 shrink-0 ${
-                      anomaly.severity === 'high'
-                        ? 'text-danger-600'
-                        : anomaly.severity === 'medium'
-                          ? 'text-warning-600'
-                          : 'text-info-500'
+                      anomaly.severity === 'error' ? 'text-danger-600' : 'text-warning-600'
                     }`}
                   />
                   <div>
@@ -552,16 +624,6 @@ export default function RunDetailPage() {
                     <p className="text-sm text-text-secondary">{anomaly.description}</p>
                   </div>
                 </div>
-                {!anomaly.acknowledged && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleAcknowledgeAnomaly(anomaly.id)}
-                    className="shrink-0"
-                  >
-                    {t('acknowledge')}
-                  </Button>
-                )}
               </div>
             ))
           )}
@@ -685,7 +747,23 @@ export default function RunDetailPage() {
         open={finaliseOpen}
         onOpenChange={setFinaliseOpen}
         run={run}
-        onConfirm={handleFinalise}
+        onSuccess={() => {
+          // Reload run state — controller's response (`pending` flag) is
+          // already surfaced as a success toast inside the dialog.
+          void fetchRun();
+        }}
+      />
+
+      <ConfirmDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title={t('cancelRun')}
+        description={t('cancelConfirm')}
+        confirmLabel={t('cancelRun')}
+        cancelLabel={t('keep')}
+        variant="destructive"
+        busy={isCancelling}
+        onConfirm={handleCancelRun}
       />
     </div>
   );
