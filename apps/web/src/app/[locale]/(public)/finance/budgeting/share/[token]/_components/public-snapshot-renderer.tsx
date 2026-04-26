@@ -243,7 +243,7 @@ export function PublicSnapshotRenderer({ data }: Props) {
                   {t('lineItems.empty')}
                 </p>
               ) : (
-                <LineItemsByCategory items={baseLineItems} formatCurrency={formatCurrency} t={t} />
+                <LineItemsByCategory items={baseLineItems} formatCurrency={formatCurrency} />
               )}
             </section>
           )}
@@ -255,7 +255,7 @@ export function PublicSnapshotRenderer({ data }: Props) {
               aria-labelledby="tab-assumptions"
               className="flex flex-col gap-4"
             >
-              <DriversTable drivers={drivers} t={t} />
+              <DriversTable drivers={drivers} />
             </section>
           )}
         </div>
@@ -352,12 +352,15 @@ function ScenarioCard({
 function LineItemsByCategory({
   items,
   formatCurrency,
-  t,
 }: {
   items: NonNullable<ReturnType<typeof readSafePayload>['line_items']>;
   formatCurrency: (n: number) => string;
-  t: (key: string) => string;
 }) {
+  // Local `useTranslations` so the i18n static analyser can statically
+  // resolve every `t(...)` key to its namespace. Passing `t` as a prop
+  // confuses the analyser into associating these calls with whichever
+  // `useTranslations` hook was declared most recently in this file.
+  const t = useTranslations('financeBudgetingShare.public');
   // Group by category + subcategory.
   const grouped = items.reduce<Record<string, typeof items>>((acc, item) => {
     const key = item.category ?? 'other';
@@ -429,13 +432,9 @@ function LineItemsByCategory({
   );
 }
 
-function DriversTable({
-  drivers,
-  t,
-}: {
-  drivers: Record<string, unknown>;
-  t: (key: string) => string;
-}) {
+function DriversTable({ drivers }: { drivers: Record<string, unknown> }) {
+  // Local `useTranslations` — see note in `LineItemsByCategory`.
+  const t = useTranslations('financeBudgetingShare.public');
   const entries = Object.entries(drivers).filter(
     ([, v]) => v !== null && v !== undefined && typeof v !== 'object',
   );
