@@ -14,6 +14,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -21,7 +22,6 @@ import { apiClient } from '@/lib/api-client';
 import { BonusAnalysisTable } from './_components/bonus-analysis-table';
 import { CostTrendChart } from './_components/cost-trend-chart';
 import { YtdSummaryTable } from './_components/ytd-summary-table';
-
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
@@ -80,6 +80,12 @@ interface ForecastPoint {
   projected_cost: number;
 }
 
+interface RunOption {
+  id: string;
+  period_label: string;
+  status: string;
+}
+
 export default function PayrollReportsPage() {
   const t = useTranslations('payroll');
   const pathname = usePathname();
@@ -94,53 +100,82 @@ export default function PayrollReportsPage() {
   const [forecast, setForecast] = React.useState<ForecastPoint[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
+  // Variance run picker — defaults to "latest finalised" (empty string).
+  const [runOptions, setRunOptions] = React.useState<RunOption[]>([]);
+  const [varianceRunId, setVarianceRunId] = React.useState<string>('');
+
   React.useEffect(() => {
     const fetchAll = async () => {
       setIsLoading(true);
       try {
         const [trendRes, ytdRes, bonusRes] = await Promise.all([
-          apiClient<{ data: CostTrendPoint[] }>('/api/v1/payroll/reports/cost-trend'),
-          apiClient<{ data: YtdSummaryRow[] }>('/api/v1/payroll/reports/ytd-summary'),
-          apiClient<{ data: BonusAnalysisRow[] }>('/api/v1/payroll/reports/bonus-analysis'),
+          apiClient<{ data: CostTrendPoint[] }>('/api/v1/payroll/reports/cost-trend', {
+            silent: true,
+          }),
+          apiClient<{ data: YtdSummaryRow[] }>('/api/v1/payroll/reports/ytd-summary', {
+            silent: true,
+          }),
+          apiClient<{ data: BonusAnalysisRow[] }>('/api/v1/payroll/reports/bonus-analysis', {
+            silent: true,
+          }),
         ]);
         setCostTrend(trendRes.data);
         setYtdSummary(ytdRes.data);
         setBonusAnalysis(bonusRes.data);
       } catch (err) {
-        // silent
-        console.error('[setBonusAnalysis]', err);
+        const message = err instanceof Error ? err.message : t('reportsLoadFailed');
+        toast.error(message);
       } finally {
         setIsLoading(false);
       }
     };
     void fetchAll();
-  }, []);
+  }, [t]);
+
+  // Lazy-load the run list the first time the variance tab opens.
+  React.useEffect(() => {
+    if (activeTab !== 'variance' || runOptions.length > 0) return;
+    void apiClient<{ data: RunOption[] }>(
+      '/api/v1/payroll/runs?status=finalised&pageSize=24&sort=period_year&order=desc',
+      { silent: true },
+    )
+      .then((res) => setRunOptions(res.data))
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : t('runsLoadFailed');
+        toast.error(message);
+      });
+  }, [activeTab, runOptions.length, t]);
 
   React.useEffect(() => {
     const fetchTabData = async () => {
       try {
         if (activeTab === 'variance') {
-          const res = await apiClient<{
-            data: VarianceRow[];
-            summary: VarianceSummary;
-          }>('/api/v1/payroll/reports/variance');
+          // Variance returns `{ data, summary }` — multi-key envelope passes
+          // through the api-client unwrapper.
+          const url = varianceRunId
+            ? `/api/v1/payroll/reports/variance?runId=${varianceRunId}`
+            : '/api/v1/payroll/reports/variance';
+          const res = await apiClient<{ data: VarianceRow[]; summary: VarianceSummary }>(url, {
+            silent: true,
+          });
           setVarianceRows(res.data);
           setVarianceSummary(res.summary);
         } else if (activeTab === 'forecast') {
           const res = await apiClient<{ data: ForecastPoint[] }>(
             '/api/v1/payroll/reports/forecast',
+            { silent: true },
           );
           setForecast(res.data);
         }
       } catch (err) {
-        // silent
-        console.error('[setForecast]', err);
+        const message = err instanceof Error ? err.message : t('tabLoadFailed');
+        toast.error(message);
       }
     };
     if (activeTab === 'variance' || activeTab === 'forecast') {
       void fetchTabData();
     }
-  }, [activeTab]);
+  }, [activeTab, varianceRunId, t]);
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'costTrend', label: t('costTrend') },
@@ -200,6 +235,27 @@ export default function PayrollReportsPage() {
 
           {activeTab === 'variance' && (
             <div className="space-y-4">
+              {/* Run picker — defaults to "latest finalised". */}
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-text-secondary">{t('comparedAgainst')}</label>
+                <Select
+                  value={varianceRunId || 'latest'}
+                  onValueChange={(v) => setVarianceRunId(v === 'latest' ? '' : v)}
+                >
+                  <SelectTrigger className="w-full sm:w-64">
+                    <SelectValue placeholder={t('latestFinalised')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="latest">{t('latestFinalised')}</SelectItem>
+                    {runOptions.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.period_label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Summary strip */}
               {varianceSummary && (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
