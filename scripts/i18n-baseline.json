@@ -13,7 +13,6 @@
       "dashboard.parentDashboard.tapToViewNotes",
       "dashboard.parentDashboard.unacknowledgedNotes",
       "description",
-      "engagement.pages.eventDetail.riskAssessment",
       "gdpr.badge.cancel",
       "gdpr.badge.confirm",
       "gdpr.badge.disableReasonDescription",
@@ -72,7 +71,6 @@
       "dashboard.parentDashboard.tapToViewNotes",
       "dashboard.parentDashboard.unacknowledgedNotes",
       "description",
-      "engagement.pages.eventDetail.riskAssessment",
       "gdpr.badge.cancel",
       "gdpr.badge.confirm",
       "gdpr.badge.disableReasonDescription",
@@ -120,11 +118,7 @@
     ]
   },
   "parityGaps": {
-    "en": [
-      "reports.insights.correlationLabel"
-    ],
-    "ar": [
-      "reports.analytics.correlationLabel"
-    ]
+    "en": [],
+    "ar": []
   }
 }

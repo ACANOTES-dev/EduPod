@@ -1444,6 +1444,7 @@
         "tripLogisticsDescription": "Open the travel-day tools for trip pack generation, attendance, risk checks, and incident capture.",
         "tripPack": "Trip pack",
         "attendance": "Attendance",
+        "riskAssessment": "Risk assessment",
         "incidents": "Incidents",
         "conferenceTitle": "Conference tools",
         "conferenceDescription": "Generate slots, manage bookings, and open the teacher print view for this conference event.",
