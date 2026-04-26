@@ -149,7 +149,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 02  | Hub landing + retire in-page strip                     | 2    | frontend       | parallel-risky       | 01             | `completed`   | 2026-04-26T00:23 Europe/Dublin | `16484131` |
 | 03  | Form templates editor polish                           | 2    | frontend       | parallel-risky       | 01             | `completed`   | 2026-04-26T00:47 Europe/Dublin | `f2c8d257` |
 | 04  | Event sub-pages + parent flow polish                   | 3    | full-stack     | parallel-safe        | 01, 02, 03     | `in-progress` |                                |            |
-| 05  | Parent permission backfill                             | 3    | data           | parallel-safe        | 01             | `in-progress` |                                |            |
+| 05  | Parent permission backfill                             | 3    | data           | parallel-safe        | 01             | `completed`   | 2026-04-26T00:59 Europe/Dublin | `b5699918` |
 | 06  | Regression sweep + i18n + mobile + docs                | 4    | polish         | serial               | 02, 03, 04, 05 | `pending`     |                                |            |
 
 ---
@@ -381,3 +381,88 @@ progressComplete,progressTotal}` to messages/en.json + messages/ar.json
   - Untracked workspace files (`.claude/commands/EN.md`,
     `docs/architecture/communication-architecture.md`, `modeling/`)
     were left untouched throughout per Rule H6.
+
+### [IMPL 05] — Parent permission backfill
+
+- **Completed:** 2026-04-26T00:59 Europe/Dublin
+- **Commit:** `b5699918` (this session); spans `94944cbc` → `674d48e2` → `b98c5694` (sibling sweep, see notes) → `b5699918`
+- **Deployed to production:** yes (prisma rsync + `sync-missing-permissions.ts` + `backfill-parent-engagement-permissions.ts`; no PM2 restart per the deployment matrix)
+- **Summary (≤ 200 words):**
+  Three logical changes shipped across four commits:
+  - `packages/prisma/seed/permissions.ts` (`674d48e2`) — adds two new
+    `PERMISSION_SEEDS` rows: `parent.view_engagement` and
+    `parent.manage_engagement` (both `permission_tier: 'parent'`).
+    Picked up automatically by `sync-missing-permissions.ts`.
+  - `packages/prisma/seed/system-roles.ts` (`674d48e2`) — appends both
+    permissions to the `parent` role's `default_permissions` so newly
+    provisioned tenants inherit them by default.
+  - `packages/prisma/scripts/backfill-parent-engagement-permissions.ts`
+    (`94944cbc` initial → rewritten in `b5699918`) — idempotent
+    one-shot backfill that iterates every tenant, sets RLS context inside
+    a `prisma.$transaction(...)` (`SELECT set_config('app.current_tenant_id', ..., true)`),
+    inserts the two role-permission rows on the per-tenant parent role
+    via `INSERT ... ON CONFLICT DO NOTHING`. Tracks updated / skipped /
+    missing-parent counts.
+
+  Production execution: `sync-missing-permissions.ts` reported
+  `2 created, 196 updated`; `backfill-parent-engagement-permissions.ts`
+  reported **5 tenant(s) updated, 0 already had the permissions, 0 had
+  no parent role** — NHQS plus the four stress-test tenants.
+
+  Smoke test as `parent@nhqs.test` (`Zainab Ali`) on
+  `https://nhqs.edupod.app`: parent dashboard loads, the
+  "Missing required permission: parent.view_engagement" toasts are gone,
+  `/en/engagement/parent/events` renders the full UI (calendar, empty
+  state, no 403, no error boundary). Remaining toasts on the parent
+  dashboard are out-of-scope (homework, finance, parent-insights, diary).
+
+- **Follow-ups:**
+  - **Other missing parent-tier permissions at NHQS** (out of scope for
+    this rebuild but visible during the smoke test): `parent.homework`,
+    `parent.view_finances`, `homework.view_diary`. Each fires its own
+    "Missing required permission" toast on the parent dashboard. They
+    belong to the homework rebuild and a finance backfill respectively.
+    Same pattern (run `sync-missing-permissions` if needed, then a
+    targeted backfill script per the proven RLS-aware template).
+  - **Backfill script template in `implementations/05-...md` was wrong.**
+    The spec template assumed `RolePermission.permission` was a string
+    column and used a non-RLS PrismaClient. The actual schema stores
+    permissions in their own table joined via `permission_id`, and
+    production runs under an RLS-enforced DB role. The shipped script
+    follows the proven `grant-leave-manage-types-permission.ts` pattern
+    (per-tenant transaction with `set_config` for tenant context, raw
+    SQL `INSERT ... ON CONFLICT DO NOTHING`). Future "add permissions to
+    role X across all tenants" backfills should copy the shipped script,
+    not the original spec template.
+  - **No service restart needed** (per the deployment matrix). Permission
+    checks happen at request time, so the next API call from any parent
+    picks up the new grants automatically.
+
+- **Session notes:**
+  - The session opened with three Impl 05 commits already present from a
+    prior attempt at this task (`6f8eedaf` in-progress flip, `94944cbc`
+    initial backfill script, `674d48e2` seed file additions). Verified
+    each via `git show` before continuing.
+  - `94944cbc`'s script was broken in two independent ways: it queried
+    `RolePermission.permission` as if it were a string column (it is a
+    relation), and it used a non-tenant-scoped PrismaClient (production's
+    DB role enforces RLS, so the unscoped query returned 0 parent roles).
+    The first attempt against production printed
+    `Found 0 parent roles across tenants.` — this session diagnosed the
+    cause and rewrote the script.
+  - **Rule H4 violation by sibling Impl 04:** while this session was
+    holding the unstaged backfill-script fix in the working tree, the
+    Impl 04 sibling session committed it as part of `b98c5694`
+    (`feat(engagement-fix): wire parent Pay button ...`). The script in
+    that commit fixed the relation-query bug but still didn't set RLS
+    context, so it was still non-functional. This session then rewrote
+    the script properly and committed it standalone as `b5699918`.
+  - Untracked workspace files (`.claude/commands/EN.md`,
+    `docs/architecture/communication-architecture.md`, `modeling/`)
+    and Impl 04 sibling unstaged work in `apps/api/src/modules/engagement/events.service.ts`,
+    `packages/shared/src/engagement/engagement-event.schema.ts`, etc.
+    were left untouched throughout per Rule H6 / H4.
+  - Local `pnpm --filter @school/prisma run type-check` and `lint`
+    both pass clean for the rewritten script.
+  - Throwaway role-inspection script (`/tmp/inspect-roles.ts`) used to
+    diagnose the RLS issue was deleted from local + remote after use.
