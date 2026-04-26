@@ -145,7 +145,7 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 
 | #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status    | Completed at | Commit SHA |
 | --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | --------- | ------------ | ---------- |
-| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `pending` |              |            |
+| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `in-progress` |              |            |
 | 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `pending` |              |            |
 | 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `pending` |              |            |
 | 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `pending` |              |            |
