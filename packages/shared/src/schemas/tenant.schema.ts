@@ -128,6 +128,15 @@ export const payrollSettingsSchema = z.object({
   requireApprovalForNonPrincipal: z.boolean().default(true),
   defaultBonusMultiplier: z.number().min(0).default(1.0),
   autoPopulateClassCounts: z.boolean().default(true),
+  // Calendar — drives next-pay-date and preparation-deadline computations.
+  // payDay is clamped to 1–31 for storage but the service layer further
+  // clamps to the last day of any short month at compute time.
+  payDay: z.number().int().min(1).max(31).default(25),
+  payrollPreparationLeadDays: z.number().int().min(0).max(60).default(5),
+  // Accountant email — destination for the email-to-accountant export
+  // flow. Empty string means "not configured" — the export endpoint
+  // throws NO_ACCOUNTANT_EMAIL until a value is set.
+  payrollAccountantEmail: z.string().default(''),
 });
 
 export type PayrollSettingsDto = z.infer<typeof payrollSettingsSchema>;

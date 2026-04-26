@@ -301,12 +301,11 @@ export class PayrollExportsService {
     let accountantEmail: string | null = null;
     try {
       const settings = await this.settingsService.getSettings(tenantId);
-      const settingsRecord = settings as unknown as Record<string, Record<string, unknown>>;
-      const payrollSettings = settingsRecord['payroll'];
-      if (payrollSettings) {
-        const email = payrollSettings['payrollAccountantEmail'];
-        accountantEmail = typeof email === 'string' ? email : null;
-      }
+      const email = settings.payroll.payrollAccountantEmail;
+      // Defensive: spec bypasses schema parsing and may inject non-strings.
+      // Empty string is normalised to null so the NO_ACCOUNTANT_EMAIL guard
+      // below still triggers when the field is unset.
+      accountantEmail = typeof email === 'string' && email.length > 0 ? email : null;
     } catch {
       this.logger.warn(`Could not load settings for tenant ${tenantId}`);
     }

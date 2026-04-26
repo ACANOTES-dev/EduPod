@@ -16,8 +16,18 @@ export class PayrollCalendarService {
   private readonly logger = new Logger(PayrollCalendarService.name);
 
   private readonly MONTH_NAMES = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
   constructor(
@@ -25,7 +35,10 @@ export class PayrollCalendarService {
     private readonly settingsService: SettingsService,
   ) {}
 
-  async getPayrollCalendar(tenantId: string, year?: number): Promise<{
+  async getPayrollCalendar(
+    tenantId: string,
+    year?: number,
+  ): Promise<{
     pay_dates: PayDateInfo[];
     pay_day: number;
     preparation_lead_days: number;
@@ -67,11 +80,7 @@ export class PayrollCalendarService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const currentPayDate = this.computePayDate(
-      today.getFullYear(),
-      today.getMonth() + 1,
-      payDay,
-    );
+    const currentPayDate = this.computePayDate(today.getFullYear(), today.getMonth() + 1, payDay);
 
     let nextPayDateStr: string;
     let targetMonth: number;
@@ -146,25 +155,28 @@ export class PayrollCalendarService {
     payDay: number;
     leadDays: number;
   }> {
-    let payDay = 25;
-    let leadDays = 5;
+    const DEFAULT_PAY_DAY = 25;
+    const DEFAULT_LEAD_DAYS = 5;
 
     try {
       const settings = await this.settingsService.getSettings(tenantId);
-      const payrollSettings = (settings as unknown as Record<string, Record<string, unknown>>)['payroll'];
-      if (payrollSettings) {
-        if (typeof payrollSettings['payDay'] === 'number') {
-          payDay = payrollSettings['payDay'] as number;
-        }
-        if (typeof payrollSettings['payrollPreparationLeadDays'] === 'number') {
-          leadDays = payrollSettings['payrollPreparationLeadDays'] as number;
-        }
-      }
+      const { payDay, payrollPreparationLeadDays } = settings.payroll;
+      // Defensive: callers can mock SettingsService and bypass schema parsing
+      // (see payroll-calendar.service.spec — bad payDay values fall back to
+      // defaults rather than throw).
+      return {
+        payDay: typeof payDay === 'number' ? payDay : DEFAULT_PAY_DAY,
+        leadDays:
+          typeof payrollPreparationLeadDays === 'number'
+            ? payrollPreparationLeadDays
+            : DEFAULT_LEAD_DAYS,
+      };
     } catch {
-      this.logger.warn(`Could not load payroll calendar settings for tenant ${tenantId}, using defaults`);
+      this.logger.warn(
+        `Could not load payroll calendar settings for tenant ${tenantId}, using defaults`,
+      );
+      return { payDay: DEFAULT_PAY_DAY, leadDays: DEFAULT_LEAD_DAYS };
     }
-
-    return { payDay, leadDays };
   }
 
   /**
