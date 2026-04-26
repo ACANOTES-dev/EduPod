@@ -667,4 +667,37 @@ describe('PayrollEntriesService', () => {
       expect(result['override_total_pay']).toBeUndefined();
     });
   });
+
+  describe('serializeEntry — Wave 1 aggregate-column passthrough', () => {
+    it('numericises legacy decimal fields and passes Wave-1 aggregates through unchanged', () => {
+      // Wave 1 added gross_pay / net_pay / total_deductions / *_total columns.
+      // The serializer's decimalFields list only converts the legacy
+      // basic_pay / bonus_pay / total_pay / override_total_pay; the new
+      // aggregate columns ride through as strings (Prisma Decimal toString)
+      // and the API layer further wraps them in {data} so the frontend
+      // receives them as JSON-numbers downstream.
+      const entry = {
+        id: ENTRY_ID,
+        tenant_id: TENANT_ID,
+        gross_pay: '5500.00',
+        total_deductions: '500.00',
+        net_pay: '5000.00',
+        basic_pay: '5000.00',
+        bonus_pay: '500.00',
+        total_pay: '5500.00',
+      };
+
+      const result = service.serializeEntry(entry);
+
+      // Legacy fields are coerced to numbers
+      expect(result['basic_pay']).toBe(5000);
+      expect(result['bonus_pay']).toBe(500);
+      expect(result['total_pay']).toBe(5500);
+      // Wave-1 aggregates pass through (assert the keys exist so we don't
+      // silently drop them in any future serializer rewrite).
+      expect(result).toHaveProperty('gross_pay');
+      expect(result).toHaveProperty('net_pay');
+      expect(result).toHaveProperty('total_deductions');
+    });
+  });
 });

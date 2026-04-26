@@ -275,4 +275,40 @@ describe('PayrollAdjustmentsService', () => {
       expect(result['reference_period']).toBeNull();
     });
   });
+
+  describe('sumByEntry (Wave 2 input resolver — split positive vs negative)', () => {
+    it('groups bonus and pay_correction as positive, deduction as negative', async () => {
+      prisma.payrollAdjustment.findMany = jest.fn().mockResolvedValue([
+        { adjustment_type: 'bonus', amount: '100' },
+        { adjustment_type: 'pay_correction', amount: '50' },
+        { adjustment_type: 'deduction', amount: '30' },
+      ]);
+
+      const result = await service.sumByEntry(TENANT_ID, ENTRY_ID);
+
+      expect(result.positive.toString()).toBe('150');
+      expect(result.negative.toString()).toBe('30');
+    });
+
+    it('treats negative-amount rows as negative regardless of adjustment_type', async () => {
+      prisma.payrollAdjustment.findMany = jest.fn().mockResolvedValue([
+        // bonus with a negative amount → negative bucket (magnitude 25)
+        { adjustment_type: 'bonus', amount: '-25' },
+      ]);
+
+      const result = await service.sumByEntry(TENANT_ID, ENTRY_ID);
+
+      expect(result.positive.toString()).toBe('0');
+      expect(result.negative.toString()).toBe('25');
+    });
+
+    it('returns zero/zero when no adjustments exist for the entry', async () => {
+      prisma.payrollAdjustment.findMany = jest.fn().mockResolvedValue([]);
+
+      const result = await service.sumByEntry(TENANT_ID, ENTRY_ID);
+
+      expect(result.positive.toString()).toBe('0');
+      expect(result.negative.toString()).toBe('0');
+    });
+  });
 });

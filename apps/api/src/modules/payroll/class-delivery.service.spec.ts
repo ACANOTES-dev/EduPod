@@ -300,4 +300,58 @@ describe('ClassDeliveryService', () => {
       }),
     );
   });
+
+  describe('calculateClassesDeliveredForPeriod (Wave 2 input resolver)', () => {
+    it('counts only delivered records bracketed to the period', async () => {
+      prisma.classDeliveryRecord.findMany = jest.fn().mockResolvedValue([{}, {}, {}]); // 3 delivered records
+
+      const result = await service.calculateClassesDeliveredForPeriod(
+        TENANT_ID,
+        STAFF_ID,
+        new Date('2026-04-01'),
+        new Date('2026-04-30'),
+      );
+
+      expect(result).toEqual({ delivered: 3, bonusClasses: 0 });
+      expect(prisma.classDeliveryRecord.findMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          staff_profile_id: STAFF_ID,
+          status: 'delivered',
+          delivery_date: expect.any(Object),
+        }),
+      });
+    });
+
+    it('returns zero counts when no delivered records exist in the period', async () => {
+      prisma.classDeliveryRecord.findMany = jest.fn().mockResolvedValue([]);
+
+      const result = await service.calculateClassesDeliveredForPeriod(
+        TENANT_ID,
+        STAFF_ID,
+        new Date('2026-04-01'),
+        new Date('2026-04-30'),
+      );
+
+      expect(result.delivered).toBe(0);
+      expect(result.bonusClasses).toBe(0);
+    });
+
+    it('threads the optional transaction client when supplied', async () => {
+      const txFindMany = jest.fn().mockResolvedValue([{}]);
+      const tx = {
+        classDeliveryRecord: { findMany: txFindMany },
+      } as unknown as Parameters<typeof service.calculateClassesDeliveredForPeriod>[4];
+
+      await service.calculateClassesDeliveredForPeriod(
+        TENANT_ID,
+        STAFF_ID,
+        new Date('2026-04-01'),
+        new Date('2026-04-30'),
+        tx,
+      );
+
+      expect(txFindMany).toHaveBeenCalledTimes(1);
+    });
+  });
 });

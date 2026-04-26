@@ -372,4 +372,44 @@ describe('StaffAttendanceService', () => {
       expect(result.breakdown.total_records).toBe(9);
     });
   });
+
+  describe('calculateDaysWorkedForPeriod (Wave 2 input resolver)', () => {
+    it('counts present + paid_leave + sick_leave as 1.0, half_day as 0.5, absent/unpaid as 0', async () => {
+      prisma.staffAttendanceRecord.findMany = jest.fn().mockResolvedValue([
+        { status: 'present' }, // 1
+        { status: 'present' }, // 1
+        { status: 'paid_leave' }, // 1
+        { status: 'sick_leave' }, // 1
+        { status: 'half_day' }, // 0.5
+        { status: 'half_day' }, // 0.5
+        { status: 'absent' }, // 0
+        { status: 'unpaid_leave' }, // 0
+      ]);
+
+      const result = await service.calculateDaysWorkedForPeriod(
+        TENANT_ID,
+        STAFF_ID,
+        new Date('2026-04-01'),
+        new Date('2026-04-30'),
+        22, // fallback (ignored when records exist)
+      );
+
+      // 1+1+1+1+0.5+0.5 = 5
+      expect(result.toString()).toBe('5');
+    });
+
+    it('falls back to total_working_days when no attendance records exist', async () => {
+      prisma.staffAttendanceRecord.findMany = jest.fn().mockResolvedValue([]);
+
+      const result = await service.calculateDaysWorkedForPeriod(
+        TENANT_ID,
+        STAFF_ID,
+        new Date('2026-04-01'),
+        new Date('2026-04-30'),
+        22,
+      );
+
+      expect(result.toString()).toBe('22');
+    });
+  });
 });

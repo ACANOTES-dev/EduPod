@@ -479,5 +479,26 @@ describe('PayrollExportsService', () => {
 
       expect(result.sent_to).toBe('accountant@school.ie');
     });
+
+    // Wave-5 typed-settings refactor — empty string normalised to null.
+    it('treats an empty payrollAccountantEmail as "not configured"', async () => {
+      const settingsServiceWithEmptyEmail = {
+        getSettings: jest.fn().mockResolvedValue({
+          payroll: { payrollAccountantEmail: '' },
+        }),
+      };
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          PayrollExportsService,
+          { provide: PrismaService, useValue: prisma },
+          { provide: SettingsService, useValue: settingsServiceWithEmptyEmail },
+        ],
+      }).compile();
+      const svc = moduleRef.get<PayrollExportsService>(PayrollExportsService);
+
+      await expect(
+        svc.emailToAccountant(TENANT_ID, RUN_ID, USER_ID, { template_id: TEMPLATE_ID }),
+      ).rejects.toThrow(/NO_ACCOUNTANT_EMAIL|accountant email/i);
+    });
   });
 });

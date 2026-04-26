@@ -747,5 +747,21 @@ describe('PayrollReportsService', () => {
       expect(result[1]!.period_month).toBe(2);
       expect(result[1]!.headcount).toBe(9);
     });
+
+    it('passes period_year asc + period_month asc orderBy to Prisma', async () => {
+      const prisma = module.get(PrismaService) as unknown as {
+        payrollRun: { findMany: jest.Mock };
+        payrollEntry: { aggregate: jest.Mock; count: jest.Mock };
+      };
+      prisma.payrollRun.findMany = jest.fn().mockResolvedValue([]);
+
+      await service.getCostTrend(TENANT_ID, 2026);
+
+      expect(prisma.payrollRun.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ period_year: 'asc' }, { period_month: 'asc' }],
+        }),
+      );
+    });
   });
 });

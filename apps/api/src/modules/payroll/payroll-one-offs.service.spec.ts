@@ -236,4 +236,30 @@ describe('PayrollOneOffsService', () => {
       );
     });
   });
+
+  describe('sumByEntry (Wave 2 input resolver — split positive vs negative)', () => {
+    it('groups bonuses as positive and deductions / correction-negative as negative', async () => {
+      prisma.payrollOneOffItem.findMany = jest.fn().mockResolvedValue([
+        { item_type: 'bonus', amount: '500' },
+        { item_type: 'deduction', amount: '100' },
+        { item_type: 'correction-negative', amount: '50' },
+      ]);
+
+      const result = await service.sumByEntry(TENANT_ID, ENTRY_ID);
+
+      expect(result.positive.toString()).toBe('500');
+      expect(result.negative.toString()).toBe('150');
+    });
+
+    it('falls back to amount sign when item_type is unrecognised', async () => {
+      prisma.payrollOneOffItem.findMany = jest.fn().mockResolvedValue([
+        { item_type: 'unknown', amount: '-75' }, // unknown type with negative amount
+      ]);
+
+      const result = await service.sumByEntry(TENANT_ID, ENTRY_ID);
+
+      expect(result.positive.toString()).toBe('0');
+      expect(result.negative.toString()).toBe('75');
+    });
+  });
 });

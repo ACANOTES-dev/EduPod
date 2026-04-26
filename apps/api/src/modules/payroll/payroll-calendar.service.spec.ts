@@ -188,4 +188,53 @@ describe('PayrollCalendarService', () => {
     expect(typeof result.is_past_deadline).toBe('boolean');
     expect(typeof result.days_overdue).toBe('number');
   });
+
+  // ─── Wave-5 typed-settings refactor — defensive defaults still apply ──
+  describe('typed payrollSettingsSchema fallback', () => {
+    it('falls back to defaults when payDay is non-numeric (string)', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          PayrollCalendarService,
+          { provide: PrismaService, useValue: buildPrisma() },
+          {
+            provide: SettingsService,
+            useValue: {
+              getSettings: jest.fn().mockResolvedValue({
+                payroll: {
+                  payDay: 'not-a-number',
+                  payrollPreparationLeadDays: 'bad',
+                },
+              }),
+            },
+          },
+        ],
+      }).compile();
+      const svc = module.get<PayrollCalendarService>(PayrollCalendarService);
+      const result = await svc.getPayrollCalendar(TENANT_ID, 2026);
+      // Defaults are 25 / 5 — typed schema in the real path enforces them,
+      // but specs that mock SettingsService bypass parsing; the service's
+      // runtime typeof guard is what keeps payrolls running.
+      expect(result.pay_day).toBe(25);
+      expect(result.preparation_lead_days).toBe(5);
+    });
+
+    it('falls back to defaults when getSettings rejects', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          PayrollCalendarService,
+          { provide: PrismaService, useValue: buildPrisma() },
+          {
+            provide: SettingsService,
+            useValue: {
+              getSettings: jest.fn().mockRejectedValue(new Error('boom')),
+            },
+          },
+        ],
+      }).compile();
+      const svc = module.get<PayrollCalendarService>(PayrollCalendarService);
+      const result = await svc.getPayrollCalendar(TENANT_ID, 2026);
+      expect(result.pay_day).toBe(25);
+      expect(result.preparation_lead_days).toBe(5);
+    });
+  });
 });
