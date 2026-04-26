@@ -1,8 +1,12 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
+import { Controller, useForm } from 'react-hook-form';
 
+import { createPayrollRunSchema } from '@school/shared';
+import type { CreatePayrollRunDto } from '@school/shared';
 import {
   Button,
   Dialog,
@@ -17,6 +21,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  toast,
 } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
@@ -29,57 +34,72 @@ interface CreateRunDialogProps {
 
 export function CreateRunDialog({ open, onOpenChange, onSuccess }: CreateRunDialogProps) {
   const t = useTranslations('payroll');
+  const locale = useLocale();
 
-  const currentDate = new Date();
-  const [periodLabel, setPeriodLabel] = React.useState('');
-  const [periodMonth, setPeriodMonth] = React.useState(String(currentDate.getMonth() + 1));
-  const [periodYear, setPeriodYear] = React.useState(String(currentDate.getFullYear()));
-  const [isSaving, setIsSaving] = React.useState(false);
+  const currentDate = React.useMemo(() => new Date(), []);
 
-  const months = Array.from({ length: 12 }, (_, i) => i + 1);
-  const years = Array.from({ length: 5 }, (_, i) => currentDate.getFullYear() - 2 + i);
+  const form = useForm<CreatePayrollRunDto>({
+    resolver: zodResolver(createPayrollRunSchema),
+    defaultValues: {
+      period_label: '',
+      period_month: currentDate.getMonth() + 1,
+      period_year: currentDate.getFullYear(),
+      total_working_days: 22,
+    },
+  });
 
+  const periodMonth = form.watch('period_month');
+  const periodYear = form.watch('period_year');
+
+  // Localised month names — replaces the hardcoded English array.
+  const months = React.useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(locale, { month: 'long' });
+    return Array.from({ length: 12 }, (_, i) => ({
+      value: i + 1,
+      label: fmt.format(new Date(2000, i, 1)),
+    }));
+  }, [locale]);
+
+  const years = React.useMemo(
+    () => Array.from({ length: 5 }, (_, i) => currentDate.getFullYear() - 2 + i),
+    [currentDate],
+  );
+
+  // Auto-fill period_label whenever the month/year changes (and the user hasn't
+  // manually edited the label). The user can still override.
+  const labelTouched = form.formState.dirtyFields.period_label;
   React.useEffect(() => {
-    if (open) {
-      const monthNames = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ];
-      const m = Number(periodMonth);
-      const y = periodYear;
-      setPeriodLabel(`${monthNames[m - 1]} ${y}`);
-    }
-  }, [open, periodMonth, periodYear]);
+    if (!open || labelTouched) return;
+    const monthLabel = months.find((m) => m.value === periodMonth)?.label ?? '';
+    form.setValue('period_label', `${monthLabel} ${periodYear}`.trim(), {
+      shouldDirty: false,
+    });
+  }, [open, periodMonth, periodYear, months, labelTouched, form]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    try {
-      const res = await apiClient<{ data: { id: string } }>('/api/v1/payroll/runs', {
-        method: 'POST',
-        body: JSON.stringify({
-          period_label: periodLabel,
-          period_month: Number(periodMonth),
-          period_year: Number(periodYear),
-          total_working_days: 22,
-        }),
+  // Reset on close so the next open starts clean.
+  React.useEffect(() => {
+    if (!open) {
+      form.reset({
+        period_label: '',
+        period_month: currentDate.getMonth() + 1,
+        period_year: currentDate.getFullYear(),
+        total_working_days: 22,
       });
-      onSuccess(res.data.id);
+    }
+  }, [open, currentDate, form]);
+
+  const onSubmit = async (data: CreatePayrollRunDto) => {
+    try {
+      const res = await apiClient<{ id: string }>('/api/v1/payroll/runs', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        silent: true,
+      });
+      toast.success(t('runCreated'));
+      onSuccess(res.id);
     } catch (err) {
-      // handled by apiClient
-      console.error('[onSuccess]', err);
-    } finally {
-      setIsSaving(false);
+      const message = err instanceof Error ? err.message : t('runCreateFailed');
+      toast.error(message);
     }
   };
 
@@ -89,51 +109,96 @@ export function CreateRunDialog({ open, onOpenChange, onSuccess }: CreateRunDial
         <DialogHeader>
           <DialogTitle>{t('createRun')}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label>{t('periodLabel')}</Label>
-            <Input value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} required />
+            <Label htmlFor="period-label">{t('periodLabel')}</Label>
+            <Input
+              id="period-label"
+              {...form.register('period_label')}
+              aria-invalid={!!form.formState.errors.period_label}
+            />
+            {form.formState.errors.period_label && (
+              <p className="text-xs text-danger-600">
+                {form.formState.errors.period_label.message}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>{t('periodMonth')}</Label>
-              <Select value={periodMonth} onValueChange={setPeriodMonth}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {months.map((m) => (
-                    <SelectItem key={m} value={String(m)}>
-                      {m}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="period-month">{t('periodMonth')}</Label>
+              <Controller
+                name="period_month"
+                control={form.control}
+                render={({ field }) => (
+                  <Select
+                    value={String(field.value ?? '')}
+                    onValueChange={(v) => field.onChange(Number(v))}
+                  >
+                    <SelectTrigger id="period-month">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {months.map((m) => (
+                        <SelectItem key={m.value} value={String(m.value)}>
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
             <div className="space-y-2">
-              <Label>{t('periodYear')}</Label>
-              <Select value={periodYear} onValueChange={setPeriodYear}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {years.map((y) => (
-                    <SelectItem key={y} value={String(y)}>
-                      {y}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="period-year">{t('periodYear')}</Label>
+              <Controller
+                name="period_year"
+                control={form.control}
+                render={({ field }) => (
+                  <Select
+                    value={String(field.value ?? '')}
+                    onValueChange={(v) => field.onChange(Number(v))}
+                  >
+                    <SelectTrigger id="period-year">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {years.map((y) => (
+                        <SelectItem key={y} value={String(y)}>
+                          {y}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="total-working-days">{t('totalWorkingDays')}</Label>
+            <Input
+              id="total-working-days"
+              type="number"
+              min={1}
+              max={31}
+              {...form.register('total_working_days', { valueAsNumber: true })}
+              aria-invalid={!!form.formState.errors.total_working_days}
+            />
+            {form.formState.errors.total_working_days && (
+              <p className="text-xs text-danger-600">
+                {form.formState.errors.total_working_days.message}
+              </p>
+            )}
+            <p className="text-xs text-text-tertiary">{t('totalWorkingDaysHint')}</p>
           </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t('cancel')}
             </Button>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? '...' : t('createRun')}
+            <Button type="submit" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? '…' : t('createRun')}
             </Button>
           </DialogFooter>
         </form>

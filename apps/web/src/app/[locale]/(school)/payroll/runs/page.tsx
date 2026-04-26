@@ -12,8 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
   StatusBadge,
+  toast,
 } from '@school/ui';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -21,7 +21,6 @@ import { apiClient } from '@/lib/api-client';
 import { fmtLocale } from '@/lib/i18n-format';
 
 import { CreateRunDialog } from './_components/create-run-dialog';
-
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
@@ -76,12 +75,12 @@ export default function PayrollRunsPage() {
       const res = await apiClient<{
         data: PayrollRun[];
         meta: { total: number };
-      }>(`/api/v1/payroll/runs?${params.toString()}`);
+      }>(`/api/v1/payroll/runs?${params.toString()}`, { silent: true });
       setData(res.data);
       setTotal(res.meta.total);
     } catch (err) {
-      // silent
-      console.error('[setTotal]', err);
+      const message = err instanceof Error ? err.message : t('runsLoadFailed');
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -161,7 +160,7 @@ export default function PayrollRunsPage() {
                 <SelectValue placeholder={t('status')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t('allStaff')}</SelectItem>
+                <SelectItem value="all">{t('allStatuses')}</SelectItem>
                 <SelectItem value="draft">{t('draft')}</SelectItem>
                 <SelectItem value="pending_approval">{t('pendingApproval')}</SelectItem>
                 <SelectItem value="finalised">{t('finalised')}</SelectItem>
@@ -179,7 +178,7 @@ export default function PayrollRunsPage() {
                 <SelectValue placeholder={t('periodYear')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t('periodYear')}</SelectItem>
+                <SelectItem value="all">{t('allYears')}</SelectItem>
                 {yearOptions.map((y) => (
                   <SelectItem key={y} value={String(y)}>
                     {y}

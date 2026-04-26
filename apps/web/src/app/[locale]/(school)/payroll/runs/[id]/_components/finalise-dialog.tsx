@@ -3,7 +3,17 @@
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@school/ui';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  toast,
+} from '@school/ui';
+
+import { apiClient } from '@/lib/api-client';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
@@ -19,23 +29,48 @@ interface PayrollRun {
   total_pay: number;
   total_basic_pay: number;
   total_bonus_pay: number;
+  updated_at: string;
+}
+
+/**
+ * Finalisation response from POST /v1/payroll/runs/:id/finalise.
+ * `pending: true` indicates the run was submitted for approval (non-owner caller),
+ * `pending: false` indicates the run was finalised directly (school-owner caller).
+ */
+interface FinaliseResponse {
+  pending: boolean;
+  run: { id: string; status: string };
 }
 
 interface FinaliseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   run: PayrollRun;
-  onConfirm: () => void;
+  onSuccess: (response: FinaliseResponse) => void;
 }
 
-export function FinaliseDialog({ open, onOpenChange, run, onConfirm }: FinaliseDialogProps) {
+export function FinaliseDialog({ open, onOpenChange, run, onSuccess }: FinaliseDialogProps) {
   const t = useTranslations('payroll');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const handleConfirm = async () => {
     setIsSubmitting(true);
     try {
-      await onConfirm();
+      const res = await apiClient<FinaliseResponse>(`/api/v1/payroll/runs/${run.id}/finalise`, {
+        method: 'POST',
+        body: JSON.stringify({ expected_updated_at: run.updated_at }),
+        silent: true,
+      });
+      if (res.pending) {
+        toast.success(t('finaliseSubmittedForApproval'));
+      } else {
+        toast.success(t('runFinalised'));
+      }
+      onSuccess(res);
+      onOpenChange(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('finaliseFailed');
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -81,11 +116,16 @@ export function FinaliseDialog({ open, onOpenChange, run, onConfirm }: FinaliseD
           </div>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+          >
             {t('cancel')}
           </Button>
           <Button onClick={handleConfirm} disabled={isSubmitting}>
-            {isSubmitting ? '...' : t('finalise')}
+            {isSubmitting ? '…' : t('finalise')}
           </Button>
         </DialogFooter>
       </DialogContent>
