@@ -10,6 +10,7 @@ import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import type { PdfBranding } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 interface PayslipFilters {
   page: number;
@@ -29,8 +30,201 @@ export class PayslipsService {
     private readonly pdfRenderingService: PdfRenderingService,
     private readonly redisService: RedisService,
     private readonly encryptionService: EncryptionService,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
     @InjectQueue('payroll') private readonly payrollQueue: Queue,
   ) {}
+
+  // ─── Self-service (Wave 3) ───────────────────────────────────────────────
+  //
+  // `listForUser` and `getYtdForUser` back the new
+  // `GET /v1/payroll/my-payslips` and `GET /v1/payroll/my-payslips/ytd`
+  // endpoints. Both scope strictly to the calling user's own staff
+  // profile — privacy invariant (rule 11): a `payroll.self_service` user
+  // must never be able to read another user's payslips.
+
+  async listForUser(
+    tenantId: string,
+    userId: string,
+    page: number,
+    pageSize: number,
+  ): Promise<{
+    data: Array<Record<string, unknown>>;
+    meta: { page: number; pageSize: number; total: number };
+  }> {
+    const staffProfile = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
+
+    if (!staffProfile) {
+      return { data: [], meta: { page, pageSize, total: 0 } };
+    }
+
+    const where = {
+      tenant_id: tenantId,
+      payroll_entry: {
+        staff_profile_id: staffProfile.id,
+        payroll_run: { status: 'finalised' as const },
+      },
+    };
+
+    const skip = (page - 1) * pageSize;
+
+    const [data, total] = await Promise.all([
+      this.prisma.payslip.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { created_at: 'desc' },
+        include: {
+          payroll_entry: {
+            select: {
+              id: true,
+              payroll_run_id: true,
+              compensation_type: true,
+              days_worked: true,
+              classes_taught: true,
+              basic_pay: true,
+              bonus_pay: true,
+              total_pay: true,
+              gross_pay: true,
+              net_pay: true,
+              total_deductions: true,
+              allowances_total: true,
+              payroll_run: {
+                select: {
+                  period_label: true,
+                  period_month: true,
+                  period_year: true,
+                  finalised_at: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.payslip.count({ where }),
+    ]);
+
+    return {
+      data: data.map((p) => this.serializePayslip(p)),
+      meta: { page, pageSize, total },
+    };
+  }
+
+  async getYtdForUser(
+    tenantId: string,
+    userId: string,
+    year: number,
+  ): Promise<{
+    year: number;
+    gross_total: number;
+    net_total: number;
+    total_deductions: number;
+    by_month: Array<{ month: number; gross: number; net: number; deductions: number }>;
+  }> {
+    const staffProfile = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
+
+    if (!staffProfile) {
+      return { year, gross_total: 0, net_total: 0, total_deductions: 0, by_month: [] };
+    }
+
+    const entries = await this.prisma.payrollEntry.findMany({
+      where: {
+        tenant_id: tenantId,
+        staff_profile_id: staffProfile.id,
+        payroll_run: { status: 'finalised', period_year: year },
+      },
+      select: {
+        gross_pay: true,
+        net_pay: true,
+        total_deductions: true,
+        basic_pay: true,
+        bonus_pay: true,
+        total_pay: true,
+        payroll_run: { select: { period_month: true } },
+      },
+      orderBy: { payroll_run: { period_month: 'asc' } },
+    });
+
+    let grossTotal = 0;
+    let netTotal = 0;
+    let deductionsTotal = 0;
+    const byMonthMap = new Map<number, { gross: number; net: number; deductions: number }>();
+
+    for (const e of entries) {
+      // Wave 1 backfilled net_pay from total_pay/override_total_pay; fall back to total_pay
+      // for entries finalised before the rebuild that have zero in the new columns.
+      const grossNum = Number(e.gross_pay) || Number(e.basic_pay) + Number(e.bonus_pay);
+      const netNum = Number(e.net_pay) || Number(e.total_pay);
+      const deductionsNum = Number(e.total_deductions) || 0;
+
+      grossTotal += grossNum;
+      netTotal += netNum;
+      deductionsTotal += deductionsNum;
+
+      const month = e.payroll_run.period_month;
+      const bucket = byMonthMap.get(month) ?? { gross: 0, net: 0, deductions: 0 };
+      bucket.gross += grossNum;
+      bucket.net += netNum;
+      bucket.deductions += deductionsNum;
+      byMonthMap.set(month, bucket);
+    }
+
+    const by_month = Array.from(byMonthMap.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([month, totals]) => ({
+        month,
+        gross: Number(totals.gross.toFixed(2)),
+        net: Number(totals.net.toFixed(2)),
+        deductions: Number(totals.deductions.toFixed(2)),
+      }));
+
+    return {
+      year,
+      gross_total: Number(grossTotal.toFixed(2)),
+      net_total: Number(netTotal.toFixed(2)),
+      total_deductions: Number(deductionsTotal.toFixed(2)),
+      by_month,
+    };
+  }
+
+  /**
+   * Render PDF for the calling user's own payslip. Throws NotFoundException
+   * (not Forbidden) when the payslip belongs to a different staff member —
+   * the privacy invariant says a self-service user must not be able to
+   * distinguish "you don't have permission" from "no such payslip".
+   */
+  async renderOwnPayslipPdf(
+    tenantId: string,
+    payslipId: string,
+    userId: string,
+    locale?: string,
+  ): Promise<Buffer> {
+    const staffProfile = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
+
+    if (!staffProfile) {
+      throw new NotFoundException({
+        code: 'PAYSLIP_NOT_FOUND',
+        message: `Payslip with id "${payslipId}" not found`,
+      });
+    }
+
+    const payslip = await this.prisma.payslip.findFirst({
+      where: {
+        id: payslipId,
+        tenant_id: tenantId,
+        payroll_entry: { staff_profile_id: staffProfile.id },
+      },
+      select: { id: true },
+    });
+
+    if (!payslip) {
+      throw new NotFoundException({
+        code: 'PAYSLIP_NOT_FOUND',
+        message: `Payslip with id "${payslipId}" not found`,
+      });
+    }
+
+    return this.renderPayslipPdf(tenantId, payslipId, locale);
+  }
 
   async listPayslips(tenantId: string, filters: PayslipFilters) {
     const { page, pageSize, payroll_run_id, staff_profile_id } = filters;

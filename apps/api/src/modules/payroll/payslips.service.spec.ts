@@ -6,6 +6,7 @@ import { EncryptionService } from '../configuration/encryption.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { PayslipsService } from './payslips.service';
 
@@ -27,12 +28,19 @@ describe('PayslipsService', () => {
     payrollRun: {
       findFirst: jest.fn(),
     },
+    payrollEntry: {
+      findMany: jest.fn(),
+    },
     tenantBranding: {
       findUnique: jest.fn(),
     },
     tenant: {
       findUnique: jest.fn(),
     },
+  };
+
+  const mockStaffProfileReadFacade = {
+    findByUserId: jest.fn(),
   };
 
   const mockPdfRenderingService = {
@@ -66,6 +74,7 @@ describe('PayslipsService', () => {
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },
         { provide: RedisService, useValue: mockRedisService },
         { provide: EncryptionService, useValue: mockEncryptionService },
+        { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
         { provide: getQueueToken('payroll'), useValue: mockPayrollQueue },
       ],
     }).compile();
@@ -670,14 +679,12 @@ describe('PayslipsService', () => {
           }),
         },
         tenantBranding: {
-          findUnique: jest
-            .fn()
-            .mockResolvedValue({
-              payslip_prefix: 'PAY',
-              school_name_display: 'Test',
-              school_name_ar: null,
-              logo_url: null,
-            }),
+          findUnique: jest.fn().mockResolvedValue({
+            payslip_prefix: 'PAY',
+            school_name_display: 'Test',
+            school_name_ar: null,
+            logo_url: null,
+          }),
         },
         tenant: {
           findUnique: jest
@@ -918,6 +925,130 @@ describe('PayslipsService', () => {
       const result = await service.getMassExportStatus(TENANT_ID, RUN_ID);
 
       expect(result).toEqual({ status: 'not_found' });
+    });
+  });
+
+  // ─── Self-service (Wave 3) ─────────────────────────────────────────────
+
+  describe('listForUser', () => {
+    it('should return empty list when the calling user has no staff profile', async () => {
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue(null);
+
+      const out = await service.listForUser(TENANT_ID, USER_ID, 1, 20);
+
+      expect(out).toEqual({ data: [], meta: { page: 1, pageSize: 20, total: 0 } });
+      expect(mockPrisma.payslip.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should scope payslip lookups to the calling user staff profile only', async () => {
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: 'sp-self' });
+      mockPrisma.payslip.findMany.mockResolvedValue([]);
+      mockPrisma.payslip.count.mockResolvedValue(0);
+
+      await service.listForUser(TENANT_ID, USER_ID, 2, 5);
+
+      expect(mockPrisma.payslip.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            payroll_entry: expect.objectContaining({
+              staff_profile_id: 'sp-self',
+              payroll_run: { status: 'finalised' },
+            }),
+          }),
+          skip: 5, // (2-1) * 5
+          take: 5,
+        }),
+      );
+    });
+  });
+
+  describe('getYtdForUser', () => {
+    it('should return zeros when the calling user has no staff profile', async () => {
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue(null);
+
+      const out = await service.getYtdForUser(TENANT_ID, USER_ID, 2026);
+
+      expect(out).toEqual({
+        year: 2026,
+        gross_total: 0,
+        net_total: 0,
+        total_deductions: 0,
+        by_month: [],
+      });
+    });
+
+    it('should aggregate by month with new gross/net columns', async () => {
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: 'sp-self' });
+      mockPrisma.payrollEntry.findMany.mockResolvedValue([
+        {
+          gross_pay: 3000,
+          net_pay: 2700,
+          total_deductions: 300,
+          basic_pay: 2700,
+          bonus_pay: 0,
+          total_pay: 2700,
+          payroll_run: { period_month: 1 },
+        },
+        {
+          gross_pay: 3200,
+          net_pay: 2900,
+          total_deductions: 300,
+          basic_pay: 2900,
+          bonus_pay: 0,
+          total_pay: 2900,
+          payroll_run: { period_month: 2 },
+        },
+      ]);
+
+      const out = await service.getYtdForUser(TENANT_ID, USER_ID, 2026);
+
+      expect(out.year).toBe(2026);
+      expect(out.gross_total).toBe(6200);
+      expect(out.net_total).toBe(5600);
+      expect(out.total_deductions).toBe(600);
+      expect(out.by_month).toHaveLength(2);
+      expect(out.by_month[0]).toEqual({ month: 1, gross: 3000, net: 2700, deductions: 300 });
+    });
+
+    it('should fall back to legacy total_pay when net_pay is zero (pre-rebuild data)', async () => {
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: 'sp-self' });
+      mockPrisma.payrollEntry.findMany.mockResolvedValue([
+        {
+          gross_pay: 0, // legacy entry — Wave 1 backfill copied total_pay
+          net_pay: 0,
+          total_deductions: 0,
+          basic_pay: 1500,
+          bonus_pay: 200,
+          total_pay: 1700,
+          payroll_run: { period_month: 12 },
+        },
+      ]);
+
+      const out = await service.getYtdForUser(TENANT_ID, USER_ID, 2025);
+
+      expect(out.gross_total).toBe(1700); // 1500 + 200
+      expect(out.net_total).toBe(1700); // total_pay fallback
+    });
+  });
+
+  describe('renderOwnPayslipPdf', () => {
+    it('should throw NotFoundException when calling user has no staff profile', async () => {
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue(null);
+
+      await expect(service.renderOwnPayslipPdf(TENANT_ID, PAYSLIP_ID, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw NotFoundException when payslip belongs to a different staff', async () => {
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: 'sp-self' });
+      // Inner ownership-scoped lookup returns null (someone else's payslip)
+      mockPrisma.payslip.findFirst.mockResolvedValueOnce(null);
+
+      await expect(service.renderOwnPayslipPdf(TENANT_ID, PAYSLIP_ID, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });
