@@ -17,16 +17,6 @@ export interface SessionGenerationPayload extends TenantJobPayload {
   payroll_run_id: string;
 }
 
-// ─── Job name ─────────────────────────────────────────────────────────────────
-//
-// The legacy `'payroll:generate-sessions'` constant has been retired in
-// favour of `PAYROLL_SESSION_GENERATION_JOB` from `@school/shared/payroll`.
-// `PAYROLL_GENERATE_SESSIONS_JOB` is kept as a re-export so the dispatcher
-// (which still imports it under the old name) keeps working — both names
-// resolve to the literal string the API enqueues with.
-
-export const PAYROLL_GENERATE_SESSIONS_JOB = PAYROLL_SESSION_GENERATION_JOB;
-
 // ─── Processor ───────────────────────────────────────────────────────────────
 //
 // Wave 3 of the payroll-overhaul rebuild — the session-generation worker
