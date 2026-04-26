@@ -3,6 +3,8 @@ import { PrismaClient } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { Job } from 'bullmq';
 
+import { formatPayslipNumber, PAYROLL_ON_APPROVAL_JOB } from '@school/shared/payroll';
+
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -14,8 +16,12 @@ export interface ApprovalCallbackPayload extends TenantJobPayload {
 }
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
+//
+// Re-exports the canonical name from `@school/shared/payroll` so anyone who
+// already imported the constant from this file keeps the identical string.
+// New code should import directly from `@school/shared/payroll`.
 
-export const PAYROLL_APPROVAL_CALLBACK_JOB = 'payroll:on-approval';
+export const PAYROLL_APPROVAL_CALLBACK_JOB = PAYROLL_ON_APPROVAL_JOB;
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
@@ -46,6 +52,29 @@ export class PayrollApprovalCallbackProcessor {
 }
 
 // ─── TenantAwareJob implementation ───────────────────────────────────────────
+//
+// Wave 2 of the payroll-overhaul rebuild — the worker callback now mirrors
+// the API's `FinalisationService` behaviour:
+//
+//   - Reads pre-computed entry totals (createRun/refreshEntries on the API
+//     side ran the new Decimal-safe calculation engine through the
+//     `PayrollInputResolver`, populating `gross_pay`, `net_pay`, the new
+//     `*_total` columns, and the legacy `basic_pay/bonus_pay/total_pay`
+//     columns).
+//   - Commits scheduled deduction applications (Phase 2 of the new
+//     idempotent two-phase deduction model — exactly once per run).
+//   - Generates payslips using the canonical
+//     `formatPayslipNumber({prefix, periodYear, periodMonth, sequence})`
+//     so both finalisation paths emit identical numbers.
+//   - Self-heals on already-finalised runs (no double payslips).
+//
+// The previous inline Decimal recalculation is gone: the API path computes
+// totals with the same engine and the worker trusts those values. Cross-path
+// equivalence is enforced because both sides import from
+// `@school/shared/payroll` and both sides read the same persisted entry
+// totals.
+
+const PAYSLIP_RENDER_VERSION = '2.0.0';
 
 class PayrollApprovalCallbackJob extends TenantAwareJob<ApprovalCallbackPayload> {
   private readonly logger = new Logger(PayrollApprovalCallbackJob.name);
@@ -53,272 +82,173 @@ class PayrollApprovalCallbackJob extends TenantAwareJob<ApprovalCallbackPayload>
   protected async processJob(data: ApprovalCallbackPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, approval_request_id, target_entity_id, approver_user_id } = data;
 
-    // 1. Fetch the payroll run and verify it is pending_approval
+    // 1. Fetch the run + entries in one shot
     const payrollRun = await tx.payrollRun.findFirst({
-      where: {
-        id: target_entity_id,
-        tenant_id,
-      },
-      select: {
-        id: true,
-        status: true,
-        period_month: true,
-        period_year: true,
-        period_label: true,
-        total_working_days: true,
-      },
+      where: { id: target_entity_id, tenant_id },
     });
 
     if (!payrollRun) {
       throw new Error(`Payroll run ${target_entity_id} not found for tenant ${tenant_id}`);
     }
 
-    if (payrollRun.status !== 'pending_approval') {
-      // Self-heal: update the approval request so it is no longer retried by reconciliation
-      const isPostApproval = payrollRun.status === 'finalised';
-
+    // Self-heal — already finalised
+    if (payrollRun.status === 'finalised') {
       await tx.approvalRequest.update({
         where: { id: approval_request_id },
         data: {
-          ...(isPostApproval ? { status: 'executed' as const, executed_at: new Date() } : {}),
-          callback_status: isPostApproval ? 'already_done' : 'skipped',
-          callback_error: isPostApproval
-            ? `Self-healed: payroll run already in status "${payrollRun.status}"`
-            : `Skipped: payroll run was in unexpected status "${payrollRun.status}", expected "pending_approval"`,
+          status: 'executed',
+          executed_at: new Date(),
+          callback_status: 'already_done',
+          callback_error: 'Self-healed: payroll run already finalised',
         },
       });
-
-      this.logger.warn(
-        `Payroll run ${target_entity_id} is in status "${payrollRun.status}", expected "pending_approval". ` +
-          `${isPostApproval ? 'Self-healed' : 'Skipped'}: approval request ${approval_request_id} updated.`,
+      this.logger.log(
+        `Run ${target_entity_id} already finalised; approval ${approval_request_id} self-healed`,
       );
       return;
     }
 
-    // 2. Fetch all entries for this run
-    const entries = await tx.payrollEntry.findMany({
-      where: {
-        tenant_id,
-        payroll_run_id: payrollRun.id,
-      },
-      include: {
-        staff_profile: {
-          include: {
-            user: {
-              select: {
-                first_name: true,
-                last_name: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    // 3. Recalculate final values for each entry
-    let totalBasicPay = new Decimal(0);
-    let totalBonusPay = new Decimal(0);
-    let totalPay = new Decimal(0);
-
-    for (const entry of entries) {
-      let basicPay = new Decimal(0);
-      let bonusPay = new Decimal(0);
-
-      if (entry.compensation_type === 'salaried') {
-        // Salaried: basic_pay = base_salary * (days_worked / total_working_days)
-        if (!entry.snapshot_base_salary) {
-          throw new Error(`Entry ${entry.id} is salaried but has no snapshot_base_salary`);
-        }
-        const baseSalary = entry.snapshot_base_salary;
-        const daysWorked = entry.days_worked ?? payrollRun.total_working_days;
-        const workingDays = payrollRun.total_working_days;
-
-        if (workingDays > 0) {
-          basicPay = baseSalary.mul(daysWorked).div(workingDays);
-        }
-
-        // Bonus: extra days * daily rate * multiplier
-        const extraDays = daysWorked - workingDays;
-        if (extraDays > 0 && entry.snapshot_bonus_day_multiplier) {
-          const dailyRate = baseSalary.div(workingDays);
-          bonusPay = dailyRate.mul(extraDays).mul(entry.snapshot_bonus_day_multiplier);
-        }
-      } else {
-        // Per class: basic_pay = per_class_rate * classes_taught (up to assigned)
-        if (!entry.snapshot_per_class_rate) {
-          throw new Error(`Entry ${entry.id} is per_class but has no snapshot_per_class_rate`);
-        }
-        const perClassRate = entry.snapshot_per_class_rate;
-        const classesTaught = entry.classes_taught ?? 0;
-        const assignedClasses = entry.snapshot_assigned_class_count ?? classesTaught;
-        const billableClasses = Math.min(classesTaught, assignedClasses);
-
-        basicPay = perClassRate.mul(billableClasses);
-
-        // Bonus: extra classes * bonus_class_rate
-        const extraClasses = classesTaught - assignedClasses;
-        if (extraClasses > 0 && entry.snapshot_bonus_class_rate) {
-          bonusPay = entry.snapshot_bonus_class_rate.mul(extraClasses);
-        }
-      }
-
-      const entryTotal = basicPay.add(bonusPay);
-
-      // Update entry with final calculated values
-      await tx.payrollEntry.update({
-        where: { id: entry.id },
+    if (payrollRun.status !== 'pending_approval') {
+      // Skipped (cancelled, draft, etc.) — record and bail out.
+      await tx.approvalRequest.update({
+        where: { id: approval_request_id },
         data: {
-          basic_pay: basicPay,
-          bonus_pay: bonusPay,
-          total_pay: entryTotal,
+          callback_status: 'skipped',
+          callback_error: `Skipped: run was in unexpected status "${payrollRun.status}", expected "pending_approval"`,
         },
       });
-
-      totalBasicPay = totalBasicPay.add(basicPay);
-      totalBonusPay = totalBonusPay.add(bonusPay);
-      totalPay = totalPay.add(entryTotal);
+      this.logger.warn(
+        `Run ${target_entity_id} in unexpected status "${payrollRun.status}"; approval ${approval_request_id} skipped`,
+      );
+      return;
     }
 
-    // 4. Generate payslips with sequence numbers
-    const tenant = await tx.tenant.findFirst({
-      where: { id: tenant_id },
-      select: {
-        name: true,
-        currency_code: true,
+    // 2. Commit any scheduled recurring-deduction applications (Phase 2)
+    await this.commitDeductionApplications(tx, tenant_id, target_entity_id);
+
+    // 3. Aggregate run totals from already-computed entry totals
+    const entries = await tx.payrollEntry.findMany({
+      where: { tenant_id, payroll_run_id: payrollRun.id },
+      include: {
+        staff_profile: { include: { user: true } },
+        payslip: true,
       },
     });
 
-    const branding = await tx.tenantBranding.findUnique({
-      where: { tenant_id },
-      select: {
-        school_name_ar: true,
-        logo_url: true,
-        primary_color: true,
-      },
-    });
+    let totalBasic = new Decimal(0);
+    let totalBonus = new Decimal(0);
+    let totalNet = new Decimal(0);
 
-    const currencyCode = tenant?.currency_code || 'SAR';
+    for (const e of entries) {
+      totalBasic = totalBasic.plus(e.basic_pay);
+      totalBonus = totalBonus.plus(e.bonus_pay);
+      totalNet = totalNet.plus(e.net_pay ?? e.total_pay);
+    }
+
+    // 4. Generate payslips with unified format
+    const branding = await tx.tenantBranding.findUnique({ where: { tenant_id } });
+    const tenant = await tx.tenant.findFirst({ where: { id: tenant_id } });
+    const prefix = branding?.payslip_prefix ?? 'PSL';
+    const currencyCode = tenant?.currency_code ?? 'USD';
+    const now = new Date();
 
     for (const entry of entries) {
-      // Check if payslip already exists for this entry
-      const existingPayslip = await tx.payslip.findFirst({
-        where: {
-          tenant_id,
-          payroll_entry_id: entry.id,
-        },
-      });
+      if (entry.payslip) continue; // idempotent — payslip already exists
 
-      if (existingPayslip) {
-        continue; // Skip if already generated
-      }
-
-      // Generate payslip number via tenant_sequences
       const sequence = await tx.tenantSequence.upsert({
-        where: {
-          tenant_id_sequence_type: {
-            tenant_id,
-            sequence_type: 'payslip',
-          },
-        },
-        update: {
-          current_value: { increment: 1 },
-        },
-        create: {
-          tenant_id,
-          sequence_type: 'payslip',
-          current_value: 1,
-        },
+        where: { tenant_id_sequence_type: { tenant_id, sequence_type: 'payslip' } },
+        update: { current_value: { increment: 1 } },
+        create: { tenant_id, sequence_type: 'payslip', current_value: 1 },
       });
 
-      const periodStr = `${payrollRun.period_year}${String(payrollRun.period_month).padStart(2, '0')}`;
-      const payslipNumber = `PS-${periodStr}-${String(sequence.current_value).padStart(5, '0')}`;
-
-      // Re-fetch the updated entry to get final values
-      const updatedEntry = await tx.payrollEntry.findUniqueOrThrow({
-        where: { id: entry.id },
+      const payslipNumber = formatPayslipNumber({
+        prefix,
+        periodYear: payrollRun.period_year,
+        periodMonth: payrollRun.period_month,
+        sequence: Number(sequence.current_value),
       });
 
-      // Build snapshot payload
-      const staffName = `${entry.staff_profile.user.first_name} ${entry.staff_profile.user.last_name}`;
-      const snapshotPayload = {
+      const snapshot = {
+        schema_version: 1 as const,
         staff: {
-          full_name: staffName,
-          staff_number: entry.staff_profile.staff_number,
-          department: entry.staff_profile.department,
-          job_title: entry.staff_profile.job_title,
-          employment_type: entry.staff_profile.employment_type,
-          bank_name: entry.staff_profile.bank_name,
-          bank_account_last4: null as string | null,
-          bank_iban_last4: null as string | null,
+          staff_profile_id: entry.staff_profile_id,
+          full_name: `${entry.staff_profile.user.first_name} ${entry.staff_profile.user.last_name}`,
+          employee_number: entry.staff_profile.staff_number ?? null,
         },
         period: {
-          label: payrollRun.period_label,
-          month: payrollRun.period_month,
           year: payrollRun.period_year,
-          total_working_days: payrollRun.total_working_days,
+          month: payrollRun.period_month,
+          start: new Date(payrollRun.period_year, payrollRun.period_month - 1, 1)
+            .toISOString()
+            .slice(0, 10),
+          end: new Date(payrollRun.period_year, payrollRun.period_month, 0)
+            .toISOString()
+            .slice(0, 10),
         },
         compensation: {
-          type: entry.compensation_type,
-          base_salary: entry.snapshot_base_salary ? Number(entry.snapshot_base_salary) : null,
-          per_class_rate: entry.snapshot_per_class_rate
-            ? Number(entry.snapshot_per_class_rate)
-            : null,
-          assigned_class_count: entry.snapshot_assigned_class_count,
-          bonus_class_rate: entry.snapshot_bonus_class_rate
-            ? Number(entry.snapshot_bonus_class_rate)
-            : null,
-          bonus_day_multiplier: entry.snapshot_bonus_day_multiplier
-            ? Number(entry.snapshot_bonus_day_multiplier)
-            : null,
+          type: (entry.compensation_type ?? 'salaried') as 'salaried' | 'per_class' | 'mixed',
+          base_salary: entry.snapshot_base_salary?.toString() ?? null,
+          per_class_rate: entry.snapshot_per_class_rate?.toString() ?? null,
+          bonus_class_multiplier: entry.snapshot_bonus_day_multiplier?.toString() ?? null,
         },
         inputs: {
-          days_worked: updatedEntry.days_worked,
-          classes_taught: updatedEntry.classes_taught,
+          days_worked: (entry.days_worked ?? payrollRun.total_working_days).toString(),
+          total_working_days: payrollRun.total_working_days,
+          classes_delivered: entry.classes_taught ?? 0,
+          classes_scheduled: entry.snapshot_assigned_class_count ?? 0,
+          bonus_classes: 0,
         },
-        calculations: {
-          basic_pay: Number(updatedEntry.basic_pay),
-          bonus_pay: Number(updatedEntry.bonus_pay),
-          total_pay: Number(updatedEntry.total_pay),
+        components: {
+          base_pay: entry.basic_pay.toString(),
+          bonus_pay: entry.bonus_pay.toString(),
+          allowances: [],
+          one_offs: [],
+          adjustments: [],
+          deductions: [],
         },
-        school: {
-          name: tenant?.name || '',
-          name_ar: branding?.school_name_ar || null,
-          logo_url: branding?.logo_url || null,
-          currency_code: currencyCode,
+        totals: {
+          gross_pay: entry.gross_pay.toString(),
+          total_deductions: entry.total_deductions.toString(),
+          net_pay: entry.net_pay.toString(),
+          allowances_total: entry.allowances_total.toString(),
+          deductions_total: entry.deductions_total.toString(),
+          adjustments_total: entry.adjustments_total.toString(),
+          one_off_total: entry.one_off_total.toString(),
         },
-        payslip_number: payslipNumber,
+        currency: { code: currencyCode },
+        generated_at: now.toISOString(),
+        generated_by_user_id: approver_user_id,
       };
 
-      // Create the payslip
       await tx.payslip.create({
         data: {
           tenant_id,
           payroll_entry_id: entry.id,
           payslip_number: payslipNumber,
           template_locale: 'en',
-          issued_at: new Date(),
+          issued_at: now,
           issued_by_user_id: approver_user_id,
-          snapshot_payload_json: snapshotPayload,
-          render_version: '1.0',
+          snapshot_payload_json: snapshot,
+          render_version: PAYSLIP_RENDER_VERSION,
         },
       });
     }
 
-    // 5. Finalise the payroll run
+    // 5. Finalise the run
     await tx.payrollRun.update({
       where: { id: payrollRun.id },
       data: {
         status: 'finalised',
-        total_basic_pay: totalBasicPay,
-        total_bonus_pay: totalBonusPay,
-        total_pay: totalPay,
+        total_basic_pay: totalBasic,
+        total_bonus_pay: totalBonus,
+        total_pay: totalNet,
         headcount: entries.length,
         finalised_by_user_id: approver_user_id,
         finalised_at: new Date(),
       },
     });
 
-    // 6. Update the approval request to executed with callback tracking
+    // 6. Mark approval executed
     await tx.approvalRequest.update({
       where: { id: approval_request_id },
       data: {
@@ -330,7 +260,50 @@ class PayrollApprovalCallbackJob extends TenantAwareJob<ApprovalCallbackPayload>
     });
 
     this.logger.log(
-      `Payroll run ${target_entity_id} finalised: ${entries.length} entries, total ${totalPay.toFixed(2)}, tenant ${tenant_id}`,
+      `Payroll run ${target_entity_id} finalised: ${entries.length} entries, net ${totalNet.toFixed(2)}, tenant ${tenant_id}`,
     );
+  }
+
+  // ─── Helpers ───────────────────────────────────────────────────────────
+
+  /**
+   * Wave-2 Phase-2 deduction commit. Mirrors
+   * `PayrollDeductionsService.commitApplications` from the API package —
+   * inlined here so the worker does not need to DI the API service.
+   * Decrements the underlying `staff_recurring_deductions.remaining_amount`
+   * once per run; second invocation no-ops because all rows are committed.
+   */
+  private async commitDeductionApplications(
+    tx: PrismaClient,
+    tenantId: string,
+    runId: string,
+  ): Promise<void> {
+    const apps = await tx.payrollDeductionApplication.findMany({
+      where: { tenant_id: tenantId, payroll_run_id: runId, committed_at: null },
+      include: { staff_recurring_deduction: true },
+    });
+
+    for (const app of apps) {
+      const deduction = app.staff_recurring_deduction;
+      const remainingNow = new Decimal(deduction.remaining_amount.toString());
+      const applied = new Decimal(app.applied_amount.toString());
+      const newRemaining = Decimal.max(remainingNow.minus(applied), new Decimal(0));
+      const newMonthsRemaining = Math.max(0, deduction.months_remaining - 1);
+      const stillActive = newRemaining.gt(0) && newMonthsRemaining > 0;
+
+      await tx.staffRecurringDeduction.update({
+        where: { id: deduction.id },
+        data: {
+          remaining_amount: newRemaining.toString(),
+          months_remaining: newMonthsRemaining,
+          active: stillActive,
+        },
+      });
+
+      await tx.payrollDeductionApplication.update({
+        where: { id: app.id },
+        data: { committed_at: new Date() },
+      });
+    }
   }
 }

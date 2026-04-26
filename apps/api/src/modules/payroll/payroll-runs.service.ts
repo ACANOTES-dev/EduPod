@@ -29,7 +29,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
 import { CalculationService } from './calculation.service';
-import type { CalcInput, CalcResult } from './calculation.service';
+import type {
+  LegacyCalcInput as CalcInput,
+  LegacyCalcResult as CalcResult,
+} from './calculation.service';
+import { FinalisationService } from './finalisation.service';
 import { PayslipsService } from './payslips.service';
 
 interface RunFilters {
@@ -62,6 +66,7 @@ export class PayrollRunsService {
     private readonly approvalRequestsService: ApprovalRequestsService,
     private readonly redisService: RedisService,
     private readonly settingsService: SettingsService,
+    private readonly finalisationService: FinalisationService,
     @InjectQueue('payroll') private readonly payrollQueue: Queue,
   ) {}
 
@@ -753,74 +758,50 @@ export class PayrollRunsService {
   }
 
   async executeFinalisation(tenantId: string, runId: string, userId: string) {
-    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    // Wave-2 unification: route the direct path through FinalisationService
+    // so the school-owner flow uses the same Decimal-safe engine, idempotent
+    // deductions, and `formatPayslipNumber` as the worker callback. The
+    // service handles state validation + atomic transaction internally.
+    const expectedFromState = await this.resolveExpectedFromState(tenantId, runId);
 
-    return rlsClient.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
+    await this.finalisationService.finaliseAtomic({
+      tenantId,
+      runId,
+      actorUserId: userId,
+      expectedFromState,
+    });
 
-      // Re-fetch run inside transaction to get current status before finalising
-      const run = await db.payrollRun.findFirst({
-        where: { id: runId, tenant_id: tenantId },
-        select: { status: true },
+    return this.getRun(tenantId, runId);
+  }
+
+  /**
+   * The direct path may be invoked from either `draft` (school-owner skips
+   * approval) or `pending_approval` (admin re-finalises after approval was
+   * granted). Pick the right precondition based on actual state.
+   */
+  private async resolveExpectedFromState(
+    tenantId: string,
+    runId: string,
+  ): Promise<'draft' | 'pending_approval'> {
+    const run = await this.prisma.payrollRun.findFirst({
+      where: { id: runId, tenant_id: tenantId },
+      select: { status: true },
+    });
+    if (!run) {
+      throw new NotFoundException({
+        code: 'PAYROLL_RUN_NOT_FOUND',
+        message: `Payroll run with id "${runId}" not found`,
       });
-
-      if (!run) {
-        throw new NotFoundException({
-          code: 'PAYROLL_RUN_NOT_FOUND',
-          message: `Payroll run with id "${runId}" not found`,
-        });
-      }
-
-      if (!isValidPayrollRunTransition(run.status as PayrollRunStatus, 'finalised')) {
-        throw new BadRequestException({
-          code: 'INVALID_STATUS_TRANSITION',
-          message: `Cannot transition from "${run.status}" to "finalised"`,
-        });
-      }
-
-      // Fetch entries for totals
-      const entries = await db.payrollEntry.findMany({
-        where: { payroll_run_id: runId, tenant_id: tenantId },
-      });
-
-      // Compute totals — use override_total_pay when set
-      let totalBasicPay = 0;
-      let totalBonusPay = 0;
-      let totalPay = 0;
-
-      for (const entry of entries) {
-        if (entry.override_total_pay !== null) {
-          totalPay += Number(entry.override_total_pay);
-        } else {
-          totalPay += Number(entry.total_pay);
-        }
-        totalBasicPay += Number(entry.basic_pay);
-        totalBonusPay += Number(entry.bonus_pay);
-      }
-
-      totalBasicPay = Number(totalBasicPay.toFixed(2));
-      totalBonusPay = Number(totalBonusPay.toFixed(2));
-      totalPay = Number(totalPay.toFixed(2));
-
-      // Freeze the run
-      const now = new Date();
-      await db.payrollRun.update({
-        where: { id: runId },
-        data: {
-          status: 'finalised',
-          total_basic_pay: totalBasicPay,
-          total_bonus_pay: totalBonusPay,
-          total_pay: totalPay,
-          headcount: entries.length,
-          finalised_by_user_id: userId,
-          finalised_at: now,
-        },
-      });
-
-      // Generate payslips
-      await this.payslipsService.generatePayslipsForRun(tenantId, runId, userId, db);
-
-      return this.getRun(tenantId, runId);
+    }
+    if (run.status === 'pending_approval') return 'pending_approval';
+    if (run.status === 'draft') return 'draft';
+    if (run.status === 'finalised') {
+      // The service self-heals on already-finalised; pick either.
+      return 'draft';
+    }
+    throw new BadRequestException({
+      code: 'INVALID_STATUS_TRANSITION',
+      message: `Cannot transition from "${run.status}" to "finalised"`,
     });
   }
 
